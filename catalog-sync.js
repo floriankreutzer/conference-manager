@@ -9,6 +9,7 @@
   function loadScript(src, marker) {
     if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
+    script.async = false;
     script.src = src;
     script.setAttribute(marker, 'true');
     document.head.appendChild(script);
