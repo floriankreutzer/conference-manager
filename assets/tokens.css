@@ -89,18 +89,26 @@
   --focus-color: #111111;
   --focus-width: 3px;
   --control-height: 44px;
+  --step-control-height: 52px;
   --control-padding-inline: 14px;
   --button-min-inline-size: 112px;
   --transition-fast: 140ms ease;
 
-  /* Layout */
+  /* Application layout */
   --sidebar-width: 252px;
   --content-max-width: 1440px;
-  --manager-content-max-width: 1180px;
-  --manager-control-gap: var(--space-2);
-  --manager-section-gap: var(--space-4);
-  --manager-mobile-gutter: 14px;
+  --app-content-max-width: 1180px;
+  --app-control-gap: var(--space-2);
+  --app-section-gap: var(--space-4);
+  --app-card-padding: var(--space-5);
+  --app-mobile-gutter: var(--space-4);
   --responsive-table-label-width: 112px;
+
+  /* Manager aliases retain one system instead of a separate visual language. */
+  --manager-content-max-width: var(--app-content-max-width);
+  --manager-control-gap: var(--app-control-gap);
+  --manager-section-gap: var(--app-section-gap);
+  --manager-mobile-gutter: var(--app-mobile-gutter);
 
   /* Compatibility aliases for existing SVG and feature modules. */
   --brand: var(--brand-primary);
