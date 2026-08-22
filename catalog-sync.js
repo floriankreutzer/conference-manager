@@ -18,6 +18,7 @@
   loadScript('welcome-pdf-v2.js?v=20260822-13', 'data-welcome-pdf-v2');
   loadScript('profile-welcome.js?v=20260822-15', 'data-profile-welcome-module');
   loadScript('manager-reports.js?v=20260822-15', 'data-manager-reports-module');
+  loadScript('ux-enhancements-v16.js?v=20260822-16', 'data-ux-enhancements-v16');
 
   // Central PDF route: prevents the legacy request-details PDF renderer from handling the button.
   document.addEventListener('click', function (e) {
