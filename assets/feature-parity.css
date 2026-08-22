@@ -1,1 +1,523 @@
-.catering-card-image{display:block;width:calc(100% + 32px);height:150px;margin:-16px -16px 14px;object-fit:cover;border-bottom:1px solid var(--border,#d0d0ce);background:#f3f3f3}.room-preview{display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;align-items:start;margin:14px 0;padding-top:12px;border-top:1px solid var(--border,#d0d0ce)}.room-preview-image{width:120px;height:82px;object-fit:cover;border:1px solid var(--border,#d0d0ce);background:#f7f7f7}.room-preview-copy strong,.room-preview-copy p{display:block;margin:0}.room-preview-copy p{margin-top:6px;color:var(--muted,#63666a);font-size:.86rem;line-height:1.45}.rich-floorplan{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(240px,.8fr);gap:18px}.rich-floorplan-image{width:100%;height:auto;border:1px solid var(--border,#d0d0ce);background:#f7f7f7}.rich-floorplan-copy{padding:16px;border:1px solid var(--border,#d0d0ce);background:#fafafa}.rich-floorplan-copy h3{margin:0 0 8px}.rich-floorplan-copy h3:not(:first-child){margin-top:20px}.manager-parity-overview{display:grid;gap:14px;margin-bottom:18px}.manager-parity-kpis,.admin-summary,.report-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.manager-parity-kpi{min-height:88px;padding:14px;text-align:left;border:1px solid var(--border,#d0d0ce);border-top:4px solid #7A1F3D;background:#fff}.manager-parity-kpi span,.manager-parity-kpi strong,.report-kpi small,.report-kpi strong,.admin-summary small,.admin-summary strong{display:block}.manager-parity-kpi span,.report-kpi small,.admin-summary small{color:var(--muted,#63666a)}.manager-parity-kpi strong{margin-top:4px;font-size:1.55rem}.manager-overview-columns,.report-grid,.report-insights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.manager-overview-card,.report-card,.report-insight-card{padding:16px;border:1px solid var(--border,#d0d0ce);background:#fff}.manager-overview-card>h3,.report-card>h3,.report-insight-card>h3{margin-top:0}.manager-overview-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid #ededed}.manager-overview-row:first-of-type{border-top:0}.manager-overview-row small{display:block;margin-top:3px;color:var(--muted,#63666a)}.manager-quick-filters{display:flex;flex-wrap:wrap;gap:8px}.manager-quick-filters button[aria-pressed="true"],.room-plan-view button[aria-pressed="true"],.admin-parity-nav button[aria-pressed="true"]{background:#1d1d1f;color:#fff;box-shadow:inset 0 -4px 0 #C29A6B}.feature-filter-hidden{display:none!important}.manager-filter-count{margin:0}.room-plan-toolbar,.report-toolbar{display:grid;grid-template-columns:minmax(180px,.7fr) minmax(200px,.8fr) minmax(260px,1fr);gap:12px;align-items:end;margin-bottom:18px;padding:14px;border:1px solid var(--border,#d0d0ce);background:#fafafa}.room-plan-view{display:flex;flex-wrap:wrap;gap:8px;min-width:0;margin:0;padding:0;border:0}.room-plan-view legend{width:100%;margin-bottom:4px;font-weight:700}.room-timeline{overflow-x:auto;min-width:700px;padding:8px 0}.room-time-scale{display:grid;grid-template-columns:repeat(5,1fr);margin-left:210px;padding:0 8px 8px;color:var(--muted,#63666a);font-size:.78rem}.room-time-scale span:last-child{text-align:right}.room-timeline-row{display:grid;grid-template-columns:200px minmax(480px,1fr);gap:10px;align-items:center;min-height:54px;border-top:1px solid #ededed}.room-timeline-label{padding:8px 0}.room-timeline-track{position:relative;height:42px;overflow:hidden;border:1px solid var(--border,#d0d0ce);background:linear-gradient(to right,transparent 24.8%,#e5e5e5 25%,transparent 25.2%),linear-gradient(to right,transparent 49.8%,#e5e5e5 50%,transparent 50.2%),linear-gradient(to right,transparent 74.8%,#e5e5e5 75%,transparent 75.2%),#fafafa}.room-timeline-free{display:grid;height:100%;place-items:center;color:var(--muted,#63666a);font-size:.8rem}.room-timeline-booking{position:absolute;top:5px;height:30px;min-width:34px;overflow:hidden;padding:4px 7px;border:0;border-left:4px solid #C29A6B;background:#7A1F3D;color:#fff;text-align:left;text-overflow:ellipsis;white-space:nowrap}.room-plan-list{width:100%}.report-toolbar{grid-template-columns:minmax(180px,.6fr) minmax(200px,.7fr) minmax(220px,1fr)}.report-range{margin:0 0 10px;color:var(--muted,#63666a)}.report-kpis{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px}.report-kpi{padding:14px;border:1px solid var(--border,#d0d0ce);border-top:4px solid #7A1F3D;background:#fff}.report-kpi strong,.admin-summary strong{margin-top:4px;font-size:1.3rem}.report-grid{margin-bottom:14px}.report-catering-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px}.report-catering-summary article{padding:12px;border-left:4px solid #C29A6B;background:#F5EEE6}.report-catering-summary small,.report-catering-summary strong{display:block}.report-catering-summary strong{margin-top:3px;font-size:1.1rem}.report-caption{margin-bottom:0;font-size:.8rem}.report-insight-card.good{border-left:5px solid #1e7a46}.report-insight-card.attention{border-left:5px solid #b36a00}.report-insight-card ul{margin-bottom:0;padding-left:20px}.admin-summary{margin-bottom:14px}.admin-summary article{padding:12px;border:1px solid var(--border,#d0d0ce);background:#fafafa}.admin-parity-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px}.admin-parity-nav fieldset{display:flex;flex-wrap:wrap;gap:8px;min-width:0;margin:0;padding:12px;border:1px solid var(--border,#d0d0ce)}.admin-parity-nav legend{padding:0 5px;font-weight:700}.admin-parity-editor{display:grid;gap:14px}.parity-admin-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.parity-admin-card>h3,.parity-admin-card>.admin-actions,.parity-admin-card>.variant-admin{grid-column:1/-1}.parity-admin-card textarea{min-height:84px}.variant-admin{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;border:1px dashed var(--border,#d0d0ce)}.variant-admin legend{padding:0 6px;font-weight:700}.admin-actions{display:flex;justify-content:flex-end;gap:8px}@media(max-width:980px){.manager-parity-kpis,.report-kpis,.admin-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.room-plan-toolbar,.report-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.report-range,.room-plan-view{grid-column:1/-1}}@media(max-width:720px){.catering-card-image{height:130px}.room-preview,.rich-floorplan,.manager-overview-columns,.report-grid,.report-insights,.admin-parity-nav,.parity-admin-card,.variant-admin{grid-template-columns:1fr}.room-preview-image{width:100%;height:130px}.parity-admin-card>h3,.parity-admin-card>.admin-actions,.parity-admin-card>.variant-admin{grid-column:1}.report-catering-summary{grid-template-columns:1fr}.room-plan-toolbar,.report-toolbar,.manager-parity-kpis,.report-kpis,.admin-summary{grid-template-columns:1fr}.report-range,.room-plan-view{grid-column:1}.manager-overview-row{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){.room-timeline-booking{transition:none}}
+/* Feature-parity components consume only shared design tokens. */
+
+/* Catering and rooms */
+.catering-card-image {
+  display: block;
+  width: calc(100% + 32px);
+  height: 150px;
+  margin: -16px -16px 14px;
+  object-fit: cover;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.room-preview {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding-top: 12px;
+  margin: 14px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.room-preview-image {
+  width: 120px;
+  height: 82px;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.room-preview-copy strong,
+.room-preview-copy p {
+  display: block;
+  margin: 0;
+}
+
+.room-preview-copy p {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.rich-floorplan {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(240px, 0.8fr);
+  gap: 18px;
+}
+
+.rich-floorplan-image {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.rich-floorplan-copy {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.rich-floorplan-copy h3 {
+  margin: 0 0 8px;
+}
+
+.rich-floorplan-copy h3:not(:first-child) {
+  margin-top: 20px;
+}
+
+/* Manager overview - structure intentionally preserved. */
+.manager-parity-overview {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.manager-parity-kpis,
+.admin-summary,
+.report-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.manager-parity-kpi {
+  min-height: 88px;
+  padding: 15px;
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--brand-primary);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+}
+
+.manager-parity-kpi:nth-child(even) {
+  border-top-color: var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.manager-parity-kpi span,
+.manager-parity-kpi strong,
+.report-kpi small,
+.report-kpi strong,
+.admin-summary small,
+.admin-summary strong {
+  display: block;
+}
+
+.manager-parity-kpi span,
+.report-kpi small,
+.admin-summary small {
+  color: var(--color-muted);
+}
+
+.manager-parity-kpi strong {
+  margin-top: 4px;
+  font-size: 1.55rem;
+  letter-spacing: -0.02em;
+}
+
+.manager-overview-columns,
+.report-grid,
+.report-insights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.manager-overview-card,
+.report-card,
+.report-insight-card {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.manager-overview-card:first-child {
+  background: var(--brand-secondary-surface);
+}
+
+.manager-overview-card > h3,
+.report-card > h3,
+.report-insight-card > h3 {
+  margin-top: 0;
+  letter-spacing: -0.01em;
+}
+
+.manager-overview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.manager-overview-row:first-of-type {
+  border-top: 0;
+}
+
+.manager-overview-row small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+}
+
+.manager-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manager-quick-filters button[aria-pressed="true"],
+.room-plan-view button[aria-pressed="true"],
+.admin-parity-nav button[aria-pressed="true"] {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-on-dark);
+  box-shadow: inset 0 -4px 0 var(--brand-secondary);
+}
+
+.feature-filter-hidden {
+  display: none !important;
+}
+
+.manager-filter-count {
+  margin: 0;
+}
+
+/* Room planning */
+.room-plan-toolbar,
+.report-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(200px, 0.8fr) minmax(260px, 1fr);
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  margin-bottom: 18px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.room-plan-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.room-plan-view legend {
+  width: 100%;
+  margin-bottom: 4px;
+  font-weight: var(--font-weight-bold);
+}
+
+.room-timeline {
+  min-width: 700px;
+  padding: 8px 0;
+  overflow-x: auto;
+}
+
+.room-time-scale {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 0 8px 8px;
+  margin-left: 210px;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+.room-time-scale span:last-child {
+  text-align: right;
+}
+
+.room-timeline-row {
+  display: grid;
+  grid-template-columns: 200px minmax(480px, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 54px;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.room-timeline-label {
+  padding: 8px 0;
+}
+
+.room-timeline-track {
+  position: relative;
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background:
+    linear-gradient(to right, transparent 24.8%, var(--color-border-soft) 25%, transparent 25.2%),
+    linear-gradient(to right, transparent 49.8%, var(--color-border-soft) 50%, transparent 50.2%),
+    linear-gradient(to right, transparent 74.8%, var(--color-border-soft) 75%, transparent 75.2%),
+    var(--color-surface-subtle);
+}
+
+.room-timeline-free {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.room-timeline-booking {
+  position: absolute;
+  top: 5px;
+  height: 30px;
+  min-width: 34px;
+  padding: 4px 7px;
+  overflow: hidden;
+  border: 0;
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-primary);
+  color: var(--color-on-dark);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-plan-list {
+  width: 100%;
+}
+
+/* Reports */
+.report-toolbar {
+  grid-template-columns: minmax(180px, 0.6fr) minmax(200px, 0.7fr) minmax(220px, 1fr);
+}
+
+.report-range {
+  margin: 0 0 10px;
+  color: var(--color-muted);
+}
+
+.report-kpis {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.report-kpi {
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-top: 4px solid var(--brand-primary);
+  background: var(--color-surface);
+}
+
+.report-kpi:nth-child(even) {
+  border-top-color: var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.report-kpi strong,
+.admin-summary strong {
+  margin-top: 4px;
+  font-size: 1.3rem;
+  letter-spacing: -0.015em;
+}
+
+.report-grid {
+  margin-bottom: 14px;
+}
+
+.report-catering-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.report-catering-summary article {
+  padding: 12px;
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.report-catering-summary small,
+.report-catering-summary strong {
+  display: block;
+}
+
+.report-catering-summary strong {
+  margin-top: 3px;
+  font-size: 1.1rem;
+}
+
+.report-caption {
+  margin-bottom: 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.report-insight-card.good {
+  border-left: 5px solid var(--color-success);
+}
+
+.report-insight-card.attention {
+  border-left: 5px solid var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.report-insight-card ul {
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+
+/* Administration */
+.admin-summary {
+  margin-bottom: 14px;
+}
+
+.admin-summary article {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.admin-summary article:nth-child(even) {
+  background: var(--brand-secondary-surface);
+}
+
+.admin-parity-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-parity-nav fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  margin: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.admin-parity-nav legend {
+  padding: 0 5px;
+  font-weight: var(--font-weight-bold);
+}
+
+.admin-parity-editor {
+  display: grid;
+  gap: 14px;
+}
+
+.parity-admin-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.parity-admin-card > h3,
+.parity-admin-card > .admin-actions,
+.parity-admin-card > .variant-admin {
+  grid-column: 1 / -1;
+}
+
+.parity-admin-card textarea {
+  min-height: 84px;
+}
+
+.variant-admin {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface-subtle);
+}
+
+.variant-admin legend {
+  padding: 0 6px;
+  font-weight: var(--font-weight-bold);
+}
+
+.admin-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 980px) {
+  .manager-parity-kpis,
+  .report-kpis,
+  .admin-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .room-plan-toolbar,
+  .report-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-range,
+  .room-plan-view {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 720px) {
+  .catering-card-image {
+    height: 130px;
+  }
+
+  .room-preview,
+  .rich-floorplan,
+  .manager-overview-columns,
+  .report-grid,
+  .report-insights,
+  .admin-parity-nav,
+  .parity-admin-card,
+  .variant-admin {
+    grid-template-columns: 1fr;
+  }
+
+  .room-preview-image {
+    width: 100%;
+    height: 130px;
+  }
+
+  .parity-admin-card > h3,
+  .parity-admin-card > .admin-actions,
+  .parity-admin-card > .variant-admin {
+    grid-column: 1;
+  }
+
+  .report-catering-summary,
+  .room-plan-toolbar,
+  .report-toolbar,
+  .manager-parity-kpis,
+  .report-kpis,
+  .admin-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .report-range,
+  .room-plan-view {
+    grid-column: 1;
+  }
+
+  .manager-overview-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-timeline-booking {
+    transition: none;
+  }
+}

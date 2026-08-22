@@ -19,28 +19,42 @@ Frontend-MVP für interne Konferenzanfragen mit Mitarbeiter- und Conference-Mana
 
 ```text
 .
-├── .github/workflows/ci.yml
+├── .github/
+│   ├── dependabot.yml
+│   └── workflows/ci.yml
 ├── assets/
-│   └── styles.css
+│   ├── tokens.css
+│   ├── styles.css
+│   ├── feature-parity.css
+│   └── demo-security.css
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── DEMO-SECURITY.md
+│   └── DESIGN-SYSTEM.md
 ├── scripts/
+│   ├── check-design.mjs
+│   ├── check-secrets.mjs
 │   ├── check-static.mjs
 │   └── check-syntax.mjs
 ├── src/
 │   ├── app.js
-│   └── core/
-│       ├── catalog.js
-│       ├── domain.js
-│       ├── i18n.js
-│       ├── storage.js
-│       └── ui.js
+│   ├── core/
+│   └── features/
 ├── tests/
-│   └── domain.test.js
-├── docs/
-│   └── ARCHITECTURE.md
+│   ├── e2e/
+│   └── *.test.js
 ├── index.html
 ├── package.json
 └── README.md
 ```
+
+## Design-System
+
+Die operative Anwendung verwendet eine reduzierte Consulting-/Business-Ästhetik mit Bordeaux als Primärakzent und Camel als bewusster Flächenfarbe. Das Manager-Dashboard behält seine Informationsarchitektur; die druckbare Gäste-Welcome-Ansicht darf emotionaler gestaltet sein.
+
+Globale Designentscheidungen werden ausschließlich in `assets/tokens.css` gepflegt. Dort lassen sich Farben, Flächen, Typografie, Abstände, Radien und Schatten zentral ändern. `assets/styles.css` und `assets/feature-parity.css` verwenden semantische Tokens und sollen keine neuen Brand-Hexfarben enthalten.
+
+Details und Wartungsregeln: `docs/DESIGN-SYSTEM.md`.
 
 ## Lokal starten
 
@@ -62,9 +76,11 @@ Das Quality Gate führt aus:
 
 1. JavaScript-Syntaxprüfung aller Source-, Test- und Script-Dateien
 2. statischen Defensive-Code-Check auf verbotene Konstrukte wie `eval`, `document.write`, `innerHTML`-Zuweisungen und `javascript:`-URLs
-3. Regression- und Progressionstests der Domainlogik mit Node Test Runner
+3. Secret-Scan des Repository-Inhalts
+4. Design-Token-Check gegen neue hartcodierte Hexfarben in Komponenten-CSS
+5. Regression- und Progressionstests der Domainlogik mit Node Test Runner
 
-Dasselbe Quality Gate läuft über GitHub Actions bei Pushes auf `main` und Pull Requests.
+Zusätzlich laufen `npm audit` sowie die Playwright-E2E-Suite auf Chromium und WebKit/iPhone-Profil über GitHub Actions.
 
 ## Accessibility und Internationalisierung
 
@@ -85,6 +101,8 @@ Für einen Produktivbetrieb sind mindestens erforderlich:
 - Audit Trail und transaktionale Verarbeitung
 - sichere Kalenderintegration, z. B. Microsoft Graph
 - Schutzmechanismen für die konkrete Backend-Architektur, einschließlich CSRF-Schutz bei cookie-basierter Authentifizierung
+
+Weitere Details: `docs/DEMO-SECURITY.md`.
 
 ## Kalenderintegration
 
