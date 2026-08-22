@@ -23,6 +23,16 @@ const setManagerRole = async (page) => {
   await managerNav.click();
 };
 
+const openManagerTab = async (page, name, readyLocator) => {
+  const tabs = page.locator('.manager-tabs');
+  await expect(tabs).toBeVisible();
+  const tab = tabs.getByRole('button', { name, exact: true });
+  await expect(tab).toBeVisible();
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(readyLocator)).toBeVisible();
+};
+
 const fillSchedule = async (page, { title, date = futureIsoDate() }) => {
   await page.locator('#title').fill(title);
   await page.locator('#location').selectOption('Berlin');
@@ -102,18 +112,18 @@ test('manager room plan reports and master-data administration work end to end',
   await createBasicRequest(page, { title, date });
   await setManagerRole(page);
 
-  await page.getByRole('button', { name: 'Raumplanung' }).click();
+  await openManagerTab(page, 'Raumplanung', '#roomPlanDate');
   await page.locator('#roomPlanDate').fill(date);
   await page.locator('#roomPlanDate').dispatchEvent('change');
   await page.locator('[data-room-plan-view="LIST"]').click();
   await expect(page.locator('.room-plan-list')).toContainText(title);
 
-  await page.getByRole('button', { name: 'Reports' }).click();
+  await openManagerTab(page, 'Reports', '#reportReferenceDate');
   await page.locator('#reportReferenceDate').fill(date);
   await page.locator('#reportReferenceDate').dispatchEvent('change');
   await expect(page.locator('.dashboard-grid')).toContainText('Offene Anfragen');
 
-  await page.getByRole('button', { name: 'Administration' }).click();
+  await openManagerTab(page, 'Administration', '[data-feature-parity="admin"]');
   const capacity = page.locator('#room-cap-BER-321');
   await expect(capacity).toBeVisible();
   await capacity.fill('13');
