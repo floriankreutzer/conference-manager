@@ -45,6 +45,7 @@
   loadScript('ui-v17.js?v=20260822-17', 'data-ui-v17');
   loadScript('brand-theme-v20.js?v=20260822-20', 'data-brand-theme-v20');
   loadScript('employee-ux-v21.js?v=20260822-21', 'data-employee-ux-v21');
+  loadScript('employee-p0-v22.js?v=20260822-22', 'data-employee-p0-v22');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
