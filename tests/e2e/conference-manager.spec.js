@@ -25,6 +25,13 @@ const clickWizardPrimary = async (page) => {
   await page.locator('.wizard-actions button.primary').click();
 };
 
+const showAllRequests = async (page) => {
+  const filterGroup = page.locator('.toolbar .segmented').first();
+  const allButton = filterGroup.getByRole('button', { name: /Alle|All/ });
+  await expect(allButton).toBeVisible();
+  await allButton.click();
+};
+
 const fillSchedule = async (page, {
   title = 'E2E Workshop',
   location = 'Berlin',
@@ -81,7 +88,6 @@ const switchToEmployeeRequests = async (page) => {
 };
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.clear());
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
 });
@@ -142,7 +148,7 @@ test('negative paths block invalid schedule, unavailable capacity and invalid al
   await clickWizardPrimary(page);
   await expect(page.locator('#rooms .recovery-card')).toContainText('Kein Raum bietet ausreichend Kapazität');
 
-  await page.locator('#rooms .recovery-card button').first().click();
+  await page.getByRole('button', { name: 'Teilnehmerzahl ändern' }).click();
   await page.locator('#internalParticipants').fill('10');
   await clickWizardPrimary(page);
   await chooseFirstAvailableRoom(page);
@@ -195,7 +201,7 @@ test('change requested can be edited and resubmitted with the existing room with
   await switchToManager(page);
   const managerCard = page.locator('.request-card').filter({ hasText: title }).first();
   await managerCard.locator('.request-actions button.secondary').click();
-  await page.locator('#reasonText').fill('Please increase the external participant count.');
+  await page.locator('#reasonText').fill('Please add a special setup note.');
   await page.locator('dialog .modal-actions button.primary').click();
   await expect(managerCard.locator('.status-badge')).toHaveText('Änderung angefordert');
 
@@ -203,7 +209,7 @@ test('change requested can be edited and resubmitted with the existing room with
   const employeeCard = page.locator('.request-card').filter({ hasText: title }).first();
   await employeeCard.locator('.request-actions button.primary').click();
   await expect(page.locator('#title')).toHaveValue(title);
-  await page.locator('#externalParticipants').fill('3');
+  await page.locator('#specialRequirements').fill('Updated setup requirement.');
   await clickWizardPrimary(page);
   await expect(page.locator('#rooms .option-card.selected:not(.disabled)')).toHaveCount(1);
   await clickWizardPrimary(page);
@@ -225,6 +231,7 @@ test('rejection reason is shown and the request can be reused as a new request',
   await page.locator('dialog .modal-actions button.danger').click();
 
   await switchToEmployeeRequests(page);
+  await showAllRequests(page);
   const employeeCard = page.locator('.request-card').filter({ hasText: title }).first();
   await expect(employeeCard.locator('.status-badge')).toHaveText('Abgelehnt');
   await expect(employeeCard).toContainText('No suitable operational capacity.');
@@ -236,7 +243,7 @@ test('rejection reason is shown and the request can be reused as a new request',
 test('cancellation dialog supports Escape, focus restoration, cancellation and repeat', async ({ page }) => {
   const title = 'Cancellation Workshop';
   await createRequest(page, { title });
-  const card = page.locator('.request-card').filter({ hasText: title }).first();
+  let card = page.locator('.request-card').filter({ hasText: title }).first();
   const cancelButton = card.locator('.request-actions button.danger');
 
   await cancelButton.click();
@@ -247,6 +254,8 @@ test('cancellation dialog supports Escape, focus restoration, cancellation and r
 
   await cancelButton.click();
   await page.locator('dialog .modal-actions button.danger').click();
+  await showAllRequests(page);
+  card = page.locator('.request-card').filter({ hasText: title }).first();
   await expect(card.locator('.status-badge')).toHaveText('Storniert');
   await card.locator('.request-actions button.primary').click();
   await expect(page.locator('#title')).toHaveValue(title);
