@@ -1,0 +1,525 @@
+/*
+ * Application-wide layout system
+ *
+ * Normalizes content width, controls, action groups, responsive cards, wizard
+ * surfaces and dialogs. Manager-specific two-dimensional content remains in
+ * manager-layout.css.
+ */
+
+#app,
+#app > *,
+.card,
+.wizard-card,
+.request-card,
+.notification-card,
+.option-card,
+.review-card,
+.detail-card,
+.help-card,
+.calendar-shell,
+.modal-dialog,
+.field,
+.form-grid,
+.selection-grid,
+.package-grid,
+.review-grid,
+.details-grid,
+.help-grid,
+.request-grid,
+.request-timeline,
+.cost-summary,
+.item-list,
+.item-row,
+.allocation-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+main {
+  width: 100%;
+  max-width: none;
+}
+
+#app {
+  width: min(100%, var(--app-content-max-width));
+}
+
+#app > :last-child {
+  margin-bottom: 0;
+}
+
+.card,
+.wizard-card,
+.request-card,
+.notification-card,
+.option-card,
+.review-card,
+.detail-card,
+.help-card,
+.recovery-card,
+.info-box,
+.tentative-box {
+  border-radius: var(--radius-xs);
+}
+
+.card,
+.wizard-card,
+.request-card {
+  box-shadow: var(--shadow-sm);
+}
+
+/* One control system */
+:where(
+  .primary,
+  .secondary,
+  .danger,
+  .step,
+  .button-row button,
+  .toolbar button,
+  .segmented button,
+  .request-actions button,
+  .wizard-actions button,
+  .mode-option,
+  .quantity-control button,
+  .calendar-header button
+) {
+  min-height: var(--control-height);
+  min-width: 0;
+  padding-inline: var(--control-padding-inline);
+}
+
+.step {
+  height: var(--step-control-height);
+  padding-block: var(--space-2);
+  line-height: var(--line-height-tight);
+}
+
+:where(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea
+) {
+  max-width: 100%;
+}
+
+.button-row,
+.toolbar,
+.segmented,
+.request-actions,
+.wizard-actions,
+.mode-selector {
+  gap: var(--app-control-gap);
+}
+
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(var(--button-min-inline-size), 1fr);
+  max-width: 100%;
+}
+
+.segmented button,
+.mode-selector .mode-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.button-row button,
+.request-actions button,
+.wizard-actions button,
+.segmented button {
+  overflow-wrap: normal;
+}
+
+/* Shared headings and structured content */
+.section-heading,
+.request-card-header,
+.allocation-header,
+.calendar-header {
+  min-width: 0;
+}
+
+.section-heading > *,
+.request-card-header > *,
+.allocation-header > *,
+.calendar-header > * {
+  min-width: 0;
+}
+
+.form-grid,
+.selection-grid,
+.package-grid,
+.review-grid,
+.details-grid,
+.help-grid,
+.cost-summary,
+.request-grid,
+.request-timeline ol,
+.dashboard-grid {
+  gap: var(--app-section-gap);
+}
+
+.option-card,
+.review-card,
+.detail-card,
+.help-card,
+.notification-card,
+.request-grid div,
+.cost-summary article {
+  overflow-wrap: anywhere;
+}
+
+.option-card {
+  height: 100%;
+}
+
+.selection-grid > *,
+.package-grid > *,
+.review-grid > *,
+.details-grid > *,
+.help-grid > *,
+.dashboard-grid > * {
+  min-width: 0;
+}
+
+/* Wizard */
+.stepper,
+.wizard-card {
+  width: 100%;
+}
+
+.stepper li {
+  min-width: 0;
+}
+
+.wizard-card {
+  padding: var(--app-card-padding);
+}
+
+.wizard-actions {
+  width: 100%;
+}
+
+.draft-status {
+  min-width: 0;
+}
+
+.item-row > * {
+  min-width: 0;
+}
+
+.quantity-control {
+  flex-wrap: nowrap;
+}
+
+.quantity-control output,
+.quantity-control span {
+  min-width: 2ch;
+  text-align: center;
+}
+
+.allocation-row > * {
+  min-width: 0;
+}
+
+/* Requests and calendar */
+.toolbar,
+.request-card-header,
+.request-actions {
+  width: 100%;
+}
+
+.request-card-header {
+  align-items: flex-start;
+}
+
+.request-grid div,
+.request-timeline li {
+  overflow-wrap: anywhere;
+}
+
+.calendar-shell {
+  width: 100%;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar-table {
+  max-width: none;
+}
+
+/* Dialogs */
+.modal-dialog {
+  width: min(760px, calc(100dvw - var(--space-8)));
+  max-width: calc(100dvw - var(--space-8));
+  max-height: calc(100dvh - var(--space-8));
+}
+
+.modal-body {
+  overscroll-behavior: contain;
+}
+
+.modal-actions button {
+  min-height: var(--control-height);
+  min-width: var(--button-min-inline-size);
+}
+
+.details-list {
+  min-width: 0;
+}
+
+.details-list dd {
+  overflow-wrap: anywhere;
+}
+
+.toast {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1000px) {
+  #app {
+    width: 100%;
+  }
+
+  .stepper ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--app-control-gap);
+  }
+}
+
+@media (max-width: 760px) {
+  .content-shell,
+  main,
+  #app {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .topbar,
+  main {
+    padding-inline: var(--app-mobile-gutter);
+  }
+
+  .nav-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--app-control-gap);
+  }
+
+  .nav-list > li {
+    min-width: 0;
+  }
+
+  .nav-list > li:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .nav-item {
+    min-height: var(--control-height);
+    height: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .welcome-hero,
+  .card,
+  .wizard-card,
+  .request-card {
+    padding: var(--app-card-padding);
+  }
+
+  .welcome-hero h2 {
+    font-size: clamp(1.8rem, 8vw, 2.2rem);
+  }
+
+  .button-row,
+  .request-actions,
+  .wizard-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .button-row button,
+  .request-actions button,
+  .wizard-actions button {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    white-space: normal;
+  }
+
+  .button-row button:last-child:nth-child(odd),
+  .request-actions button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--app-control-gap);
+    width: 100%;
+  }
+
+  .modal-actions button {
+    width: 100%;
+    min-width: 0;
+    height: var(--control-height);
+    white-space: nowrap;
+  }
+
+  .wizard-actions .spacer {
+    display: none;
+  }
+
+  .wizard-actions .draft-status {
+    grid-column: 1 / -1;
+    width: 100%;
+    order: initial;
+  }
+
+  .segmented {
+    display: grid;
+    grid-auto-flow: initial;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .segmented button {
+    width: 100%;
+    height: 100%;
+    white-space: normal;
+  }
+
+  .mode-selector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .mode-selector legend {
+    grid-column: 1 / -1;
+  }
+
+  .mode-option {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stepper ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--app-control-gap);
+  }
+
+  .step {
+    width: 100%;
+  }
+
+  .section-heading,
+  .request-card-header,
+  .allocation-header,
+  .calendar-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section-heading > :where(button, .primary, .secondary),
+  .allocation-header > :where(button, .primary, .secondary),
+  .calendar-header > :where(button, .primary, .secondary) {
+    width: 100%;
+  }
+
+  .form-grid.two,
+  .selection-grid,
+  .selection-grid.compact,
+  .package-grid,
+  .review-grid,
+  .details-grid,
+  .help-grid,
+  .cost-summary,
+  .dashboard-grid,
+  .request-grid,
+  .request-timeline ol,
+  .allocation-row {
+    grid-template-columns: 1fr;
+  }
+
+  .participant-total {
+    min-height: var(--control-height);
+  }
+
+  .item-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .item-row > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .quantity-control {
+    justify-content: flex-end;
+  }
+
+  .allocation-row button {
+    width: 100%;
+  }
+
+  .request-grid div {
+    padding: var(--space-3);
+  }
+
+  .calendar-header {
+    gap: var(--space-3);
+  }
+
+  .calendar-shell {
+    padding: var(--space-3);
+  }
+
+  .details-list {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .details-list dd + dt {
+    margin-top: var(--space-3);
+  }
+
+  .modal-dialog {
+    width: calc(100dvw - var(--space-8));
+    max-width: calc(100dvw - var(--space-8));
+    max-height: calc(100dvh - var(--space-8));
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-actions {
+    padding: var(--app-mobile-gutter);
+  }
+
+  .toast {
+    right: var(--app-mobile-gutter);
+    bottom: var(--app-mobile-gutter);
+    left: var(--app-mobile-gutter);
+    max-width: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .nav-list,
+  .button-row,
+  .request-actions,
+  .wizard-actions,
+  .segmented,
+  .mode-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-list > li:last-child:nth-child(odd),
+  .button-row button:last-child:nth-child(odd),
+  .request-actions button:last-child:nth-child(odd),
+  .mode-selector legend {
+    grid-column: 1;
+  }
+}
