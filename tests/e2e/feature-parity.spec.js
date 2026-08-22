@@ -32,7 +32,7 @@ const seedManagerData = async (page, date) => {
 
 test('employee catering visuals and rich floorplan survive the reorganization', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-feature-parity-build', '2026.08.22.42');
+  await expect(page.locator('html')).toHaveAttribute('data-feature-parity-build', '2026.08.23.45');
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await fillSchedule(page);
   await page.locator('.wizard-actions button.primary').click();
@@ -73,10 +73,19 @@ test('manager cockpit restores overview, timeline/list room planning, detailed r
   await expect(roomPlan).toBeVisible();
   await page.locator('#roomPlanDate').fill(date);
   await page.locator('#roomPlanDate').dispatchEvent('change');
+  await page.locator('[data-room-plan-view="TIMELINE"]').click();
   await expect(page.locator('.room-timeline-booking')).toHaveCount(2);
   await page.locator('[data-room-plan-view="LIST"]').click();
-  await expect(page.locator('.room-plan-list')).toContainText('Teilnehmende');
-  await expect(page.locator('.room-plan-list')).toContainText('Confirmed Catering Session');
+  const roomPlanList = page.locator('.room-plan-list');
+  const mobileCards = page.locator('[data-feature-parity="room-plan"] .responsive-table-cards');
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width <= 760) {
+    await expect(mobileCards).toBeVisible();
+    await expect(mobileCards).toContainText('Confirmed Catering Session');
+  } else {
+    await expect(roomPlanList).toContainText('Teilnehmende');
+    await expect(roomPlanList).toContainText('Confirmed Catering Session');
+  }
   await expect(page.locator('#roomPlanLocation')).toBeVisible();
 
   await page.getByRole('button', { name: 'Reports' }).click();
