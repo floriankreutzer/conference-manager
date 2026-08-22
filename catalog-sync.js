@@ -38,7 +38,7 @@
   }
 
   loadScript('site-info.js?v=20260822-13', 'data-site-info-module');
-  loadScript('welcome-pdf-v2.js?v=20260822-20', 'data-welcome-pdf-v2');
+  loadScript('welcome-pdf-v2.js?v=20260822-26', 'data-welcome-pdf-v2');
   loadScript('profile-welcome.js?v=20260822-17', 'data-profile-welcome-module');
   loadScript('manager-reports.js?v=20260822-17', 'data-manager-reports-module');
   loadScript('ux-enhancements-v16.js?v=20260822-16', 'data-ux-enhancements-v16');
@@ -56,6 +56,7 @@
   loadScript('i18n-employee-core-v26.js?v=20260822-26', 'data-i18n-employee-core-v26');
   loadScript('i18n-employee-flow-v26.js?v=20260822-26', 'data-i18n-employee-flow-v26');
   loadScript('i18n-manager-v26.js?v=20260822-26', 'data-i18n-manager-v26');
+  loadScript('i18n-extra-v26.js?v=20260822-26', 'data-i18n-extra-v26');
   loadScript('i18n-site-v26.js?v=20260822-26', 'data-i18n-site-v26');
   loadScript('i18n-core-v26.js?v=20260822-26', 'data-i18n-core-v26');
   loadScript('ux-final-v26.js?v=20260822-26', 'data-ux-final-v26');
