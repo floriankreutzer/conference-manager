@@ -25,6 +25,12 @@ jobs:
           node-version: '22'
       - name: Install dependency metadata
         run: npm install --ignore-scripts --no-fund
+      - name: Upload generated lockfile
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: generated-package-lock
+          path: package-lock.json
+          if-no-files-found: error
       - name: Audit high-severity dependencies
         run: npm run audit
       - name: Run syntax, SAST, secret and regression checks
