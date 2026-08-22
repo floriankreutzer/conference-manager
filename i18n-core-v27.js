@@ -13,6 +13,7 @@
  const status=s=>t(({Submitted:'status.submitted','In Review':'status.review',Confirmed:'status.confirmed',Rejected:'status.rejected','Change Requested':'status.change',Cancelled:'status.cancelled'})[s]||s);
  const role=v=>t(v==='manager'?'profile.role.manager':'profile.role.employee');
  function currencyText(s){return s.replace(/(\d{1,3}(?:\.\d{3})*|\d+),(\d{2})[\s\u00a0]*€/g,(_,a,b)=>money(Number(a.replace(/\./g,'')+'.'+b)))}
+ function legacyValue(v){const k=legacy[v];return k?t(k):v}
  function dynamic(s){
    if(language()!=='en')return s;let m;
    if((m=s.match(/^(\d+) Teilnehmende$/)))return `${m[1]} participants`;
@@ -36,6 +37,7 @@
    if((m=s.match(/^Summe:\s*(\d+)\s*%$/)))return `Total: ${m[1]}%`;
    if((m=s.match(/^(\d+) intern · (\d+) extern$/)))return `${m[1]} internal · ${m[2]} external`;
    if((m=s.match(/^(\d+) gesamt · (\d+) extern$/)))return `${m[1]} total · ${m[2]} external`;
+   if((m=s.match(/^(\d+) · (\d+) extern$/)))return `${m[1]} · ${m[2]} external`;
    if((m=s.match(/^Entwurf automatisch gespeichert · (.+)$/)))return `${t('draft.autosaved')} · ${m[1]}`;
    if((m=s.match(/^Anfrage (CR-\S+) erstellt · Raum (?:tentative|vorläufig) reserviert\.$/)))return `Request ${m[1]} created · room provisionally reserved.`;
    if((m=s.match(/^(CR-\S+) bestätigt · Kalenderbuchung verbindlich\.$/)))return `${m[1]} confirmed · calendar booking is binding.`;
@@ -47,8 +49,16 @@
    if((m=s.match(/^(.+) wurde erneut zur Prüfung eingereicht\.$/)))return `${m[1]} was resubmitted for review.`;
    if((m=s.match(/^(.+) wurde bestätigt\.$/)))return `${m[1]} was confirmed.`;
    if((m=s.match(/^(.+) wurde storniert\.$/)))return `${m[1]} was cancelled.`;
-   if((m=s.match(/^Kalenderstatus:\s*(.+)$/)))return `Calendar status: ${m[1]==='Tentative'?'Provisional':m[1]}`;
-   if((m=s.match(/^Reservierung:\s*(.+)$/)))return `Reservation: ${legacy[m[1]]?t(legacy[m[1]]):m[1]}`;
+   if((m=s.match(/^Kalenderstatus:\s*(.+)$/)))return `Calendar status: ${m[1]==='Tentative'?'Provisional':legacyValue(m[1])}`;
+   if((m=s.match(/^Reservierung:\s*(.+)$/)))return `Reservation: ${legacyValue(m[1])}`;
+   if((m=s.match(/^Empfang:\s*(.+)$/)))return `Reception: ${m[1]}`;
+   if((m=s.match(/^Kontakt:\s*(.+)$/)))return `Contact: ${m[1]}`;
+   if((m=s.match(/^Hinweis:\s*(.+)$/)))return `Note: ${m[1]}`;
+   if((m=s.match(/^Netzwerk:\s*(.+)$/)))return `Network: ${m[1]}`;
+   if((m=s.match(/^WLAN-Code:\s*(.+)$/)))return `Wi-Fi code: ${m[1]}`;
+   if((m=s.match(/^Raumbelegung am\s+(.+)$/)))return `Room occupancy on ${dynamic(m[1])}`;
+   if((m=s.match(/^((?:EG|\d+\. OG|Etage unbekannt)) · Kapazität (\d+) Personen$/)))return `${legacyValue(m[1])} · Capacity ${m[2]} people`;
+   if((m=s.match(/^(.+) für (.+) \((CR-\S+)\)$/))){const action=legacyValue(m[1]);return `${action} for ${m[2]} (${m[3]})`}
    if(s==='Raum wurde zwischenzeitlich gebucht. Bitte einen anderen Raum wählen.')return 'The room was booked in the meantime. Please choose another room.';
    const days={Montag:'Monday',Dienstag:'Tuesday',Mittwoch:'Wednesday',Donnerstag:'Thursday',Freitag:'Friday',Samstag:'Saturday',Sonntag:'Sunday'},months={Januar:'January',Februar:'February',März:'March',April:'April',Mai:'May',Juni:'June',Juli:'July',August:'August',September:'September',Oktober:'October',November:'November',Dezember:'December'};
    let out=s;for(const [a,b] of Object.entries(days))out=out.replace(a,b);for(const [a,b] of Object.entries(months))out=out.replace(a,b);
