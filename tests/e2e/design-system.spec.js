@@ -20,7 +20,7 @@ test('central design tokens drive Bordeaux actions and Camel surfaces', async ({
 
   expect(tokens.primary).toBe('#7A1F3D');
   expect(tokens.secondary).toBe('#C29A6B');
-  expect(tokens.camelSurface).toBe('var(--color-camel-100)');
+  expect(tokens.camelSurface).toBe('#F5EEE6');
   expect(tokens.radius).toBe('2px');
 
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
