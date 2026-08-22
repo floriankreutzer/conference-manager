@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Conference Manager</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20260822-2" />
 </head>
 <body>
   <div class="app-shell">
@@ -39,12 +39,12 @@
 
       <section id="employeeView" class="view">
         <div class="stepper" id="stepper">
-          <button data-step="1" class="step active"><span>1</span>Termin</button>
-          <button data-step="2" class="step"><span>2</span>Raum</button>
-          <button data-step="3" class="step"><span>3</span>Services</button>
-          <button data-step="4" class="step"><span>4</span>Bewirtung</button>
-          <button data-step="5" class="step"><span>5</span>Kosten</button>
-          <button data-step="6" class="step"><span>6</span>Prüfen</button>
+          <button type="button" data-step="1" class="step active"><span>1</span>Termin</button>
+          <button type="button" data-step="2" class="step"><span>2</span>Raum</button>
+          <button type="button" data-step="3" class="step"><span>3</span>Services</button>
+          <button type="button" data-step="4" class="step"><span>4</span>Bewirtung</button>
+          <button type="button" data-step="5" class="step"><span>5</span>Kosten</button>
+          <button type="button" data-step="6" class="step"><span>6</span>Prüfen</button>
         </div>
 
         <div class="card wizard-card">
@@ -106,7 +106,7 @@
                 <h2>Verfügbare Räume</h2>
                 <p>Anzeige nach Kalenderverfügbarkeit, Standort und Kapazität.</p>
               </div>
-              <button class="secondary" id="refreshRooms">Verfügbarkeit prüfen</button>
+              <button type="button" class="secondary" id="refreshRooms">Verfügbarkeit prüfen</button>
             </div>
             <div id="roomCheckInfo" class="info-box">
               Die Verfügbarkeit wird beim Öffnen dieses Schritts und erneut beim Absenden geprüft.
@@ -163,7 +163,7 @@
                 <h3>Kostenanteile</h3>
                 <p>Die Summe muss 100 % ergeben.</p>
               </div>
-              <button class="secondary" id="addAllocation">+ Kostenstelle</button>
+              <button type="button" class="secondary" id="addAllocation">+ Kostenstelle</button>
             </div>
             <div id="allocations"></div>
             <div id="allocationStatus" class="validation-line"></div>
@@ -184,10 +184,10 @@
           </div>
 
           <div class="wizard-actions">
-            <button class="secondary" id="backBtn">Zurück</button>
+            <button type="button" class="secondary" id="backBtn">Zurück</button>
             <div class="spacer"></div>
-            <button class="primary" id="nextBtn">Weiter</button>
-            <button class="primary success hidden" id="submitBtn">Anfrage absenden</button>
+            <button type="button" class="primary" id="nextBtn">Weiter</button>
+            <button type="button" class="primary success hidden" id="submitBtn">Anfrage absenden</button>
           </div>
         </div>
       </section>
@@ -227,6 +227,6 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260822-2"></script>
 </body>
 </html>
