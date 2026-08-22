@@ -6,8 +6,12 @@
   "scripts": {
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:static": "node scripts/check-static.mjs",
-    "test": "node --test",
+    "test": "node --test tests/domain.test.js",
+    "test:e2e": "playwright test",
     "check": "npm run check:syntax && npm run check:static && npm test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   },
   "engines": {
     "node": ">=22"
