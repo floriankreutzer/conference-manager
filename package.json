@@ -6,7 +6,7 @@
   "scripts": {
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:static": "node scripts/check-static.mjs",
-    "test": "node --test tests/domain.test.js",
+    "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
     "check": "npm run check:syntax && npm run check:static && npm test"
   },
