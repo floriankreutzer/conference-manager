@@ -1,23 +1,31 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const files = [];
+const sourceFiles = [];
 function walk(path) {
   for (const entry of readdirSync(path)) {
     const full = join(path, entry);
     if (statSync(full).isDirectory()) walk(full);
-    else if (full.endsWith('.js')) files.push(full);
+    else if (/\.(?:js|html)$/.test(full)) sourceFiles.push(full);
   }
 }
 walk('src');
+sourceFiles.push('index.html');
+
 const forbidden = [
   { pattern: /\beval\s*\(/, message: 'eval is forbidden' },
+  { pattern: /\bnew\s+Function\s*\(/, message: 'Function constructor is forbidden' },
   { pattern: /document\.write\s*\(/, message: 'document.write is forbidden' },
   { pattern: /\.innerHTML\s*=/, message: 'innerHTML assignment is forbidden in application code' },
-  { pattern: /javascript:/i, message: 'javascript: URLs are forbidden' },
+  { pattern: /\.outerHTML\s*=/, message: 'outerHTML assignment is forbidden in application code' },
+  { pattern: /insertAdjacentHTML\s*\(/, message: 'insertAdjacentHTML is forbidden in application code' },
+  { pattern: /setAttribute\s*\(\s*['"]on[a-z]+['"]/i, message: 'inline event-handler attributes are forbidden' },
+  { pattern: /javascript\s*:/i, message: 'javascript: URLs are forbidden' },
+  { pattern: /data\s*:\s*text\/html/i, message: 'data:text/html URLs are forbidden' },
 ];
+
 let failures = 0;
-for (const file of files) {
+for (const file of sourceFiles) {
   const source = readFileSync(file, 'utf8');
   for (const rule of forbidden) {
     if (rule.pattern.test(source)) {
@@ -26,5 +34,30 @@ for (const file of files) {
     }
   }
 }
+
+const index = readFileSync('index.html', 'utf8');
+const requiredCspDirectives = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "connect-src 'none'",
+];
+if (!/http-equiv=["']Content-Security-Policy["']/i.test(index)) {
+  console.error('index.html: Content-Security-Policy meta is required for the static demo');
+  failures += 1;
+}
+for (const directive of requiredCspDirectives) {
+  if (!index.includes(directive)) {
+    console.error(`index.html: CSP directive missing: ${directive}`);
+    failures += 1;
+  }
+}
+if (!/<meta\s+name=["']referrer["']\s+content=["']no-referrer["']/i.test(index)) {
+  console.error('index.html: no-referrer policy is required');
+  failures += 1;
+}
+
 if (failures) process.exit(1);
-console.log(`Static defensive-code check passed for ${files.length} source files.`);
+console.log(`Static defensive-code check passed for ${sourceFiles.length} source files.`);
