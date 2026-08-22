@@ -5,4 +5,11 @@
       localStorage.setItem(key, JSON.stringify(catalog));
     }
   } catch (_) {}
+
+  if (!document.querySelector('script[data-site-info-module]')) {
+    const script = document.createElement('script');
+    script.src = 'site-info.js?v=20260822-9';
+    script.dataset.siteInfoModule = 'true';
+    document.head.appendChild(script);
+  }
 })();
