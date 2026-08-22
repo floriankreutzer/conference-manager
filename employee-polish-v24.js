@@ -76,7 +76,7 @@
   }
 
   function roomsRecovery(){
-    const root=q('#rooms');if(!root)return;q('.room-recovery-v24',root)?.remove();const empty=qa('.info-box',root).find(x=>/Kein Raum erfüllt/i.test(x.textContent));if(!empty)return;
+    const root=q('#rooms');if(!root)return;const existing=q('.room-recovery-v24',root),empty=qa('.info-box',root).find(x=>/Kein Raum erfüllt/i.test(x.textContent));if(!empty){existing?.remove();return}if(existing)return;
     const box=document.createElement('div');box.className='room-recovery-v24';box.innerHTML='<strong>Kein passender Raum verfügbar</strong><p>Ändern Sie Termin oder Teilnehmerzahl – oder kontaktieren Sie das Conference Management.</p><div class="room-recovery-actions"><button type="button" class="secondary" data-room-recovery="date">Termin ändern</button><button type="button" class="secondary" data-room-recovery="participants">Teilnehmerzahl ändern</button><button type="button" class="primary" data-room-recovery="help">Conference Management kontaktieren</button></div>';root.appendChild(box);
   }
 
