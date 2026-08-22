@@ -6,11 +6,6 @@
     }
   } catch (_) {}
 
-  // Prevent the legacy guest-experience manager observer from starting.
-  // That observer watched the full subtree and retriggered itself on every render.
-  const managerList = document.getElementById('managerList');
-  if (managerList) managerList.__guestObserved = true;
-
   function loadScript(src, marker) {
     if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
@@ -20,10 +15,9 @@
   }
 
   loadScript('site-info.js?v=20260822-13', 'data-site-info-module');
-  loadScript('manager-summary.js?v=20260822-12', 'data-manager-summary-module');
   loadScript('welcome-pdf-v2.js?v=20260822-13', 'data-welcome-pdf-v2');
 
-  // Register before request-details.js so the legacy PDF handler can no longer win.
+  // Central PDF route: prevents the legacy request-details PDF renderer from handling the button.
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
     if (!button) return;
