@@ -52,8 +52,13 @@
   loadScript('submit-notify-v23.js?v=20260822-23', 'data-submit-notify-v23');
   loadScript('workflow-fixes-v23.js?v=20260822-23', 'data-workflow-fixes-v23');
   loadScript('employee-polish-v24.js?v=20260822-25', 'data-employee-polish-v24');
-  loadScript('i18n-v24.js?v=20260822-25', 'data-i18n-v24');
-  loadScript('i18n-dynamic-v25.js?v=20260822-25', 'data-i18n-dynamic-v25');
+
+  loadScript('i18n-employee-core-v26.js?v=20260822-26', 'data-i18n-employee-core-v26');
+  loadScript('i18n-employee-flow-v26.js?v=20260822-26', 'data-i18n-employee-flow-v26');
+  loadScript('i18n-manager-v26.js?v=20260822-26', 'data-i18n-manager-v26');
+  loadScript('i18n-site-v26.js?v=20260822-26', 'data-i18n-site-v26');
+  loadScript('i18n-core-v26.js?v=20260822-26', 'data-i18n-core-v26');
+  loadScript('ux-final-v26.js?v=20260822-26', 'data-ux-final-v26');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
