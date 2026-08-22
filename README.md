@@ -1,32 +1,91 @@
-# Conference Manager MVP
+# Conference Manager
 
-Lauffähiger Frontend-Prototyp für interne Konferenzanfragen.
+Frontend-MVP für interne Konferenzanfragen mit Mitarbeiter- und Conference-Management-Sicht.
 
-## Enthalten
-- Mitarbeiter-Wizard: Termin → Raum → Services → Bewirtung → Kosten → Prüfung
-- Raumfilter nach Standort und Teilnehmerzahl
-- simulierte Kalender-Verfügbarkeitsprüfung
-- tentative Reservierung beim Absenden
-- manuelle Bestätigung / Ablehnung im Manager Cockpit
-- Catering-Pakete und Einzeloptionen
-- Kostenstellen-Verteilung mit 100-%-Validierung
-- LocalStorage-Persistenz für Demo-Daten
+## Funktionsumfang
 
-## Start
-Einfach `index.html` im Browser öffnen.
+- 6-stufiger Mitarbeiter-Workflow: Termin → Raum → Services → Catering → Kosten → Prüfung
+- finale Raumvalidierung gegen Standort, Kapazität, Aktivstatus und simulierte Kalenderbelegung
+- vorläufige Reservierung, Bestätigung, Änderungsanforderung, Ablehnung und Storno
+- Bearbeiten und erneutes Einreichen von Änderungsanforderungen
+- Catering-Pakete, Einzeloptionen, abweichende Catering-Personenzahl und Ernährungsanforderungen
+- Kostenstellenverteilung mit 0–100-%- und Summenvalidierung
+- Liste, Kalender, Buchungsverlauf, Gästeinformationen und druckbare Welcome-Ansicht
+- Manager Cockpit mit Buchungen, Raumplanung, Reports und Stammdatenpflege
+- Deutsch / English über zentrale i18n-Keys
+- LocalStorage-Persistenz für den statischen MVP
 
-Alternativ lokal:
-`python -m http.server 8080`
-und danach `http://localhost:8080` öffnen.
+## Repository-Struktur
 
-## Für Produktivbetrieb zu ersetzen
-Die Funktionen `mockCalendarBusy()` und `submitRequest()` enthalten die Stellen, an denen eine echte Microsoft-365-/Exchange-Integration angebunden werden sollte.
+```text
+.
+├── .github/workflows/ci.yml
+├── assets/
+│   └── styles.css
+├── scripts/
+│   ├── check-static.mjs
+│   └── check-syntax.mjs
+├── src/
+│   ├── app.js
+│   └── core/
+│       ├── catalog.js
+│       ├── domain.js
+│       ├── i18n.js
+│       ├── storage.js
+│       └── ui.js
+├── tests/
+│   └── domain.test.js
+├── docs/
+│   └── ARCHITECTURE.md
+├── index.html
+├── package.json
+└── README.md
+```
 
-Empfohlene Microsoft-Graph-Integration:
-1. Verfügbarkeit: `getSchedule` oder `calendarView`
-2. Tentative Reservierung: Event im Raumkalender als `tentative`
-3. Bestätigung: Event auf verbindlichen Status / tatsächliche Buchung umstellen
-4. Ablehnung/Storno: tentative Event löschen
-5. Authentifizierung: Microsoft Entra ID / SSO
+## Lokal starten
 
-Für einen echten produktiven Einsatz sollte zusätzlich ein Backend für Persistenz, Berechtigungen, Audit Trail und Transaktionssicherheit ergänzt werden.
+ES-Module benötigen einen HTTP-Server. Beispielsweise:
+
+```bash
+python -m http.server 8080
+```
+
+Danach `http://localhost:8080` öffnen.
+
+## Quality Gate
+
+```bash
+npm run check
+```
+
+Das Quality Gate führt aus:
+
+1. JavaScript-Syntaxprüfung aller Source-, Test- und Script-Dateien
+2. statischen Defensive-Code-Check auf verbotene Konstrukte wie `eval`, `document.write`, `innerHTML`-Zuweisungen und `javascript:`-URLs
+3. Regression- und Progressionstests der Domainlogik mit Node Test Runner
+
+Dasselbe Quality Gate läuft über GitHub Actions bei Pushes auf `main` und Pull Requests.
+
+## Accessibility und Internationalisierung
+
+Die Anwendung verwendet semantisches HTML, native Form Controls und native `<dialog>`-Elemente. Sichtbare Texte, Validierungsmeldungen und Accessibility-Texte werden zentral über `src/core/i18n.js` verwaltet. Aktuell unterstützt werden `de` und `en`; weitere Sprachpakete können über denselben Key-Satz ergänzt werden.
+
+Die Implementierung zielt auf WCAG 2.2 AA. Eine formale Konformitätserklärung erfordert zusätzlich einen vollständigen manuellen Accessibility-Audit mit unterstützenden Technologien und Zielbrowsern.
+
+## Security-Grenze des MVP
+
+Der aktuelle Stand ist eine statische Demo. Daten, Demo-Rolle und Sprache werden clientseitig gespeichert. Der Demo-Rollenwechsel ist **keine Autorisierung** und darf nicht für einen produktiven Zugriffsschutz verwendet werden.
+
+Für einen Produktivbetrieb sind mindestens erforderlich:
+
+- SSO über Microsoft Entra ID oder eine vergleichbare Identity-Plattform
+- serverseitige Authentifizierung und rollenbasierte Autorisierung
+- Backend-Persistenz statt LocalStorage
+- serverseitige Validierung aller schreibenden Operationen
+- Audit Trail und transaktionale Verarbeitung
+- sichere Kalenderintegration, z. B. Microsoft Graph
+- Schutzmechanismen für die konkrete Backend-Architektur, einschließlich CSRF-Schutz bei cookie-basierter Authentifizierung
+
+## Kalenderintegration
+
+Im MVP wird die Belegung anhand der gespeicherten Anfragen simuliert. Für Microsoft 365 bieten sich insbesondere Microsoft Graph `getSchedule` bzw. `calendarView` sowie eine serverseitig kontrollierte Event-Erstellung/-Aktualisierung an.
