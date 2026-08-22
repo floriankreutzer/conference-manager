@@ -33,8 +33,8 @@ jobs:
           node-version: '22'
       - name: Install test dependencies
         run: npm install --no-audit --no-fund
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
       - name: Run browser end-to-end tests
         run: npm run test:e2e
       - name: Upload Playwright report on failure
