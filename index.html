@@ -10,24 +10,33 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">CM</div>
+        <div class="brand-mark">CM<span>.</span></div>
         <div>
           <strong>Conference Manager</strong>
           <small>Internal Services</small>
         </div>
       </div>
+
       <nav>
         <button class="nav-item active" data-view="employee">Neue Anfrage</button>
         <button class="nav-item" data-view="requests">Meine Anfragen</button>
         <button class="nav-item" data-view="manager">Manager Cockpit</button>
       </nav>
-      <div class="sidebar-footer"><small>MVP · Kalenderintegration simuliert</small></div>
+
+      <div class="sidebar-footer">
+        <small>MVP · Kalenderintegration simuliert</small>
+      </div>
     </aside>
+
     <main class="main">
       <header class="topbar">
-        <div><h1 id="viewTitle">Neue Konferenzanfrage</h1><p id="viewSubtitle">Raum, Services und Bewirtung in einer Anfrage.</p></div>
+        <div>
+          <h1 id="viewTitle">Neue Konferenzanfrage</h1>
+          <p id="viewSubtitle">Raum, Services und Bewirtung in einer Anfrage.</p>
+        </div>
         <div class="user-chip">FK</div>
       </header>
+
       <section id="employeeView" class="view">
         <div class="stepper" id="stepper">
           <button data-step="1" class="step active"><span>1</span>Termin</button>
@@ -37,55 +46,187 @@
           <button data-step="5" class="step"><span>5</span>Kosten</button>
           <button data-step="6" class="step"><span>6</span>Prüfen</button>
         </div>
+
         <div class="card wizard-card">
           <div class="step-panel active" data-panel="1">
-            <div class="section-heading"><div><h2>Termin und Anlass</h2><p>Diese Angaben werden für die Verfügbarkeitsprüfung verwendet.</p></div></div>
-            <div class="form-grid two">
-              <label><span>Titel *</span><input id="title" type="text" placeholder="z. B. Management Workshop" /></label>
-              <label><span>Standort *</span><select id="location"><option>Berlin</option><option>Stuttgart</option><option>Frankfurt</option></select></label>
-              <label><span>Datum *</span><input id="date" type="date" /></label>
-              <label><span>Teilnehmer *</span><input id="participants" type="number" min="1" value="12" /></label>
-              <label><span>Start *</span><input id="start" type="time" value="09:00" /></label>
-              <label><span>Ende *</span><input id="end" type="time" value="12:00" /></label>
+            <div class="section-heading">
+              <div>
+                <h2>Termin und Anlass</h2>
+                <p>Diese Angaben werden für die Verfügbarkeitsprüfung verwendet.</p>
+              </div>
             </div>
-            <label class="checkbox-row"><input id="externalGuests" type="checkbox" /><span>Externe Gäste nehmen teil</span></label>
+
+            <div class="form-grid two">
+              <label>
+                <span>Titel *</span>
+                <input id="title" type="text" placeholder="z. B. Management Workshop" />
+              </label>
+              <label>
+                <span>Standort *</span>
+                <select id="location">
+                  <option>Berlin</option>
+                  <option>Stuttgart</option>
+                  <option>Frankfurt</option>
+                </select>
+              </label>
+              <label>
+                <span>Datum *</span>
+                <input id="date" type="date" />
+              </label>
+              <label>
+                <span>Interne Teilnehmende *</span>
+                <input id="internalParticipants" type="number" min="0" value="10" />
+              </label>
+              <label>
+                <span>Start *</span>
+                <input id="start" type="time" value="09:00" />
+              </label>
+              <label>
+                <span>Ende *</span>
+                <input id="end" type="time" value="12:00" />
+              </label>
+            </div>
+
+            <div class="form-grid two participant-row">
+              <label>
+                <span>Externe Teilnehmende</span>
+                <input id="externalParticipants" type="number" min="0" value="2" />
+              </label>
+              <div class="participant-total">
+                <span>Gesamt</span>
+                <strong id="participantTotal">12 Teilnehmende</strong>
+                <small>Relevant für Raumkapazität und Bewirtung</small>
+              </div>
+            </div>
           </div>
+
           <div class="step-panel" data-panel="2">
-            <div class="section-heading"><div><h2>Verfügbare Räume</h2><p>Anzeige nach Kalenderverfügbarkeit, Standort und Kapazität.</p></div><button class="secondary" id="refreshRooms">Verfügbarkeit prüfen</button></div>
-            <div id="roomCheckInfo" class="info-box">Die Verfügbarkeit wird beim Öffnen dieses Schritts und erneut beim Absenden geprüft.</div>
+            <div class="section-heading">
+              <div>
+                <h2>Verfügbare Räume</h2>
+                <p>Anzeige nach Kalenderverfügbarkeit, Standort und Kapazität.</p>
+              </div>
+              <button class="secondary" id="refreshRooms">Verfügbarkeit prüfen</button>
+            </div>
+            <div id="roomCheckInfo" class="info-box">
+              Die Verfügbarkeit wird beim Öffnen dieses Schritts und erneut beim Absenden geprüft.
+            </div>
             <div id="rooms" class="selection-grid"></div>
           </div>
+
           <div class="step-panel" data-panel="3">
-            <div class="section-heading"><div><h2>Personal & Services</h2><p>Die konkrete Person wird später durch den Konferenzmanager disponiert.</p></div></div>
+            <div class="section-heading">
+              <div>
+                <h2>Personal & Services</h2>
+                <p>Die konkrete Person wird später durch den Konferenzmanager disponiert.</p>
+              </div>
+            </div>
             <div id="services" class="selection-grid compact"></div>
           </div>
+
           <div class="step-panel" data-panel="4">
-            <div class="section-heading"><div><h2>Bewirtung</h2><p>Wähle ein Paket, Einzeloptionen oder kombiniere beides.</p></div></div>
-            <h3>Pakete</h3><div id="packages" class="selection-grid"></div><div class="divider"></div><h3>Einzeloptionen</h3><div id="cateringItems" class="item-list"></div>
-          </div>
-          <div class="step-panel" data-panel="5">
-            <div class="section-heading"><div><h2>Kosten & Verteilung</h2><p>Die Kosten werden vor der Freigabe transparent ausgewiesen.</p></div></div>
-            <div class="cost-summary"><div><span>Raum</span><strong id="roomCost">0,00 €</strong></div><div><span>Services</span><strong id="serviceCost">0,00 €</strong></div><div><span>Bewirtung</span><strong id="cateringCost">0,00 €</strong></div><div class="total"><span>Gesamt</span><strong id="totalCost">0,00 €</strong></div></div>
+            <div class="section-heading">
+              <div>
+                <h2>Bewirtung</h2>
+                <p>Wähle ein Paket, Einzeloptionen oder kombiniere beides.</p>
+              </div>
+            </div>
+
+            <h3>Pakete</h3>
+            <div id="packages" class="selection-grid"></div>
+
             <div class="divider"></div>
-            <div class="allocation-header"><div><h3>Kostenanteile</h3><p>Die Summe muss 100 % ergeben.</p></div><button class="secondary" id="addAllocation">+ Kostenstelle</button></div>
-            <div id="allocations"></div><div id="allocationStatus" class="validation-line"></div>
+
+            <h3>Einzeloptionen</h3>
+            <div id="cateringItems" class="item-list"></div>
           </div>
+
+          <div class="step-panel" data-panel="5">
+            <div class="section-heading">
+              <div>
+                <h2>Kosten & Verteilung</h2>
+                <p>Die Kosten werden vor der Freigabe transparent ausgewiesen.</p>
+              </div>
+            </div>
+
+            <div class="cost-summary">
+              <div><span>Raum</span><strong id="roomCost">0,00 €</strong></div>
+              <div><span>Services</span><strong id="serviceCost">0,00 €</strong></div>
+              <div><span>Bewirtung</span><strong id="cateringCost">0,00 €</strong></div>
+              <div class="total"><span>Gesamt</span><strong id="totalCost">0,00 €</strong></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="allocation-header">
+              <div>
+                <h3>Kostenanteile</h3>
+                <p>Die Summe muss 100 % ergeben.</p>
+              </div>
+              <button class="secondary" id="addAllocation">+ Kostenstelle</button>
+            </div>
+            <div id="allocations"></div>
+            <div id="allocationStatus" class="validation-line"></div>
+          </div>
+
           <div class="step-panel" data-panel="6">
-            <div class="section-heading"><div><h2>Anfrage prüfen</h2><p>Beim Absenden erfolgt eine finale Kalenderprüfung.</p></div></div>
+            <div class="section-heading">
+              <div>
+                <h2>Anfrage prüfen</h2>
+                <p>Beim Absenden erfolgt eine finale Kalenderprüfung.</p>
+              </div>
+            </div>
             <div id="review"></div>
-            <div class="tentative-box"><strong>Tentative Reservation</strong><p>Nach erfolgreicher Prüfung wird der Raum vorläufig geblockt. Erst die manuelle Bestätigung durch den Konferenzmanager macht die Buchung verbindlich.</p></div>
+            <div class="tentative-box">
+              <strong>Tentative Reservation</strong>
+              <p>Nach erfolgreicher Prüfung wird der Raum vorläufig geblockt. Erst die manuelle Bestätigung durch den Konferenzmanager macht die Buchung verbindlich.</p>
+            </div>
           </div>
-          <div class="wizard-actions"><button class="secondary" id="backBtn">Zurück</button><div class="spacer"></div><button class="primary" id="nextBtn">Weiter</button><button class="primary success hidden" id="submitBtn">Anfrage absenden</button></div>
+
+          <div class="wizard-actions">
+            <button class="secondary" id="backBtn">Zurück</button>
+            <div class="spacer"></div>
+            <button class="primary" id="nextBtn">Weiter</button>
+            <button class="primary success hidden" id="submitBtn">Anfrage absenden</button>
+          </div>
         </div>
       </section>
-      <section id="requestsView" class="view hidden"><div class="card"><div class="section-heading"><div><h2>Meine Anfragen</h2><p>Eigene Konferenzanfragen und deren aktueller Status.</p></div></div><div id="requestList"></div></div></section>
+
+      <section id="requestsView" class="view hidden">
+        <div class="card">
+          <div class="section-heading">
+            <div>
+              <h2>Meine Anfragen</h2>
+              <p>Eigene Konferenzanfragen und deren aktueller Status.</p>
+            </div>
+          </div>
+          <div id="requestList"></div>
+        </div>
+      </section>
+
       <section id="managerView" class="view hidden">
-        <div class="stats"><div class="stat"><span>Offen</span><strong id="statOpen">0</strong></div><div class="stat"><span>Tentative</span><strong id="statTentative">0</strong></div><div class="stat"><span>Bestätigt</span><strong id="statConfirmed">0</strong></div><div class="stat"><span>Konflikte</span><strong id="statConflicts">0</strong></div></div>
-        <div class="card"><div class="section-heading"><div><h2>Manager Cockpit</h2><p>Manuelle Prüfung von Raum, Services, Catering und Kosten.</p></div></div><div id="managerList"></div></div>
+        <div class="stats">
+          <div class="stat"><span>Offen</span><strong id="statOpen">0</strong></div>
+          <div class="stat"><span>Tentative</span><strong id="statTentative">0</strong></div>
+          <div class="stat"><span>Bestätigt</span><strong id="statConfirmed">0</strong></div>
+          <div class="stat"><span>Konflikte</span><strong id="statConflicts">0</strong></div>
+        </div>
+
+        <div class="card">
+          <div class="section-heading">
+            <div>
+              <h2>Manager Cockpit</h2>
+              <p>Manuelle Prüfung von Raum, Services, Catering und Kosten.</p>
+            </div>
+          </div>
+          <div id="managerList"></div>
+        </div>
       </section>
     </main>
   </div>
+
   <div id="toast" class="toast"></div>
+
   <script src="app.js"></script>
 </body>
 </html>
