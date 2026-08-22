@@ -8,9 +8,7 @@
 
   function normalizeCatalogTabs() {
     const itemTab = document.getElementById('catalogItemsTab');
-    if (itemTab && itemTab.dataset.catalogTab !== 'items') {
-      itemTab.dataset.catalogTab = 'items';
-    }
+    if (itemTab && itemTab.dataset.catalogTab !== 'items') itemTab.dataset.catalogTab = 'items';
   }
 
   function watchCatalogTabs() {
@@ -22,11 +20,8 @@
     nav.__catalogTabNormalizer = observer;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', watchCatalogTabs);
-  } else {
-    watchCatalogTabs();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchCatalogTabs);
+  else watchCatalogTabs();
 
   function loadScript(src, marker) {
     if (document.querySelector(`script[${marker}]`)) return;
@@ -38,7 +33,7 @@
   }
 
   loadScript('site-info.js?v=20260822-13', 'data-site-info-module');
-  loadScript('welcome-pdf-v2.js?v=20260822-26', 'data-welcome-pdf-v2');
+  loadScript('welcome-pdf-v2.js?v=20260822-27', 'data-welcome-pdf-v2');
   loadScript('profile-welcome.js?v=20260822-17', 'data-profile-welcome-module');
   loadScript('manager-reports.js?v=20260822-17', 'data-manager-reports-module');
   loadScript('ux-enhancements-v16.js?v=20260822-16', 'data-ux-enhancements-v16');
@@ -47,19 +42,16 @@
   loadScript('employee-ux-v21.js?v=20260822-21', 'data-employee-ux-v21');
   loadScript('employee-p0-v22.js?v=20260822-22', 'data-employee-p0-v22');
   loadScript('employee-form-v23.js?v=20260822-23', 'data-employee-form-v23');
-  loadScript('request-change-v23.js?v=20260822-23', 'data-request-change-v23');
   loadScript('navigation-help-v23.js?v=20260822-23', 'data-navigation-help-v23');
   loadScript('submit-notify-v23.js?v=20260822-23', 'data-submit-notify-v23');
   loadScript('workflow-fixes-v23.js?v=20260822-23', 'data-workflow-fixes-v23');
-  loadScript('employee-polish-v24.js?v=20260822-25', 'data-employee-polish-v24');
 
-  loadScript('i18n-employee-core-v26.js?v=20260822-26', 'data-i18n-employee-core-v26');
-  loadScript('i18n-employee-flow-v26.js?v=20260822-26', 'data-i18n-employee-flow-v26');
-  loadScript('i18n-manager-v26.js?v=20260822-26', 'data-i18n-manager-v26');
-  loadScript('i18n-extra-v26.js?v=20260822-26', 'data-i18n-extra-v26');
-  loadScript('i18n-site-v26.js?v=20260822-26', 'data-i18n-site-v26');
-  loadScript('i18n-core-v26.js?v=20260822-26', 'data-i18n-core-v26');
-  loadScript('ux-final-v26.js?v=20260822-26', 'data-ux-final-v26');
+  loadScript('workflow-core-v27.js?v=20260822-27', 'data-workflow-core-v27');
+  loadScript('request-change-v27.js?v=20260822-27', 'data-request-change-v27');
+  loadScript('employee-consolidated-v27.js?v=20260822-27', 'data-employee-consolidated-v27');
+  loadScript('i18n-site-v26.js?v=20260822-27', 'data-i18n-site-v26');
+  loadScript('timeline-v27.js?v=20260822-27', 'data-timeline-v27');
+  loadScript('ux-final-v26.js?v=20260822-27', 'data-ux-final-v26');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
@@ -72,9 +64,7 @@
       return;
     }
     setTimeout(function () {
-      if (typeof window.createConferenceWelcomePdfV2 === 'function') {
-        window.createConferenceWelcomePdfV2(id);
-      }
+      if (typeof window.createConferenceWelcomePdfV2 === 'function') window.createConferenceWelcomePdfV2(id);
     }, 150);
   }, true);
 })();
