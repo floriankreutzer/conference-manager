@@ -61,7 +61,6 @@ test('autosave draft survives navigation and can be restored', async ({ page }) 
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await page.locator('#title').fill('Persisted Draft Workshop');
   await expect(page.locator('#draftStatus')).toContainText('Entwurf automatisch gespeichert', { timeout: 2_000 });
-
   await page.locator('#primaryNavigation button[data-view="welcome"]').click();
   const continueDraft = page.getByRole('button', { name: 'Entwurf fortsetzen' });
   await expect(continueDraft).toBeVisible();
@@ -76,23 +75,19 @@ test('services and catering persist with adjusted catering participant count and
   await clickWizardPrimary(page);
   await chooseRoom(page);
   await clickWizardPrimary(page);
-
   const serviceButton = page.locator('[data-step-panel="3"] .option-card button[aria-pressed]').first();
   await serviceButton.click();
   await expect(serviceButton).toHaveAttribute('aria-pressed', 'true');
   await clickWizardPrimary(page);
-
   await page.locator('input[name="cateringMode"][value="PACKAGE"]').check();
   const packageButton = page.locator('.package-grid .option-card button[aria-pressed]').first();
   await packageButton.click();
   await page.locator('#cateringParticipants').fill('5');
   await clickWizardPrimary(page);
-
   await page.locator('#allocation-cost-center-0').fill('CC-CATERING');
   await clickWizardPrimary(page);
   await expect(page.locator('[data-step-panel="6"]')).toContainText('Catering');
   await clickWizardPrimary(page);
-
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('conference_requests') || '[]')[0]);
   expect(stored.title).toBe(title);
   expect(stored.serviceIds).toHaveLength(1);
@@ -110,9 +105,12 @@ test('manager room plan reports and master-data administration work end to end',
   await page.getByRole('button', { name: 'Raumplanung' }).click();
   await page.locator('#roomPlanDate').fill(date);
   await page.locator('#roomPlanDate').dispatchEvent('change');
-  await expect(page.locator('.data-table')).toContainText(title);
+  await page.locator('[data-room-plan-view="LIST"]').click();
+  await expect(page.locator('.room-plan-list')).toContainText(title);
 
   await page.getByRole('button', { name: 'Reports' }).click();
+  await page.locator('#reportReferenceDate').fill(date);
+  await page.locator('#reportReferenceDate').dispatchEvent('change');
   await expect(page.locator('.dashboard-grid')).toContainText('Offene Anfragen');
 
   await page.getByRole('button', { name: 'Administration' }).click();
@@ -120,7 +118,10 @@ test('manager room plan reports and master-data administration work end to end',
   await expect(capacity).toBeVisible();
   await capacity.fill('13');
   const roomCard = capacity.locator('xpath=ancestor::article[contains(@class,"admin-card")]');
+  const reloadPromise = page.waitForEvent('load');
   await roomCard.getByRole('button', { name: 'Speichern' }).click();
+  await reloadPromise;
+  await expect(page.locator('[data-feature-parity="admin"]')).toBeVisible();
 
   const savedCapacity = await page.evaluate(() => {
     const catalog = JSON.parse(localStorage.getItem('conference_catalog_v2') || '{}');
@@ -128,6 +129,6 @@ test('manager room plan reports and master-data administration work end to end',
   });
   expect(savedCapacity).toBe(13);
 
-  await page.getByRole('button', { name: 'Services' }).click();
+  await page.locator('[data-admin-section="SERVICES"]').click();
   await expect(page.locator('#service-name-host')).toBeVisible();
 });
