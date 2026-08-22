@@ -27,6 +27,8 @@
   }
 
   function navigationFix(){
+    const profile=q('#profileAvatar'),help=q('.nav-item[data-view="help"]');
+    if(profile&&help&&profile.nextElementSibling!==help)profile.insertAdjacentElement('afterend',help);
     document.addEventListener('click',e=>{
       const b=e.target.closest('.nav-item[data-view]');
       if(b&&b.dataset.view!=='help')q('#helpView')?.classList.add('hidden');
