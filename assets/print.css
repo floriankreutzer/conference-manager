@@ -1,0 +1,168 @@
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #fff;
+  color: #111;
+  font-family: Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.48;
+}
+
+body > header:not(.hero) {
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 6px solid #7a1f3d;
+}
+
+body > header:not(.hero) h1 {
+  font-size: 32px;
+}
+
+body > dl {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 8px;
+  margin: 28px 0;
+}
+
+body > dl dt {
+  font-weight: 700;
+}
+
+body > button,
+.print-button {
+  margin: 0 0 14px;
+  border: 0;
+  background: #1d1d1f;
+  color: #fff;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+.hero {
+  padding: 28px 30px 26px;
+  border-bottom: 7px solid #c29a6b;
+  background: #1d1d1f;
+  color: #fff;
+}
+
+.hero h1 {
+  margin: 18px 0 10px;
+  font-size: 32px;
+  line-height: 1.08;
+}
+
+.hero p {
+  color: #e8e8e8;
+  font-size: 15px;
+}
+
+.content {
+  padding: 22px 2px;
+}
+
+.intro {
+  color: #333;
+  font-size: 14px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.fact,
+.card {
+  border: 1px solid #d0d0ce;
+  background: #fff;
+  padding: 12px;
+}
+
+.fact small {
+  display: block;
+  color: #63666a;
+}
+
+.fact strong {
+  display: block;
+  margin-top: 4px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+  margin-bottom: 11px;
+}
+
+.card h2 {
+  margin: 0 0 9px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #c29a6b;
+  font-size: 15px;
+}
+
+.route {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+}
+
+.qr {
+  width: 126px;
+  height: 126px;
+  border: 1px solid #d0d0ce;
+}
+
+.wifi {
+  margin-top: 11px;
+  padding: 13px;
+  border-left: 5px solid #c29a6b;
+  background: #f5eee6;
+}
+
+.wifi-code {
+  border: 1px solid #d0d0ce;
+  background: #fff;
+  font-family: ui-monospace, monospace;
+  padding: 9px;
+  white-space: pre-line;
+}
+
+.mock {
+  padding: 9px 11px;
+  border-left: 4px solid #f0b429;
+  background: #fff7e6;
+}
+
+.closing {
+  margin: 20px 0 5px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+@media (max-width: 650px) {
+  .facts,
+  .grid,
+  .route,
+  body > dl {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body > button,
+  .print-button {
+    display: none;
+  }
+}
