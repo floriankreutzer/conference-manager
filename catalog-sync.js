@@ -6,6 +6,28 @@
     }
   } catch (_) {}
 
+  function normalizeCatalogTabs() {
+    const itemTab = document.getElementById('catalogItemsTab');
+    if (itemTab && itemTab.dataset.catalogTab !== 'items') {
+      itemTab.dataset.catalogTab = 'items';
+    }
+  }
+
+  function watchCatalogTabs() {
+    normalizeCatalogTabs();
+    const nav = document.querySelector('.catalog-nav');
+    if (!nav || nav.__catalogTabNormalizer) return;
+    const observer = new MutationObserver(normalizeCatalogTabs);
+    observer.observe(nav, { childList: true });
+    nav.__catalogTabNormalizer = observer;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', watchCatalogTabs);
+  } else {
+    watchCatalogTabs();
+  }
+
   function loadScript(src, marker) {
     if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
