@@ -49,6 +49,7 @@
   loadScript('employee-form-v23.js?v=20260822-23', 'data-employee-form-v23');
   loadScript('request-change-v23.js?v=20260822-23', 'data-request-change-v23');
   loadScript('navigation-help-v23.js?v=20260822-23', 'data-navigation-help-v23');
+  loadScript('submit-notify-v23.js?v=20260822-23', 'data-submit-notify-v23');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
