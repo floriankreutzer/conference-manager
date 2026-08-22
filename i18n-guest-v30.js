@@ -7,6 +7,7 @@
     ['guest.infoAria', 'Gästeinformationen für {title} anzeigen', 'View guest information for {title}'],
     ['guest.demoLabel', 'Demo', 'Demo'],
     ['guest.locationDefault', 'Standort', 'Location'],
+    ['guest.contactDefault', 'Conference Management', 'Conference Management'],
   ];
 
   const de = {};
