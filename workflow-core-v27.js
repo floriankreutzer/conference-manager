@@ -139,6 +139,10 @@
     query('#validationSummaryV24')?.remove();
   };
 
+  const isDirectlyFocusable = (element) => element?.matches?.(
+    'button,input,select,textarea,a[href],[tabindex]:not([tabindex="-1"])',
+  );
+
   const showValidation = (validationError) => {
     clearValidationState();
 
@@ -151,13 +155,15 @@
 
     const message = translate(validationError.key, validationError.values);
     const panel = query(`.step-panel[data-panel="${validationError.step}"]`);
+    let summary = null;
 
     if (panel) {
-      const summary = document.createElement('section');
+      summary = document.createElement('section');
       summary.id = 'validationSummaryV24';
       summary.className = 'validation-summary-v24';
       summary.setAttribute('role', 'alert');
       summary.setAttribute('aria-live', 'assertive');
+      summary.tabIndex = -1;
 
       const heading = document.createElement('strong');
       heading.textContent = translate('validation.heading');
@@ -171,8 +177,12 @@
     if (validationError.element instanceof HTMLElement) {
       validationError.element.classList.add('field-error-v24');
       validationError.element.setAttribute('aria-invalid', 'true');
-      setTimeout(() => validationError.element.focus?.(), 0);
     }
+
+    const focusTarget = isDirectlyFocusable(validationError.element)
+      ? validationError.element
+      : summary;
+    setTimeout(() => focusTarget?.focus?.(), 0);
 
     try {
       toast(message);
@@ -237,5 +247,5 @@
   };
 
   installBaseValidationBridge();
-  document.documentElement.dataset.workflowCoreBuild = '2026.08.22.30';
+  document.documentElement.dataset.workflowCoreBuild = '2026.08.22.31';
 })();
