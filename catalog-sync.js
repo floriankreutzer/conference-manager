@@ -33,7 +33,7 @@
   }
 
   loadScript('site-info.js?v=20260822-13', 'data-site-info-module');
-  loadScript('welcome-pdf-v2.js?v=20260822-27', 'data-welcome-pdf-v2');
+  loadScript('welcome-pdf-v2.js?v=20260822-28', 'data-welcome-pdf-v2');
   loadScript('profile-welcome.js?v=20260822-17', 'data-profile-welcome-module');
   loadScript('manager-reports.js?v=20260822-17', 'data-manager-reports-module');
   loadScript('ux-enhancements-v16.js?v=20260822-16', 'data-ux-enhancements-v16');
@@ -46,12 +46,12 @@
   loadScript('submit-notify-v23.js?v=20260822-23', 'data-submit-notify-v23');
   loadScript('workflow-fixes-v23.js?v=20260822-23', 'data-workflow-fixes-v23');
 
-  loadScript('workflow-core-v27.js?v=20260822-27', 'data-workflow-core-v27');
-  loadScript('request-change-v27.js?v=20260822-27', 'data-request-change-v27');
-  loadScript('employee-consolidated-v27.js?v=20260822-27', 'data-employee-consolidated-v27');
-  loadScript('i18n-site-v26.js?v=20260822-27', 'data-i18n-site-v26');
-  loadScript('timeline-v27.js?v=20260822-27', 'data-timeline-v27');
-  loadScript('ux-final-v27.js?v=20260822-27', 'data-ux-final-v27');
+  loadScript('workflow-core-v27.js?v=20260822-28', 'data-workflow-core-v27');
+  loadScript('request-change-v27.js?v=20260822-28', 'data-request-change-v27');
+  loadScript('employee-consolidated-v27.js?v=20260822-28', 'data-employee-consolidated-v27');
+  loadScript('i18n-site-v26.js?v=20260822-28', 'data-i18n-site-v26');
+  loadScript('timeline-v27.js?v=20260822-28', 'data-timeline-v27');
+  loadScript('ux-final-v27.js?v=20260822-28', 'data-ux-final-v27');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
