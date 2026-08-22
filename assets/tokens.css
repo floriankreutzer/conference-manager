@@ -93,4 +93,20 @@
   /* Layout */
   --sidebar-width: 252px;
   --content-max-width: 1440px;
+
+  /* Compatibility aliases for existing SVG and feature modules. */
+  --brand: var(--brand-primary);
+  --brand-dark: var(--brand-primary-hover);
+  --camel: var(--brand-secondary);
+  --camel-soft: var(--brand-secondary-surface);
+  --text: var(--color-ink);
+  --muted: var(--color-muted);
+  --border: var(--color-border);
+  --surface: var(--color-surface);
+  --surface-soft: var(--color-surface-subtle);
+  --danger: var(--color-danger);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
+  --focus: var(--focus-color);
+  --shadow: var(--shadow-md);
 }
