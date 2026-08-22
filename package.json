@@ -6,9 +6,11 @@
   "scripts": {
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:static": "node scripts/check-static.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
-    "check": "npm run check:syntax && npm run check:static && npm test"
+    "check": "npm run check:syntax && npm run check:static && npm run check:secrets && npm test",
+    "audit": "npm audit --audit-level=high"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"
