@@ -58,8 +58,7 @@
     reservationLanguage();
     patchReset();
     patchToast();
-    const draftExists=!!localStorage.getItem('conference_request_draft_v1');
-    if(!draftExists)clearFreshDefaults();
+    clearFreshDefaults();
     document.documentElement.dataset.employeeP0Build='2026.08.22.22';
   }
 
