@@ -75,9 +75,9 @@
     decorateRequestTimelines();
   }
 
-  function saveStatusSnapshot(id){
+  function saveStatusSnapshot(id,expectedStatus){
     setTimeout(()=>{
-      const all=reqs(),r=all.find(x=>x.id===id);if(!r)return;
+      const all=reqs(),r=all.find(x=>x.id===id);if(!r||r.status!==expectedStatus)return;
       r.statusHistory=historyFor(r);
       const last=r.statusHistory[r.statusHistory.length-1];
       if(!last||last.status!==r.status){r.statusHistory.push({status:r.status,calendarStatus:r.calendarStatus||'',at:new Date().toISOString()});localStorage.setItem(RK,JSON.stringify(all))}
@@ -86,8 +86,8 @@
   }
   function captureHistory(){
     document.addEventListener('click',e=>{
-      const a=e.target.closest('[data-manager-action]');if(a)saveStatusSnapshot(a.dataset.requestId);
-      const c=e.target.closest('[data-cancel-request]');if(c)saveStatusSnapshot(c.dataset.cancelRequest);
+      const a=e.target.closest('[data-manager-action]');if(a){const expected={confirm:'Confirmed',reject:'Rejected',change:'Change Requested'}[a.dataset.managerAction];if(expected)saveStatusSnapshot(a.dataset.requestId,expected)}
+      const c=e.target.closest('[data-cancel-request]');if(c)saveStatusSnapshot(c.dataset.cancelRequest,'Cancelled');
     });
   }
 
