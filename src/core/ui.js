@@ -75,15 +75,22 @@ export function safeNavigationUrl(value) {
   if (!value) return null;
   try {
     const url = new URL(value, window.location.href);
-    if (url.protocol !== 'https:') return null;
-    return url.href;
+    if (url.protocol === 'https:') return url.href;
+    if (url.origin === window.location.origin && url.protocol === 'http:') return url.href;
+    return null;
   } catch {
     return null;
   }
 }
 
 export function safeHttpsUrl(value) {
-  return safeNavigationUrl(value);
+  if (!value) return null;
+  try {
+    const url = new URL(value, window.location.href);
+    return url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 export function openDialog({ title, description = '', content, actions = [], labelledById = 'dialogTitle' }) {
