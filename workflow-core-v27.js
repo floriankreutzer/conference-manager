@@ -30,7 +30,6 @@
   };
 
   const overlaps = (startA, endA, startB, endB) => startA < endB && startB < endA;
-
   const createError = (step, element, key, values = {}) => ({ step, element, key, values });
 
   const validateSchedule = () => {
@@ -83,9 +82,7 @@
       && selectedRoom.location === location
       && Number(selectedRoom.capacity || 0) >= participants;
 
-    if (!isCurrentCandidate) {
-      return createError(2, roomContainer, 'validation.roomChanged');
-    }
+    if (!isCurrentCandidate) return createError(2, roomContainer, 'validation.roomChanged');
 
     const editingRequestId = sessionStorage.getItem(EDIT_KEY);
     const hasConflict = readRequests().some((request) => (
@@ -203,23 +200,30 @@
       note: note || '',
     };
 
-    const alreadyRecorded = request.statusHistory.some((entry) => (
+    const matchesEvent = (entry) => (
       entry.status === event.status && entry.at === event.at && entry.note === event.note
-    ));
+    );
 
-    if (!alreadyRecorded) request.statusHistory.push(event);
-
-    const timelineRecorded = request.timelineEvents.some((entry) => (
-      entry.status === event.status && entry.at === event.at && entry.note === event.note
-    ));
-
-    if (!timelineRecorded) request.timelineEvents.push({
-      status: event.status,
-      at: event.at,
-      note: event.note,
-    });
+    if (!request.statusHistory.some(matchesEvent)) request.statusHistory.push(event);
+    if (!request.timelineEvents.some(matchesEvent)) {
+      request.timelineEvents.push({ status: event.status, at: event.at, note: event.note });
+    }
 
     return timestamp;
+  };
+
+  const installBaseValidationBridge = () => {
+    if (typeof window.validateStep !== 'function' || window.validateStep.__cmWorkflowBridge) return;
+
+    const baseValidateStep = window.validateStep;
+    const bridgedValidateStep = (step) => {
+      const validationError = validateStep(Number(step));
+      if (validationError) return showValidation(validationError);
+      return [1, 2, 5].includes(Number(step)) ? true : baseValidateStep(step);
+    };
+
+    bridgedValidateStep.__cmWorkflowBridge = true;
+    window.validateStep = bridgedValidateStep;
   };
 
   window.cmWorkflow = {
@@ -232,5 +236,6 @@
     validateStep,
   };
 
+  installBaseValidationBridge();
   document.documentElement.dataset.workflowCoreBuild = '2026.08.22.30';
 })();
