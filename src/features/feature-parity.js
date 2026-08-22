@@ -4,6 +4,7 @@ import { PARITY_RETURN_KEY, getAdminSection, setAdminSection } from './admin-par
 import { pt } from './parity-i18n.js';
 import { ensureParityCatalog } from './parity-data.js';
 import { enhanceManager } from './manager-parity.js';
+import { enhanceManagerResponsive } from './manager-responsive.js?v=20260823-45';
 import { richPrint } from './welcome-print.js';
 
 let syncFrame = 0;
@@ -74,7 +75,8 @@ function sync() {
   decorateEmployeeParity();
   enhanceManager();
   ensureReportInsightsHeading();
-  document.documentElement.dataset.featureParityBuild = '2026.08.22.42';
+  enhanceManagerResponsive();
+  document.documentElement.dataset.featureParityBuild = '2026.08.23.45';
 }
 
 document.addEventListener('click', (event) => {

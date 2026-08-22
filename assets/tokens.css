@@ -88,12 +88,19 @@
   /* Interaction */
   --focus-color: #111111;
   --focus-width: 3px;
-  --control-height: 42px;
+  --control-height: 44px;
+  --control-padding-inline: 14px;
+  --button-min-inline-size: 112px;
   --transition-fast: 140ms ease;
 
   /* Layout */
   --sidebar-width: 252px;
   --content-max-width: 1440px;
+  --manager-content-max-width: 1180px;
+  --manager-control-gap: var(--space-2);
+  --manager-section-gap: var(--space-4);
+  --manager-mobile-gutter: 14px;
+  --responsive-table-label-width: 112px;
 
   /* Compatibility aliases for existing SVG and feature modules. */
   --brand: var(--brand-primary);
