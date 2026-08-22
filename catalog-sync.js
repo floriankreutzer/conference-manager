@@ -51,6 +51,8 @@
   loadScript('navigation-help-v23.js?v=20260822-23', 'data-navigation-help-v23');
   loadScript('submit-notify-v23.js?v=20260822-23', 'data-submit-notify-v23');
   loadScript('workflow-fixes-v23.js?v=20260822-23', 'data-workflow-fixes-v23');
+  loadScript('employee-polish-v24.js?v=20260822-24', 'data-employee-polish-v24');
+  loadScript('i18n-v24.js?v=20260822-24', 'data-i18n-v24');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
