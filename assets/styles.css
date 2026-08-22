@@ -474,7 +474,7 @@ main {
 .optional-chip,
 .recommendation {
   background: var(--brand-secondary-surface);
-  color: #5B4028;
+  color: var(--color-camel-ink);
 }
 
 .optional-chip {
