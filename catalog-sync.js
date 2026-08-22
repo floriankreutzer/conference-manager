@@ -38,11 +38,12 @@
   }
 
   loadScript('site-info.js?v=20260822-13', 'data-site-info-module');
-  loadScript('welcome-pdf-v2.js?v=20260822-13', 'data-welcome-pdf-v2');
+  loadScript('welcome-pdf-v2.js?v=20260822-20', 'data-welcome-pdf-v2');
   loadScript('profile-welcome.js?v=20260822-17', 'data-profile-welcome-module');
   loadScript('manager-reports.js?v=20260822-17', 'data-manager-reports-module');
   loadScript('ux-enhancements-v16.js?v=20260822-16', 'data-ux-enhancements-v16');
   loadScript('ui-v17.js?v=20260822-17', 'data-ui-v17');
+  loadScript('brand-theme-v20.js?v=20260822-20', 'data-brand-theme-v20');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
