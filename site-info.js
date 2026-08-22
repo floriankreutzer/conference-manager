@@ -187,7 +187,7 @@
     }
   }, true);
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function init() {
     injectStyles();
     loadAll();
     ensureTab();
@@ -197,5 +197,8 @@
       observer.observe(nav, { childList:true });
       nav.__siteObserver = true;
     }
-  });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
