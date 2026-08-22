@@ -1,0 +1,96 @@
+/*
+ * Conference Manager design tokens
+ *
+ * Change brand colors, density, typography, radii and elevation here.
+ * Component styles should consume semantic variables instead of hard-coded values.
+ */
+:root {
+  /* Brand */
+  --color-bordeaux-700: #651D32;
+  --color-bordeaux-600: #7A1F3D;
+  --color-bordeaux-100: #F5E9ED;
+  --color-camel-600: #A97D4E;
+  --color-camel-500: #C29A6B;
+  --color-camel-200: #EADBCB;
+  --color-camel-100: #F5EEE6;
+
+  /* Neutral palette */
+  --color-ink: #171717;
+  --color-ink-soft: #353535;
+  --color-muted: #62666B;
+  --color-muted-light: #85888C;
+  --color-border-strong: #A9A8A5;
+  --color-border: #D8D6D1;
+  --color-border-soft: #EAE8E4;
+  --color-canvas: #F3F2F0;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #F8F7F5;
+  --color-surface-camel: var(--color-camel-100);
+  --color-surface-camel-strong: var(--color-camel-200);
+  --color-surface-bordeaux: var(--color-bordeaux-100);
+  --color-sidebar: #171717;
+  --color-sidebar-hover: #2A2A2A;
+  --color-on-dark: #FFFFFF;
+  --color-on-dark-muted: #D0D0D0;
+
+  /* Status */
+  --color-danger: #A4261D;
+  --color-danger-soft: #FDECEA;
+  --color-success: #176B43;
+  --color-success-soft: #E7F4EC;
+  --color-warning: #8A5C00;
+  --color-warning-soft: #FFF5DF;
+
+  /* Semantic brand aliases */
+  --brand-primary: var(--color-bordeaux-600);
+  --brand-primary-hover: var(--color-bordeaux-700);
+  --brand-secondary: var(--color-camel-500);
+  --brand-secondary-surface: var(--color-surface-camel);
+  --brand-secondary-surface-strong: var(--color-surface-camel-strong);
+
+  /* Typography */
+  --font-family-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-md: 0.9375rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: clamp(1.75rem, 2vw, 2.125rem);
+  --line-height-tight: 1.2;
+  --line-height-base: 1.5;
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 800;
+
+  /* Spacing */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  /* Shape */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-pill: 999px;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(17, 17, 17, 0.06);
+  --shadow-md: 0 8px 24px rgba(17, 17, 17, 0.10);
+  --shadow-dialog: 0 20px 56px rgba(17, 17, 17, 0.22);
+
+  /* Interaction */
+  --focus-color: #111111;
+  --focus-width: 3px;
+  --control-height: 42px;
+  --transition-fast: 140ms ease;
+
+  /* Layout */
+  --sidebar-width: 252px;
+  --content-max-width: 1440px;
+}
