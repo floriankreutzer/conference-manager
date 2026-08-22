@@ -1,12 +1,14 @@
 import { t } from '../core/i18n.js';
 import { decorateEmployeeParity, openRichFloorplan } from './employee-visuals.js';
 import { PARITY_RETURN_KEY, getAdminSection, setAdminSection } from './admin-parity.js';
+import { pt } from './parity-i18n.js';
 import { ensureParityCatalog } from './parity-data.js';
 import { enhanceManager } from './manager-parity.js';
 import { richPrint } from './welcome-print.js';
 
 let syncFrame = 0;
 let restoreInProgress = false;
+const initialReturnMarker = sessionStorage.getItem(PARITY_RETURN_KEY);
 
 function scheduleSync() {
   cancelAnimationFrame(syncFrame);
@@ -16,12 +18,16 @@ function scheduleSync() {
 function restoreManagerPosition() {
   if (restoreInProgress) return;
   const raw = sessionStorage.getItem(PARITY_RETURN_KEY);
-  if (!raw) return;
+  if (!raw || raw !== initialReturnMarker) return;
   let restore;
   try { restore = JSON.parse(raw); } catch {
     sessionStorage.removeItem(PARITY_RETURN_KEY);
     return;
   }
+
+  // Apply the nested admin section before opening the Manager/Admin views so
+  // the first enhanced render already uses the correct editor.
+  setAdminSection(restore.adminSection || getAdminSection());
 
   const managerNav = [...document.querySelectorAll('#primaryNavigation button')]
     .find((control) => control.textContent.trim().includes(t('nav.manager')));
@@ -43,16 +49,32 @@ function restoreManagerPosition() {
     return;
   }
 
-  setAdminSection(restore.adminSection || getAdminSection());
   sessionStorage.removeItem(PARITY_RETURN_KEY);
   scheduleSync();
+}
+
+function ensureReportInsightsHeading() {
+  const report = document.querySelector('[data-feature-parity="reports"]');
+  const insights = report?.querySelector('.report-insights');
+  if (!report || !insights) return;
+
+  let heading = report.querySelector('[data-report-insights-heading]');
+  if (!heading) {
+    heading = document.createElement('h3');
+    heading.id = 'reportInsightsHeading';
+    heading.dataset.reportInsightsHeading = 'true';
+    insights.before(heading);
+  }
+  heading.textContent = pt('parity.report.insights');
+  insights.setAttribute('aria-labelledby', heading.id);
 }
 
 function sync() {
   restoreManagerPosition();
   decorateEmployeeParity();
   enhanceManager();
-  document.documentElement.dataset.featureParityBuild = '2026.08.22.41';
+  ensureReportInsightsHeading();
+  document.documentElement.dataset.featureParityBuild = '2026.08.22.42';
 }
 
 document.addEventListener('click', (event) => {
