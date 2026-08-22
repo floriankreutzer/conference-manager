@@ -1,35 +1,43 @@
-(function () {
-  const key = 'conference_catalog_v2';
-  try {
-    if (!localStorage.getItem(key) && typeof catalog !== 'undefined' && catalog) {
-      localStorage.setItem(key, JSON.stringify(catalog));
-    }
-  } catch (_) {}
+(() => {
+  const CATALOG_KEY = 'conference_catalog_v2';
 
-  function normalizeCatalogTabs() {
+  try {
+    if (!localStorage.getItem(CATALOG_KEY) && typeof catalog !== 'undefined' && catalog) {
+      localStorage.setItem(CATALOG_KEY, JSON.stringify(catalog));
+    }
+  } catch {
+    // Local storage is optional in the MVP; the in-memory catalog remains usable.
+  }
+
+  const normalizeCatalogTabs = () => {
     const itemTab = document.getElementById('catalogItemsTab');
     if (itemTab && itemTab.dataset.catalogTab !== 'items') itemTab.dataset.catalogTab = 'items';
-  }
+  };
 
-  function watchCatalogTabs() {
+  const watchCatalogTabs = () => {
     normalizeCatalogTabs();
-    const nav = document.querySelector('.catalog-nav');
-    if (!nav || nav.__catalogTabNormalizer) return;
+    const navigation = document.querySelector('.catalog-nav');
+    if (!navigation || navigation.__catalogTabNormalizer) return;
+
     const observer = new MutationObserver(normalizeCatalogTabs);
-    observer.observe(nav, { childList: true });
-    nav.__catalogTabNormalizer = observer;
-  }
+    observer.observe(navigation, { childList: true });
+    navigation.__catalogTabNormalizer = observer;
+  };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchCatalogTabs);
-  else watchCatalogTabs();
-
-  function loadScript(src, marker) {
+  const loadScript = (src, marker) => {
     if (document.querySelector(`script[${marker}]`)) return;
+
     const script = document.createElement('script');
     script.async = false;
     script.src = src;
     script.setAttribute(marker, 'true');
     document.head.appendChild(script);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', watchCatalogTabs, { once: true });
+  } else {
+    watchCatalogTabs();
   }
 
   loadScript('site-info.js?v=20260822-13', 'data-site-info-module');
@@ -44,28 +52,32 @@
   loadScript('navigation-help-v23.js?v=20260822-23', 'data-navigation-help-v23');
   loadScript('submit-notify-v23.js?v=20260822-23', 'data-submit-notify-v23');
   loadScript('workflow-fixes-v23.js?v=20260822-23', 'data-workflow-fixes-v23');
-
-  loadScript('workflow-core-v27.js?v=20260822-29', 'data-workflow-core-v27');
+  loadScript('workflow-core-v27.js?v=20260822-30', 'data-workflow-core-v27');
   loadScript('request-change-v27.js?v=20260822-29', 'data-request-change-v27');
   loadScript('employee-consolidated-v27.js?v=20260822-29', 'data-employee-consolidated-v27');
   loadScript('i18n-site-v26.js?v=20260822-29', 'data-i18n-site-v26');
   loadScript('i18n-late-register-v28.js?v=20260822-29', 'data-i18n-late-register-v28');
   loadScript('timeline-style-v28.js?v=20260822-29', 'data-timeline-style-v28');
-  loadScript('timeline-v27.js?v=20260822-29', 'data-timeline-v27');
+  loadScript('timeline-v27.js?v=20260822-30', 'data-timeline-v27');
   loadScript('ux-final-v27.js?v=20260822-29', 'data-ux-final-v27');
 
-  document.addEventListener('click', function (e) {
-    const button = e.target.closest('[data-welcome-pdf]');
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-welcome-pdf]');
     if (!button) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    const id = button.dataset.welcomePdf;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const requestId = button.dataset.welcomePdf;
+
     if (typeof window.createConferenceWelcomePdfV2 === 'function') {
-      window.createConferenceWelcomePdfV2(id);
+      window.createConferenceWelcomePdfV2(requestId);
       return;
     }
-    setTimeout(function () {
-      if (typeof window.createConferenceWelcomePdfV2 === 'function') window.createConferenceWelcomePdfV2(id);
+
+    setTimeout(() => {
+      if (typeof window.createConferenceWelcomePdfV2 === 'function') {
+        window.createConferenceWelcomePdfV2(requestId);
+      }
     }, 150);
   }, true);
 })();
