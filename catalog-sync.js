@@ -50,6 +50,7 @@
   loadScript('request-change-v27.js?v=20260822-28', 'data-request-change-v27');
   loadScript('employee-consolidated-v27.js?v=20260822-28', 'data-employee-consolidated-v27');
   loadScript('i18n-site-v26.js?v=20260822-28', 'data-i18n-site-v26');
+  loadScript('i18n-late-register-v28.js?v=20260822-28', 'data-i18n-late-register-v28');
   loadScript('timeline-v27.js?v=20260822-28', 'data-timeline-v27');
   loadScript('ux-final-v27.js?v=20260822-28', 'data-ux-final-v27');
 
