@@ -334,8 +334,7 @@ main {
 
   .button-row,
   .request-actions,
-  .wizard-actions,
-  .modal-actions {
+  .wizard-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
@@ -343,8 +342,7 @@ main {
 
   .button-row button,
   .request-actions button,
-  .wizard-actions button,
-  .modal-actions button {
+  .wizard-actions button {
     width: 100%;
     min-width: 0;
     height: 100%;
@@ -352,9 +350,22 @@ main {
   }
 
   .button-row button:last-child:nth-child(odd),
-  .request-actions button:last-child:nth-child(odd),
-  .modal-actions button:last-child:nth-child(odd) {
+  .request-actions button:last-child:nth-child(odd) {
     grid-column: 1 / -1;
+  }
+
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--app-control-gap);
+    width: 100%;
+  }
+
+  .modal-actions button {
+    width: 100%;
+    min-width: 0;
+    height: var(--control-height);
+    white-space: nowrap;
   }
 
   .wizard-actions .spacer {
@@ -500,7 +511,6 @@ main {
   .button-row,
   .request-actions,
   .wizard-actions,
-  .modal-actions,
   .segmented,
   .mode-selector {
     grid-template-columns: 1fr;
@@ -509,7 +519,6 @@ main {
   .nav-list > li:last-child:nth-child(odd),
   .button-row button:last-child:nth-child(odd),
   .request-actions button:last-child:nth-child(odd),
-  .modal-actions button:last-child:nth-child(odd),
   .mode-selector legend {
     grid-column: 1;
   }
