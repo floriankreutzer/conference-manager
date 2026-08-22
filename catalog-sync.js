@@ -46,6 +46,9 @@
   loadScript('brand-theme-v20.js?v=20260822-20', 'data-brand-theme-v20');
   loadScript('employee-ux-v21.js?v=20260822-21', 'data-employee-ux-v21');
   loadScript('employee-p0-v22.js?v=20260822-22', 'data-employee-p0-v22');
+  loadScript('employee-form-v23.js?v=20260822-23', 'data-employee-form-v23');
+  loadScript('request-change-v23.js?v=20260822-23', 'data-request-change-v23');
+  loadScript('navigation-help-v23.js?v=20260822-23', 'data-navigation-help-v23');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
