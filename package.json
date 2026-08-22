@@ -13,7 +13,7 @@
     "audit": "npm audit --audit-level=high"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0"
+    "@playwright/test": "1.55.0"
   },
   "engines": {
     "node": ">=22"
