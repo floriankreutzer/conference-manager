@@ -8,6 +8,7 @@ async function openManager(page) {
   await expect(managerNav).toBeVisible();
   await managerNav.click();
   await expect(page.locator('.manager-tabs')).toBeVisible();
+  await expect(page.locator('.manager-surface')).toBeVisible();
 }
 
 async function expectEqualControlHeights(locator) {
