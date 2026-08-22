@@ -44,13 +44,13 @@
               <label><span>Titel *</span><input id="title" type="text" placeholder="z. B. Management Workshop" /></label>
               <label><span>Standort *</span><select id="location"></select></label>
               <label><span>Datum *</span><input id="date" type="date" /></label>
-              <label><span>Interne Teilnehmende *</span><input id="internalParticipants" type="number" min="0" value="10" /></label>
+              <label><span>Interne Teilnehmende *</span><input id="internalParticipants" type="number" min="0" placeholder="Anzahl eingeben" /></label>
               <label><span>Start *</span><input id="start" type="time" value="09:00" /></label>
               <label><span>Ende *</span><input id="end" type="time" value="12:00" /></label>
             </div>
             <div class="form-grid two participant-row">
-              <label><span>Externe Teilnehmende</span><input id="externalParticipants" type="number" min="0" value="2" /></label>
-              <div class="participant-total"><span>Gesamt</span><strong id="participantTotal">12 Teilnehmende</strong><small>Relevant für Raumkapazität und Bewirtung</small></div>
+              <label><span>Externe Teilnehmende</span><input id="externalParticipants" type="number" min="0" placeholder="0" /></label>
+              <div class="participant-total"><span>Gesamt</span><strong id="participantTotal">0 Teilnehmende</strong><small>Relevant für Raumkapazität und Bewirtung</small></div>
             </div>
           </div>
 
@@ -85,7 +85,7 @@
           <div class="step-panel" data-panel="6">
             <div class="section-heading"><div><h2>Anfrage prüfen</h2><p>Beim Absenden erfolgt eine finale Kalenderprüfung.</p></div></div>
             <div id="review"></div>
-            <div class="tentative-box"><strong>Tentative Reservation</strong><p>Nach erfolgreicher Prüfung wird der Raum vorläufig geblockt. Erst die manuelle Bestätigung durch den Konferenzmanager macht die Buchung verbindlich.</p></div>
+            <div class="tentative-box"><strong>Raum wird vorläufig reserviert</strong><p>Nach dem Absenden halten wir den ausgewählten Raum zunächst für Sie frei. Die Buchung wird verbindlich, sobald das Conference Management Ihre Anfrage bestätigt.</p></div>
           </div>
 
           <div class="wizard-actions"><button type="button" class="secondary" id="backBtn">Zurück</button><div class="spacer"></div><button type="button" class="primary" id="nextBtn">Weiter</button><button type="button" class="primary success hidden" id="submitBtn">Anfrage absenden</button></div>
@@ -119,7 +119,7 @@
   <div id="toast" class="toast"></div>
   <script src="manager-fix.js?v=20260822-5"></script>
   <script src="app.js?v=20260822-4"></script>
-  <script src="catalog-sync.js?v=20260822-21"></script>
+  <script src="catalog-sync.js?v=20260822-22"></script>
   <script src="floorplan-extension.js?v=20260822-6"></script>
   <script src="request-details.js?v=20260822-10"></script>
   <script src="a11y-core.js?v=20260822-14"></script>
