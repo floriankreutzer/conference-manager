@@ -37,11 +37,20 @@ main,
 .room-plan-view button,
 .admin-parity-nav button,
 .manager-surface .request-actions button {
+  display: inline-flex;
   width: 100%;
   min-width: 0;
+  height: var(--control-height);
   min-height: var(--control-height);
+  align-items: center;
+  justify-content: center;
+  padding-block: 0;
   padding-inline: var(--control-padding-inline);
+  overflow: hidden;
+  line-height: 1.15;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .manager-surface {
@@ -60,6 +69,10 @@ main,
 
 .manager-surface :where(input, select, textarea, button) {
   max-width: 100%;
+}
+
+.manager-surface :where(input:not([type="checkbox"]):not([type="radio"]), select) {
+  min-height: var(--control-height);
 }
 
 .manager-filters {
@@ -206,7 +219,9 @@ main,
   .manager-quick-filters button,
   .room-plan-view button,
   .admin-parity-nav button {
+    height: var(--control-height);
     min-height: var(--control-height);
+    font-size: var(--font-size-sm);
   }
 
   .manager-quick-filters {
