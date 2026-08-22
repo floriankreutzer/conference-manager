@@ -1,0 +1,15 @@
+{
+  "name": "conference-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:syntax": "node scripts/check-syntax.mjs",
+    "check:static": "node scripts/check-static.mjs",
+    "test": "node --test",
+    "check": "npm run check:syntax && npm run check:static && npm test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
