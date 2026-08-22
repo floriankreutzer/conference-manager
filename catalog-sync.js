@@ -51,7 +51,7 @@
   loadScript('employee-consolidated-v27.js?v=20260822-27', 'data-employee-consolidated-v27');
   loadScript('i18n-site-v26.js?v=20260822-27', 'data-i18n-site-v26');
   loadScript('timeline-v27.js?v=20260822-27', 'data-timeline-v27');
-  loadScript('ux-final-v26.js?v=20260822-27', 'data-ux-final-v26');
+  loadScript('ux-final-v27.js?v=20260822-27', 'data-ux-final-v27');
 
   document.addEventListener('click', function (e) {
     const button = e.target.closest('[data-welcome-pdf]');
