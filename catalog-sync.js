@@ -11,17 +11,33 @@
   const managerList = document.getElementById('managerList');
   if (managerList) managerList.__guestObserved = true;
 
-  if (!document.querySelector('script[data-site-info-module]')) {
+  function loadScript(src, marker) {
+    if (document.querySelector(`script[${marker}]`)) return;
     const script = document.createElement('script');
-    script.src = 'site-info.js?v=20260822-12';
-    script.dataset.siteInfoModule = 'true';
+    script.src = src;
+    script.setAttribute(marker, 'true');
     document.head.appendChild(script);
   }
 
-  if (!document.querySelector('script[data-manager-summary-module]')) {
-    const script = document.createElement('script');
-    script.src = 'manager-summary.js?v=20260822-12';
-    script.dataset.managerSummaryModule = 'true';
-    document.head.appendChild(script);
-  }
+  loadScript('site-info.js?v=20260822-13', 'data-site-info-module');
+  loadScript('manager-summary.js?v=20260822-12', 'data-manager-summary-module');
+  loadScript('welcome-pdf-v2.js?v=20260822-13', 'data-welcome-pdf-v2');
+
+  // Register before request-details.js so the legacy PDF handler can no longer win.
+  document.addEventListener('click', function (e) {
+    const button = e.target.closest('[data-welcome-pdf]');
+    if (!button) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const id = button.dataset.welcomePdf;
+    if (typeof window.createConferenceWelcomePdfV2 === 'function') {
+      window.createConferenceWelcomePdfV2(id);
+      return;
+    }
+    setTimeout(function () {
+      if (typeof window.createConferenceWelcomePdfV2 === 'function') {
+        window.createConferenceWelcomePdfV2(id);
+      }
+    }, 150);
+  }, true);
 })();
