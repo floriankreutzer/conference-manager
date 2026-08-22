@@ -52,13 +52,13 @@
   loadScript('navigation-help-v23.js?v=20260822-23', 'data-navigation-help-v23');
   loadScript('submit-notify-v23.js?v=20260822-23', 'data-submit-notify-v23');
   loadScript('workflow-fixes-v23.js?v=20260822-23', 'data-workflow-fixes-v23');
-  loadScript('workflow-core-v27.js?v=20260822-30', 'data-workflow-core-v27');
+  loadScript('workflow-core-v27.js?v=20260822-31', 'data-workflow-core-v27');
   loadScript('request-change-v27.js?v=20260822-29', 'data-request-change-v27');
   loadScript('employee-consolidated-v27.js?v=20260822-29', 'data-employee-consolidated-v27');
   loadScript('i18n-site-v26.js?v=20260822-29', 'data-i18n-site-v26');
   loadScript('i18n-late-register-v28.js?v=20260822-29', 'data-i18n-late-register-v28');
   loadScript('timeline-style-v28.js?v=20260822-29', 'data-timeline-style-v28');
-  loadScript('timeline-v27.js?v=20260822-30', 'data-timeline-v27');
+  loadScript('timeline-v27.js?v=20260822-31', 'data-timeline-v27');
   loadScript('ux-final-v27.js?v=20260822-29', 'data-ux-final-v27');
 
   document.addEventListener('click', (event) => {
