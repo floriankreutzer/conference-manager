@@ -1,5 +1,14 @@
 import { t } from './i18n.js';
 
+const BLOCKED_ATTRIBUTES = new Set(['srcdoc']);
+const EVENT_ATTRIBUTE_PATTERN = /^on/i;
+
+function applyAttribute(node, key, value) {
+  const normalizedKey = String(key || '').trim();
+  if (!normalizedKey || EVENT_ATTRIBUTE_PATTERN.test(normalizedKey) || BLOCKED_ATTRIBUTES.has(normalizedKey.toLowerCase())) return;
+  node.setAttribute(normalizedKey, String(value));
+}
+
 export function el(tagName, options = {}, children = []) {
   const node = document.createElement(tagName);
   if (options.className) node.className = options.className;
@@ -8,12 +17,16 @@ export function el(tagName, options = {}, children = []) {
   if (options.type) node.type = options.type;
   if (options.value !== undefined) node.value = options.value;
   if (options.name) node.name = options.name;
-  if (options.href) node.href = options.href;
+  if (options.href) {
+    const href = safeNavigationUrl(options.href);
+    if (href) node.href = href;
+  }
   if (options.target) node.target = options.target;
   if (options.rel) node.rel = options.rel;
+  if (node.target === '_blank' && !node.rel) node.rel = 'noopener noreferrer';
   if (options.placeholder) node.placeholder = options.placeholder;
-  if (options.dataset) Object.entries(options.dataset).forEach(([key, value]) => { node.dataset[key] = value; });
-  if (options.attrs) Object.entries(options.attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+  if (options.dataset) Object.entries(options.dataset).forEach(([key, value]) => { node.dataset[key] = String(value); });
+  if (options.attrs) Object.entries(options.attrs).forEach(([key, value]) => applyAttribute(node, key, value));
   if (options.disabled !== undefined) node.disabled = Boolean(options.disabled);
   if (options.checked !== undefined) node.checked = Boolean(options.checked);
   const normalizedChildren = Array.isArray(children) ? children : [children];
@@ -58,14 +71,19 @@ export function showToast(message) {
   window.__cmToastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
 }
 
-export function safeHttpsUrl(value) {
+export function safeNavigationUrl(value) {
   if (!value) return null;
   try {
     const url = new URL(value, window.location.href);
-    return url.protocol === 'https:' ? url.href : null;
+    if (url.protocol !== 'https:') return null;
+    return url.href;
   } catch {
     return null;
   }
+}
+
+export function safeHttpsUrl(value) {
+  return safeNavigationUrl(value);
 }
 
 export function openDialog({ title, description = '', content, actions = [], labelledById = 'dialogTitle' }) {
