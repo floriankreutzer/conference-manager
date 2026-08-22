@@ -20,7 +20,9 @@ const forbidden = [
   { pattern: /\.outerHTML\s*=/, message: 'outerHTML assignment is forbidden in application code' },
   { pattern: /insertAdjacentHTML\s*\(/, message: 'insertAdjacentHTML is forbidden in application code' },
   { pattern: /setAttribute\s*\(\s*['"]on[a-z]+['"]/i, message: 'inline event-handler attributes are forbidden' },
+  { pattern: /setAttribute\s*\(\s*['"]style['"]/i, message: 'inline style attributes are forbidden' },
   { pattern: /javascript\s*:/i, message: 'javascript: URLs are forbidden' },
+  { pattern: /vbscript\s*:/i, message: 'vbscript: URLs are forbidden' },
   { pattern: /data\s*:\s*text\/html/i, message: 'data:text/html URLs are forbidden' },
 ];
 
@@ -39,10 +41,13 @@ const index = readFileSync('index.html', 'utf8');
 const requiredCspDirectives = [
   "default-src 'self'",
   "script-src 'self'",
+  "style-src 'self'",
+  "style-src-attr 'none'",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
   "connect-src 'none'",
+  "worker-src 'none'",
 ];
 if (!/http-equiv=["']Content-Security-Policy["']/i.test(index)) {
   console.error('index.html: Content-Security-Policy meta is required for the static demo');
@@ -53,6 +58,14 @@ for (const directive of requiredCspDirectives) {
     console.error(`index.html: CSP directive missing: ${directive}`);
     failures += 1;
   }
+}
+if (/style-src[^;]*'unsafe-inline'/i.test(index)) {
+  console.error("index.html: style-src must not allow 'unsafe-inline'");
+  failures += 1;
+}
+if (/script-src[^;]*'unsafe-(?:inline|eval)'/i.test(index)) {
+  console.error('index.html: script-src must not allow unsafe-inline or unsafe-eval');
+  failures += 1;
 }
 if (!/<meta\s+name=["']referrer["']\s+content=["']no-referrer["']/i.test(index)) {
   console.error('index.html: no-referrer policy is required');
