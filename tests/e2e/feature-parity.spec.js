@@ -135,6 +135,7 @@ test('confirmed booking opens the rich welcome print view with route QR and visi
   const popup = await popupPromise;
   await expect(popup.locator('h1')).toHaveText('Schön, dass Sie dabei sind.');
   await expect(popup.locator('.hero')).toContainText('Welcome PDF Session');
+  await expect(popup.locator('.hero')).toHaveCSS('background-color', 'rgb(29, 29, 31)');
   await expect(popup.locator('.qr')).toHaveCount(1);
   await expect(popup.locator('.wifi')).toContainText('Gäste-WLAN');
 });
