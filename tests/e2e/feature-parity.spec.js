@@ -32,7 +32,7 @@ const seedManagerData = async (page, date) => {
 
 test('employee catering visuals and rich floorplan survive the reorganization', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-feature-parity-build', '2026.08.22.41');
+  await expect(page.locator('html')).toHaveAttribute('data-feature-parity-build', '2026.08.22.42');
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await fillSchedule(page);
   await page.locator('.wizard-actions button.primary').click();
