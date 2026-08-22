@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -8,12 +8,25 @@ export default defineConfig({
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   use: {
     baseURL: 'http://127.0.0.1:4173',
-    browserName: 'chromium',
     headless: true,
-    viewport: { width: 1280, height: 900 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  projects: [
+    {
+      name: 'chromium-desktop',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 900 },
+      },
+    },
+    {
+      name: 'webkit-mobile',
+      use: {
+        ...devices['iPhone 15'],
+      },
+    },
+  ],
   webServer: {
     command: 'python3 -m http.server 4173 --bind 127.0.0.1',
     url: 'http://127.0.0.1:4173',
