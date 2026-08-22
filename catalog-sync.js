@@ -8,7 +8,7 @@
 
   if (!document.querySelector('script[data-site-info-module]')) {
     const script = document.createElement('script');
-    script.src = 'site-info.js?v=20260822-9';
+    script.src = 'site-info.js?v=20260822-10';
     script.dataset.siteInfoModule = 'true';
     document.head.appendChild(script);
   }
