@@ -87,6 +87,47 @@ test('cost calculation uses dedicated catering participant count', () => {
   assert.deepEqual(result, { roomCost: 100, serviceCost: 90, cateringCost: 56, total: 246 });
 });
 
+test('regression: manipulated negative and non-finite prices cannot reduce or poison totals', () => {
+  const result = calculateCosts({
+    room: { rate: -100 },
+    services: [
+      { id: 'negative', price: -90 },
+      { id: 'infinite', price: Number.POSITIVE_INFINITY },
+      { id: 'valid', price: '25.50' },
+    ],
+    selectedServiceIds: ['negative', 'infinite', 'valid'],
+    cateringPackage: { pricePerPerson: Number.NaN },
+    cateringParticipants: 5,
+    items: [{ id: 'water', price: -2 }],
+    quantities: { water: 3 },
+  });
+  assert.deepEqual(result, { roomCost: 0, serviceCost: 25.5, cateringCost: 0, total: 25.5 });
+});
+
+test('regression: fractional or negative catering quantities are ignored', () => {
+  const fractional = calculateCosts({
+    cateringPackage: { pricePerPerson: 10 },
+    cateringParticipants: 1.5,
+    items: [{ id: 'water', price: 2 }],
+    quantities: { water: -3 },
+  });
+  assert.deepEqual(fractional, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
+});
+
+test('regression: unsafe cost arithmetic saturates at a finite safe value', () => {
+  const result = calculateCosts({
+    room: { rate: Number.MAX_VALUE },
+    services: [{ id: 'host', price: Number.MAX_SAFE_INTEGER }],
+    selectedServiceIds: ['host'],
+    cateringPackage: { pricePerPerson: Number.MAX_SAFE_INTEGER },
+    cateringParticipants: 2,
+  });
+  assert.equal(result.roomCost, Number.MAX_SAFE_INTEGER);
+  assert.equal(result.serviceCost, Number.MAX_SAFE_INTEGER);
+  assert.equal(result.cateringCost, Number.MAX_SAFE_INTEGER);
+  assert.equal(result.total, Number.MAX_SAFE_INTEGER);
+});
+
 test('repeat of a past request clears schedule and room but preserves business details', () => {
   const result = cloneForRepeat({ title: 'Old event', location: 'Berlin', date: '2026-08-20', start: '09:00', end: '10:00', roomId: 'R1', serviceIds: ['host'], allocations: [{ costCenter: '1000', percent: 100 }] }, '2026-08-22');
   assert.equal(result.date, '');
