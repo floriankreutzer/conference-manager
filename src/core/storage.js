@@ -123,7 +123,7 @@ export function readString(key, fallback = '') {
       notifyStorageIssue(key, 'oversize');
       return fallback;
     }
-    return isDemoRoleKey(key) ? normalizeDemoRole(value) : value;
+    return value;
   } catch {
     return fallback;
   }
