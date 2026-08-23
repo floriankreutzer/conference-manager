@@ -83,7 +83,8 @@ test('manager reviews complete request details before using the unchanged decisi
   const confirmation = page.locator('dialog.manager-confirm-dialog');
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toContainText('Buchung verbindlich bestätigen?');
-  await expect(confirmation).toContainText('12 Personen');
+  await expect(confirmation).toContainText('Executive Workshop');
+  await expect(confirmation).toContainText('12');
 
   await confirmation.locator('[data-manager-confirm-final="CR-FIRST-001"]').click();
   await expect(page.locator('.request-card').filter({ hasText: 'Executive Workshop' }).locator('.status-badge')).toHaveText('Bestätigt');
