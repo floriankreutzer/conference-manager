@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  PARTICIPANT_LIMIT,
   REQUEST_STATUS,
   calculateCosts,
   cloneForRepeat,
@@ -31,6 +32,24 @@ test('regression: end time must be after start time', () => {
 
 test('regression: negative participant counts are rejected', () => {
   assert.equal(validateSchedule({ ...baseForm, internalParticipants: -1 }, '2026-08-22')?.key, 'validation.negative');
+});
+
+test('progression: participant counts accept the documented upper bound', () => {
+  assert.equal(validateSchedule({ ...baseForm, internalParticipants: PARTICIPANT_LIMIT, externalParticipants: 0 }, '2026-08-22'), null);
+});
+
+test('regression: fractional participant counts are rejected by the domain', () => {
+  const result = validateSchedule({ ...baseForm, internalParticipants: 1.5 }, '2026-08-22');
+  assert.deepEqual(result, { step: 1, field: 'internalParticipants', key: 'validation.participantRange' });
+});
+
+test('regression: participant counts above the domain maximum are rejected', () => {
+  const result = validateSchedule({ ...baseForm, externalParticipants: PARTICIPANT_LIMIT + 1 }, '2026-08-22');
+  assert.deepEqual(result, { step: 1, field: 'externalParticipants', key: 'validation.participantRange' });
+});
+
+test('regression: non-finite participant counts remain rejected', () => {
+  assert.equal(validateSchedule({ ...baseForm, internalParticipants: Number.POSITIVE_INFINITY }, '2026-08-22')?.key, 'validation.negative');
 });
 
 test('progression: stale or deactivated room is rejected', () => {
