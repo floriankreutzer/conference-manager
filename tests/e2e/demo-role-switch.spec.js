@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+const selectDemoRole = async (page, role) => {
+  const reloadPromise = page.waitForEvent('load');
+  await page.locator('#demoRoleSwitch').selectOption(role);
+  await reloadPromise;
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue(role);
+};
+
 test('demo role switch lives in the demo panel and no longer in the profile controls', async ({ page }) => {
   await page.goto('/');
 
@@ -15,15 +22,13 @@ test('demo role switch lives in the demo panel and no longer in the profile cont
   await expect(page.locator('#profileRole')).toBeHidden();
   await page.locator('dialog button.primary').click();
 
-  await roleSwitch.selectOption('manager');
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('manager');
+  await selectDemoRole(page, 'manager');
+  await expect(page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).resolves.toBe('manager');
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(1);
-  await expect(page.locator('#demoRoleSwitch')).toHaveValue('manager');
 
-  await page.locator('#demoRoleSwitch').selectOption('employee');
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('employee');
+  await selectDemoRole(page, 'employee');
+  await expect(page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).resolves.toBe('employee');
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
-  await expect(page.locator('#demoRoleSwitch')).toHaveValue('employee');
 });
 
 test('production runtime exposes no demo role switch', async ({ page }) => {
