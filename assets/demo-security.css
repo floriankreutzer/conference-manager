@@ -19,6 +19,35 @@
   opacity: 0.82;
 }
 
+.demo-security-role {
+  display: block;
+  margin-top: 12px;
+}
+
+.demo-security-role-label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.demo-security-role-select {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 28px 7px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius-xs);
+  background: var(--surface, #fff);
+  color: var(--text, #1a1a1a);
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.demo-security-role-select:focus-visible {
+  outline: 2px solid var(--brand-secondary);
+  outline-offset: 2px;
+}
+
 .demo-security-reset {
   width: 100%;
   padding: 8px 10px;
@@ -36,6 +65,10 @@
 .demo-security-reset:hover,
 .demo-security-reset:focus-visible {
   background: rgba(255, 255, 255, 0.12);
+}
+
+.profile-content label[for="profileRole"] {
+  display: none;
 }
 
 @media (max-width: 720px) {
