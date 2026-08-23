@@ -104,14 +104,27 @@ test('regression: manipulated negative and non-finite prices cannot reduce or po
   assert.deepEqual(result, { roomCost: 0, serviceCost: 25.5, cateringCost: 0, total: 25.5 });
 });
 
-test('regression: fractional or negative catering quantities are ignored', () => {
+test('regression: fractional catering counts preserve the visible package charge while unsafe item quantities are ignored', () => {
   const fractional = calculateCosts({
     cateringPackage: { pricePerPerson: 10 },
     cateringParticipants: 1.5,
     items: [{ id: 'water', price: 2 }],
     quantities: { water: -3 },
   });
-  assert.deepEqual(fractional, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
+  assert.deepEqual(fractional, { roomCost: 0, serviceCost: 0, cateringCost: 15, total: 15 });
+});
+
+test('regression: negative or non-finite catering counts cannot create package charges', () => {
+  const negative = calculateCosts({
+    cateringPackage: { pricePerPerson: 10 },
+    cateringParticipants: -1,
+  });
+  const infinite = calculateCosts({
+    cateringPackage: { pricePerPerson: 10 },
+    cateringParticipants: Number.POSITIVE_INFINITY,
+  });
+  assert.equal(negative.cateringCost, 0);
+  assert.equal(infinite.cateringCost, 0);
 });
 
 test('regression: unsafe cost arithmetic saturates at a finite safe value', () => {
