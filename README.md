@@ -63,7 +63,8 @@ Current repository entry points:
 │   ├── DEMO-SECURITY.md
 │   ├── DESIGN-SYSTEM.md
 │   ├── PHASE-2-PLAN.md
-│   └── PRODUCTION-SECURITY.md
+│   ├── PRODUCTION-SECURITY.md
+│   └── SAAS-PRODUCTION-TOPOLOGY.md
 ├── scripts/
 │   ├── check-agent-instructions.mjs
 │   ├── check-architecture.mjs
@@ -105,7 +106,9 @@ CSS responsibilities remain consolidated: `assets/employee-ux.css` owns Employee
 
 New user-visible application copy belongs to the canonical Core localization mechanism and is rendered through `t()`. The former Shared parity translation catalogue has been consolidated into Core under semantic key namespaces. A temporary Manager-only `pt()` name-compatibility adapter remains for two baseline enhancement modules; it delegates directly to Core and owns no translations or fallback behavior.
 
-See `docs/BASELINE.md`, `docs/ARCHITECTURE.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+The approved SaaS production topology keeps this repository as the browser application and places the trusted production backend in a dedicated `conference-manager-api` repository while exposing the browser and `/api/*` through one HTTPS origin.
+
+See `docs/BASELINE.md`, `docs/ARCHITECTURE.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
 
 ## Feature flags
 
@@ -169,7 +172,9 @@ Production operation requires at least:
 - secure calendar integration, for example through Microsoft Graph
 - security controls appropriate to the backend architecture, including CSRF protection for cookie-based authentication
 
-See `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md` for additional details.
+The SaaS production topology decision fixes the trusted backend in `conference-manager-api` and keeps browser/API access same-origin under `/api/*`; implementation details remain with the owning SaaS foundation issues.
+
+See `docs/DEMO-SECURITY.md`, `docs/PRODUCTION-SECURITY.md` and `docs/SAAS-PRODUCTION-TOPOLOGY.md` for additional details.
 
 ## Calendar integration
 
