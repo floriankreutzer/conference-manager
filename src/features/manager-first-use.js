@@ -73,10 +73,14 @@ function wrapAdvancedFilters(section) {
     dataset: { managerAdvancedFilters: 'true' },
   });
   details.open = state.advancedFiltersOpen;
-  details.appendChild(el('summary', {}, [
+  const summary = el('summary', {}, [
     el('strong', { text: t('manager.experience.moreFilters') }),
     el('span', { text: t('manager.experience.filterHint') }),
-  ]));
+  ]);
+  summary.addEventListener('click', () => {
+    state.advancedFiltersOpen = !details.open;
+  });
+  details.appendChild(summary);
   details.addEventListener('toggle', () => { state.advancedFiltersOpen = details.open; });
   filters.before(details);
   details.appendChild(filters);
