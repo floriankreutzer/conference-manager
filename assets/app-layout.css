@@ -290,6 +290,10 @@ main {
 }
 
 @media (max-width: 760px) {
+  html {
+    scroll-behavior: auto;
+  }
+
   .content-shell,
   main,
   #app {
