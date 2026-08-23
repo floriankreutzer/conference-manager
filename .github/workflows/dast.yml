@@ -22,6 +22,6 @@ jobs:
         with:
           target: 'https://floriankreutzer.github.io/conference-manager/'
           allow_issue_writing: false
-          fail_action: false
+          fail_action: true
           artifact_name: zap-baseline-report
           cmd_options: '-a'
