@@ -37,8 +37,8 @@ test('welcome and global navigation use the same contained responsive layout', a
   await expectContainedInViewport(page, '#app');
   await expectNoPageHorizontalOverflow(page);
 
-  const heroButtons = page.locator('.welcome-hero .button-row button');
-  if (await heroButtons.count() > 1) await expectEqualControlHeights(heroButtons);
+  const visibleHeroButtons = page.locator('.welcome-hero .button-row button:visible');
+  if (await visibleHeroButtons.count() > 1) await expectEqualControlHeights(visibleHeroButtons);
 
   const viewport = page.viewportSize();
   if (viewport && viewport.width <= 760) {
@@ -46,11 +46,22 @@ test('welcome and global navigation use the same contained responsive layout', a
   }
 });
 
-test('employee request wizard keeps steps, controls and cards inside the viewport', async ({ page }) => {
+test('employee request wizard keeps progress, controls and cards inside the viewport', async ({ page }) => {
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await expect(page.locator('.stepper')).toBeVisible();
   await expect(page.locator('.wizard-card')).toBeVisible();
-  await expectEqualControlHeights(page.locator('.stepper .step'));
+
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width <= 760) {
+    await expect(page.locator('.ux-mobile-progress')).toBeVisible();
+    await expect(page.locator('.stepper ol')).toBeHidden();
+    await expectContainedInViewport(page, '.ux-mobile-progress');
+  } else {
+    await expect(page.locator('.ux-mobile-progress')).toBeHidden();
+    await expect(page.locator('.stepper ol')).toBeVisible();
+    await expectEqualControlHeights(page.locator('.stepper .step'));
+  }
+
   await expectContainedInViewport(page, '.wizard-card');
   await expectNoPageHorizontalOverflow(page);
 });
