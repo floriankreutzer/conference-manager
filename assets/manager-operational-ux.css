@@ -16,6 +16,14 @@
   .manager-quick-filters button:last-child:nth-child(odd) {
     grid-column: auto;
   }
+
+  /* Keep the shared mobile wizard action row stable while the asynchronous
+   * autosave status appears. The status stays below the action buttons so it
+   * cannot move the primary action during a touch/click. */
+  .wizard-actions .draft-status {
+    order: 2;
+    min-height: 1.5em;
+  }
 }
 
 @media (max-width: 380px) {
