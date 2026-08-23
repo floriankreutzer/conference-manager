@@ -10,14 +10,9 @@ const clickWizardPrimary = async (page) => {
   await page.locator('.wizard-actions button.primary').click();
 };
 
-const openProfile = async (page) => {
-  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
-  await expect(page.locator('dialog')).toBeVisible();
-};
-
 const setManagerRole = async (page) => {
-  await openProfile(page);
-  await page.locator('#profileRole').selectOption('manager');
+  await page.locator('#demoRoleSwitch').selectOption('manager');
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue('manager');
   const managerNav = page.locator('#primaryNavigation button[data-view="manager"]');
   await expect(managerNav).toBeVisible();
   await managerNav.click();
