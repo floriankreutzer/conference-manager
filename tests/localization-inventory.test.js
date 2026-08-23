@@ -53,6 +53,22 @@ const ALIAS_TARGETS = Object.freeze({
 });
 
 const UNUSED_KEYS = new Set(['parity.pdf.accessibility']);
+const PREFIX_MIGRATIONS = Object.freeze([
+  ['parity.admin.', 'manager.admin.'],
+  ['parity.manager.', 'manager.operational.'],
+  ['parity.report.', 'manager.report.'],
+  ['parity.roomPlan.', 'manager.roomPlan.'],
+  ['parity.pdf.', 'welcome.print.'],
+  ['parity.floorplan.', 'room.floorplan.'],
+  ['parity.catering.', 'catering.'],
+]);
+
+function canonicalKey(key) {
+  for (const [legacyPrefix, canonicalPrefix] of PREFIX_MIGRATIONS) {
+    if (key.startsWith(legacyPrefix)) return `${canonicalPrefix}${key.slice(legacyPrefix.length)}`;
+  }
+  throw new Error(`No semantic canonical key mapping for ${key}`);
+}
 
 function sectionBetween(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -82,8 +98,10 @@ function generatedCanonicalCatalogue() {
   const keys = [...de.keys()]
     .filter((key) => !Object.hasOwn(ALIAS_TARGETS, key) && !UNUSED_KEYS.has(key))
     .sort();
-  const render = (messages) => keys.map((key) => `    ${JSON.stringify(key)}: ${JSON.stringify(messages.get(key))},`).join('\n');
-  return `export const MIGRATED_I18N_MESSAGES = Object.freeze({\n  de: Object.freeze({\n${render(de)}\n  }),\n  en: Object.freeze({\n${render(en)}\n  }),\n});\n`;
+  const render = (messages) => keys
+    .map((key) => `    ${JSON.stringify(canonicalKey(key))}: ${JSON.stringify(messages.get(key))},`)
+    .join('\n');
+  return `export const CAPABILITY_MESSAGES = Object.freeze({\n  de: Object.freeze({\n${render(de)}\n  }),\n  en: Object.freeze({\n${render(en)}\n  }),\n});\n`;
 }
 
 test('baseline localization catalogs are synchronized and inventory legacy usage', () => {
@@ -97,17 +115,18 @@ test('baseline localization catalogs are synchronized and inventory legacy usage
   assert.equal(Object.keys(ALIAS_TARGETS).length, 45);
   assert.deepEqual(inventory.usage.unusedCandidates, ['parity.pdf.accessibility']);
 
-  for (const [legacyKey, canonicalKey] of Object.entries(ALIAS_TARGETS)) {
+  for (const [legacyKey, canonicalKeyName] of Object.entries(ALIAS_TARGETS)) {
     const match = inventory.comparison.exactValueAliases.find((entry) => entry.legacyKey === legacyKey);
-    assert.ok(match?.canonicalKeys.includes(canonicalKey), `${legacyKey} must remain an exact DE/EN alias of ${canonicalKey}`);
+    assert.ok(match?.canonicalKeys.includes(canonicalKeyName), `${legacyKey} must remain an exact DE/EN alias of ${canonicalKeyName}`);
   }
 
   assert.ok(inventory.canonical.deKeys > 0, 'canonical catalog must contain translations');
   assert.ok(inventory.legacy.deKeys > 0, 'baseline characterization expects the legacy parity catalog before consolidation');
 
   const generated = generatedCanonicalCatalogue();
-  const migratedCount = (generated.match(/^    "parity\./gm) || []).length / 2;
+  const migratedCount = (generated.match(/^    "(?:manager\.admin|manager\.operational|manager\.report|manager\.roomPlan|welcome\.print|room\.floorplan|catering\.)/gm) || []).length / 2;
   assert.equal(migratedCount, 103);
+  assert.doesNotMatch(generated, /"parity\./);
 
   console.log(`Baseline localization inventory: ${JSON.stringify({
     canonicalKeys: inventory.canonical.deKeys,
