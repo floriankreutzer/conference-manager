@@ -21,7 +21,7 @@ test.beforeEach(async ({ page }) => {
 
 test('first-use hierarchy is personalized and marked end-user ready', async ({ page }) => {
   await expect(page.locator('meta[name="conference-end-user-readiness"]')).toHaveAttribute('content', 'ready');
-  await expect(page.locator('html')).toHaveAttribute('data-identity-bootstrap-build', '2026.08.23.01');
+  await expect(page.locator('html')).toHaveAttribute('data-identity-bootstrap-build', '2026.08.23.02');
   await expect(page.locator('#viewTitle')).toHaveText('Start');
   await expect(page.locator('#welcomeHeading')).toHaveText('Willkommen, Florian.');
   await expect(page.locator('#primaryNavigation button[data-view="employee"]')).toHaveText('Neue Konferenz');
