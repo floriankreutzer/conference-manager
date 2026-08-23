@@ -12,8 +12,8 @@ const openProfile = async (page) => {
 };
 
 const setRole = async (page, role) => {
-  await openProfile(page);
-  await page.locator('#profileRole').selectOption(role);
+  await page.locator('#demoRoleSwitch').selectOption(role);
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue(role);
 };
 
 const setLanguage = async (page, language) => {
@@ -114,9 +114,10 @@ test('first employee visit, profile, help and English accessibility are coherent
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
   await expect(page.locator('#primaryNavigation')).not.toContainText('Hilfe & Kontakt');
   await expect(page.locator('#skipLink')).toHaveText('Direkt zum Hauptinhalt');
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue('employee');
 
   await openProfile(page);
-  await expect(page.locator('#profileRole')).toHaveValue('employee');
+  await expect(page.locator('#profileRole')).toBeHidden();
   await expect(page.locator('#profileLanguage')).toHaveValue('de');
   await page.getByRole('button', { name: 'Hilfe & Kontakt' }).click();
   await expect(page.locator('dialog')).toBeVisible();
