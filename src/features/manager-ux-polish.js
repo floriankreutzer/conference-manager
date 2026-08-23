@@ -13,6 +13,16 @@ function scheduleSync() {
   syncFrame = requestAnimationFrame(sync);
 }
 
+function scheduleSettledSync(rounds = 4) {
+  let remaining = Math.max(1, Number(rounds) || 1);
+  const settle = () => {
+    scheduleSync();
+    remaining -= 1;
+    if (remaining > 0) requestAnimationFrame(settle);
+  };
+  requestAnimationFrame(settle);
+}
+
 function managerBookingsSection() {
   const tabs = document.querySelector('.manager-tabs');
   const section = tabs?.nextElementSibling;
@@ -129,7 +139,7 @@ function resetAllFilters() {
 
   const advanced = section.querySelector('[data-manager-advanced-filters]');
   if (advanced instanceof HTMLDetailsElement) advanced.open = false;
-  scheduleSync();
+  scheduleSettledSync();
 }
 
 function updateAdvancedFilterSummary(section) {
@@ -281,7 +291,7 @@ function handleClick(event) {
   if (event.target.closest('[data-manager-confirm-from-review]')) {
     requestAnimationFrame(patchConfirmationDialog);
   }
-  scheduleSync();
+  scheduleSettledSync();
 }
 
 function sync() {
@@ -293,12 +303,13 @@ function sync() {
   updateAdvancedFilterSummary(section);
   renderActiveFilters(section);
   markCardTimelines(section);
-  document.documentElement.dataset.managerUxPolishBuild = '2026.08.23.60';
+  document.documentElement.dataset.managerUxPolishBuild = '2026.08.23.61';
 }
 
 document.addEventListener('click', handleClick);
-['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSync));
-window.addEventListener('conference-language-changed', scheduleSync);
-mobileMedia.addEventListener('change', scheduleSync);
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSync, { once: true });
-else scheduleSync();
+['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSettledSync));
+window.addEventListener('conference-language-changed', scheduleSettledSync);
+mobileMedia.addEventListener('change', scheduleSettledSync);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSettledSync, { once: true });
+else scheduleSettledSync();
+window.addEventListener('load', scheduleSettledSync, { once: true });
