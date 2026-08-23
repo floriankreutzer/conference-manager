@@ -11,7 +11,7 @@ test('welcome print keeps its approved styling under the strict CSP', async ({ p
   await page.addInitScript(({ seededDate }) => {
     const now = new Date().toISOString();
     localStorage.setItem('conference_requests', JSON.stringify([{
-      id: 'CR-SEC-PRINT-001',
+      id: 'CR-2026-9001',
       title: 'Strict CSP Welcome',
       location: 'Berlin',
       date: seededDate,
@@ -35,7 +35,7 @@ test('welcome print keeps its approved styling under the strict CSP', async ({ p
 
   await page.goto('/');
   await page.locator('#primaryNavigation button[data-view="requests"]').click();
-  const pdfButton = page.locator('[data-feature-pdf="CR-SEC-PRINT-001"]');
+  const pdfButton = page.locator('[data-feature-pdf="CR-2026-9001"]');
   await expect(pdfButton).toBeVisible();
 
   const popupPromise = page.waitForEvent('popup');
