@@ -51,11 +51,15 @@ function storedFirstName() {
   return String(profile.firstName || '').trim();
 }
 
+function validIdentityValue(value) {
+  return /[\p{L}\p{N}]/u.test(String(value || '').trim());
+}
+
 function renderedFirstName() {
   const text = String(document.getElementById('welcomeHeading')?.textContent || '').trim();
   const match = text.match(/^(?:Willkommen|Welcome),\s*(.+?)[.!]?$/i);
   const candidate = String(match?.[1] || '').replace(/[.!]+$/u, '').trim();
-  return /[\p{L}\p{N}]/u.test(candidate) ? candidate : '';
+  return validIdentityValue(candidate) ? candidate : '';
 }
 
 export function captureEmployeeIdentityPresentation() {
@@ -95,9 +99,14 @@ function enhancePersonalizedHero() {
   const profileDialogOpen = profileValues.length >= 2;
   if (!welcomeHeading && !profileDialogOpen) return;
 
-  if (welcomeHeading && capturedIdentity.firstName) {
+  const hasCapturedIdentity = [capturedIdentity.firstName, capturedIdentity.profileFirstName, capturedIdentity.profileLastName]
+    .some(validIdentityValue);
+
+  if (welcomeHeading && validIdentityValue(capturedIdentity.firstName)) {
     setText(welcomeHeading, `${copy('welcome')}, ${capturedIdentity.firstName}.`);
   }
+
+  if (!hasCapturedIdentity) return;
 
   const profileButton = document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]');
   setText(profileButton, capturedIdentity.profileButtonText);
