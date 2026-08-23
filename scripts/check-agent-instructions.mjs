@@ -4,6 +4,8 @@ import { join, relative } from 'node:path';
 const files = {
   agents: 'AGENTS.md',
   standards: 'docs/CODING-STANDARDS.md',
+  architecture: 'docs/ARCHITECTURE.md',
+  baseline: 'docs/BASELINE.md',
   copilot: '.github/copilot-instructions.md',
   claude: 'CLAUDE.md',
   gemini: 'GEMINI.md',
@@ -78,7 +80,7 @@ function findUnexpectedInstructionFiles(directory = '.') {
 }
 
 for (const path of Object.values(files)) {
-  if (!existsSync(path)) fail(`${path}: required agent-instruction file is missing`);
+  if (!existsSync(path)) fail(`${path}: required repository governance file is missing`);
 }
 
 if (failures) process.exit(1);
@@ -93,6 +95,8 @@ findUnexpectedInstructionFiles();
 
 const agents = readFileSync(files.agents, 'utf8');
 const standards = readFileSync(files.standards, 'utf8');
+const architecture = readFileSync(files.architecture, 'utf8');
+const baseline = readFileSync(files.baseline, 'utf8');
 const copilot = readFileSync(files.copilot, 'utf8');
 const claude = readFileSync(files.claude, 'utf8').trim();
 const gemini = readFileSync(files.gemini, 'utf8').trim();
@@ -108,6 +112,12 @@ const requiredAgentMarkers = [
   'npm run check',
   'npm run audit',
   'npm run test:e2e',
+  'Permanent modular architecture governance',
+  '`src/app.js` is the Composition Root',
+  '`src/employee/index.js`',
+  '`src/manager/index.js`',
+  'resulting `main` becomes the next functional and architectural baseline',
+  'registered flags default OFF',
 ];
 
 for (const marker of requiredAgentMarkers) {
@@ -122,6 +132,36 @@ if (agentLineCount > 220) {
 for (let section = 1; section <= 23; section += 1) {
   if (!standards.includes(`## ${section}.`)) {
     fail(`${files.standards}: missing mandatory section ${section}`);
+  }
+}
+
+const requiredArchitectureMarkers = [
+  'Root `AGENTS.md` is the canonical repository instruction entry point',
+  'current `main` branch is the functional and architectural baseline',
+  '`src/app.js` is the application Composition Root',
+  'public-API-only external capability consumption',
+  'Core capability independence',
+  'Architecture checks must represent architectural intent',
+];
+for (const marker of requiredArchitectureMarkers) {
+  if (!architecture.includes(marker)) fail(`${files.architecture}: missing architecture-governance marker: ${marker}`);
+}
+
+const requiredBaselineMarkers = [
+  'current `main` branch is the functional and architectural baseline',
+  'resulting main becomes the next baseline',
+  'Historical audit checkpoints',
+];
+for (const marker of requiredBaselineMarkers) {
+  if (!baseline.includes(marker)) fail(`${files.baseline}: missing rolling-baseline marker: ${marker}`);
+}
+
+for (const obsoletePhrase of [
+  'immutable functional baseline',
+  'functional baseline for the modular architecture refactoring is',
+]) {
+  if (architecture.toLowerCase().includes(obsoletePhrase) || baseline.toLowerCase().includes(obsoletePhrase)) {
+    fail(`Active architecture/baseline documentation must not define an obsolete fixed refactoring baseline: ${obsoletePhrase}`);
   }
 }
 
@@ -157,4 +197,4 @@ for (const marker of forbiddenGermanMarkers) {
 }
 
 if (failures) process.exit(1);
-console.log('Agent-instruction consistency check passed.');
+console.log('Agent-instruction and architecture-governance consistency check passed.');

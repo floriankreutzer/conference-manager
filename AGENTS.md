@@ -40,7 +40,7 @@ At minimum, use the applicable current versions of:
 - relevant existing CSS files
 - `src/core/i18n.js`
 - `src/core/security-i18n.js` when applicable
-- relevant core, feature, and test modules
+- relevant core, capability, platform, shared, and test modules
 - `package.json`
 - `.github/workflows/ci.yml`
 
@@ -175,3 +175,25 @@ The checklist must cover at least:
 - tests added or verified
 
 Only mark a point as fulfilled when the concrete code and executed verification support that statement. Formal WCAG, security, browser, or runtime compliance must never be claimed without the necessary real verification.
+
+## 11. Permanent modular architecture governance
+
+The modular runtime on current `main` is the mandatory architecture for all future work. After a change is fully verified, reviewed, and merged, the resulting `main` becomes the next functional and architectural baseline. Historical commits are audit/reference checkpoints only; they are not permanent development baselines.
+
+Non-negotiable architecture rules:
+
+- `src/app.js` is the Composition Root. It may bootstrap, compose top-level dependencies, initialize capabilities/the shell, register application-level events, and orchestrate explicit public contracts. Business rules, validation, lifecycle logic, persistence implementation, calculations, reporting, feature rendering, capability event handlers, reusable presentation, and capability internals do not belong there.
+- Every new function or feature must have an explicit owner: Employee, Manager, Platform, Shared, Core, or a deliberately introduced capability. Placement follows responsibility, not convenience or file size.
+- Employee and Manager internals are private. External consumers use `src/employee/index.js` and `src/manager/index.js`. Cross-capability interaction must use deliberate public contracts; Manager must not reach into Employee implementation details and Employee must not reach into Manager implementation details.
+- Platform owns cross-cutting runtime composition/integration and must not become a replacement monolith for capability business logic. Shared is for genuinely stable cross-capability abstractions and must not become a `utils`, `helpers`, `misc`, or `common` dumping ground. Core remains capability-independent and must not absorb feature-specific business logic.
+- Maintain clear dependency direction: Composition -> capability application/use-case orchestration -> independently testable business/domain rules -> approved Core/Platform infrastructure contracts. Circular dependencies and import chains created only to bypass ownership are prohibited.
+- Capability runtimes must use approved persistence contracts. Do not silently add storage keys, serialization formats, restore/cache conventions, or migrations. Persistence migrations must be explicit, tested, documented, and backward-safe where practical.
+- Existing baseline behavior is not feature-flagged merely because it moves or is refactored. Genuinely new optional functionality must be evaluated for the centralized feature-flag mechanism; registered flags default OFF, unknown flags fail closed, checks belong at architectural boundaries, and stale rollout flags/dead paths must be removed in dedicated cleanup changes.
+- Keep significant business rules independently testable where practical; do not bury them in DOM callbacks, rendering functions, Composition Root code, or browser-storage handlers.
+- Do not modularize by arbitrary line-count targets or artificial micro-modules. Future architecture refactoring must be incremental and characterization/regression protected; big-bang rewrites are prohibited unless explicitly approved.
+- Do not leave parallel active business implementations. Temporary compatibility bridges require a documented migration reason and must be removed with dead code/imports after consumers migrate.
+- Architecture boundaries must be enforced automatically where practical through `npm run check:architecture`, including public API privacy, Composition Root constraints, persistence restrictions, feature-flag centralization, dependency direction, and circular-dependency detection. New meaningful boundaries require an architecture-gate assessment.
+- New functionality requires progression tests. Changes affecting baseline behavior require regression protection. Valid functional tests must not be weakened to accommodate an architectural implementation change; only implementation-coupled paths may change when observable behavior is preserved.
+- Architecture PRs must remain reviewable and state ownership changes, public-contract impact, regression impact, tests, security impact, and architecture-gate impact. Keep runtime decomposition, i18n consolidation, storage migrations, design-system changes, new features, and feature-flag cleanup separate when they are independently reviewable concerns.
+
+`docs/ARCHITECTURE.md` describes the current runtime structure and automated boundaries. It supports these canonical instructions; it does not override them.

@@ -1,5 +1,11 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, normalize } from 'node:path';
+import { dirname, join, normalize } from 'node:path';
+import {
+  directBrowserStorageKinds,
+  isApprovedFeatureFlagImport,
+  moduleDeclarations,
+  onlyUsesApprovedManagerReturnStorage,
+} from './architecture-rules.mjs';
 
 let failures = 0;
 function fail(message) {
@@ -20,12 +26,36 @@ function javascriptFiles(root) {
   return files;
 }
 
-function imports(source) {
-  return [...source.matchAll(/(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]\s*;/g)]
-    .map((match) => match[1].split('?')[0]);
+function resolvedDependency(file, specifier) {
+  if (!specifier.startsWith('.')) return null;
+  return normalize(join(dirname(file), specifier));
 }
 
-const app = readFileSync('src/app.js', 'utf8');
+function isInside(file, root) {
+  const normalizedRoot = normalize(root);
+  return file === normalizedRoot || file.startsWith(`${normalizedRoot}/`);
+}
+
+const sourceFiles = javascriptFiles('src');
+const employeeRoot = normalize('src/employee');
+const managerRoot = normalize('src/manager');
+const platformRoot = normalize('src/platform');
+const sharedRoot = normalize('src/shared');
+const coreRoot = normalize('src/core');
+const employeeIndex = normalize('src/employee/index.js');
+const managerIndex = normalize('src/manager/index.js');
+const managerAdminParity = normalize('src/manager/admin-parity.js');
+const featureFlagPath = normalize('src/platform/feature-flags.js');
+const appPath = normalize('src/app.js');
+
+const app = readFileSync(appPath, 'utf8');
+const allowedAppImports = new Set([
+  './employee/index.js',
+  './manager/index.js',
+  './platform/application-context.js',
+  './platform/app-shell.js',
+]);
+
 for (const required of [
   "from './employee/index.js'",
   "from './manager/index.js'",
@@ -36,58 +66,77 @@ for (const required of [
   'createApplicationContext',
   'createAppShell',
 ]) {
-  if (!app.includes(required)) fail(`src/app.js: composition root missing ${required}.`);
+  if (!app.includes(required)) fail(`src/app.js: Composition Root missing ${required}.`);
 }
-if (/from\s+['"]\.\/(?:core|shared)\//.test(app)) {
-  fail('src/app.js: composition root must not import domain, persistence, shared presentation, or UI implementation directly.');
+
+for (const { specifier } of moduleDeclarations(app)) {
+  if (specifier.startsWith('.') && !allowedAppImports.has(specifier)) {
+    fail(`src/app.js: Composition Root dependency ${specifier} is not an approved top-level composition contract.`);
+  }
 }
-if (/from\s+['"]\.\/(?:employee|manager)\/(?!index\.js)/.test(app)) {
-  fail('src/app.js: capability internals are private; consume Employee and Manager only through their public APIs.');
-}
+
 for (const forbidden of [
   'requestRepository',
+  'notificationRepository',
   'validateRequest(',
   'calculateCosts(',
+  'loadCatalog(',
+  'loadSiteInfo(',
   'renderRequestCard',
   'renderManagerBookings',
+  'document.createElement',
+  'openDialog(',
   'localStorage',
   'sessionStorage',
 ]) {
-  if (app.includes(forbidden)) fail(`src/app.js: feature-specific responsibility leaked back into composition root (${forbidden}).`);
+  if (app.includes(forbidden)) fail(`src/app.js: non-composition responsibility leaked into the Composition Root (${forbidden}).`);
 }
 
-const employeeFacade = readFileSync('src/employee/index.js', 'utf8');
+const employeeFacade = readFileSync(employeeIndex, 'utf8');
 if (!employeeFacade.includes('createEmployeeApplication')) {
   fail('src/employee/index.js: Employee public API must expose createEmployeeApplication.');
 }
-const managerFacade = readFileSync('src/manager/index.js', 'utf8');
+const managerFacade = readFileSync(managerIndex, 'utf8');
 if (!managerFacade.includes('createManagerApplication')) {
   fail('src/manager/index.js: Manager public API must expose createManagerApplication.');
 }
 
-for (const file of javascriptFiles('src')) {
+for (const file of sourceFiles) {
   const source = readFileSync(file, 'utf8');
-  for (const specifier of imports(source)) {
-    if (file.startsWith(normalize('src/employee/'))) break;
-    if (/^\.\.\/employee\//.test(specifier) && specifier !== '../employee/index.js') {
-      fail(`${file}: Employee internals are private; import ../employee/index.js instead.`);
+  for (const declaration of moduleDeclarations(source)) {
+    const dependency = resolvedDependency(file, declaration.specifier);
+    if (!dependency) continue;
+
+    if (!isInside(file, employeeRoot) && isInside(dependency, employeeRoot) && dependency !== employeeIndex) {
+      fail(`${file}: Employee internals are private; external consumers must use src/employee/index.js.`);
     }
-    if (file === normalize('src/app.js') && /^\.\/employee\//.test(specifier) && specifier !== './employee/index.js') {
-      fail(`${file}: Employee internals are private; import ./employee/index.js instead.`);
+    if (!isInside(file, managerRoot) && isInside(dependency, managerRoot) && dependency !== managerIndex) {
+      fail(`${file}: Manager internals are private; external consumers must use src/manager/index.js.`);
+    }
+
+    if (isInside(file, employeeRoot) && isInside(dependency, managerRoot)) {
+      fail(`${file}: Employee must not depend on Manager implementation or facade; use composition/shared contracts instead.`);
+    }
+    if (isInside(file, managerRoot) && isInside(dependency, employeeRoot) && dependency !== employeeIndex) {
+      fail(`${file}: Manager-to-Employee collaboration must use the Employee public API.`);
+    }
+
+    if (isInside(file, sharedRoot)
+      && (isInside(dependency, employeeRoot) || isInside(dependency, managerRoot) || isInside(dependency, platformRoot) || dependency === appPath)) {
+      fail(`${file}: Shared must remain capability-independent and must not depend on Employee, Manager, Platform or the Composition Root.`);
+    }
+
+    if (isInside(file, coreRoot) && dependency.startsWith(normalize('src/')) && !isInside(dependency, coreRoot)) {
+      fail(`${file}: Core must remain capability-independent and may not depend on ${dependency}.`);
+    }
+
+    if (file !== featureFlagPath && dependency === featureFlagPath && !isApprovedFeatureFlagImport(declaration.statement)) {
+      fail(`${file}: feature-flag construction/registration is centralized; runtime consumers may import only featureFlags.`);
     }
   }
-}
 
-for (const file of javascriptFiles('src')) {
-  const source = readFileSync(file, 'utf8');
-  for (const specifier of imports(source)) {
-    if (file.startsWith(normalize('src/manager/'))) break;
-    if (/^\.\.\/manager\//.test(specifier) && specifier !== '../manager/index.js') {
-      fail(`${file}: Manager internals are private; import ../manager/index.js instead.`);
-    }
-    if (file === normalize('src/app.js') && /^\.\/manager\//.test(specifier) && specifier !== './manager/index.js') {
-      fail(`${file}: Manager internals are private; import ./manager/index.js instead.`);
-    }
+  if (file !== featureFlagPath && /import\s*\(\s*['"][^'"]*feature-flags\.js(?:\?[^'"]*)?['"]\s*\)/.test(source)) {
+    fail(`${file}: dynamic access to feature-flags.js is forbidden; consume the centralized featureFlags contract statically.`);
   }
 }
 
@@ -107,30 +156,42 @@ for (const file of domainModules) {
   }
 }
 
-const employeeApplication = readFileSync('src/employee/application.js', 'utf8');
-if (/from\s+['"]\.\.\/manager\//.test(employeeApplication)) {
-  fail('src/employee/application.js: Employee runtime must not depend on Manager implementation.');
-}
-const managerApplication = readFileSync('src/manager/application.js', 'utf8');
-if (/from\s+['"]\.\.\/employee\//.test(managerApplication)) {
-  fail('src/manager/application.js: Manager runtime must not depend on Employee implementation.');
-}
-
-const appShell = readFileSync('src/platform/app-shell.js', 'utf8');
-if (/from\s+['"]\.\.\/(?:employee|manager)\//.test(appShell)) {
-  fail('src/platform/app-shell.js: shell receives capability contracts through composition and must not import capability internals.');
-}
-const applicationContext = readFileSync('src/platform/application-context.js', 'utf8');
-if (/from\s+['"]\.\.\/(?:employee|manager)\//.test(applicationContext)) {
-  fail('src/platform/application-context.js: shared application context must not depend on capability modules.');
-}
-
-for (const file of ['src/employee/application.js', 'src/manager/application.js']) {
+for (const file of sourceFiles.filter((path) => isInside(path, employeeRoot) || isInside(path, managerRoot))) {
   const source = readFileSync(file, 'utf8');
-  if (/\b(?:localStorage|sessionStorage)\b/.test(source)) {
-    fail(`${file}: capability runtime must use the approved core persistence interfaces rather than direct browser storage access.`);
+  const storageKinds = directBrowserStorageKinds(source);
+  if (!storageKinds.length) continue;
+
+  const approvedLegacyReturnMarker = file === managerAdminParity
+    && storageKinds.length === 1
+    && storageKinds[0] === 'sessionStorage'
+    && onlyUsesApprovedManagerReturnStorage(source);
+
+  if (!approvedLegacyReturnMarker) {
+    fail(`${file}: capability modules must use approved persistence contracts; direct browser storage is forbidden.`);
+  }
+}
+
+for (const file of ['src/platform/app-shell.js', 'src/platform/application-context.js']) {
+  const source = readFileSync(file, 'utf8');
+  for (const { specifier } of moduleDeclarations(source)) {
+    const dependency = resolvedDependency(file, specifier);
+    if (!dependency) continue;
+    if ((isInside(dependency, employeeRoot) && dependency !== employeeIndex)
+      || (isInside(dependency, managerRoot) && dependency !== managerIndex)) {
+      fail(`${file}: Platform composition may consume capabilities only through their public APIs.`);
+    }
+  }
+}
+
+for (const file of sourceFiles) {
+  if (file === featureFlagPath) continue;
+  const source = readFileSync(file, 'utf8');
+  if (/\bFEATURE_FLAG_DEFAULTS\b/.test(source)
+    || /\bcreateFeatureFlagDefinitions\s*\(/.test(source)
+    || /\bcreateFeatureFlagResolver\s*\(/.test(source)) {
+    fail(`${file}: feature-flag definitions and resolver construction are centralized in src/platform/feature-flags.js.`);
   }
 }
 
 if (failures) process.exit(1);
-console.log('Phase 2 modular runtime boundary check passed.');
+console.log(`Permanent modular runtime boundary check passed for ${sourceFiles.length} source modules.`);
