@@ -1,10 +1,10 @@
 import { KEYS, readJson, requestRepository } from '../core/storage.js';
 
-const REQUESTER_ATTRIBUTION_BUILD = '2026.08.23.62';
+const REQUESTER_ATTRIBUTION_BUILD = '2026.08.23.64';
 const originalSave = requestRepository.save.bind(requestRepository);
 
 function currentRequesterName() {
-  const profile = readJson(KEYS.profile, { firstName: 'Florian', lastName: 'Kreutzer' });
+  const profile = readJson(KEYS.profile, { firstName: '', lastName: '' });
   return [profile?.firstName, profile?.lastName]
     .map((value) => String(value || '').trim())
     .filter(Boolean)
