@@ -62,7 +62,7 @@ test('manager cockpit restores overview, timeline/list room planning, detailed r
   await page.locator('#primaryNavigation button[data-view="manager"]').click();
   const overview = page.locator('[data-feature-manager-overview]');
   await expect(overview).toBeVisible();
-  await expect(overview).toContainText('Handlungsbedarf');
+  await expect(overview).toContainText('Offene Anfragen');
   await expect(overview).toContainText('Nächste 7 Tage');
   await overview.locator('[data-quick-filter="ACTION"]').click();
   await expect(page.locator('.request-card:not(.feature-filter-hidden)')).toHaveCount(1);
