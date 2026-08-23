@@ -11,7 +11,17 @@ class MemoryStorage {
   clear() { this.#values.clear(); }
 }
 
+function setRuntime(value) {
+  globalThis.document = {
+    querySelector(selector) {
+      assert.equal(selector, 'meta[name="conference-runtime"]');
+      return { getAttribute: () => value };
+    },
+  };
+}
+
 globalThis.localStorage = new MemoryStorage();
+setRuntime('production');
 const storage = await import('../src/core/storage.js?security-regression');
 
 test('stored JSON drops prototype-pollution keys', () => {
@@ -39,9 +49,31 @@ test('oversized writes fail closed without replacing valid state', () => {
 });
 
 test('role and language string limits reject corrupted values', () => {
+  setRuntime('demo');
   localStorage.clear();
   localStorage.setItem(storage.KEYS.role, 'manager'.repeat(20));
   localStorage.setItem(storage.KEYS.language, 'de'.repeat(30));
   assert.equal(storage.readString(storage.KEYS.role, 'employee'), 'employee');
   assert.equal(storage.readString(storage.KEYS.language, 'de'), 'de');
+});
+
+test('production ignores a manipulated local manager role and blocks role writes', () => {
+  setRuntime('production');
+  localStorage.clear();
+  localStorage.setItem(storage.KEYS.role, 'manager');
+
+  assert.equal(storage.readString(storage.KEYS.role, 'employee'), 'employee');
+  assert.equal(storage.writeString(storage.KEYS.role, 'manager'), false);
+  assert.equal(localStorage.getItem(storage.KEYS.role), 'manager');
+  assert.equal(storage.readString(storage.KEYS.role, 'employee'), 'employee');
+});
+
+test('demo role storage remains available but allowlisted', () => {
+  setRuntime('demo');
+  localStorage.clear();
+
+  assert.equal(storage.writeString(storage.KEYS.role, 'manager'), true);
+  assert.equal(storage.readString(storage.KEYS.role, 'employee'), 'manager');
+  assert.equal(storage.writeString(storage.KEYS.role, 'administrator'), true);
+  assert.equal(storage.readString(storage.KEYS.role, 'employee'), 'employee');
 });
