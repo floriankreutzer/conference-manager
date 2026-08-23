@@ -11,7 +11,7 @@ import {
 import { KEYS, readString, writeString } from '../core/storage.js';
 import { showToast } from '../core/ui.js';
 
-const DEMO_SECURITY_BUILD = '2026.08.23.50';
+const DEMO_SECURITY_BUILD = '2026.08.23.51';
 const PARTICIPANT_FIELDS = new Set(['internalParticipants', 'externalParticipants', 'cateringParticipants']);
 const runtimeMode = runtimeModeFromDocument(document);
 
@@ -104,6 +104,10 @@ function applyInputBounds(root = document) {
   root.querySelectorAll('input, textarea').forEach(applyInputBound);
 }
 
+function applyBoundsAfterInteractiveRender() {
+  applyInputBounds(document);
+}
+
 function initializeSecurityControls() {
   renderDemoNotice();
   applyInputBounds(document);
@@ -115,6 +119,8 @@ normalizeDemoState();
 
 window.addEventListener('conference:storage-warning', () => showToast(messages().storageWarning));
 document.addEventListener('focusin', (event) => applyInputBound(event.target));
+document.addEventListener('click', applyBoundsAfterInteractiveRender);
+document.addEventListener('change', applyBoundsAfterInteractiveRender);
 document.addEventListener('input', (event) => {
   const control = event.target;
   if (!(control instanceof HTMLInputElement) || !PARTICIPANT_FIELDS.has(control.id)) return;
