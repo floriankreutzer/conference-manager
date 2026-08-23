@@ -1,40 +1,34 @@
 import { language } from '../core/i18n.js';
+import { securityMessages } from '../core/security-i18n.js';
+import {
+  RUNTIME_MODE,
+  SUPPORTED_LANGUAGE,
+  USER_ROLE,
+  normalizeDemoRole,
+  normalizeLanguage,
+  runtimeModeFromDocument,
+} from '../core/security-policy.js';
 import { KEYS, readString, writeString } from '../core/storage.js';
 import { showToast } from '../core/ui.js';
 
-const DEMO_SECURITY_BUILD = '2026.08.22.43';
-const ROLE_ALLOWLIST = new Set(['employee', 'manager']);
-const LANGUAGE_ALLOWLIST = new Set(['de', 'en']);
+const DEMO_SECURITY_BUILD = '2026.08.23.50';
 const PARTICIPANT_FIELDS = new Set(['internalParticipants', 'externalParticipants', 'cateringParticipants']);
-
-const copy = {
-  de: {
-    title: 'Demo-Modus',
-    text: 'Kein SSO · keine serverseitige Berechtigung · Daten nur in diesem Browser',
-    reset: 'Demo-Daten löschen',
-    resetConfirm: 'Alle lokal gespeicherten Conference-Manager-Demodaten in diesem Browser löschen?',
-    resetDone: 'Lokale Demodaten wurden gelöscht.',
-    storageWarning: 'Lokale Demodaten waren ungültig oder zu groß und wurden sicher ignoriert.',
-  },
-  en: {
-    title: 'Demo mode',
-    text: 'No SSO · no server-side authorization · data only in this browser',
-    reset: 'Clear demo data',
-    resetConfirm: 'Delete all locally stored Conference Manager demo data in this browser?',
-    resetDone: 'Local demo data has been cleared.',
-    storageWarning: 'Local demo data was invalid or too large and was safely ignored.',
-  },
-};
+const runtimeMode = runtimeModeFromDocument(document);
 
 function messages() {
-  return copy[language() === 'en' ? 'en' : 'de'];
+  return securityMessages(language());
 }
 
 function normalizeDemoState() {
-  const role = readString(KEYS.role, 'employee');
-  if (!ROLE_ALLOWLIST.has(role)) writeString(KEYS.role, 'employee');
-  const currentLanguage = readString(KEYS.language, 'de');
-  if (!LANGUAGE_ALLOWLIST.has(currentLanguage)) writeString(KEYS.language, 'de');
+  const currentLanguage = readString(KEYS.language, SUPPORTED_LANGUAGE.DE);
+  const safeLanguage = normalizeLanguage(currentLanguage);
+  if (safeLanguage !== currentLanguage) writeString(KEYS.language, safeLanguage);
+
+  const currentRole = readString(KEYS.role, USER_ROLE.EMPLOYEE);
+  const safeRole = runtimeMode === RUNTIME_MODE.DEMO
+    ? normalizeDemoRole(currentRole)
+    : USER_ROLE.EMPLOYEE;
+  if (safeRole !== currentRole) writeString(KEYS.role, safeRole);
 }
 
 function clearConferenceStorage(storage) {
@@ -60,7 +54,7 @@ function resetDemoData() {
 }
 
 function renderDemoNotice() {
-  if (document.querySelector('[data-demo-security]')) return;
+  if (runtimeMode !== RUNTIME_MODE.DEMO || document.querySelector('[data-demo-security]')) return;
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
   const msg = messages();
@@ -110,6 +104,13 @@ function applyInputBounds(root = document) {
   root.querySelectorAll('input, textarea').forEach(applyInputBound);
 }
 
+function initializeSecurityControls() {
+  renderDemoNotice();
+  applyInputBounds(document);
+  document.documentElement.dataset.demoSecurityBuild = DEMO_SECURITY_BUILD;
+  document.documentElement.dataset.runtimeMode = runtimeMode;
+}
+
 normalizeDemoState();
 
 window.addEventListener('conference:storage-warning', () => showToast(messages().storageWarning));
@@ -122,13 +123,7 @@ document.addEventListener('input', (event) => {
 }, true);
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    renderDemoNotice();
-    applyInputBounds(document);
-    document.documentElement.dataset.demoSecurityBuild = DEMO_SECURITY_BUILD;
-  }, { once: true });
+  document.addEventListener('DOMContentLoaded', initializeSecurityControls, { once: true });
 } else {
-  renderDemoNotice();
-  applyInputBounds(document);
-  document.documentElement.dataset.demoSecurityBuild = DEMO_SECURITY_BUILD;
+  initializeSecurityControls();
 }
