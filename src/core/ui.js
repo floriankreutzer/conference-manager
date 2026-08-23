@@ -3,8 +3,10 @@ import { t } from './i18n.js';
 const BLOCKED_ATTRIBUTES = new Set(['srcdoc', 'style']);
 const NAVIGATION_URL_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'xlink:href']);
 const RESOURCE_URL_ATTRIBUTES = new Set(['src', 'poster']);
+const PARTICIPANT_FIELD_IDS = new Set(['internalParticipants', 'externalParticipants', 'cateringParticipants']);
 const SAFE_INLINE_IMAGE_PATTERN = /^data:image\/svg\+xml(?:;charset=[a-z0-9._-]+)?,/i;
 const EVENT_ATTRIBUTE_PATTERN = /^on/i;
+const MAX_PARTICIPANTS = 500;
 
 function safeResourceUrl(node, value) {
   if (!value) return null;
@@ -37,6 +39,32 @@ function enforceBlankTargetIsolation(node) {
   relTokens.add('noopener');
   relTokens.add('noreferrer');
   node.rel = [...relTokens].join(' ');
+}
+
+export function isParticipantInput(control) {
+  return control instanceof HTMLInputElement && PARTICIPANT_FIELD_IDS.has(control.id);
+}
+
+export function applyInputConstraints(control) {
+  if (control instanceof HTMLTextAreaElement) {
+    if (!control.hasAttribute('maxlength')) control.maxLength = 2000;
+    return;
+  }
+  if (!(control instanceof HTMLInputElement)) return;
+
+  const type = String(control.type || 'text').toLowerCase();
+  if (['text', 'search', 'email', 'tel', 'url'].includes(type) && !control.hasAttribute('maxlength')) {
+    control.maxLength = type === 'url' ? 2048 : 160;
+  }
+  if (control.id === 'title') control.maxLength = 120;
+  if (/first|last/i.test(control.id)) control.maxLength = 80;
+  if (/allocation-cost-center/i.test(control.id)) control.maxLength = 64;
+  if (isParticipantInput(control)) {
+    control.min = '0';
+    control.max = String(MAX_PARTICIPANTS);
+    control.step = '1';
+    control.inputMode = 'numeric';
+  }
 }
 
 export function el(tagName, options = {}, children = []) {
@@ -79,6 +107,7 @@ export function field({ id, label, control, hint, required = false, optional = f
   const labelText = el('span', { className: 'field-label', text: `${label}${required ? ' *' : ''}` });
   if (optional) labelText.append(el('span', { className: 'optional-chip', text: t('common.optional') }));
   control.id = id;
+  applyInputConstraints(control);
   wrapper.htmlFor = id;
   wrapper.append(labelText, control);
   if (hint) wrapper.append(el('small', { className: 'field-hint', text: hint }));
