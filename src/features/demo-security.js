@@ -1,5 +1,5 @@
 import { language } from '../core/i18n.js';
-import { securityMessages } from '../core/security-i18n.js';
+import { securityMessages } from '../core/security-i18n.js?v=20260823-55';
 import {
   RUNTIME_MODE,
   SUPPORTED_LANGUAGE,
@@ -12,6 +12,7 @@ import { KEYS, readString, writeString } from '../core/storage.js';
 import { applyInputConstraints, isParticipantInput, showToast } from '../core/ui.js';
 
 const DEMO_SECURITY_BUILD = '2026.08.23.52';
+const DEMO_ROLE_SWITCH_BUILD = '2026.08.23.55';
 const runtimeMode = runtimeModeFromDocument(document);
 
 function messages() {
@@ -52,6 +53,47 @@ function resetDemoData() {
   window.setTimeout(() => window.location.reload(), 120);
 }
 
+function createRoleControl(msg) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'demo-security-role';
+  wrapper.htmlFor = 'demoRoleSwitch';
+
+  const label = document.createElement('span');
+  label.className = 'demo-security-role-label';
+  label.textContent = msg.roleLabel;
+
+  const select = document.createElement('select');
+  select.id = 'demoRoleSwitch';
+  select.className = 'demo-security-role-select';
+  select.setAttribute('aria-describedby', 'demoRoleHint');
+
+  const employee = document.createElement('option');
+  employee.value = USER_ROLE.EMPLOYEE;
+  employee.textContent = msg.roleEmployee;
+  const manager = document.createElement('option');
+  manager.value = USER_ROLE.MANAGER;
+  manager.textContent = msg.roleManager;
+  select.append(employee, manager);
+  select.value = normalizeDemoRole(readString(KEYS.role, USER_ROLE.EMPLOYEE));
+
+  const hint = document.createElement('small');
+  hint.id = 'demoRoleHint';
+  hint.textContent = msg.roleHint;
+
+  select.addEventListener('change', () => {
+    const nextRole = normalizeDemoRole(select.value);
+    if (!writeString(KEYS.role, nextRole)) {
+      select.value = normalizeDemoRole(readString(KEYS.role, USER_ROLE.EMPLOYEE));
+      showToast(msg.storageWarning);
+      return;
+    }
+    window.location.reload();
+  });
+
+  wrapper.append(label, select, hint);
+  return wrapper;
+}
+
 function renderDemoNotice() {
   if (runtimeMode !== RUNTIME_MODE.DEMO || document.querySelector('[data-demo-security]')) return;
   const sidebar = document.getElementById('sidebar');
@@ -61,19 +103,21 @@ function renderDemoNotice() {
   const panel = document.createElement('section');
   panel.className = 'demo-security-notice';
   panel.dataset.demoSecurity = DEMO_SECURITY_BUILD;
+  panel.dataset.demoRoleSwitch = DEMO_ROLE_SWITCH_BUILD;
   panel.setAttribute('aria-label', msg.title);
 
   const title = document.createElement('strong');
   title.textContent = msg.title;
   const text = document.createElement('small');
   text.textContent = msg.text;
+  const roleControl = createRoleControl(msg);
   const reset = document.createElement('button');
   reset.type = 'button';
   reset.className = 'demo-security-reset';
   reset.textContent = msg.reset;
   reset.addEventListener('click', resetDemoData);
 
-  panel.append(title, text, reset);
+  panel.append(title, text, roleControl, reset);
   sidebar.appendChild(panel);
 }
 
@@ -85,6 +129,7 @@ function initializeSecurityControls() {
   renderDemoNotice();
   applyInputBounds(document);
   document.documentElement.dataset.demoSecurityBuild = DEMO_SECURITY_BUILD;
+  document.documentElement.dataset.demoRoleSwitchBuild = DEMO_ROLE_SWITCH_BUILD;
   document.documentElement.dataset.runtimeMode = runtimeMode;
 }
 
