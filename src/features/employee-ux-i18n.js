@@ -1,68 +1,8 @@
-import { language } from '../core/i18n.js';
+import { t } from '../core/i18n.js';
 
-const COPY = Object.freeze({
-  de: Object.freeze({
-    'brand.internalServices': 'Interne Services',
-    'welcome.firstUseSubtitle': 'Planen Sie Ihre Veranstaltung – Raum, Services und Bewirtung in einer Anfrage.',
-    'progress.label': 'Schritt {step} von 6: {label}',
-    'progress.future': 'Bitte schließen Sie zuerst den aktuellen Schritt ab.',
-    'review.edit': 'Ändern',
-    'review.editAria': '{section} ändern',
-    'price.perRequest': 'pro Anfrage',
-    'cost.guidanceTitle': 'Kosten transparent prüfen',
-    'cost.guidance': 'Die angezeigten Raum- und Servicepreise werden einmal je Anfrage angesetzt. Bewirtung wird anhand Ihrer Paket-, Einzeloptionen- und Personenauswahl berechnet.',
-    'cost.centerTitle': 'Welche Kostenstelle soll ich angeben?',
-    'cost.centerHelp': 'Geben Sie die Kostenstelle ein, der die Veranstaltung belastet werden soll. Falls Sie sie nicht kennen, klären Sie sie vor dem Absenden mit Ihrem Team oder der zuständigen Kostenstellenverantwortung.',
-    'cost.centerPlaceholder': 'z. B. 471100',
-    'room.refreshAgain': 'Verfügbarkeit neu prüfen',
-    'catering.selectPackage': 'Auswählen',
-    'catering.selectPackageAria': '{package} auswählen',
-    'catering.packageGroupLabel': 'Catering-Paket auswählen',
-    'catering.packageLunch': 'Mittagessen',
-    'catering.tierBasic': 'Basis',
-    'catering.tierStandard': 'Standard',
-    'catering.tierDeluxe': 'Deluxe',
-    'catering.serviceTitle': 'Servicepersonal empfohlen',
-    'catering.serviceCopy': 'Bei Bewirtung kann {service} die Ausgabe und Betreuung während der Veranstaltung übernehmen.',
-    'catering.serviceAdd': 'Servicepersonal hinzufügen',
-    'submission.sentTitle': 'Anfrage erfolgreich gesendet',
-    'submission.sentText': 'Der Raum ist vorläufig reserviert. Das Conference Management prüft jetzt Raum, Services, Bewirtung und Kosten.',
-    'submission.resubmittedTitle': 'Änderung erfolgreich eingereicht',
-    'submission.resubmittedText': 'Die aktualisierte Anfrage wurde erneut zur Prüfung eingereicht. Der Raum bleibt vorläufig reserviert.',
-  }),
-  en: Object.freeze({
-    'brand.internalServices': 'Internal Services',
-    'welcome.firstUseSubtitle': 'Plan your event – room, services and catering in one request.',
-    'progress.label': 'Step {step} of 6: {label}',
-    'progress.future': 'Please complete the current step first.',
-    'review.edit': 'Edit',
-    'review.editAria': 'Edit {section}',
-    'price.perRequest': 'per request',
-    'cost.guidanceTitle': 'Review costs transparently',
-    'cost.guidance': 'The displayed room and service prices are applied once per request. Catering is calculated from your package, item and participant selections.',
-    'cost.centerTitle': 'Which cost center should I enter?',
-    'cost.centerHelp': 'Enter the cost center that should be charged for the event. If you do not know it, clarify it with your team or the responsible cost-center owner before submitting.',
-    'cost.centerPlaceholder': 'e.g. 471100',
-    'room.refreshAgain': 'Check availability again',
-    'catering.selectPackage': 'Select',
-    'catering.selectPackageAria': 'Select {package}',
-    'catering.packageGroupLabel': 'Select catering package',
-    'catering.packageLunch': 'Lunch',
-    'catering.tierBasic': 'Basic',
-    'catering.tierStandard': 'Standard',
-    'catering.tierDeluxe': 'Deluxe',
-    'catering.serviceTitle': 'Service staff recommended',
-    'catering.serviceCopy': 'With catering, {service} can support serving and event service during your meeting.',
-    'catering.serviceAdd': 'Add service staff',
-    'submission.sentTitle': 'Request sent successfully',
-    'submission.sentText': 'The room is provisionally reserved. Conference Management will now review the room, services, catering and costs.',
-    'submission.resubmittedTitle': 'Changes submitted successfully',
-    'submission.resubmittedText': 'The updated request has been submitted for review again. The room remains provisionally reserved.',
-  }),
-});
-
+// Compatibility adapter for the existing employee UX module. All translations
+// live in the central core i18n catalogue; this module intentionally contains
+// no independent language selection or message table.
 export function uxText(key, values = {}) {
-  const lang = language() === 'en' ? 'en' : 'de';
-  const template = COPY[lang][key] || COPY.de[key] || key;
-  return String(template).replace(/\{([a-zA-Z0-9_]+)\}/g, (_match, token) => String(values[token] ?? `{${token}}`));
+  return t(key, values);
 }
