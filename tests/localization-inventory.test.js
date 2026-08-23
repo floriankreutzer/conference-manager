@@ -4,6 +4,56 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { buildLocalizationInventory, parseMessageEntries } from '../scripts/localization-inventory.mjs';
 
+const ALIAS_TARGETS = Object.freeze({
+  'parity.admin.accessibility': 'manager.accessibility',
+  'parity.admin.active': 'manager.active',
+  'parity.admin.address': 'manager.address',
+  'parity.admin.addRoom': 'manager.addRoom',
+  'parity.admin.addService': 'manager.addService',
+  'parity.admin.capacity': 'manager.capacity',
+  'parity.admin.contact': 'manager.contact',
+  'parity.admin.description': 'manager.description',
+  'parity.admin.equipment': 'manager.equipment',
+  'parity.admin.floor': 'room.floor',
+  'parity.admin.location': 'manager.location',
+  'parity.admin.locations': 'manager.sites',
+  'parity.admin.parking': 'manager.parking',
+  'parity.admin.price': 'manager.price',
+  'parity.admin.rooms': 'manager.rooms',
+  'parity.admin.services': 'manager.services',
+  'parity.admin.sites': 'manager.sites',
+  'parity.admin.unit': 'manager.unit',
+  'parity.admin.wifiPassword': 'guest.code',
+  'parity.manager.all': 'common.all',
+  'parity.manager.open': 'manager.final.open',
+  'parity.manager.tentative': 'manager.ux.tentative',
+  'parity.manager.today': 'common.today',
+  'parity.pdf.ask': 'guest.askOrganizer',
+  'parity.pdf.date': 'schedule.date',
+  'parity.pdf.location': 'schedule.location',
+  'parity.pdf.network': 'guest.network',
+  'parity.pdf.parking': 'manager.parking',
+  'parity.pdf.route': 'guest.route',
+  'parity.pdf.title': 'nav.welcome',
+  'parity.pdf.wifiCode': 'guest.code',
+  'parity.report.cateringBookings': 'manager.cateringBookings',
+  'parity.report.confirmed': 'manager.confirmedBookings',
+  'parity.report.package': 'manager.catering',
+  'parity.report.participants': 'manager.totalParticipants',
+  'parity.report.referenceDate': 'manager.referenceDate',
+  'parity.report.roomBookings': 'manager.bookings',
+  'parity.roomPlan.allLocations': 'manager.allLocations',
+  'parity.roomPlan.date': 'schedule.date',
+  'parity.roomPlan.event': 'manager.experience.event',
+  'parity.roomPlan.list': 'requests.list',
+  'parity.roomPlan.location': 'manager.location',
+  'parity.roomPlan.participants': 'manager.totalParticipants',
+  'parity.roomPlan.room': 'manager.final.room',
+  'parity.roomPlan.status': 'manager.status',
+});
+
+const UNUSED_KEYS = new Set(['parity.pdf.accessibility']);
+
 function sectionBetween(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
   const end = source.indexOf(endMarker, start + startMarker.length);
@@ -12,14 +62,28 @@ function sectionBetween(source, startMarker, endMarker) {
   return source.slice(start + startMarker.length, end);
 }
 
-function activeLegacyHash(language, activeKeys) {
+function legacyMessages(language) {
   const source = readFileSync('src/shared/parity-i18n.js', 'utf8');
   const section = language === 'de'
     ? sectionBetween(source, '  de: Object.freeze({', '\n  }),\n  en: Object.freeze({')
     : sectionBetween(source, '  en: Object.freeze({', '\n  }),\n});');
-  const messages = parseMessageEntries(section);
+  return parseMessageEntries(section);
+}
+
+function activeLegacyHash(language, activeKeys) {
+  const messages = legacyMessages(language);
   const stable = activeKeys.map((key) => [key, messages.get(key)]);
   return createHash('sha256').update(JSON.stringify(stable)).digest('hex');
+}
+
+function generatedCanonicalCatalogue() {
+  const de = legacyMessages('de');
+  const en = legacyMessages('en');
+  const keys = [...de.keys()]
+    .filter((key) => !Object.hasOwn(ALIAS_TARGETS, key) && !UNUSED_KEYS.has(key))
+    .sort();
+  const render = (messages) => keys.map((key) => `    ${JSON.stringify(key)}: ${JSON.stringify(messages.get(key))},`).join('\n');
+  return `export const MIGRATED_I18N_MESSAGES = Object.freeze({\n  de: Object.freeze({\n${render(de)}\n  }),\n  en: Object.freeze({\n${render(en)}\n  }),\n});\n`;
 }
 
 test('baseline localization catalogs are synchronized and inventory legacy usage', () => {
@@ -30,9 +94,20 @@ test('baseline localization catalogs are synchronized and inventory legacy usage
   assert.deepEqual(inventory.canonical.placeholderMismatches, []);
   assert.deepEqual(inventory.legacy.placeholderMismatches, []);
   assert.deepEqual(inventory.comparison.sameKeyConflicts, []);
+  assert.equal(Object.keys(ALIAS_TARGETS).length, 45);
+  assert.deepEqual(inventory.usage.unusedCandidates, ['parity.pdf.accessibility']);
+
+  for (const [legacyKey, canonicalKey] of Object.entries(ALIAS_TARGETS)) {
+    const match = inventory.comparison.exactValueAliases.find((entry) => entry.legacyKey === legacyKey);
+    assert.ok(match?.canonicalKeys.includes(canonicalKey), `${legacyKey} must remain an exact DE/EN alias of ${canonicalKey}`);
+  }
 
   assert.ok(inventory.canonical.deKeys > 0, 'canonical catalog must contain translations');
   assert.ok(inventory.legacy.deKeys > 0, 'baseline characterization expects the legacy parity catalog before consolidation');
+
+  const generated = generatedCanonicalCatalogue();
+  const migratedCount = (generated.match(/^    "parity\./gm) || []).length / 2;
+  assert.equal(migratedCount, 103);
 
   console.log(`Baseline localization inventory: ${JSON.stringify({
     canonicalKeys: inventory.canonical.deKeys,
@@ -47,9 +122,8 @@ test('baseline localization catalogs are synchronized and inventory legacy usage
     uncertainConsumerFiles: inventory.usage.dynamicallyReferencedOrUncertainFiles.length,
     activeLegacyDeHash: activeLegacyHash('de', inventory.usage.activeLegacyKeys),
     activeLegacyEnHash: activeLegacyHash('en', inventory.usage.activeLegacyKeys),
+    migratedUniqueKeys: migratedCount,
+    aliasesReused: Object.keys(ALIAS_TARGETS).length,
   })}`);
-  console.log(`Legacy exact-value aliases: ${JSON.stringify(inventory.comparison.exactValueAliases)}`);
-  console.log(`Legacy unused candidates: ${JSON.stringify(inventory.usage.unusedCandidates)}`);
-  console.log(`Legacy dynamic/uncertain consumer files: ${JSON.stringify(inventory.usage.dynamicallyReferencedOrUncertainFiles)}`);
-  console.log(`Legacy static consumers: ${JSON.stringify(Object.fromEntries(Object.entries(inventory.usage.consumers).filter(([, files]) => files.length)))}`);
+  console.log(`GENERATED_CANONICAL_CATALOGUE_BASE64=${Buffer.from(generated, 'utf8').toString('base64')}`);
 });
