@@ -7,7 +7,7 @@
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:agents": "node scripts/check-agent-instructions.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:architecture": "node scripts/check-architecture.mjs && node scripts/check-modular-runtime.mjs",
     "check:static": "node scripts/check-static.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:design": "node scripts/check-design.mjs",
