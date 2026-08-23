@@ -8,7 +8,7 @@ const futureIsoDate = () => {
 
 test('demo mode is explicit, input bounds apply and local demo data can be cleared', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.23.52');
+  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.23.53');
   await expect(page.locator('html')).toHaveAttribute('data-runtime-mode', 'demo');
   await expect(page.locator('meta[name="conference-runtime"]')).toHaveAttribute('content', 'demo');
 
