@@ -1,7 +1,6 @@
-import { language, t } from '../core/i18n.js';
+import { language, t, tFor } from '../core/i18n.js';
 import { KEYS, readJson, writeJson } from '../core/storage.js';
 import { safeHttpsUrl } from '../core/ui.js';
-import { ptFor } from './parity-i18n.js';
 
 const DEFAULT_CATERING_IMAGES = Object.freeze({
   'meeting:Basic': 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80',
@@ -110,8 +109,8 @@ export function ensureParityCatalog() {
     if (!room.floorplanDescription) {
       room.floorplanDescription = structuredClone(
         DEFAULT_ROOM_DESCRIPTIONS[room.id] || {
-          de: ptFor('de', 'parity.floorplan.defaultDescription', { capacity: room.capacity || 0 }),
-          en: ptFor('en', 'parity.floorplan.defaultDescription', { capacity: room.capacity || 0 }),
+          de: tFor('de', 'room.floorplan.defaultDescription', { capacity: room.capacity || 0 }),
+          en: tFor('en', 'room.floorplan.defaultDescription', { capacity: room.capacity || 0 }),
         },
       );
       changed = true;
