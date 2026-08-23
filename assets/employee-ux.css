@@ -8,7 +8,8 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   display: none !important;
 }
 
-.ux-mobile-progress {
+.ux-mobile-progress,
+.ux-package-groups {
   display: none;
 }
 
@@ -17,16 +18,31 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   opacity: 0.48;
 }
 
+/* Keep schedule fields in a natural What / Where / When / Who sequence on all viewports. */
+.ux-order-title { order: 1; }
+.ux-order-location { order: 2; }
+.ux-order-date { order: 3; }
+.ux-order-start { order: 4; }
+.ux-order-end { order: 5; }
+.ux-order-internal { order: 6; }
+.ux-order-external { order: 7; }
+.ux-order-total { order: 8; }
+
 .ux-cost-guidance,
-.ux-cost-center-help {
+.ux-cost-center-help,
+.ux-service-recommendation,
+.ux-submission-success {
   padding: var(--space-3);
   margin: var(--space-3) 0 var(--space-4);
+  border: 1px solid var(--color-border);
   border-left: 4px solid var(--brand-secondary);
   background: var(--brand-secondary-surface);
 }
 
 .ux-cost-guidance p,
-.ux-cost-center-help p {
+.ux-cost-center-help p,
+.ux-service-recommendation p,
+.ux-submission-success p {
   margin: 4px 0 0;
   color: var(--color-muted);
 }
@@ -34,6 +50,25 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
 .ux-cost-center-help {
   border-left-color: var(--brand-primary);
   background: var(--color-surface-subtle);
+}
+
+.ux-service-recommendation,
+.ux-submission-success {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.ux-submission-success {
+  margin-top: 0;
+  border-left-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.ux-service-recommendation > button,
+.ux-submission-success > button {
+  flex: 0 0 auto;
 }
 
 .ux-superseded-help {
@@ -118,14 +153,26 @@ body[data-ux-first-use="true"] .welcome-hero {
     display: none;
   }
 
-  .ux-order-title { order: 1; }
-  .ux-order-location { order: 2; }
-  .ux-order-date { order: 3; }
-  .ux-order-start { order: 4; }
-  .ux-order-end { order: 5; }
-  .ux-order-internal { order: 6; }
-  .ux-order-external { order: 7; }
-  .ux-order-total { order: 8; }
+  .ux-package-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
+  }
+
+  .ux-package-groups button {
+    width: 100%;
+  }
+
+  .ux-package-groups button[aria-pressed="true"] {
+    border-color: var(--brand-primary);
+    box-shadow: inset 0 -3px 0 var(--brand-primary);
+    background: var(--color-surface-subtle);
+  }
+
+  .package-grid .ux-package-group-inactive {
+    display: none;
+  }
 
   .ux-review-card-header {
     align-items: center;
@@ -138,5 +185,22 @@ body[data-ux-first-use="true"] .welcome-hero {
   .ux-cost-guidance,
   .ux-cost-center-help {
     margin-block: var(--space-3);
+  }
+
+  .ux-service-recommendation,
+  .ux-submission-success {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .ux-service-recommendation > button,
+  .ux-submission-success > button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .ux-package-groups {
+    grid-template-columns: 1fr;
   }
 }
