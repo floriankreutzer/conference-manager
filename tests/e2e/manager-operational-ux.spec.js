@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const REQUEST_ID = 'CR-2026-OP-001';
+const REQUEST_ID = 'CR-2026-000099';
 
 async function seedManager(page) {
   await page.addInitScript(({ requestId }) => {
