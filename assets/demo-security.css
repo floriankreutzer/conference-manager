@@ -37,8 +37,8 @@
   padding: 7px 28px 7px 9px;
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: var(--radius-xs);
-  background: var(--surface, #fff);
-  color: var(--text, #1a1a1a);
+  background: var(--color-surface);
+  color: var(--color-ink);
   font: inherit;
   font-size: 0.82rem;
 }
