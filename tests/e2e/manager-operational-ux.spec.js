@@ -75,6 +75,23 @@ test('new request attribution uses the requester profile and survives later upda
   expect(result.requesterAfterUpdate).toBe('Mia Employee');
 });
 
+test('request attribution never invents a requester when no profile is stored', async ({ page }) => {
+  await page.goto('/');
+
+  const requester = await page.evaluate(async () => {
+    localStorage.removeItem('conference_user_profile_v1');
+    const { requestRepository } = await import('/src/core/storage.js');
+    requestRepository.save([{
+      id: 'CR-NO-PROFILE-001',
+      title: 'No Profile Request',
+      status: 'Submitted',
+    }]);
+    return requestRepository.all()[0]?.requesterName || '';
+  });
+
+  expect(requester).toBe('');
+});
+
 test('tentative KPI has a visible quick-filter state', async ({ page }) => {
   await seedManager(page);
 
