@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-const ACTION_ID = 'CR-MANAGER-READY-001';
-const UPCOMING_ID = 'CR-MANAGER-READY-002';
+const ACTION_ID = 'CR-2026-000201';
+const UPCOMING_ID = 'CR-2026-000202';
 
 async function seedManager(page) {
   await page.addInitScript(({ actionId, upcomingId }) => {
