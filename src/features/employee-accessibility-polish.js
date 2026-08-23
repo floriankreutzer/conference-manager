@@ -1,81 +1,7 @@
 import { language, t } from '../core/i18n.js';
 import { KEYS, readJson } from '../core/storage.js';
 
-const COPY = Object.freeze({
-  de: Object.freeze({
-    brandSubtitle: 'Konferenzservice',
-    genericWelcome: 'Willkommen',
-    profile: 'Profil',
-    profileOpen: 'Profil öffnen',
-    profileMissing: 'Nicht hinterlegt',
-    firstUseSubtitle: 'Planen Sie Ihre Veranstaltung – Raum, Zusatzleistungen und Bewirtung in einer Anfrage.',
-    requestSubtitle: 'Raum, Zusatzleistungen und Bewirtung in einer Anfrage.',
-    welcomeServicesStep: 'Zusatzleistungen, Bewirtung und Einzeloptionen ergänzen.',
-    additionalServices: 'Zusatzleistungen',
-    additionalServicesOptional: 'Zusatzleistungen (optional)',
-    additionalServicesEdit: 'Zusatzleistungen ändern',
-    additionalServicesSelect: 'Zusatzleistungen auswählen',
-    servicesDescription: 'Sie wählen nur die benötigte Leistung aus. Das Conference Management teilt anschließend die passende Person zu.',
-    specialRequirementsHint: 'Nutzen Sie dieses Feld für Anforderungen, die nicht durch Raum, Zusatzleistungen oder Bewirtung abgedeckt werden.',
-    participantInternal: 'Interne Teilnehmende',
-    participantExternal: 'Externe Teilnehmende',
-    participantRule: 'Bitte insgesamt mindestens eine Person angeben. Relevant für Raumkapazität und Bewirtung.',
-    roomRecommendation: 'Empfohlen – passend für Ihre Teilnehmerzahl',
-    cateringPeople: 'Bewirtung für wie viele Personen?',
-    cateringSelect: 'Bewirtung auswählen',
-    costServices: 'Zusatzleistungen',
-    costGuidance: 'Die angezeigten Raumpreise und Preise für Zusatzleistungen werden einmal je Anfrage angesetzt. Bewirtung wird anhand Ihrer Paket-, Einzeloptionen- und Personenauswahl berechnet.',
-    allocationCostCenter: 'Kostenstelle',
-    allocationPercent: 'Anteil (%)',
-    allocationAmount: 'Betrag',
-    packageGroupLabel: 'Bewirtungspaket auswählen',
-    packageMode: 'Bewirtungspaket',
-    packageExtrasMode: 'Bewirtungspaket + Extras',
-    reviewCatering: 'Bewirtungsdetails',
-    reviewCateringEdit: 'Bewirtungsdetails ändern',
-    reviewAfter2: 'Das Conference Management prüft Raum, Zusatzleistungen, Bewirtung und Kosten.',
-    submissionServices: 'Zusatzleistungen',
-  }),
-  en: Object.freeze({
-    brandSubtitle: 'Conference services',
-    genericWelcome: 'Welcome',
-    profile: 'Profile',
-    profileOpen: 'Open profile',
-    profileMissing: 'Not provided',
-    firstUseSubtitle: 'Plan your event – room, additional services and catering in one request.',
-    requestSubtitle: 'Room, additional services and catering in one request.',
-    welcomeServicesStep: 'Add additional services, catering and individual items.',
-    additionalServices: 'Additional services',
-    additionalServicesOptional: 'Additional services (optional)',
-    additionalServicesEdit: 'Edit additional services',
-    additionalServicesSelect: 'Select additional services',
-    servicesDescription: 'Select the service you need. Conference Management will then assign the appropriate person.',
-    specialRequirementsHint: 'Use this field for requirements that are not covered by the room, additional services or catering.',
-    participantInternal: 'Internal participants',
-    participantExternal: 'External participants',
-    participantRule: 'Enter at least one participant in total. This is used for room capacity and catering.',
-    roomRecommendation: 'Recommended – suitable for your participant count',
-    cateringPeople: 'Catering for how many people?',
-    cateringSelect: 'Select catering',
-    costServices: 'Additional services',
-    costGuidance: 'The displayed room and additional-service prices are applied once per request. Catering is calculated from your package, item and participant selections.',
-    allocationCostCenter: 'Cost center',
-    allocationPercent: 'Share (%)',
-    allocationAmount: 'Amount',
-    packageGroupLabel: 'Select catering package',
-    packageMode: 'Catering package',
-    packageExtrasMode: 'Catering package + extras',
-    reviewCatering: 'Catering details',
-    reviewCateringEdit: 'Edit catering details',
-    reviewAfter2: 'Conference Management reviews the room, additional services, catering and costs.',
-    submissionServices: 'additional services',
-  }),
-});
-
-function copy(key) {
-  const lang = language() === 'en' ? 'en' : 'de';
-  return COPY[lang][key] || COPY.de[key] || key;
-}
+const a11yText = (key, values = {}) => t(`employee.accessibility.${key}`, values);
 
 function setText(node, value) {
   if (node && node.textContent !== value) node.textContent = value;
@@ -104,15 +30,15 @@ function enhanceNeutralProfilePresentation() {
   if (storedProfile()) return;
 
   const profileButton = document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]');
-  setText(profileButton, copy('profile'));
-  setAttribute(profileButton, 'aria-label', copy('profileOpen'));
+  setText(profileButton, a11yText('profile'));
+  setAttribute(profileButton, 'aria-label', a11yText('profileOpen'));
 
-  setText(document.getElementById('welcomeHeading'), copy('genericWelcome'));
+  setText(document.getElementById('welcomeHeading'), a11yText('genericWelcome'));
 
   const profileValues = [...document.querySelectorAll('.profile-content .details-list dd')];
   if (profileValues.length >= 2) {
-    setText(profileValues[0], copy('profileMissing'));
-    setText(profileValues[1], copy('profileMissing'));
+    setText(profileValues[0], a11yText('profileMissing'));
+    setText(profileValues[1], a11yText('profileMissing'));
   }
 }
 
@@ -170,13 +96,13 @@ function enhanceParticipantGuidance() {
   internal.placeholder = '0';
   external.placeholder = '0';
 
-  setText(internal.closest('.field')?.querySelector('.field-label'), copy('participantInternal'));
-  setText(external.closest('.field')?.querySelector('.field-label'), copy('participantExternal'));
+  setText(internal.closest('.field')?.querySelector('.field-label'), a11yText('participantInternal'));
+  setText(external.closest('.field')?.querySelector('.field-label'), a11yText('participantExternal'));
 
   const rule = total.querySelector('small');
   if (rule) {
     rule.id = 'uxParticipantRule';
-    setText(rule, copy('participantRule'));
+    setText(rule, a11yText('participantRule'));
     appendDescribedBy(internal, rule.id);
     appendDescribedBy(external, rule.id);
   }
@@ -189,7 +115,7 @@ function ensureAllocationHeader(allocations) {
   const labels = document.createElement('div');
   labels.className = 'ux-allocation-labels';
   labels.dataset.uxAllocationLabels = 'true';
-  [copy('allocationCostCenter'), copy('allocationPercent'), copy('allocationAmount')]
+  [a11yText('allocationCostCenter'), a11yText('allocationPercent'), a11yText('allocationAmount')]
     .forEach((text) => {
       const label = document.createElement('span');
       label.textContent = text;
@@ -217,11 +143,10 @@ function enhanceCostAllocationLabels() {
     const costCenter = row.querySelector('input[id^="allocation-cost-center-"]');
     const percent = row.querySelector('input[id^="allocation-percent-"]');
     const amount = row.querySelector('output');
-
-    ensureMobileAllocationLabel(row, costCenter, 'cost-center', copy('allocationCostCenter'));
-    ensureMobileAllocationLabel(row, percent, 'percent', copy('allocationPercent'));
-    ensureMobileAllocationLabel(row, amount, 'amount', copy('allocationAmount'));
-    setAttribute(amount, 'aria-label', copy('allocationAmount'));
+    ensureMobileAllocationLabel(row, costCenter, 'cost-center', a11yText('allocationCostCenter'));
+    ensureMobileAllocationLabel(row, percent, 'percent', a11yText('allocationPercent'));
+    ensureMobileAllocationLabel(row, amount, 'amount', a11yText('allocationAmount'));
+    setAttribute(amount, 'aria-label', a11yText('allocationAmount'));
   });
 }
 
@@ -230,12 +155,12 @@ function renameReviewServices() {
   if (!panel) return;
   const serviceCard = [...panel.querySelectorAll('.review-card')].find((card) => {
     const heading = card.querySelector('h3')?.textContent?.trim();
-    return heading === t('review.services') || heading === copy('additionalServices');
+    return heading === t('review.services') || heading === a11yText('additionalServices');
   });
   if (!serviceCard) return;
 
-  setText(serviceCard.querySelector('h3'), copy('additionalServices'));
-  setAttribute(serviceCard.querySelector('.ux-review-edit'), 'aria-label', copy('additionalServicesEdit'));
+  setText(serviceCard.querySelector('h3'), a11yText('additionalServices'));
+  setAttribute(serviceCard.querySelector('.ux-review-edit'), 'aria-label', a11yText('additionalServicesEdit'));
 }
 
 function renameReviewCatering() {
@@ -243,95 +168,86 @@ function renameReviewCatering() {
   if (!panel) return;
   const cateringCard = [...panel.querySelectorAll('.review-card')].find((card) => {
     const heading = card.querySelector('h3')?.textContent?.trim();
-    return heading === t('review.catering') || heading === copy('reviewCatering');
+    return heading === t('review.catering') || heading === a11yText('reviewCatering');
   });
   if (!cateringCard) return;
 
-  setText(cateringCard.querySelector('h3'), copy('reviewCatering'));
-  setAttribute(cateringCard.querySelector('.ux-review-edit'), 'aria-label', copy('reviewCateringEdit'));
+  setText(cateringCard.querySelector('h3'), a11yText('reviewCatering'));
+  setAttribute(cateringCard.querySelector('.ux-review-edit'), 'aria-label', a11yText('reviewCateringEdit'));
 }
 
 function normalizeHelpTerminology() {
-  if (language() === 'en') return;
+  if (language() !== 'de') return;
   document.querySelectorAll('.help-card p').forEach((node) => {
     const normalized = node.textContent
-      .replaceAll('Services', copy('additionalServices'))
-      .replaceAll('Catering', 'Bewirtung');
+      .replaceAll('Services', a11yText('additionalServices'))
+      .replaceAll('Catering', a11yText('cateringTerm'));
     setText(node, normalized);
   });
 }
 
 function normalizeEmployeeTerminology() {
-  setText(document.getElementById('brandSubtitle'), copy('brandSubtitle'));
+  setText(document.getElementById('brandSubtitle'), a11yText('brandSubtitle'));
 
   if (document.body.dataset.uxFirstUse === 'true') {
-    setText(document.querySelector('.welcome-hero > p:not(.eyebrow)'), copy('firstUseSubtitle'));
-    setText(document.querySelector('.topbar p'), copy('firstUseSubtitle'));
+    setText(document.querySelector('.welcome-hero > p:not(.eyebrow)'), a11yText('firstUseSubtitle'));
+    setText(document.querySelector('.topbar p'), a11yText('firstUseSubtitle'));
   }
 
-  setText(document.querySelector('.how-list li:nth-child(2) span'), copy('welcomeServicesStep'));
+  setText(document.querySelector('.how-list li:nth-child(2) span'), a11yText('welcomeServicesStep'));
 
   const requestView = document.querySelector('.stepper');
-  if (requestView) setText(document.querySelector('.topbar p'), copy('requestSubtitle'));
+  if (requestView) setText(document.querySelector('.topbar p'), a11yText('requestSubtitle'));
 
   const steps = [...document.querySelectorAll('.stepper .step')];
   if (steps[2]) {
-    setText(steps[2], `3. ${copy('additionalServices')}`);
-    setAttribute(steps[2], 'aria-label', t('a11y.step', { step: 3, label: copy('additionalServices') }));
+    setText(steps[2], a11yText('stepLabel', { step: 3, label: a11yText('additionalServices') }));
+    setAttribute(steps[2], 'aria-label', t('a11y.step', { step: 3, label: a11yText('additionalServices') }));
   }
 
   const servicesPanel = document.querySelector('[data-step-panel="3"]');
-  setText(servicesPanel?.querySelector('.section-heading h2'), copy('additionalServicesOptional'));
-  setText(servicesPanel?.querySelector('.section-heading p'), copy('servicesDescription'));
-  setAttribute(servicesPanel?.querySelector('.selection-grid'), 'aria-label', copy('additionalServicesSelect'));
+  setText(servicesPanel?.querySelector('.section-heading h2'), a11yText('additionalServicesOptional'));
+  setText(servicesPanel?.querySelector('.section-heading p'), a11yText('servicesDescription'));
+  setAttribute(servicesPanel?.querySelector('.selection-grid'), 'aria-label', a11yText('additionalServicesSelect'));
 
   const mobileProgress = document.querySelector('[data-ux-mobile-progress="true"]');
   if (mobileProgress && servicesPanel) {
-    const progressLabel = copy('additionalServices');
-    const progressText = language() === 'en'
-      ? `Step 3 of 6: ${progressLabel}`
-      : `Schritt 3 von 6: ${progressLabel}`;
+    const progressText = t('a11y.step', { step: 3, label: a11yText('additionalServices') });
     setText(mobileProgress.querySelector('strong'), progressText);
     setAttribute(mobileProgress, 'aria-label', progressText);
   }
 
-  setText(document.getElementById('specialRequirements')?.closest('.field')?.querySelector('.field-hint'), copy('specialRequirementsHint'));
-  document.querySelectorAll('[data-step-panel="2"] .recommendation').forEach((node) => setText(node, copy('roomRecommendation')));
+  setText(document.getElementById('specialRequirements')?.closest('.field')?.querySelector('.field-hint'), a11yText('specialRequirementsHint'));
+  document.querySelectorAll('[data-step-panel="2"] .recommendation').forEach((node) => setText(node, a11yText('roomRecommendation')));
 
   const cateringPanel = document.querySelector('[data-step-panel="4"]');
-  setText(document.getElementById('cateringParticipants')?.closest('.field')?.querySelector('.field-label'), copy('cateringPeople'));
-  setAttribute(cateringPanel?.querySelector('.mode-selector'), 'aria-label', copy('cateringSelect'));
+  setText(document.getElementById('cateringParticipants')?.closest('.field')?.querySelector('.field-label'), a11yText('cateringPeople'));
+  setAttribute(cateringPanel?.querySelector('.mode-selector'), 'aria-label', a11yText('cateringSelect'));
 
-  setText(document.querySelector('[data-ux-cost-calculation] p'), copy('costGuidance'));
-  setAttribute(document.querySelector('[data-ux-package-groups]'), 'aria-label', copy('packageGroupLabel'));
+  setText(document.querySelector('[data-ux-cost-calculation] p'), a11yText('costGuidance'));
+  setAttribute(document.querySelector('[data-ux-package-groups]'), 'aria-label', a11yText('packageGroupLabel'));
 
   const costPanel = document.querySelector('[data-step-panel="5"]');
   costPanel?.querySelectorAll('.cost-summary article span').forEach((label) => {
-    if (label.textContent.trim() === t('cost.services') || label.textContent.trim() === copy('costServices')) {
-      setText(label, copy('costServices'));
+    if (label.textContent.trim() === t('cost.services') || label.textContent.trim() === a11yText('costServices')) {
+      setText(label, a11yText('costServices'));
     }
   });
 
   const packageMode = document.querySelector('input[name="cateringMode"][value="PACKAGE"]')?.closest('label')?.querySelector('span');
   const packageExtrasMode = document.querySelector('input[name="cateringMode"][value="BOTH"]')?.closest('label')?.querySelector('span');
-  setText(packageMode, copy('packageMode'));
-  setText(packageExtrasMode, copy('packageExtrasMode'));
+  setText(packageMode, a11yText('packageMode'));
+  setText(packageExtrasMode, a11yText('packageExtrasMode'));
 
   renameReviewServices();
   renameReviewCatering();
 
   const reviewAfter = document.querySelector('[data-step-panel="6"] .info-box ol');
-  setText(reviewAfter?.querySelector('li:nth-child(2)'), copy('reviewAfter2'));
+  setText(reviewAfter?.querySelector('li:nth-child(2)'), a11yText('reviewAfter2'));
 
   document.querySelectorAll('.details-grid .detail-card h3').forEach((heading) => {
-    if (heading.textContent.trim() === t('review.services')) setText(heading, copy('additionalServices'));
+    if (heading.textContent.trim() === t('review.services')) setText(heading, a11yText('additionalServices'));
   });
-
-  const submission = document.querySelector('[data-ux-submission-success] p');
-  if (submission && language() !== 'en') {
-    const normalized = submission.textContent.replace('Services', copy('submissionServices'));
-    setText(submission, normalized);
-  }
 
   normalizeHelpTerminology();
 }
@@ -347,5 +263,5 @@ export function enhanceEmployeeAccessibilityPolish() {
   enhanceParticipantGuidance();
   enhanceCostAllocationLabels();
   normalizeEmployeeTerminology();
-  setAttribute(document.documentElement, 'data-employee-accessibility-build', '2026.08.23.04');
+  setAttribute(document.documentElement, 'data-employee-accessibility-build', '2026.08.23.05');
 }

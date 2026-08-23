@@ -1,9 +1,9 @@
 /*
  * Manager layout system
  *
- * Keeps complex manager surfaces inside the application content column and
- * normalizes controls, button groups, responsive room planning and report tables.
- * Brand, sizing and spacing decisions belong in tokens.css.
+ * Single responsibility boundary for Manager-specific layout, first-use,
+ * operational, review and readiness presentation. Brand, sizing and spacing
+ * decisions belong in tokens.css.
  */
 
 .content-shell,
@@ -83,7 +83,7 @@ main,
 
 .manager-quick-filters {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: var(--manager-control-gap);
   width: 100%;
 }
@@ -184,6 +184,361 @@ main,
   font-weight: var(--font-weight-bold);
 }
 
+/* First-use and review presentation. */
+.manager-first-use-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-4);
+  align-items: start;
+  padding: var(--space-4);
+  margin-bottom: var(--manager-section-gap);
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.manager-first-use-content {
+  min-width: 0;
+}
+
+.manager-first-use-content > strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-lg);
+}
+
+.manager-first-use-content p {
+  margin: 0;
+  color: var(--color-ink-soft);
+}
+
+.manager-first-use-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.manager-first-use-steps span {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.manager-first-use-how {
+  margin-top: var(--space-3);
+}
+
+.manager-first-use-how > summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: var(--font-weight-bold);
+}
+
+.manager-first-use-how[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+.manager-advanced-filters {
+  width: 100%;
+  margin: var(--manager-section-gap) 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.manager-advanced-filters > summary {
+  display: flex;
+  min-height: var(--control-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.manager-advanced-filters > summary span {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.manager-advanced-filters[open] > summary {
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+}
+
+.manager-advanced-filters .manager-filters {
+  padding: var(--space-4);
+  margin: 0;
+}
+
+.manager-native-actions[hidden] {
+  display: none !important;
+}
+
+.manager-review-actions {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr);
+  width: min(100%, 320px);
+  margin-left: auto;
+}
+
+.manager-review-actions button {
+  width: 100%;
+}
+
+.manager-review-dialog {
+  width: min(920px, calc(100vw - 48px));
+  max-width: 920px;
+  max-height: min(88vh, 900px);
+}
+
+.manager-review-dialog .modal-body {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.manager-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.manager-detail-section {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+}
+
+.manager-detail-section h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+}
+
+.manager-detail-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.manager-detail-list > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1.2fr);
+  gap: var(--space-3);
+  align-items: start;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.manager-detail-list > div:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.manager-detail-list dt {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.manager-detail-list dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-bold);
+}
+
+.manager-detail-note {
+  display: block;
+  margin-top: var(--space-3);
+  color: var(--color-muted);
+}
+
+.manager-confirm-dialog {
+  width: min(620px, calc(100vw - 48px));
+  max-width: 620px;
+}
+
+.manager-confirm-dialog .manager-detail-section {
+  padding: 0;
+  border: 0;
+}
+
+/* Operational clarity and filters. */
+.manager-active-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-3) 0;
+  border: 1px solid var(--color-border-soft);
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.manager-active-filter-copy {
+  min-width: 0;
+}
+
+.manager-active-filter-copy strong,
+.manager-active-filter-copy span {
+  display: block;
+}
+
+.manager-active-filter-copy span {
+  margin-top: var(--space-1);
+  overflow-wrap: anywhere;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.manager-filter-empty {
+  margin: 0 0 var(--space-4);
+}
+
+.manager-card-timeline {
+  display: none !important;
+}
+
+.manager-review-history {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: var(--space-4);
+  margin: 0;
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+}
+
+.manager-review-history h4 {
+  margin-top: 0;
+}
+
+/* Decision dialog and upcoming-booking clarity. */
+.manager-decision-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.manager-decision-summary-item {
+  min-width: 0;
+}
+
+.manager-decision-summary-item span,
+.manager-decision-summary-item strong {
+  display: block;
+}
+
+.manager-decision-summary-item span {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.manager-decision-summary-item strong {
+  margin-top: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.manager-dialog-header-close {
+  display: none;
+}
+
+/* Readiness help and adaptive secondary filters. */
+.manager-tabs [data-manager-ready-bookings-tab] {
+  white-space: normal;
+  line-height: 1.05;
+}
+
+.manager-ready-help,
+.manager-ready-secondary-filters {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.manager-ready-help {
+  margin: 0 0 var(--manager-section-gap);
+}
+
+.manager-ready-help > summary,
+.manager-ready-secondary-filters > summary {
+  display: flex;
+  min-height: var(--control-height);
+  align-items: center;
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  font-weight: var(--font-weight-bold);
+}
+
+.manager-ready-help[open] > summary,
+.manager-ready-secondary-filters[open] > summary {
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+}
+
+.manager-ready-help-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.manager-ready-help-item {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+}
+
+.manager-ready-help-item strong,
+.manager-ready-help-item span {
+  display: block;
+}
+
+.manager-ready-help-item span {
+  margin-top: var(--space-1);
+  color: var(--color-ink-soft);
+  font-size: var(--font-size-sm);
+}
+
+.manager-ready-secondary-filters {
+  display: none;
+  margin: var(--space-3) 0;
+}
+
+.manager-ready-secondary-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--manager-control-gap);
+  padding: var(--space-3);
+}
+
+.manager-ready-secondary-controls button {
+  display: inline-flex;
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height);
+  min-height: var(--control-height);
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--control-padding-inline);
+  overflow: hidden;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .manager-quick-filters {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -215,7 +570,12 @@ main,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .manager-tabs button,
+  .manager-tabs button {
+    height: calc(var(--control-height) + var(--space-2));
+    min-height: calc(var(--control-height) + var(--space-2));
+    font-size: var(--font-size-sm);
+  }
+
   .manager-quick-filters button,
   .room-plan-view button,
   .admin-parity-nav button {
@@ -229,7 +589,7 @@ main,
   }
 
   .manager-quick-filters button:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .manager-filters,
@@ -292,6 +652,149 @@ main,
   .report-insight-card {
     width: 100%;
   }
+
+  .manager-first-use-banner {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+
+  .manager-first-use-banner > button {
+    width: 100%;
+  }
+
+  .manager-first-use-content > strong {
+    font-size: var(--font-size-md);
+  }
+
+  .manager-first-use-content > p {
+    font-size: var(--font-size-sm);
+  }
+
+  .manager-first-use-how {
+    margin-top: var(--space-2);
+  }
+
+  .manager-first-use-how:not([open]) .manager-first-use-steps {
+    display: none;
+  }
+
+  .manager-first-use-how[open] .manager-first-use-steps,
+  .manager-first-use-steps {
+    grid-template-columns: 1fr;
+    margin-top: 0;
+  }
+
+  .manager-advanced-filters > summary {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    padding-block: var(--space-3);
+  }
+
+  .manager-advanced-filters .manager-filters {
+    padding: var(--space-3);
+  }
+
+  .manager-review-actions {
+    width: 100%;
+  }
+
+  .manager-review-dialog,
+  .manager-confirm-dialog {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    max-height: 92vh;
+  }
+
+  .manager-detail-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .manager-detail-section,
+  .manager-review-history {
+    padding: var(--space-3);
+  }
+
+  .manager-detail-list > div {
+    grid-template-columns: minmax(108px, 0.8fr) minmax(0, 1.2fr);
+    gap: var(--space-2);
+  }
+
+  .manager-review-dialog .modal-actions,
+  .manager-confirm-dialog .modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    background: var(--color-surface);
+  }
+
+  .manager-parity-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .manager-parity-kpi {
+    min-height: 72px;
+    padding: var(--space-3);
+  }
+
+  .manager-active-filters {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+
+  .manager-active-filters > button {
+    width: 100%;
+  }
+
+  .manager-decision-summary {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .manager-review-dialog .modal-header {
+    position: relative;
+    padding-right: 128px;
+  }
+
+  .manager-dialog-header-close {
+    position: absolute;
+    top: var(--app-mobile-gutter);
+    right: var(--app-mobile-gutter);
+    display: inline-flex;
+    width: auto;
+    min-width: 96px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .manager-review-dialog [data-manager-review-bottom-close="true"] {
+    display: none;
+  }
+
+  .manager-review-dialog .modal-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .manager-review-dialog [data-manager-confirm-from-review] {
+    grid-column: 1 / -1;
+  }
+
+  .manager-ready-secondary-filters {
+    display: block;
+  }
+
+  .manager-ready-help-body {
+    grid-template-columns: 1fr;
+    padding: var(--space-3);
+  }
+
+  .manager-ready-help > summary,
+  .manager-ready-secondary-filters > summary {
+    padding: var(--space-3);
+  }
 }
 
 @media (max-width: 380px) {
@@ -308,5 +811,38 @@ main,
   .responsive-table-field {
     grid-template-columns: 1fr;
     gap: var(--space-1);
+  }
+
+  .manager-detail-list > div {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .manager-parity-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .manager-parity-kpi {
+    min-height: 68px;
+    padding: var(--space-2);
+  }
+
+  .manager-review-dialog .modal-header {
+    padding-right: var(--app-mobile-gutter);
+    padding-top: calc(var(--app-mobile-gutter) + var(--control-height) + var(--space-2));
+  }
+
+  .manager-dialog-header-close {
+    left: var(--app-mobile-gutter);
+    width: calc(100% - (2 * var(--app-mobile-gutter)));
+  }
+
+  .manager-review-dialog .modal-actions,
+  .manager-ready-secondary-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-review-dialog [data-manager-confirm-from-review] {
+    grid-column: 1;
   }
 }

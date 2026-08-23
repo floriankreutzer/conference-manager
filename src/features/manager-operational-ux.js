@@ -1,35 +1,22 @@
-import { language } from '../core/i18n.js';
+import { t } from '../core/i18n.js';
 
 const MANAGER_OPERATIONAL_UX_BUILD = '2026.08.23.68';
-let syncFrame = 0;
 
-const custom = (de, en) => (language() === 'en' ? en : de);
-
-function managerBookingsSection() {
-  const tabs = document.querySelector('.manager-tabs');
-  const section = tabs?.nextElementSibling;
-  if (!(section instanceof HTMLElement) || !section.querySelector('.manager-quick-filters')) return null;
-  return section;
-}
-
-function scheduleSync() {
-  cancelAnimationFrame(syncFrame);
-  syncFrame = requestAnimationFrame(sync);
-}
-
-function scheduleSettledSync(rounds = 6) {
+function requestManagerSync(rounds = 1) {
   let remaining = Math.max(1, Number(rounds) || 1);
   const settle = () => {
-    scheduleSync();
+    window.dispatchEvent(new Event('conference:manager-sync-request'));
     remaining -= 1;
     if (remaining > 0) requestAnimationFrame(settle);
   };
   requestAnimationFrame(settle);
 }
 
-function scheduleManagerSync() {
-  if (!document.querySelector('.manager-tabs')) return;
-  scheduleSettledSync();
+function managerBookingsSection() {
+  const tabs = document.querySelector('.manager-tabs');
+  const section = tabs?.nextElementSibling;
+  if (!(section instanceof HTMLElement) || !section.querySelector('.manager-quick-filters')) return null;
+  return section;
 }
 
 function ensureTentativeQuickFilter(section) {
@@ -45,14 +32,14 @@ function ensureTentativeQuickFilter(section) {
     control.addEventListener('click', () => {
       const kpi = section.querySelector('[data-overview-filter="TENTATIVE"]');
       if (kpi instanceof HTMLButtonElement) kpi.click();
-      scheduleSettledSync();
+      requestManagerSync(6);
     });
 
     const upcoming = quick.querySelector('[data-quick-filter="UPCOMING"]');
     quick.insertBefore(control, upcoming || quick.lastElementChild);
   }
 
-  control.textContent = custom('Vorläufig reserviert', 'Provisionally reserved');
+  control.textContent = t('manager.ux.tentative');
 }
 
 function reviewControl(requestId) {
@@ -82,6 +69,7 @@ function restoreAdvancedFilterState(snapshot, rounds = 8) {
     if (advanced instanceof HTMLDetailsElement && advanced.open !== snapshot.advancedOpen) {
       advanced.open = snapshot.advancedOpen;
     }
+    window.dispatchEvent(new Event('conference:manager-sync-request'));
     remaining -= 1;
     if (remaining > 0) requestAnimationFrame(settle);
   };
@@ -112,7 +100,7 @@ function restoreFilterSnapshot(section, snapshot) {
 
   const advanced = currentSection.querySelector('[data-manager-advanced-filters]');
   if (advanced instanceof HTMLDetailsElement) advanced.open = snapshot.advancedOpen;
-  scheduleSettledSync();
+  requestManagerSync(6);
   restoreAdvancedFilterState(snapshot);
 }
 
@@ -164,7 +152,7 @@ function openRequestReview(requestId, attempts = 18, snapshot = null) {
   requestAnimationFrame(() => openRequestReview(requestId, attempts - 1, preserved));
 }
 
-function handleOverviewOpen(event) {
+export function handleManagerOperationalClick(event) {
   if (!(event.target instanceof Element)) return;
   const control = event.target.closest('[data-manager-open]');
   if (!(control instanceof HTMLButtonElement)) return;
@@ -177,17 +165,9 @@ function handleOverviewOpen(event) {
   openRequestReview(requestId);
 }
 
-function sync() {
+export function enhanceManagerOperationalUx() {
   const section = managerBookingsSection();
   if (!section) return;
   ensureTentativeQuickFilter(section);
   document.documentElement.dataset.managerOperationalUxBuild = MANAGER_OPERATIONAL_UX_BUILD;
 }
-
-document.addEventListener('click', handleOverviewOpen, true);
-document.addEventListener('click', scheduleManagerSync);
-['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleManagerSync));
-window.addEventListener('conference-language-changed', scheduleManagerSync);
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSettledSync, { once: true });
-else scheduleSettledSync();
-window.addEventListener('load', scheduleSettledSync, { once: true });

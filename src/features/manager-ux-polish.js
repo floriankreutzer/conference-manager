@@ -1,22 +1,13 @@
-import { language } from '../core/i18n.js';
+import { t } from '../core/i18n.js';
 import { requestData } from './parity-data.js';
 
 const MOBILE_QUERY = '(max-width: 760px)';
-const mobileMedia = window.matchMedia(MOBILE_QUERY);
-let syncFrame = 0;
 let resetFrame = 0;
 
-const custom = (de, en) => (language() === 'en' ? en : de);
-
-function scheduleSync() {
-  cancelAnimationFrame(syncFrame);
-  syncFrame = requestAnimationFrame(sync);
-}
-
-function scheduleSettledSync(rounds = 4) {
+function requestManagerSync(rounds = 1) {
   let remaining = Math.max(1, Number(rounds) || 1);
   const settle = () => {
-    scheduleSync();
+    window.dispatchEvent(new Event('conference:manager-sync-request'));
     remaining -= 1;
     if (remaining > 0) requestAnimationFrame(settle);
   };
@@ -32,10 +23,9 @@ function managerBookingsSection() {
 
 function clarifyManagerNavigation() {
   const managerNav = document.querySelector('#primaryNavigation button[data-view="manager"]');
-  if (!(managerNav instanceof HTMLButtonElement)) return;
-  managerNav.textContent = custom('Conference Management', 'Conference Management');
+  if (managerNav instanceof HTMLButtonElement) managerNav.textContent = t('manager.ux.navManager');
   const personalNav = document.querySelector('#primaryNavigation button[data-view="requests"]');
-  if (personalNav instanceof HTMLButtonElement) personalNav.textContent = custom('Meine Buchungen', 'My bookings');
+  if (personalNav instanceof HTMLButtonElement) personalNav.textContent = t('manager.ux.navRequests');
 }
 
 function compactFirstUseGuide(section) {
@@ -43,43 +33,36 @@ function compactFirstUseGuide(section) {
   if (!(guide instanceof HTMLElement)) return;
   const content = guide.querySelector('.manager-first-use-content');
   const description = content?.querySelector(':scope > p');
-  if (description) {
-    description.textContent = custom(
-      'Starten Sie mit offenen Anfragen. Prüfen Sie die Angaben vollständig und treffen Sie anschließend Ihre Entscheidung.',
-      'Start with open requests. Review the information completely and then make your decision.',
-    );
-  }
+  if (description) description.textContent = t('manager.ux.firstUseDescription');
 
   const steps = guide.querySelector('.manager-first-use-steps');
   if (!(steps instanceof HTMLElement)) return;
   const firstStep = steps.querySelector('span');
-  if (firstStep) firstStep.textContent = custom('1. Offene Anfragen priorisieren', '1. Prioritise open requests');
+  if (firstStep) firstStep.textContent = t('manager.ux.firstUseStep1');
   if (steps.closest('.manager-first-use-how')) return;
 
   const details = document.createElement('details');
   details.className = 'manager-first-use-how';
-  details.open = !mobileMedia.matches;
+  details.open = !window.matchMedia(MOBILE_QUERY).matches;
   const summary = document.createElement('summary');
-  summary.textContent = custom('So funktioniert es', 'How it works');
+  summary.textContent = t('manager.ux.howItWorks');
   steps.before(details);
   details.append(summary, steps);
 }
 
 function clarifyOverviewWording(section) {
   const actionKpiLabel = section.querySelector('[data-overview-filter="ACTION"] span');
-  if (actionKpiLabel) actionKpiLabel.textContent = custom('Offene Anfragen', 'Open requests');
+  if (actionKpiLabel) actionKpiLabel.textContent = t('manager.ux.openRequests');
 
   const actionQuickFilter = section.querySelector('[data-quick-filter="ACTION"]');
-  if (actionQuickFilter instanceof HTMLButtonElement) actionQuickFilter.textContent = custom('Offene Anfragen', 'Open requests');
+  if (actionQuickFilter instanceof HTMLButtonElement) actionQuickFilter.textContent = t('manager.ux.openRequests');
 
   const actionCard = section.querySelector('.manager-overview-columns .manager-overview-card:first-child');
   const heading = actionCard?.querySelector('h3');
-  if (heading) heading.textContent = custom('Jetzt prüfen', 'Review now');
+  if (heading) heading.textContent = t('manager.ux.reviewNow');
 
   const empty = actionCard?.querySelector('p.muted');
-  if (empty && !actionCard.querySelector('.manager-overview-row')) {
-    empty.textContent = custom('Keine offenen Anfragen.', 'No open requests.');
-  }
+  if (empty && !actionCard.querySelector('.manager-overview-row')) empty.textContent = t('manager.ux.noOpenRequests');
 }
 
 function advancedFilterElements(section) {
@@ -101,14 +84,12 @@ function activeFilterDescriptors(section) {
 
   const { search, selects } = advancedFilterElements(section);
   if (search instanceof HTMLInputElement && search.value.trim()) {
-    descriptors.push(custom(`Suche: ${search.value.trim()}`, `Search: ${search.value.trim()}`));
+    descriptors.push(t('manager.ux.searchDescriptor', { value: search.value.trim() }));
   }
   selects.forEach((select, index) => {
     if (select.value === 'ALL') return;
     const selectedText = select.selectedOptions[0]?.textContent?.trim() || select.value;
-    descriptors.push(index === 0
-      ? custom(`Status: ${selectedText}`, `Status: ${selectedText}`)
-      : custom(`Standort: ${selectedText}`, `Location: ${selectedText}`));
+    descriptors.push(t(index === 0 ? 'manager.ux.statusDescriptor' : 'manager.ux.locationDescriptor', { value: selectedText }));
   });
   return descriptors;
 }
@@ -139,7 +120,7 @@ function resetAllFilters() {
 
   const advanced = section.querySelector('[data-manager-advanced-filters]');
   if (advanced instanceof HTMLDetailsElement) advanced.open = false;
-  scheduleSettledSync();
+  requestManagerSync(4);
 }
 
 function updateAdvancedFilterSummary(section) {
@@ -151,8 +132,8 @@ function updateAdvancedFilterSummary(section) {
   const count = Number(Boolean(search instanceof HTMLInputElement && search.value.trim()))
     + selects.filter((select) => select.value !== 'ALL').length;
   summaryHint.textContent = count
-    ? custom(`${count} Filter aktiv`, `${count} filter${count === 1 ? '' : 's'} active`)
-    : custom('Suche, Status und Standort', 'Search, status and location');
+    ? t(count === 1 ? 'manager.ux.filterCountOne' : 'manager.ux.filterCountMany', { count })
+    : t('manager.experience.filterHint');
 }
 
 function renderActiveFilters(section) {
@@ -176,7 +157,7 @@ function renderActiveFilters(section) {
     const copy = document.createElement('div');
     copy.className = 'manager-active-filter-copy';
     const label = document.createElement('strong');
-    label.textContent = custom('Aktive Filter', 'Active filters');
+    label.textContent = t('manager.ux.activeFilters');
     const value = document.createElement('span');
     value.dataset.managerActiveFilterText = 'true';
     copy.append(label, value);
@@ -184,7 +165,7 @@ function renderActiveFilters(section) {
     const reset = document.createElement('button');
     reset.type = 'button';
     reset.className = 'secondary';
-    reset.textContent = custom('Alle Filter zurücksetzen', 'Reset all filters');
+    reset.textContent = t('manager.ux.resetFilters');
     reset.dataset.managerResetFilters = 'true';
     reset.addEventListener('click', resetAllFilters);
     bar.append(copy, reset);
@@ -204,7 +185,7 @@ function renderActiveFilters(section) {
       empty.dataset.managerFilterEmpty = 'true';
       bar.after(empty);
     }
-    empty.textContent = custom('Keine Buchungen passen zu den aktuellen Filtern.', 'No bookings match the current filters.');
+    empty.textContent = t('manager.ux.noMatches');
   } else {
     empty?.remove();
   }
@@ -213,9 +194,7 @@ function renderActiveFilters(section) {
     const baseEmpty = [...section.querySelectorAll(':scope > .info-box')]
       .find((node) => !node.matches('[data-manager-filter-empty]'));
     const hasAdvancedFilter = descriptors.some((descriptor) => descriptor.includes(':'));
-    if (baseEmpty && hasAdvancedFilter) {
-      baseEmpty.textContent = custom('Keine Buchungen passen zu den aktuellen Filtern.', 'No bookings match the current filters.');
-    }
+    if (baseEmpty && hasAdvancedFilter) baseEmpty.textContent = t('manager.ux.noMatches');
   }
 }
 
@@ -228,22 +207,19 @@ function markCardTimelines(section) {
 function patchRequester(dialog, requestId) {
   const request = requestData().find((entry) => entry.id === requestId);
   const requesterName = String(request?.requesterName || '').trim();
-  const requesterLabel = custom('Anfragende Person', 'Requester');
+  const requesterLabel = t('manager.ux.requester');
   const row = [...dialog.querySelectorAll('.manager-detail-list > div')]
     .find((entry) => entry.querySelector('dt')?.textContent?.trim() === requesterLabel);
   if (!row) return;
   const value = row.querySelector('dd');
-  if (value) value.textContent = requesterName || custom('Nicht in der Anfrage gespeichert', 'Not stored in the request');
+  if (value) value.textContent = requesterName || t('manager.ux.requesterMissing');
 
   const eventSection = row.closest('.manager-detail-section');
   eventSection?.querySelectorAll('.manager-detail-note').forEach((note) => note.remove());
   if (!requesterName && eventSection) {
     const note = document.createElement('small');
     note.className = 'manager-detail-note';
-    note.textContent = custom(
-      'Für diese Anfrage wurde keine anfragende Person gespeichert.',
-      'No requester was stored for this request.',
-    );
+    note.textContent = t('manager.ux.requesterMissingNote');
     eventSection.appendChild(note);
   }
 }
@@ -270,15 +246,10 @@ function patchConfirmationDialog() {
   const dialog = document.querySelector('dialog.manager-confirm-dialog');
   if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return;
   const description = dialog.querySelector('.modal-header p');
-  if (description) {
-    description.textContent = custom(
-      'Mit der Bestätigung wird die Anfrage bestätigt und der Raum verbindlich als belegt geführt.',
-      'Confirming approves the request and marks the room as bindingly occupied.',
-    );
-  }
+  if (description) description.textContent = t('manager.ux.confirmDescription');
 }
 
-function handleClick(event) {
+export function handleManagerUxClick(event) {
   if (!(event.target instanceof Element)) return;
   const review = event.target.closest('[data-manager-review]');
   if (review instanceof HTMLButtonElement) {
@@ -291,10 +262,9 @@ function handleClick(event) {
   if (event.target.closest('[data-manager-confirm-from-review]')) {
     requestAnimationFrame(patchConfirmationDialog);
   }
-  scheduleSettledSync();
 }
 
-function sync() {
+export function enhanceManagerUxPolish() {
   clarifyManagerNavigation();
   const section = managerBookingsSection();
   if (!section) return;
@@ -305,11 +275,3 @@ function sync() {
   markCardTimelines(section);
   document.documentElement.dataset.managerUxPolishBuild = '2026.08.23.61';
 }
-
-document.addEventListener('click', handleClick);
-['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSettledSync));
-window.addEventListener('conference-language-changed', scheduleSettledSync);
-mobileMedia.addEventListener('change', scheduleSettledSync);
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSettledSync, { once: true });
-else scheduleSettledSync();
-window.addEventListener('load', scheduleSettledSync, { once: true });

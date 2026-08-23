@@ -15,6 +15,7 @@ export const CALENDAR_STATUS = Object.freeze({
 
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export const ISO_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const PARTICIPANT_LIMIT = 500;
 
 function objectOrEmpty(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -66,6 +67,15 @@ export function validateSchedule(form, today = localTodayIso()) {
   const external = Number(safeForm.externalParticipants || 0);
   if (!Number.isFinite(internal) || !Number.isFinite(external) || internal < 0 || external < 0) {
     return { step: 1, field: internal < 0 ? 'internalParticipants' : 'externalParticipants', key: 'validation.negative' };
+  }
+  const invalidInternal = !Number.isInteger(internal) || internal > PARTICIPANT_LIMIT;
+  const invalidExternal = !Number.isInteger(external) || external > PARTICIPANT_LIMIT;
+  if (invalidInternal || invalidExternal) {
+    return {
+      step: 1,
+      field: invalidInternal ? 'internalParticipants' : 'externalParticipants',
+      key: 'validation.participantRange',
+    };
   }
   if (internal + external < 1) return { step: 1, field: 'internalParticipants', key: 'validation.participants' };
   return null;

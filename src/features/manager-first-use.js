@@ -1,35 +1,18 @@
-import { formatDate, formatMoney, language, t } from '../core/i18n.js';
+import { formatDate, formatMoney, t } from '../core/i18n.js';
 import { KEYS, readJson, readString, writeString } from '../core/storage.js';
 import { button, el, openDialog } from '../core/ui.js';
 import { catalogData, localized, requestData } from './parity-data.js';
 import { requestIdFromCard } from './employee-visuals.js';
+import { currentManagerTab } from './manager-tabs.js';
 
 const INTRO_KEY = 'conference_manager_intro_dismissed_v1';
 const state = {
   landingHandled: false,
   priorityHandled: false,
   advancedFiltersOpen: false,
-  syncFrame: 0,
 };
 
-const custom = (de, en) => (language() === 'en' ? en : de);
 const totalParticipants = (request) => Number(request.participants ?? (Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0)));
-
-function scheduleSync() {
-  cancelAnimationFrame(state.syncFrame);
-  state.syncFrame = requestAnimationFrame(sync);
-}
-
-function currentManagerTab() {
-  const active = document.querySelector('.manager-tabs button[aria-pressed="true"]');
-  if (!active) return null;
-  const label = active.textContent.trim();
-  if (label === t('manager.bookings')) return 'BOOKINGS';
-  if (label === t('manager.roomPlan')) return 'ROOM_PLAN';
-  if (label === t('manager.reports')) return 'REPORTS';
-  if (label === t('manager.admin')) return 'ADMIN';
-  return null;
-}
 
 function applyManagerLanding() {
   if (state.landingHandled || readString(KEYS.role, 'employee') !== 'manager') return false;
@@ -47,26 +30,14 @@ function updateManagerHeading(tab) {
   const title = document.getElementById('viewTitle');
   const subtitle = document.getElementById('viewSubtitle');
   if (!title || !subtitle || !tab) return;
-  title.textContent = 'Conference Management';
-  const subtitles = {
-    BOOKINGS: custom(
-      'Prüfen und steuern Sie offene Anfragen, heutige Veranstaltungen und kommende Buchungen.',
-      'Review and manage open requests, today’s events and upcoming bookings.',
-    ),
-    ROOM_PLAN: custom(
-      'Behalten Sie die Raumbelegung für den gewählten Tag und Standort im Blick.',
-      'Keep track of room occupancy for the selected day and location.',
-    ),
-    REPORTS: custom(
-      'Analysieren Sie Buchungen, Auslastung, Services und Catering im gewählten Zeitraum.',
-      'Analyse bookings, utilisation, services and catering for the selected period.',
-    ),
-    ADMIN: custom(
-      'Verwalten Sie Räume, Standorte, Services und Catering-Stammdaten.',
-      'Manage room, location, service and catering master data.',
-    ),
+  title.textContent = t('manager.experience.title');
+  const subtitleKeys = {
+    BOOKINGS: 'manager.experience.subtitle.bookings',
+    ROOM_PLAN: 'manager.experience.subtitle.roomPlan',
+    REPORTS: 'manager.experience.subtitle.reports',
+    ADMIN: 'manager.experience.subtitle.admin',
   };
-  subtitle.textContent = subtitles[tab];
+  subtitle.textContent = t(subtitleKeys[tab]);
 }
 
 function addFirstUseGuide(section) {
@@ -77,18 +48,15 @@ function addFirstUseGuide(section) {
     attrs: { role: 'note' },
   });
   const content = el('div', { className: 'manager-first-use-content' }, [
-    el('strong', { text: custom('Neu im Conference Management?', 'New to Conference Management?') }),
-    el('p', { text: custom(
-      'Starten Sie mit dem Handlungsbedarf. Öffnen Sie eine Anfrage, prüfen Sie alle relevanten Angaben und treffen Sie anschließend Ihre Entscheidung.',
-      'Start with items that need attention. Open a request, review all relevant information and then make your decision.',
-    ) }),
+    el('strong', { text: t('manager.experience.firstUse.title') }),
+    el('p', { text: t('manager.experience.firstUse.description') }),
   ]);
   content.appendChild(el('div', { className: 'manager-first-use-steps' }, [
-    el('span', { text: custom('1. Handlungsbedarf priorisieren', '1. Prioritise action required') }),
-    el('span', { text: custom('2. Anfrage vollständig prüfen', '2. Review the full request') }),
-    el('span', { text: custom('3. Bestätigen, Änderung anfordern oder ablehnen', '3. Confirm, request changes or reject') }),
+    el('span', { text: t('manager.experience.firstUse.step1') }),
+    el('span', { text: t('manager.experience.firstUse.step2') }),
+    el('span', { text: t('manager.experience.firstUse.step3') }),
   ]));
-  const dismiss = button(custom('Verstanden', 'Got it'));
+  const dismiss = button(t('manager.experience.firstUse.dismiss'));
   dismiss.addEventListener('click', () => {
     writeString(INTRO_KEY, 'true');
     guide.remove();
@@ -105,10 +73,14 @@ function wrapAdvancedFilters(section) {
     dataset: { managerAdvancedFilters: 'true' },
   });
   details.open = state.advancedFiltersOpen;
-  details.appendChild(el('summary', {}, [
-    el('strong', { text: custom('Weitere Filter', 'More filters') }),
-    el('span', { text: custom('Suche, Status und Standort', 'Search, status and location') }),
-  ]));
+  const summary = el('summary', {}, [
+    el('strong', { text: t('manager.experience.moreFilters') }),
+    el('span', { text: t('manager.experience.filterHint') }),
+  ]);
+  summary.addEventListener('click', () => {
+    state.advancedFiltersOpen = !details.open;
+  });
+  details.appendChild(summary);
   details.addEventListener('toggle', () => { state.advancedFiltersOpen = details.open; });
   filters.before(details);
   details.appendChild(filters);
@@ -137,7 +109,7 @@ function serviceText(request, catalog) {
     const service = (catalog.services || []).find((entry) => entry.id === id);
     return localized(service?.name || id);
   }).filter(Boolean);
-  return names.length ? names.join(', ') : custom('Keine zusätzlichen Services', 'No additional services');
+  return names.length ? names.join(', ') : t('manager.experience.noServices');
 }
 
 function packageText(request, catalog) {
@@ -161,7 +133,7 @@ function itemText(request, catalog) {
 
 function allocationText(request) {
   const allocations = (request.allocations || []).filter((entry) => entry?.costCenter);
-  if (!allocations.length) return custom('Keine Kostenstellen angegeben', 'No cost centres provided');
+  if (!allocations.length) return t('manager.experience.noCostCenters');
   return allocations.map((entry) => `${entry.costCenter}: ${Number(entry.percent || 0)} %`).join(', ');
 }
 
@@ -169,28 +141,28 @@ function requesterInfo(request) {
   if (request.requesterName) return { name: request.requesterName, fallback: false };
   const profile = readJson(KEYS.profile, { firstName: '', lastName: '' });
   const name = `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
-  return { name: name || custom('Nicht gespeichert', 'Not stored'), fallback: Boolean(name) };
+  return { name: name || t('manager.experience.notStored'), fallback: Boolean(name) };
 }
 
 function buildReviewContent(request) {
   const catalog = catalogData();
   const room = (catalog.rooms || []).find((entry) => entry.id === request.roomId);
   const requester = requesterInfo(request);
-  const noInfo = custom('Keine Angaben', 'No information provided');
+  const noInfo = t('manager.experience.noInformation');
   const content = el('section', { className: 'manager-detail-grid', dataset: { managerReviewContent: request.id } });
-  const event = detailSection(custom('Veranstaltung', 'Event'), [
+  const event = detailSection(t('manager.experience.event'), [
     [t('schedule.title'), request.title],
-    [custom('Anfragende Person', 'Requester'), requester.name],
+    [t('manager.experience.requester'), requester.name],
     [t('manager.status'), t(`status.${request.status}`)],
   ]);
   if (requester.fallback) event.appendChild(el('small', {
     className: 'manager-detail-note',
-    text: custom('Im MVP aus dem lokalen Demo-Profil angezeigt.', 'Shown from the local demo profile in the MVP.'),
+    text: t('manager.experience.requesterFallback'),
   }));
 
   content.append(
     event,
-    detailSection(custom('Termin & Raum', 'Schedule & room'), [
+    detailSection(t('manager.experience.scheduleRoom'), [
       [t('schedule.date'), formatDate(request.date)],
       [`${t('schedule.start')} / ${t('schedule.end')}`, `${request.start}–${request.end}`],
       [t('schedule.location'), request.location],
@@ -204,7 +176,7 @@ function buildReviewContent(request) {
     detailSection(t('review.services'), [
       [t('review.services'), serviceText(request, catalog)],
     ]),
-    detailSection(custom('Catering & Anforderungen', 'Catering & requirements'), [
+    detailSection(t('manager.experience.cateringRequirements'), [
       [t('catering.package'), packageText(request, catalog)],
       [t('catering.people'), request.cateringParticipants ? String(request.cateringParticipants) : noInfo],
       [t('catering.items'), itemText(request, catalog)],
@@ -227,7 +199,7 @@ function nativeAction(footer, key) {
 function openConfirmDialog(request, originalConfirm) {
   const catalog = catalogData();
   const room = (catalog.rooms || []).find((entry) => entry.id === request.roomId);
-  const summary = detailSection(custom('Kerndaten', 'Key details'), [
+  const summary = detailSection(t('manager.experience.keyDetails'), [
     [t('schedule.title'), request.title],
     [t('schedule.date'), formatDate(request.date)],
     [`${t('schedule.start')} / ${t('schedule.end')}`, `${request.start}–${request.end}`],
@@ -237,16 +209,13 @@ function openConfirmDialog(request, originalConfirm) {
     [t('review.total'), formatMoney(request.estimatedCost || 0)],
   ]);
   const cancel = button(t('common.cancel'));
-  const confirm = button(custom('Verbindlich bestätigen', 'Confirm booking'), {
+  const confirm = button(t('manager.experience.confirmBinding'), {
     className: 'primary',
     dataset: { managerConfirmFinal: request.id },
   });
   const dialog = openDialog({
-    title: custom('Buchung verbindlich bestätigen?', 'Confirm booking as binding?'),
-    description: custom(
-      'Prüfen Sie die Kerndaten noch einmal. Die bestehende Bestätigungslogik bleibt unverändert.',
-      'Review the key details once more. The existing confirmation logic remains unchanged.',
-    ),
+    title: t('manager.experience.confirmTitle'),
+    description: t('manager.ux.confirmDescription'),
     content: summary,
     actions: [cancel, confirm],
     labelledById: 'managerConfirmTitle',
@@ -297,11 +266,8 @@ function openReviewDialog(request, originalFooter) {
   }
 
   dialog = openDialog({
-    title: `${custom('Anfrage prüfen', 'Review request')} · ${request.id}`,
-    description: actionable ? custom(
-      'Prüfen Sie die Angaben vollständig, bevor Sie eine Entscheidung treffen.',
-      'Review the complete request before making a decision.',
-    ) : '',
+    title: t('manager.experience.reviewTitle', { id: request.id }),
+    description: actionable ? t('manager.experience.reviewDescription') : '',
     content: buildReviewContent(request),
     actions,
     labelledById: 'managerReviewTitle',
@@ -328,7 +294,7 @@ function decorateManagerCards(section) {
       dataset: { managerReviewActions: request.id },
     });
     const review = button(
-      actionable ? custom('Prüfen & entscheiden', 'Review & decide') : custom('Details ansehen', 'View details'),
+      actionable ? t('manager.experience.reviewAction') : t('manager.experience.detailsAction'),
       {
         className: actionable ? 'primary' : 'secondary',
         dataset: { managerReview: request.id },
@@ -347,11 +313,8 @@ function enhanceBookings(section) {
   applyInitialPriorityFilter(section);
 }
 
-function sync() {
-  if (applyManagerLanding()) {
-    scheduleSync();
-    return;
-  }
+export function enhanceManagerFirstUse() {
+  if (applyManagerLanding()) return;
   const tab = currentManagerTab();
   if (!tab) return;
   updateManagerHeading(tab);
@@ -360,8 +323,3 @@ function sync() {
   if (tab === 'BOOKINGS') enhanceBookings(section);
   document.documentElement.dataset.managerFirstUseBuild = '2026.08.23.51';
 }
-
-['click', 'change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSync));
-window.addEventListener('conference-language-changed', scheduleSync);
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSync, { once: true });
-else scheduleSync();

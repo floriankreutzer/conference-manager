@@ -1,12 +1,9 @@
 import { localTodayIso } from '../core/domain.js';
-import { formatDate, language, t } from '../core/i18n.js';
+import { formatDate, t } from '../core/i18n.js';
 import { managerOverview } from './reporting.js';
 import { catalogData, localized, requestData } from './parity-data.js';
 
 const MANAGER_FINAL_POLISH_BUILD = '2026.08.23.66';
-let syncFrame = 0;
-
-const custom = (de, en) => (language() === 'en' ? en : de);
 
 function managerBookingsSection() {
   const tabs = document.querySelector('.manager-tabs');
@@ -15,30 +12,25 @@ function managerBookingsSection() {
   return section;
 }
 
-function scheduleSync() {
-  cancelAnimationFrame(syncFrame);
-  syncFrame = requestAnimationFrame(sync);
-}
-
 function calendarStatusText(status) {
   switch (String(status || '')) {
     case 'Tentative':
     case 'Provisional':
-      return custom('Vorläufig reserviert', 'Provisionally reserved');
+      return t('manager.final.calendarTentative');
     case 'Busy':
     case 'Confirmed':
-      return custom('Verbindlich belegt', 'Bindingly occupied');
+      return t('manager.final.calendarBusy');
     case 'Released':
-      return custom('Freigegeben', 'Released');
+      return t('manager.final.calendarReleased');
     default:
-      return custom('Nicht angegeben', 'Not specified');
+      return t('manager.final.notSpecified');
   }
 }
 
 function decisionText(request) {
   return ['Submitted', 'In Review'].includes(request.status)
-    ? custom('Entscheidung erforderlich', 'Decision required')
-    : custom('Keine Entscheidung erforderlich', 'No decision required');
+    ? t('manager.final.decisionRequired')
+    : t('manager.final.noDecisionRequired');
 }
 
 function statusItem(label, value) {
@@ -65,16 +57,16 @@ function ensureDecisionSummary(dialog) {
     summary = document.createElement('section');
     summary.className = 'manager-decision-summary';
     summary.dataset.managerDecisionSummary = requestId;
-    summary.setAttribute('aria-label', custom('Entscheidungsstatus', 'Decision status'));
+    summary.setAttribute('aria-label', t('manager.final.decisionRequired'));
     const body = dialog.querySelector('.modal-body');
     if (!(body instanceof HTMLElement)) return;
     body.insertBefore(summary, content);
   }
 
   summary.replaceChildren(
-    statusItem(custom('Anfrage', 'Request'), t(`status.${request.status}`)),
-    statusItem(custom('Raum', 'Room'), calendarStatusText(request.calendarStatus)),
-    statusItem(custom('Nächster Schritt', 'Next step'), decisionText(request)),
+    statusItem(t('manager.final.request'), t(`status.${request.status}`)),
+    statusItem(t('manager.final.room'), calendarStatusText(request.calendarStatus)),
+    statusItem(t('manager.final.nextStep'), decisionText(request)),
   );
 }
 
@@ -87,8 +79,8 @@ function ensureReviewHeaderClose(dialog) {
     close.type = 'button';
     close.className = 'secondary manager-dialog-header-close';
     close.dataset.managerReviewHeaderClose = 'true';
-    close.textContent = custom('Schließen', 'Close');
-    close.setAttribute('aria-label', custom('Prüfansicht schließen', 'Close review'));
+    close.textContent = t('common.close');
+    close.setAttribute('aria-label', t('manager.final.closeReview'));
     close.addEventListener('click', () => dialog.close());
     header.appendChild(close);
   }
@@ -110,7 +102,7 @@ function managerOverviewRow(request, catalog) {
   const open = document.createElement('button');
   open.type = 'button';
   open.dataset.managerOpen = request.id;
-  open.textContent = custom('Öffnen', 'Open');
+  open.textContent = t('manager.final.open');
   row.append(copy, open);
   return row;
 }
@@ -135,13 +127,13 @@ function renderDistinctUpcoming(section) {
   } else {
     const empty = document.createElement('p');
     empty.className = 'muted';
-    empty.textContent = custom('Keine weiteren Buchungen in den nächsten 7 Tagen.', 'No additional bookings in the next 7 days.');
+    empty.textContent = t('manager.final.noUpcoming');
     upcomingCard.appendChild(empty);
   }
   upcomingCard.dataset.managerDistinctUpcoming = 'true';
 }
 
-function sync() {
+export function enhanceManagerFinalPolish() {
   const section = managerBookingsSection();
   if (section) renderDistinctUpcoming(section);
   const review = document.querySelector('dialog.manager-review-dialog');
@@ -151,9 +143,3 @@ function sync() {
   }
   document.documentElement.dataset.managerFinalPolishBuild = MANAGER_FINAL_POLISH_BUILD;
 }
-
-['click', 'change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSync));
-window.addEventListener('conference-language-changed', scheduleSync);
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSync, { once: true });
-else scheduleSync();
-window.addEventListener('load', scheduleSync, { once: true });

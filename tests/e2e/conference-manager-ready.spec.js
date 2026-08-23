@@ -80,9 +80,8 @@ test('conference manager ready marker, clear bookings label and permanent help a
   await expect(page.locator('meta[name="conference-manager-readiness"]')).toHaveAttribute('content', 'ready');
   const bookingsTab = page.locator('[data-manager-ready-bookings-tab]');
   await expect(bookingsTab).toBeVisible();
+  await expect(bookingsTab).toHaveText('Anfragen & Buchungen');
   await expect(bookingsTab).toHaveAttribute('aria-label', 'Anfragen & Buchungen');
-  const prefix = await bookingsTab.evaluate((node) => getComputedStyle(node, '::before').content);
-  expect(prefix).toContain('Anfragen &');
 
   const help = page.locator('[data-manager-ready-help]');
   await expect(help).toBeVisible();
@@ -155,4 +154,23 @@ test('ready layer preserves the existing manager review and confirmation flow', 
   await expect(confirmation).toBeVisible();
   await confirmation.locator(`[data-manager-confirm-final="${ACTION_ID}"]`).click();
   await expect(page.locator('.request-card').filter({ hasText: 'Manager Ready Review' }).locator('.status-badge')).toHaveText('Bestätigt');
+});
+
+test('manager tab state uses semantic identity instead of localized visible text', async ({ page }) => {
+  await seedManager(page);
+
+  const identities = await page.locator('.manager-tabs > button[data-manager-tab]').evaluateAll((controls) => controls.map((control) => control.dataset.managerTab));
+  expect(identities).toEqual(['BOOKINGS', 'ROOM_PLAN', 'REPORTS', 'ADMIN']);
+
+  await page.locator('[data-manager-tab="ROOM_PLAN"]').click();
+  await expect(page.locator('[data-room-plan-body]')).toBeVisible();
+
+  await page.locator('[data-manager-tab="BOOKINGS"]').evaluate((control) => {
+    control.click();
+    const active = document.querySelector('.manager-tabs > button[aria-pressed="true"]');
+    if (active) active.textContent = 'Localized label changed';
+  });
+
+  await expect(page.locator('.manager-quick-filters')).toBeVisible();
+  await expect(page.locator('[data-manager-ready-bookings-tab]')).toHaveText('Anfragen & Buchungen');
 });

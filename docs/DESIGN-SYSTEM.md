@@ -60,10 +60,13 @@ The consulting-style UI deliberately uses small radii and restrained shadows. Ad
 
 - `assets/tokens.css`: global design decisions only.
 - `assets/styles.css`: base application components, forms, navigation, requests, calendar and dialogs.
-- `assets/feature-parity.css`: reporting, room-planning, catering image and administration feature components.
+- `assets/feature-parity.css`: reporting, room-planning, catering image and administration feature components shared by the enhanced application.
 - `assets/app-layout.css`: application-wide content containment, normalized controls, cards, wizard behavior, actions, dialogs and mobile reflow.
-- `assets/manager-layout.css`: only Manager-specific responsive behavior for complex toolbars, room timelines and responsive report/table cards.
+- `assets/employee-ux.css`: all Employee-specific first-use, request-wizard, accessibility and responsive presentation enhancements.
+- `assets/manager-layout.css`: all Manager-specific layout, first-use guidance, operational filters, review/dialog presentation, readiness help, room planning and responsive report/table behavior.
 - `assets/demo-security.css`: demo disclosure component only.
+
+Do not introduce separate `*-polish.css`, readiness, first-use or operational override stylesheets. Extend the responsible file above and reuse semantic tokens. The architecture quality gate enforces these ownership boundaries.
 
 Component styles should not introduce new brand hex values. Use semantic tokens instead.
 

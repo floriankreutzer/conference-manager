@@ -1,16 +1,16 @@
-import { language, t } from '../core/i18n.js';
+import { t } from '../core/i18n.js';
+import { managerTabControl } from './manager-tabs.js';
 
 const CONFERENCE_MANAGER_READY_BUILD = '2026.08.23.69';
 const MOBILE_QUERY = '(max-width: 760px)';
-const mobileMedia = window.matchMedia(MOBILE_QUERY);
 const SECONDARY_FILTERS = ['7D', 'UPCOMING'];
-let syncFrame = 0;
 
-const custom = (de, en) => (language() === 'en' ? en : de);
+function requestManagerSync() {
+  requestAnimationFrame(() => window.dispatchEvent(new Event('conference:manager-sync-request')));
+}
 
-function scheduleSync() {
-  cancelAnimationFrame(syncFrame);
-  syncFrame = requestAnimationFrame(sync);
+function isMobile() {
+  return window.matchMedia(MOBILE_QUERY).matches;
 }
 
 function managerBookingsSection() {
@@ -21,12 +21,11 @@ function managerBookingsSection() {
 }
 
 function ensureBookingsTabLabel() {
-  const controls = [...document.querySelectorAll('.manager-tabs button')];
-  const control = controls.find((button) => button.dataset.managerReadyBookingsTab === 'true'
-    || button.textContent.trim() === t('manager.bookings'));
+  const control = managerTabControl('BOOKINGS');
   if (!(control instanceof HTMLButtonElement)) return;
   control.dataset.managerReadyBookingsTab = 'true';
-  const label = custom('Anfragen & Buchungen', 'Requests & bookings');
+  const label = t('manager.ready.bookingsTab');
+  control.textContent = label;
   control.setAttribute('aria-label', label);
   control.title = label;
 }
@@ -66,27 +65,15 @@ function ensurePersistentHelp(section) {
   }
 
   const summary = details.querySelector('[data-manager-ready-help-summary]');
-  if (summary) summary.textContent = custom('Hilfe zum Conference Management', 'Conference Management help');
+  if (summary) summary.textContent = t('manager.ready.helpTitle');
 
   const body = details.querySelector('[data-manager-ready-help-body]');
   if (!(body instanceof HTMLElement)) return;
   body.replaceChildren(
-    helpStep(
-      custom('1. Offene Anfragen zuerst', '1. Open requests first'),
-      custom('Bearbeiten Sie zuerst Vorgänge mit „Zur Prüfung“ oder „In Prüfung“.', 'Start with items marked “Pending review” or “In review”.'),
-    ),
-    helpStep(
-      custom('2. Anfrage und Raum getrennt lesen', '2. Read request and room separately'),
-      custom('„Vorläufig reserviert“ hält den Raum frei; verbindlich wird er erst nach Ihrer Bestätigung.', '“Provisionally reserved” holds the room; it becomes binding only after your confirmation.'),
-    ),
-    helpStep(
-      custom('3. Vollständig prüfen', '3. Review completely'),
-      custom('Prüfen Sie Termin, Raum, Teilnehmende, Services, Catering, Anforderungen und Kosten.', 'Review schedule, room, participants, services, catering, requirements and costs.'),
-    ),
-    helpStep(
-      custom('4. Entscheidung treffen', '4. Make a decision'),
-      custom('Bestätigen Sie die Anfrage, fordern Sie eine Änderung an oder lehnen Sie mit Begründung ab.', 'Confirm the request, request a change or reject it with a reason.'),
-    ),
+    helpStep(t('manager.ready.help1Title'), t('manager.ready.help1Text')),
+    helpStep(t('manager.ready.help2Title'), t('manager.ready.help2Text')),
+    helpStep(t('manager.ready.help3Title'), t('manager.ready.help3Text')),
+    helpStep(t('manager.ready.help4Title'), t('manager.ready.help4Text')),
   );
 }
 
@@ -117,8 +104,8 @@ function bindSecondaryClose(control, details) {
   if (!(control instanceof HTMLButtonElement) || control.dataset.managerReadySecondaryBound === 'true') return;
   control.dataset.managerReadySecondaryBound = 'true';
   control.addEventListener('click', () => {
-    if (mobileMedia.matches && control.closest('[data-manager-ready-secondary-filters]')) details.open = false;
-    scheduleSync();
+    if (isMobile() && control.closest('[data-manager-ready-secondary-filters]')) details.open = false;
+    requestManagerSync();
   });
 }
 
@@ -134,7 +121,7 @@ function placeSecondaryFilters(section) {
 
   secondary.forEach((control) => bindSecondaryClose(control, details));
 
-  if (mobileMedia.matches) {
+  if (isMobile()) {
     secondary.forEach((control) => controls.appendChild(control));
   } else {
     const tentative = quick.querySelector('[data-quick-filter="TENTATIVE"]');
@@ -150,8 +137,8 @@ function placeSecondaryFilters(section) {
   const summary = details.querySelector('[data-manager-ready-secondary-summary]');
   if (summary) {
     summary.textContent = active
-      ? custom(`Zeitraum: ${active.textContent.trim()}`, `Period: ${active.textContent.trim()}`)
-      : custom('Weitere Zeiträume', 'More time periods');
+      ? t('manager.ready.periodActive', { value: active.textContent.trim() })
+      : t('manager.ready.morePeriods');
   }
 }
 
@@ -160,7 +147,7 @@ function markReady() {
   document.documentElement.dataset.conferenceManagerReadyBuild = CONFERENCE_MANAGER_READY_BUILD;
 }
 
-function sync() {
+export function enhanceConferenceManagerReady() {
   ensureBookingsTabLabel();
   const section = managerBookingsSection();
   if (section) {
@@ -169,10 +156,3 @@ function sync() {
   }
   markReady();
 }
-
-['click', 'change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSync));
-window.addEventListener('conference-language-changed', scheduleSync);
-mobileMedia.addEventListener('change', scheduleSync);
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSync, { once: true });
-else scheduleSync();
-window.addEventListener('load', scheduleSync, { once: true });

@@ -1,28 +1,7 @@
-import { language } from '../core/i18n.js';
+import { t } from '../core/i18n.js';
 import { KEYS, readJson } from '../core/storage.js';
 
-const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.02';
-
-const COPY = Object.freeze({
-  de: Object.freeze({
-    welcome: 'Willkommen',
-    welcomePageTitle: 'Start',
-    newRequestNav: 'Neue Konferenz',
-    serviceNone: 'Keine Zusatzleistungen benötigt? Sie können diesen Schritt ohne Auswahl fortsetzen.',
-    packageExtras: 'Bewirtungspaket + Einzeloptionen',
-    roomRefresh: 'Aktualisieren',
-    roomRefreshAria: 'Raumverfügbarkeit aktualisieren',
-  }),
-  en: Object.freeze({
-    welcome: 'Welcome',
-    welcomePageTitle: 'Home',
-    newRequestNav: 'New request',
-    serviceNone: 'No additional services needed? You can continue without selecting anything.',
-    packageExtras: 'Catering package + individual items',
-    roomRefresh: 'Refresh',
-    roomRefreshAria: 'Refresh room availability',
-  }),
-});
+const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.03';
 
 let capturedIdentity = {
   firstName: '',
@@ -31,11 +10,6 @@ let capturedIdentity = {
   profileFirstName: '',
   profileLastName: '',
 };
-
-function copy(key) {
-  const lang = language() === 'en' ? 'en' : 'de';
-  return COPY[lang][key] || COPY.de[key] || key;
-}
 
 function setText(node, value) {
   if (node && value && node.textContent !== value) node.textContent = value;
@@ -89,8 +63,8 @@ export function captureEmployeeIdentityPresentation() {
 
 function enhanceWelcomeCopy() {
   const welcomeHeading = document.getElementById('welcomeHeading');
-  if (welcomeHeading) setText(document.getElementById('viewTitle'), copy('welcomePageTitle'));
-  setText(document.querySelector('#primaryNavigation button[data-view="employee"]'), copy('newRequestNav'));
+  if (welcomeHeading) setText(document.getElementById('viewTitle'), t('employee.personalization.welcomePageTitle'));
+  setText(document.querySelector('#primaryNavigation button[data-view="employee"]'), t('employee.personalization.newRequestNav'));
 }
 
 function enhancePersonalizedHero() {
@@ -103,7 +77,7 @@ function enhancePersonalizedHero() {
     .some(validIdentityValue);
 
   if (welcomeHeading && validIdentityValue(capturedIdentity.firstName)) {
-    setText(welcomeHeading, `${copy('welcome')}, ${capturedIdentity.firstName}.`);
+    setText(welcomeHeading, t('welcome.greeting', { name: capturedIdentity.firstName }));
   }
 
   if (!hasCapturedIdentity) return;
@@ -120,8 +94,8 @@ function enhancePersonalizedHero() {
 
 function enhanceRoomRefreshCopy() {
   const refresh = document.querySelector('[data-step-panel="2"] .section-heading button');
-  setText(refresh, copy('roomRefresh'));
-  setAttribute(refresh, 'aria-label', copy('roomRefreshAria'));
+  setText(refresh, t('employee.personalization.roomRefresh'));
+  setAttribute(refresh, 'aria-label', t('employee.personalization.roomRefreshAria'));
 }
 
 function enhanceAdditionalServicesCopy() {
@@ -135,12 +109,12 @@ function enhanceAdditionalServicesCopy() {
     none.dataset.employeeAdditionalServicesNone = 'true';
     panel.querySelector('.section-heading')?.after(none);
   }
-  setText(none, copy('serviceNone'));
+  setText(none, t('employee.personalization.serviceNone'));
 }
 
 function enhanceCateringCopy() {
   const both = document.querySelector('input[name="cateringMode"][value="BOTH"]')?.closest('label')?.querySelector('span');
-  setText(both, copy('packageExtras'));
+  setText(both, t('employee.personalization.packageExtras'));
 }
 
 export function enhanceEmployeeFirstUsePersonalization() {
