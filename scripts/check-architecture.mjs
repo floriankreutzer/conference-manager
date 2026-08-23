@@ -66,14 +66,20 @@ for (const file of managerEnhancementModules) {
 const orchestrator = readFileSync('src/features/feature-parity.js', 'utf8');
 for (const required of [
   'ensureManagerTabIdentity',
+  'managerTabControl',
   'enhanceManagerFirstUse',
   'enhanceManagerUxPolish',
   'enhanceManagerOperationalUx',
   'enhanceManagerFinalPolish',
   'enhanceConferenceManagerReady',
   'conference:manager-sync-request',
+  '#primaryNavigation button[data-view="manager"]',
+  "managerTabControl('ADMIN')",
 ]) {
   if (!orchestrator.includes(required)) fail(`src/features/feature-parity.js: central orchestration missing ${required}.`);
+}
+if (/t\(['"](?:nav\.manager|manager\.admin)['"]\)/.test(orchestrator)) {
+  fail('src/features/feature-parity.js: Manager restore must not derive navigation state from localized visible labels.');
 }
 
 const firstUseCalls = [...orchestrator.matchAll(/enhanceManagerFirstUse\(\);/g)].map((match) => match.index);
@@ -108,6 +114,14 @@ for (const file of ['src/features/manager-parity.js', 'src/features/manager-firs
   }
 }
 
+const managerFirstUse = readFileSync('src/features/manager-first-use.js', 'utf8');
+if (!managerFirstUse.includes('control.dataset.managerAction = action')) {
+  fail('src/features/manager-first-use.js: native Manager decision controls must receive stable data-manager-action identities.');
+}
+if (/nativeAction[\s\S]*?textContent\.trim\(\)/.test(managerFirstUse)) {
+  fail('src/features/manager-first-use.js: Manager decisions must not be discovered from localized visible labels.');
+}
+
 const managerReady = readFileSync('src/features/conference-manager-ready.js', 'utf8');
 if (!managerReady.includes("managerTabControl('BOOKINGS')")) {
   fail('src/features/conference-manager-ready.js: bookings label must target the semantic BOOKINGS tab identity.');
@@ -124,6 +138,25 @@ if (!requesterAttribution.includes("addBeforeSaveHook('requester-attribution'"))
 const storage = readFileSync('src/core/storage.js', 'utf8');
 if (!storage.includes('addBeforeSaveHook(name, hook)')) {
   fail('src/core/storage.js: explicit before-save hook API is required.');
+}
+if (!storage.includes('class RepositoryWriteError') || !storage.includes('if (!persisted && failOnWrite)')) {
+  fail('src/core/storage.js: authoritative repositories must fail closed when browser persistence fails.');
+}
+if (!storage.includes('failOnWrite: false')) {
+  fail('src/core/storage.js: non-authoritative notification persistence must remain explicitly best-effort.');
+}
+
+const apiClient = readFileSync('src/core/api-client.js', 'utf8');
+if (!apiClient.includes('response.body.getReader') || !apiClient.includes('byteCount > MAX_RESPONSE_BYTES')) {
+  fail('src/core/api-client.js: production API responses must be byte-bounded while streaming.');
+}
+if (/await\s+response\.text\s*\(/.test(apiClient)) {
+  fail('src/core/api-client.js: unbounded response.text() reads are forbidden for production API responses.');
+}
+
+const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
+if (!/fail_action:\s*true\b/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
 }
 
 const designSystem = readFileSync('docs/DESIGN-SYSTEM.md', 'utf8');
