@@ -16,7 +16,7 @@ const COPY = Object.freeze({
   en: Object.freeze({
     welcome: 'Welcome',
     welcomePageTitle: 'Home',
-    newRequestNav: 'New conference',
+    newRequestNav: 'New request',
     serviceNone: 'No additional services needed? You can continue without selecting anything.',
     packageExtras: 'Catering package + individual items',
     roomRefresh: 'Refresh',
