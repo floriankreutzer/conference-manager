@@ -33,6 +33,15 @@ const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
 export { KEYS, STORAGE_LIMITS };
 
+export class RepositoryPersistenceError extends Error {
+  constructor(key) {
+    super('Repository persistence failed.');
+    this.name = 'RepositoryPersistenceError';
+    this.code = 'REPOSITORY_PERSISTENCE_FAILED';
+    this.storageKey = key;
+  }
+}
+
 function cloneFallback(fallback) {
   return fallback === undefined ? undefined : structuredClone(fallback);
 }
@@ -149,7 +158,7 @@ export function writeString(key, value) {
   }
 }
 
-export function createRepository({ key, fallback = [] }) {
+export function createRepository({ key, fallback = [], required = false }) {
   const beforeSaveHooks = new Map();
 
   return {
@@ -170,7 +179,10 @@ export function createRepository({ key, fallback = [] }) {
         const transformed = hook(prepared, current);
         if (transformed !== undefined) prepared = transformed;
       }
-      writeJson(key, prepared);
+      if (!writeJson(key, prepared)) {
+        if (required) throw new RepositoryPersistenceError(key);
+        return null;
+      }
       return prepared;
     },
     update(mutator) {
@@ -181,5 +193,5 @@ export function createRepository({ key, fallback = [] }) {
   };
 }
 
-export const requestRepository = createRepository({ key: KEYS.requests, fallback: [] });
+export const requestRepository = createRepository({ key: KEYS.requests, fallback: [], required: true });
 export const notificationRepository = createRepository({ key: KEYS.notifications, fallback: [] });
