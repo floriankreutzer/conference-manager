@@ -1,4 +1,3 @@
-import { t } from '../core/i18n.js';
 import { decorateEmployeeParity, openRichFloorplan } from './employee-visuals.js';
 import { enhanceEmployeeUx } from './employee-ux.js?v=20260823-02';
 import { enhanceEmployeeAccessibilityPolish } from './employee-accessibility-polish.js?v=20260823-05';
@@ -13,7 +12,7 @@ import { enhanceManagerUxPolish, handleManagerUxClick } from './manager-ux-polis
 import { enhanceManagerOperationalUx, handleManagerOperationalClick } from './manager-operational-ux.js';
 import { enhanceManagerFinalPolish } from './manager-final-polish.js';
 import { enhanceConferenceManagerReady } from './conference-manager-ready.js';
-import { ensureManagerTabIdentity } from './manager-tabs.js';
+import { ensureManagerTabIdentity, managerTabControl } from './manager-tabs.js';
 import { richPrint } from './welcome-print.js';
 
 let syncFrame = 0;
@@ -40,10 +39,9 @@ function restoreManagerPosition() {
 
   setAdminSection(restore.adminSection || getAdminSection());
 
-  const managerNav = [...document.querySelectorAll('#primaryNavigation button')]
-    .find((control) => control.textContent.trim().includes(t('nav.manager')));
+  const managerNav = document.querySelector('#primaryNavigation button[data-view="manager"]');
   if (!document.querySelector('.manager-tabs')) {
-    if (managerNav) {
+    if (managerNav instanceof HTMLButtonElement) {
       restoreInProgress = true;
       managerNav.click();
       requestAnimationFrame(() => { restoreInProgress = false; scheduleSync(); });
@@ -51,8 +49,8 @@ function restoreManagerPosition() {
     return;
   }
 
-  const adminTab = [...document.querySelectorAll('.manager-tabs button')]
-    .find((control) => control.textContent.trim() === t('manager.admin'));
+  ensureManagerTabIdentity();
+  const adminTab = managerTabControl('ADMIN');
   if (restore.managerTab === 'ADMIN' && adminTab?.getAttribute('aria-pressed') !== 'true') {
     restoreInProgress = true;
     adminTab?.click();
@@ -99,7 +97,7 @@ function sync() {
   enhanceManagerFinalPolish();
   enhanceConferenceManagerReady();
 
-  document.documentElement.dataset.featureParityBuild = '2026.08.23.46';
+  document.documentElement.dataset.featureParityBuild = '2026.08.23.47';
 }
 
 function handleFeatureClick(event) {
