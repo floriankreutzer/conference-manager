@@ -37,6 +37,7 @@ globalThis.document = {
 globalThis.localStorage = new MemoryStorage();
 
 const storage = await import('../src/core/storage.js');
+const parityData = await import('../src/shared/parity-data.js');
 
 const existingRequests = [{ id: 'CR-2026-100001', title: 'Existing request' }];
 
@@ -76,4 +77,34 @@ test('progression: notification persistence remains best-effort after primary bu
 
   assert.doesNotThrow(() => storage.notificationRepository.save([{ id: 'notice-1' }]));
   assert.deepEqual(storage.notificationRepository.all(), []);
+});
+
+test('regression: manager catalog persistence fails closed when browser storage rejects the write', () => {
+  const existingCatalog = { rooms: [{ id: 'R1', rate: 100 }] };
+  globalThis.localStorage = new SelectiveFailingStorage(storage.KEYS.catalog, {
+    [storage.KEYS.catalog]: JSON.stringify(existingCatalog),
+  });
+
+  assert.throws(
+    () => parityData.writeCatalog({ rooms: [{ id: 'R1', rate: 200 }] }),
+    (error) => error instanceof storage.RepositoryWriteError
+      && error.code === 'REPOSITORY_WRITE_FAILED'
+      && error.key === storage.KEYS.catalog,
+  );
+  assert.deepEqual(parityData.catalogData().rooms, existingCatalog.rooms);
+});
+
+test('regression: manager site persistence fails closed when browser storage rejects the write', () => {
+  const existingSites = { Berlin: { address: 'Existing address' } };
+  globalThis.localStorage = new SelectiveFailingStorage(storage.KEYS.siteInfo, {
+    [storage.KEYS.siteInfo]: JSON.stringify(existingSites),
+  });
+
+  assert.throws(
+    () => parityData.writeSites({ Berlin: { address: 'Unsaved address' } }),
+    (error) => error instanceof storage.RepositoryWriteError
+      && error.code === 'REPOSITORY_WRITE_FAILED'
+      && error.key === storage.KEYS.siteInfo,
+  );
+  assert.deepEqual(parityData.siteData(), existingSites);
 });
