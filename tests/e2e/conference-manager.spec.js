@@ -81,6 +81,24 @@ const switchToManager = async (page) => {
   await managerNav.click();
 };
 
+const openManagerReview = async (page, title) => {
+  const card = page.locator('.request-card').filter({ hasText: title }).first();
+  await expect(card).toBeVisible();
+  await card.locator('[data-manager-review]').click();
+  const dialog = page.locator('dialog.manager-review-dialog');
+  await expect(dialog).toBeVisible();
+  return { card, dialog };
+};
+
+const confirmManagerRequest = async (page, title) => {
+  const { card, dialog } = await openManagerReview(page, title);
+  await dialog.getByRole('button', { name: 'Bestätigen', exact: true }).click();
+  const confirmation = page.locator('dialog.manager-confirm-dialog');
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Verbindlich bestätigen', exact: true }).click();
+  return card;
+};
+
 const switchToEmployeeRequests = async (page) => {
   await setRole(page, 'employee');
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
@@ -124,8 +142,7 @@ test('German happy path submits and manager confirms a request; guest dialog res
   await expect(page.locator('.request-card').filter({ hasText: title }).locator('.status-badge')).toHaveText('Zur Prüfung');
 
   await switchToManager(page);
-  const managerCard = page.locator('.request-card').filter({ hasText: title }).first();
-  await managerCard.locator('.request-actions button.primary').click();
+  const managerCard = await confirmManagerRequest(page, title);
   await expect(managerCard.locator('.status-badge')).toHaveText('Bestätigt');
 
   await switchToEmployeeRequests(page);
@@ -199,8 +216,8 @@ test('change requested can be edited and resubmitted with the existing room with
   const title = 'Change Flow Workshop';
   await createRequest(page, { title });
   await switchToManager(page);
-  const managerCard = page.locator('.request-card').filter({ hasText: title }).first();
-  await managerCard.locator('.request-actions button.secondary').click();
+  const { card: managerCard, dialog } = await openManagerReview(page, title);
+  await dialog.getByRole('button', { name: 'Änderung anfordern', exact: true }).click();
   await page.locator('#reasonText').fill('Please add a special setup note.');
   await page.locator('dialog .modal-actions button.primary').click();
   await expect(managerCard.locator('.status-badge')).toHaveText('Änderung angefordert');
@@ -225,8 +242,8 @@ test('rejection reason is shown and the request can be reused as a new request',
   const title = 'Rejected Workshop';
   await createRequest(page, { title });
   await switchToManager(page);
-  const managerCard = page.locator('.request-card').filter({ hasText: title }).first();
-  await managerCard.locator('.request-actions button.danger').click();
+  const { dialog } = await openManagerReview(page, title);
+  await dialog.getByRole('button', { name: 'Ablehnen', exact: true }).click();
   await page.locator('#reasonText').fill('No suitable operational capacity.');
   await page.locator('dialog .modal-actions button.danger').click();
 
