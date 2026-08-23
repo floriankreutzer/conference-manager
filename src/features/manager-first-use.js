@@ -6,6 +6,7 @@ import { requestIdFromCard } from './employee-visuals.js';
 import { currentManagerTab } from './manager-tabs.js';
 
 const INTRO_KEY = 'conference_manager_intro_dismissed_v1';
+const MANAGER_ACTION_IDS = Object.freeze(['confirm', 'change', 'reject']);
 const state = {
   landingHandled: false,
   priorityHandled: false,
@@ -191,9 +192,20 @@ function buildReviewContent(request) {
   return content;
 }
 
-function nativeAction(footer, key) {
-  if (!(footer instanceof HTMLElement)) return null;
-  return [...footer.querySelectorAll('button')].find((control) => control.textContent.trim() === t(key)) || null;
+function ensureNativeActionIdentity(footer) {
+  if (!(footer instanceof HTMLElement)) return;
+  const controls = [...footer.children].filter((control) => control instanceof HTMLButtonElement);
+  if (controls.length !== MANAGER_ACTION_IDS.length) return;
+  controls.forEach((control, index) => {
+    if (!control.dataset.managerAction) control.dataset.managerAction = MANAGER_ACTION_IDS[index];
+  });
+}
+
+function nativeAction(footer, action) {
+  if (!(footer instanceof HTMLElement) || !MANAGER_ACTION_IDS.includes(action)) return null;
+  ensureNativeActionIdentity(footer);
+  const control = footer.querySelector(`button[data-manager-action="${action}"]`);
+  return control instanceof HTMLButtonElement ? control : null;
 }
 
 function openConfirmDialog(request, originalConfirm) {
@@ -232,9 +244,9 @@ function openReviewDialog(request, originalFooter) {
   const actionable = ['Submitted', 'In Review'].includes(request.status);
   const close = button(t('common.close'));
   const actions = [close];
-  const confirmOriginal = nativeAction(originalFooter, 'manager.confirm');
-  const changeOriginal = nativeAction(originalFooter, 'manager.change');
-  const rejectOriginal = nativeAction(originalFooter, 'manager.reject');
+  const confirmOriginal = nativeAction(originalFooter, 'confirm');
+  const changeOriginal = nativeAction(originalFooter, 'change');
+  const rejectOriginal = nativeAction(originalFooter, 'reject');
   let dialog;
 
   if (actionable && changeOriginal) {
@@ -284,6 +296,7 @@ function decorateManagerCards(section) {
     if (!request) return;
     const originalFooter = card.querySelector('.request-actions:not([data-manager-review-actions])');
     if (originalFooter instanceof HTMLElement) {
+      ensureNativeActionIdentity(originalFooter);
       originalFooter.classList.add('manager-native-actions');
       originalFooter.hidden = true;
     }
@@ -321,5 +334,5 @@ export function enhanceManagerFirstUse() {
   const section = document.querySelector('.manager-tabs')?.nextElementSibling;
   if (!(section instanceof HTMLElement)) return;
   if (tab === 'BOOKINGS') enhanceBookings(section);
-  document.documentElement.dataset.managerFirstUseBuild = '2026.08.23.51';
+  document.documentElement.dataset.managerFirstUseBuild = '2026.08.23.52';
 }
