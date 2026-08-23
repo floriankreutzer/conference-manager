@@ -70,9 +70,14 @@ for (const required of [
   'src/platform/feature-flags.js',
   'src/platform/feature-parity.js',
   'src/shared/parity-data.js',
-  'src/shared/parity-i18n.js',
+  'src/core/i18n.js',
+  'src/core/i18n-base.js',
+  'src/core/i18n-capability-messages.js',
 ]) {
   if (!existsSync(required)) fail(`${required}: required modular architecture file is missing.`);
+}
+for (const removed of ['src/shared/parity-i18n.js', 'src/employee/parity-i18n.js']) {
+  if (existsSync(removed)) fail(`${removed}: retired localization compatibility bridge must not be reintroduced.`);
 }
 
 const removedStyleLayers = [
