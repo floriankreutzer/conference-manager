@@ -81,6 +81,11 @@ html[lang='en'] .manager-tabs [data-manager-ready-bookings-tab]::before {
 }
 
 @media (max-width: 760px) {
+  .manager-tabs button {
+    height: calc(var(--control-height) + var(--space-2));
+    min-height: calc(var(--control-height) + var(--space-2));
+  }
+
   .manager-quick-filters [data-quick-filter='7D'],
   .manager-quick-filters [data-quick-filter='UPCOMING'] {
     display: none;
