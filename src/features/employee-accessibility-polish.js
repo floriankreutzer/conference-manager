@@ -90,8 +90,17 @@ function reorderScheduleDom() {
     grid.querySelector('.participant-total'),
   ].filter(Boolean);
 
+  const expectedOrder = ordered.map((node) => node.querySelector?.('input,select,textarea')?.id || (node.classList.contains('participant-total') ? 'participantTotal' : ''));
+  const currentOrder = [...grid.children].map((node) => node.querySelector?.('input,select,textarea')?.id || (node.classList.contains('participant-total') ? 'participantTotal' : ''));
+  if (currentOrder.length === expectedOrder.length && currentOrder.every((value, index) => value === expectedOrder[index])) {
+    grid.dataset.uxDomOrder = 'what-where-when-who';
+    return;
+  }
+
+  const focused = grid.contains(document.activeElement) ? document.activeElement : null;
   ordered.forEach((node) => grid.appendChild(node));
   grid.dataset.uxDomOrder = 'what-where-when-who';
+  if (focused?.isConnected && typeof focused.focus === 'function') focused.focus({ preventScroll: true });
 }
 
 function ensureAllocationHeader(allocations) {
