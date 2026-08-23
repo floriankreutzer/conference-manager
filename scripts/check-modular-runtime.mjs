@@ -1,5 +1,11 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
+import {
+  directBrowserStorageKinds,
+  isApprovedFeatureFlagImport,
+  moduleDeclarations,
+  onlyUsesApprovedManagerReturnStorage,
+} from './architecture-rules.mjs';
 
 let failures = 0;
 function fail(message) {
@@ -20,11 +26,6 @@ function javascriptFiles(root) {
   return files;
 }
 
-function imports(source) {
-  return [...source.matchAll(/(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]\s*;/g)]
-    .map((match) => match[1].split('?')[0]);
-}
-
 function resolvedDependency(file, specifier) {
   if (!specifier.startsWith('.')) return null;
   return normalize(join(dirname(file), specifier));
@@ -43,6 +44,8 @@ const sharedRoot = normalize('src/shared');
 const coreRoot = normalize('src/core');
 const employeeIndex = normalize('src/employee/index.js');
 const managerIndex = normalize('src/manager/index.js');
+const managerAdminParity = normalize('src/manager/admin-parity.js');
+const featureFlagPath = normalize('src/platform/feature-flags.js');
 const appPath = normalize('src/app.js');
 
 const app = readFileSync(appPath, 'utf8');
@@ -66,8 +69,8 @@ for (const required of [
   if (!app.includes(required)) fail(`src/app.js: Composition Root missing ${required}.`);
 }
 
-for (const specifier of imports(app).filter((value) => value.startsWith('.'))) {
-  if (!allowedAppImports.has(specifier)) {
+for (const { specifier } of moduleDeclarations(app)) {
+  if (specifier.startsWith('.') && !allowedAppImports.has(specifier)) {
     fail(`src/app.js: Composition Root dependency ${specifier} is not an approved top-level composition contract.`);
   }
 }
@@ -100,8 +103,8 @@ if (!managerFacade.includes('createManagerApplication')) {
 
 for (const file of sourceFiles) {
   const source = readFileSync(file, 'utf8');
-  for (const specifier of imports(source)) {
-    const dependency = resolvedDependency(file, specifier);
+  for (const declaration of moduleDeclarations(source)) {
+    const dependency = resolvedDependency(file, declaration.specifier);
     if (!dependency) continue;
 
     if (!isInside(file, employeeRoot) && isInside(dependency, employeeRoot) && dependency !== employeeIndex) {
@@ -126,6 +129,14 @@ for (const file of sourceFiles) {
     if (isInside(file, coreRoot) && dependency.startsWith(normalize('src/')) && !isInside(dependency, coreRoot)) {
       fail(`${file}: Core must remain capability-independent and may not depend on ${dependency}.`);
     }
+
+    if (file !== featureFlagPath && dependency === featureFlagPath && !isApprovedFeatureFlagImport(declaration.statement)) {
+      fail(`${file}: feature-flag construction/registration is centralized; runtime consumers may import only featureFlags.`);
+    }
+  }
+
+  if (file !== featureFlagPath && /import\s*\(\s*['"][^'"]*feature-flags\.js(?:\?[^'"]*)?['"]\s*\)/.test(source)) {
+    fail(`${file}: dynamic access to feature-flags.js is forbidden; consume the centralized featureFlags contract statically.`);
   }
 }
 
@@ -145,16 +156,24 @@ for (const file of domainModules) {
   }
 }
 
-for (const file of ['src/employee/application.js', 'src/manager/application.js']) {
+for (const file of sourceFiles.filter((path) => isInside(path, employeeRoot) || isInside(path, managerRoot))) {
   const source = readFileSync(file, 'utf8');
-  if (/\b(?:localStorage|sessionStorage)\b/.test(source)) {
-    fail(`${file}: capability application runtime must use approved persistence contracts rather than direct browser storage.`);
+  const storageKinds = directBrowserStorageKinds(source);
+  if (!storageKinds.length) continue;
+
+  const approvedLegacyReturnMarker = file === managerAdminParity
+    && storageKinds.length === 1
+    && storageKinds[0] === 'sessionStorage'
+    && onlyUsesApprovedManagerReturnStorage(source);
+
+  if (!approvedLegacyReturnMarker) {
+    fail(`${file}: capability modules must use approved persistence contracts; direct browser storage is forbidden.`);
   }
 }
 
 for (const file of ['src/platform/app-shell.js', 'src/platform/application-context.js']) {
   const source = readFileSync(file, 'utf8');
-  for (const specifier of imports(source)) {
+  for (const { specifier } of moduleDeclarations(source)) {
     const dependency = resolvedDependency(file, specifier);
     if (!dependency) continue;
     if ((isInside(dependency, employeeRoot) && dependency !== employeeIndex)
@@ -164,12 +183,13 @@ for (const file of ['src/platform/app-shell.js', 'src/platform/application-conte
   }
 }
 
-const featureFlagPath = normalize('src/platform/feature-flags.js');
 for (const file of sourceFiles) {
   if (file === featureFlagPath) continue;
   const source = readFileSync(file, 'utf8');
-  if (/\bFEATURE_FLAG_DEFAULTS\s*=/.test(source) || /\bcreateFeatureFlagDefinitions\s*\(\s*\{/.test(source)) {
-    fail(`${file}: feature-flag registration is centralized in src/platform/feature-flags.js.`);
+  if (/\bFEATURE_FLAG_DEFAULTS\b/.test(source)
+    || /\bcreateFeatureFlagDefinitions\s*\(/.test(source)
+    || /\bcreateFeatureFlagResolver\s*\(/.test(source)) {
+    fail(`${file}: feature-flag definitions and resolver construction are centralized in src/platform/feature-flags.js.`);
   }
 }
 
