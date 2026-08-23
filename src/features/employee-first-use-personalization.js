@@ -1,7 +1,7 @@
 import { language } from '../core/i18n.js';
 import { KEYS, readJson } from '../core/storage.js';
 
-const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.03';
+const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.02';
 
 const COPY = Object.freeze({
   de: Object.freeze({
