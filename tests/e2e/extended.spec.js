@@ -11,7 +11,9 @@ const clickWizardPrimary = async (page) => {
 };
 
 const setManagerRole = async (page) => {
+  const reloadPromise = page.waitForEvent('load');
   await page.locator('#demoRoleSwitch').selectOption('manager');
+  await reloadPromise;
   await expect(page.locator('#demoRoleSwitch')).toHaveValue('manager');
   const managerNav = page.locator('#primaryNavigation button[data-view="manager"]');
   await expect(managerNav).toBeVisible();
