@@ -1,6 +1,6 @@
 import { t } from '../core/i18n.js';
 import { decorateEmployeeParity, openRichFloorplan } from './employee-visuals.js';
-import { enhanceEmployeeUx } from './employee-ux.js?v=20260823-01';
+import { enhanceEmployeeUx } from './employee-ux.js?v=20260823-02';
 import { PARITY_RETURN_KEY, getAdminSection, setAdminSection } from './admin-parity.js';
 import { pt } from './parity-i18n.js';
 import { ensureParityCatalog } from './parity-data.js';
