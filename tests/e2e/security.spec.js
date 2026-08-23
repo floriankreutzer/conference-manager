@@ -8,7 +8,7 @@ const futureIsoDate = () => {
 
 test('demo mode is explicit, input bounds apply and local demo data can be cleared', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.23.51');
+  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.23.52');
   await expect(page.locator('html')).toHaveAttribute('data-runtime-mode', 'demo');
   await expect(page.locator('meta[name="conference-runtime"]')).toHaveAttribute('content', 'demo');
 
@@ -90,7 +90,7 @@ test('stored user-controlled text is rendered as text across an XSS fuzz corpus'
 test('URL and DOM attribute guards reject executable schemes and unsafe attributes', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    const ui = await import('/src/core/ui.js?security-regression=51');
+    const ui = await import('/src/core/ui.js?security-regression=52');
     const hostileUrls = [
       'javascript:alert(1)',
       'java\nscript:alert(1)',
