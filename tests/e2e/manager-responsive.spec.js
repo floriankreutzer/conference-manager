@@ -1,9 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 async function openManager(page) {
-  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
-  await expect(page.locator('dialog')).toBeVisible();
-  await page.locator('#profileRole').selectOption('manager');
+  await page.locator('#demoRoleSwitch').selectOption('manager');
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue('manager');
   const managerNav = page.locator('#primaryNavigation button[data-view="manager"]');
   await expect(managerNav).toBeVisible();
   await managerNav.click();

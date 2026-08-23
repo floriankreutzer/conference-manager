@@ -12,8 +12,8 @@ const openProfile = async (page) => {
 };
 
 const setRole = async (page, role) => {
-  await openProfile(page);
-  await page.locator('#profileRole').selectOption(role);
+  await page.locator('#demoRoleSwitch').selectOption(role);
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue(role);
 };
 
 const setLanguage = async (page, language) => {
@@ -41,11 +41,20 @@ const fillSchedule = async (page, {
   start = '10:00',
   end = '12:00',
 } = {}) => {
+  await expect(page.locator('body')).toHaveAttribute('data-ux-view', 'request');
+  await expect(page.locator('label[for="internalParticipants"]')).toHaveClass(/ux-order-internal/);
+
   await page.locator('#title').fill(title);
   await page.locator('#location').selectOption(location);
   await page.locator('#date').fill(date);
-  await page.locator('#internalParticipants').fill(String(internalParticipants));
-  await page.locator('#externalParticipants').fill(String(externalParticipants));
+
+  const internal = page.locator('#internalParticipants');
+  const external = page.locator('#externalParticipants');
+  await internal.fill(String(internalParticipants));
+  await external.fill(String(externalParticipants));
+  await expect(internal).toHaveValue(String(internalParticipants));
+  await expect(external).toHaveValue(String(externalParticipants));
+
   await page.locator('#start').fill(start);
   await page.locator('#end').fill(end);
 };
@@ -114,9 +123,10 @@ test('first employee visit, profile, help and English accessibility are coherent
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
   await expect(page.locator('#primaryNavigation')).not.toContainText('Hilfe & Kontakt');
   await expect(page.locator('#skipLink')).toHaveText('Direkt zum Hauptinhalt');
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue('employee');
 
   await openProfile(page);
-  await expect(page.locator('#profileRole')).toHaveValue('employee');
+  await expect(page.locator('#profileRole')).toBeHidden();
   await expect(page.locator('#profileLanguage')).toHaveValue('de');
   await page.getByRole('button', { name: 'Hilfe & Kontakt' }).click();
   await expect(page.locator('dialog')).toBeVisible();
