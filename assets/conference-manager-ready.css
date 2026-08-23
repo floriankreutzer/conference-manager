@@ -76,19 +76,25 @@ html[lang='en'] .manager-tabs [data-manager-ready-bookings-tab]::before {
 }
 
 .manager-ready-secondary-controls button {
+  display: inline-flex;
   width: 100%;
+  min-width: 0;
+  height: var(--control-height);
   min-height: var(--control-height);
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--control-padding-inline);
+  overflow: hidden;
+  line-height: 1.15;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 760px) {
   .manager-tabs button {
     height: calc(var(--control-height) + var(--space-2));
     min-height: calc(var(--control-height) + var(--space-2));
-  }
-
-  .manager-quick-filters [data-quick-filter='7D'],
-  .manager-quick-filters [data-quick-filter='UPCOMING'] {
-    display: none;
   }
 
   .manager-ready-secondary-filters {
