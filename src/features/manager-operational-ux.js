@@ -1,6 +1,6 @@
 import { language } from '../core/i18n.js';
 
-const MANAGER_OPERATIONAL_UX_BUILD = '2026.08.23.62';
+const MANAGER_OPERATIONAL_UX_BUILD = '2026.08.23.63';
 let syncFrame = 0;
 
 const custom = (de, en) => (language() === 'en' ? en : de);
@@ -25,6 +25,11 @@ function scheduleSettledSync(rounds = 6) {
     if (remaining > 0) requestAnimationFrame(settle);
   };
   requestAnimationFrame(settle);
+}
+
+function scheduleManagerSync() {
+  if (!document.querySelector('.manager-tabs')) return;
+  scheduleSettledSync();
 }
 
 function ensureTentativeQuickFilter(section) {
@@ -118,9 +123,9 @@ function sync() {
 }
 
 document.addEventListener('click', handleOverviewOpen, true);
-document.addEventListener('click', scheduleSettledSync);
-['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSettledSync));
-window.addEventListener('conference-language-changed', scheduleSettledSync);
+document.addEventListener('click', scheduleManagerSync);
+['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleManagerSync));
+window.addEventListener('conference-language-changed', scheduleManagerSync);
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSettledSync, { once: true });
 else scheduleSettledSync();
 window.addEventListener('load', scheduleSettledSync, { once: true });
