@@ -43,8 +43,8 @@ test.beforeEach(async ({ page }) => {
 
 test('first-use welcome prioritizes the primary action and explains the task clearly', async ({ page }) => {
   await expect(page.locator('.welcome-hero')).toBeVisible();
-  await expect(page.locator('#brandSubtitle')).toHaveText('Interne Services');
-  await expect(page.locator('.welcome-hero > p:not(.eyebrow)')).toHaveText('Planen Sie Ihre Veranstaltung – Raum, Services und Bewirtung in einer Anfrage.');
+  await expect(page.locator('#brandSubtitle')).toHaveText('Konferenzservice');
+  await expect(page.locator('.welcome-hero > p:not(.eyebrow)')).toHaveText('Planen Sie Ihre Veranstaltung – Raum, Zusatzleistungen und Bewirtung in einer Anfrage.');
   await expect(page.getByRole('button', { name: 'Neue Konferenz anfragen' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Meine Buchungen ansehen' })).toBeHidden();
   await expect(page.locator('.dashboard-grid')).toBeHidden();
@@ -81,8 +81,7 @@ test('wizard only allows sequential forward navigation while preserving backward
   await expect(steps.nth(2)).toBeDisabled();
 });
 
-test('room and service prices state their basis and catering packages use clear selection semantics', async ({ page }, testInfo) => {
-  const mobile = testInfo.project.name === 'webkit-mobile';
+test('room and service prices state their basis and catering packages use clear selection semantics', async ({ page }) => {
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await fillSchedule(page);
   await next(page);
@@ -97,17 +96,12 @@ test('room and service prices state their basis and catering packages use clear 
   await expect(page.locator('.package-grid button[aria-pressed="false"]').first()).toHaveText('Auswählen');
   await expect(page.locator('.package-grid h3').first()).toContainText('Basis');
   await expect(page.getByRole('button', { name: 'Servicepersonal hinzufügen' })).toBeVisible();
-
-  if (mobile) {
-    await expect(page.locator('.ux-package-groups')).toBeVisible();
-    await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(3);
-    await page.locator('.ux-package-groups').getByRole('button', { name: 'Mittagessen' }).click();
-    await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(3);
-    await expect(page.locator('.package-grid .option-card:visible h3').first()).toContainText('Mittagessen');
-  } else {
-    await expect(page.locator('.ux-package-groups')).toBeHidden();
-    await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(12);
-  }
+  await expect(page.locator('.ux-package-groups')).toBeVisible();
+  await expect(page.locator('.package-grid .option-card')).toHaveCount(12);
+  await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(3);
+  await page.locator('.ux-package-groups').getByRole('button', { name: 'Mittagessen' }).click();
+  await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(3);
+  await expect(page.locator('.package-grid .option-card:visible h3').first()).toContainText('Mittagessen');
 
   await page.getByRole('button', { name: 'Servicepersonal hinzufügen' }).click();
   await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
@@ -126,7 +120,7 @@ test('cost guidance is explicit and review sections can be edited directly', asy
   await next(page);
 
   await expect(page.locator('[data-step-panel="5"]')).toBeVisible();
-  await expect(page.locator('[data-ux-cost-calculation]')).toContainText('Raum- und Servicepreise werden einmal je Anfrage angesetzt');
+  await expect(page.locator('[data-ux-cost-calculation]')).toContainText('Raumpreise und Preise für Zusatzleistungen werden einmal je Anfrage angesetzt');
   await expect(page.locator('[data-ux-cost-center-help]')).toContainText('Falls Sie sie nicht kennen');
   await expect(page.locator('#allocation-cost-center-0')).toHaveAttribute('placeholder', 'z. B. 471100');
   await expect(page.locator('#allocation-cost-center-0')).toHaveAttribute('aria-describedby', /uxCostCenterHelp/);

@@ -1,6 +1,7 @@
 import { t } from '../core/i18n.js';
 import { decorateEmployeeParity, openRichFloorplan } from './employee-visuals.js';
 import { enhanceEmployeeUx } from './employee-ux.js?v=20260823-02';
+import { enhanceEmployeeAccessibilityPolish } from './employee-accessibility-polish.js?v=20260823-03';
 import { PARITY_RETURN_KEY, getAdminSection, setAdminSection } from './admin-parity.js';
 import { pt } from './parity-i18n.js';
 import { ensureParityCatalog } from './parity-data.js';
@@ -13,8 +14,11 @@ let restoreInProgress = false;
 const initialReturnMarker = sessionStorage.getItem(PARITY_RETURN_KEY);
 
 function scheduleSync() {
-  cancelAnimationFrame(syncFrame);
-  syncFrame = requestAnimationFrame(sync);
+  if (syncFrame) return;
+  syncFrame = requestAnimationFrame(() => {
+    syncFrame = 0;
+    sync();
+  });
 }
 
 function restoreManagerPosition() {
@@ -75,6 +79,7 @@ function sync() {
   restoreManagerPosition();
   decorateEmployeeParity();
   enhanceEmployeeUx();
+  enhanceEmployeeAccessibilityPolish();
   enhanceManager();
   ensureReportInsightsHeading();
   enhanceManagerResponsive();
