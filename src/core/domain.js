@@ -91,7 +91,9 @@ export function validateAllocations(allocations) {
   return null;
 }
 
-export function validateRoom({ roomId, form, rooms, requests, excludeRequestId = null }) {
+export function validateRoom(input) {
+  const safeInput = objectOrEmpty(input);
+  const { roomId, form, rooms, requests, excludeRequestId = null } = safeInput;
   if (!roomId) return { step: 2, field: 'rooms', key: 'validation.room' };
   const safeForm = objectOrEmpty(form);
   const room = arrayOrEmpty(rooms).find((entry) => entry?.id === roomId);
@@ -113,7 +115,17 @@ export function validateRequest(input) {
     || validateAllocations(safeInput.allocations);
 }
 
-export function calculateCosts({ room, services, selectedServiceIds, cateringPackage, cateringParticipants, items, quantities } = {}) {
+export function calculateCosts(input = {}) {
+  const safeInput = objectOrEmpty(input);
+  const {
+    room,
+    services,
+    selectedServiceIds,
+    cateringPackage,
+    cateringParticipants,
+    items,
+    quantities,
+  } = safeInput;
   const roomCost = Number(room?.rate || 0);
   const selectedIds = arrayOrEmpty(selectedServiceIds);
   const safeQuantities = objectOrEmpty(quantities);
