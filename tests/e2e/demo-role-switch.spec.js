@@ -23,11 +23,11 @@ test('demo role switch lives in the demo panel and no longer in the profile cont
   await page.locator('dialog button.primary').click();
 
   await selectDemoRole(page, 'manager');
-  await expect(page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).resolves.toBe('manager');
+  expect(await page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('manager');
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(1);
 
   await selectDemoRole(page, 'employee');
-  await expect(page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).resolves.toBe('employee');
+  expect(await page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('employee');
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
 });
 
