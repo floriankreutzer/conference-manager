@@ -62,7 +62,6 @@
 .manager-advanced-filters > summary span {
   color: var(--color-muted);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-regular);
 }
 
 .manager-advanced-filters[open] > summary {
