@@ -31,7 +31,9 @@ src/
 │   ├── api-client.js
 │   ├── catalog.js
 │   ├── domain.js
-│   ├── i18n.js
+│   ├── i18n.js                    # public canonical localization contract
+│   ├── i18n-base.js               # baseline catalog/runtime implementation
+│   ├── i18n-capability-messages.js# consolidated capability messages
 │   ├── security-i18n.js
 │   ├── security-policy.js
 │   ├── storage.js
@@ -47,6 +49,7 @@ src/
 │   ├── application.js             # Manager UI/use-case orchestration
 │   ├── booking-lifecycle.js       # confirm/change/reject rules
 │   ├── reporting.js               # reporting domain calculations
+│   ├── parity-i18n.js             # temporary Manager-only Core delegation bridge
 │   └── Manager experience enhancements
 ├── platform/
 │   ├── app-shell.js               # shell/navigation/profile/help routing
@@ -60,8 +63,7 @@ src/
     ├── application-presentation.js
     ├── notifications.js
     ├── request-card.js
-    ├── parity-data.js
-    └── parity-i18n.js
+    └── parity-data.js
 ```
 
 The former flat `src/features` directory is not part of the modular architecture. The architecture quality gate rejects its reintroduction.
@@ -91,13 +93,15 @@ Core contains stable domain and infrastructure primitives:
 - `domain.js`: scheduling/conflict validation, participant totals, cost calculation, repeat/history logic and status constants;
 - `catalog.js`: catalog/site defaults and loading/localization helpers;
 - `storage.js`: defensive browser persistence and named repository APIs;
-- `i18n.js`: canonical Employee/Manager translation catalogue and locale-aware formatting;
+- `i18n.js`: the only public application localization contract. It owns key resolution and exposes `t()`, `tFor()`, language/locale state and locale-aware formatting contracts;
+- `i18n-base.js`: the pre-existing synchronized DE/EN baseline catalog and locale runtime, retained inside Core so its established storage, fallback, event and `Intl` semantics remain unchanged;
+- `i18n-capability-messages.js`: the synchronized DE/EN capability messages migrated from the former parity catalog under semantic canonical namespaces;
 - `security-i18n.js`: security-notice translations;
 - `security-policy.js`: runtime/role/language policy normalization;
 - `api-client.js`: defensive same-origin production API contract;
 - `ui.js`: reusable safe DOM/accessibility primitives.
 
-Core remains capability-independent. Feature-specific business logic and capability rendering do not belong in Core.
+Core remains capability-independent. Feature-specific business logic and capability rendering do not belong in Core. New UI copy must use the canonical Core localization contract; new parallel translation catalogs or capability-owned fallback engines are prohibited.
 
 ### `src/employee`
 
@@ -110,7 +114,7 @@ Business/session rules that can be tested without the DOM are separated into:
 - `request-session.js`: request editing state, room-availability model, cost composition, draft payload/restore and repeat/change mapping;
 - `request-lifecycle.js`: final validation, submit/resubmit/cancel transitions and Employee request filtering.
 
-Existing Employee parity/UX/accessibility modules remain within the Employee boundary and continue to be exposed through the same public facade.
+Existing Employee parity/UX/accessibility modules remain within the Employee boundary and continue to be exposed through the same public facade. Employee localization consumers use the canonical Core localization contract directly; the former Employee parity-i18n bridge has been retired.
 
 Employee internals are private. External code must not expose or import internal Employee modules merely for convenience; public API additions require a legitimate cross-module contract.
 
@@ -122,6 +126,8 @@ Manager owns the complete baseline Conference Manager application behavior behin
 
 `booking-lifecycle.js` owns testable confirm/change/reject status and calendar transitions. `reporting.js` remains the testable Manager reporting calculation model used by the enhanced reporting experience.
 
+`parity-i18n.js` is a temporary Manager-only compatibility bridge for two baseline enhancement modules that still call the historical `pt()` function name. It owns no messages, fallback behavior, storage or interpolation logic and delegates directly to `src/core/i18n.js`. It must not receive new consumers or translation content and should be removed when those remaining call sites are migrated in a separately regression-protected cleanup.
+
 Manager internals are private. Manager-to-Employee collaboration is permitted only through an explicit approved Employee public contract and must never reach into Employee implementation details.
 
 ### `src/platform`
@@ -132,7 +138,7 @@ Platform contains application-wide composition and infrastructure-facing concern
 - `app-shell.js` owns shell navigation, welcome view, profile/help dialogs and top-level view orchestration. It receives Employee/Manager application contracts from `src/app.js` rather than importing capability internals.
 - identity bootstrap, demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
 
-`feature-parity.js` remains the single coalesced enhancement scheduler. Manager enhancement modules must not add their own global synchronization loops.
+`feature-parity.js` remains the single coalesced enhancement scheduler. Manager enhancement modules must not add their own global synchronization loops. Platform localization consumers use the canonical Core localization contract directly.
 
 Platform must not become a replacement monolith for logic moved out of `src/app.js`. Capability business rules and capability-specific rendering stay with the owning capability.
 
@@ -143,8 +149,9 @@ Shared contains code genuinely reused across capabilities with stable cross-capa
 - `request-card.js` owns the common request-card/timeline DOM contract and receives capability-specific actions as callbacks.
 - `application-presentation.js` owns the small cross-capability form/section/KPI presentation primitives extracted from the former composition root.
 - `notifications.js` owns the common notification persistence/presentation contract.
-- `parity-data.js` centralizes the existing enhanced catalog/site/request presentation data helpers.
-- `parity-i18n.js` is the preserved pre-existing compatibility translation catalogue.
+- `parity-data.js` centralizes the existing enhanced catalog/site/request presentation data helpers and uses the canonical Core localization contract where localized defaults are required.
+
+The former Shared parity translation catalog and bridge have been retired. Shared must not become a second localization owner.
 
 Do not move code into Shared merely because two files currently use it. Keep code in its owning capability until there is a real stable reuse requirement. Do not create generic `utils`, `helpers`, `misc`, `common` or equivalent dumping grounds.
 
@@ -220,13 +227,17 @@ Global design decisions remain exclusively in `assets/tokens.css`. CSS ownership
 
 Capability-specific UI belongs to its capability. Cross-capability presentation belongs in Shared only when it is genuinely reusable and stable.
 
-User-visible application copy remains governed by the repository i18n rules. New application copy belongs in the canonical localization mechanism; do not expand known legacy/parity localization structures without an explicitly approved migration.
+User-visible application copy remains governed by the repository i18n rules. New application copy belongs in the canonical Core localization mechanism.
 
-## Existing i18n technical debt
+## Canonical localization architecture
 
-`src/shared/parity-i18n.js` predates the canonical-i18n rule and remains a compatibility resource. It is intentionally separate technical debt.
+Application localization has one translation-ownership path under Core. The former `src/shared/parity-i18n.js` catalog was characterized before migration: 149 synchronized DE/EN legacy keys, 148 active references, one unused candidate, no DE/EN placeholder drift and no same-key conflicts. Of those legacy values, 45 active entries reused exact existing canonical translations, one unused alias was not migrated, and 103 unique active translations were moved into `src/core/i18n-capability-messages.js` under semantic namespaces.
 
-New application copy must not be added there. Consolidating the legacy parity catalogue into `src/core/i18n.js` remains a separate, regression-protected change rather than being mixed into unrelated architectural work.
+The canonical application catalogs now contain 570 synchronized DE/EN keys. `scripts/check-i18n.mjs` enforces key synchronization, duplicate-definition detection, DE/EN placeholder parity, absence of canonical `parity.*` keys and the rule that any retained compatibility bridge cannot own translations. `tests/localization-inventory.test.js` protects the consolidated end state and representative baseline copy.
+
+`src/core/i18n.js` is the public resolver. Normal UI rendering uses `t()`. `tFor(locale, key)` exists only for the established bilingual master-data initialization path that must materialize both DE and EN values independent of the currently selected UI language. Locale persistence, fallback behavior, language-change events and `Intl` formatting continue to use the preserved baseline Core implementation.
+
+The remaining Manager `parity-i18n.js` file is a name-compatibility adapter only, not a localization catalog or alternative API implementation. New code must import the Core contract directly.
 
 ## Incremental architecture changes
 
@@ -269,6 +280,7 @@ Together they enforce, among other controls:
 - Shared independence from Employee/Manager internals;
 - Platform shell/context independence from capability internals;
 - Core capability independence;
+- canonical localization architecture files and retirement of obsolete Shared/Employee localization bridges;
 - DOM/storage independence of extracted lifecycle/session/domain modules;
 - approved persistence access across all Employee/Manager capability modules, with only the documented Manager return-marker compatibility exception;
 - centralized Manager enhancement scheduling;
