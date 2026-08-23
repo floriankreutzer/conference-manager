@@ -1,15 +1,29 @@
 import { t } from './i18n.js';
 
 const BLOCKED_ATTRIBUTES = new Set(['srcdoc', 'style']);
-const URL_ATTRIBUTES = new Set(['href', 'src', 'action', 'formaction', 'poster', 'xlink:href']);
+const NAVIGATION_URL_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'xlink:href']);
+const RESOURCE_URL_ATTRIBUTES = new Set(['src', 'poster']);
+const SAFE_INLINE_IMAGE_PATTERN = /^data:image\/svg\+xml(?:;charset=[a-z0-9._-]+)?,/i;
 const EVENT_ATTRIBUTE_PATTERN = /^on/i;
+
+function safeResourceUrl(node, value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (node.tagName === 'IMG' && SAFE_INLINE_IMAGE_PATTERN.test(raw)) return raw;
+  return safeNavigationUrl(raw);
+}
 
 function applyAttribute(node, key, value) {
   const normalizedKey = String(key || '').trim();
   const lowerKey = normalizedKey.toLowerCase();
   if (!normalizedKey || EVENT_ATTRIBUTE_PATTERN.test(normalizedKey) || BLOCKED_ATTRIBUTES.has(lowerKey)) return;
-  if (URL_ATTRIBUTES.has(lowerKey)) {
+  if (NAVIGATION_URL_ATTRIBUTES.has(lowerKey)) {
     const safeValue = safeNavigationUrl(value);
+    if (safeValue) node.setAttribute(normalizedKey, safeValue);
+    return;
+  }
+  if (RESOURCE_URL_ATTRIBUTES.has(lowerKey)) {
+    const safeValue = safeResourceUrl(node, value);
     if (safeValue) node.setAttribute(normalizedKey, safeValue);
     return;
   }
