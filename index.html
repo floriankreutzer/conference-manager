@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="light">
   <meta name="referrer" content="no-referrer">
   <meta name="conference-runtime" content="demo">
+  <meta name="conference-end-user-readiness" content="ready">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'sha256-IwFkyCVIyurW9bJF80THrt85tGm07bI5WVzgH12f8GE=' 'sha256-/ZJyhxwkFy8aRB7cj/3aOjLSm85p3cPyLmPldxKhD3s='; style-src-attr 'none'; img-src 'self' data: https://images.unsplash.com https://api.qrserver.com; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
   <title></title>
   <link rel="stylesheet" href="./assets/tokens.css?v=20260823-47">
@@ -16,7 +17,7 @@
   <link rel="stylesheet" href="./assets/manager-first-use.css?v=20260823-53">
   <link rel="stylesheet" href="./assets/manager-ux-polish.css?v=20260823-60">
   <link rel="stylesheet" href="./assets/manager-operational-ux.css?v=20260823-64">
-  <link rel="stylesheet" href="./assets/employee-ux.css?v=20260823-02">
+  <link rel="stylesheet" href="./assets/employee-ux.css?v=20260823-03">
   <link rel="stylesheet" href="./assets/employee-accessibility-polish.css?v=20260823-03">
   <link rel="stylesheet" href="./assets/demo-security.css?v=20260823-55">
 </head>
@@ -50,10 +51,11 @@
   <div id="alertRegion" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+  <script type="module" src="./src/features/identity-bootstrap.js?v=20260823-01"></script>
   <script type="module" src="./src/features/demo-security.js?v=20260823-55"></script>
   <script type="module" src="./src/features/requester-attribution.js?v=20260823-64"></script>
   <script type="module" src="./src/app.js?v=20260823-54"></script>
-  <script type="module" src="./src/features/feature-parity.js?v=20260823-59"></script>
+  <script type="module" src="./src/features/feature-parity.js?v=20260823-60"></script>
   <script type="module" src="./src/features/manager-first-use.js?v=20260823-53"></script>
   <script type="module" src="./src/features/manager-ux-polish.js?v=20260823-61"></script>
   <script type="module" src="./src/features/manager-operational-ux.js?v=20260823-63"></script>
