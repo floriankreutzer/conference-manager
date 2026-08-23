@@ -28,6 +28,7 @@ async function reachCatering(page) {
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await fillSchedule(page);
   await next(page);
+  await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
   await chooseRoom(page);
   await next(page);
   await next(page);
@@ -52,7 +53,7 @@ test('first-time users are personally addressed with the active profile identity
   const values = page.locator('.profile-content .details-list dd');
   await expect(values.nth(0)).toHaveText('Florian');
   await expect(values.nth(1)).toHaveText('Kreutzer');
-  await expect(page.locator('html')).toHaveAttribute('data-employee-first-use-personalization-build', '2026.08.23.01');
+  await expect(page.locator('html')).toHaveAttribute('data-employee-first-use-personalization-build', '2026.08.23.02');
 });
 
 test('schedule DOM and sequential focus order match the visible What Where When Who order', async ({ page }) => {
@@ -165,6 +166,7 @@ test('employee terminology stays consistent across the complete request journey'
 
   await fillSchedule(page);
   await next(page);
+  await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
   await expect(page.locator('[data-step-panel="2"] .recommendation').first()).toHaveText('Empfohlen – passend für Ihre Teilnehmerzahl');
   await expect(page.locator('[data-step-panel="2"] .section-heading button')).toHaveText('Aktualisieren');
   await chooseRoom(page);
@@ -173,7 +175,7 @@ test('employee terminology stays consistent across the complete request journey'
   const servicesPanel = page.locator('[data-step-panel="3"]');
   await expect(servicesPanel.locator('.section-heading h2')).toHaveText('Zusatzleistungen (optional)');
   await expect(servicesPanel.locator('.section-heading p')).toHaveText('Sie wählen nur die benötigte Leistung aus. Das Conference Management teilt anschließend die passende Person zu.');
-  await expect(servicesPanel.locator(':scope > p.muted')).toHaveText('Keine Zusatzleistungen benötigt? Sie können diesen Schritt ohne Auswahl fortsetzen.');
+  await expect(servicesPanel.locator('[data-employee-additional-services-none]')).toHaveText('Keine Zusatzleistungen benötigt? Sie können diesen Schritt ohne Auswahl fortsetzen.');
   await expect(servicesPanel.locator('.selection-grid')).toHaveAttribute('aria-label', 'Zusatzleistungen auswählen');
 
   await next(page);
@@ -193,5 +195,5 @@ test('employee terminology stays consistent across the complete request journey'
   await expect(page.getByRole('heading', { name: 'Bewirtungsdetails' })).toBeVisible();
   await expect(page.locator('[data-step-panel="6"] .info-box li').nth(1)).toHaveText('Das Conference Management prüft Raum, Zusatzleistungen, Bewirtung und Kosten.');
   await expect(page.locator('html')).toHaveAttribute('data-employee-accessibility-build', '2026.08.23.04');
-  await expect(page.locator('html')).toHaveAttribute('data-employee-first-use-personalization-build', '2026.08.23.01');
+  await expect(page.locator('html')).toHaveAttribute('data-employee-first-use-personalization-build', '2026.08.23.02');
 });
