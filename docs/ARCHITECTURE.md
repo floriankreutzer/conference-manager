@@ -191,11 +191,15 @@ Significant business rules should be independently testable where practical and 
 8. Feature flags are not substitutes for module boundaries.
 9. Once a feature is permanently released and no controlled rollback need remains, remove the stale flag and dead alternative path in a dedicated cleanup change.
 
+Runtime modules outside `src/platform/feature-flags.js` may consume the exported `featureFlags` runtime contract, but must not import/re-export resolver or definition factories to construct parallel registries. The architecture gate enforces that construction and registration remain centralized.
+
 ## Persistence and data compatibility
 
 The static MVP uses LocalStorage/sessionStorage. Canonical storage conventions and defensive parsing remain in `src/core/storage.js` and approved repository/context interfaces.
 
 Capability runtimes must not invent direct browser-storage conventions. New storage keys, serialization formats, restore/cache behavior or persistence abstractions require explicit architectural justification.
+
+One historical compatibility exception is explicitly approved for the existing baseline: `src/manager/admin-parity.js` writes `PARITY_RETURN_KEY` directly to `sessionStorage` immediately before a controlled page reload so the Manager administration view can restore its return position. This is a narrow session-scoped navigation marker, not a general persistence convention. The architecture gate permits only that exact `sessionStorage.setItem(PARITY_RETURN_KEY, ...)` call in that file and rejects any additional direct Employee/Manager browser-storage access. Do not expand this exception; removing it should be a separate regression-protected runtime cleanup routed through an approved contract.
 
 The current baseline preserves without silent migration:
 
@@ -266,10 +270,11 @@ Together they enforce, among other controls:
 - Platform shell/context independence from capability internals;
 - Core capability independence;
 - DOM/storage independence of extracted lifecycle/session/domain modules;
-- approved persistence access in capability application modules;
+- approved persistence access across all Employee/Manager capability modules, with only the documented Manager return-marker compatibility exception;
 - centralized Manager enhancement scheduling;
 - stable Manager semantic identities;
-- centralized feature-flag foundation and default-OFF policy;
+- centralized feature-flag construction/registration and default-OFF policy;
+- semicolon-independent static ES-module dependency parsing for architecture-boundary checks;
 - storage/API hardening invariants;
 - circular ES-module dependency detection;
 - DAST fail-closed configuration;
