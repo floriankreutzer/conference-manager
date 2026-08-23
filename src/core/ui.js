@@ -1,12 +1,42 @@
 import { t } from './i18n.js';
 
-const BLOCKED_ATTRIBUTES = new Set(['srcdoc']);
+const BLOCKED_ATTRIBUTES = new Set(['srcdoc', 'style']);
+const NAVIGATION_URL_ATTRIBUTES = new Set(['href', 'action', 'formaction', 'xlink:href']);
+const RESOURCE_URL_ATTRIBUTES = new Set(['src', 'poster']);
+const SAFE_INLINE_IMAGE_PATTERN = /^data:image\/svg\+xml(?:;charset=[a-z0-9._-]+)?,/i;
 const EVENT_ATTRIBUTE_PATTERN = /^on/i;
+
+function safeResourceUrl(node, value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (node.tagName === 'IMG' && SAFE_INLINE_IMAGE_PATTERN.test(raw)) return raw;
+  return safeNavigationUrl(raw);
+}
 
 function applyAttribute(node, key, value) {
   const normalizedKey = String(key || '').trim();
-  if (!normalizedKey || EVENT_ATTRIBUTE_PATTERN.test(normalizedKey) || BLOCKED_ATTRIBUTES.has(normalizedKey.toLowerCase())) return;
+  const lowerKey = normalizedKey.toLowerCase();
+  if (!normalizedKey || EVENT_ATTRIBUTE_PATTERN.test(normalizedKey) || BLOCKED_ATTRIBUTES.has(lowerKey)) return;
+  if (NAVIGATION_URL_ATTRIBUTES.has(lowerKey)) {
+    const safeValue = safeNavigationUrl(value);
+    if (safeValue) node.setAttribute(normalizedKey, safeValue);
+    return;
+  }
+  if (RESOURCE_URL_ATTRIBUTES.has(lowerKey)) {
+    const safeValue = safeResourceUrl(node, value);
+    if (safeValue) node.setAttribute(normalizedKey, safeValue);
+    return;
+  }
   node.setAttribute(normalizedKey, String(value));
+}
+
+function enforceBlankTargetIsolation(node) {
+  if (node.target !== '_blank') return;
+  const relTokens = new Set(String(node.rel || '').split(/\s+/).filter(Boolean));
+  relTokens.delete('opener');
+  relTokens.add('noopener');
+  relTokens.add('noreferrer');
+  node.rel = [...relTokens].join(' ');
 }
 
 export function el(tagName, options = {}, children = []) {
@@ -23,10 +53,10 @@ export function el(tagName, options = {}, children = []) {
   }
   if (options.target) node.target = options.target;
   if (options.rel) node.rel = options.rel;
-  if (node.target === '_blank' && !node.rel) node.rel = 'noopener noreferrer';
   if (options.placeholder) node.placeholder = options.placeholder;
   if (options.dataset) Object.entries(options.dataset).forEach(([key, value]) => { node.dataset[key] = String(value); });
   if (options.attrs) Object.entries(options.attrs).forEach(([key, value]) => applyAttribute(node, key, value));
+  enforceBlankTargetIsolation(node);
   if (options.disabled !== undefined) node.disabled = Boolean(options.disabled);
   if (options.checked !== undefined) node.checked = Boolean(options.checked);
   const normalizedChildren = Array.isArray(children) ? children : [children];

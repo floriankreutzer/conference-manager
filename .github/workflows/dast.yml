@@ -1,0 +1,27 @@
+name: OWASP ZAP Baseline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '41 4 * * 2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zap-baseline
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: ZAP baseline scan of deployed GitHub Pages site
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: 'https://floriankreutzer.github.io/conference-manager/'
+          allow_issue_writing: false
+          fail_action: false
+          artifact_name: zap-baseline-report
+          cmd_options: '-a'
