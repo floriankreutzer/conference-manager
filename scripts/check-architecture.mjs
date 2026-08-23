@@ -74,11 +74,12 @@ for (const required of [
   'enhanceConferenceManagerReady',
   'conference:manager-sync-request',
   '#primaryNavigation button[data-view="manager"]',
+  "managerTabControl('ADMIN')",
 ]) {
   if (!orchestrator.includes(required)) fail(`src/features/feature-parity.js: central orchestration missing ${required}.`);
 }
-if (/textContent[^\n]*(?:nav\.manager|manager\.admin)/.test(orchestrator)) {
-  fail('src/features/feature-parity.js: Manager navigation must not depend on visible localized text.');
+if (/t\(['"](?:nav\.manager|manager\.admin)['"]\)/.test(orchestrator)) {
+  fail('src/features/feature-parity.js: Manager restore must not derive navigation state from localized visible labels.');
 }
 
 const firstUseCalls = [...orchestrator.matchAll(/enhanceManagerFirstUse\(\);/g)].map((match) => match.index);
@@ -114,14 +115,11 @@ for (const file of ['src/features/manager-parity.js', 'src/features/manager-firs
 }
 
 const managerFirstUse = readFileSync('src/features/manager-first-use.js', 'utf8');
-if (!managerFirstUse.includes("Object.freeze(['confirm', 'change', 'reject'])")) {
-  fail('src/features/manager-first-use.js: Manager workflow actions require stable semantic identities.');
+if (!managerFirstUse.includes('control.dataset.managerAction = action')) {
+  fail('src/features/manager-first-use.js: native Manager decision controls must receive stable data-manager-action identities.');
 }
-if (!managerFirstUse.includes('control.dataset.managerAction = MANAGER_ACTION_IDS[index]')) {
-  fail('src/features/manager-first-use.js: native Manager actions must receive data-manager-action identities.');
-}
-if (/nativeAction\([^)]*,\s*['"]manager\./.test(managerFirstUse) || /textContent[^\n]*t\(['"]manager\.(?:confirm|change|reject)/.test(managerFirstUse)) {
-  fail('src/features/manager-first-use.js: Manager action lookup must not depend on translated labels.');
+if (/nativeAction[\s\S]*?textContent\.trim\(\)/.test(managerFirstUse)) {
+  fail('src/features/manager-first-use.js: Manager decisions must not be discovered from localized visible labels.');
 }
 
 const managerReady = readFileSync('src/features/conference-manager-ready.js', 'utf8');
@@ -141,8 +139,24 @@ const storage = readFileSync('src/core/storage.js', 'utf8');
 if (!storage.includes('addBeforeSaveHook(name, hook)')) {
   fail('src/core/storage.js: explicit before-save hook API is required.');
 }
-if (!storage.includes('RepositoryPersistenceError') || !storage.includes('required: true')) {
-  fail('src/core/storage.js: critical request persistence must fail closed.');
+if (!storage.includes('class RepositoryWriteError') || !storage.includes('if (!persisted && failOnWrite)')) {
+  fail('src/core/storage.js: authoritative repositories must fail closed when browser persistence fails.');
+}
+if (!storage.includes('failOnWrite: false')) {
+  fail('src/core/storage.js: non-authoritative notification persistence must remain explicitly best-effort.');
+}
+
+const apiClient = readFileSync('src/core/api-client.js', 'utf8');
+if (!apiClient.includes('response.body.getReader') || !apiClient.includes('byteCount > MAX_RESPONSE_BYTES')) {
+  fail('src/core/api-client.js: production API responses must be byte-bounded while streaming.');
+}
+if (/await\s+response\.text\s*\(/.test(apiClient)) {
+  fail('src/core/api-client.js: unbounded response.text() reads are forbidden for production API responses.');
+}
+
+const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
+if (!/fail_action:\s*true\b/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
 }
 
 const designSystem = readFileSync('docs/DESIGN-SYSTEM.md', 'utf8');

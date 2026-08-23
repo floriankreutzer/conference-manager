@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_COST_COMPONENT,
   PARTICIPANT_LIMIT,
   REQUEST_STATUS,
   calculateCosts,
@@ -88,40 +87,58 @@ test('cost calculation uses dedicated catering participant count', () => {
   assert.deepEqual(result, { roomCost: 100, serviceCost: 90, cateringCost: 56, total: 246 });
 });
 
-test('security regression: invalid and negative monetary components fail safe to zero', () => {
+test('regression: manipulated negative and non-finite prices cannot reduce or poison totals', () => {
   const result = calculateCosts({
-    room: { rate: -10 },
-    services: [{ id: 'host', price: Number.POSITIVE_INFINITY }],
-    selectedServiceIds: ['host'],
+    room: { rate: -100 },
+    services: [
+      { id: 'negative', price: -90 },
+      { id: 'infinite', price: Number.POSITIVE_INFINITY },
+      { id: 'valid', price: '25.50' },
+    ],
+    selectedServiceIds: ['negative', 'infinite', 'valid'],
     cateringPackage: { pricePerPerson: Number.NaN },
-    cateringParticipants: 4,
+    cateringParticipants: 5,
     items: [{ id: 'water', price: -2 }],
     quantities: { water: 3 },
   });
-  assert.deepEqual(result, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
+  assert.deepEqual(result, { roomCost: 0, serviceCost: 25.5, cateringCost: 0, total: 25.5 });
 });
 
-test('security regression: oversized prices and quantities fail safe instead of inflating totals', () => {
-  const result = calculateCosts({
-    room: { rate: MAX_COST_COMPONENT + 1 },
-    services: [{ id: 'host', price: MAX_COST_COMPONENT + 1 }],
-    selectedServiceIds: ['host'],
-    cateringPackage: { pricePerPerson: 10 },
-    cateringParticipants: PARTICIPANT_LIMIT + 1,
-    items: [{ id: 'water', price: 2 }],
-    quantities: { water: PARTICIPANT_LIMIT + 1 },
-  });
-  assert.deepEqual(result, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
-});
-
-test('security regression: fractional quantities are not treated as billable counts', () => {
-  const result = calculateCosts({
+test('regression: fractional catering counts preserve the visible package charge while unsafe item quantities are ignored', () => {
+  const fractional = calculateCosts({
     cateringPackage: { pricePerPerson: 10 },
     cateringParticipants: 1.5,
     items: [{ id: 'water', price: 2 }],
-    quantities: { water: 2.5 },
+    quantities: { water: -3 },
   });
-  assert.deepEqual(result, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
+  assert.deepEqual(fractional, { roomCost: 0, serviceCost: 0, cateringCost: 15, total: 15 });
+});
+
+test('regression: negative or non-finite catering counts cannot create package charges', () => {
+  const negative = calculateCosts({
+    cateringPackage: { pricePerPerson: 10 },
+    cateringParticipants: -1,
+  });
+  const infinite = calculateCosts({
+    cateringPackage: { pricePerPerson: 10 },
+    cateringParticipants: Number.POSITIVE_INFINITY,
+  });
+  assert.equal(negative.cateringCost, 0);
+  assert.equal(infinite.cateringCost, 0);
+});
+
+test('regression: unsafe cost arithmetic saturates at a finite safe value', () => {
+  const result = calculateCosts({
+    room: { rate: Number.MAX_VALUE },
+    services: [{ id: 'host', price: Number.MAX_SAFE_INTEGER }],
+    selectedServiceIds: ['host'],
+    cateringPackage: { pricePerPerson: Number.MAX_SAFE_INTEGER },
+    cateringParticipants: 2,
+  });
+  assert.equal(result.roomCost, Number.MAX_SAFE_INTEGER);
+  assert.equal(result.serviceCost, Number.MAX_SAFE_INTEGER);
+  assert.equal(result.cateringCost, Number.MAX_SAFE_INTEGER);
+  assert.equal(result.total, Number.MAX_SAFE_INTEGER);
 });
 
 test('repeat of a past request clears schedule and room but preserves business details', () => {

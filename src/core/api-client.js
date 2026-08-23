@@ -69,42 +69,33 @@ function serializeBody(body) {
   }
 }
 
-function declaredResponseLength(response) {
-  const header = response.headers.get('content-length');
-  if (!header) return null;
-  const parsed = Number(header);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+function assertResponseLengthHeader(response) {
+  const rawLength = response.headers.get('content-length');
+  if (!rawLength || !/^\d+$/.test(rawLength.trim())) return;
+  if (Number(rawLength) > MAX_RESPONSE_BYTES) throw new ApiSecurityError('RESPONSE_TOO_LARGE');
 }
 
 async function readBoundedText(response) {
-  const declaredLength = declaredResponseLength(response);
-  if (declaredLength !== null && declaredLength > MAX_RESPONSE_BYTES) {
-    throw new ApiSecurityError('RESPONSE_TOO_LARGE');
-  }
-
-  if (!response.body || typeof response.body.getReader !== 'function') {
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > MAX_RESPONSE_BYTES) throw new ApiSecurityError('RESPONSE_TOO_LARGE');
-    return new TextDecoder().decode(buffer);
-  }
+  assertResponseLengthHeader(response);
+  if (!response.body) return '';
+  if (typeof response.body.getReader !== 'function') throw new ApiSecurityError('RESPONSE_STREAM_REQUIRED');
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-  let bytesRead = 0;
+  let byteCount = 0;
   let text = '';
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      bytesRead += value.byteLength;
-      if (bytesRead > MAX_RESPONSE_BYTES) {
-        await reader.cancel();
+      byteCount += value.byteLength;
+      if (byteCount > MAX_RESPONSE_BYTES) {
+        try { await reader.cancel(); } catch {}
         throw new ApiSecurityError('RESPONSE_TOO_LARGE');
       }
       text += decoder.decode(value, { stream: true });
     }
-    text += decoder.decode();
-    return text;
+    return text + decoder.decode();
   } finally {
     reader.releaseLock();
   }

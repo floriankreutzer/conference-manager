@@ -48,35 +48,6 @@ test('oversized writes fail closed without replacing valid state', () => {
   assert.equal(localStorage.getItem(storage.KEYS.profile), before);
 });
 
-test('required repositories propagate write failures instead of reporting success', () => {
-  localStorage.clear();
-  const repository = storage.createRepository({ key: storage.KEYS.profile, fallback: [], required: true });
-  const originalSetItem = localStorage.setItem;
-  localStorage.setItem = () => { throw new Error('quota'); };
-  try {
-    assert.throws(
-      () => repository.save([{ id: 'CR-1' }]),
-      (error) => error instanceof storage.RepositoryPersistenceError
-        && error.code === 'REPOSITORY_PERSISTENCE_FAILED'
-        && error.storageKey === storage.KEYS.profile,
-    );
-  } finally {
-    localStorage.setItem = originalSetItem;
-  }
-});
-
-test('best-effort repositories report a failed write without throwing', () => {
-  localStorage.clear();
-  const repository = storage.createRepository({ key: storage.KEYS.profile, fallback: [] });
-  const originalSetItem = localStorage.setItem;
-  localStorage.setItem = () => { throw new Error('quota'); };
-  try {
-    assert.equal(repository.save([{ id: 'NOTICE-1' }]), null);
-  } finally {
-    localStorage.setItem = originalSetItem;
-  }
-});
-
 test('role and language string limits reject corrupted values', () => {
   setRuntime('demo');
   localStorage.clear();

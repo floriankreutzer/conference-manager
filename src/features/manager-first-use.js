@@ -194,11 +194,12 @@ function buildReviewContent(request) {
 
 function ensureNativeActionIdentity(footer) {
   if (!(footer instanceof HTMLElement)) return;
-  const controls = [...footer.children].filter((control) => control instanceof HTMLButtonElement);
-  if (controls.length !== MANAGER_ACTION_IDS.length) return;
-  controls.forEach((control, index) => {
-    if (!control.dataset.managerAction) control.dataset.managerAction = MANAGER_ACTION_IDS[index];
-  });
+  [...footer.children]
+    .filter((control) => control instanceof HTMLButtonElement)
+    .forEach((control, index) => {
+      const action = MANAGER_ACTION_IDS[index];
+      if (action && !control.dataset.managerAction) control.dataset.managerAction = action;
+    });
 }
 
 function nativeAction(footer, action) {

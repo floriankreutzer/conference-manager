@@ -96,10 +96,12 @@ test('API responses must use JSON content types', async () => {
   );
 });
 
-test('API responses reject an oversized declared content length before processing', async () => {
+test('oversized API responses are rejected from Content-Length before body processing', async () => {
   const client = createApiClient({
     origin: 'https://conference.example',
-    fetchImpl: async () => jsonResponse({ ok: true }, { headers: { 'content-length': '1000001' } }),
+    fetchImpl: async () => jsonResponse({ ok: true }, {
+      headers: { 'content-length': '1000001' },
+    }),
   });
   await assert.rejects(
     () => client.request('requests'),
@@ -107,11 +109,12 @@ test('API responses reject an oversized declared content length before processin
   );
 });
 
-test('API responses stop reading when streamed bytes exceed the response limit', async () => {
-  const oversizedJson = JSON.stringify({ payload: 'x'.repeat(1_000_000) });
+test('chunked API responses are byte-bounded even without Content-Length', async () => {
+  const oversized = new Uint8Array(1_000_001);
+  oversized.fill(97);
   const client = createApiClient({
     origin: 'https://conference.example',
-    fetchImpl: async () => new Response(oversizedJson, {
+    fetchImpl: async () => new Response(oversized, {
       status: 200,
       headers: { 'content-type': 'application/json' },
     }),

@@ -9,7 +9,7 @@ const SECURITY_MESSAGES = Object.freeze({
     reset: 'Demo-Daten löschen',
     resetConfirm: 'Alle lokal gespeicherten Conference-Manager-Demodaten in diesem Browser löschen?',
     resetDone: 'Lokale Demodaten wurden gelöscht.',
-    storageWarning: 'Lokale Demodaten waren ungültig oder zu groß und wurden sicher ignoriert.',
+    storageWarning: 'Lokale Demodaten konnten nicht zuverlässig gelesen oder gespeichert werden. Bitte prüfen Sie den Browserspeicher und versuchen Sie es erneut.',
   }),
   en: Object.freeze({
     title: 'Demo mode',
@@ -21,7 +21,7 @@ const SECURITY_MESSAGES = Object.freeze({
     reset: 'Clear demo data',
     resetConfirm: 'Delete all locally stored Conference Manager demo data in this browser?',
     resetDone: 'Local demo data has been cleared.',
-    storageWarning: 'Local demo data was invalid or too large and was safely ignored.',
+    storageWarning: 'Local demo data could not be read or saved reliably. Check browser storage and try again.',
   }),
 });
 
