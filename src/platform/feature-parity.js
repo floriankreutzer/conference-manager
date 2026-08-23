@@ -108,7 +108,7 @@ function sync() {
   enhanceManagerFinalPolish();
   enhanceConferenceManagerReady();
 
-  document.documentElement.dataset.featureParityBuild = '2026.08.23.72';
+  document.documentElement.dataset.featureParityBuild = '2026.08.23.47';
 }
 
 function handleFeatureClick(event) {
