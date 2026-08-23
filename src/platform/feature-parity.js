@@ -1,3 +1,4 @@
+import { t } from '../core/i18n.js';
 import {
   captureEmployeeIdentityPresentation,
   decorateEmployeeParity,
@@ -24,7 +25,6 @@ import {
   setAdminSection,
 } from '../manager/index.js';
 import { ensureParityCatalog } from '../shared/parity-data.js';
-import { pt } from '../shared/parity-i18n.js';
 
 let syncFrame = 0;
 let restoreInProgress = false;
@@ -85,7 +85,7 @@ function ensureReportInsightsHeading() {
     heading.dataset.reportInsightsHeading = 'true';
     insights.before(heading);
   }
-  heading.textContent = pt('parity.report.insights');
+  heading.textContent = t('manager.report.insights');
   insights.setAttribute('aria-labelledby', heading.id);
 }
 

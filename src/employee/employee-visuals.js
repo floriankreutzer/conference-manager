@@ -1,6 +1,5 @@
 import { t } from '../core/i18n.js';
 import { button, el, openDialog } from '../core/ui.js';
-import { pt } from './parity-i18n.js';
 import {
   catalogData,
   generatedFloorplan,
@@ -51,7 +50,7 @@ function decorateCateringCards() {
     if (!src) return;
     card.prepend(createImage(
       src,
-      pt('parity.catering.imageAlt', {
+      t('catering.imageAlt', {
         name: localized(match.pack.name),
         tier: match.variant.tier,
       }),
@@ -77,7 +76,7 @@ function decorateRoomCards() {
     preview.append(
       createImage(
         safeImageSource(room.floorplanImage, generatedFloorplan(room)),
-        pt('parity.floorplan.previewAlt', { name: localized(room.name) }),
+        t('room.floorplan.previewAlt', { name: localized(room.name) }),
         'room-preview-image',
       ),
       el('div', { className: 'room-preview-copy' }, [
@@ -111,14 +110,14 @@ export function openRichFloorplan(roomId) {
   const content = el('section', { className: 'rich-floorplan' });
   content.appendChild(createImage(
     safeImageSource(room.floorplanImage, generatedFloorplan(room)),
-    pt('parity.floorplan.previewAlt', { name: localized(room.name) }),
+    t('room.floorplan.previewAlt', { name: localized(room.name) }),
     'rich-floorplan-image',
   ));
 
   const copy = el('section', { className: 'rich-floorplan-copy' }, [
-    el('h3', { text: pt('parity.floorplan.impression') }),
+    el('h3', { text: t('room.floorplan.impression') }),
     el('p', { text: localized(room.floorplanDescription) }),
-    el('h3', { text: pt('parity.floorplan.important') }),
+    el('h3', { text: t('room.floorplan.important') }),
   ]);
   const details = el('dl', { className: 'details-list' });
   [
