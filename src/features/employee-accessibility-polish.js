@@ -47,6 +47,14 @@ function copy(key) {
   return COPY[lang][key] || COPY.de[key] || key;
 }
 
+function setText(node, value) {
+  if (node && node.textContent !== value) node.textContent = value;
+}
+
+function setAttribute(node, name, value) {
+  if (node && node.getAttribute(name) !== String(value)) node.setAttribute(name, String(value));
+}
+
 function storedProfile() {
   const profile = readJson(KEYS.profile, null);
   if (!profile || typeof profile !== 'object') return null;
@@ -59,18 +67,15 @@ function enhanceNeutralProfilePresentation() {
   if (storedProfile()) return;
 
   const profileButton = document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]');
-  if (profileButton) {
-    profileButton.textContent = copy('profile');
-    profileButton.setAttribute('aria-label', copy('profileOpen'));
-  }
+  setText(profileButton, copy('profile'));
+  setAttribute(profileButton, 'aria-label', copy('profileOpen'));
 
-  const welcomeHeading = document.getElementById('welcomeHeading');
-  if (welcomeHeading) welcomeHeading.textContent = copy('genericWelcome');
+  setText(document.getElementById('welcomeHeading'), copy('genericWelcome'));
 
   const profileValues = [...document.querySelectorAll('.profile-content .details-list dd')];
   if (profileValues.length >= 2) {
-    profileValues[0].textContent = copy('profileMissing');
-    profileValues[1].textContent = copy('profileMissing');
+    setText(profileValues[0], copy('profileMissing'));
+    setText(profileValues[1], copy('profileMissing'));
   }
 }
 
@@ -93,13 +98,13 @@ function reorderScheduleDom() {
   const expectedOrder = ordered.map((node) => node.querySelector?.('input,select,textarea')?.id || (node.classList.contains('participant-total') ? 'participantTotal' : ''));
   const currentOrder = [...grid.children].map((node) => node.querySelector?.('input,select,textarea')?.id || (node.classList.contains('participant-total') ? 'participantTotal' : ''));
   if (currentOrder.length === expectedOrder.length && currentOrder.every((value, index) => value === expectedOrder[index])) {
-    grid.dataset.uxDomOrder = 'what-where-when-who';
+    setAttribute(grid, 'data-ux-dom-order', 'what-where-when-who');
     return;
   }
 
   const focused = grid.contains(document.activeElement) ? document.activeElement : null;
   ordered.forEach((node) => grid.appendChild(node));
-  grid.dataset.uxDomOrder = 'what-where-when-who';
+  setAttribute(grid, 'data-ux-dom-order', 'what-where-when-who');
   if (focused?.isConnected && typeof focused.focus === 'function') focused.focus({ preventScroll: true });
 }
 
@@ -140,7 +145,7 @@ function enhanceCostAllocationLabels() {
     ensureMobileAllocationLabel(row, costCenter, 'cost-center', copy('allocationCostCenter'));
     ensureMobileAllocationLabel(row, percent, 'percent', copy('allocationPercent'));
     ensureMobileAllocationLabel(row, amount, 'amount', copy('allocationAmount'));
-    amount?.setAttribute('aria-label', copy('allocationAmount'));
+    setAttribute(amount, 'aria-label', copy('allocationAmount'));
   });
 }
 
@@ -153,32 +158,26 @@ function renameReviewServices() {
   });
   if (!serviceCard) return;
 
-  const heading = serviceCard.querySelector('h3');
-  if (heading) heading.textContent = copy('additionalServices');
-  const edit = serviceCard.querySelector('.ux-review-edit');
-  if (edit) edit.setAttribute('aria-label', copy('additionalServicesEdit'));
+  setText(serviceCard.querySelector('h3'), copy('additionalServices'));
+  setAttribute(serviceCard.querySelector('.ux-review-edit'), 'aria-label', copy('additionalServicesEdit'));
 }
 
 function normalizeEmployeeTerminology() {
-  const brandSubtitle = document.getElementById('brandSubtitle');
-  if (brandSubtitle) brandSubtitle.textContent = copy('brandSubtitle');
+  setText(document.getElementById('brandSubtitle'), copy('brandSubtitle'));
 
   if (document.body.dataset.uxFirstUse === 'true') {
-    const heroCopy = document.querySelector('.welcome-hero > p:not(.eyebrow)');
-    const topbarCopy = document.querySelector('.topbar p');
-    if (heroCopy) heroCopy.textContent = copy('firstUseSubtitle');
-    if (topbarCopy) topbarCopy.textContent = copy('firstUseSubtitle');
+    setText(document.querySelector('.welcome-hero > p:not(.eyebrow)'), copy('firstUseSubtitle'));
+    setText(document.querySelector('.topbar p'), copy('firstUseSubtitle'));
   }
 
   const steps = [...document.querySelectorAll('.stepper .step')];
   if (steps[2]) {
-    steps[2].textContent = `3. ${copy('additionalServices')}`;
-    steps[2].setAttribute('aria-label', t('a11y.step', { step: 3, label: copy('additionalServices') }));
+    setText(steps[2], `3. ${copy('additionalServices')}`);
+    setAttribute(steps[2], 'aria-label', t('a11y.step', { step: 3, label: copy('additionalServices') }));
   }
 
   const servicesPanel = document.querySelector('[data-step-panel="3"]');
-  const servicesHeading = servicesPanel?.querySelector('.section-heading h2');
-  if (servicesHeading) servicesHeading.textContent = copy('additionalServicesOptional');
+  setText(servicesPanel?.querySelector('.section-heading h2'), copy('additionalServicesOptional'));
 
   const mobileProgress = document.querySelector('[data-ux-mobile-progress="true"]');
   if (mobileProgress && document.querySelector('[data-step-panel="3"]')) {
@@ -186,31 +185,28 @@ function normalizeEmployeeTerminology() {
     const progressText = language() === 'en'
       ? `Step 3 of 6: ${progressLabel}`
       : `Schritt 3 von 6: ${progressLabel}`;
-    const strong = mobileProgress.querySelector('strong');
-    if (strong) strong.textContent = progressText;
-    mobileProgress.setAttribute('aria-label', progressText);
+    setText(mobileProgress.querySelector('strong'), progressText);
+    setAttribute(mobileProgress, 'aria-label', progressText);
   }
 
-  const costGuidance = document.querySelector('[data-ux-cost-calculation] p');
-  if (costGuidance) costGuidance.textContent = copy('costGuidance');
-
-  const packageSelector = document.querySelector('[data-ux-package-groups]');
-  if (packageSelector) packageSelector.setAttribute('aria-label', copy('packageGroupLabel'));
+  setText(document.querySelector('[data-ux-cost-calculation] p'), copy('costGuidance'));
+  setAttribute(document.querySelector('[data-ux-package-groups]'), 'aria-label', copy('packageGroupLabel'));
 
   const packageMode = document.querySelector('input[name="cateringMode"][value="PACKAGE"]')?.closest('label')?.querySelector('span');
   const packageExtrasMode = document.querySelector('input[name="cateringMode"][value="BOTH"]')?.closest('label')?.querySelector('span');
-  if (packageMode) packageMode.textContent = copy('packageMode');
-  if (packageExtrasMode) packageExtrasMode.textContent = copy('packageExtrasMode');
+  setText(packageMode, copy('packageMode'));
+  setText(packageExtrasMode, copy('packageExtrasMode'));
 
   renameReviewServices();
 
   document.querySelectorAll('.details-grid .detail-card h3').forEach((heading) => {
-    if (heading.textContent.trim() === t('review.services')) heading.textContent = copy('additionalServices');
+    if (heading.textContent.trim() === t('review.services')) setText(heading, copy('additionalServices'));
   });
 
   const submission = document.querySelector('[data-ux-submission-success] p');
   if (submission && language() !== 'en') {
-    submission.textContent = submission.textContent.replace('Services', copy('submissionServices'));
+    const normalized = submission.textContent.replace('Services', copy('submissionServices'));
+    setText(submission, normalized);
   }
 }
 
@@ -219,5 +215,5 @@ export function enhanceEmployeeAccessibilityPolish() {
   reorderScheduleDom();
   enhanceCostAllocationLabels();
   normalizeEmployeeTerminology();
-  document.documentElement.dataset.employeeAccessibilityBuild = '2026.08.23.03';
+  setAttribute(document.documentElement, 'data-employee-accessibility-build', '2026.08.23.03');
 }
