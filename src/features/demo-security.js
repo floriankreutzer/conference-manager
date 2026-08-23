@@ -1,5 +1,5 @@
 import { language } from '../core/i18n.js';
-import { securityMessages } from '../core/security-i18n.js?v=20260823-55';
+import { securityMessages } from '../core/security-i18n.js?v=20260823-56';
 import {
   RUNTIME_MODE,
   SUPPORTED_LANGUAGE,
@@ -8,10 +8,10 @@ import {
   normalizeLanguage,
   runtimeModeFromDocument,
 } from '../core/security-policy.js';
-import { KEYS, readString, writeString } from '../core/storage.js';
-import { applyInputConstraints, isParticipantInput, showToast } from '../core/ui.js';
+import { KEYS, RepositoryWriteError, readString, writeString } from '../core/storage.js';
+import { announce, applyInputConstraints, isParticipantInput, showToast } from '../core/ui.js';
 
-const DEMO_SECURITY_BUILD = '2026.08.23.52';
+const DEMO_SECURITY_BUILD = '2026.08.23.53';
 const DEMO_ROLE_SWITCH_BUILD = '2026.08.23.55';
 const runtimeMode = runtimeModeFromDocument(document);
 
@@ -85,6 +85,7 @@ function createRoleControl(msg) {
     if (!writeString(KEYS.role, nextRole)) {
       select.value = normalizeDemoRole(readString(KEYS.role, USER_ROLE.EMPLOYEE));
       showToast(msg.storageWarning);
+      announce(msg.storageWarning, { assertive: true });
       return;
     }
     window.location.reload();
@@ -133,9 +134,18 @@ function initializeSecurityControls() {
   document.documentElement.dataset.runtimeMode = runtimeMode;
 }
 
+function reportStorageWarning() {
+  const message = messages().storageWarning;
+  showToast(message);
+  announce(message, { assertive: true });
+}
+
 normalizeDemoState();
 
-window.addEventListener('conference:storage-warning', () => showToast(messages().storageWarning));
+window.addEventListener('conference:storage-warning', reportStorageWarning);
+window.addEventListener('error', (event) => {
+  if (event.error instanceof RepositoryWriteError) event.preventDefault();
+});
 document.addEventListener('focusin', (event) => applyInputConstraints(event.target));
 document.addEventListener('input', (event) => {
   const control = event.target;
