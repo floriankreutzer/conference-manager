@@ -71,6 +71,10 @@ if (!/<meta\s+name=["']referrer["']\s+content=["']no-referrer["']/i.test(index))
   console.error('index.html: no-referrer policy is required');
   failures += 1;
 }
+if (!/<meta\s+name=["']conference-runtime["']\s+content=["']demo["']/i.test(index)) {
+  console.error('index.html: the static GitHub Pages build must declare conference-runtime=demo explicitly');
+  failures += 1;
+}
 
 if (failures) process.exit(1);
 console.log(`Static defensive-code check passed for ${sourceFiles.length} source files.`);
