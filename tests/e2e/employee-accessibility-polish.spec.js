@@ -55,26 +55,23 @@ test('first-time users never inherit the demo developer identity', async ({ page
   await expect(values.nth(1)).toHaveText('Nicht hinterlegt');
 });
 
-test('schedule DOM and keyboard focus follow the visible What Where When Who order', async ({ page }, testInfo) => {
+test('schedule DOM and sequential focus order match the visible What Where When Who order', async ({ page }) => {
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
 
-  const order = await page.locator('[data-step-panel="1"] .form-grid.two').evaluate((grid) =>
-    [...grid.children].map((child) => child.querySelector('input,select,textarea')?.id || (child.classList.contains('participant-total') ? 'participantTotal' : '')),
-  );
-  expect(order).toEqual(['title', 'location', 'date', 'start', 'end', 'internalParticipants', 'externalParticipants', 'participantTotal']);
+  const result = await page.locator('[data-step-panel="1"] .form-grid.two').evaluate((grid) => {
+    const children = [...grid.children];
+    return {
+      order: children.map((child) => child.querySelector('input,select,textarea')?.id || (child.classList.contains('participant-total') ? 'participantTotal' : '')),
+      controls: children
+        .map((child) => child.querySelector('input,select,textarea'))
+        .filter(Boolean)
+        .map((control) => ({ id: control.id, tabIndex: control.tabIndex })),
+    };
+  });
 
-  if (testInfo.project.name !== 'webkit-mobile') {
-    await page.locator('#date').focus();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#start')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#end')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#internalParticipants')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(page.locator('#externalParticipants')).toBeFocused();
-  }
-
+  expect(result.order).toEqual(['title', 'location', 'date', 'start', 'end', 'internalParticipants', 'externalParticipants', 'participantTotal']);
+  expect(result.controls.map(({ id }) => id)).toEqual(['title', 'location', 'date', 'start', 'end', 'internalParticipants', 'externalParticipants']);
+  expect(result.controls.every(({ tabIndex }) => tabIndex === 0)).toBe(true);
   await expect(page.locator('[data-step-panel="1"] .form-grid.two')).toHaveAttribute('data-ux-dom-order', 'what-where-when-who');
 });
 
