@@ -41,11 +41,20 @@ const fillSchedule = async (page, {
   start = '10:00',
   end = '12:00',
 } = {}) => {
+  await expect(page.locator('body')).toHaveAttribute('data-ux-view', 'request');
+  await expect(page.locator('label[for="internalParticipants"]')).toHaveClass(/ux-order-internal/);
+
   await page.locator('#title').fill(title);
   await page.locator('#location').selectOption(location);
   await page.locator('#date').fill(date);
-  await page.locator('#internalParticipants').fill(String(internalParticipants));
-  await page.locator('#externalParticipants').fill(String(externalParticipants));
+
+  const internal = page.locator('#internalParticipants');
+  const external = page.locator('#externalParticipants');
+  await internal.fill(String(internalParticipants));
+  await external.fill(String(externalParticipants));
+  await expect(internal).toHaveValue(String(internalParticipants));
+  await expect(external).toHaveValue(String(externalParticipants));
+
   await page.locator('#start').fill(start);
   await page.locator('#end').fill(end);
 };
