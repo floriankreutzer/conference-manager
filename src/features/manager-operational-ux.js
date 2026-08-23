@@ -1,6 +1,6 @@
 import { language } from '../core/i18n.js';
 
-const MANAGER_OPERATIONAL_UX_BUILD = '2026.08.23.63';
+const MANAGER_OPERATIONAL_UX_BUILD = '2026.08.23.65';
 let syncFrame = 0;
 
 const custom = (de, en) => (language() === 'en' ? en : de);
@@ -60,6 +60,45 @@ function reviewControl(requestId) {
     .find((control) => control instanceof HTMLButtonElement && control.dataset.managerReview === requestId) || null;
 }
 
+function filterSnapshot(section) {
+  if (!(section instanceof HTMLElement)) return null;
+  const filters = section.querySelector('.manager-filters');
+  const activeQuick = [...section.querySelectorAll('[data-quick-filter]')]
+    .find((control) => control.getAttribute('aria-pressed') === 'true');
+  return {
+    quickFilter: activeQuick?.dataset.quickFilter || 'ALL',
+    search: filters?.querySelector('input[type="search"]')?.value || '',
+    selects: filters ? [...filters.querySelectorAll('select')].map((select) => select.value) : [],
+    advancedOpen: section.querySelector('[data-manager-advanced-filters]')?.open === true,
+  };
+}
+
+function restoreFilterSnapshot(section, snapshot) {
+  if (!(section instanceof HTMLElement) || !snapshot) return;
+  const quick = section.querySelector(`[data-quick-filter="${snapshot.quickFilter}"]`);
+  if (quick instanceof HTMLButtonElement && quick.getAttribute('aria-pressed') !== 'true') quick.click();
+
+  const filters = section.querySelector('.manager-filters');
+  if (filters instanceof HTMLFormElement) {
+    const search = filters.querySelector('input[type="search"]');
+    if (search instanceof HTMLInputElement && search.value !== snapshot.search) {
+      search.value = snapshot.search;
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    [...filters.querySelectorAll('select')].forEach((select, index) => {
+      const value = snapshot.selects[index];
+      if (value !== undefined && select.value !== value) {
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+  }
+
+  const advanced = section.querySelector('[data-manager-advanced-filters]');
+  if (advanced instanceof HTMLDetailsElement) advanced.open = snapshot.advancedOpen;
+  scheduleSettledSync();
+}
+
 function clearOneBlockingFilter(section) {
   if (!(section instanceof HTMLElement)) return false;
 
@@ -90,16 +129,22 @@ function clearOneBlockingFilter(section) {
   return false;
 }
 
-function openRequestReview(requestId, attempts = 18) {
+function openRequestReview(requestId, attempts = 18, snapshot = null) {
+  const section = managerBookingsSection();
+  const preserved = snapshot || filterSnapshot(section);
   const review = reviewControl(requestId);
   if (review) {
     review.click();
+    requestAnimationFrame(() => restoreFilterSnapshot(managerBookingsSection(), preserved));
     return;
   }
 
-  if (attempts <= 0) return;
-  clearOneBlockingFilter(managerBookingsSection());
-  requestAnimationFrame(() => openRequestReview(requestId, attempts - 1));
+  if (attempts <= 0) {
+    restoreFilterSnapshot(section, preserved);
+    return;
+  }
+  clearOneBlockingFilter(section);
+  requestAnimationFrame(() => openRequestReview(requestId, attempts - 1, preserved));
 }
 
 function handleOverviewOpen(event) {
