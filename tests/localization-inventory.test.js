@@ -1,6 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildLocalizationInventory } from '../scripts/localization-inventory.mjs';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { buildLocalizationInventory, parseMessageEntries } from '../scripts/localization-inventory.mjs';
+
+function sectionBetween(source, startMarker, endMarker) {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start + startMarker.length);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  return source.slice(start + startMarker.length, end);
+}
+
+function activeLegacyHash(language, activeKeys) {
+  const source = readFileSync('src/shared/parity-i18n.js', 'utf8');
+  const section = language === 'de'
+    ? sectionBetween(source, '  de: Object.freeze({', '\n  }),\n  en: Object.freeze({')
+    : sectionBetween(source, '  en: Object.freeze({', '\n  }),\n});');
+  const messages = parseMessageEntries(section);
+  const stable = activeKeys.map((key) => [key, messages.get(key)]);
+  return createHash('sha256').update(JSON.stringify(stable)).digest('hex');
+}
 
 test('baseline localization catalogs are synchronized and inventory legacy usage', () => {
   const inventory = buildLocalizationInventory();
@@ -25,5 +45,11 @@ test('baseline localization catalogs are synchronized and inventory legacy usage
     activeLegacyKeys: inventory.usage.activeLegacyKeys.length,
     unusedLegacyCandidates: inventory.usage.unusedCandidates.length,
     uncertainConsumerFiles: inventory.usage.dynamicallyReferencedOrUncertainFiles.length,
+    activeLegacyDeHash: activeLegacyHash('de', inventory.usage.activeLegacyKeys),
+    activeLegacyEnHash: activeLegacyHash('en', inventory.usage.activeLegacyKeys),
   })}`);
+  console.log(`Legacy exact-value aliases: ${JSON.stringify(inventory.comparison.exactValueAliases)}`);
+  console.log(`Legacy unused candidates: ${JSON.stringify(inventory.usage.unusedCandidates)}`);
+  console.log(`Legacy dynamic/uncertain consumer files: ${JSON.stringify(inventory.usage.dynamicallyReferencedOrUncertainFiles)}`);
+  console.log(`Legacy static consumers: ${JSON.stringify(Object.fromEntries(Object.entries(inventory.usage.consumers).filter(([, files]) => files.length)))}`);
 });
