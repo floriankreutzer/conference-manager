@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  MAX_COST_COMPONENT,
   PARTICIPANT_LIMIT,
   REQUEST_STATUS,
   calculateCosts,
@@ -85,6 +86,42 @@ test('progression: final validation combines schedule, room and allocations', ()
 test('cost calculation uses dedicated catering participant count', () => {
   const result = calculateCosts({ room: { rate: 100 }, services: [{ id: 'host', price: 90 }], selectedServiceIds: ['host'], cateringPackage: { pricePerPerson: 10 }, cateringParticipants: 5, items: [{ id: 'water', price: 2 }], quantities: { water: 3 } });
   assert.deepEqual(result, { roomCost: 100, serviceCost: 90, cateringCost: 56, total: 246 });
+});
+
+test('security regression: invalid and negative monetary components fail safe to zero', () => {
+  const result = calculateCosts({
+    room: { rate: -10 },
+    services: [{ id: 'host', price: Number.POSITIVE_INFINITY }],
+    selectedServiceIds: ['host'],
+    cateringPackage: { pricePerPerson: Number.NaN },
+    cateringParticipants: 4,
+    items: [{ id: 'water', price: -2 }],
+    quantities: { water: 3 },
+  });
+  assert.deepEqual(result, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
+});
+
+test('security regression: oversized prices and quantities fail safe instead of inflating totals', () => {
+  const result = calculateCosts({
+    room: { rate: MAX_COST_COMPONENT + 1 },
+    services: [{ id: 'host', price: MAX_COST_COMPONENT + 1 }],
+    selectedServiceIds: ['host'],
+    cateringPackage: { pricePerPerson: 10 },
+    cateringParticipants: PARTICIPANT_LIMIT + 1,
+    items: [{ id: 'water', price: 2 }],
+    quantities: { water: PARTICIPANT_LIMIT + 1 },
+  });
+  assert.deepEqual(result, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
+});
+
+test('security regression: fractional quantities are not treated as billable counts', () => {
+  const result = calculateCosts({
+    cateringPackage: { pricePerPerson: 10 },
+    cateringParticipants: 1.5,
+    items: [{ id: 'water', price: 2 }],
+    quantities: { water: 2.5 },
+  });
+  assert.deepEqual(result, { roomCost: 0, serviceCost: 0, cateringCost: 0, total: 0 });
 });
 
 test('repeat of a past request clears schedule and room but preserves business details', () => {
