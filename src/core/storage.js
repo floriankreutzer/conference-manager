@@ -1,3 +1,10 @@
+import {
+  RUNTIME_MODE,
+  USER_ROLE,
+  normalizeDemoRole,
+  runtimeModeFromDocument,
+} from './security-policy.js';
+
 const KEYS = Object.freeze({
   requests: 'conference_requests',
   catalog: 'conference_catalog_v2',
@@ -32,6 +39,14 @@ function cloneFallback(fallback) {
 
 function storageLimit(key, fallback = DEFAULT_JSON_LIMIT) {
   return STORAGE_LIMITS[key] || fallback;
+}
+
+function isDemoRoleKey(key) {
+  return key === KEYS.role;
+}
+
+function canUseDemoRoleStorage() {
+  return runtimeModeFromDocument() === RUNTIME_MODE.DEMO;
 }
 
 function notifyStorageIssue(key, reason) {
@@ -99,6 +114,8 @@ export function remove(key) {
 }
 
 export function readString(key, fallback = '') {
+  if (isDemoRoleKey(key) && !canUseDemoRoleStorage()) return USER_ROLE.EMPLOYEE;
+
   try {
     const value = localStorage.getItem(key);
     if (value === null) return fallback;
@@ -106,15 +123,20 @@ export function readString(key, fallback = '') {
       notifyStorageIssue(key, 'oversize');
       return fallback;
     }
-    return value;
+    return isDemoRoleKey(key) ? normalizeDemoRole(value) : value;
   } catch {
     return fallback;
   }
 }
 
 export function writeString(key, value) {
+  if (isDemoRoleKey(key) && !canUseDemoRoleStorage()) {
+    notifyStorageIssue(key, 'production-role-write-blocked');
+    return false;
+  }
+
   try {
-    const normalized = String(value);
+    const normalized = isDemoRoleKey(key) ? normalizeDemoRole(value) : String(value);
     if (normalized.length > storageLimit(key, DEFAULT_STRING_LIMIT)) {
       notifyStorageIssue(key, 'oversize');
       return false;
