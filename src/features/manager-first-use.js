@@ -211,7 +211,7 @@ function openConfirmDialog(request, originalConfirm) {
   });
   const dialog = openDialog({
     title: t('manager.experience.confirmTitle'),
-    description: t('manager.experience.confirmDescription'),
+    description: t('manager.ux.confirmDescription'),
     content: summary,
     actions: [cancel, confirm],
     labelledById: 'managerConfirmTitle',
