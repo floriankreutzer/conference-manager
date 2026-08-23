@@ -48,12 +48,6 @@ main {
   margin-bottom: 0;
 }
 
-.sidebar-footer {
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-
 .card,
 .wizard-card,
 .request-card,
@@ -296,6 +290,10 @@ main {
 }
 
 @media (max-width: 760px) {
+  html {
+    scroll-behavior: auto;
+  }
+
   .content-shell,
   main,
   #app {
