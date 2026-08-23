@@ -8,7 +8,7 @@ const futureIsoDate = () => {
 
 test('demo mode is explicit, input bounds apply and local demo data can be cleared', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.23.50');
+  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.23.51');
   await expect(page.locator('html')).toHaveAttribute('data-runtime-mode', 'demo');
   await expect(page.locator('meta[name="conference-runtime"]')).toHaveAttribute('content', 'demo');
 
@@ -90,7 +90,7 @@ test('stored user-controlled text is rendered as text across an XSS fuzz corpus'
 test('URL and DOM attribute guards reject executable schemes and unsafe attributes', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    const ui = await import('/src/core/ui.js?security-regression=50');
+    const ui = await import('/src/core/ui.js?security-regression=51');
     const hostileUrls = [
       'javascript:alert(1)',
       'java\nscript:alert(1)',
@@ -131,7 +131,7 @@ test('URL and DOM attribute guards reject executable schemes and unsafe attribut
     const inlineFloorplan = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%2F%3E%3C%2Fsvg%3E';
     const floorplanImage = ui.el('img', { attrs: { src: inlineFloorplan } });
     const unsafeFrame = ui.el('iframe', { attrs: { src: inlineFloorplan } });
-    const safe = ui.el('a', { href: '/safe-path', target: '_blank', rel: 'opener' });
+    const safe = ui.el('a', { href: '/safe-path', target: '_blank', rel: 'noopener noreferrer' });
 
     return {
       rejected,
