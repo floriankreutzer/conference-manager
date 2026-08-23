@@ -2,8 +2,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CORE_PATH = 'src/core/i18n.js';
-const LEGACY_PATH = 'src/shared/parity-i18n.js';
+const BASE_PATH = 'src/core/i18n-base.js';
+const CAPABILITY_PATH = 'src/core/i18n-capability-messages.js';
+const LEGACY_PATHS = ['src/shared/parity-i18n.js', 'src/employee/parity-i18n.js', 'src/manager/parity-i18n.js'];
 
 function sectionBetween(source, startMarker, endMarker, label) {
   const start = source.indexOf(startMarker);
@@ -61,88 +62,43 @@ export function parseMessageEntries(source) {
   return entries;
 }
 
-function readCoreCatalog() {
-  const source = readFileSync(CORE_PATH, 'utf8');
+function readCatalog(file, deMarkers, enMarkers) {
+  const source = readFileSync(file, 'utf8');
   return {
-    de: parseMessageEntries(sectionBetween(source, '  de: {', '\n  },\n  en: {}', 'canonical German')),
-    en: parseMessageEntries(sectionBetween(source, 'const EN = {', '\n};\nObject.assign(MESSAGES.en, EN)', 'canonical English')),
+    de: parseMessageEntries(sectionBetween(source, ...deMarkers, `${file} German`)),
+    en: parseMessageEntries(sectionBetween(source, ...enMarkers, `${file} English`)),
   };
 }
 
-function readLegacyCatalog() {
-  if (!existsSync(LEGACY_PATH)) return { de: new Map(), en: new Map() };
-  const source = readFileSync(LEGACY_PATH, 'utf8');
-  return {
-    de: parseMessageEntries(sectionBetween(source, '  de: Object.freeze({', '\n  }),\n  en: Object.freeze({', 'legacy German')),
-    en: parseMessageEntries(sectionBetween(source, '  en: Object.freeze({', '\n  }),\n});', 'legacy English')),
-  };
+function mergeCatalogs(...catalogs) {
+  const merged = { de: new Map(), en: new Map() };
+  for (const catalog of catalogs) {
+    for (const language of ['de', 'en']) {
+      for (const [key, value] of catalog[language]) {
+        if (merged[language].has(key)) throw new Error(`Duplicate canonical key ${key} for ${language}.`);
+        merged[language].set(key, value);
+      }
+    }
+  }
+  return merged;
+}
+
+function canonicalCatalog() {
+  const base = readCatalog(
+    BASE_PATH,
+    ['  de: {', '\n  },\n  en: {}'],
+    ['const EN = {', '\n};\nObject.assign(MESSAGES.en, EN)'],
+  );
+  const capability = readCatalog(
+    CAPABILITY_PATH,
+    ['  de: Object.freeze({', '\n  }),\n  en: Object.freeze({'],
+    ['  en: Object.freeze({', '\n  }),\n});'],
+  );
+  return mergeCatalogs(base, capability);
 }
 
 function placeholders(value) {
   return [...new Set([...String(value).matchAll(/\{(\w+)\}/g)].map((match) => match[1]))].sort();
-}
-
-function walkJavaScript(root, files = []) {
-  for (const entry of readdirSync(root)) {
-    const full = join(root, entry);
-    if (statSync(full).isDirectory()) walkJavaScript(full, files);
-    else if (full.endsWith('.js')) files.push(full.replaceAll('\\', '/'));
-  }
-  return files;
-}
-
-function sourceReferences(keys) {
-  const files = walkJavaScript('src').filter((file) => ![CORE_PATH, LEGACY_PATH, 'src/employee/parity-i18n.js', 'src/manager/parity-i18n.js'].includes(file));
-  const consumers = Object.fromEntries(keys.map((key) => [key, []]));
-  const uncertainFiles = new Set();
-  for (const file of files) {
-    const source = readFileSync(file, 'utf8');
-    for (const key of keys) {
-      if (source.includes(`'${key}'`) || source.includes(`"${key}"`) || source.includes(`\`${key}\``)) consumers[key].push(file);
-    }
-    if (/\bpt\s*\(\s*(?!['"`])/.test(source) || /\bptFor\s*\([^,]+,\s*(?!['"`])/.test(source) || /`[^`]*parity\.[^`]*\$\{/.test(source)) {
-      uncertainFiles.add(file);
-    }
-  }
-  return { consumers, uncertainFiles: [...uncertainFiles].sort() };
-}
-
-function compareCatalogs(canonical, legacy) {
-  const canonicalKeys = new Set(canonical.de.keys());
-  const legacyKeys = new Set(legacy.de.keys());
-  const sameKeyExact = [];
-  const sameKeyConflicts = [];
-  const canonicalOnly = [];
-  const legacyOnly = [];
-
-  for (const key of canonicalKeys) {
-    if (!legacyKeys.has(key)) canonicalOnly.push(key);
-    else if (canonical.de.get(key) === legacy.de.get(key) && canonical.en.get(key) === legacy.en.get(key)) sameKeyExact.push(key);
-    else sameKeyConflicts.push(key);
-  }
-  for (const key of legacyKeys) if (!canonicalKeys.has(key)) legacyOnly.push(key);
-
-  const canonicalPairs = new Map();
-  for (const key of canonicalKeys) {
-    const pair = `${canonical.de.get(key)}\u0000${canonical.en.get(key)}`;
-    const keys = canonicalPairs.get(pair) ?? [];
-    keys.push(key);
-    canonicalPairs.set(pair, keys);
-  }
-  const exactValueAliases = [];
-  for (const key of legacyKeys) {
-    const pair = `${legacy.de.get(key)}\u0000${legacy.en.get(key)}`;
-    const matches = canonicalPairs.get(pair) ?? [];
-    if (matches.length) exactValueAliases.push({ legacyKey: key, canonicalKeys: matches.sort() });
-  }
-
-  return {
-    sameKeyExact: sameKeyExact.sort(),
-    sameKeyConflicts: sameKeyConflicts.sort(),
-    canonicalOnly: canonicalOnly.sort(),
-    legacyOnly: legacyOnly.sort(),
-    exactValueAliases: exactValueAliases.sort((a, b) => a.legacyKey.localeCompare(b.legacyKey)),
-  };
 }
 
 function placeholderMismatches(catalog) {
@@ -156,49 +112,67 @@ function placeholderMismatches(catalog) {
   return mismatches;
 }
 
-export function buildLocalizationInventory() {
-  const canonical = readCoreCatalog();
-  const legacy = readLegacyCatalog();
-  const comparison = compareCatalogs(canonical, legacy);
-  const legacyKeys = [...legacy.de.keys()].sort();
-  const references = sourceReferences(legacyKeys);
-  const unusedCandidates = legacyKeys.filter((key) => references.consumers[key].length === 0);
-  const activeLegacyKeys = legacyKeys.filter((key) => references.consumers[key].length > 0);
+function walkJavaScript(root, files = []) {
+  for (const entry of readdirSync(root)) {
+    const full = join(root, entry);
+    if (statSync(full).isDirectory()) walkJavaScript(full, files);
+    else if (full.endsWith('.js')) files.push(full.replaceAll('\\', '/'));
+  }
+  return files;
+}
 
+function legacyDefinitions() {
+  const definitions = [];
+  for (const file of LEGACY_PATHS.filter(existsSync)) {
+    const source = readFileSync(file, 'utf8');
+    for (const match of source.matchAll(/['"](parity\.[^'"\n]+)['"]\s*:/g)) definitions.push({ file, key: match[1] });
+  }
+  return definitions;
+}
+
+function legacyReferences() {
+  const references = [];
+  for (const file of walkJavaScript('src')) {
+    if (file === 'src/core/i18n.js') continue;
+    const source = readFileSync(file, 'utf8');
+    for (const match of source.matchAll(/['"](parity\.[^'"\n]+)['"]/g)) references.push({ file, key: match[1] });
+  }
+  return references;
+}
+
+export function buildLocalizationInventory() {
+  const canonical = canonicalCatalog();
+  const missingInEnglish = [...canonical.de.keys()].filter((key) => !canonical.en.has(key)).sort();
+  const missingInGerman = [...canonical.en.keys()].filter((key) => !canonical.de.has(key)).sort();
   return {
-    canonical: { deKeys: canonical.de.size, enKeys: canonical.en.size, placeholderMismatches: placeholderMismatches(canonical) },
-    legacy: { deKeys: legacy.de.size, enKeys: legacy.en.size, placeholderMismatches: placeholderMismatches(legacy) },
-    comparison,
-    usage: {
-      activeLegacyKeys,
-      unusedCandidates,
-      dynamicallyReferencedOrUncertainFiles: references.uncertainFiles,
-      consumers: references.consumers,
+    canonical: {
+      deKeys: canonical.de.size,
+      enKeys: canonical.en.size,
+      missingInEnglish,
+      missingInGerman,
+      placeholderMismatches: placeholderMismatches(canonical),
+      parityOwnedKeys: [...canonical.de.keys()].filter((key) => key.startsWith('parity.')).sort(),
+    },
+    legacy: {
+      catalogDefinitions: legacyDefinitions(),
+      compatibilityReferences: legacyReferences(),
+      bridgeFiles: LEGACY_PATHS.filter(existsSync),
     },
   };
 }
 
 function printInventory(inventory) {
-  const compact = {
+  console.log(`Localization inventory: ${JSON.stringify({
     canonicalDe: inventory.canonical.deKeys,
     canonicalEn: inventory.canonical.enKeys,
-    legacyDe: inventory.legacy.deKeys,
-    legacyEn: inventory.legacy.enKeys,
-    sameKeyExact: inventory.comparison.sameKeyExact.length,
-    sameKeyConflicts: inventory.comparison.sameKeyConflicts.length,
-    canonicalOnly: inventory.comparison.canonicalOnly.length,
-    legacyOnly: inventory.comparison.legacyOnly.length,
-    exactValueAliases: inventory.comparison.exactValueAliases.length,
-    activeLegacyKeys: inventory.usage.activeLegacyKeys.length,
-    unusedCandidates: inventory.usage.unusedCandidates.length,
-    uncertainFiles: inventory.usage.dynamicallyReferencedOrUncertainFiles.length,
-    canonicalPlaceholderMismatches: inventory.canonical.placeholderMismatches.length,
-    legacyPlaceholderMismatches: inventory.legacy.placeholderMismatches.length,
-  };
-  console.log(`Localization inventory: ${JSON.stringify(compact)}`);
-  if (inventory.comparison.exactValueAliases.length) console.log(`Exact value aliases: ${JSON.stringify(inventory.comparison.exactValueAliases)}`);
-  if (inventory.usage.unusedCandidates.length) console.log(`Unused legacy candidates: ${JSON.stringify(inventory.usage.unusedCandidates)}`);
-  if (inventory.usage.dynamicallyReferencedOrUncertainFiles.length) console.log(`Dynamic/uncertain legacy consumers: ${JSON.stringify(inventory.usage.dynamicallyReferencedOrUncertainFiles)}`);
+    missingInEnglish: inventory.canonical.missingInEnglish.length,
+    missingInGerman: inventory.canonical.missingInGerman.length,
+    placeholderMismatches: inventory.canonical.placeholderMismatches.length,
+    canonicalParityOwnedKeys: inventory.canonical.parityOwnedKeys.length,
+    legacyCatalogDefinitions: inventory.legacy.catalogDefinitions.length,
+    legacyCompatibilityReferences: inventory.legacy.compatibilityReferences.length,
+    retainedBridgeFiles: inventory.legacy.bridgeFiles,
+  })}`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) printInventory(buildLocalizationInventory());
