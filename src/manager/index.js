@@ -1,3 +1,4 @@
+export { createManagerApplication } from './application.js';
 export { PARITY_RETURN_KEY, getAdminSection, setAdminSection } from './admin-parity.js';
 export { enhanceManager } from './manager-parity.js';
 export { enhanceManagerResponsive } from './manager-responsive.js?v=20260823-45';
