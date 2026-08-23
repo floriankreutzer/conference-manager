@@ -38,21 +38,15 @@ test('canonical localization catalogs remain synchronized after parity consolida
   assert.ok([...de.keys()].every((key) => !key.startsWith('parity.')));
 });
 
-test('retained parity compatibility bridges own no translations and delegate to Core', () => {
+test('remaining Manager parity compatibility bridge owns no translations and delegates to Core', () => {
   const inventory = buildLocalizationInventory();
-  assert.deepEqual(inventory.legacy.bridgeFiles, [
-    'src/shared/parity-i18n.js',
-    'src/employee/parity-i18n.js',
-    'src/manager/parity-i18n.js',
-  ]);
-  assert.ok(inventory.legacy.compatibilityReferences.length > 0, 'baseline compatibility consumers must remain inventoried until migrated');
+  assert.deepEqual(inventory.legacy.bridgeFiles, ['src/manager/parity-i18n.js']);
+  assert.ok(inventory.legacy.compatibilityReferences.length > 0, 'Manager compatibility consumers must remain inventoried until their call sites migrate');
 
-  for (const file of inventory.legacy.bridgeFiles) {
-    const source = readFileSync(file, 'utf8');
-    assert.match(source, /core\/i18n\.js/);
-    assert.doesNotMatch(source, /\b(?:MESSAGES|TRANSLATIONS|COPY)\b\s*=/);
-    assert.doesNotMatch(source, /Object\.freeze\s*\(\s*\{\s*(?:de|en)\s*:/);
-  }
+  const source = readFileSync('src/manager/parity-i18n.js', 'utf8');
+  assert.match(source, /core\/i18n\.js/);
+  assert.doesNotMatch(source, /\b(?:MESSAGES|TRANSLATIONS|COPY)\b\s*=/);
+  assert.doesNotMatch(source, /Object\.freeze\s*\(\s*\{\s*(?:de|en)\s*:/);
 });
 
 test('canonical migration preserves representative German and English baseline copy exactly', () => {
