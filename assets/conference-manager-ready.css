@@ -1,0 +1,108 @@
+.manager-tabs [data-manager-ready-bookings-tab] {
+  white-space: normal;
+  line-height: 1.05;
+}
+
+.manager-tabs [data-manager-ready-bookings-tab]::before {
+  content: 'Anfragen & ';
+}
+
+html[lang='en'] .manager-tabs [data-manager-ready-bookings-tab]::before {
+  content: 'Requests & ';
+}
+
+.manager-ready-help,
+.manager-ready-secondary-filters {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.manager-ready-help {
+  margin: 0 0 var(--manager-section-gap);
+}
+
+.manager-ready-help > summary,
+.manager-ready-secondary-filters > summary {
+  display: flex;
+  min-height: var(--control-height);
+  align-items: center;
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  font-weight: var(--font-weight-bold);
+}
+
+.manager-ready-help[open] > summary,
+.manager-ready-secondary-filters[open] > summary {
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+}
+
+.manager-ready-help-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.manager-ready-help-item {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+}
+
+.manager-ready-help-item strong,
+.manager-ready-help-item span {
+  display: block;
+}
+
+.manager-ready-help-item span {
+  margin-top: var(--space-1);
+  color: var(--color-ink-soft);
+  font-size: var(--font-size-sm);
+}
+
+.manager-ready-secondary-filters {
+  display: none;
+  margin: var(--space-3) 0;
+}
+
+.manager-ready-secondary-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--manager-control-gap);
+  padding: var(--space-3);
+}
+
+.manager-ready-secondary-controls button {
+  width: 100%;
+  min-height: var(--control-height);
+}
+
+@media (max-width: 760px) {
+  .manager-quick-filters [data-quick-filter='7D'],
+  .manager-quick-filters [data-quick-filter='UPCOMING'] {
+    display: none;
+  }
+
+  .manager-ready-secondary-filters {
+    display: block;
+  }
+
+  .manager-ready-help-body {
+    grid-template-columns: 1fr;
+    padding: var(--space-3);
+  }
+
+  .manager-ready-help > summary,
+  .manager-ready-secondary-filters > summary {
+    padding: var(--space-3);
+  }
+}
+
+@media (max-width: 380px) {
+  .manager-ready-secondary-controls {
+    grid-template-columns: 1fr;
+  }
+}
