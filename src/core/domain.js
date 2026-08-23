@@ -16,6 +16,7 @@ export const CALENDAR_STATUS = Object.freeze({
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export const ISO_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const PARTICIPANT_LIMIT = 500;
+export const MAX_COST_COMPONENT = 1_000_000;
 
 function objectOrEmpty(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -23,6 +24,16 @@ function objectOrEmpty(value) {
 
 function arrayOrEmpty(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function safeCost(value) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) && numeric >= 0 && numeric <= MAX_COST_COMPONENT ? numeric : 0;
+}
+
+function safeQuantity(value) {
+  const numeric = Number(value || 0);
+  return Number.isInteger(numeric) && numeric >= 0 && numeric <= PARTICIPANT_LIMIT ? numeric : 0;
 }
 
 export function localTodayIso(now = new Date()) {
@@ -136,18 +147,18 @@ export function calculateCosts(input = {}) {
     items,
     quantities,
   } = safeInput;
-  const roomCost = Number(room?.rate || 0);
+  const roomCost = safeCost(room?.rate);
   const selectedIds = arrayOrEmpty(selectedServiceIds);
   const safeQuantities = objectOrEmpty(quantities);
   const serviceCost = arrayOrEmpty(services)
     .filter((service) => service && selectedIds.includes(service.id))
-    .reduce((sum, service) => sum + Number(service.price || 0), 0);
+    .reduce((sum, service) => sum + safeCost(service.price), 0);
   const packageCost = cateringPackage
-    ? Number(cateringPackage.pricePerPerson || 0) * Number(cateringParticipants || 0)
+    ? safeCost(cateringPackage.pricePerPerson) * safeQuantity(cateringParticipants)
     : 0;
   const itemCost = arrayOrEmpty(items)
     .filter((item) => item && typeof item === 'object')
-    .reduce((sum, item) => sum + Number(item.price || 0) * Number(safeQuantities[item.id] || 0), 0);
+    .reduce((sum, item) => sum + safeCost(item.price) * safeQuantity(safeQuantities[item.id]), 0);
   return {
     roomCost,
     serviceCost,
