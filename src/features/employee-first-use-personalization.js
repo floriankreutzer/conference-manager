@@ -6,15 +6,21 @@ const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.02';
 const COPY = Object.freeze({
   de: Object.freeze({
     welcome: 'Willkommen',
+    welcomePageTitle: 'Start',
+    newRequestNav: 'Neue Konferenz',
     serviceNone: 'Keine Zusatzleistungen benötigt? Sie können diesen Schritt ohne Auswahl fortsetzen.',
     packageExtras: 'Bewirtungspaket + Einzeloptionen',
     roomRefresh: 'Aktualisieren',
+    roomRefreshAria: 'Raumverfügbarkeit aktualisieren',
   }),
   en: Object.freeze({
     welcome: 'Welcome',
+    welcomePageTitle: 'Home',
+    newRequestNav: 'New request',
     serviceNone: 'No additional services needed? You can continue without selecting anything.',
     packageExtras: 'Catering package + individual items',
     roomRefresh: 'Refresh',
+    roomRefreshAria: 'Refresh room availability',
   }),
 });
 
@@ -45,10 +51,15 @@ function storedFirstName() {
   return String(profile.firstName || '').trim();
 }
 
+function validIdentityValue(value) {
+  return /[\p{L}\p{N}]/u.test(String(value || '').trim());
+}
+
 function renderedFirstName() {
   const text = String(document.getElementById('welcomeHeading')?.textContent || '').trim();
   const match = text.match(/^(?:Willkommen|Welcome),\s*(.+?)[.!]?$/i);
-  return String(match?.[1] || '').trim();
+  const candidate = String(match?.[1] || '').replace(/[.!]+$/u, '').trim();
+  return validIdentityValue(candidate) ? candidate : '';
 }
 
 export function captureEmployeeIdentityPresentation() {
@@ -76,15 +87,26 @@ export function captureEmployeeIdentityPresentation() {
   };
 }
 
+function enhanceWelcomeCopy() {
+  const welcomeHeading = document.getElementById('welcomeHeading');
+  if (welcomeHeading) setText(document.getElementById('viewTitle'), copy('welcomePageTitle'));
+  setText(document.querySelector('#primaryNavigation button[data-view="employee"]'), copy('newRequestNav'));
+}
+
 function enhancePersonalizedHero() {
   const welcomeHeading = document.getElementById('welcomeHeading');
   const profileValues = [...document.querySelectorAll('.profile-content .details-list dd')];
   const profileDialogOpen = profileValues.length >= 2;
   if (!welcomeHeading && !profileDialogOpen) return;
 
-  if (welcomeHeading && capturedIdentity.firstName) {
+  const hasCapturedIdentity = [capturedIdentity.firstName, capturedIdentity.profileFirstName, capturedIdentity.profileLastName]
+    .some(validIdentityValue);
+
+  if (welcomeHeading && validIdentityValue(capturedIdentity.firstName)) {
     setText(welcomeHeading, `${copy('welcome')}, ${capturedIdentity.firstName}.`);
   }
+
+  if (!hasCapturedIdentity) return;
 
   const profileButton = document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]');
   setText(profileButton, capturedIdentity.profileButtonText);
@@ -99,7 +121,7 @@ function enhancePersonalizedHero() {
 function enhanceRoomRefreshCopy() {
   const refresh = document.querySelector('[data-step-panel="2"] .section-heading button');
   setText(refresh, copy('roomRefresh'));
-  setAttribute(refresh, 'aria-label', copy('roomRefresh'));
+  setAttribute(refresh, 'aria-label', copy('roomRefreshAria'));
 }
 
 function enhanceAdditionalServicesCopy() {
@@ -122,6 +144,7 @@ function enhanceCateringCopy() {
 }
 
 export function enhanceEmployeeFirstUsePersonalization() {
+  enhanceWelcomeCopy();
   enhancePersonalizedHero();
   enhanceRoomRefreshCopy();
   enhanceAdditionalServicesCopy();
