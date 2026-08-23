@@ -76,16 +76,18 @@ for (const required of [
   if (!orchestrator.includes(required)) fail(`src/features/feature-parity.js: central orchestration missing ${required}.`);
 }
 
-const firstUseCall = orchestrator.indexOf('enhanceManagerFirstUse();');
+const firstUseCalls = [...orchestrator.matchAll(/enhanceManagerFirstUse\(\);/g)].map((match) => match.index);
 const managerCall = orchestrator.indexOf('enhanceManager();');
 const identityCalls = [...orchestrator.matchAll(/ensureManagerTabIdentity\(\);/g)].map((match) => match.index);
-if (firstUseCall < 0 || managerCall < 0 || firstUseCall > managerCall) {
-  fail('src/features/feature-parity.js: Manager first-use landing must run before base Manager enhancement.');
+const guardedLanding = "if (!document.querySelector('.manager-tabs')) enhanceManagerFirstUse();";
+if (!orchestrator.includes(guardedLanding)) {
+  fail('src/features/feature-parity.js: Manager first-use landing must only run before base enhancement when Manager tabs are absent.');
 }
-if (identityCalls.length < 2
-  || !identityCalls.some((index) => index < firstUseCall)
-  || !identityCalls.some((index) => index > firstUseCall && index < managerCall)) {
-  fail('src/features/feature-parity.js: Manager tab identity must be applied before first-use and again after landing before base enhancement.');
+if (managerCall < 0 || firstUseCalls.length < 2 || firstUseCalls[0] > managerCall || firstUseCalls[firstUseCalls.length - 1] < managerCall) {
+  fail('src/features/feature-parity.js: Manager lifecycle must support guarded landing before base enhancement and first-use decoration after base enhancement.');
+}
+if (!identityCalls.some((index) => index > firstUseCalls[0] && index < managerCall)) {
+  fail('src/features/feature-parity.js: Manager tab identity must be applied after guarded landing and before base Manager enhancement.');
 }
 
 const managerTabs = readFileSync('src/features/manager-tabs.js', 'utf8');

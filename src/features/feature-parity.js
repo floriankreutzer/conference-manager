@@ -88,12 +88,12 @@ function sync() {
   enhanceEmployeeAccessibilityPolish();
   enhanceEmployeeFirstUsePersonalization();
 
-  ensureManagerTabIdentity();
-  enhanceManagerFirstUse();
+  if (!document.querySelector('.manager-tabs')) enhanceManagerFirstUse();
   ensureManagerTabIdentity();
   enhanceManager();
   ensureReportInsightsHeading();
   enhanceManagerResponsive();
+  enhanceManagerFirstUse();
   enhanceManagerUxPolish();
   enhanceManagerOperationalUx();
   enhanceManagerFinalPolish();
