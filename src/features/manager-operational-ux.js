@@ -1,6 +1,6 @@
 import { language } from '../core/i18n.js';
 
-const MANAGER_OPERATIONAL_UX_BUILD = '2026.08.23.65';
+const MANAGER_OPERATIONAL_UX_BUILD = '2026.08.23.68';
 let syncFrame = 0;
 
 const custom = (de, en) => (language() === 'en' ? en : de);
@@ -36,7 +36,7 @@ function ensureTentativeQuickFilter(section) {
   const quick = section.querySelector('.manager-quick-filters');
   if (!(quick instanceof HTMLElement)) return;
 
-  let control = quick.querySelector('[data-quick-filter="TENTATIVE"]');
+  let control = section.querySelector('[data-quick-filter="TENTATIVE"]');
   if (!(control instanceof HTMLButtonElement)) {
     control = document.createElement('button');
     control.type = 'button';
@@ -73,12 +73,28 @@ function filterSnapshot(section) {
   };
 }
 
+function restoreAdvancedFilterState(snapshot, rounds = 8) {
+  if (!snapshot) return;
+  let remaining = Math.max(1, Number(rounds) || 1);
+  const settle = () => {
+    const currentSection = managerBookingsSection();
+    const advanced = currentSection?.querySelector('[data-manager-advanced-filters]');
+    if (advanced instanceof HTMLDetailsElement && advanced.open !== snapshot.advancedOpen) {
+      advanced.open = snapshot.advancedOpen;
+    }
+    remaining -= 1;
+    if (remaining > 0) requestAnimationFrame(settle);
+  };
+  requestAnimationFrame(settle);
+}
+
 function restoreFilterSnapshot(section, snapshot) {
-  if (!(section instanceof HTMLElement) || !snapshot) return;
-  const quick = section.querySelector(`[data-quick-filter="${snapshot.quickFilter}"]`);
+  const currentSection = managerBookingsSection() || section;
+  if (!(currentSection instanceof HTMLElement) || !snapshot) return;
+  const quick = currentSection.querySelector(`[data-quick-filter="${snapshot.quickFilter}"]`);
   if (quick instanceof HTMLButtonElement && quick.getAttribute('aria-pressed') !== 'true') quick.click();
 
-  const filters = section.querySelector('.manager-filters');
+  const filters = currentSection.querySelector('.manager-filters');
   if (filters instanceof HTMLFormElement) {
     const search = filters.querySelector('input[type="search"]');
     if (search instanceof HTMLInputElement && search.value !== snapshot.search) {
@@ -94,9 +110,10 @@ function restoreFilterSnapshot(section, snapshot) {
     });
   }
 
-  const advanced = section.querySelector('[data-manager-advanced-filters]');
+  const advanced = currentSection.querySelector('[data-manager-advanced-filters]');
   if (advanced instanceof HTMLDetailsElement) advanced.open = snapshot.advancedOpen;
   scheduleSettledSync();
+  restoreAdvancedFilterState(snapshot);
 }
 
 function clearOneBlockingFilter(section) {
