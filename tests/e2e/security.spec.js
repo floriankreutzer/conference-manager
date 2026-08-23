@@ -131,7 +131,7 @@ test('URL and DOM attribute guards reject executable schemes and unsafe attribut
     const inlineFloorplan = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%2F%3E%3C%2Fsvg%3E';
     const floorplanImage = ui.el('img', { attrs: { src: inlineFloorplan } });
     const unsafeFrame = ui.el('iframe', { attrs: { src: inlineFloorplan } });
-    const safe = ui.el('a', { href: '/safe-path', target: '_blank', rel: 'noopener noreferrer' });
+    const safe = ui.el('a', { href: '/safe-path', target: '_blank', rel: 'opener' });
 
     return {
       rejected,
