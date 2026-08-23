@@ -8,7 +8,9 @@ const futureIsoDate = () => {
 
 test('demo mode is explicit, input bounds apply and local demo data can be cleared', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.22.43');
+  await expect(page.locator('html')).toHaveAttribute('data-demo-security-build', '2026.08.23.50');
+  await expect(page.locator('html')).toHaveAttribute('data-runtime-mode', 'demo');
+  await expect(page.locator('meta[name="conference-runtime"]')).toHaveAttribute('content', 'demo');
 
   const notice = page.locator('[data-demo-security]');
   await expect(notice).toBeVisible();
@@ -30,6 +32,15 @@ test('demo mode is explicit, input bounds apply and local demo data can be clear
   await notice.locator('.demo-security-reset').click();
   await page.waitForLoadState('domcontentloaded');
   await expect.poll(() => page.evaluate(() => localStorage.getItem('conference_security_test'))).toBeNull();
+});
+
+test('manipulated demo role values are normalized before application rendering', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('conference_demo_role_v1', 'administrator');
+  });
+  await page.goto('/');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('employee');
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
 });
 
 test('stored user-controlled text is rendered as text across an XSS fuzz corpus', async ({ page }) => {
@@ -79,7 +90,7 @@ test('stored user-controlled text is rendered as text across an XSS fuzz corpus'
 test('URL and DOM attribute guards reject executable schemes and unsafe attributes', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    const ui = await import('/src/core/ui.js?security-regression=49');
+    const ui = await import('/src/core/ui.js?security-regression=50');
     const hostileUrls = [
       'javascript:alert(1)',
       'java\nscript:alert(1)',
