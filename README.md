@@ -2,6 +2,15 @@
 
 Frontend-MVP für interne Konferenzanfragen mit Mitarbeiter- und Conference-Management-Sicht.
 
+## Readiness-Status
+
+- Mitarbeiter-UX: **ready**
+- Conference-Manager-UX: **ready** für Desktop und Mobile
+- technischer Marker: `<meta name="conference-manager-readiness" content="ready">`
+- Regression: eigener Conference-Manager-Ready-E2E-Test plus vollständige bestehende Manager-/Employee-Suite
+
+Der Ready-Status beschreibt Verständlichkeit, Bedienbarkeit, Responsive-Verhalten und Regression des statischen MVP. Er ersetzt ausdrücklich nicht die für einen Produktivbetrieb erforderlichen SSO-, Backend-, Autorisierungs-, Audit- und Kalenderintegrationsmaßnahmen.
+
 ## Funktionsumfang
 
 - 6-stufiger Mitarbeiter-Workflow: Termin → Raum → Services → Catering → Kosten → Prüfung
