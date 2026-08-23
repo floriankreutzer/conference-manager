@@ -9,10 +9,9 @@ import {
   runtimeModeFromDocument,
 } from '../core/security-policy.js';
 import { KEYS, readString, writeString } from '../core/storage.js';
-import { showToast } from '../core/ui.js';
+import { applyInputConstraints, isParticipantInput, showToast } from '../core/ui.js';
 
-const DEMO_SECURITY_BUILD = '2026.08.23.51';
-const PARTICIPANT_FIELDS = new Set(['internalParticipants', 'externalParticipants', 'cateringParticipants']);
+const DEMO_SECURITY_BUILD = '2026.08.23.52';
 const runtimeMode = runtimeModeFromDocument(document);
 
 function messages() {
@@ -78,34 +77,8 @@ function renderDemoNotice() {
   sidebar.appendChild(panel);
 }
 
-function applyInputBound(control) {
-  if (control instanceof HTMLTextAreaElement) {
-    if (!control.hasAttribute('maxlength')) control.maxLength = 2000;
-    return;
-  }
-  if (!(control instanceof HTMLInputElement)) return;
-
-  const type = String(control.type || 'text').toLowerCase();
-  if (['text', 'search', 'email', 'tel', 'url'].includes(type) && !control.hasAttribute('maxlength')) {
-    control.maxLength = type === 'url' ? 2048 : 160;
-  }
-  if (control.id === 'title') control.maxLength = 120;
-  if (/first|last/i.test(control.id)) control.maxLength = 80;
-  if (/allocation-cost-center/i.test(control.id)) control.maxLength = 64;
-  if (PARTICIPANT_FIELDS.has(control.id)) {
-    control.min = '0';
-    control.max = '500';
-    control.step = '1';
-    control.inputMode = 'numeric';
-  }
-}
-
 function applyInputBounds(root = document) {
-  root.querySelectorAll('input, textarea').forEach(applyInputBound);
-}
-
-function applyBoundsAfterInteractiveRender() {
-  applyInputBounds(document);
+  root.querySelectorAll('input, textarea').forEach(applyInputConstraints);
 }
 
 function initializeSecurityControls() {
@@ -118,12 +91,10 @@ function initializeSecurityControls() {
 normalizeDemoState();
 
 window.addEventListener('conference:storage-warning', () => showToast(messages().storageWarning));
-document.addEventListener('focusin', (event) => applyInputBound(event.target));
-document.addEventListener('click', applyBoundsAfterInteractiveRender);
-document.addEventListener('change', applyBoundsAfterInteractiveRender);
+document.addEventListener('focusin', (event) => applyInputConstraints(event.target));
 document.addEventListener('input', (event) => {
   const control = event.target;
-  if (!(control instanceof HTMLInputElement) || !PARTICIPANT_FIELDS.has(control.id)) return;
+  if (!isParticipantInput(control)) return;
   const numeric = Number(control.value);
   if (Number.isFinite(numeric) && numeric > 500) control.value = '500';
 }, true);
