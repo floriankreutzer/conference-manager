@@ -27,12 +27,24 @@ async function chooseRoom(page) {
   await expect(page.locator('#rooms .option-card.selected:not(.disabled)')).toHaveCount(1);
 }
 
+async function reachCatering(page) {
+  await page.locator('#primaryNavigation button[data-view="employee"]').click();
+  await fillSchedule(page);
+  await next(page);
+  await chooseRoom(page);
+  await next(page);
+  await next(page);
+  await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('first-use welcome prioritizes the primary action without removing navigation', async ({ page }) => {
+test('first-use welcome prioritizes the primary action and explains the task clearly', async ({ page }) => {
   await expect(page.locator('.welcome-hero')).toBeVisible();
+  await expect(page.locator('#brandSubtitle')).toHaveText('Interne Services');
+  await expect(page.locator('.welcome-hero > p:not(.eyebrow)')).toHaveText('Planen Sie Ihre Veranstaltung – Raum, Services und Bewirtung in einer Anfrage.');
   await expect(page.getByRole('button', { name: 'Neue Konferenz anfragen' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Meine Buchungen ansehen' })).toBeHidden();
   await expect(page.locator('.dashboard-grid')).toBeHidden();
@@ -69,6 +81,41 @@ test('wizard only allows sequential forward navigation while preserving backward
   await expect(steps.nth(2)).toBeDisabled();
 });
 
+test('room and service prices state their basis and catering packages use clear selection semantics', async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === 'webkit-mobile';
+  await page.locator('#primaryNavigation button[data-view="employee"]').click();
+  await fillSchedule(page);
+  await next(page);
+
+  await expect(page.locator('[data-step-panel="2"] .option-card .price').first()).toContainText('pro Anfrage');
+  await chooseRoom(page);
+  await next(page);
+  await expect(page.locator('[data-step-panel="3"] .option-card .price').first()).toContainText('pro Anfrage');
+  await next(page);
+
+  await page.locator('input[name="cateringMode"][value="PACKAGE"]').check();
+  await expect(page.locator('.package-grid button[aria-pressed="false"]').first()).toHaveText('Auswählen');
+  await expect(page.locator('.package-grid h3').first()).toContainText('Basis');
+  await expect(page.getByRole('button', { name: 'Servicepersonal hinzufügen' })).toBeVisible();
+
+  if (mobile) {
+    await expect(page.locator('.ux-package-groups')).toBeVisible();
+    await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(3);
+    await page.locator('.ux-package-groups').getByRole('button', { name: 'Mittagessen' }).click();
+    await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(3);
+    await expect(page.locator('.package-grid .option-card:visible h3').first()).toContainText('Mittagessen');
+  } else {
+    await expect(page.locator('.ux-package-groups')).toBeHidden();
+    await expect(page.locator('.package-grid .option-card:visible')).toHaveCount(12);
+  }
+
+  await page.getByRole('button', { name: 'Servicepersonal hinzufügen' }).click();
+  await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+  const serviceCard = page.locator('[data-step-panel="3"] .option-card').filter({ hasText: 'Servicepersonal' });
+  await expect(serviceCard.locator('button[aria-pressed="true"]')).toHaveCount(1);
+});
+
 test('cost guidance is explicit and review sections can be edited directly', async ({ page }) => {
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await fillSchedule(page);
@@ -95,6 +142,22 @@ test('cost guidance is explicit and review sections can be edited directly', asy
   await expect(page.locator('#title')).toHaveValue('UX Regression Workshop');
 });
 
+test('successful submission receives a persistent completion state without changing the request workflow', async ({ page }) => {
+  await reachCatering(page);
+  await next(page);
+  await expect(page.locator('[data-step-panel="5"]')).toBeVisible();
+  await page.locator('#allocation-cost-center-0').fill('471100');
+  await next(page);
+  await expect(page.locator('[data-step-panel="6"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  await expect(page.locator('[data-ux-submission-success]')).toContainText('Anfrage erfolgreich gesendet');
+  await expect(page.locator('[data-ux-submission-success]')).toContainText('vorläufig reserviert');
+  await expect(page.locator('.request-card').filter({ hasText: 'UX Regression Workshop' })).toBeVisible();
+  await expect(page.locator('.request-card').filter({ hasText: 'UX Regression Workshop' })).toContainText('Zur Prüfung');
+});
+
 test('desktop and mobile receive the intended responsive request experience', async ({ page }, testInfo) => {
   const mobile = testInfo.project.name === 'webkit-mobile';
 
@@ -105,6 +168,14 @@ test('desktop and mobile receive the intended responsive request experience', as
   }
 
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
+
+  const order = await page.evaluate(() => Object.fromEntries(
+    ['date', 'start', 'end', 'internalParticipants', 'externalParticipants'].map((id) => {
+      const field = document.getElementById(id)?.closest('.field');
+      return [id, field ? getComputedStyle(field).order : ''];
+    }),
+  ));
+  expect(order).toEqual({ date: '3', start: '4', end: '5', internalParticipants: '6', externalParticipants: '7' });
 
   if (mobile) {
     await expect(page.locator('.ux-mobile-progress')).toBeVisible();
@@ -123,5 +194,5 @@ test('desktop and mobile receive the intended responsive request experience', as
   }
 
   await expect(page.locator('.wizard-card')).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('data-employee-ux-build', '2026.08.23.01');
+  await expect(page.locator('html')).toHaveAttribute('data-employee-ux-build', '2026.08.23.02');
 });
