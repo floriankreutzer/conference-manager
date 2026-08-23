@@ -81,11 +81,13 @@ test('participant total updates live and the UI reflects the existing combined p
   const internal = page.locator('#internalParticipants');
   const external = page.locator('#externalParticipants');
   const total = page.locator('.participant-total strong');
+  const internalField = page.locator('.field').filter({ has: internal });
+  const externalField = page.locator('.field').filter({ has: external });
 
   await expect(internal).not.toHaveAttribute('required', '');
   await expect(external).not.toHaveAttribute('required', '');
-  await expect(internal.closest('.field').locator('.field-label')).toHaveText('Interne Teilnehmende');
-  await expect(external.closest('.field').locator('.field-label')).toHaveText('Externe Teilnehmende');
+  await expect(internalField.locator('.field-label')).toHaveText('Interne Teilnehmende');
+  await expect(externalField.locator('.field-label')).toHaveText('Externe Teilnehmende');
   await expect(page.locator('#uxParticipantRule')).toContainText('mindestens eine Person');
   await expect(internal).toHaveAttribute('aria-describedby', /uxParticipantRule/);
   await expect(external).toHaveAttribute('aria-describedby', /uxParticipantRule/);
@@ -156,7 +158,7 @@ test('employee terminology stays consistent across the complete request journey'
 
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   await expect(page.locator('.topbar p')).toHaveText('Raum, Zusatzleistungen und Bewirtung in einer Anfrage.');
-  await expect(page.locator('#specialRequirements').closest('.field').locator('.field-hint')).toContainText('Raum, Zusatzleistungen oder Bewirtung');
+  await expect(page.locator('.field').filter({ has: page.locator('#specialRequirements') }).locator('.field-hint')).toContainText('Raum, Zusatzleistungen oder Bewirtung');
 
   const steps = page.locator('.stepper .step');
   await expect(steps.nth(2)).toContainText('Zusatzleistungen');
@@ -174,7 +176,7 @@ test('employee terminology stays consistent across the complete request journey'
 
   await next(page);
   await page.locator('input[name="cateringMode"][value="PACKAGE"]').check();
-  await expect(page.locator('#cateringParticipants').closest('.field').locator('.field-label')).toHaveText('Bewirtung für wie viele Personen?');
+  await expect(page.locator('.field').filter({ has: page.locator('#cateringParticipants') }).locator('.field-label')).toHaveText('Bewirtung für wie viele Personen?');
   await expect(page.locator('[data-step-panel="4"] .mode-selector')).toHaveAttribute('aria-label', 'Bewirtung auswählen');
 
   await next(page);
