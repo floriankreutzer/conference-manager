@@ -153,6 +153,10 @@ body[data-ux-first-use="true"] .welcome-hero {
     display: none;
   }
 
+  [data-step-panel="1"] .wizard-actions > button.primary:only-of-type {
+    grid-column: 1 / -1;
+  }
+
   .ux-package-groups {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
