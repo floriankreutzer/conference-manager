@@ -21,7 +21,7 @@ The readiness status describes clarity, usability, responsive behavior, and regr
 - Cost-center allocation with 0–100% validation and total validation
 - List, calendar, request history, guest information, and printable welcome view
 - Manager cockpit with bookings, room planning, reports, and master-data administration
-- German and English through central i18n keys
+- German and English through the canonical i18n catalogue
 - LocalStorage persistence for the static MVP
 
 ## Repository-wide coding-agent instructions
@@ -47,23 +47,28 @@ Current repository entry points:
 ├── .github/
 │   ├── copilot-instructions.md
 │   ├── dependabot.yml
-│   └── workflows/ci.yml
+│   └── workflows/
 ├── assets/
 │   ├── tokens.css
 │   ├── styles.css
 │   ├── feature-parity.css
+│   ├── app-layout.css
+│   ├── employee-ux.css
+│   ├── manager-layout.css
 │   └── demo-security.css
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── CODING-STANDARDS.md
 │   ├── DEMO-SECURITY.md
-│   └── DESIGN-SYSTEM.md
+│   ├── DESIGN-SYSTEM.md
+│   └── PRODUCTION-SECURITY.md
 ├── scripts/
 │   ├── check-agent-instructions.mjs
+│   ├── check-architecture.mjs
 │   ├── check-design.mjs
+│   ├── check-i18n.mjs
 │   ├── check-secrets.mjs
-│   ├── check-static.mjs
-│   └── check-syntax.mjs
+│   └── check-static.mjs
 ├── src/
 │   ├── app.js
 │   ├── core/
@@ -79,13 +84,17 @@ Current repository entry points:
 └── README.md
 ```
 
-## Design system
+## Architecture and design system
 
-The operational application uses a restrained consulting/business visual language with Bordeaux as the primary accent and Camel as an intentional surface color. The Manager dashboard retains its information architecture; the printable guest welcome view may remain more expressive.
+The operational application uses a restrained consulting/business visual language with Bordeaux as the primary accent and Camel as an intentional surface color. Global design decisions are maintained exclusively in `assets/tokens.css`.
 
-Global design decisions are maintained exclusively in `assets/tokens.css`. Colors, surfaces, typography, spacing, radii, and shadows can be changed centrally there. `assets/styles.css` and `assets/feature-parity.css` use semantic tokens and must not introduce new hardcoded brand hex colors.
+CSS responsibilities are intentionally consolidated: `assets/employee-ux.css` owns Employee-specific experience presentation and `assets/manager-layout.css` owns all Manager-specific experience presentation. Separate first-use, readiness, operational or polish stylesheets are not part of the architecture.
 
-See `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+`src/app.js` owns application state and primary rendering. `src/features/feature-parity.js` owns the single coalesced enhancement scheduler and invokes idempotent Employee/Manager enhancement modules. Feature modules do not create parallel global synchronization loops.
+
+User-visible application copy is maintained in `src/core/i18n.js` and rendered through `t()`. The DE/EN key sets are checked for parity. Feature modules must not introduce independent bilingual copy tables.
+
+See `docs/ARCHITECTURE.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
 
 ## Run locally
 
@@ -106,13 +115,15 @@ npm run check
 The quality gate executes:
 
 1. JavaScript syntax validation for source, test, and script files
-2. Coding-agent instruction consistency validation for the canonical `AGENTS.md`, agent bridges/imports, detailed standards, and English-only repository instructions
-3. Defensive static/SAST-style checks for forbidden constructs such as `eval`, `document.write`, `innerHTML` assignments, and `javascript:` URLs
-4. Repository secret scan
-5. Design-token validation against new hardcoded hex colors in component CSS
-6. Regression and progression tests using the Node.js test runner
+2. Coding-agent instruction consistency validation
+3. Central i18n key-parity and no-parallel-translation checks
+4. Architecture-consolidation checks for CSS ownership, enhancement scheduling and repository hooks
+5. Defensive static/SAST-style checks for forbidden constructs such as `eval`, `document.write`, `innerHTML` assignments, and executable URL schemes
+6. Repository secret scan
+7. Design-token validation against new hardcoded hex colors in component CSS
+8. Regression and progression tests using the Node.js test runner
 
-In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chromium and WebKit/iPhone profiles.
+In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chromium and WebKit/iPhone profiles. Dependency Review, Gitleaks and CodeQL provide additional repository security gates where enabled.
 
 ## Accessibility and internationalization
 
@@ -134,7 +145,7 @@ Production operation requires at least:
 - secure calendar integration, for example through Microsoft Graph
 - security controls appropriate to the backend architecture, including CSRF protection for cookie-based authentication
 
-See `docs/DEMO-SECURITY.md` for additional details.
+See `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md` for additional details.
 
 ## Calendar integration
 
