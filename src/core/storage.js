@@ -150,20 +150,33 @@ export function writeString(key, value) {
 }
 
 export function createRepository({ key, fallback = [] }) {
+  const beforeSaveHooks = new Map();
+
   return {
     all() {
       const value = readJson(key, fallback);
       return Array.isArray(fallback) && !Array.isArray(value) ? cloneFallback(fallback) : value;
     },
+    addBeforeSaveHook(name, hook) {
+      const normalizedName = String(name || '').trim();
+      if (!normalizedName || typeof hook !== 'function') throw new TypeError('Repository save hooks require a name and function.');
+      beforeSaveHooks.set(normalizedName, hook);
+      return () => beforeSaveHooks.delete(normalizedName);
+    },
     save(value) {
-      writeJson(key, value);
-      return value;
+      const current = this.all();
+      let prepared = value;
+      for (const hook of beforeSaveHooks.values()) {
+        const transformed = hook(prepared, current);
+        if (transformed !== undefined) prepared = transformed;
+      }
+      writeJson(key, prepared);
+      return prepared;
     },
     update(mutator) {
       const current = this.all();
       const next = mutator(structuredClone(current));
-      this.save(next);
-      return next;
+      return this.save(next);
     },
   };
 }
