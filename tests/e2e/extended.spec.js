@@ -109,9 +109,10 @@ test('manager room plan reports and master-data administration work end to end',
   await createBasicRequest(page, { title, date });
   await setManagerRole(page);
 
-  await openManagerTab(page, 'Raumplanung', '#roomPlanDate');
+  await openManagerTab(page, 'Raumplanung', '[data-feature-parity="room-plan"] #roomPlanDate');
   await page.locator('#roomPlanDate').fill(date);
   await page.locator('#roomPlanDate').dispatchEvent('change');
+  await expect(page.locator('#roomPlanDate')).toHaveValue(date);
   await page.locator('[data-room-plan-view="LIST"]').click();
   await expect(page.locator('.room-plan-list')).toContainText(title);
 
