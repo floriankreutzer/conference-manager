@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 
 const files = {
   agents: 'AGENTS.md',
@@ -8,6 +9,29 @@ const files = {
   gemini: 'GEMINI.md',
 };
 
+const allowedInstructionFiles = new Set([
+  files.agents,
+  files.copilot,
+  files.claude,
+  files.gemini,
+]);
+
+const forbiddenParallelPaths = [
+  '.cursorrules',
+  '.windsurfrules',
+  '.cursor/rules',
+  '.windsurf/rules',
+  '.github/instructions',
+  '.github/agents',
+];
+
+const ignoredDirectories = new Set([
+  '.git',
+  'node_modules',
+  'playwright-report',
+  'test-results',
+]);
+
 let failures = 0;
 
 function fail(message) {
@@ -15,11 +39,57 @@ function fail(message) {
   failures += 1;
 }
 
+function normalizePath(path) {
+  return path.replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
+function containsFiles(path) {
+  if (!existsSync(path)) return false;
+  if (!statSync(path).isDirectory()) return true;
+
+  return readdirSync(path, { withFileTypes: true }).some((entry) => {
+    const child = join(path, entry.name);
+    return entry.isFile() || (entry.isDirectory() && containsFiles(child));
+  });
+}
+
+function findUnexpectedInstructionFiles(directory = '.') {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
+
+    const absolutePath = join(directory, entry.name);
+    const repositoryPath = normalizePath(relative('.', absolutePath));
+
+    if (entry.isDirectory()) {
+      findUnexpectedInstructionFiles(absolutePath);
+      continue;
+    }
+
+    const isAgentInstructionFile =
+      entry.name === 'AGENTS.md' ||
+      entry.name === 'CLAUDE.md' ||
+      entry.name === 'GEMINI.md' ||
+      entry.name === 'copilot-instructions.md';
+
+    if (isAgentInstructionFile && !allowedInstructionFiles.has(repositoryPath)) {
+      fail(`${repositoryPath}: parallel agent instruction files are not allowed; use root AGENTS.md`);
+    }
+  }
+}
+
 for (const path of Object.values(files)) {
   if (!existsSync(path)) fail(`${path}: required agent-instruction file is missing`);
 }
 
 if (failures) process.exit(1);
+
+for (const path of forbiddenParallelPaths) {
+  if (containsFiles(path)) {
+    fail(`${path}: parallel agent rules are not allowed; use root AGENTS.md`);
+  }
+}
+
+findUnexpectedInstructionFiles();
 
 const agents = readFileSync(files.agents, 'utf8');
 const standards = readFileSync(files.standards, 'utf8');
