@@ -5,8 +5,8 @@ import { catalogData, localized, requestData } from './parity-data.js';
 import { requestIdFromCard } from './employee-visuals.js';
 import { currentManagerTab } from './manager-tabs.js';
 
+const MANAGER_ACTION_IDS = new Set(['confirm', 'change', 'reject']);
 const INTRO_KEY = 'conference_manager_intro_dismissed_v1';
-const MANAGER_ACTION_IDS = Object.freeze(['confirm', 'change', 'reject']);
 const state = {
   landingHandled: false,
   priorityHandled: false,
@@ -192,19 +192,8 @@ function buildReviewContent(request) {
   return content;
 }
 
-function ensureNativeActionIdentity(footer) {
-  if (!(footer instanceof HTMLElement)) return;
-  [...footer.children]
-    .filter((control) => control instanceof HTMLButtonElement)
-    .forEach((control, index) => {
-      const action = MANAGER_ACTION_IDS[index];
-      if (action && !control.dataset.managerAction) control.dataset.managerAction = action;
-    });
-}
-
 function nativeAction(footer, action) {
-  if (!(footer instanceof HTMLElement) || !MANAGER_ACTION_IDS.includes(action)) return null;
-  ensureNativeActionIdentity(footer);
+  if (!(footer instanceof HTMLElement) || !MANAGER_ACTION_IDS.has(action)) return null;
   const control = footer.querySelector(`button[data-manager-action="${action}"]`);
   return control instanceof HTMLButtonElement ? control : null;
 }
@@ -297,7 +286,6 @@ function decorateManagerCards(section) {
     if (!request) return;
     const originalFooter = card.querySelector('.request-actions:not([data-manager-review-actions])');
     if (originalFooter instanceof HTMLElement) {
-      ensureNativeActionIdentity(originalFooter);
       originalFooter.classList.add('manager-native-actions');
       originalFooter.hidden = true;
     }
@@ -335,5 +323,5 @@ export function enhanceManagerFirstUse() {
   const section = document.querySelector('.manager-tabs')?.nextElementSibling;
   if (!(section instanceof HTMLElement)) return;
   if (tab === 'BOOKINGS') enhanceBookings(section);
-  document.documentElement.dataset.managerFirstUseBuild = '2026.08.23.52';
+  document.documentElement.dataset.managerFirstUseBuild = '2026.08.24.01';
 }
