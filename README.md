@@ -21,7 +21,7 @@ The readiness status describes clarity, usability, responsive behavior, and regr
 - Cost-center allocation with 0–100% validation and total validation
 - List, calendar, request history, guest information, and printable welcome view
 - Manager cockpit with bookings, room planning, reports, and master-data administration
-- German and English through the canonical i18n catalogue
+- German and English through the canonical application i18n catalogue and the preserved parity compatibility catalogue
 - LocalStorage persistence for the static MVP
 
 ## Repository-wide coding-agent instructions
@@ -58,6 +58,7 @@ Current repository entry points:
 │   └── demo-security.css
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── BASELINE.md
 │   ├── CODING-STANDARDS.md
 │   ├── DEMO-SECURITY.md
 │   ├── DESIGN-SYSTEM.md
@@ -72,7 +73,10 @@ Current repository entry points:
 ├── src/
 │   ├── app.js
 │   ├── core/
-│   └── features/
+│   ├── employee/
+│   ├── manager/
+│   ├── platform/
+│   └── shared/
 ├── tests/
 │   ├── e2e/
 │   └── *.test.js
@@ -86,15 +90,32 @@ Current repository entry points:
 
 ## Architecture and design system
 
+The runtime is organized around explicit capability boundaries. `src/employee/index.js` and `src/manager/index.js` are the public module APIs. `src/platform` owns bootstrap, cross-cutting orchestration and the feature-flag foundation. `src/shared` contains the existing cross-capability parity data/copy resources, while `src/core` contains stable domain and infrastructure primitives.
+
+`src/app.js` remains the established baseline application composition/rendering module. It is intentionally preserved during the directory-boundary refactor rather than being rewritten in one high-risk step. Future decomposition must be incremental and regression-protected.
+
 The operational application uses a restrained consulting/business visual language with Bordeaux as the primary accent and Camel as an intentional surface color. Global design decisions are maintained exclusively in `assets/tokens.css`.
 
-CSS responsibilities are intentionally consolidated: `assets/employee-ux.css` owns Employee-specific experience presentation and `assets/manager-layout.css` owns all Manager-specific experience presentation. Separate first-use, readiness, operational or polish stylesheets are not part of the architecture.
+CSS responsibilities remain consolidated: `assets/employee-ux.css` owns Employee-specific experience presentation and `assets/manager-layout.css` owns all Manager-specific experience presentation. Separate first-use, readiness, operational or polish stylesheets are not part of the architecture.
 
-`src/app.js` owns application state and primary rendering. `src/features/feature-parity.js` owns the single coalesced enhancement scheduler and invokes idempotent Employee/Manager enhancement modules. Feature modules do not create parallel global synchronization loops.
+`src/platform/feature-parity.js` owns the single coalesced enhancement scheduler and invokes Employee/Manager behavior through their public module APIs. Feature modules do not create parallel global synchronization loops.
 
-User-visible application copy is maintained in `src/core/i18n.js` and rendered through `t()`. The DE/EN key sets are checked for parity. Feature modules must not introduce independent bilingual copy tables.
+New user-visible application copy belongs in `src/core/i18n.js` and is rendered through `t()`. The preserved `src/shared/parity-i18n.js` catalogue is a pre-existing compatibility resource and must not be extended with new application copy.
 
-See `docs/ARCHITECTURE.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+See `docs/BASELINE.md`, `docs/ARCHITECTURE.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+
+## Feature flags
+
+`src/platform/feature-flags.js` provides the centralized lightweight feature-flag mechanism for genuinely new application functionality.
+
+- Baseline functionality is not feature-flagged.
+- New flags must be registered centrally with a stable identifier.
+- New flags default to OFF unless explicitly approved otherwise.
+- Unknown or malformed flags fail closed.
+- Runtime overrides can only enable registered flags.
+- New flagged behavior requires tests for both OFF and ON states.
+
+The current baseline defines no feature flags.
 
 ## Run locally
 
@@ -116,8 +137,8 @@ The quality gate executes:
 
 1. JavaScript syntax validation for source, test, and script files
 2. Coding-agent instruction consistency validation
-3. Central i18n key-parity and no-parallel-translation checks
-4. Architecture-consolidation checks for CSS ownership, enhancement scheduling and repository hooks
+3. Central i18n key-parity and no-new-parallel-translation checks
+4. Architecture-boundary, circular-dependency, CSS-ownership, enhancement-scheduling and repository-hook checks
 5. Defensive static/SAST-style checks for forbidden constructs such as `eval`, `document.write`, `innerHTML` assignments, and executable URL schemes
 6. Repository secret scan
 7. Design-token validation against new hardcoded hex colors in component CSS
@@ -127,7 +148,7 @@ In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chr
 
 ## Accessibility and internationalization
 
-The application uses semantic HTML, native form controls, and native `<dialog>` elements. User-visible text, validation messages, and accessibility text are centrally managed through `src/core/i18n.js`. The currently supported languages are `de` and `en`; additional language packs can extend the same stable key set.
+The application uses semantic HTML, native form controls, and native `<dialog>` elements. User-visible text, validation messages, and accessibility text are governed by the repository i18n rules. The currently supported languages are `de` and `en`.
 
 The implementation targets WCAG 2.2 Level AA. A formal conformance statement additionally requires a complete manual accessibility audit with representative assistive technologies and target browsers.
 
