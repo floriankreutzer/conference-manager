@@ -54,7 +54,8 @@ function storedFirstName() {
 function renderedFirstName() {
   const text = String(document.getElementById('welcomeHeading')?.textContent || '').trim();
   const match = text.match(/^(?:Willkommen|Welcome),\s*(.+?)[.!]?$/i);
-  return String(match?.[1] || '').trim();
+  const candidate = String(match?.[1] || '').replace(/[.!]+$/u, '').trim();
+  return /[\p{L}\p{N}]/u.test(candidate) ? candidate : '';
 }
 
 export function captureEmployeeIdentityPresentation() {
