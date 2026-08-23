@@ -54,6 +54,10 @@ test('conference manager lands in the manager workspace with first-use guidance'
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+
+  await page.reload();
+  await expect(page.locator('.manager-tabs')).toBeVisible();
+  await expect(page.locator('#viewTitle')).toHaveText('Conference Management');
 });
 
 test('manager reviews complete request details before using the unchanged decision actions', async ({ page }) => {
@@ -69,16 +73,17 @@ test('manager reviews complete request details before using the unchanged decisi
   await expect(review).toBeVisible();
   await expect(review).toContainText('Anfragende Person');
   await expect(review).toContainText('Alex Manager');
-  await expect(review).toContainText('Interne');
-  await expect(review).toContainText('Externe');
+  await expect(review).toContainText('Intern');
+  await expect(review).toContainText('Extern');
   await expect(review).toContainText('1× vegan');
   await expect(review).toContainText('CC-1000');
+  await expect(review).toContainText('Empfang für externe Gäste vorbereiten');
 
   await review.locator('[data-manager-confirm-from-review="CR-FIRST-001"]').click();
   const confirmation = page.locator('dialog.manager-confirm-dialog');
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toContainText('Buchung verbindlich bestätigen?');
-  await expect(confirmation).toContainText('Executive Workshop');
+  await expect(confirmation).toContainText('12 Personen');
 
   await confirmation.locator('[data-manager-confirm-final="CR-FIRST-001"]').click();
   await expect(page.locator('.request-card').filter({ hasText: 'Executive Workshop' }).locator('.status-badge')).toHaveText('Bestätigt');
