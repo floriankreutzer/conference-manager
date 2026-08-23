@@ -29,6 +29,7 @@ class SelectiveFailingStorage extends MemoryStorage {
 }
 
 globalThis.document = {
+  documentElement: {},
   querySelector(selector) {
     if (selector === 'meta[name="conference-runtime"]') return { getAttribute: () => 'demo' };
     return null;
