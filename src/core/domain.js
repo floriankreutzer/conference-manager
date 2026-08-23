@@ -37,8 +37,11 @@ function safeQuantity(value) {
   return numeric;
 }
 
-function safeCostProduct(unitPrice, quantity) {
-  const result = safeNonNegativeNumber(unitPrice) * safeQuantity(quantity);
+function safeCostProduct(unitPrice, quantity, { requireWholeQuantity = true } = {}) {
+  const normalizedQuantity = requireWholeQuantity
+    ? safeQuantity(quantity)
+    : safeNonNegativeNumber(quantity);
+  const result = safeNonNegativeNumber(unitPrice) * normalizedQuantity;
   if (!Number.isFinite(result) || result > Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER;
   return result;
 }
@@ -169,7 +172,7 @@ export function calculateCosts(input = {}) {
     .filter((service) => service && selectedIds.includes(service.id))
     .map((service) => safeNonNegativeNumber(service.price)));
   const packageCost = cateringPackage
-    ? safeCostProduct(cateringPackage.pricePerPerson, cateringParticipants)
+    ? safeCostProduct(cateringPackage.pricePerPerson, cateringParticipants, { requireWholeQuantity: false })
     : 0;
   const itemCost = safeCostSum(arrayOrEmpty(items)
     .filter((item) => item && typeof item === 'object')
