@@ -85,6 +85,9 @@ test('manager reviews complete request details and history before unchanged deci
   const card = page.locator('.request-card').filter({ hasText: 'Executive Workshop' });
   await expect(card).toBeVisible();
   await expect(card.locator('.manager-native-actions')).toBeHidden();
+  await expect(card.locator('.manager-native-actions [data-manager-action="confirm"]')).toHaveCount(1);
+  await expect(card.locator('.manager-native-actions [data-manager-action="change"]')).toHaveCount(1);
+  await expect(card.locator('.manager-native-actions [data-manager-action="reject"]')).toHaveCount(1);
   await expect(card.locator('.request-timeline')).toBeHidden();
   await expect(card.locator(`[data-manager-review="${REQUEST_ID}"]`)).toBeVisible();
 
@@ -113,6 +116,28 @@ test('manager reviews complete request details and history before unchanged deci
 
   await confirmation.locator(`[data-manager-confirm-final="${REQUEST_ID}"]`).click();
   await expect(page.locator('.request-card').filter({ hasText: 'Executive Workshop' }).locator('.status-badge')).toHaveText('Bestätigt');
+});
+
+test('request persistence failure does not present an unsaved manager decision as successful', async ({ page }) => {
+  await seedManager(page);
+  await page.evaluate(() => {
+    const nativeSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function guardedSetItem(key, value) {
+      if (key === 'conference_requests') throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      return nativeSetItem.call(this, key, value);
+    };
+  });
+
+  const card = page.locator('.request-card').filter({ hasText: 'Executive Workshop' });
+  await card.locator(`[data-manager-review="${REQUEST_ID}"]`).click();
+  await page.locator(`dialog.manager-review-dialog [data-manager-confirm-from-review="${REQUEST_ID}"]`).click();
+  await page.locator(`dialog.manager-confirm-dialog [data-manager-confirm-final="${REQUEST_ID}"]`).click();
+
+  await expect(card.locator('.status-badge')).toHaveText('Zur Prüfung');
+  await expect(page.locator('#toast')).toContainText('konnten nicht zuverlässig gelesen oder gespeichert werden');
+  await expect(page.locator('#alertRegion')).toContainText('konnten nicht zuverlässig gelesen oder gespeichert werden');
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('conference_requests') || '[]'));
+  expect(stored[0].status).toBe('Submitted');
 });
 
 test('stored requester is shown instead of the manager profile', async ({ page }) => {

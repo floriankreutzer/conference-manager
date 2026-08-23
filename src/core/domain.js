@@ -25,6 +25,35 @@ function arrayOrEmpty(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function safeNonNegativeNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.min(numeric, Number.MAX_SAFE_INTEGER);
+}
+
+function safeQuantity(value) {
+  const numeric = Number(value);
+  if (!Number.isSafeInteger(numeric) || numeric < 0) return 0;
+  return numeric;
+}
+
+function safeCostProduct(unitPrice, quantity, { requireWholeQuantity = true } = {}) {
+  const normalizedQuantity = requireWholeQuantity
+    ? safeQuantity(quantity)
+    : safeNonNegativeNumber(quantity);
+  const result = safeNonNegativeNumber(unitPrice) * normalizedQuantity;
+  if (!Number.isFinite(result) || result > Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER;
+  return result;
+}
+
+function safeCostSum(values) {
+  return values.reduce((sum, value) => {
+    const next = sum + safeNonNegativeNumber(value);
+    if (!Number.isFinite(next) || next > Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER;
+    return next;
+  }, 0);
+}
+
 export function localTodayIso(now = new Date()) {
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -136,23 +165,24 @@ export function calculateCosts(input = {}) {
     items,
     quantities,
   } = safeInput;
-  const roomCost = Number(room?.rate || 0);
+  const roomCost = safeNonNegativeNumber(room?.rate);
   const selectedIds = arrayOrEmpty(selectedServiceIds);
   const safeQuantities = objectOrEmpty(quantities);
-  const serviceCost = arrayOrEmpty(services)
+  const serviceCost = safeCostSum(arrayOrEmpty(services)
     .filter((service) => service && selectedIds.includes(service.id))
-    .reduce((sum, service) => sum + Number(service.price || 0), 0);
+    .map((service) => safeNonNegativeNumber(service.price)));
   const packageCost = cateringPackage
-    ? Number(cateringPackage.pricePerPerson || 0) * Number(cateringParticipants || 0)
+    ? safeCostProduct(cateringPackage.pricePerPerson, cateringParticipants, { requireWholeQuantity: false })
     : 0;
-  const itemCost = arrayOrEmpty(items)
+  const itemCost = safeCostSum(arrayOrEmpty(items)
     .filter((item) => item && typeof item === 'object')
-    .reduce((sum, item) => sum + Number(item.price || 0) * Number(safeQuantities[item.id] || 0), 0);
+    .map((item) => safeCostProduct(item.price, safeQuantities[item.id])));
+  const cateringCost = safeCostSum([packageCost, itemCost]);
   return {
     roomCost,
     serviceCost,
-    cateringCost: packageCost + itemCost,
-    total: roomCost + serviceCost + packageCost + itemCost,
+    cateringCost,
+    total: safeCostSum([roomCost, serviceCost, cateringCost]),
   };
 }
 

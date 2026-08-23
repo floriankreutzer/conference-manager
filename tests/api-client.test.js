@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 
 import { ApiSecurityError, createApiClient } from '../src/core/api-client.js';
 
-function jsonResponse(body = {}, { status = 200, contentType = 'application/json' } = {}) {
+function jsonResponse(body = {}, { status = 200, contentType = 'application/json', headers = {} } = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': contentType },
+    headers: { 'content-type': contentType, ...headers },
   });
 }
 
@@ -93,6 +93,35 @@ test('API responses must use JSON content types', async () => {
   await assert.rejects(
     () => client.request('requests'),
     (error) => assertSecurityCode(error, 'UNEXPECTED_CONTENT_TYPE'),
+  );
+});
+
+test('oversized API responses are rejected from Content-Length before body processing', async () => {
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    fetchImpl: async () => jsonResponse({ ok: true }, {
+      headers: { 'content-length': '1000001' },
+    }),
+  });
+  await assert.rejects(
+    () => client.request('requests'),
+    (error) => assertSecurityCode(error, 'RESPONSE_TOO_LARGE'),
+  );
+});
+
+test('chunked API responses are byte-bounded even without Content-Length', async () => {
+  const oversized = new Uint8Array(1_000_001);
+  oversized.fill(97);
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    fetchImpl: async () => new Response(oversized, {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }),
+  });
+  await assert.rejects(
+    () => client.request('requests'),
+    (error) => assertSecurityCode(error, 'RESPONSE_TOO_LARGE'),
   );
 });
 

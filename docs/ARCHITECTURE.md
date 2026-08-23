@@ -24,9 +24,9 @@ src/core/
 
 `src/app.js` owns primary application state, business-flow orchestration and rendering. `src/features/feature-parity.js` owns the single coalesced post-render enhancement scheduler. Employee and Manager enhancement modules export idempotent enhancement functions or scoped event handlers and must not register parallel document/window synchronization loops.
 
-`src/features/manager-tabs.js` assigns and resolves stable semantic Manager tab identities (`BOOKINGS`, `ROOM_PLAN`, `REPORTS`, `ADMIN`) after each base render. Manager enhancement logic must use these identities instead of localized visible labels, so copy changes and language changes cannot alter navigation state.
+`src/features/manager-tabs.js` assigns and resolves stable semantic Manager tab identities (`BOOKINGS`, `ROOM_PLAN`, `REPORTS`, `ADMIN`) after each base render. Manager enhancement logic must use these identities instead of localized visible labels, so copy changes and language changes cannot alter navigation state. Native Manager decision controls are likewise annotated with stable `data-manager-action` identities (`confirm`, `change`, `reject`) before enhancement logic resolves them; decision behavior must not be discovered from translated button text.
 
-Repository cross-cutting behavior that must run before persistence uses explicit named repository hooks. Feature modules must not monkey-patch core repository methods.
+Repository cross-cutting behavior that must run before persistence uses explicit named repository hooks. Feature modules must not monkey-patch core repository methods. Authoritative request persistence fails closed through `RepositoryWriteError` when browser storage rejects a write, so the UI cannot continue into a successful business state after an unsaved request mutation. Notification persistence is explicitly best-effort because it is secondary to the authoritative request write.
 
 The static GitHub Pages build declares `conference-runtime=demo`. Missing or unknown runtime configuration is interpreted as `production`, not as demo.
 
@@ -41,13 +41,14 @@ The static GitHub Pages build declares `conference-runtime=demo`. Missing or unk
 - request history
 - repeat-request behavior
 
-These functions are covered by Node regression/progression tests and deterministic input-manipulation tests. They remain independent from LocalStorage and the DOM and defensively tolerate malformed collection data instead of throwing.
+These functions are covered by Node regression/progression tests and deterministic input-manipulation tests. They remain independent from LocalStorage and the DOM and defensively tolerate malformed collection data instead of throwing. Cost calculations normalize negative and non-finite monetary input to zero, require safe integer quantities, and saturate unsafe arithmetic at `Number.MAX_SAFE_INTEGER` so manipulated demo data cannot create `NaN`, `Infinity`, negative totals, or unsafe numeric overflow.
 
 ## Accessibility
 
 - native interactive elements are preferred over custom ARIA widgets
 - modal interactions use native `<dialog>`
 - validation uses `aria-invalid` and assertive live regions
+- persistence failures are surfaced through both a visible toast and an assertive live-region announcement
 - navigation and request steps expose current state with `aria-current`
 - visible focus indicators are retained
 - reduced-motion preferences are respected
@@ -79,9 +80,11 @@ The static MVP applies defensive browser-side coding practices:
 - user-controlled content is rendered through `textContent`
 - externally opened routes are restricted to HTTPS and use `noopener noreferrer`
 - parsed LocalStorage data is handled defensively
+- authoritative request writes fail closed when persistence is unavailable
 - runtime and role values are allowlisted
 - unknown runtime configuration fails closed to production semantics
 - production API calls are designed as HTTPS-only, same-origin, JSON-only requests with CSRF protection for unsafe methods
+- production API responses are read through a byte-bounded stream and reject oversized bodies before unbounded buffering
 
 The static client is **not** a security boundary. Demo roles in LocalStorage only control presentation. Production authorization must be enforced by a trusted backend/identity layer.
 
@@ -89,4 +92,6 @@ The mandatory production boundary, including SSO/OIDC, server-side RBAC, CSRF, t
 
 ## Quality gate
 
-`npm run check` runs syntax checks, agent-instruction checks, i18n architecture/key-parity checks, architecture-consolidation checks, static defensive-code checks, secret checks, design-token checks, domain regression/progression tests, API-security tests, runtime-policy tests, requester-attribution tests and deterministic malformed-input/fuzz tests. GitHub Actions executes the same gate for pushes and pull requests. Browser CI additionally runs the Playwright suite on Chromium desktop and WebKit/iPhone.
+`npm run check` runs syntax checks, agent-instruction checks, i18n architecture/key-parity checks, architecture-consolidation checks, static defensive-code checks, secret checks, design-token checks, domain regression/progression tests, API-security tests, runtime-policy tests, repository-persistence tests, requester-attribution tests and deterministic malformed-input/fuzz tests. GitHub Actions executes the same gate for pushes and pull requests. Browser CI additionally runs the Playwright suite on Chromium desktop and WebKit/iPhone.
+
+The scheduled/manual OWASP ZAP baseline workflow scans the deployed GitHub Pages demo and is configured to fail when ZAP reports alerts. Findings must be remediated or, only when technically unavoidable and risk-accepted, explicitly baselined with a documented rule rather than globally suppressing DAST failure behavior.
