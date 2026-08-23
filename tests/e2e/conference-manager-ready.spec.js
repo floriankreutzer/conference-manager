@@ -80,9 +80,8 @@ test('conference manager ready marker, clear bookings label and permanent help a
   await expect(page.locator('meta[name="conference-manager-readiness"]')).toHaveAttribute('content', 'ready');
   const bookingsTab = page.locator('[data-manager-ready-bookings-tab]');
   await expect(bookingsTab).toBeVisible();
+  await expect(bookingsTab).toHaveText('Anfragen & Buchungen');
   await expect(bookingsTab).toHaveAttribute('aria-label', 'Anfragen & Buchungen');
-  const prefix = await bookingsTab.evaluate((node) => getComputedStyle(node, '::before').content);
-  expect(prefix).toContain('Anfragen &');
 
   const help = page.locator('[data-manager-ready-help]');
   await expect(help).toBeVisible();
