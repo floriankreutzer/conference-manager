@@ -96,7 +96,8 @@ test('overview open goes directly to review and clears blocking filters only whe
   await advanced.locator('select').first().selectOption('Confirmed');
   await expect(page.locator('.manager-surface > .info-box, [data-manager-filter-empty]')).toContainText('Keine Buchungen passen zu den aktuellen Filtern.');
 
-  await page.locator(`[data-manager-open="${REQUEST_ID}"]`).click();
+  const reviewNow = page.locator('.manager-overview-card').first();
+  await reviewNow.locator(`[data-manager-open="${REQUEST_ID}"]`).click();
 
   const review = page.locator('dialog.manager-review-dialog');
   await expect(review).toBeVisible();
