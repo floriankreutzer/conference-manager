@@ -1,0 +1,88 @@
+.manager-decision-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  border-left: 4px solid var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.manager-decision-summary-item {
+  min-width: 0;
+}
+
+.manager-decision-summary-item span,
+.manager-decision-summary-item strong {
+  display: block;
+}
+
+.manager-decision-summary-item span {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.manager-decision-summary-item strong {
+  margin-top: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.manager-dialog-header-close {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .manager-decision-summary {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .manager-review-dialog .modal-header {
+    position: relative;
+    padding-right: 128px;
+  }
+
+  .manager-dialog-header-close {
+    position: absolute;
+    top: var(--app-mobile-gutter);
+    right: var(--app-mobile-gutter);
+    display: inline-flex;
+    width: auto;
+    min-width: 96px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .manager-review-dialog [data-manager-review-bottom-close="true"] {
+    display: none;
+  }
+
+  .manager-review-dialog .modal-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .manager-review-dialog [data-manager-confirm-from-review] {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 380px) {
+  .manager-review-dialog .modal-header {
+    padding-right: var(--app-mobile-gutter);
+    padding-top: calc(var(--app-mobile-gutter) + var(--control-height) + var(--space-2));
+  }
+
+  .manager-dialog-header-close {
+    left: var(--app-mobile-gutter);
+    width: calc(100% - (2 * var(--app-mobile-gutter)));
+  }
+
+  .manager-review-dialog .modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-review-dialog [data-manager-confirm-from-review] {
+    grid-column: 1;
+  }
+}
