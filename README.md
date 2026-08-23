@@ -62,10 +62,12 @@ Current repository entry points:
 │   ├── CODING-STANDARDS.md
 │   ├── DEMO-SECURITY.md
 │   ├── DESIGN-SYSTEM.md
+│   ├── PHASE-2-PLAN.md
 │   └── PRODUCTION-SECURITY.md
 ├── scripts/
 │   ├── check-agent-instructions.mjs
 │   ├── check-architecture.mjs
+│   ├── check-modular-runtime.mjs
 │   ├── check-design.mjs
 │   ├── check-i18n.mjs
 │   ├── check-secrets.mjs
@@ -90,13 +92,13 @@ Current repository entry points:
 
 ## Architecture and design system
 
-The runtime is organized around explicit capability boundaries. `src/employee/index.js` and `src/manager/index.js` are the public module APIs. `src/platform` owns bootstrap, cross-cutting orchestration and the feature-flag foundation. `src/shared` contains the existing cross-capability parity data/copy resources, while `src/core` contains stable domain and infrastructure primitives.
+The runtime is organized around explicit capability boundaries. `src/employee/index.js` and `src/manager/index.js` are the public module APIs. `src/platform` owns application context, shell/bootstrap, cross-cutting orchestration and the feature-flag foundation. `src/shared` contains genuinely cross-capability presentation/contracts and the preserved parity resources, while `src/core` contains stable domain and infrastructure primitives.
 
-`src/app.js` remains the established baseline application composition/rendering module. It is intentionally preserved during the directory-boundary refactor rather than being rewritten in one high-risk step. Future decomposition must be incremental and regression-protected.
+`src/app.js` is now the composition/bootstrap root only. The Employee request workflow, draft/request lifecycle, request rendering and Employee event handling live behind the Employee public API. Manager booking, room-planning, reporting and administration behavior live behind the Manager public API. Testable request/booking lifecycle rules are separated from browser rendering where practical.
 
 The operational application uses a restrained consulting/business visual language with Bordeaux as the primary accent and Camel as an intentional surface color. Global design decisions are maintained exclusively in `assets/tokens.css`.
 
-CSS responsibilities remain consolidated: `assets/employee-ux.css` owns Employee-specific experience presentation and `assets/manager-layout.css` owns all Manager-specific experience presentation. Separate first-use, readiness, operational or polish stylesheets are not part of the architecture.
+CSS responsibilities remain consolidated: `assets/employee-ux.css` owns Employee-specific experience presentation and `assets/manager-layout.css` owns all Manager-specific experience presentation. The JavaScript decomposition introduces no new CSS architecture or visible redesign.
 
 `src/platform/feature-parity.js` owns the single coalesced enhancement scheduler and invokes Employee/Manager behavior through their public module APIs. Feature modules do not create parallel global synchronization loops.
 
@@ -138,13 +140,13 @@ The quality gate executes:
 1. JavaScript syntax validation for source, test, and script files
 2. Coding-agent instruction consistency validation
 3. Central i18n key-parity and no-new-parallel-translation checks
-4. Architecture-boundary, circular-dependency, CSS-ownership, enhancement-scheduling and repository-hook checks
+4. Architecture-boundary, modular-runtime, circular-dependency, CSS-ownership, enhancement-scheduling and repository-hook checks
 5. Defensive static/SAST-style checks for forbidden constructs such as `eval`, `document.write`, `innerHTML` assignments, and executable URL schemes
 6. Repository secret scan
 7. Design-token validation against new hardcoded hex colors in component CSS
 8. Regression and progression tests using the Node.js test runner
 
-In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chromium and WebKit/iPhone profiles. Dependency Review, Gitleaks and CodeQL provide additional repository security gates where enabled.
+In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chromium and WebKit/iPhone profiles. Dependency Review and Gitleaks provide additional repository security gates. DAST remains a separate scheduled/manual control. CodeQL must only be reported when separately configured and executed.
 
 ## Accessibility and internationalization
 
