@@ -1,6 +1,6 @@
 import { language, t } from '../core/i18n.js';
 
-const CONFERENCE_MANAGER_READY_BUILD = '2026.08.23.67';
+const CONFERENCE_MANAGER_READY_BUILD = '2026.08.23.69';
 const MOBILE_QUERY = '(max-width: 760px)';
 const mobileMedia = window.matchMedia(MOBILE_QUERY);
 const SECONDARY_FILTERS = ['7D', 'UPCOMING'];
@@ -92,7 +92,7 @@ function ensurePersistentHelp(section) {
 
 function ensureSecondaryFilterPanel(section) {
   const quick = section.querySelector('.manager-quick-filters');
-  if (!(quick instanceof HTMLElement)) return;
+  if (!(quick instanceof HTMLElement)) return null;
 
   let details = section.querySelector('[data-manager-ready-secondary-filters]');
   if (!(details instanceof HTMLDetailsElement)) {
@@ -110,39 +110,47 @@ function ensureSecondaryFilterPanel(section) {
     details.appendChild(controls);
     quick.after(details);
   }
+  return details;
+}
 
-  const controls = details.querySelector('[data-manager-ready-secondary-controls]');
-  if (!(controls instanceof HTMLElement)) return;
-
-  let activeSecondaryLabel = '';
-  SECONDARY_FILTERS.forEach((filter) => {
-    const source = quick.querySelector(`[data-quick-filter="${filter}"]`);
-    if (!(source instanceof HTMLButtonElement)) return;
-
-    let proxy = controls.querySelector(`[data-manager-ready-filter-proxy="${filter}"]`);
-    if (!(proxy instanceof HTMLButtonElement)) {
-      proxy = document.createElement('button');
-      proxy.type = 'button';
-      proxy.className = 'secondary';
-      proxy.dataset.managerReadyFilterProxy = filter;
-      proxy.addEventListener('click', () => {
-        source.click();
-        if (mobileMedia.matches) details.open = false;
-        scheduleSync();
-      });
-      controls.appendChild(proxy);
-    }
-
-    proxy.textContent = source.textContent.trim();
-    const pressed = source.getAttribute('aria-pressed') === 'true';
-    proxy.setAttribute('aria-pressed', String(pressed));
-    if (pressed) activeSecondaryLabel = proxy.textContent;
+function bindSecondaryClose(control, details) {
+  if (!(control instanceof HTMLButtonElement) || control.dataset.managerReadySecondaryBound === 'true') return;
+  control.dataset.managerReadySecondaryBound = 'true';
+  control.addEventListener('click', () => {
+    if (mobileMedia.matches && control.closest('[data-manager-ready-secondary-filters]')) details.open = false;
+    scheduleSync();
   });
+}
 
+function placeSecondaryFilters(section) {
+  const quick = section.querySelector('.manager-quick-filters');
+  const details = ensureSecondaryFilterPanel(section);
+  const controls = details?.querySelector('[data-manager-ready-secondary-controls]');
+  if (!(quick instanceof HTMLElement) || !(details instanceof HTMLDetailsElement) || !(controls instanceof HTMLElement)) return;
+
+  const secondary = SECONDARY_FILTERS
+    .map((filter) => section.querySelector(`[data-quick-filter="${filter}"]`))
+    .filter((control) => control instanceof HTMLButtonElement);
+
+  secondary.forEach((control) => bindSecondaryClose(control, details));
+
+  if (mobileMedia.matches) {
+    secondary.forEach((control) => controls.appendChild(control));
+  } else {
+    const tentative = quick.querySelector('[data-quick-filter="TENTATIVE"]');
+    const all = quick.querySelector('[data-quick-filter="ALL"]');
+    const sevenDays = secondary.find((control) => control.dataset.quickFilter === '7D');
+    const upcoming = secondary.find((control) => control.dataset.quickFilter === 'UPCOMING');
+    if (sevenDays) quick.insertBefore(sevenDays, tentative || all || null);
+    if (upcoming) quick.insertBefore(upcoming, all || null);
+    details.open = false;
+  }
+
+  const active = secondary.find((control) => control.getAttribute('aria-pressed') === 'true');
   const summary = details.querySelector('[data-manager-ready-secondary-summary]');
   if (summary) {
-    summary.textContent = activeSecondaryLabel
-      ? custom(`Zeitraum: ${activeSecondaryLabel}`, `Period: ${activeSecondaryLabel}`)
+    summary.textContent = active
+      ? custom(`Zeitraum: ${active.textContent.trim()}`, `Period: ${active.textContent.trim()}`)
       : custom('Weitere Zeiträume', 'More time periods');
   }
 }
@@ -157,7 +165,7 @@ function sync() {
   const section = managerBookingsSection();
   if (section) {
     ensurePersistentHelp(section);
-    ensureSecondaryFilterPanel(section);
+    placeSecondaryFilters(section);
   }
   markReady();
 }
