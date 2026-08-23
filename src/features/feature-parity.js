@@ -14,8 +14,11 @@ let restoreInProgress = false;
 const initialReturnMarker = sessionStorage.getItem(PARITY_RETURN_KEY);
 
 function scheduleSync() {
-  cancelAnimationFrame(syncFrame);
-  syncFrame = requestAnimationFrame(sync);
+  if (syncFrame) return;
+  syncFrame = requestAnimationFrame(() => {
+    syncFrame = 0;
+    sync();
+  });
 }
 
 function restoreManagerPosition() {
