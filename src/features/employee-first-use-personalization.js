@@ -1,20 +1,26 @@
 import { language } from '../core/i18n.js';
 import { KEYS, readJson } from '../core/storage.js';
 
-const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.02';
+const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.03';
 
 const COPY = Object.freeze({
   de: Object.freeze({
     welcome: 'Willkommen',
+    welcomePageTitle: 'Start',
+    newRequestNav: 'Neue Konferenz',
     serviceNone: 'Keine Zusatzleistungen benötigt? Sie können diesen Schritt ohne Auswahl fortsetzen.',
     packageExtras: 'Bewirtungspaket + Einzeloptionen',
     roomRefresh: 'Aktualisieren',
+    roomRefreshAria: 'Raumverfügbarkeit aktualisieren',
   }),
   en: Object.freeze({
     welcome: 'Welcome',
+    welcomePageTitle: 'Home',
+    newRequestNav: 'New conference',
     serviceNone: 'No additional services needed? You can continue without selecting anything.',
     packageExtras: 'Catering package + individual items',
     roomRefresh: 'Refresh',
+    roomRefreshAria: 'Refresh room availability',
   }),
 });
 
@@ -76,6 +82,12 @@ export function captureEmployeeIdentityPresentation() {
   };
 }
 
+function enhanceWelcomeCopy() {
+  const welcomeHeading = document.getElementById('welcomeHeading');
+  if (welcomeHeading) setText(document.getElementById('viewTitle'), copy('welcomePageTitle'));
+  setText(document.querySelector('#primaryNavigation button[data-view="employee"]'), copy('newRequestNav'));
+}
+
 function enhancePersonalizedHero() {
   const welcomeHeading = document.getElementById('welcomeHeading');
   const profileValues = [...document.querySelectorAll('.profile-content .details-list dd')];
@@ -99,7 +111,7 @@ function enhancePersonalizedHero() {
 function enhanceRoomRefreshCopy() {
   const refresh = document.querySelector('[data-step-panel="2"] .section-heading button');
   setText(refresh, copy('roomRefresh'));
-  setAttribute(refresh, 'aria-label', copy('roomRefresh'));
+  setAttribute(refresh, 'aria-label', copy('roomRefreshAria'));
 }
 
 function enhanceAdditionalServicesCopy() {
@@ -122,6 +134,7 @@ function enhanceCateringCopy() {
 }
 
 export function enhanceEmployeeFirstUsePersonalization() {
+  enhanceWelcomeCopy();
   enhancePersonalizedHero();
   enhanceRoomRefreshCopy();
   enhanceAdditionalServicesCopy();
