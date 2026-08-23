@@ -69,12 +69,52 @@ function serializeBody(body) {
   }
 }
 
+function declaredResponseLength(response) {
+  const header = response.headers.get('content-length');
+  if (!header) return null;
+  const parsed = Number(header);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+async function readBoundedText(response) {
+  const declaredLength = declaredResponseLength(response);
+  if (declaredLength !== null && declaredLength > MAX_RESPONSE_BYTES) {
+    throw new ApiSecurityError('RESPONSE_TOO_LARGE');
+  }
+
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > MAX_RESPONSE_BYTES) throw new ApiSecurityError('RESPONSE_TOO_LARGE');
+    return new TextDecoder().decode(buffer);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let bytesRead = 0;
+  let text = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytesRead += value.byteLength;
+      if (bytesRead > MAX_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new ApiSecurityError('RESPONSE_TOO_LARGE');
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function parseJsonResponse(response) {
   if (response.status === 204) return null;
   const contentType = response.headers.get('content-type') || '';
   if (!JSON_CONTENT_TYPE.test(contentType)) throw new ApiSecurityError('UNEXPECTED_CONTENT_TYPE');
-  const text = await response.text();
-  if (text.length > MAX_RESPONSE_BYTES) throw new ApiSecurityError('RESPONSE_TOO_LARGE');
+  const text = await readBoundedText(response);
   if (!text) return null;
   try {
     return JSON.parse(text);
