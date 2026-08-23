@@ -1,19 +1,30 @@
-import { decorateEmployeeParity, openRichFloorplan } from './employee-visuals.js';
-import { enhanceEmployeeUx } from './employee-ux.js?v=20260823-02';
-import { enhanceEmployeeAccessibilityPolish } from './employee-accessibility-polish.js?v=20260823-05';
-import { captureEmployeeIdentityPresentation, enhanceEmployeeFirstUsePersonalization } from './employee-first-use-personalization.js?v=20260823-03';
-import { PARITY_RETURN_KEY, getAdminSection, setAdminSection } from './admin-parity.js';
-import { pt } from './parity-i18n.js';
-import { ensureParityCatalog } from './parity-data.js';
-import { enhanceManager } from './manager-parity.js';
-import { enhanceManagerResponsive } from './manager-responsive.js?v=20260823-45';
-import { enhanceManagerFirstUse } from './manager-first-use.js';
-import { enhanceManagerUxPolish, handleManagerUxClick } from './manager-ux-polish.js';
-import { enhanceManagerOperationalUx, handleManagerOperationalClick } from './manager-operational-ux.js';
-import { enhanceManagerFinalPolish } from './manager-final-polish.js';
-import { enhanceConferenceManagerReady } from './conference-manager-ready.js';
-import { ensureManagerTabIdentity, managerTabControl } from './manager-tabs.js';
-import { richPrint } from './welcome-print.js';
+import {
+  captureEmployeeIdentityPresentation,
+  decorateEmployeeParity,
+  enhanceEmployeeAccessibilityPolish,
+  enhanceEmployeeFirstUsePersonalization,
+  enhanceEmployeeUx,
+  openRichFloorplan,
+  richPrint,
+} from '../employee/index.js';
+import {
+  PARITY_RETURN_KEY,
+  enhanceConferenceManagerReady,
+  enhanceManager,
+  enhanceManagerFinalPolish,
+  enhanceManagerFirstUse,
+  enhanceManagerOperationalUx,
+  enhanceManagerResponsive,
+  enhanceManagerUxPolish,
+  ensureManagerTabIdentity,
+  getAdminSection,
+  handleManagerOperationalClick,
+  handleManagerUxClick,
+  managerTabControl,
+  setAdminSection,
+} from '../manager/index.js';
+import { ensureParityCatalog } from '../shared/parity-data.js';
+import { pt } from '../shared/parity-i18n.js';
 
 let syncFrame = 0;
 let restoreInProgress = false;
@@ -97,7 +108,7 @@ function sync() {
   enhanceManagerFinalPolish();
   enhanceConferenceManagerReady();
 
-  document.documentElement.dataset.featureParityBuild = '2026.08.23.47';
+  document.documentElement.dataset.featureParityBuild = '2026.08.23.72';
 }
 
 function handleFeatureClick(event) {
