@@ -3,6 +3,7 @@ import { KEYS, readJson, readString, writeString } from '../core/storage.js';
 import { button, el, openDialog } from '../core/ui.js';
 import { catalogData, localized, requestData } from './parity-data.js';
 import { requestIdFromCard } from './employee-visuals.js';
+import { currentManagerTab } from './manager-tabs.js';
 
 const INTRO_KEY = 'conference_manager_intro_dismissed_v1';
 const state = {
@@ -12,17 +13,6 @@ const state = {
 };
 
 const totalParticipants = (request) => Number(request.participants ?? (Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0)));
-
-function currentManagerTab() {
-  const active = document.querySelector('.manager-tabs button[aria-pressed="true"]');
-  if (!active) return null;
-  const label = active.textContent.trim();
-  if ([t('manager.bookings'), t('manager.ready.bookingsTab')].includes(label)) return 'BOOKINGS';
-  if (label === t('manager.roomPlan')) return 'ROOM_PLAN';
-  if (label === t('manager.reports')) return 'REPORTS';
-  if (label === t('manager.admin')) return 'ADMIN';
-  return null;
-}
 
 function applyManagerLanding() {
   if (state.landingHandled || readString(KEYS.role, 'employee') !== 'manager') return false;

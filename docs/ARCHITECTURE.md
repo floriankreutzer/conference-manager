@@ -24,6 +24,8 @@ src/core/
 
 `src/app.js` owns primary application state, business-flow orchestration and rendering. `src/features/feature-parity.js` owns the single coalesced post-render enhancement scheduler. Employee and Manager enhancement modules export idempotent enhancement functions or scoped event handlers and must not register parallel document/window synchronization loops.
 
+`src/features/manager-tabs.js` assigns and resolves stable semantic Manager tab identities (`BOOKINGS`, `ROOM_PLAN`, `REPORTS`, `ADMIN`) after each base render. Manager enhancement logic must use these identities instead of localized visible labels, so copy changes and language changes cannot alter navigation state.
+
 Repository cross-cutting behavior that must run before persistence uses explicit named repository hooks. Feature modules must not monkey-patch core repository methods.
 
 The static GitHub Pages build declares `conference-runtime=demo`. Missing or unknown runtime configuration is interpreted as `production`, not as demo.

@@ -11,6 +11,7 @@ import {
 } from './reporting.js';
 import { catalogData, localized, requestData } from './parity-data.js';
 import { requestIdFromCard } from './employee-visuals.js';
+import { currentManagerTab } from './manager-tabs.js';
 
 const state = {
   quickFilter: 'UPCOMING',
@@ -20,17 +21,6 @@ const state = {
   roomPlanLocation: 'ALL',
   roomPlanView: 'TIMELINE',
 };
-
-function currentManagerTab() {
-  const active = document.querySelector('.manager-tabs button[aria-pressed="true"]');
-  if (!active) return null;
-  const label = active.textContent.trim();
-  if (label === t('manager.bookings')) return 'BOOKINGS';
-  if (label === t('manager.roomPlan')) return 'ROOM_PLAN';
-  if (label === t('manager.reports')) return 'REPORTS';
-  if (label === t('manager.admin')) return 'ADMIN';
-  return null;
-}
 
 function managerKpi(label, value, filter) {
   const control = button('', {

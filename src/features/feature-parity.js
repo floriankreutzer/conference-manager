@@ -13,6 +13,7 @@ import { enhanceManagerUxPolish, handleManagerUxClick } from './manager-ux-polis
 import { enhanceManagerOperationalUx, handleManagerOperationalClick } from './manager-operational-ux.js';
 import { enhanceManagerFinalPolish } from './manager-final-polish.js';
 import { enhanceConferenceManagerReady } from './conference-manager-ready.js';
+import { ensureManagerTabIdentity } from './manager-tabs.js';
 import { richPrint } from './welcome-print.js';
 
 let syncFrame = 0;
@@ -87,10 +88,12 @@ function sync() {
   enhanceEmployeeAccessibilityPolish();
   enhanceEmployeeFirstUsePersonalization();
 
+  ensureManagerTabIdentity();
+  enhanceManagerFirstUse();
+  ensureManagerTabIdentity();
   enhanceManager();
   ensureReportInsightsHeading();
   enhanceManagerResponsive();
-  enhanceManagerFirstUse();
   enhanceManagerUxPolish();
   enhanceManagerOperationalUx();
   enhanceManagerFinalPolish();

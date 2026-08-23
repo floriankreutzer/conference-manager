@@ -46,6 +46,7 @@ for (const path of removedStyleLayers) {
 }
 
 const managerEnhancementModules = [
+  'src/features/manager-tabs.js',
   'src/features/manager-first-use.js',
   'src/features/manager-ux-polish.js',
   'src/features/manager-operational-ux.js',
@@ -64,6 +65,7 @@ for (const file of managerEnhancementModules) {
 
 const orchestrator = readFileSync('src/features/feature-parity.js', 'utf8');
 for (const required of [
+  'ensureManagerTabIdentity',
   'enhanceManagerFirstUse',
   'enhanceManagerUxPolish',
   'enhanceManagerOperationalUx',
@@ -72,6 +74,41 @@ for (const required of [
   'conference:manager-sync-request',
 ]) {
   if (!orchestrator.includes(required)) fail(`src/features/feature-parity.js: central orchestration missing ${required}.`);
+}
+
+const firstUseCall = orchestrator.indexOf('enhanceManagerFirstUse();');
+const managerCall = orchestrator.indexOf('enhanceManager();');
+const identityCalls = [...orchestrator.matchAll(/ensureManagerTabIdentity\(\);/g)].map((match) => match.index);
+if (firstUseCall < 0 || managerCall < 0 || firstUseCall > managerCall) {
+  fail('src/features/feature-parity.js: Manager first-use landing must run before base Manager enhancement.');
+}
+if (identityCalls.length < 2
+  || !identityCalls.some((index) => index < firstUseCall)
+  || !identityCalls.some((index) => index > firstUseCall && index < managerCall)) {
+  fail('src/features/feature-parity.js: Manager tab identity must be applied before first-use and again after landing before base enhancement.');
+}
+
+const managerTabs = readFileSync('src/features/manager-tabs.js', 'utf8');
+for (const tab of ['BOOKINGS', 'ROOM_PLAN', 'REPORTS', 'ADMIN']) {
+  if (!managerTabs.includes(`'${tab}'`)) fail(`src/features/manager-tabs.js: missing stable ${tab} tab identity.`);
+}
+if (!managerTabs.includes('control.dataset.managerTab = tab')) {
+  fail('src/features/manager-tabs.js: Manager controls must receive stable data-manager-tab identities.');
+}
+
+for (const file of ['src/features/manager-parity.js', 'src/features/manager-first-use.js']) {
+  const source = readFileSync(file, 'utf8');
+  if (!source.includes("from './manager-tabs.js'")) {
+    fail(`${file}: Manager tab state must use the shared semantic manager-tabs helper.`);
+  }
+  if (/function\s+currentManagerTab\s*\(/.test(source)) {
+    fail(`${file}: local text-based Manager tab detection is forbidden; use manager-tabs.js.`);
+  }
+}
+
+const managerReady = readFileSync('src/features/conference-manager-ready.js', 'utf8');
+if (!managerReady.includes("managerTabControl('BOOKINGS')")) {
+  fail('src/features/conference-manager-ready.js: bookings label must target the semantic BOOKINGS tab identity.');
 }
 
 const requesterAttribution = readFileSync('src/features/requester-attribution.js', 'utf8');

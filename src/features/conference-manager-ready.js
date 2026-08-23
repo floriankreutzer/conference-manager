@@ -1,4 +1,5 @@
 import { t } from '../core/i18n.js';
+import { managerTabControl } from './manager-tabs.js';
 
 const CONFERENCE_MANAGER_READY_BUILD = '2026.08.23.69';
 const MOBILE_QUERY = '(max-width: 760px)';
@@ -20,10 +21,7 @@ function managerBookingsSection() {
 }
 
 function ensureBookingsTabLabel() {
-  const controls = [...document.querySelectorAll('.manager-tabs button')];
-  const control = controls.find((button) => button.dataset.managerReadyBookingsTab === 'true'
-    || button.textContent.trim() === t('manager.bookings')
-    || button.textContent.trim() === t('manager.ready.bookingsTab'));
+  const control = managerTabControl('BOOKINGS');
   if (!(control instanceof HTMLButtonElement)) return;
   control.dataset.managerReadyBookingsTab = 'true';
   const label = t('manager.ready.bookingsTab');
