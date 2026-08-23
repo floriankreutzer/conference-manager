@@ -66,14 +66,19 @@ for (const file of managerEnhancementModules) {
 const orchestrator = readFileSync('src/features/feature-parity.js', 'utf8');
 for (const required of [
   'ensureManagerTabIdentity',
+  'managerTabControl',
   'enhanceManagerFirstUse',
   'enhanceManagerUxPolish',
   'enhanceManagerOperationalUx',
   'enhanceManagerFinalPolish',
   'enhanceConferenceManagerReady',
   'conference:manager-sync-request',
+  '#primaryNavigation button[data-view="manager"]',
 ]) {
   if (!orchestrator.includes(required)) fail(`src/features/feature-parity.js: central orchestration missing ${required}.`);
+}
+if (/textContent[^\n]*(?:nav\.manager|manager\.admin)/.test(orchestrator)) {
+  fail('src/features/feature-parity.js: Manager navigation must not depend on visible localized text.');
 }
 
 const firstUseCalls = [...orchestrator.matchAll(/enhanceManagerFirstUse\(\);/g)].map((match) => match.index);
@@ -108,6 +113,17 @@ for (const file of ['src/features/manager-parity.js', 'src/features/manager-firs
   }
 }
 
+const managerFirstUse = readFileSync('src/features/manager-first-use.js', 'utf8');
+if (!managerFirstUse.includes("Object.freeze(['confirm', 'change', 'reject'])")) {
+  fail('src/features/manager-first-use.js: Manager workflow actions require stable semantic identities.');
+}
+if (!managerFirstUse.includes('control.dataset.managerAction = MANAGER_ACTION_IDS[index]')) {
+  fail('src/features/manager-first-use.js: native Manager actions must receive data-manager-action identities.');
+}
+if (/nativeAction\([^)]*,\s*['"]manager\./.test(managerFirstUse) || /textContent[^\n]*t\(['"]manager\.(?:confirm|change|reject)/.test(managerFirstUse)) {
+  fail('src/features/manager-first-use.js: Manager action lookup must not depend on translated labels.');
+}
+
 const managerReady = readFileSync('src/features/conference-manager-ready.js', 'utf8');
 if (!managerReady.includes("managerTabControl('BOOKINGS')")) {
   fail('src/features/conference-manager-ready.js: bookings label must target the semantic BOOKINGS tab identity.');
@@ -124,6 +140,9 @@ if (!requesterAttribution.includes("addBeforeSaveHook('requester-attribution'"))
 const storage = readFileSync('src/core/storage.js', 'utf8');
 if (!storage.includes('addBeforeSaveHook(name, hook)')) {
   fail('src/core/storage.js: explicit before-save hook API is required.');
+}
+if (!storage.includes('RepositoryPersistenceError') || !storage.includes('required: true')) {
+  fail('src/core/storage.js: critical request persistence must fail closed.');
 }
 
 const designSystem = readFileSync('docs/DESIGN-SYSTEM.md', 'utf8');
