@@ -79,7 +79,7 @@ test('stored user-controlled text is rendered as text across an XSS fuzz corpus'
 test('URL and DOM attribute guards reject executable schemes and unsafe attributes', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    const ui = await import('/src/core/ui.js?security-regression=48');
+    const ui = await import('/src/core/ui.js?security-regression=49');
     const hostileUrls = [
       'javascript:alert(1)',
       'java\nscript:alert(1)',
@@ -110,13 +110,16 @@ test('URL and DOM attribute guards reject executable schemes and unsafe attribut
       },
     });
 
-    const image = ui.el('img', {
+    const hostileImage = ui.el('img', {
       attrs: {
         src: 'data:text/html,<script>window.__conferenceAttrXss=6</script>',
         onerror: 'window.__conferenceAttrXss=7',
       },
     });
 
+    const inlineFloorplan = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2010%2010%22%3E%3Crect%20width%3D%2210%22%20height%3D%2210%22%2F%3E%3C%2Fsvg%3E';
+    const floorplanImage = ui.el('img', { attrs: { src: inlineFloorplan } });
+    const unsafeFrame = ui.el('iframe', { attrs: { src: inlineFloorplan } });
     const safe = ui.el('a', { href: '/safe-path', target: '_blank', rel: 'opener' });
 
     return {
@@ -131,9 +134,11 @@ test('URL and DOM attribute guards reject executable schemes and unsafe attribut
         safeData: anchor.getAttribute('data-safe'),
       },
       hostileImage: {
-        src: image.getAttribute('src'),
-        onerror: image.getAttribute('onerror'),
+        src: hostileImage.getAttribute('src'),
+        onerror: hostileImage.getAttribute('onerror'),
       },
+      floorplanImageSrc: floorplanImage.getAttribute('src'),
+      unsafeFrameSrc: unsafeFrame.getAttribute('src'),
       safeHref: safe.href,
       safeRel: safe.rel,
       origin: window.location.origin,
@@ -156,6 +161,8 @@ test('URL and DOM attribute guards reject executable schemes and unsafe attribut
   expect(result.hostileAnchor.rel.split(/\s+/)).not.toContain('opener');
   expect(result.hostileImage.src).toBeNull();
   expect(result.hostileImage.onerror).toBeNull();
+  expect(result.floorplanImageSrc).toMatch(/^data:image\/svg\+xml;charset=UTF-8,/);
+  expect(result.unsafeFrameSrc).toBeNull();
   expect(result.safeHref).toBe(`${result.origin}/safe-path`);
   expect(result.safeRel).toContain('noopener');
   expect(result.safeRel).toContain('noreferrer');
