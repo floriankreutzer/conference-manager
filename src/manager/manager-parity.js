@@ -10,8 +10,8 @@ import {
   totalParticipantsForRequest,
 } from './reporting.js';
 import { catalogData, localized, requestData } from './parity-data.js';
-import { requestIdFromCard } from './employee-visuals.js';
 import { currentManagerTab } from './manager-tabs.js';
+import { timelinePosition } from './timeline-position.js';
 
 const state = {
   quickFilter: 'UPCOMING',
@@ -52,11 +52,11 @@ function applyQuickFilter(section) {
   const map = new Map(allRequests.map((request) => [request.id, request]));
   const today = localTodayIso();
   const overview = managerOverview(allRequests, today);
-  const cards = [...section.querySelectorAll('.request-card')];
+  const cards = [...section.querySelectorAll('.request-card[data-request-id]')];
   let shown = 0;
 
   cards.forEach((card) => {
-    const request = map.get(requestIdFromCard(card));
+    const request = map.get(card.dataset.requestId);
     if (!request) return;
     let visible = true;
     switch (state.quickFilter) {
@@ -129,7 +129,7 @@ function enhanceManagerBookings(section) {
     search.value = open.dataset.managerOpen;
     search.dispatchEvent(new Event('input', { bubbles: true }));
     setTimeout(() => {
-      const card = [...document.querySelectorAll('.request-card')].find((candidate) => requestIdFromCard(candidate) === open.dataset.managerOpen);
+      const card = document.querySelector(`.request-card[data-request-id="${CSS.escape(open.dataset.managerOpen)}"]`);
       card?.scrollIntoView({ block: 'center' });
       card?.setAttribute('tabindex', '-1');
       card?.focus();
@@ -173,12 +173,6 @@ function createRoomPlanTable(bookings) {
   return table;
 }
 
-function timePercent(value) {
-  const [hours, minutes] = String(value || '06:00').split(':').map(Number);
-  const total = (hours * 60) + minutes;
-  return Math.min(100, Math.max(0, ((total - 360) / 960) * 100));
-}
-
 function createRoomTimeline(catalog, bookings) {
   const wrapper = el('section', { className: 'room-timeline', attrs: { 'aria-label': pt('parity.roomPlan.schedule') } });
   const scale = el('div', { className: 'room-time-scale', attrs: { 'aria-hidden': 'true' } });
@@ -192,11 +186,24 @@ function createRoomTimeline(catalog, bookings) {
     const roomBookings = bookings.filter((request) => request.roomId === room.id);
     if (!roomBookings.length) track.appendChild(el('span', { className: 'room-timeline-free', text: pt('parity.roomPlan.free') }));
     else roomBookings.forEach((request) => {
-      const start = timePercent(request.start);
-      const end = Math.max(start + 1, timePercent(request.end));
-      const event = button(request.title, { className: 'room-timeline-booking', attrs: { 'aria-label': pt('parity.roomPlan.bookingLabel', { title: request.title, start: request.start, end: request.end, participants: totalParticipantsForRequest(request), status: t(`status.${request.status}`) }) } });
-      event.style.left = `${start}%`;
-      event.style.width = `${Math.max(3, end - start)}%`;
+      const position = timelinePosition(request.start, request.end);
+      const event = button(request.title, {
+        className: `room-timeline-booking ${position.startClass} ${position.widthClass}`,
+        dataset: {
+          requestId: request.id,
+          timelineStart: position.startPercent,
+          timelineWidth: position.widthPercent,
+        },
+        attrs: {
+          'aria-label': pt('parity.roomPlan.bookingLabel', {
+            title: request.title,
+            start: request.start,
+            end: request.end,
+            participants: totalParticipantsForRequest(request),
+            status: t(`status.${request.status}`),
+          }),
+        },
+      });
       event.addEventListener('click', () => openRequestSummary(request, room));
       track.appendChild(event);
     });
