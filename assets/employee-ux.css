@@ -2,6 +2,12 @@
  * Presentation only: no domain, persistence, pricing or workflow semantics live here.
  */
 
+/* Some shared components define their own display mode. Keep the semantic
+ * hidden attribute authoritative for first-use simplification. */
+body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero button)[hidden] {
+  display: none !important;
+}
+
 .ux-mobile-progress {
   display: none;
 }
