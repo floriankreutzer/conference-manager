@@ -1,14 +1,16 @@
 import { expect, test } from '@playwright/test';
 
+const REQUEST_ID = 'CR-2026-000001';
+
 async function seedManager(page) {
-  await page.addInitScript(() => {
+  await page.addInitScript(({ requestId }) => {
     const date = new Date();
     date.setDate(date.getDate() + 2);
     const eventDate = date.toISOString().slice(0, 10);
     localStorage.setItem('conference_demo_role_v1', 'manager');
     localStorage.setItem('conference_user_profile_v1', JSON.stringify({ firstName: 'Alex', lastName: 'Manager' }));
     localStorage.setItem('conference_requests', JSON.stringify([{
-      id: 'CR-FIRST-001',
+      id: requestId,
       title: 'Executive Workshop',
       location: 'Berlin',
       date: eventDate,
@@ -32,7 +34,7 @@ async function seedManager(page) {
       updatedAt: new Date().toISOString(),
       statusHistory: [],
     }]));
-  });
+  }, { requestId: REQUEST_ID });
   await page.goto('/');
 }
 
@@ -66,9 +68,9 @@ test('manager reviews complete request details before using the unchanged decisi
   const card = page.locator('.request-card').filter({ hasText: 'Executive Workshop' });
   await expect(card).toBeVisible();
   await expect(card.locator('.manager-native-actions')).toBeHidden();
-  await expect(card.locator('[data-manager-review="CR-FIRST-001"]')).toBeVisible();
+  await expect(card.locator(`[data-manager-review="${REQUEST_ID}"]`)).toBeVisible();
 
-  await card.locator('[data-manager-review="CR-FIRST-001"]').click();
+  await card.locator(`[data-manager-review="${REQUEST_ID}"]`).click();
   const review = page.locator('dialog.manager-review-dialog');
   await expect(review).toBeVisible();
   await expect(review).toContainText('Anfragende Person');
@@ -79,14 +81,14 @@ test('manager reviews complete request details before using the unchanged decisi
   await expect(review).toContainText('CC-1000');
   await expect(review).toContainText('Empfang für externe Gäste vorbereiten');
 
-  await review.locator('[data-manager-confirm-from-review="CR-FIRST-001"]').click();
+  await review.locator(`[data-manager-confirm-from-review="${REQUEST_ID}"]`).click();
   const confirmation = page.locator('dialog.manager-confirm-dialog');
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toContainText('Buchung verbindlich bestätigen?');
   await expect(confirmation).toContainText('Executive Workshop');
   await expect(confirmation).toContainText('12');
 
-  await confirmation.locator('[data-manager-confirm-final="CR-FIRST-001"]').click();
+  await confirmation.locator(`[data-manager-confirm-final="${REQUEST_ID}"]`).click();
   await expect(page.locator('.request-card').filter({ hasText: 'Executive Workshop' }).locator('.status-badge')).toHaveText('Bestätigt');
 });
 
