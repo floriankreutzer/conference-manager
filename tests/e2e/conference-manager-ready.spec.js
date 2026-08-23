@@ -102,28 +102,29 @@ test('conference manager ready marker, clear bookings label and permanent help a
   await expect(page.locator('[data-manager-ready-help]')).toBeVisible();
 });
 
-test('secondary mobile time filters remain fully functional while desktop keeps all quick filters', async ({ page }) => {
+test('secondary mobile time filters remain original controls while desktop keeps all quick filters', async ({ page }) => {
   await seedManager(page);
 
-  const sevenDays = page.locator('.manager-quick-filters [data-quick-filter="7D"]');
-  const upcoming = page.locator('.manager-quick-filters [data-quick-filter="UPCOMING"]');
+  const quick = page.locator('.manager-quick-filters');
   const secondary = page.locator('[data-manager-ready-secondary-filters]');
+  const sevenDays = page.locator('[data-quick-filter="7D"]');
+  const upcoming = page.locator('[data-quick-filter="UPCOMING"]');
   const viewport = page.viewportSize();
   const isMobile = Boolean(viewport && viewport.width <= 760);
 
   if (isMobile) {
-    await expect(page.locator('.manager-quick-filters [data-quick-filter="ACTION"]')).toBeVisible();
-    await expect(page.locator('.manager-quick-filters [data-quick-filter="TODAY"]')).toBeVisible();
-    await expect(page.locator('.manager-quick-filters [data-quick-filter="TENTATIVE"]')).toBeVisible();
-    await expect(page.locator('.manager-quick-filters [data-quick-filter="ALL"]')).toBeVisible();
-    await expect(sevenDays).toBeHidden();
-    await expect(upcoming).toBeHidden();
+    await expect(quick.locator('[data-quick-filter="ACTION"]')).toBeVisible();
+    await expect(quick.locator('[data-quick-filter="TODAY"]')).toBeVisible();
+    await expect(quick.locator('[data-quick-filter="TENTATIVE"]')).toBeVisible();
+    await expect(quick.locator('[data-quick-filter="ALL"]')).toBeVisible();
+    await expect(quick.locator('[data-quick-filter="7D"]')).toHaveCount(0);
+    await expect(quick.locator('[data-quick-filter="UPCOMING"]')).toHaveCount(0);
     await expect(secondary).toBeVisible();
 
     await secondary.locator('summary').click();
-    const sevenDaysProxy = secondary.locator('[data-manager-ready-filter-proxy="7D"]');
-    await expect(sevenDaysProxy).toBeVisible();
-    await sevenDaysProxy.click();
+    await expect(secondary.locator('[data-quick-filter="7D"]')).toBeVisible();
+    await expect(secondary.locator('[data-quick-filter="UPCOMING"]')).toBeVisible();
+    await sevenDays.click();
     await expect(sevenDays).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-manager-active-filters]')).toContainText('Nächste 7 Tage');
 
@@ -133,8 +134,8 @@ test('secondary mobile time filters remain fully functional while desktop keeps 
     }));
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
   } else {
-    await expect(sevenDays).toBeVisible();
-    await expect(upcoming).toBeVisible();
+    await expect(quick.locator('[data-quick-filter="7D"]')).toBeVisible();
+    await expect(quick.locator('[data-quick-filter="UPCOMING"]')).toBeVisible();
     await expect(secondary).toBeHidden();
   }
 });
