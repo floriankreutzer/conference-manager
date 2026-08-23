@@ -1,25 +1,51 @@
 # Conference Manager
 
-Frontend-MVP für interne Konferenzanfragen mit Mitarbeiter- und Conference-Management-Sicht.
+Frontend MVP for internal conference requests with employee and conference-management views.
 
-## Funktionsumfang
+## Readiness status
 
-- 6-stufiger Mitarbeiter-Workflow: Termin → Raum → Services → Catering → Kosten → Prüfung
-- finale Raumvalidierung gegen Standort, Kapazität, Aktivstatus und simulierte Kalenderbelegung
-- vorläufige Reservierung, Bestätigung, Änderungsanforderung, Ablehnung und Storno
-- Bearbeiten und erneutes Einreichen von Änderungsanforderungen
-- Catering-Pakete, Einzeloptionen, abweichende Catering-Personenzahl und Ernährungsanforderungen
-- Kostenstellenverteilung mit 0–100-%- und Summenvalidierung
-- Liste, Kalender, Buchungsverlauf, Gästeinformationen und druckbare Welcome-Ansicht
-- Manager Cockpit mit Buchungen, Raumplanung, Reports und Stammdatenpflege
-- Deutsch / English über zentrale i18n-Keys
-- LocalStorage-Persistenz für den statischen MVP
+- Employee UX: **ready**
+- Conference Manager UX: **ready** on desktop and mobile
+- Technical marker: `<meta name="conference-manager-readiness" content="ready">`
+- Regression coverage: dedicated Conference Manager readiness E2E test plus the complete existing Manager/Employee suite
 
-## Repository-Struktur
+The readiness status describes clarity, usability, responsive behavior, and regression coverage of the static MVP. It explicitly does not replace the SSO, backend, authorization, audit, and calendar-integration measures required for production operation.
+
+## Feature scope
+
+- Six-step employee workflow: date/time → room → services → catering → cost allocation → review
+- Final room validation against location, capacity, active status, and simulated calendar occupancy
+- Provisional reservation, confirmation, change request, rejection, and cancellation
+- Editing and resubmission of change requests
+- Catering packages, individual options, separate catering participant count, and dietary requirements
+- Cost-center allocation with 0–100% validation and total validation
+- List, calendar, request history, guest information, and printable welcome view
+- Manager cockpit with bookings, room planning, reports, and master-data administration
+- German and English through central i18n keys
+- LocalStorage persistence for the static MVP
+
+## Repository-wide coding-agent instructions
+
+`AGENTS.md` in the repository root is the mandatory canonical entry point for coding, architecture, refactoring, review, accessibility, security, i18n/l10n, UI/UX, and testing work.
+
+The complete engineering requirements are maintained in `docs/CODING-STANDARDS.md`. Agent-specific files must only import or point to the canonical `AGENTS.md` and must not create parallel rule sets.
+
+Current repository entry points:
+
+- OpenAI Codex / ChatGPT: `AGENTS.md`
+- GitHub Copilot: `AGENTS.md` plus `.github/copilot-instructions.md`
+- Claude Code: `CLAUDE.md` imports `AGENTS.md`
+- Gemini CLI: `GEMINI.md` imports `AGENTS.md`
+- Cursor and Windsurf: root `AGENTS.md`
+
+`npm run check:agents` verifies the instruction files and is part of the mandatory repository quality gate. Repository files cannot override an external IDE or agent configuration that deliberately disables repository instructions; within the repository, however, instruction drift is detected by CI.
+
+## Repository structure
 
 ```text
 .
 ├── .github/
+│   ├── copilot-instructions.md
 │   ├── dependabot.yml
 │   └── workflows/ci.yml
 ├── assets/
@@ -29,9 +55,11 @@ Frontend-MVP für interne Konferenzanfragen mit Mitarbeiter- und Conference-Mana
 │   └── demo-security.css
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── CODING-STANDARDS.md
 │   ├── DEMO-SECURITY.md
 │   └── DESIGN-SYSTEM.md
 ├── scripts/
+│   ├── check-agent-instructions.mjs
 │   ├── check-design.mjs
 │   ├── check-secrets.mjs
 │   ├── check-static.mjs
@@ -43,67 +71,71 @@ Frontend-MVP für interne Konferenzanfragen mit Mitarbeiter- und Conference-Mana
 ├── tests/
 │   ├── e2e/
 │   └── *.test.js
+├── AGENTS.md
+├── CLAUDE.md
+├── GEMINI.md
 ├── index.html
 ├── package.json
 └── README.md
 ```
 
-## Design-System
+## Design system
 
-Die operative Anwendung verwendet eine reduzierte Consulting-/Business-Ästhetik mit Bordeaux als Primärakzent und Camel als bewusster Flächenfarbe. Das Manager-Dashboard behält seine Informationsarchitektur; die druckbare Gäste-Welcome-Ansicht darf emotionaler gestaltet sein.
+The operational application uses a restrained consulting/business visual language with Bordeaux as the primary accent and Camel as an intentional surface color. The Manager dashboard retains its information architecture; the printable guest welcome view may remain more expressive.
 
-Globale Designentscheidungen werden ausschließlich in `assets/tokens.css` gepflegt. Dort lassen sich Farben, Flächen, Typografie, Abstände, Radien und Schatten zentral ändern. `assets/styles.css` und `assets/feature-parity.css` verwenden semantische Tokens und sollen keine neuen Brand-Hexfarben enthalten.
+Global design decisions are maintained exclusively in `assets/tokens.css`. Colors, surfaces, typography, spacing, radii, and shadows can be changed centrally there. `assets/styles.css` and `assets/feature-parity.css` use semantic tokens and must not introduce new hardcoded brand hex colors.
 
-Details und Wartungsregeln: `docs/DESIGN-SYSTEM.md`.
+See `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
 
-## Lokal starten
+## Run locally
 
-ES-Module benötigen einen HTTP-Server. Beispielsweise:
+ES modules require an HTTP server. For example:
 
 ```bash
 python -m http.server 8080
 ```
 
-Danach `http://localhost:8080` öffnen.
+Then open `http://localhost:8080`.
 
-## Quality Gate
+## Quality gate
 
 ```bash
 npm run check
 ```
 
-Das Quality Gate führt aus:
+The quality gate executes:
 
-1. JavaScript-Syntaxprüfung aller Source-, Test- und Script-Dateien
-2. statischen Defensive-Code-Check auf verbotene Konstrukte wie `eval`, `document.write`, `innerHTML`-Zuweisungen und `javascript:`-URLs
-3. Secret-Scan des Repository-Inhalts
-4. Design-Token-Check gegen neue hartcodierte Hexfarben in Komponenten-CSS
-5. Regression- und Progressionstests der Domainlogik mit Node Test Runner
+1. JavaScript syntax validation for source, test, and script files
+2. Coding-agent instruction consistency validation for the canonical `AGENTS.md`, agent bridges/imports, detailed standards, and English-only repository instructions
+3. Defensive static/SAST-style checks for forbidden constructs such as `eval`, `document.write`, `innerHTML` assignments, and `javascript:` URLs
+4. Repository secret scan
+5. Design-token validation against new hardcoded hex colors in component CSS
+6. Regression and progression tests using the Node.js test runner
 
-Zusätzlich laufen `npm audit` sowie die Playwright-E2E-Suite auf Chromium und WebKit/iPhone-Profil über GitHub Actions.
+In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chromium and WebKit/iPhone profiles.
 
-## Accessibility und Internationalisierung
+## Accessibility and internationalization
 
-Die Anwendung verwendet semantisches HTML, native Form Controls und native `<dialog>`-Elemente. Sichtbare Texte, Validierungsmeldungen und Accessibility-Texte werden zentral über `src/core/i18n.js` verwaltet. Aktuell unterstützt werden `de` und `en`; weitere Sprachpakete können über denselben Key-Satz ergänzt werden.
+The application uses semantic HTML, native form controls, and native `<dialog>` elements. User-visible text, validation messages, and accessibility text are centrally managed through `src/core/i18n.js`. The currently supported languages are `de` and `en`; additional language packs can extend the same stable key set.
 
-Die Implementierung zielt auf WCAG 2.2 AA. Eine formale Konformitätserklärung erfordert zusätzlich einen vollständigen manuellen Accessibility-Audit mit unterstützenden Technologien und Zielbrowsern.
+The implementation targets WCAG 2.2 Level AA. A formal conformance statement additionally requires a complete manual accessibility audit with representative assistive technologies and target browsers.
 
-## Security-Grenze des MVP
+## MVP security boundary
 
-Der aktuelle Stand ist eine statische Demo. Daten, Demo-Rolle und Sprache werden clientseitig gespeichert. Der Demo-Rollenwechsel ist **keine Autorisierung** und darf nicht für einen produktiven Zugriffsschutz verwendet werden.
+The current application is a static demo. Data, the demo role, and language preference are stored client-side. The demo role switch is **not authorization** and must not be used as production access control.
 
-Für einen Produktivbetrieb sind mindestens erforderlich:
+Production operation requires at least:
 
-- SSO über Microsoft Entra ID oder eine vergleichbare Identity-Plattform
-- serverseitige Authentifizierung und rollenbasierte Autorisierung
-- Backend-Persistenz statt LocalStorage
-- serverseitige Validierung aller schreibenden Operationen
-- Audit Trail und transaktionale Verarbeitung
-- sichere Kalenderintegration, z. B. Microsoft Graph
-- Schutzmechanismen für die konkrete Backend-Architektur, einschließlich CSRF-Schutz bei cookie-basierter Authentifizierung
+- SSO through Microsoft Entra ID or an equivalent identity platform
+- server-side authentication and role-based authorization
+- backend persistence instead of LocalStorage
+- server-side validation for all write operations
+- an audit trail and transactional processing
+- secure calendar integration, for example through Microsoft Graph
+- security controls appropriate to the backend architecture, including CSRF protection for cookie-based authentication
 
-Weitere Details: `docs/DEMO-SECURITY.md`.
+See `docs/DEMO-SECURITY.md` for additional details.
 
-## Kalenderintegration
+## Calendar integration
 
-Im MVP wird die Belegung anhand der gespeicherten Anfragen simuliert. Für Microsoft 365 bieten sich insbesondere Microsoft Graph `getSchedule` bzw. `calendarView` sowie eine serverseitig kontrollierte Event-Erstellung/-Aktualisierung an.
+The MVP simulates occupancy from stored requests. For Microsoft 365, suitable integration points include Microsoft Graph `getSchedule` or `calendarView` together with server-controlled event creation and updates.
