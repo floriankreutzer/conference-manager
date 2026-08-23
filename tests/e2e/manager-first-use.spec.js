@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 const REQUEST_ID = 'CR-2026-000001';
 
-async function seedManager(page) {
-  await page.addInitScript(({ requestId }) => {
+async function seedManager(page, { requesterName = '' } = {}) {
+  await page.addInitScript(({ requestId, storedRequester }) => {
     const date = new Date();
     date.setDate(date.getDate() + 2);
     const eventDate = date.toISOString().slice(0, 10);
@@ -33,23 +33,40 @@ async function seedManager(page) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       statusHistory: [],
+      ...(storedRequester ? { requesterName: storedRequester } : {}),
     }]));
-  }, { requestId: REQUEST_ID });
+  }, { requestId: REQUEST_ID, storedRequester: requesterName });
   await page.goto('/');
 }
 
-test('conference manager lands in the manager workspace with first-use guidance', async ({ page }) => {
+test('conference manager lands in a clear compact manager workspace', async ({ page }) => {
   await seedManager(page);
 
   await expect(page.locator('.manager-tabs')).toBeVisible();
   await expect(page.locator('#viewTitle')).toHaveText('Conference Management');
   await expect(page.locator('#viewSubtitle')).toContainText('Prüfen und steuern');
+  await expect(page.locator('#primaryNavigation button[data-view="requests"]')).toHaveText('Meine Buchungen');
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveText('Conference Management');
   await expect(page.locator('[data-manager-first-use]')).toBeVisible();
+  await expect(page.locator('[data-quick-filter="ACTION"]')).toHaveText('Offene Anfragen');
   await expect(page.locator('[data-quick-filter="ACTION"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.manager-overview-card').first().locator('h3')).toHaveText('Jetzt prüfen');
+  await expect(page.locator('[data-manager-active-filters]')).toContainText('Offene Anfragen');
 
   const advancedFilters = page.locator('[data-manager-advanced-filters]');
   await expect(advancedFilters).toBeVisible();
   await expect(advancedFilters).not.toHaveAttribute('open', '');
+
+  const how = page.locator('.manager-first-use-how');
+  await expect(how).toBeVisible();
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width <= 760) {
+    await expect(how).not.toHaveAttribute('open', '');
+    const kpiColumns = await page.locator('.manager-parity-kpis').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length);
+    expect(kpiColumns).toBe(2);
+  } else {
+    await expect(how).toHaveAttribute('open', '');
+  }
 
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -62,24 +79,28 @@ test('conference manager lands in the manager workspace with first-use guidance'
   await expect(page.locator('#viewTitle')).toHaveText('Conference Management');
 });
 
-test('manager reviews complete request details before using the unchanged decision actions', async ({ page }) => {
+test('manager reviews complete request details and history before unchanged decision actions', async ({ page }) => {
   await seedManager(page);
 
   const card = page.locator('.request-card').filter({ hasText: 'Executive Workshop' });
   await expect(card).toBeVisible();
   await expect(card.locator('.manager-native-actions')).toBeHidden();
+  await expect(card.locator('.request-timeline')).toBeHidden();
   await expect(card.locator(`[data-manager-review="${REQUEST_ID}"]`)).toBeVisible();
 
   await card.locator(`[data-manager-review="${REQUEST_ID}"]`).click();
   const review = page.locator('dialog.manager-review-dialog');
   await expect(review).toBeVisible();
   await expect(review).toContainText('Anfragende Person');
-  await expect(review).toContainText('Alex Manager');
+  await expect(review).toContainText('Nicht in der Anfrage gespeichert');
+  await expect(review).not.toContainText('Alex Manager');
   await expect(review).toContainText('Intern');
   await expect(review).toContainText('Extern');
   await expect(review).toContainText('1× vegan');
   await expect(review).toContainText('CC-1000');
   await expect(review).toContainText('Empfang für externe Gäste vorbereiten');
+  await expect(review.locator('[data-manager-review-history]')).toBeVisible();
+  await expect(review.locator('[data-manager-review-history]')).toContainText('Buchungsverlauf');
 
   await review.locator(`[data-manager-confirm-from-review="${REQUEST_ID}"]`).click();
   const confirmation = page.locator('dialog.manager-confirm-dialog');
@@ -87,9 +108,43 @@ test('manager reviews complete request details before using the unchanged decisi
   await expect(confirmation).toContainText('Buchung verbindlich bestätigen?');
   await expect(confirmation).toContainText('Executive Workshop');
   await expect(confirmation).toContainText('12');
+  await expect(confirmation).toContainText('Raum verbindlich als belegt geführt');
+  await expect(confirmation).not.toContainText('bestehende Bestätigungslogik');
 
   await confirmation.locator(`[data-manager-confirm-final="${REQUEST_ID}"]`).click();
   await expect(page.locator('.request-card').filter({ hasText: 'Executive Workshop' }).locator('.status-badge')).toHaveText('Bestätigt');
+});
+
+test('stored requester is shown instead of the manager profile', async ({ page }) => {
+  await seedManager(page, { requesterName: 'Mia Employee' });
+
+  await page.locator(`[data-manager-review="${REQUEST_ID}"]`).click();
+  const review = page.locator('dialog.manager-review-dialog');
+  await expect(review).toContainText('Mia Employee');
+  await expect(review).not.toContainText('Alex Manager');
+  await expect(review).not.toContainText('Nicht in der Anfrage gespeichert');
+});
+
+test('active manager filters are transparent and can be reset together', async ({ page }) => {
+  await seedManager(page);
+
+  const advanced = page.locator('[data-manager-advanced-filters]');
+  await advanced.locator('summary').click();
+  await expect(advanced).toHaveAttribute('open', '');
+
+  const status = advanced.locator('select').first();
+  await status.selectOption('Confirmed');
+
+  const active = page.locator('[data-manager-active-filters]');
+  await expect(active).toContainText('Offene Anfragen');
+  await expect(active).toContainText('Status: Bestätigt');
+  await expect(page.locator('[data-manager-filter-empty], .manager-surface > .info-box')).toContainText('Keine Buchungen passen zu den aktuellen Filtern.');
+
+  await active.getByRole('button', { name: 'Alle Filter zurücksetzen' }).click();
+  await expect(page.locator('[data-quick-filter="ALL"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.manager-filters select').first()).toHaveValue('ALL');
+  await expect(page.locator('[data-manager-active-filters]')).toHaveCount(0);
+  await expect(page.locator('.request-card').filter({ hasText: 'Executive Workshop' })).toBeVisible();
 });
 
 test('manager tab subtitles follow the active work area', async ({ page }) => {
