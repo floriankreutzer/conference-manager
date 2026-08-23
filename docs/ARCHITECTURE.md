@@ -6,18 +6,25 @@ The application is a build-free browser application served as native ES modules.
 
 ```text
 index.html
-  └── src/app.js
-       ├── core/domain.js          pure business rules and validation
-       ├── core/catalog.js         catalog defaults, localization and migration
-       ├── core/i18n.js            application translations and locale-aware formatting
-       ├── core/security-i18n.js   security-notice translations
-       ├── core/security-policy.js fail-closed runtime and role policy
-       ├── core/api-client.js      defensive same-origin production API boundary
-       ├── core/storage.js         defensive demo persistence adapters
-       └── core/ui.js              safe DOM and accessible dialog utilities
+  ├── src/app.js                    primary application state, rendering and business-flow orchestration
+  └── src/features/feature-parity.js centralized enhancement scheduler
+       ├── Employee enhancement modules
+       └── Manager enhancement modules
+
+src/core/
+  ├── domain.js          pure business rules and validation
+  ├── catalog.js         catalog defaults, localization and migration
+  ├── i18n.js            canonical application translations and locale-aware formatting
+  ├── security-i18n.js   security-notice translations
+  ├── security-policy.js fail-closed runtime and role policy
+  ├── api-client.js      defensive same-origin production API boundary
+  ├── storage.js         defensive demo persistence adapters and explicit repository hooks
+  └── ui.js              safe DOM and accessible dialog utilities
 ```
 
-`src/app.js` owns orchestration and rendering. Core modules must not depend on application DOM state unless their purpose explicitly requires browser state.
+`src/app.js` owns primary application state, business-flow orchestration and rendering. `src/features/feature-parity.js` owns the single coalesced post-render enhancement scheduler. Employee and Manager enhancement modules export idempotent enhancement functions or scoped event handlers and must not register parallel document/window synchronization loops.
+
+Repository cross-cutting behavior that must run before persistence uses explicit named repository hooks. Feature modules must not monkey-patch core repository methods.
 
 The static GitHub Pages build declares `conference-runtime=demo`. Missing or unknown runtime configuration is interpreted as `production`, not as demo.
 
@@ -25,7 +32,7 @@ The static GitHub Pages build declares `conference-runtime=demo`. Missing or unk
 
 `domain.js` contains pure functions for:
 
-- schedule validation
+- schedule and participant-bound validation
 - room validity and collision detection
 - cost allocation validation
 - cost calculation
@@ -49,10 +56,9 @@ A formal WCAG 2.2 AA declaration still requires a manual audit with keyboard-onl
 
 ## Internationalization
 
-User-visible application strings are separated from behavior logic and stored in i18n resources:
+`src/core/i18n.js` is the canonical catalogue for application and experience UI strings. `src/core/security-i18n.js` remains a dedicated resource for the isolated demo-security notice.
 
-- `core/i18n.js`
-- `core/security-i18n.js`
+Feature modules must not define their own bilingual copy maps or select translations with local language ternaries. Compatibility adapters may delegate to the canonical `t()` API but must not contain independent message tables. The i18n quality gate verifies German/English key parity and guards these boundaries.
 
 Supported languages:
 
@@ -81,4 +87,4 @@ The mandatory production boundary, including SSO/OIDC, server-side RBAC, CSRF, t
 
 ## Quality gate
 
-`npm run check` runs syntax checks, static defensive-code checks, secret checks, design-token checks, domain regression/progression tests, API-security tests, runtime-policy tests, and deterministic malformed-input/fuzz tests. GitHub Actions executes the same gate for pushes and pull requests. Browser CI additionally runs the Playwright suite on Chromium desktop and WebKit/iPhone.
+`npm run check` runs syntax checks, agent-instruction checks, i18n architecture/key-parity checks, architecture-consolidation checks, static defensive-code checks, secret checks, design-token checks, domain regression/progression tests, API-security tests, runtime-policy tests, requester-attribution tests and deterministic malformed-input/fuzz tests. GitHub Actions executes the same gate for pushes and pull requests. Browser CI additionally runs the Playwright suite on Chromium desktop and WebKit/iPhone.
