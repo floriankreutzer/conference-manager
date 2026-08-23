@@ -42,17 +42,17 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('first-time users never inherit the demo developer identity', async ({ page }) => {
-  await expect(page.locator('#welcomeHeading')).toHaveText('Willkommen');
+test('first-time users are personally addressed with the active profile identity', async ({ page }) => {
+  await expect(page.locator('#welcomeHeading')).toHaveText('Willkommen, Florian.');
   const profile = page.locator('#primaryNavigation button[aria-haspopup="dialog"]');
-  await expect(profile).toHaveText('Profil');
-  await expect(profile).toHaveAttribute('aria-label', 'Profil öffnen');
-  await expect(page.locator('body')).not.toContainText('Willkommen, Florian');
+  await expect(profile).toHaveText('FK · Profil');
+  await expect(profile).toHaveAttribute('aria-label', 'Angemeldeter Benutzer Florian Kreutzer');
 
   await profile.click();
   const values = page.locator('.profile-content .details-list dd');
-  await expect(values.nth(0)).toHaveText('Nicht hinterlegt');
-  await expect(values.nth(1)).toHaveText('Nicht hinterlegt');
+  await expect(values.nth(0)).toHaveText('Florian');
+  await expect(values.nth(1)).toHaveText('Kreutzer');
+  await expect(page.locator('html')).toHaveAttribute('data-employee-first-use-personalization-build', '2026.08.23.01');
 });
 
 test('schedule DOM and sequential focus order match the visible What Where When Who order', async ({ page }) => {
@@ -166,15 +166,19 @@ test('employee terminology stays consistent across the complete request journey'
   await fillSchedule(page);
   await next(page);
   await expect(page.locator('[data-step-panel="2"] .recommendation').first()).toHaveText('Empfohlen – passend für Ihre Teilnehmerzahl');
+  await expect(page.locator('[data-step-panel="2"] .section-heading button')).toHaveText('Aktualisieren');
   await chooseRoom(page);
   await next(page);
 
   const servicesPanel = page.locator('[data-step-panel="3"]');
   await expect(servicesPanel.locator('.section-heading h2')).toHaveText('Zusatzleistungen (optional)');
   await expect(servicesPanel.locator('.section-heading p')).toHaveText('Sie wählen nur die benötigte Leistung aus. Das Conference Management teilt anschließend die passende Person zu.');
+  await expect(servicesPanel.locator(':scope > p.muted')).toHaveText('Keine Zusatzleistungen benötigt? Sie können diesen Schritt ohne Auswahl fortsetzen.');
   await expect(servicesPanel.locator('.selection-grid')).toHaveAttribute('aria-label', 'Zusatzleistungen auswählen');
 
   await next(page);
+  const bothMode = page.locator('.mode-option').filter({ has: page.locator('input[name="cateringMode"][value="BOTH"]') });
+  await expect(bothMode).toContainText('Bewirtungspaket + Einzeloptionen');
   await page.locator('input[name="cateringMode"][value="PACKAGE"]').check();
   await expect(page.locator('.field').filter({ has: page.locator('#cateringParticipants') }).locator('.field-label')).toHaveText('Bewirtung für wie viele Personen?');
   await expect(page.locator('[data-step-panel="4"] .mode-selector')).toHaveAttribute('aria-label', 'Bewirtung auswählen');
@@ -189,4 +193,5 @@ test('employee terminology stays consistent across the complete request journey'
   await expect(page.getByRole('heading', { name: 'Bewirtungsdetails' })).toBeVisible();
   await expect(page.locator('[data-step-panel="6"] .info-box li').nth(1)).toHaveText('Das Conference Management prüft Raum, Zusatzleistungen, Bewirtung und Kosten.');
   await expect(page.locator('html')).toHaveAttribute('data-employee-accessibility-build', '2026.08.23.04');
+  await expect(page.locator('html')).toHaveAttribute('data-employee-first-use-personalization-build', '2026.08.23.01');
 });
