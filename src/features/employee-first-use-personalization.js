@@ -1,7 +1,7 @@
 import { language } from '../core/i18n.js';
 import { KEYS, readJson } from '../core/storage.js';
 
-const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.01';
+const EMPLOYEE_PERSONALIZATION_BUILD = '2026.08.23.02';
 
 const COPY = Object.freeze({
   de: Object.freeze({
@@ -52,30 +52,48 @@ function renderedFirstName() {
 }
 
 export function captureEmployeeIdentityPresentation() {
-  const firstName = storedFirstName() || renderedFirstName();
+  const welcomeHeading = document.getElementById('welcomeHeading');
   const profileButton = document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]');
   const profileValues = [...document.querySelectorAll('.profile-content .details-list dd')];
+  const profileDialogOpen = profileValues.length >= 2;
+  const identityContextVisible = Boolean(welcomeHeading) || profileDialogOpen;
+  const firstName = storedFirstName() || renderedFirstName();
 
   capturedIdentity = {
     firstName: firstName || capturedIdentity.firstName,
-    profileButtonText: String(profileButton?.textContent || '').trim() || capturedIdentity.profileButtonText,
-    profileButtonAria: String(profileButton?.getAttribute('aria-label') || '').trim() || capturedIdentity.profileButtonAria,
-    profileFirstName: String(profileValues[0]?.textContent || '').trim() || capturedIdentity.profileFirstName,
-    profileLastName: String(profileValues[1]?.textContent || '').trim() || capturedIdentity.profileLastName,
+    profileButtonText: identityContextVisible
+      ? String(profileButton?.textContent || '').trim() || capturedIdentity.profileButtonText
+      : capturedIdentity.profileButtonText,
+    profileButtonAria: identityContextVisible
+      ? String(profileButton?.getAttribute('aria-label') || '').trim() || capturedIdentity.profileButtonAria
+      : capturedIdentity.profileButtonAria,
+    profileFirstName: profileDialogOpen
+      ? String(profileValues[0]?.textContent || '').trim() || capturedIdentity.profileFirstName
+      : capturedIdentity.profileFirstName,
+    profileLastName: profileDialogOpen
+      ? String(profileValues[1]?.textContent || '').trim() || capturedIdentity.profileLastName
+      : capturedIdentity.profileLastName,
   };
 }
 
 function enhancePersonalizedHero() {
-  if (!capturedIdentity.firstName) return;
-  setText(document.getElementById('welcomeHeading'), `${copy('welcome')}, ${capturedIdentity.firstName}.`);
+  const welcomeHeading = document.getElementById('welcomeHeading');
+  const profileValues = [...document.querySelectorAll('.profile-content .details-list dd')];
+  const profileDialogOpen = profileValues.length >= 2;
+  if (!welcomeHeading && !profileDialogOpen) return;
+
+  if (welcomeHeading && capturedIdentity.firstName) {
+    setText(welcomeHeading, `${copy('welcome')}, ${capturedIdentity.firstName}.`);
+  }
 
   const profileButton = document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]');
   setText(profileButton, capturedIdentity.profileButtonText);
   setAttribute(profileButton, 'aria-label', capturedIdentity.profileButtonAria);
 
-  const profileValues = [...document.querySelectorAll('.profile-content .details-list dd')];
-  setText(profileValues[0], capturedIdentity.profileFirstName);
-  setText(profileValues[1], capturedIdentity.profileLastName);
+  if (profileDialogOpen) {
+    setText(profileValues[0], capturedIdentity.profileFirstName);
+    setText(profileValues[1], capturedIdentity.profileLastName);
+  }
 }
 
 function enhanceRoomRefreshCopy() {
@@ -86,7 +104,15 @@ function enhanceRoomRefreshCopy() {
 
 function enhanceAdditionalServicesCopy() {
   const panel = document.querySelector('[data-step-panel="3"]');
-  const none = panel?.querySelector(':scope > p.muted');
+  if (!panel) return;
+
+  let none = panel.querySelector('[data-employee-additional-services-none]');
+  if (!none) {
+    none = document.createElement('p');
+    none.className = 'muted';
+    none.dataset.employeeAdditionalServicesNone = 'true';
+    panel.querySelector('.section-heading')?.after(none);
+  }
   setText(none, copy('serviceNone'));
 }
 
