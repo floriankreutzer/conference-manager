@@ -1,7 +1,6 @@
 import { KEYS, readJson, requestRepository } from '../core/storage.js';
 
-const REQUESTER_ATTRIBUTION_BUILD = '2026.08.23.64';
-const originalSave = requestRepository.save.bind(requestRepository);
+const REQUESTER_ATTRIBUTION_BUILD = '2026.08.23.70';
 
 function currentRequesterName() {
   const profile = readJson(KEYS.profile, { firstName: '', lastName: '' });
@@ -13,7 +12,7 @@ function currentRequesterName() {
     .slice(0, 160);
 }
 
-function attributeNewRequests(nextValue, currentValue) {
+export function attributeNewRequests(nextValue, currentValue) {
   if (!Array.isArray(nextValue)) return nextValue;
   const existingIds = new Set(
     (Array.isArray(currentValue) ? currentValue : [])
@@ -32,9 +31,5 @@ function attributeNewRequests(nextValue, currentValue) {
   });
 }
 
-requestRepository.save = (value) => {
-  const current = requestRepository.all();
-  return originalSave(attributeNewRequests(value, current));
-};
-
+requestRepository.addBeforeSaveHook('requester-attribution', attributeNewRequests);
 document.documentElement.dataset.requesterAttributionBuild = REQUESTER_ATTRIBUTION_BUILD;
