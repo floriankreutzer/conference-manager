@@ -75,6 +75,41 @@ test('schedule DOM and sequential focus order match the visible What Where When 
   await expect(page.locator('[data-step-panel="1"] .form-grid.two')).toHaveAttribute('data-ux-dom-order', 'what-where-when-who');
 });
 
+test('participant total updates live and the UI reflects the existing combined participant rule', async ({ page }) => {
+  await page.locator('#primaryNavigation button[data-view="employee"]').click();
+
+  const internal = page.locator('#internalParticipants');
+  const external = page.locator('#externalParticipants');
+  const total = page.locator('.participant-total strong');
+  const internalField = page.locator('.field').filter({ has: internal });
+  const externalField = page.locator('.field').filter({ has: external });
+
+  await expect(internal).not.toHaveAttribute('required', '');
+  await expect(external).not.toHaveAttribute('required', '');
+  await expect(internalField.locator('.field-label')).toHaveText('Interne Teilnehmende');
+  await expect(externalField.locator('.field-label')).toHaveText('Externe Teilnehmende');
+  await expect(page.locator('#uxParticipantRule')).toContainText('mindestens eine Person');
+  await expect(internal).toHaveAttribute('aria-describedby', /uxParticipantRule/);
+  await expect(external).toHaveAttribute('aria-describedby', /uxParticipantRule/);
+
+  await internal.fill('8');
+  await expect(total).toHaveText('8');
+  await external.fill('2');
+  await expect(total).toHaveText('10');
+  await internal.fill('');
+  await expect(total).toHaveText('2');
+
+  await page.locator('#title').fill('External Participants Workshop');
+  await page.locator('#location').selectOption('Berlin');
+  await page.locator('#date').fill(futureIsoDate());
+  await page.locator('#start').fill('09:00');
+  await page.locator('#end').fill('11:00');
+  await external.fill('4');
+  await expect(total).toHaveText('4');
+  await next(page);
+  await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
+});
+
 test('cost allocation has visible meaning on desktop and mobile without changing the existing controls', async ({ page }, testInfo) => {
   await reachCosts(page);
   await expect(page.locator('[data-step-panel="5"]')).toBeVisible();
@@ -118,15 +153,40 @@ test('all catering variants remain available while only one package family is sh
   await expect(page.locator('.package-grid .option-card.selected')).toContainText('Mittagessen');
 });
 
-test('employee terminology is consistent without changing wizard navigation', async ({ page }) => {
+test('employee terminology stays consistent across the complete request journey', async ({ page }) => {
+  await expect(page.locator('.how-list li').nth(1)).toContainText('Zusatzleistungen, Bewirtung und Einzeloptionen ergänzen.');
+
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
+  await expect(page.locator('.topbar p')).toHaveText('Raum, Zusatzleistungen und Bewirtung in einer Anfrage.');
+  await expect(page.locator('.field').filter({ has: page.locator('#specialRequirements') }).locator('.field-hint')).toContainText('Raum, Zusatzleistungen oder Bewirtung');
+
   const steps = page.locator('.stepper .step');
   await expect(steps.nth(2)).toContainText('Zusatzleistungen');
 
   await fillSchedule(page);
   await next(page);
+  await expect(page.locator('[data-step-panel="2"] .recommendation').first()).toHaveText('Empfohlen – passend für Ihre Teilnehmerzahl');
   await chooseRoom(page);
   await next(page);
-  await expect(page.locator('[data-step-panel="3"] .section-heading h2')).toHaveText('Zusatzleistungen (optional)');
-  await expect(page.locator('html')).toHaveAttribute('data-employee-accessibility-build', '2026.08.23.03');
+
+  const servicesPanel = page.locator('[data-step-panel="3"]');
+  await expect(servicesPanel.locator('.section-heading h2')).toHaveText('Zusatzleistungen (optional)');
+  await expect(servicesPanel.locator('.section-heading p')).toHaveText('Sie wählen nur die benötigte Leistung aus. Das Conference Management teilt anschließend die passende Person zu.');
+  await expect(servicesPanel.locator('.selection-grid')).toHaveAttribute('aria-label', 'Zusatzleistungen auswählen');
+
+  await next(page);
+  await page.locator('input[name="cateringMode"][value="PACKAGE"]').check();
+  await expect(page.locator('.field').filter({ has: page.locator('#cateringParticipants') }).locator('.field-label')).toHaveText('Bewirtung für wie viele Personen?');
+  await expect(page.locator('[data-step-panel="4"] .mode-selector')).toHaveAttribute('aria-label', 'Bewirtung auswählen');
+
+  await next(page);
+  const costLabels = page.locator('[data-step-panel="5"] .cost-summary article span');
+  await expect(costLabels).toContainText(['Raum', 'Zusatzleistungen', 'Bewirtung', 'Voraussichtlicher Gesamtbetrag']);
+
+  await page.locator('#allocation-cost-center-0').fill('471100');
+  await next(page);
+  await expect(page.getByRole('heading', { name: 'Zusatzleistungen' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bewirtungsdetails' })).toBeVisible();
+  await expect(page.locator('[data-step-panel="6"] .info-box li').nth(1)).toHaveText('Das Conference Management prüft Raum, Zusatzleistungen, Bewirtung und Kosten.');
+  await expect(page.locator('html')).toHaveAttribute('data-employee-accessibility-build', '2026.08.23.04');
 });
