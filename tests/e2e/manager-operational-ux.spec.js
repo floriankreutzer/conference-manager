@@ -105,7 +105,7 @@ test('tentative KPI has a visible quick-filter state', async ({ page }) => {
   await expect(page.locator('.request-card').filter({ hasText: 'Operational Review Workshop' })).toBeVisible();
 });
 
-test('overview open goes directly to review and clears blocking filters only when needed', async ({ page }) => {
+test('overview open goes directly to review without losing the active filters', async ({ page }) => {
   await seedManager(page);
 
   const advanced = page.locator('[data-manager-advanced-filters]');
@@ -120,7 +120,8 @@ test('overview open goes directly to review and clears blocking filters only whe
   await expect(review).toBeVisible();
   await expect(review).toContainText('Operational Review Workshop');
   await expect(review).toContainText('Mia Employee');
-  await expect(page.locator('.manager-filters select').first()).toHaveValue('ALL');
-  await expect(page.locator('[data-quick-filter="ALL"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.manager-filters select').first()).toHaveValue('Confirmed');
+  await expect(page.locator('[data-quick-filter="ACTION"]')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('.manager-filters input[type="search"]')).toHaveValue('');
+  await expect(advanced).toHaveAttribute('open', '');
 });
