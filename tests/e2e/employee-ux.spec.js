@@ -42,7 +42,8 @@ test('first-use welcome prioritizes the primary action without removing navigati
   await expect(page.locator('#primaryNavigation button[data-view="requests"]')).toBeVisible();
 });
 
-test('wizard only allows sequential forward navigation while preserving backward navigation', async ({ page }) => {
+test('wizard only allows sequential forward navigation while preserving backward navigation', async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === 'webkit-mobile';
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
   const steps = page.locator('.stepper .step');
   await expect(steps).toHaveCount(6);
@@ -58,7 +59,11 @@ test('wizard only allows sequential forward navigation while preserving backward
   await expect(steps.nth(2)).toBeEnabled();
   await expect(steps.nth(3)).toBeDisabled();
 
-  await steps.nth(0).click();
+  if (mobile) {
+    await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+  } else {
+    await steps.nth(0).click();
+  }
   await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
   await expect(steps.nth(1)).toBeEnabled();
   await expect(steps.nth(2)).toBeDisabled();
