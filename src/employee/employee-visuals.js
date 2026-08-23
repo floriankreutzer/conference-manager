@@ -21,23 +21,21 @@ function createImage(src, alt, className) {
 }
 
 export function requestIdFromCard(card) {
-  const text = card?.querySelector('.request-card-header .muted')?.textContent || '';
-  return text.match(/CR-\d{4}-\d+/)?.[0] || null;
+  return card instanceof HTMLElement ? card.dataset.requestId || null : null;
 }
 
 function roomForCard(card, catalog) {
-  const heading = card?.querySelector('h3')?.textContent?.trim() || '';
-  return (catalog.rooms || []).find((room) => localized(room.name) === heading) || null;
+  const roomId = card?.dataset.roomId;
+  return roomId ? (catalog.rooms || []).find((room) => room.id === roomId) || null : null;
 }
 
 function packageForCard(card, catalog) {
-  const heading = card?.querySelector('h3')?.textContent?.trim() || '';
-  for (const pack of catalog.cateringPackages || []) {
-    for (const variant of pack.variants || []) {
-      if (`${localized(pack.name)} · ${variant.tier}` === heading) return { pack, variant };
-    }
-  }
-  return null;
+  const packageId = card?.dataset.packageId;
+  const tier = card?.dataset.packageTier;
+  if (!packageId || !tier) return null;
+  const pack = (catalog.cateringPackages || []).find((entry) => entry.id === packageId);
+  const variant = pack?.variants?.find((entry) => entry.tier === tier);
+  return pack && variant ? { pack, variant } : null;
 }
 
 function decorateCateringCards() {
@@ -65,10 +63,8 @@ function decorateRoomCards() {
     const room = roomForCard(card, catalog);
     if (!room) return;
 
-    const actions = card.querySelector('.button-row');
-    const floorplanButton = [...(actions?.querySelectorAll('button') || [])]
-      .find((control) => control.textContent.trim() === t('room.floorplan'));
-    if (floorplanButton) floorplanButton.dataset.featureFloorplan = room.id;
+    const floorplanButton = card.querySelector('button[data-room-action="floorplan"]');
+    if (floorplanButton instanceof HTMLButtonElement) floorplanButton.dataset.featureFloorplan = room.id;
 
     if (card.querySelector('.room-preview')) return;
 
@@ -85,6 +81,7 @@ function decorateRoomCards() {
       ]),
     );
 
+    const actions = card.querySelector('.button-row');
     if (actions) card.insertBefore(preview, actions);
     else card.appendChild(preview);
   });
@@ -94,11 +91,8 @@ function decoratePdfButtons() {
   document.querySelectorAll('.request-card').forEach((card) => {
     const requestId = requestIdFromCard(card);
     if (!requestId) return;
-    [...card.querySelectorAll('.request-actions button')].forEach((control) => {
-      if (control.textContent.trim() === t('requests.pdf')) {
-        control.dataset.featurePdf = requestId;
-      }
-    });
+    const control = card.querySelector('button[data-request-action="print"]');
+    if (control instanceof HTMLButtonElement) control.dataset.featurePdf = requestId;
   });
 }
 
