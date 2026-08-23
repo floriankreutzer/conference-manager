@@ -1,97 +1,216 @@
-# Architecture
+# Conference Manager Architecture
 
-## Runtime
+## Architecture principles
 
-The application is a build-free browser application served as native ES modules.
+The repository is a build-free native ES-module application. `main` is the functional source of truth. Architectural changes must preserve observable behavior, persisted data and externally consumed contracts.
+
+The refactoring baseline is documented in `docs/BASELINE.md`.
+
+The target dependency direction is:
 
 ```text
-index.html
-  ├── src/app.js                    primary application state, rendering and business-flow orchestration
-  └── src/features/feature-parity.js centralized enhancement scheduler
-       ├── Employee enhancement modules
-       └── Manager enhancement modules
-
-src/core/
-  ├── domain.js          pure business rules and validation
-  ├── catalog.js         catalog defaults, localization and migration
-  ├── i18n.js            canonical application translations and locale-aware formatting
-  ├── security-i18n.js   security-notice translations
-  ├── security-policy.js fail-closed runtime and role policy
-  ├── api-client.js      defensive same-origin production API boundary
-  ├── storage.js         defensive demo persistence adapters and explicit repository hooks
-  └── ui.js              safe DOM and accessible dialog utilities
+Browser / index.html
+  -> Platform composition
+     -> Employee public module API
+     -> Manager public module API
+        -> shared compatibility/domain presentation resources
+           -> core domain and infrastructure primitives
 ```
 
-`src/app.js` owns primary application state, business-flow orchestration and rendering. `src/features/feature-parity.js` owns the single coalesced post-render enhancement scheduler. Employee and Manager enhancement modules export idempotent enhancement functions or scoped event handlers and must not register parallel document/window synchronization loops.
+`src/core` must not depend on Employee or Manager modules. `src/shared` must not depend on Employee or Manager modules. Employee modules must not depend on Manager modules. Manager-to-Employee collaboration must use an explicit public contract rather than importing Employee internals.
 
-`src/features/manager-tabs.js` assigns and resolves stable semantic Manager tab identities (`BOOKINGS`, `ROOM_PLAN`, `REPORTS`, `ADMIN`) after each base render. Manager enhancement logic must use these identities instead of localized visible labels, so copy changes and language changes cannot alter navigation state. Native Manager decision controls are likewise annotated with stable `data-manager-action` identities (`confirm`, `change`, `reject`) before enhancement logic resolves them; decision behavior must not be discovered from translated button text.
+## Runtime structure
 
-Repository cross-cutting behavior that must run before persistence uses explicit named repository hooks. Feature modules must not monkey-patch core repository methods. Authoritative request persistence fails closed through `RepositoryWriteError` when browser storage rejects a write, so the UI cannot continue into a successful business state after an unsaved request mutation. Notification persistence is explicitly best-effort because it is secondary to the authoritative request write.
+```text
+src/
+├── app.js
+├── core/
+│   ├── api-client.js
+│   ├── catalog.js
+│   ├── domain.js
+│   ├── i18n.js
+│   ├── security-i18n.js
+│   ├── security-policy.js
+│   ├── storage.js
+│   └── ui.js
+├── employee/
+│   ├── index.js
+│   └── Employee experience implementations
+├── manager/
+│   ├── index.js
+│   └── Manager experience implementations
+├── platform/
+│   ├── demo-security.js
+│   ├── feature-flags.js
+│   ├── feature-parity.js
+│   ├── identity-bootstrap.js
+│   └── requester-attribution.js
+└── shared/
+    ├── parity-data.js
+    └── parity-i18n.js
+```
 
-The static GitHub Pages build declares `conference-runtime=demo`. Missing or unknown runtime configuration is interpreted as `production`, not as demo.
+The former flat `src/features` directory is not part of the modular architecture. The architecture quality gate rejects its reintroduction.
 
-## Domain boundaries
+## Responsibilities
 
-`domain.js` contains pure functions for:
+### `src/app.js`
 
-- schedule and participant-bound validation
-- room validity and collision detection
-- cost allocation validation
-- cost calculation
-- request history
-- repeat-request behavior
+`src/app.js` remains the primary baseline application composition and rendering module. It owns the existing view state, request wizard rendering, baseline Manager rendering and the established user-flow orchestration.
 
-These functions are covered by Node regression/progression tests and deterministic input-manipulation tests. They remain independent from LocalStorage and the DOM and defensively tolerate malformed collection data instead of throwing. Cost calculations normalize negative and non-finite monetary input to zero, require safe integer quantities, and saturate unsafe arithmetic at `Number.MAX_SAFE_INTEGER` so manipulated demo data cannot create `NaN`, `Infinity`, negative totals, or unsafe numeric overflow.
+It is intentionally not rewritten as part of the directory-boundary refactoring. A 75 KB composition module remains larger than the preferred target and is recorded as residual technical debt. Future decomposition must be incremental: protect the relevant behavior first, extract one coherent application/domain concern, route consumers through a stable contract, run the complete gate, and only then continue.
 
-## Accessibility
+A future extraction must not change routes, DOM contracts relied on by E2E tests, storage keys, workflow state values or user-visible behavior merely to make the file smaller.
 
-- native interactive elements are preferred over custom ARIA widgets
-- modal interactions use native `<dialog>`
-- validation uses `aria-invalid` and assertive live regions
-- persistence failures are surfaced through both a visible toast and an assertive live-region announcement
-- navigation and request steps expose current state with `aria-current`
-- visible focus indicators are retained
-- reduced-motion preferences are respected
-- accessibility labels are sourced from i18n resources
-- Chromium and WebKit/iPhone flows are covered by keyboard/focus regression tests
+### `src/core`
 
-A formal WCAG 2.2 AA declaration still requires a manual audit with keyboard-only navigation and representative screen readers/browsers. Automated tests are a quality gate, not a substitute for that audit.
+Core contains stable application primitives and infrastructure abstractions:
 
-## Internationalization
+- `domain.js`: request validation, scheduling/conflict rules, participant totals, cost calculation, repeat/history logic and status constants.
+- `catalog.js`: catalog/site defaults and loading/localization helpers.
+- `storage.js`: defensive browser persistence, repository APIs and named save hooks.
+- `i18n.js`: canonical Employee/Manager application translation catalogue and locale-aware formatting.
+- `security-i18n.js`: security-notice translations.
+- `security-policy.js`: runtime/role/language policy normalization.
+- `api-client.js`: defensive same-origin production API client contract.
+- `ui.js`: shared DOM/accessibility primitives.
 
-`src/core/i18n.js` is the canonical catalogue for application and experience UI strings. `src/core/security-i18n.js` remains a dedicated resource for the isolated demo-security notice.
+Core must remain independent of feature-specific DOM enhancement modules.
 
-Feature modules must not define their own bilingual copy maps or select translations with local language ternaries. Compatibility adapters may delegate to the canonical `t()` API but must not contain independent message tables. The i18n quality gate verifies German/English key parity and guards these boundaries.
+### `src/employee`
 
-Supported languages:
+Employee owns request-experience enhancements, first-use behavior, Employee accessibility presentation, room/catering visual presentation and the printable welcome experience.
 
-- `de`
-- `en`
+`src/employee/index.js` is the public module contract. Platform code and other modules must consume Employee behavior through this facade instead of reaching into implementation files.
 
-Dates are stored in ISO 8601-compatible forms and formatted only for display. Additional languages must extend the same stable message-key model rather than introducing source-language strings into feature logic.
+### `src/manager`
 
-## Security model
+Manager owns Conference Manager enhancements, room-planning/reporting presentation, Manager first-use/operational behavior, responsive representation, semantic Manager tab identity and administration enhancements.
 
-The static MVP applies defensive browser-side coding practices:
+`src/manager/index.js` is the public module contract. Platform orchestration must use this facade.
 
-- no `eval`
-- no `document.write`
-- no application `innerHTML` assignments
-- user-controlled content is rendered through `textContent`
-- externally opened routes are restricted to HTTPS and use `noopener noreferrer`
-- parsed LocalStorage data is handled defensively
-- authoritative request writes fail closed when persistence is unavailable
-- runtime and role values are allowlisted
-- unknown runtime configuration fails closed to production semantics
-- production API calls are designed as HTTPS-only, same-origin, JSON-only requests with CSRF protection for unsafe methods
-- production API responses are read through a byte-bounded stream and reject oversized bodies before unbounded buffering
+The existing request-card identity dependency is isolated through `src/manager/employee-visuals.js`, which delegates to the Employee public API. It exists to preserve byte-identical baseline implementations during incremental migration; it must not grow into a second implementation.
 
-The static client is **not** a security boundary. Demo roles in LocalStorage only control presentation. Production authorization must be enforced by a trusted backend/identity layer.
+### `src/platform`
 
-The mandatory production boundary, including SSO/OIDC, server-side RBAC, CSRF, transactional calendar booking, SSRF controls, parameterized persistence, audit logging, and HTTP security headers, is defined in `docs/PRODUCTION-SECURITY.md`.
+Platform contains application-wide bootstrap/composition concerns rather than business capability logic:
 
-## Quality gate
+- identity bootstrap;
+- demo security disclosure/control behavior;
+- requester-attribution repository hook registration;
+- the single post-render enhancement scheduler;
+- centralized feature-flag definitions and resolution.
 
-`npm run check` runs syntax checks, agent-instruction checks, i18n architecture/key-parity checks, architecture-consolidation checks, static defensive-code checks, secret checks, design-token checks, domain regression/progression tests, API-security tests, runtime-policy tests, repository-persistence tests, requester-attribution tests and deterministic malformed-input/fuzz tests. GitHub Actions executes the same gate for pushes and pull requests. Browser CI additionally runs the Playwright suite on Chromium desktop and WebKit/iPhone.
+`feature-parity.js` is the single coalesced enhancement scheduler. Manager enhancement modules must not add their own global synchronization loops.
 
-The scheduled/manual OWASP ZAP baseline workflow scans the deployed GitHub Pages demo and is configured to fail when ZAP reports alerts. Findings must be remediated or, only when technically unavoidable and risk-accepted, explicitly baselined with a documented rule rather than globally suppressing DAST failure behavior.
+### `src/shared`
+
+Shared contains code that is genuinely used across Employee and Manager boundaries and must not depend back on either module.
+
+`parity-data.js` centralizes the existing enhanced catalog/site/request presentation data helpers.
+
+`parity-i18n.js` is a pre-existing compatibility translation resource used by the parity enhancements. It predates the central-i18n rule and is retained unchanged in this structural refactoring to avoid silently changing user-visible copy. New application copy must not be added there; new copy belongs in `src/core/i18n.js`. Consolidating the existing parity catalogue into the canonical catalogue is residual technical debt and requires dedicated regression coverage because it affects a large amount of visible DE/EN copy.
+
+## Public module contracts
+
+Public module APIs are explicit and intentionally small:
+
+- Employee: `src/employee/index.js`
+- Manager: `src/manager/index.js`
+
+A consumer outside a module must not import another module's private implementation file. If collaboration is required, add the smallest stable capability to the module's public facade or extract a genuinely shared abstraction.
+
+Do not create generic `utils`, `helpers` or `common` dumping grounds.
+
+## Feature flags
+
+`src/platform/feature-flags.js` is the centralized feature-flag foundation.
+
+Rules:
+
+1. Baseline behavior is not represented in the feature-flag registry.
+2. A genuinely new feature receives a stable lowercase identifier such as `booking.new-capability`.
+3. The identifier is added to `FEATURE_FLAG_DEFAULTS` with `false` unless an explicitly approved requirement states otherwise.
+4. Unknown, malformed and unregistered flags fail closed to disabled.
+5. Runtime overrides may only affect registered identifiers.
+6. Flag conditions belong at an architectural boundary, not scattered throughout implementation details.
+7. Every new flagged feature requires OFF and ON tests.
+8. Remove rollout flags when they are no longer needed; do not use flags as permanent architecture.
+
+The current baseline defines no feature flags.
+
+## Persistence and data compatibility
+
+The static MVP uses LocalStorage/sessionStorage. Stored values are untrusted input and are defensively normalized by `src/core/storage.js` and related policy code.
+
+Refactoring must preserve:
+
+- existing storage key names;
+- request/catalog/site/profile/notification object shapes;
+- request/status identifiers;
+- existing saved data without reset or destructive migration.
+
+Any future schema migration requires an explicit compatibility strategy, tests and rollback considerations.
+
+## UI, accessibility and design system
+
+Architectural refactoring is not a redesign. The existing information architecture, terminology, navigation, interaction behavior, responsive rules, loading/empty/error states, focus behavior and keyboard behavior remain baseline contracts.
+
+Global design decisions remain exclusively in `assets/tokens.css`. CSS ownership remains defined in `docs/DESIGN-SYSTEM.md`; the modular JavaScript reorganization does not create new feature-specific CSS layers.
+
+User-visible application copy remains governed by the repository i18n rules. New text must use stable translation keys rather than hardcoded bilingual branches.
+
+## Security boundaries
+
+The application remains a static demo and does not gain fake client-side authentication or authorization through refactoring. The security boundary is documented in `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md`.
+
+The refactor must preserve CSP, safe DOM rendering, defensive storage, safe URL handling, production API restrictions, repository hooks, secret scanning, dependency review, SAST-style checks and DAST behavior.
+
+Security controls must move only when their behavior and trust boundary remain equivalent or stronger.
+
+## Architecture enforcement
+
+`scripts/check-architecture.mjs` is part of `npm run check` and enforces, among other controls:
+
+- exact runtime stylesheet ownership;
+- platform entry-point ownership;
+- absence of the former flat `src/features` directory;
+- Employee and Manager public facades;
+- no direct Employee-to-Manager dependency;
+- no Manager dependency on Employee internals outside the explicit public-contract bridge;
+- no shared-module dependency back into Employee/Manager;
+- centralized Manager enhancement scheduling;
+- stable semantic Manager tab/action identities;
+- requester-attribution repository-hook behavior;
+- feature-flag foundation and default-OFF policy;
+- storage/API hardening invariants;
+- circular ES-module dependency detection;
+- DAST fail-closed configuration;
+- design-system CSS ownership.
+
+## Validation
+
+Required repository validation remains:
+
+```bash
+npm run check
+npm run audit
+npm run test:e2e
+```
+
+GitHub Actions executes the quality gate, high-severity dependency audit, Chromium/WebKit E2E coverage, Dependency Review and Secret Scan. DAST and CodeQL remain separate repository security controls where configured.
+
+A successful build or syntax check alone is not sufficient evidence that an architectural refactoring preserved behavior.
+
+## Adding a new module
+
+When a new business capability becomes large enough to justify a module:
+
+1. Identify the business owner/capability and the public contract first.
+2. Add characterization/regression tests for existing behavior before moving implementation.
+3. Create a capability directory under `src` rather than a technical dumping-ground directory.
+4. Keep private implementation internal and expose only a small `index.js` facade when cross-module use is required.
+5. Depend on core/shared abstractions; do not reach into another module's internals.
+6. Put genuinely new functionality behind a registered default-OFF flag when required by rollout policy.
+7. Update the architecture gate when a boundary must become machine-enforced.
+8. Run all applicable quality/security/E2E gates before merging.

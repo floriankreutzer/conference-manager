@@ -1,9 +1,36 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, normalize } from 'node:path';
 
 let failures = 0;
 function fail(message) {
   console.error(message);
   failures += 1;
+}
+
+function javascriptFiles(root) {
+  if (!existsSync(root)) return [];
+  const files = [];
+  const walk = (path) => {
+    for (const entry of readdirSync(path)) {
+      const full = join(path, entry);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (full.endsWith('.js')) files.push(normalize(full));
+    }
+  };
+  walk(root);
+  return files;
+}
+
+function relativeModuleDependencies(file) {
+  const source = readFileSync(file, 'utf8');
+  const dependencies = [];
+  const statements = source.matchAll(/(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]\s*;/g);
+  for (const match of statements) {
+    const specifier = match[1].split('?')[0];
+    if (!specifier.startsWith('.')) continue;
+    dependencies.push(normalize(join(dirname(file), specifier)));
+  }
+  return dependencies;
 }
 
 const index = readFileSync('index.html', 'utf8');
@@ -23,14 +50,29 @@ if (JSON.stringify(cssLinks) !== JSON.stringify(expectedCss)) {
 
 const scriptSources = [...index.matchAll(/<script[^>]+src=["']\.\/([^"']+\.js)(?:\?[^"']*)?["']/g)].map((match) => match[1]);
 const expectedScripts = [
-  'src/features/identity-bootstrap.js',
-  'src/features/demo-security.js',
-  'src/features/requester-attribution.js',
+  'src/platform/identity-bootstrap.js',
+  'src/platform/demo-security.js',
+  'src/platform/requester-attribution.js',
   'src/app.js',
-  'src/features/feature-parity.js',
+  'src/platform/feature-parity.js',
 ];
 if (JSON.stringify(scriptSources) !== JSON.stringify(expectedScripts)) {
   fail(`index.html: runtime orchestration drifted. Expected ${expectedScripts.join(', ')}; found ${scriptSources.join(', ')}.`);
+}
+
+if (existsSync('src/features')) {
+  fail('src/features: flat feature directory is forbidden after modularization; use employee, manager, platform or shared boundaries.');
+}
+
+for (const required of [
+  'src/employee/index.js',
+  'src/manager/index.js',
+  'src/platform/feature-flags.js',
+  'src/platform/feature-parity.js',
+  'src/shared/parity-data.js',
+  'src/shared/parity-i18n.js',
+]) {
+  if (!existsSync(required)) fail(`${required}: required modular architecture file is missing.`);
 }
 
 const removedStyleLayers = [
@@ -46,25 +88,28 @@ for (const path of removedStyleLayers) {
 }
 
 const managerEnhancementModules = [
-  'src/features/manager-tabs.js',
-  'src/features/manager-first-use.js',
-  'src/features/manager-ux-polish.js',
-  'src/features/manager-operational-ux.js',
-  'src/features/manager-final-polish.js',
-  'src/features/conference-manager-ready.js',
+  'src/manager/manager-tabs.js',
+  'src/manager/manager-first-use.js',
+  'src/manager/manager-ux-polish.js',
+  'src/manager/manager-operational-ux.js',
+  'src/manager/manager-final-polish.js',
+  'src/manager/conference-manager-ready.js',
 ];
 for (const file of managerEnhancementModules) {
   const source = readFileSync(file, 'utf8');
   if (/(?:document|window)\.addEventListener\s*\(/.test(source)) {
-    fail(`${file}: global listeners are forbidden in Manager enhancement modules; use feature-parity.js orchestration.`);
+    fail(`${file}: global listeners are forbidden in Manager enhancement modules; use platform/feature-parity.js orchestration.`);
   }
   if (/\bmobileMedia\.addEventListener\s*\(/.test(source)) {
     fail(`${file}: local media-query synchronization is forbidden; use the central resize/sync path.`);
   }
 }
 
-const orchestrator = readFileSync('src/features/feature-parity.js', 'utf8');
+const orchestratorPath = 'src/platform/feature-parity.js';
+const orchestrator = readFileSync(orchestratorPath, 'utf8');
 for (const required of [
+  "from '../employee/index.js'",
+  "from '../manager/index.js'",
   'ensureManagerTabIdentity',
   'managerTabControl',
   'enhanceManagerFirstUse',
@@ -76,10 +121,13 @@ for (const required of [
   '#primaryNavigation button[data-view="manager"]',
   "managerTabControl('ADMIN')",
 ]) {
-  if (!orchestrator.includes(required)) fail(`src/features/feature-parity.js: central orchestration missing ${required}.`);
+  if (!orchestrator.includes(required)) fail(`${orchestratorPath}: central orchestration missing ${required}.`);
+}
+if (/from\s+['"]\.\.\/(?:employee|manager)\/(?!index\.js)/.test(orchestrator)) {
+  fail(`${orchestratorPath}: platform orchestration must consume Employee and Manager behavior only through module public APIs.`);
 }
 if (/t\(['"](?:nav\.manager|manager\.admin)['"]\)/.test(orchestrator)) {
-  fail('src/features/feature-parity.js: Manager restore must not derive navigation state from localized visible labels.');
+  fail(`${orchestratorPath}: Manager restore must not derive navigation state from localized visible labels.`);
 }
 
 const firstUseCalls = [...orchestrator.matchAll(/enhanceManagerFirstUse\(\);/g)].map((match) => match.index);
@@ -87,24 +135,78 @@ const managerCall = orchestrator.indexOf('enhanceManager();');
 const identityCalls = [...orchestrator.matchAll(/ensureManagerTabIdentity\(\);/g)].map((match) => match.index);
 const guardedLanding = "if (!document.querySelector('.manager-tabs')) enhanceManagerFirstUse();";
 if (!orchestrator.includes(guardedLanding)) {
-  fail('src/features/feature-parity.js: Manager first-use landing must only run before base enhancement when Manager tabs are absent.');
+  fail(`${orchestratorPath}: Manager first-use landing must only run before base enhancement when Manager tabs are absent.`);
 }
 if (managerCall < 0 || firstUseCalls.length < 2 || firstUseCalls[0] > managerCall || firstUseCalls[firstUseCalls.length - 1] < managerCall) {
-  fail('src/features/feature-parity.js: Manager lifecycle must support guarded landing before base enhancement and first-use decoration after base enhancement.');
+  fail(`${orchestratorPath}: Manager lifecycle must support guarded landing before base enhancement and first-use decoration after base enhancement.`);
 }
-if (!identityCalls.some((index) => index > firstUseCalls[0] && index < managerCall)) {
-  fail('src/features/feature-parity.js: Manager tab identity must be applied after guarded landing and before base Manager enhancement.');
+if (!identityCalls.some((position) => position > firstUseCalls[0] && position < managerCall)) {
+  fail(`${orchestratorPath}: Manager tab identity must be applied after guarded landing and before base Manager enhancement.`);
 }
 
-const managerTabs = readFileSync('src/features/manager-tabs.js', 'utf8');
+const employeeFacade = readFileSync('src/employee/index.js', 'utf8');
+for (const required of [
+  'decorateEmployeeParity',
+  'enhanceEmployeeUx',
+  'enhanceEmployeeAccessibilityPolish',
+  'enhanceEmployeeFirstUsePersonalization',
+  'captureEmployeeIdentityPresentation',
+  'openRichFloorplan',
+  'requestIdFromCard',
+  'richPrint',
+]) {
+  if (!employeeFacade.includes(required)) fail(`src/employee/index.js: public Employee contract missing ${required}.`);
+}
+
+const managerFacade = readFileSync('src/manager/index.js', 'utf8');
+for (const required of [
+  'PARITY_RETURN_KEY',
+  'enhanceManager',
+  'enhanceManagerResponsive',
+  'enhanceManagerFirstUse',
+  'enhanceManagerUxPolish',
+  'enhanceManagerOperationalUx',
+  'enhanceManagerFinalPolish',
+  'enhanceConferenceManagerReady',
+  'ensureManagerTabIdentity',
+  'managerTabControl',
+]) {
+  if (!managerFacade.includes(required)) fail(`src/manager/index.js: public Manager contract missing ${required}.`);
+}
+
+const managerEmployeeBridge = readFileSync('src/manager/employee-visuals.js', 'utf8');
+if (!managerEmployeeBridge.includes("from '../employee/index.js'")) {
+  fail('src/manager/employee-visuals.js: cross-module request-card compatibility must use the Employee public contract.');
+}
+for (const file of javascriptFiles('src/manager')) {
+  if (file === normalize('src/manager/employee-visuals.js')) continue;
+  const source = readFileSync(file, 'utf8');
+  if (/from\s+['"]\.\.\/employee\//.test(source)) {
+    fail(`${file}: direct Manager dependency on Employee internals is forbidden; use an explicit public contract.`);
+  }
+}
+for (const file of javascriptFiles('src/employee')) {
+  const source = readFileSync(file, 'utf8');
+  if (/from\s+['"]\.\.\/manager\//.test(source)) {
+    fail(`${file}: direct Employee dependency on Manager internals is forbidden.`);
+  }
+}
+for (const file of javascriptFiles('src/shared')) {
+  const source = readFileSync(file, 'utf8');
+  if (/from\s+['"]\.\.\/(?:employee|manager)\//.test(source)) {
+    fail(`${file}: shared modules must not depend on Employee or Manager modules.`);
+  }
+}
+
+const managerTabs = readFileSync('src/manager/manager-tabs.js', 'utf8');
 for (const tab of ['BOOKINGS', 'ROOM_PLAN', 'REPORTS', 'ADMIN']) {
-  if (!managerTabs.includes(`'${tab}'`)) fail(`src/features/manager-tabs.js: missing stable ${tab} tab identity.`);
+  if (!managerTabs.includes(`'${tab}'`)) fail(`src/manager/manager-tabs.js: missing stable ${tab} tab identity.`);
 }
 if (!managerTabs.includes('control.dataset.managerTab = tab')) {
-  fail('src/features/manager-tabs.js: Manager controls must receive stable data-manager-tab identities.');
+  fail('src/manager/manager-tabs.js: Manager controls must receive stable data-manager-tab identities.');
 }
 
-for (const file of ['src/features/manager-parity.js', 'src/features/manager-first-use.js']) {
+for (const file of ['src/manager/manager-parity.js', 'src/manager/manager-first-use.js']) {
   const source = readFileSync(file, 'utf8');
   if (!source.includes("from './manager-tabs.js'")) {
     fail(`${file}: Manager tab state must use the shared semantic manager-tabs helper.`);
@@ -114,25 +216,36 @@ for (const file of ['src/features/manager-parity.js', 'src/features/manager-firs
   }
 }
 
-const managerFirstUse = readFileSync('src/features/manager-first-use.js', 'utf8');
+const managerFirstUse = readFileSync('src/manager/manager-first-use.js', 'utf8');
 if (!managerFirstUse.includes('control.dataset.managerAction = action')) {
-  fail('src/features/manager-first-use.js: native Manager decision controls must receive stable data-manager-action identities.');
+  fail('src/manager/manager-first-use.js: native Manager decision controls must receive stable data-manager-action identities.');
 }
 if (/nativeAction[\s\S]*?textContent\.trim\(\)/.test(managerFirstUse)) {
-  fail('src/features/manager-first-use.js: Manager decisions must not be discovered from localized visible labels.');
+  fail('src/manager/manager-first-use.js: Manager decisions must not be discovered from localized visible labels.');
 }
 
-const managerReady = readFileSync('src/features/conference-manager-ready.js', 'utf8');
+const managerReady = readFileSync('src/manager/conference-manager-ready.js', 'utf8');
 if (!managerReady.includes("managerTabControl('BOOKINGS')")) {
-  fail('src/features/conference-manager-ready.js: bookings label must target the semantic BOOKINGS tab identity.');
+  fail('src/manager/conference-manager-ready.js: bookings label must target the semantic BOOKINGS tab identity.');
 }
 
-const requesterAttribution = readFileSync('src/features/requester-attribution.js', 'utf8');
+const requesterAttribution = readFileSync('src/platform/requester-attribution.js', 'utf8');
 if (/requestRepository\.save\s*=/.test(requesterAttribution)) {
-  fail('src/features/requester-attribution.js: requestRepository.save monkey-patching is forbidden.');
+  fail('src/platform/requester-attribution.js: requestRepository.save monkey-patching is forbidden.');
 }
 if (!requesterAttribution.includes("addBeforeSaveHook('requester-attribution'")) {
-  fail('src/features/requester-attribution.js: named repository save hook is required.');
+  fail('src/platform/requester-attribution.js: named repository save hook is required.');
+}
+
+const featureFlags = readFileSync('src/platform/feature-flags.js', 'utf8');
+for (const required of ['FEATURE_FLAG_DEFAULTS', 'createFeatureFlagDefinitions', 'createFeatureFlagResolver', 'isEnabled(featureId)']) {
+  if (!featureFlags.includes(required)) fail(`src/platform/feature-flags.js: feature-flag foundation missing ${required}.`);
+}
+const defaultsMatch = featureFlags.match(/FEATURE_FLAG_DEFAULTS\s*=\s*createFeatureFlagDefinitions\(\{([\s\S]*?)\}\)/);
+if (!defaultsMatch) {
+  fail('src/platform/feature-flags.js: centralized default registry could not be identified.');
+} else if (/:\s*true\b/.test(defaultsMatch[1])) {
+  fail('src/platform/feature-flags.js: newly registered feature flags must not default to true.');
 }
 
 const storage = readFileSync('src/core/storage.js', 'utf8');
@@ -154,6 +267,29 @@ if (/await\s+response\.text\s*\(/.test(apiClient)) {
   fail('src/core/api-client.js: unbounded response.text() reads are forbidden for production API responses.');
 }
 
+const sourceFiles = javascriptFiles('src');
+const sourceSet = new Set(sourceFiles);
+const graph = new Map(sourceFiles.map((file) => [file, relativeModuleDependencies(file).filter((dependency) => sourceSet.has(dependency))]));
+const visiting = new Set();
+const visited = new Set();
+const stack = [];
+function visit(file) {
+  if (visited.has(file)) return;
+  if (visiting.has(file)) {
+    const cycleStart = stack.indexOf(file);
+    const cycle = [...stack.slice(cycleStart), file];
+    fail(`Circular ES-module dependency detected: ${cycle.join(' -> ')}`);
+    return;
+  }
+  visiting.add(file);
+  stack.push(file);
+  for (const dependency of graph.get(file) || []) visit(dependency);
+  stack.pop();
+  visiting.delete(file);
+  visited.add(file);
+}
+for (const file of sourceFiles) visit(file);
+
 const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
 if (!/fail_action:\s*true\b/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
@@ -165,4 +301,4 @@ for (const required of ['assets/manager-layout.css', 'assets/employee-ux.css']) 
 }
 
 if (failures) process.exit(1);
-console.log('Architecture consolidation check passed.');
+console.log(`Architecture boundary check passed for ${sourceFiles.length} source modules.`);

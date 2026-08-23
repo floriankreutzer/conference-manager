@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReportModel, managerOverview, reportRange } from '../src/features/reporting.js';
+import { buildReportModel, managerOverview, reportRange } from '../src/manager/reporting.js';
 
 const catalog = {
   rooms: [

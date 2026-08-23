@@ -22,7 +22,7 @@ globalThis.document = {
 
 const storage = await import('../src/core/storage.js');
 localStorage.setItem(storage.KEYS.profile, JSON.stringify({ firstName: 'Ada', lastName: 'Lovelace' }));
-await import('../src/features/requester-attribution.js');
+await import('../src/platform/requester-attribution.js');
 
 test('progression: newly saved requests receive the current requester name', () => {
   localStorage.setItem(storage.KEYS.requests, '[]');

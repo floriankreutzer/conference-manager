@@ -34,14 +34,14 @@ if (missingInEnglish.length) fail(`${i18nPath}: English translations missing key
 if (missingInGerman.length) fail(`${i18nPath}: German translations missing keys: ${missingInGerman.join(', ')}`);
 
 const experienceModules = [
-  'src/features/employee-ux-i18n.js',
-  'src/features/employee-accessibility-polish.js',
-  'src/features/employee-first-use-personalization.js',
-  'src/features/manager-first-use.js',
-  'src/features/manager-ux-polish.js',
-  'src/features/manager-operational-ux.js',
-  'src/features/manager-final-polish.js',
-  'src/features/conference-manager-ready.js',
+  'src/employee/employee-ux-i18n.js',
+  'src/employee/employee-accessibility-polish.js',
+  'src/employee/employee-first-use-personalization.js',
+  'src/manager/manager-first-use.js',
+  'src/manager/manager-ux-polish.js',
+  'src/manager/manager-operational-ux.js',
+  'src/manager/manager-final-polish.js',
+  'src/manager/conference-manager-ready.js',
 ];
 
 const forbiddenModulePatterns = [
@@ -57,9 +57,9 @@ for (const file of experienceModules) {
   }
 }
 
-const compatibilityAdapter = readFileSync('src/features/employee-ux-i18n.js', 'utf8');
+const compatibilityAdapter = readFileSync('src/employee/employee-ux-i18n.js', 'utf8');
 if (!/return\s+t\(key,\s*values\)/.test(compatibilityAdapter)) {
-  fail('src/features/employee-ux-i18n.js: compatibility adapter must delegate to core t().');
+  fail('src/employee/employee-ux-i18n.js: compatibility adapter must delegate to core t().');
 }
 
 for (const cssFile of ['assets/employee-ux.css', 'assets/manager-layout.css']) {
