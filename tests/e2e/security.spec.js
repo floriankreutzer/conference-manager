@@ -43,6 +43,51 @@ test('manipulated demo role values are normalized before application rendering',
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
 });
 
+test('production runtime ignores manipulated local manager roles and blocks demo-role writes', async ({ page }) => {
+  await page.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document') {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    const body = await response.text();
+    await route.fulfill({
+      response,
+      body: body.replace(
+        '<meta name="conference-runtime" content="demo">',
+        '<meta name="conference-runtime" content="production">',
+      ),
+    });
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem('conference_demo_role_v1', 'manager');
+  });
+
+  await page.goto('/');
+  await expect(page.locator('meta[name="conference-runtime"]')).toHaveAttribute('content', 'production');
+  await expect(page.locator('html')).toHaveAttribute('data-runtime-mode', 'production');
+  await expect(page.locator('[data-demo-security]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
+
+  const roleBoundary = await page.evaluate(async () => {
+    const storage = await import('/src/core/storage.js?production-role-regression=54');
+    const rawBefore = localStorage.getItem(storage.KEYS.role);
+    const resolved = storage.readString(storage.KEYS.role, 'employee');
+    const writeAccepted = storage.writeString(storage.KEYS.role, 'manager');
+    return {
+      rawBefore,
+      resolved,
+      writeAccepted,
+      rawAfter: localStorage.getItem(storage.KEYS.role),
+    };
+  });
+
+  expect(roleBoundary.rawBefore).toBe('manager');
+  expect(roleBoundary.resolved).toBe('employee');
+  expect(roleBoundary.writeAccepted).toBe(false);
+  expect(roleBoundary.rawAfter).toBe('manager');
+});
+
 test('stored user-controlled text is rendered as text across an XSS fuzz corpus', async ({ page }) => {
   const date = futureIsoDate();
   const payloads = [
@@ -90,7 +135,7 @@ test('stored user-controlled text is rendered as text across an XSS fuzz corpus'
 test('URL and DOM attribute guards reject executable schemes and unsafe attributes', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
-    const ui = await import('/src/core/ui.js?security-regression=52');
+    const ui = await import('/src/core/ui.js?security-regression=54');
     const hostileUrls = [
       'javascript:alert(1)',
       'java\nscript:alert(1)',
