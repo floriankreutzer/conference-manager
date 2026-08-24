@@ -27,17 +27,34 @@ const STORAGE_LIMITS = Object.freeze({
   [KEYS.role]: 32,
 });
 
+const PRODUCTION_AUTHORITATIVE_KEYS = new Set([
+  KEYS.requests,
+  KEYS.catalog,
+  KEYS.siteInfo,
+  KEYS.role,
+  KEYS.notifications,
+  KEYS.profile,
+]);
 const DEFAULT_JSON_LIMIT = 500_000;
 const DEFAULT_STRING_LIMIT = 10_000;
 const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
-export { KEYS, STORAGE_LIMITS };
+export { KEYS, STORAGE_LIMITS, PRODUCTION_AUTHORITATIVE_KEYS };
 
 export class RepositoryWriteError extends Error {
   constructor(key) {
     super('REPOSITORY_WRITE_FAILED');
     this.name = 'RepositoryWriteError';
     this.code = 'REPOSITORY_WRITE_FAILED';
+    this.key = key;
+  }
+}
+
+export class ProductionBrowserPersistenceError extends Error {
+  constructor(key) {
+    super('PRODUCTION_BROWSER_PERSISTENCE_BLOCKED');
+    this.name = 'ProductionBrowserPersistenceError';
+    this.code = 'PRODUCTION_BROWSER_PERSISTENCE_BLOCKED';
     this.key = key;
   }
 }
@@ -56,6 +73,15 @@ function isDemoRoleKey(key) {
 
 function canUseDemoRoleStorage() {
   return runtimeModeFromDocument() === RUNTIME_MODE.DEMO;
+}
+
+function assertBrowserPersistenceAllowed(key) {
+  if (
+    PRODUCTION_AUTHORITATIVE_KEYS.has(key)
+    && runtimeModeFromDocument() === RUNTIME_MODE.PRODUCTION
+  ) {
+    throw new ProductionBrowserPersistenceError(key);
+  }
 }
 
 function notifyStorageIssue(key, reason) {
@@ -84,6 +110,7 @@ function safeJsonStringify(value) {
 }
 
 export function readJson(key, fallback) {
+  assertBrowserPersistenceAllowed(key);
   try {
     const raw = localStorage.getItem(key);
     if (raw === null) return cloneFallback(fallback);
@@ -92,13 +119,15 @@ export function readJson(key, fallback) {
       return cloneFallback(fallback);
     }
     return sanitizeJsonValue(JSON.parse(raw));
-  } catch {
+  } catch (error) {
+    if (error instanceof ProductionBrowserPersistenceError) throw error;
     notifyStorageIssue(key, 'invalid-json');
     return cloneFallback(fallback);
   }
 }
 
 export function writeJson(key, value) {
+  assertBrowserPersistenceAllowed(key);
   try {
     const serialized = safeJsonStringify(value);
     if (serialized.length > storageLimit(key)) {
@@ -107,13 +136,15 @@ export function writeJson(key, value) {
     }
     localStorage.setItem(key, serialized);
     return true;
-  } catch {
+  } catch (error) {
+    if (error instanceof ProductionBrowserPersistenceError) throw error;
     notifyStorageIssue(key, 'write-failed');
     return false;
   }
 }
 
 export function remove(key) {
+  assertBrowserPersistenceAllowed(key);
   try {
     localStorage.removeItem(key);
     return true;
@@ -123,6 +154,7 @@ export function remove(key) {
 }
 
 export function readString(key, fallback = '') {
+  assertBrowserPersistenceAllowed(key);
   if (isDemoRoleKey(key) && !canUseDemoRoleStorage()) return USER_ROLE.EMPLOYEE;
 
   try {
@@ -139,6 +171,7 @@ export function readString(key, fallback = '') {
 }
 
 export function writeString(key, value) {
+  assertBrowserPersistenceAllowed(key);
   if (isDemoRoleKey(key) && !canUseDemoRoleStorage()) {
     notifyStorageIssue(key, 'production-role-write-blocked');
     return false;
