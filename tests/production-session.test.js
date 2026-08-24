@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   PRODUCTION_AUTH_STATUS,
   ProductionSessionError,
+  bootstrapProductionAuthentication,
   createProductionSessionRuntime,
   validateProductionSession,
 } from '../src/platform/production-session.js';
@@ -143,4 +144,27 @@ test('production session runtime distinguishes signed-out from unavailable and n
   );
   assert.equal(unavailable.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
   assert.equal(unavailable.currentSession(), null);
+});
+
+test('production bootstrap converts insecure transport or session failures into a non-authoritative unavailable state', async () => {
+  const insecure = await bootstrapProductionAuthentication({
+    origin: 'http://conference.example',
+    fetchImpl: async () => {
+      throw new Error('FETCH_MUST_NOT_RUN');
+    },
+    clock: () => NOW,
+  });
+  assert.equal(insecure.status, PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+  assert.equal(insecure.session, null);
+  assert.equal(insecure.runtime, null);
+
+  const unavailable = await bootstrapProductionAuthentication({
+    origin: 'https://conference.example',
+    fetchImpl: async () => new Response(null, { status: 503 }),
+    clock: () => NOW,
+  });
+  assert.equal(unavailable.status, PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+  assert.equal(unavailable.session, null);
+  assert.ok(unavailable.runtime);
+  assert.equal(unavailable.runtime.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
 });
