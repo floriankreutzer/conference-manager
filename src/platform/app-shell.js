@@ -4,7 +4,7 @@ import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { kpi } from '../shared/application-presentation.js';
 import { notificationText } from '../shared/notifications.js';
 
-export function createAppShell({ context, employee, manager }) {
+export function createAppShell({ context, employee, manager, tenantAdmin = null }) {
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');
   const titleRoot = document.getElementById('viewTitle');
@@ -18,6 +18,7 @@ export function createAppShell({ context, employee, manager }) {
 
   function setView(nextView) {
     if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
+    if (nextView === 'tenantAdmin' && (!context.isTenantAdmin() || !tenantAdmin)) nextView = 'welcome';
     view = nextView;
     render();
     requestAnimationFrame(() => titleRoot?.focus());
@@ -47,6 +48,7 @@ export function createAppShell({ context, employee, manager }) {
       navButton('nav.myRequests', 'requests'),
     );
     if (context.isManager()) list.append(navButton('nav.manager', 'manager'));
+    if (context.isTenantAdmin() && tenantAdmin) list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
     const initials = context.initials();
     const fullName = context.fullName();
     const profileButton = button(initials ? `${initials} · ${t('nav.profile')}` : t('nav.profile'), {
@@ -158,13 +160,20 @@ export function createAppShell({ context, employee, manager }) {
     appRoot.append(hero, overview, nextSection, how, notifications);
   }
 
+  function profileRoleLabel() {
+    const roles = [t('profile.role.employee')];
+    if (context.isManager()) roles.push(t('profile.role.manager'));
+    if (context.isTenantAdmin()) roles.push(t('profile.role.tenantAdmin'));
+    return roles.join(' · ');
+  }
+
   function openProfile() {
     const content = el('section', { className: 'profile-content' });
     const dl = el('dl', { className: 'details-list' });
     [
       [t('profile.first'), context.profile.firstName],
       [t('profile.last'), context.profile.lastName],
-      [t('profile.role'), context.isManager() ? t('profile.role.manager') : t('profile.role.employee')],
+      [t('profile.role'), profileRoleLabel()],
     ].forEach(([term, value]) => dl.append(el('dt', { text: term }), el('dd', { text: value })));
     content.appendChild(dl);
 
@@ -213,6 +222,7 @@ export function createAppShell({ context, employee, manager }) {
     languageSelect.addEventListener('change', () => {
       setLanguage(languageSelect.value);
       dialog.close();
+      render();
     });
     roleSelect?.addEventListener('change', () => {
       context.setRole(roleSelect.value);
@@ -263,6 +273,7 @@ export function createAppShell({ context, employee, manager }) {
     else if (view === 'employee') employee.renderRequest();
     else if (view === 'requests') employee.renderRequests();
     else if (view === 'manager') manager.renderManager();
+    else if (view === 'tenantAdmin') tenantAdmin?.render();
   }
 
   return {
