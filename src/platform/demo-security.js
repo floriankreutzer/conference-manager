@@ -20,14 +20,14 @@ function messages() {
 }
 
 function normalizeDemoState() {
+  if (runtimeMode !== RUNTIME_MODE.DEMO) return;
+
   const currentLanguage = readString(KEYS.language, SUPPORTED_LANGUAGE.DE);
   const safeLanguage = normalizeLanguage(currentLanguage);
   if (safeLanguage !== currentLanguage) writeString(KEYS.language, safeLanguage);
 
   const currentRole = readString(KEYS.role, USER_ROLE.EMPLOYEE);
-  const safeRole = runtimeMode === RUNTIME_MODE.DEMO
-    ? normalizeDemoRole(currentRole)
-    : USER_ROLE.EMPLOYEE;
+  const safeRole = normalizeDemoRole(currentRole);
   if (safeRole !== currentRole) writeString(KEYS.role, safeRole);
 }
 
