@@ -194,6 +194,7 @@ export function createAppShell({ context, employee, manager, tenantAdmin = null 
       roleSelect.append(
         el('option', { value: 'employee', text: t('profile.role.employee') }),
         el('option', { value: 'manager', text: t('profile.role.manager') }),
+        el('option', { value: 'tenant_admin', text: t('profile.role.tenantAdmin') }),
       );
       roleSelect.value = context.role();
       content.appendChild(field({
@@ -228,6 +229,7 @@ export function createAppShell({ context, employee, manager, tenantAdmin = null 
       context.setRole(roleSelect.value);
       dialog.close();
       if (!context.isManager() && view === 'manager') view = 'welcome';
+      if (!context.isTenantAdmin() && view === 'tenantAdmin') view = 'welcome';
       render();
     });
   }
