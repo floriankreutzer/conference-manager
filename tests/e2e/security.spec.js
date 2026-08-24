@@ -43,7 +43,9 @@ test('manipulated demo role values are normalized before application rendering',
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
 });
 
-test('production runtime ignores manipulated local manager roles and blocks demo-role writes', async ({ page }) => {
+test('production runtime ignores manipulated local manager roles and blocks demo-role storage access', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.route('**/*', async (route) => {
     if (route.request().resourceType() !== 'document') {
       await route.continue();
@@ -70,22 +72,33 @@ test('production runtime ignores manipulated local manager roles and blocks demo
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
 
   const roleBoundary = await page.evaluate(async () => {
-    const storage = await import('/src/core/storage.js?production-role-regression=54');
+    const storage = await import('/src/core/storage.js?production-role-regression=56');
     const rawBefore = localStorage.getItem(storage.KEYS.role);
-    const resolved = storage.readString(storage.KEYS.role, 'employee');
-    const writeAccepted = storage.writeString(storage.KEYS.role, 'manager');
+    let readCode = null;
+    let writeCode = null;
+    try {
+      storage.readString(storage.KEYS.role, 'employee');
+    } catch (error) {
+      readCode = error?.code || error?.message || null;
+    }
+    try {
+      storage.writeString(storage.KEYS.role, 'manager');
+    } catch (error) {
+      writeCode = error?.code || error?.message || null;
+    }
     return {
       rawBefore,
-      resolved,
-      writeAccepted,
+      readCode,
+      writeCode,
       rawAfter: localStorage.getItem(storage.KEYS.role),
     };
   });
 
   expect(roleBoundary.rawBefore).toBe('manager');
-  expect(roleBoundary.resolved).toBe('employee');
-  expect(roleBoundary.writeAccepted).toBe(false);
+  expect(roleBoundary.readCode).toBe('PRODUCTION_BROWSER_PERSISTENCE_BLOCKED');
+  expect(roleBoundary.writeCode).toBe('PRODUCTION_BROWSER_PERSISTENCE_BLOCKED');
   expect(roleBoundary.rawAfter).toBe('manager');
+  expect(pageErrors).toEqual([]);
 });
 
 test('stored user-controlled text is rendered as text across an XSS fuzz corpus', async ({ page }) => {
