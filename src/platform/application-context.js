@@ -24,6 +24,7 @@ const EMPTY_CATALOG = Object.freeze({
 const EMPTY_SITE_INFO = Object.freeze({});
 const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
+const DEMO_CURRENT_USER_ID = 'demo-current-user';
 const PRODUCTION_CONFERENCE_MANAGER_ROLE = 'conference_manager';
 const PRODUCTION_TENANT_ADMIN_ROLE = 'tenant_admin';
 
@@ -51,7 +52,7 @@ export function createApplicationContext({ productionSession = null } = {}) {
       return isDemo;
     },
     userId() {
-      return isDemo ? '' : (productionSession?.userId || '');
+      return isDemo ? DEMO_CURRENT_USER_ID : (productionSession?.userId || '');
     },
     getCatalog() {
       return catalog;
@@ -84,7 +85,9 @@ export function createApplicationContext({ productionSession = null } = {}) {
         : productionRoles.has(PRODUCTION_CONFERENCE_MANAGER_ROLE);
     },
     isTenantAdmin() {
-      return !isDemo && productionRoles.has(PRODUCTION_TENANT_ADMIN_ROLE);
+      return isDemo
+        ? readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN
+        : productionRoles.has(PRODUCTION_TENANT_ADMIN_ROLE);
     },
     setRole(value) {
       return isDemo ? writeString(KEYS.role, value) : false;
