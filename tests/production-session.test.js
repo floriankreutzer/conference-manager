@@ -78,9 +78,30 @@ test('production session validation fails closed for expired or malformed author
 
   assert.throws(
     () => validateProductionSession(sessionPayload({
+      session: { expiresAt: '2026-08-25T20:00:00+02:00' },
+    }), { clock: () => NOW }),
+    (error) => error instanceof ProductionSessionError && error.code === 'SESSION_EXPIRED',
+  );
+
+  assert.throws(
+    () => validateProductionSession(sessionPayload({
       tenant: { id: 'browser-selected-tenant', status: 'active' },
     }), { clock: () => NOW }),
     (error) => error instanceof ProductionSessionError && error.code === 'SESSION_INVALID',
+  );
+
+  assert.throws(
+    () => validateProductionSession(sessionPayload({
+      tenant: { id: TENANT_ID, status: 'suspended' },
+    }), { clock: () => NOW }),
+    (error) => error instanceof ProductionSessionError && error.code === 'SESSION_TENANT_INVALID',
+  );
+
+  assert.throws(
+    () => validateProductionSession(sessionPayload({
+      tenant: { id: TENANT_ID, status: 'browser-forged' },
+    }), { clock: () => NOW }),
+    (error) => error instanceof ProductionSessionError && error.code === 'SESSION_TENANT_INVALID',
   );
 
   assert.throws(
