@@ -93,8 +93,9 @@ export function createTenantAdminApplication({
     const baseline = el('p', { className: 'tenant-user-baseline', text: t('tenantAdmin.users.employeeBaseline') });
     const roles = el('fieldset', {
       className: 'tenant-role-fieldset',
-      attrs: { disabled: self ? '' : undefined, 'aria-describedby': statusId },
+      attrs: { 'aria-describedby': statusId },
     });
+    roles.disabled = self;
     roles.appendChild(el('legend', { text: t('tenantAdmin.users.elevatedRoles') }));
 
     const conferenceManager = checkbox({
@@ -146,15 +147,15 @@ export function createTenantAdminApplication({
         rerender();
       } catch (error) {
         const key = roleUpdateErrorKey(error?.code);
-        message.textContent = t(key);
-        announce(t(key), { assertive: true });
         Object.values(controls).forEach((control) => {
           const role = control === controls.conferenceManager
             ? TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER
             : TENANT_ELEVATED_ROLE.TENANT_ADMIN;
           control.disabled = !canSelectRole(user, role);
         });
-        updateSaveState();
+        save.disabled = sameRoleSelection(originalRoles, currentSelection(controls));
+        message.textContent = t(key);
+        announce(t(key), { assertive: true });
         save.focus();
       }
     });
