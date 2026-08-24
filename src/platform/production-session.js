@@ -224,3 +224,22 @@ export function createProductionSessionRuntime({
     },
   });
 }
+
+export async function bootstrapProductionAuthentication(options = {}) {
+  let runtime = null;
+  try {
+    runtime = createProductionSessionRuntime(options);
+    const result = await runtime.bootstrap();
+    return Object.freeze({
+      status: result.status,
+      session: result.session,
+      runtime,
+    });
+  } catch {
+    return Object.freeze({
+      status: PRODUCTION_AUTH_STATUS.UNAVAILABLE,
+      session: null,
+      runtime,
+    });
+  }
+}
