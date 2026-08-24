@@ -4,9 +4,12 @@ import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell } from './platform/app-shell.js';
 import { createProductionSessionRuntime } from './platform/production-session.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
-import { createTenantAdminApplication } from './tenant-admin/index.js';
+import {
+  createDemoTenantUserAdministration,
+  createTenantAdminApplication,
+} from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.24.61';
+const APP_BUILD = '2026.08.24.62';
 const appRoot = document.getElementById('app');
 let productionRuntime = null;
 try {
@@ -31,12 +34,20 @@ const manager = createManagerApplication({
   setPageHeading,
   onNavigationRefresh: () => shell.renderNavigation(),
 });
-const tenantAdmin = context.isTenantAdmin() && productionRuntime
+const tenantUserAdministration = context.isDemoRuntime()
+  ? createDemoTenantUserAdministration({
+    currentUserId: context.userId(),
+    currentDisplayName: context.fullName(),
+  })
+  : (context.isTenantAdmin() && productionRuntime
+    ? createTenantUserAdministrationApi({ apiClient: productionRuntime.apiClient })
+    : null);
+const tenantAdmin = tenantUserAdministration
   ? createTenantAdminApplication({
     context,
     appRoot,
     setPageHeading,
-    userAdministration: createTenantUserAdministrationApi({ apiClient: productionRuntime.apiClient }),
+    userAdministration: tenantUserAdministration,
   })
   : null;
 
