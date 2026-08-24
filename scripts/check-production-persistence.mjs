@@ -65,12 +65,16 @@ for (const required of [
   "const SESSION_PATH = 'v1/session';",
   "const LOGIN_PATH = '/api/v1/auth/microsoft/login';",
   "const APPLICATION_ROOT = '/';",
+  'const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;',
   'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
   'PRODUCTION_TENANT_ROLE.TENANT_ADMIN',
   'PRODUCTION_PERMISSION.REQUEST_MANAGE',
   'PRODUCTION_PERMISSION.TENANT_USERS_MANAGE',
   'roles[0] !== PRODUCTION_TENANT_ROLE.EMPLOYEE',
   'csrfTokenProvider: () => currentSession?.csrfToken || null',
+  'controller.abort();',
+  'signal: controller.signal',
+  'SESSION_REQUEST_TIMEOUT',
   "apiClient.request(SESSION_PATH, { method: 'DELETE' })",
   'bootstrapProductionAuthentication',
   'status: PRODUCTION_AUTH_STATUS.UNAVAILABLE',
@@ -147,6 +151,14 @@ const bootstrapFunctionStart = app.indexOf('async function bootstrap()');
 const awaitedContext = app.indexOf('const context = await createApplicationContext();');
 if (bootstrapFunctionStart < 0 || awaitedContext < bootstrapFunctionStart) {
   throw new Error('Application Context await must remain inside the async bootstrap function.');
+}
+
+const index = await readFile('index.html', 'utf8');
+const appBuild = app.match(/const APP_BUILD = '(\d{4})\.(\d{2})\.(\d{2})\.(\d{2})';/);
+if (!appBuild) throw new Error('Application build marker must use the canonical dotted revision format.');
+const appRevision = `${appBuild[1]}${appBuild[2]}${appBuild[3]}-${appBuild[4]}`;
+if (!index.includes(`./src/app.js?v=${appRevision}`)) {
+  throw new Error(`index.html must load the current versioned app entry: ${appRevision}.`);
 }
 
 const appShell = await readFile('src/platform/app-shell.js', 'utf8');
