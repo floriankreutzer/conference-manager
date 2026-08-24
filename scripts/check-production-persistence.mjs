@@ -41,7 +41,7 @@ if (/catch\s*\([^)]*\)\s*\{[^}]*createDemoRepositories/s.test(runtime)) {
 }
 
 const identity = await readFile('src/platform/identity-bootstrap.js', 'utf8');
-if (!identity.includes("runtimeModeFromDocument(document) !== RUNTIME_MODE.DEMO) return;") {
+if (!identity.includes('runtimeModeFromDocument(document) !== RUNTIME_MODE.DEMO) return;')) {
   throw new Error('Identity bootstrap must not read or seed browser profile state in production.');
 }
 
