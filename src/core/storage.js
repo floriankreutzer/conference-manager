@@ -16,6 +16,14 @@ const KEYS = Object.freeze({
   profile: 'conference_user_profile_v1',
 });
 
+const AUTHORITATIVE_PRODUCTION_KEYS = new Set([
+  KEYS.requests,
+  KEYS.catalog,
+  KEYS.siteInfo,
+  KEYS.notifications,
+  KEYS.profile,
+]);
+
 const STORAGE_LIMITS = Object.freeze({
   [KEYS.requests]: 1_500_000,
   [KEYS.catalog]: 1_500_000,
@@ -31,13 +39,22 @@ const DEFAULT_JSON_LIMIT = 500_000;
 const DEFAULT_STRING_LIMIT = 10_000;
 const BLOCKED_OBJECT_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
-export { KEYS, STORAGE_LIMITS };
+export { AUTHORITATIVE_PRODUCTION_KEYS, KEYS, STORAGE_LIMITS };
 
 export class RepositoryWriteError extends Error {
   constructor(key) {
     super('REPOSITORY_WRITE_FAILED');
     this.name = 'RepositoryWriteError';
     this.code = 'REPOSITORY_WRITE_FAILED';
+    this.key = key;
+  }
+}
+
+export class ProductionStorageAccessError extends Error {
+  constructor(key) {
+    super('PRODUCTION_BROWSER_STORAGE_FORBIDDEN');
+    this.name = 'ProductionStorageAccessError';
+    this.code = 'PRODUCTION_BROWSER_STORAGE_FORBIDDEN';
     this.key = key;
   }
 }
@@ -56,6 +73,15 @@ function isDemoRoleKey(key) {
 
 function canUseDemoRoleStorage() {
   return runtimeModeFromDocument() === RUNTIME_MODE.DEMO;
+}
+
+function assertBrowserStorageAllowed(key) {
+  if (
+    runtimeModeFromDocument() === RUNTIME_MODE.PRODUCTION
+    && AUTHORITATIVE_PRODUCTION_KEYS.has(key)
+  ) {
+    throw new ProductionStorageAccessError(key);
+  }
 }
 
 function notifyStorageIssue(key, reason) {
@@ -84,6 +110,7 @@ function safeJsonStringify(value) {
 }
 
 export function readJson(key, fallback) {
+  assertBrowserStorageAllowed(key);
   try {
     const raw = localStorage.getItem(key);
     if (raw === null) return cloneFallback(fallback);
@@ -99,6 +126,7 @@ export function readJson(key, fallback) {
 }
 
 export function writeJson(key, value) {
+  assertBrowserStorageAllowed(key);
   try {
     const serialized = safeJsonStringify(value);
     if (serialized.length > storageLimit(key)) {
@@ -114,6 +142,7 @@ export function writeJson(key, value) {
 }
 
 export function remove(key) {
+  assertBrowserStorageAllowed(key);
   try {
     localStorage.removeItem(key);
     return true;
