@@ -1,4 +1,5 @@
 import { t } from '../core/i18n.js';
+import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 import {
   captureEmployeeIdentityPresentation,
   decorateEmployeeParity,
@@ -26,12 +27,15 @@ import {
 } from '../manager/index.js';
 import { ensureParityCatalog } from '../shared/parity-data.js';
 
+const runtimeMode = runtimeModeFromDocument(document);
 let syncFrame = 0;
 let restoreInProgress = false;
-const initialReturnMarker = sessionStorage.getItem(PARITY_RETURN_KEY);
+const initialReturnMarker = runtimeMode === RUNTIME_MODE.DEMO
+  ? sessionStorage.getItem(PARITY_RETURN_KEY)
+  : null;
 
 function scheduleSync() {
-  if (syncFrame) return;
+  if (runtimeMode !== RUNTIME_MODE.DEMO || syncFrame) return;
   syncFrame = requestAnimationFrame(() => {
     syncFrame = 0;
     sync();
@@ -90,6 +94,7 @@ function ensureReportInsightsHeading() {
 }
 
 function sync() {
+  if (runtimeMode !== RUNTIME_MODE.DEMO) return;
   restoreManagerPosition();
   decorateEmployeeParity();
   enhanceEmployeeUx();
@@ -112,7 +117,7 @@ function sync() {
 }
 
 function handleFeatureClick(event) {
-  if (!(event.target instanceof Element)) return;
+  if (runtimeMode !== RUNTIME_MODE.DEMO || !(event.target instanceof Element)) return;
 
   handleManagerUxClick(event);
   handleManagerOperationalClick(event);
@@ -136,13 +141,15 @@ function handleFeatureClick(event) {
   scheduleSync();
 }
 
-document.addEventListener('click', handleFeatureClick, true);
-['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSync));
-window.addEventListener('conference-language-changed', scheduleSync);
-window.addEventListener('conference:manager-sync-request', scheduleSync);
-window.addEventListener('resize', scheduleSync, { passive: true });
-window.addEventListener('load', scheduleSync, { once: true });
+if (runtimeMode === RUNTIME_MODE.DEMO) {
+  document.addEventListener('click', handleFeatureClick, true);
+  ['change', 'input'].forEach((eventName) => document.addEventListener(eventName, scheduleSync));
+  window.addEventListener('conference-language-changed', scheduleSync);
+  window.addEventListener('conference:manager-sync-request', scheduleSync);
+  window.addEventListener('resize', scheduleSync, { passive: true });
+  window.addEventListener('load', scheduleSync, { once: true });
 
-ensureParityCatalog();
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSync, { once: true });
-else scheduleSync();
+  ensureParityCatalog();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', scheduleSync, { once: true });
+  else scheduleSync();
+}

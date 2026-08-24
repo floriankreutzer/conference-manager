@@ -28,8 +28,13 @@ async function expectContainedInViewport(page, selector) {
   expect(box.width).toBeLessThanOrEqual(viewport.width + 1);
 }
 
+async function expectDemoEnhancementsReady(page) {
+  await expect(page.locator('html')).toHaveAttribute('data-feature-parity-build', '2026.08.23.47');
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
+  await expectDemoEnhancementsReady(page);
 });
 
 test('welcome and global navigation use the same contained responsive layout', async ({ page }) => {

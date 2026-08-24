@@ -21,13 +21,15 @@ test.beforeEach(async ({ page }) => {
 
 test('first-use hierarchy is personalized and marked end-user ready', async ({ page }) => {
   await expect(page.locator('meta[name="conference-end-user-readiness"]')).toHaveAttribute('content', 'ready');
-  await expect(page.locator('html')).toHaveAttribute('data-identity-bootstrap-build', '2026.08.23.02');
+  await expect(page.locator('html')).toHaveAttribute('data-identity-bootstrap-build', '2026.08.24.01');
   await expect(page.locator('#viewTitle')).toHaveText('Start');
   await expect(page.locator('#welcomeHeading')).toHaveText('Willkommen, Florian.');
   await expect(page.locator('#primaryNavigation button[data-view="employee"]')).toHaveText('Neue Konferenz');
 });
 
 test('production presentation never inherits the demo identity or demo controls', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.route('**/*', async (route) => {
     if (route.request().resourceType() !== 'document') {
       await route.continue();
@@ -49,8 +51,15 @@ test('production presentation never inherits the demo identity or demo controls'
   await expect(page.locator('[data-demo-security]')).toHaveCount(0);
   await expect(page.locator('#sidebarFooter')).toBeHidden();
   await expect(page.locator('#welcomeHeading')).toHaveText('Willkommen');
-  await expect(page.locator('#primaryNavigation button[aria-haspopup="dialog"]')).toHaveText('Profil');
+  const profileButton = page.locator('#primaryNavigation button[aria-haspopup="dialog"]');
+  await expect(profileButton).toHaveText('Profil');
   await expect(page.locator('body')).not.toContainText('Florian Kreutzer');
+
+  await profileButton.click();
+  await expect(page.locator('dialog')).toBeVisible();
+  await expect(page.locator('#profileRole')).toHaveCount(0);
+  await page.locator('dialog button.primary').click();
+  expect(pageErrors).toEqual([]);
 });
 
 test('step-one primary action is full-width on mobile without changing desktop flow', async ({ page }, testInfo) => {

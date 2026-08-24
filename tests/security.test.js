@@ -21,8 +21,10 @@ function setRuntime(value) {
 }
 
 globalThis.localStorage = new MemoryStorage();
-setRuntime('production');
+setRuntime('demo');
 const storage = await import('../src/core/storage.js?security-regression');
+
+test.afterEach(() => setRuntime('demo'));
 
 test('stored JSON drops prototype-pollution keys', () => {
   localStorage.clear();
@@ -49,7 +51,6 @@ test('oversized writes fail closed without replacing valid state', () => {
 });
 
 test('role and language string limits reject corrupted values', () => {
-  setRuntime('demo');
   localStorage.clear();
   localStorage.setItem(storage.KEYS.role, 'manager'.repeat(20));
   localStorage.setItem(storage.KEYS.language, 'de'.repeat(30));
@@ -57,19 +58,25 @@ test('role and language string limits reject corrupted values', () => {
   assert.equal(storage.readString(storage.KEYS.language, 'de'), 'de');
 });
 
-test('production ignores a manipulated local manager role and blocks role writes', () => {
+test('production blocks manipulated local manager role reads and writes', () => {
   setRuntime('production');
   localStorage.clear();
   localStorage.setItem(storage.KEYS.role, 'manager');
 
-  assert.equal(storage.readString(storage.KEYS.role, 'employee'), 'employee');
-  assert.equal(storage.writeString(storage.KEYS.role, 'manager'), false);
+  assert.throws(
+    () => storage.readString(storage.KEYS.role, 'employee'),
+    (error) => error instanceof storage.ProductionBrowserPersistenceError
+      && error.code === 'PRODUCTION_BROWSER_PERSISTENCE_BLOCKED',
+  );
+  assert.throws(
+    () => storage.writeString(storage.KEYS.role, 'manager'),
+    (error) => error instanceof storage.ProductionBrowserPersistenceError
+      && error.code === 'PRODUCTION_BROWSER_PERSISTENCE_BLOCKED',
+  );
   assert.equal(localStorage.getItem(storage.KEYS.role), 'manager');
-  assert.equal(storage.readString(storage.KEYS.role, 'employee'), 'employee');
 });
 
 test('demo role storage remains available but allowlisted', () => {
-  setRuntime('demo');
   localStorage.clear();
 
   assert.equal(storage.writeString(storage.KEYS.role, 'manager'), true);
