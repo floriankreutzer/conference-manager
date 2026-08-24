@@ -21,7 +21,7 @@ function setRuntime(value) {
 }
 
 globalThis.localStorage = new MemoryStorage();
-setRuntime('production');
+setRuntime('demo');
 const storage = await import('../src/core/storage.js?security-regression');
 
 test('stored JSON drops prototype-pollution keys', () => {
