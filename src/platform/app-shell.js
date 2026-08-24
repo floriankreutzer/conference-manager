@@ -2,7 +2,7 @@ import { REQUEST_STATUS, localTodayIso } from '../core/domain.js';
 import { formatDate, formatDateTime, language, setLanguage, t } from '../core/i18n.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { kpi } from '../shared/application-presentation.js';
-import { notificationText, recentNotifications } from '../shared/notifications.js';
+import { notificationText } from '../shared/notifications.js';
 
 export function createAppShell({ context, employee, manager }) {
   const appRoot = document.getElementById('app');
@@ -47,18 +47,20 @@ export function createAppShell({ context, employee, manager }) {
       navButton('nav.myRequests', 'requests'),
     );
     if (context.isManager()) list.append(navButton('nav.manager', 'manager'));
-    const profileButton = button(`${context.initials()} · ${t('nav.profile')}`, {
+    const initials = context.initials();
+    const fullName = context.fullName();
+    const profileButton = button(initials ? `${initials} · ${t('nav.profile')}` : t('nav.profile'), {
       className: 'nav-item',
       attrs: {
         'aria-haspopup': 'dialog',
-        'aria-label': t('a11y.loggedIn', { name: context.fullName() }),
+        'aria-label': fullName ? t('a11y.loggedIn', { name: fullName }) : t('nav.profile'),
       },
     });
     profileButton.addEventListener('click', openProfile);
     list.append(el('li', {}, profileButton));
     navigationRoot.appendChild(list);
     navigationRoot.setAttribute('aria-label', t('a11y.mainNav'));
-    document.getElementById('sidebarFooter').textContent = t('app.mvp');
+    document.getElementById('sidebarFooter').textContent = context.isDemoRuntime() ? t('app.mvp') : '';
   }
 
   function renderWelcome() {
@@ -75,11 +77,15 @@ export function createAppShell({ context, employee, manager }) {
     );
     const next = [...upcoming]
       .sort((left, right) => `${left.date}${left.start}`.localeCompare(`${right.date}${right.start}`))[0];
+    const firstName = String(context.profile.firstName || '').trim();
 
     const hero = el('section', { className: 'welcome-hero', attrs: { 'aria-labelledby': 'welcomeHeading' } });
     hero.append(
       el('p', { className: 'eyebrow', text: t('app.title') }),
-      el('h2', { id: 'welcomeHeading', text: t('welcome.greeting', { name: context.profile.firstName }) }),
+      el('h2', {
+        id: 'welcomeHeading',
+        text: firstName ? t('welcome.greeting', { name: firstName }) : t('nav.welcome'),
+      }),
       el('p', { text: t('welcome.subtitle') }),
     );
     const heroActions = el('div', { className: 'button-row' });
@@ -135,7 +141,7 @@ export function createAppShell({ context, employee, manager }) {
     const notifications = el('section', { className: 'card' }, [
       el('h3', { text: t('welcome.notifications') }),
     ]);
-    const notificationList = recentNotifications(4);
+    const notificationList = context.notifications(4);
     if (!notificationList.length) {
       notifications.appendChild(el('p', { className: 'muted', text: t('welcome.noNotifications') }));
     } else {
@@ -173,18 +179,21 @@ export function createAppShell({ context, employee, manager }) {
       hint: t('profile.languageNote'),
     }));
 
-    const roleSelect = el('select');
-    roleSelect.append(
-      el('option', { value: 'employee', text: t('profile.role.employee') }),
-      el('option', { value: 'manager', text: t('profile.role.manager') }),
-    );
-    roleSelect.value = context.role();
-    content.appendChild(field({
-      id: 'profileRole',
-      label: t('profile.demo'),
-      control: roleSelect,
-      hint: t('profile.demoNote'),
-    }));
+    let roleSelect = null;
+    if (context.canSwitchRole()) {
+      roleSelect = el('select');
+      roleSelect.append(
+        el('option', { value: 'employee', text: t('profile.role.employee') }),
+        el('option', { value: 'manager', text: t('profile.role.manager') }),
+      );
+      roleSelect.value = context.role();
+      content.appendChild(field({
+        id: 'profileRole',
+        label: t('profile.demo'),
+        control: roleSelect,
+        hint: t('profile.demoNote'),
+      }));
+    }
 
     const help = button(t('profile.help'));
     const logout = button(t('profile.logout'), { className: 'danger' });
@@ -205,7 +214,7 @@ export function createAppShell({ context, employee, manager }) {
       setLanguage(languageSelect.value);
       dialog.close();
     });
-    roleSelect.addEventListener('change', () => {
+    roleSelect?.addEventListener('change', () => {
       context.setRole(roleSelect.value);
       dialog.close();
       if (!context.isManager() && view === 'manager') view = 'welcome';
