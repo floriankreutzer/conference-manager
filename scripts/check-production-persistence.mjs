@@ -124,8 +124,10 @@ for (const required of [
 const app = await readFile('src/app.js', 'utf8');
 for (const required of [
   "from './platform/application-context.js'",
+  'async function bootstrap()',
   'const context = await createApplicationContext();',
   'authentication: context.authenticationRuntime()',
+  'void bootstrap();',
 ]) {
   if (!app.includes(required)) {
     throw new Error(`Production application bootstrap is missing ${required}.`);
@@ -135,10 +137,16 @@ for (const forbidden of [
   "from './core/security-policy.js'",
   "from './platform/production-session.js'",
   'bootstrapProductionAuthentication()',
+  'const context = await createApplicationContext();\nlet shell;',
 ]) {
   if (app.includes(forbidden)) {
-    throw new Error(`Composition Root must keep production authentication behind Platform contracts: ${forbidden}.`);
+    throw new Error(`Composition Root production bootstrap boundary is invalid: ${forbidden}.`);
   }
+}
+const bootstrapFunctionStart = app.indexOf('async function bootstrap()');
+const awaitedContext = app.indexOf('const context = await createApplicationContext();');
+if (bootstrapFunctionStart < 0 || awaitedContext < bootstrapFunctionStart) {
+  throw new Error('Application Context await must remain inside the async bootstrap function.');
 }
 
 const appShell = await readFile('src/platform/app-shell.js', 'utf8');
