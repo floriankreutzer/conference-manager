@@ -38,9 +38,19 @@ test('explicit demo runtime is read from document metadata', () => {
 
 test('demo role and language values are allowlisted', () => {
   assert.equal(normalizeDemoRole(USER_ROLE.MANAGER), USER_ROLE.MANAGER);
+  assert.equal(normalizeDemoRole(USER_ROLE.TENANT_ADMIN), USER_ROLE.TENANT_ADMIN);
   assert.equal(normalizeDemoRole('administrator'), USER_ROLE.EMPLOYEE);
   assert.equal(normalizeLanguage('en'), 'en');
   assert.equal(normalizeLanguage('fr'), 'de');
+});
+
+test('demo Tenant Admin does not implicitly gain Conference Manager access', () => {
+  const context = {
+    mode: RUNTIME_MODE.DEMO,
+    demoRole: USER_ROLE.TENANT_ADMIN,
+  };
+  assert.equal(resolveRole(context), USER_ROLE.TENANT_ADMIN);
+  assert.equal(canAccessManager(context), false);
 });
 
 test('production role never trusts demo storage', () => {
