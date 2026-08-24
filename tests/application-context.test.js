@@ -1,11 +1,31 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createApplicationContextFromState } from '../src/platform/application-context.js';
 import { PRODUCTION_AUTH_STATUS } from '../src/platform/production-session.js';
+
+const previousDocumentAtImport = globalThis.document;
+const previousLocalStorageAtImport = globalThis.localStorage;
+globalThis.document = {
+  documentElement: { lang: 'de' },
+  querySelector(selector) {
+    if (selector !== 'meta[name="conference-runtime"]') return null;
+    return { getAttribute: () => 'production' };
+  },
+};
+globalThis.localStorage = {
+  getItem() { return null; },
+  setItem() {},
+  removeItem() {},
+};
+const { createApplicationContextFromState } = await import('../src/platform/application-context.js');
+if (previousDocumentAtImport === undefined) delete globalThis.document;
+else globalThis.document = previousDocumentAtImport;
+if (previousLocalStorageAtImport === undefined) delete globalThis.localStorage;
+else globalThis.localStorage = previousLocalStorageAtImport;
 
 function withProductionDocument(run) {
   const previousDocument = globalThis.document;
   globalThis.document = {
+    documentElement: { lang: 'de' },
     querySelector(selector) {
       if (selector !== 'meta[name="conference-runtime"]') return null;
       return { getAttribute: () => 'production' };
