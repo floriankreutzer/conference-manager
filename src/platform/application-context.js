@@ -17,6 +17,7 @@ import {
   PRODUCTION_AUTH_STATUS,
   PRODUCTION_PERMISSION,
   PRODUCTION_TENANT_ROLE,
+  bootstrapProductionAuthentication,
 } from './production-session.js';
 
 const EMPTY_PROFILE = Object.freeze({ firstName: '', lastName: '' });
@@ -35,9 +36,10 @@ function normalizedProductionAuthenticationStatus(value) {
   return PRODUCTION_AUTH_STATUSES.has(value) ? value : PRODUCTION_AUTH_STATUS.UNAVAILABLE;
 }
 
-export function createApplicationContext({
+export function createApplicationContextFromState({
   productionSession = null,
   productionAuthenticationStatus = PRODUCTION_AUTH_STATUS.UNAUTHENTICATED,
+  authenticationRuntime = null,
 } = {}) {
   const runtimeMode = runtimeModeFromDocument(document);
   const isDemo = runtimeMode === RUNTIME_MODE.DEMO;
@@ -64,7 +66,7 @@ export function createApplicationContext({
       && productionPermissions.has(permission);
   }
 
-  return {
+  return Object.freeze({
     profile,
     runtimeMode() {
       return runtimeMode;
@@ -74,6 +76,9 @@ export function createApplicationContext({
     },
     authenticationStatus() {
       return isDemo ? null : authenticationStatus;
+    },
+    authenticationRuntime() {
+      return isDemo ? null : authenticationRuntime;
     },
     isAuthenticated() {
       return isDemo || Boolean(trustedProductionSession);
@@ -135,5 +140,17 @@ export function createApplicationContext({
     shouldReloadForStorageKey(key) {
       return isDemo && [KEYS.requests, KEYS.catalog, KEYS.siteInfo, KEYS.role].includes(key);
     },
-  };
+  });
+}
+
+export async function createApplicationContext() {
+  const runtimeMode = runtimeModeFromDocument(document);
+  if (runtimeMode === RUNTIME_MODE.DEMO) return createApplicationContextFromState();
+
+  const productionAuthentication = await bootstrapProductionAuthentication();
+  return createApplicationContextFromState({
+    productionSession: productionAuthentication.session,
+    productionAuthenticationStatus: productionAuthentication.status,
+    authenticationRuntime: productionAuthentication.runtime,
+  });
 }
