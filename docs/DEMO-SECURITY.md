@@ -2,7 +2,9 @@
 
 ## Scope
 
-This repository hosts a static browser demo. It has no backend, no real identity provider and no server-side authorization. The role switch is a demo control only. All requests, profile information, catalog changes and notifications are stored locally in the current browser profile.
+This repository hosts a static browser demo. It has no backend, no real identity provider and no server-side authorization. The role switch is a demo control only. It exposes three isolated presentation perspectives: Employee, Conference Manager and Tenant Admin. Selecting Tenant Admin does not grant Conference Manager capabilities and does not represent a production permission assignment.
+
+Requests, profile information, catalog changes and notifications are stored locally in the current browser profile. The Tenant Admin user list and role assignments shown in the demo are separate in-memory example data for the current page lifecycle; they are not uploaded, persisted as production authority or treated as identity evidence.
 
 The demo must therefore not be presented as an authenticated production application and must not be used for real confidential, personal or regulated data.
 
@@ -14,7 +16,9 @@ The demo must therefore not be presented as an authenticated production applicat
 - DOM helper code rejects inline event-handler attributes and `srcdoc`.
 - External navigation helpers accept HTTPS URLs only; same-origin HTTP is allowed only for local development/test navigation.
 - Browser storage has per-key size limits, rejects malformed/oversized values and removes prototype-pollution keys before data reaches the application model.
-- Demo role and language values are allow-listed.
+- Demo role and language values are allow-listed. Unknown demo roles fail back to Employee.
+- The Tenant Admin demo adapter accepts only `conference_manager` and `tenant_admin` as elevated example roles, blocks self-role changes, rejects privilege additions to inactive example users and never exposes `platform_admin`.
+- Demo Tenant Admin state is isolated from the production session/API adapters and has no network transport or direct browser-storage authority.
 - Text inputs and free-text areas receive bounded lengths; participant fields are constrained to realistic demo values.
 - A visible Demo Mode notice explains that there is no SSO or server-side authorization and that data remains in the browser.
 - Users can clear all `conference_*` local/session demo data from the UI.
@@ -36,7 +40,7 @@ The following controls require a real backend or identity platform and are there
 - server-side encryption, retention and deletion controls
 - productive e-mail, Teams or calendar integrations
 
-Adding fake client-side equivalents would create security theatre and must not be described as production protection.
+Adding fake client-side equivalents would create security theatre and must not be described as production protection. The Tenant Admin demo therefore exercises UI behavior and negative client-side contracts only; production authorization, audit and session invalidation remain backend responsibilities.
 
 ## Production security delta
 
@@ -50,8 +54,9 @@ The security regression suite covers at least:
 2. prototype-pollution keys in stored JSON;
 3. XSS payloads stored in request text;
 4. CSP/referrer-policy presence;
-5. explicit Demo Mode disclosure;
-6. demo-data deletion;
-7. input bounds;
-8. dependency and secret scanning;
-9. existing happy/negative workflows on Chromium and WebKit.
+5. explicit Demo Mode disclosure and the isolated Employee / Conference Manager / Tenant Admin role switch;
+6. Tenant Admin self-change, inactive-user and unknown-role rejection in demo data;
+7. demo-data deletion;
+8. input bounds;
+9. dependency and secret scanning;
+10. existing happy/negative workflows on Chromium and WebKit.
