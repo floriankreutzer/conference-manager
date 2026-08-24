@@ -3,6 +3,9 @@ import { ApiSecurityError, createApiClient } from '../core/api-client.js';
 const SESSION_PATH = 'v1/session';
 const LOGIN_PATH = '/api/v1/auth/microsoft/login';
 const APPLICATION_ROOT = '/';
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+const MIN_REQUEST_TIMEOUT_MS = 100;
+const MAX_REQUEST_TIMEOUT_MS = 60_000;
 const INTERNAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const PRODUCTION_TENANT_STATUS = Object.freeze({
@@ -131,6 +134,50 @@ function validCsrfToken(value) {
   return typeof value === 'string' && value.length >= 16 && value.length <= 4096;
 }
 
+function normalizedRequestTimeout(value) {
+  if (!Number.isInteger(value) || value < MIN_REQUEST_TIMEOUT_MS || value > MAX_REQUEST_TIMEOUT_MS) {
+    throw new ProductionSessionError('SESSION_TIMEOUT_INVALID');
+  }
+  return value;
+}
+
+function createBoundedFetch({
+  fetchImpl,
+  requestTimeoutMs,
+  AbortControllerImpl,
+  setTimeoutImpl,
+  clearTimeoutImpl,
+}) {
+  if (
+    typeof fetchImpl !== 'function'
+    || typeof AbortControllerImpl !== 'function'
+    || typeof setTimeoutImpl !== 'function'
+    || typeof clearTimeoutImpl !== 'function'
+  ) {
+    throw new ProductionSessionError('SESSION_TRANSPORT_INVALID');
+  }
+  const timeoutMs = normalizedRequestTimeout(requestTimeoutMs);
+
+  return async (url, options = {}) => {
+    const controller = new AbortControllerImpl();
+    let timeoutHandle;
+    const timeout = new Promise((resolve, reject) => {
+      timeoutHandle = setTimeoutImpl(() => {
+        controller.abort();
+        reject(new ProductionSessionError('SESSION_REQUEST_TIMEOUT'));
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([
+        Promise.resolve().then(() => fetchImpl(url, { ...options, signal: controller.signal })),
+        timeout,
+      ]);
+    } finally {
+      clearTimeoutImpl(timeoutHandle);
+    }
+  };
+}
+
 export function validateProductionSession(payload, { clock = () => Date.now() } = {}) {
   const root = assertPlainObject(payload);
   const user = assertPlainObject(root.user);
@@ -178,13 +225,23 @@ export function createProductionSessionRuntime({
   navigate = defaultNavigate,
   replace = defaultReplace,
   clock = () => Date.now(),
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  AbortControllerImpl = globalThis.AbortController,
+  setTimeoutImpl = globalThis.setTimeout,
+  clearTimeoutImpl = globalThis.clearTimeout,
 } = {}) {
   let currentSession = null;
   let status = PRODUCTION_AUTH_STATUS.UNAUTHENTICATED;
   const apiClient = createApiClient({
     baseUrl: '/api/',
     origin,
-    fetchImpl,
+    fetchImpl: createBoundedFetch({
+      fetchImpl,
+      requestTimeoutMs,
+      AbortControllerImpl,
+      setTimeoutImpl,
+      clearTimeoutImpl,
+    }),
     csrfTokenProvider: () => currentSession?.csrfToken || null,
   });
 
