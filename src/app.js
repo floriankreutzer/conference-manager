@@ -2,10 +2,19 @@ import { createEmployeeApplication } from './employee/index.js';
 import { createManagerApplication } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell } from './platform/app-shell.js';
+import { createProductionSessionRuntime } from './platform/production-session.js';
+import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
+import { createTenantAdminApplication } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.22.40';
+const APP_BUILD = '2026.08.24.61';
 const appRoot = document.getElementById('app');
-const context = createApplicationContext();
+let productionRuntime = null;
+try {
+  productionRuntime = await createProductionSessionRuntime();
+} catch {
+  productionRuntime = null;
+}
+const context = createApplicationContext({ productionSession: productionRuntime?.session || null });
 let shell;
 
 const setPageHeading = (title, subtitle) => shell.setPageHeading(title, subtitle);
@@ -22,8 +31,16 @@ const manager = createManagerApplication({
   setPageHeading,
   onNavigationRefresh: () => shell.renderNavigation(),
 });
+const tenantAdmin = context.isTenantAdmin() && productionRuntime
+  ? createTenantAdminApplication({
+    context,
+    appRoot,
+    setPageHeading,
+    userAdministration: createTenantUserAdministrationApi({ apiClient: productionRuntime.apiClient }),
+  })
+  : null;
 
-shell = createAppShell({ context, employee, manager });
+shell = createAppShell({ context, employee, manager, tenantAdmin });
 
 function render() {
   shell.render();
