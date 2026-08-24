@@ -5,15 +5,42 @@ const LOGIN_PATH = '/api/v1/auth/microsoft/login';
 const APPLICATION_ROOT = '/';
 const INTERNAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TENANT_STATUS = /^[a-z][a-z0-9_]{0,31}$/;
-const ROLE_ORDER = Object.freeze(['employee', 'conference_manager', 'tenant_admin']);
+
+export const PRODUCTION_TENANT_ROLE = Object.freeze({
+  EMPLOYEE: 'employee',
+  CONFERENCE_MANAGER: 'conference_manager',
+  TENANT_ADMIN: 'tenant_admin',
+});
+
+export const PRODUCTION_PERMISSION = Object.freeze({
+  REQUEST_READ: 'request:read',
+  REQUEST_CANCEL: 'request:cancel',
+  REQUEST_MANAGE: 'request:manage',
+  TENANT_CONFIGURE: 'tenant:configure',
+  TENANT_USERS_MANAGE: 'tenant:users:manage',
+  TENANT_INTEGRATIONS_MANAGE: 'tenant:integrations:manage',
+  TENANT_AUDIT_READ: 'tenant:audit:read',
+});
+
+const ROLE_ORDER = Object.freeze([
+  PRODUCTION_TENANT_ROLE.EMPLOYEE,
+  PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER,
+  PRODUCTION_TENANT_ROLE.TENANT_ADMIN,
+]);
 const ROLE_PERMISSIONS = Object.freeze({
-  employee: Object.freeze(['request:read', 'request:cancel']),
-  conference_manager: Object.freeze(['request:read', 'request:manage']),
-  tenant_admin: Object.freeze([
-    'tenant:configure',
-    'tenant:users:manage',
-    'tenant:integrations:manage',
-    'tenant:audit:read',
+  [PRODUCTION_TENANT_ROLE.EMPLOYEE]: Object.freeze([
+    PRODUCTION_PERMISSION.REQUEST_READ,
+    PRODUCTION_PERMISSION.REQUEST_CANCEL,
+  ]),
+  [PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER]: Object.freeze([
+    PRODUCTION_PERMISSION.REQUEST_READ,
+    PRODUCTION_PERMISSION.REQUEST_MANAGE,
+  ]),
+  [PRODUCTION_TENANT_ROLE.TENANT_ADMIN]: Object.freeze([
+    PRODUCTION_PERMISSION.TENANT_CONFIGURE,
+    PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,
+    PRODUCTION_PERMISSION.TENANT_INTEGRATIONS_MANAGE,
+    PRODUCTION_PERMISSION.TENANT_AUDIT_READ,
   ]),
 });
 const KNOWN_ROLES = new Set(ROLE_ORDER);
@@ -54,7 +81,9 @@ function canonicalRoles(value) {
   if (roles.length !== value.length || roles.some((role, index) => role !== value[index])) {
     throw new ProductionSessionError('SESSION_ROLES_INVALID');
   }
-  if (roles[0] !== 'employee') throw new ProductionSessionError('SESSION_ROLES_INVALID');
+  if (roles[0] !== PRODUCTION_TENANT_ROLE.EMPLOYEE) {
+    throw new ProductionSessionError('SESSION_ROLES_INVALID');
+  }
   return Object.freeze(roles);
 }
 
