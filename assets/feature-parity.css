@@ -92,7 +92,7 @@
   border-top: 4px solid var(--brand-primary);
   background: var(--color-surface);
   color: var(--color-ink);
-  text-align: left;
+  text-align: start;
   box-shadow: var(--shadow-sm);
 }
 
@@ -221,7 +221,7 @@
 }
 
 .room-timeline {
-  min-width: 700px;
+  min-inline-size: 700px;
   padding: 8px 0;
   overflow-x: auto;
 }
@@ -230,13 +230,13 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   padding: 0 8px 8px;
-  margin-left: 210px;
+  margin-inline-start: 210px;
   color: var(--color-muted);
   font-size: 0.78rem;
 }
 
 .room-time-scale span:last-child {
-  text-align: right;
+  text-align: end;
 }
 
 .room-timeline-row {
@@ -274,19 +274,221 @@
 
 .room-timeline-booking {
   position: absolute;
-  top: 5px;
-  height: 30px;
-  min-width: 34px;
+  inset-block-start: 5px;
+  block-size: 30px;
+  min-inline-size: 34px;
   padding: 4px 7px;
   overflow: hidden;
   border: 0;
-  border-left: 4px solid var(--brand-secondary);
+  border-inline-start: 4px solid var(--brand-secondary);
   background: var(--brand-primary);
   color: var(--color-on-dark);
-  text-align: left;
+  text-align: start;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.room-timeline-start-0 { inset-inline-start: 0%; }
+.room-timeline-start-1 { inset-inline-start: 1%; }
+.room-timeline-start-2 { inset-inline-start: 2%; }
+.room-timeline-start-3 { inset-inline-start: 3%; }
+.room-timeline-start-4 { inset-inline-start: 4%; }
+.room-timeline-start-5 { inset-inline-start: 5%; }
+.room-timeline-start-6 { inset-inline-start: 6%; }
+.room-timeline-start-7 { inset-inline-start: 7%; }
+.room-timeline-start-8 { inset-inline-start: 8%; }
+.room-timeline-start-9 { inset-inline-start: 9%; }
+.room-timeline-start-10 { inset-inline-start: 10%; }
+.room-timeline-start-11 { inset-inline-start: 11%; }
+.room-timeline-start-12 { inset-inline-start: 12%; }
+.room-timeline-start-13 { inset-inline-start: 13%; }
+.room-timeline-start-14 { inset-inline-start: 14%; }
+.room-timeline-start-15 { inset-inline-start: 15%; }
+.room-timeline-start-16 { inset-inline-start: 16%; }
+.room-timeline-start-17 { inset-inline-start: 17%; }
+.room-timeline-start-18 { inset-inline-start: 18%; }
+.room-timeline-start-19 { inset-inline-start: 19%; }
+.room-timeline-start-20 { inset-inline-start: 20%; }
+.room-timeline-start-21 { inset-inline-start: 21%; }
+.room-timeline-start-22 { inset-inline-start: 22%; }
+.room-timeline-start-23 { inset-inline-start: 23%; }
+.room-timeline-start-24 { inset-inline-start: 24%; }
+.room-timeline-start-25 { inset-inline-start: 25%; }
+.room-timeline-start-26 { inset-inline-start: 26%; }
+.room-timeline-start-27 { inset-inline-start: 27%; }
+.room-timeline-start-28 { inset-inline-start: 28%; }
+.room-timeline-start-29 { inset-inline-start: 29%; }
+.room-timeline-start-30 { inset-inline-start: 30%; }
+.room-timeline-start-31 { inset-inline-start: 31%; }
+.room-timeline-start-32 { inset-inline-start: 32%; }
+.room-timeline-start-33 { inset-inline-start: 33%; }
+.room-timeline-start-34 { inset-inline-start: 34%; }
+.room-timeline-start-35 { inset-inline-start: 35%; }
+.room-timeline-start-36 { inset-inline-start: 36%; }
+.room-timeline-start-37 { inset-inline-start: 37%; }
+.room-timeline-start-38 { inset-inline-start: 38%; }
+.room-timeline-start-39 { inset-inline-start: 39%; }
+.room-timeline-start-40 { inset-inline-start: 40%; }
+.room-timeline-start-41 { inset-inline-start: 41%; }
+.room-timeline-start-42 { inset-inline-start: 42%; }
+.room-timeline-start-43 { inset-inline-start: 43%; }
+.room-timeline-start-44 { inset-inline-start: 44%; }
+.room-timeline-start-45 { inset-inline-start: 45%; }
+.room-timeline-start-46 { inset-inline-start: 46%; }
+.room-timeline-start-47 { inset-inline-start: 47%; }
+.room-timeline-start-48 { inset-inline-start: 48%; }
+.room-timeline-start-49 { inset-inline-start: 49%; }
+.room-timeline-start-50 { inset-inline-start: 50%; }
+.room-timeline-start-51 { inset-inline-start: 51%; }
+.room-timeline-start-52 { inset-inline-start: 52%; }
+.room-timeline-start-53 { inset-inline-start: 53%; }
+.room-timeline-start-54 { inset-inline-start: 54%; }
+.room-timeline-start-55 { inset-inline-start: 55%; }
+.room-timeline-start-56 { inset-inline-start: 56%; }
+.room-timeline-start-57 { inset-inline-start: 57%; }
+.room-timeline-start-58 { inset-inline-start: 58%; }
+.room-timeline-start-59 { inset-inline-start: 59%; }
+.room-timeline-start-60 { inset-inline-start: 60%; }
+.room-timeline-start-61 { inset-inline-start: 61%; }
+.room-timeline-start-62 { inset-inline-start: 62%; }
+.room-timeline-start-63 { inset-inline-start: 63%; }
+.room-timeline-start-64 { inset-inline-start: 64%; }
+.room-timeline-start-65 { inset-inline-start: 65%; }
+.room-timeline-start-66 { inset-inline-start: 66%; }
+.room-timeline-start-67 { inset-inline-start: 67%; }
+.room-timeline-start-68 { inset-inline-start: 68%; }
+.room-timeline-start-69 { inset-inline-start: 69%; }
+.room-timeline-start-70 { inset-inline-start: 70%; }
+.room-timeline-start-71 { inset-inline-start: 71%; }
+.room-timeline-start-72 { inset-inline-start: 72%; }
+.room-timeline-start-73 { inset-inline-start: 73%; }
+.room-timeline-start-74 { inset-inline-start: 74%; }
+.room-timeline-start-75 { inset-inline-start: 75%; }
+.room-timeline-start-76 { inset-inline-start: 76%; }
+.room-timeline-start-77 { inset-inline-start: 77%; }
+.room-timeline-start-78 { inset-inline-start: 78%; }
+.room-timeline-start-79 { inset-inline-start: 79%; }
+.room-timeline-start-80 { inset-inline-start: 80%; }
+.room-timeline-start-81 { inset-inline-start: 81%; }
+.room-timeline-start-82 { inset-inline-start: 82%; }
+.room-timeline-start-83 { inset-inline-start: 83%; }
+.room-timeline-start-84 { inset-inline-start: 84%; }
+.room-timeline-start-85 { inset-inline-start: 85%; }
+.room-timeline-start-86 { inset-inline-start: 86%; }
+.room-timeline-start-87 { inset-inline-start: 87%; }
+.room-timeline-start-88 { inset-inline-start: 88%; }
+.room-timeline-start-89 { inset-inline-start: 89%; }
+.room-timeline-start-90 { inset-inline-start: 90%; }
+.room-timeline-start-91 { inset-inline-start: 91%; }
+.room-timeline-start-92 { inset-inline-start: 92%; }
+.room-timeline-start-93 { inset-inline-start: 93%; }
+.room-timeline-start-94 { inset-inline-start: 94%; }
+.room-timeline-start-95 { inset-inline-start: 95%; }
+.room-timeline-start-96 { inset-inline-start: 96%; }
+.room-timeline-start-97 { inset-inline-start: 97%; }
+.room-timeline-start-98 { inset-inline-start: 98%; }
+.room-timeline-start-99 { inset-inline-start: 99%; }
+
+.room-timeline-width-1 { inline-size: 1%; }
+.room-timeline-width-2 { inline-size: 2%; }
+.room-timeline-width-3 { inline-size: 3%; }
+.room-timeline-width-4 { inline-size: 4%; }
+.room-timeline-width-5 { inline-size: 5%; }
+.room-timeline-width-6 { inline-size: 6%; }
+.room-timeline-width-7 { inline-size: 7%; }
+.room-timeline-width-8 { inline-size: 8%; }
+.room-timeline-width-9 { inline-size: 9%; }
+.room-timeline-width-10 { inline-size: 10%; }
+.room-timeline-width-11 { inline-size: 11%; }
+.room-timeline-width-12 { inline-size: 12%; }
+.room-timeline-width-13 { inline-size: 13%; }
+.room-timeline-width-14 { inline-size: 14%; }
+.room-timeline-width-15 { inline-size: 15%; }
+.room-timeline-width-16 { inline-size: 16%; }
+.room-timeline-width-17 { inline-size: 17%; }
+.room-timeline-width-18 { inline-size: 18%; }
+.room-timeline-width-19 { inline-size: 19%; }
+.room-timeline-width-20 { inline-size: 20%; }
+.room-timeline-width-21 { inline-size: 21%; }
+.room-timeline-width-22 { inline-size: 22%; }
+.room-timeline-width-23 { inline-size: 23%; }
+.room-timeline-width-24 { inline-size: 24%; }
+.room-timeline-width-25 { inline-size: 25%; }
+.room-timeline-width-26 { inline-size: 26%; }
+.room-timeline-width-27 { inline-size: 27%; }
+.room-timeline-width-28 { inline-size: 28%; }
+.room-timeline-width-29 { inline-size: 29%; }
+.room-timeline-width-30 { inline-size: 30%; }
+.room-timeline-width-31 { inline-size: 31%; }
+.room-timeline-width-32 { inline-size: 32%; }
+.room-timeline-width-33 { inline-size: 33%; }
+.room-timeline-width-34 { inline-size: 34%; }
+.room-timeline-width-35 { inline-size: 35%; }
+.room-timeline-width-36 { inline-size: 36%; }
+.room-timeline-width-37 { inline-size: 37%; }
+.room-timeline-width-38 { inline-size: 38%; }
+.room-timeline-width-39 { inline-size: 39%; }
+.room-timeline-width-40 { inline-size: 40%; }
+.room-timeline-width-41 { inline-size: 41%; }
+.room-timeline-width-42 { inline-size: 42%; }
+.room-timeline-width-43 { inline-size: 43%; }
+.room-timeline-width-44 { inline-size: 44%; }
+.room-timeline-width-45 { inline-size: 45%; }
+.room-timeline-width-46 { inline-size: 46%; }
+.room-timeline-width-47 { inline-size: 47%; }
+.room-timeline-width-48 { inline-size: 48%; }
+.room-timeline-width-49 { inline-size: 49%; }
+.room-timeline-width-50 { inline-size: 50%; }
+.room-timeline-width-51 { inline-size: 51%; }
+.room-timeline-width-52 { inline-size: 52%; }
+.room-timeline-width-53 { inline-size: 53%; }
+.room-timeline-width-54 { inline-size: 54%; }
+.room-timeline-width-55 { inline-size: 55%; }
+.room-timeline-width-56 { inline-size: 56%; }
+.room-timeline-width-57 { inline-size: 57%; }
+.room-timeline-width-58 { inline-size: 58%; }
+.room-timeline-width-59 { inline-size: 59%; }
+.room-timeline-width-60 { inline-size: 60%; }
+.room-timeline-width-61 { inline-size: 61%; }
+.room-timeline-width-62 { inline-size: 62%; }
+.room-timeline-width-63 { inline-size: 63%; }
+.room-timeline-width-64 { inline-size: 64%; }
+.room-timeline-width-65 { inline-size: 65%; }
+.room-timeline-width-66 { inline-size: 66%; }
+.room-timeline-width-67 { inline-size: 67%; }
+.room-timeline-width-68 { inline-size: 68%; }
+.room-timeline-width-69 { inline-size: 69%; }
+.room-timeline-width-70 { inline-size: 70%; }
+.room-timeline-width-71 { inline-size: 71%; }
+.room-timeline-width-72 { inline-size: 72%; }
+.room-timeline-width-73 { inline-size: 73%; }
+.room-timeline-width-74 { inline-size: 74%; }
+.room-timeline-width-75 { inline-size: 75%; }
+.room-timeline-width-76 { inline-size: 76%; }
+.room-timeline-width-77 { inline-size: 77%; }
+.room-timeline-width-78 { inline-size: 78%; }
+.room-timeline-width-79 { inline-size: 79%; }
+.room-timeline-width-80 { inline-size: 80%; }
+.room-timeline-width-81 { inline-size: 81%; }
+.room-timeline-width-82 { inline-size: 82%; }
+.room-timeline-width-83 { inline-size: 83%; }
+.room-timeline-width-84 { inline-size: 84%; }
+.room-timeline-width-85 { inline-size: 85%; }
+.room-timeline-width-86 { inline-size: 86%; }
+.room-timeline-width-87 { inline-size: 87%; }
+.room-timeline-width-88 { inline-size: 88%; }
+.room-timeline-width-89 { inline-size: 89%; }
+.room-timeline-width-90 { inline-size: 90%; }
+.room-timeline-width-91 { inline-size: 91%; }
+.room-timeline-width-92 { inline-size: 92%; }
+.room-timeline-width-93 { inline-size: 93%; }
+.room-timeline-width-94 { inline-size: 94%; }
+.room-timeline-width-95 { inline-size: 95%; }
+.room-timeline-width-96 { inline-size: 96%; }
+.room-timeline-width-97 { inline-size: 97%; }
+.room-timeline-width-98 { inline-size: 98%; }
+.room-timeline-width-99 { inline-size: 99%; }
+.room-timeline-width-100 { inline-size: 100%; }
 
 .room-plan-list {
   width: 100%;
@@ -339,7 +541,7 @@
 
 .report-catering-summary article {
   padding: 12px;
-  border-left: 4px solid var(--brand-secondary);
+  border-inline-start: 4px solid var(--brand-secondary);
   background: var(--brand-secondary-surface);
 }
 
@@ -360,16 +562,16 @@
 }
 
 .report-insight-card.good {
-  border-left: 5px solid var(--color-success);
+  border-inline-start: 5px solid var(--color-success);
 }
 
 .report-insight-card.attention {
-  border-left: 5px solid var(--color-warning);
+  border-inline-start: 5px solid var(--color-warning);
   background: var(--color-warning-soft);
 }
 
 .report-insight-card ul {
-  padding-left: 20px;
+  padding-inline-start: 20px;
   margin-bottom: 0;
 }
 

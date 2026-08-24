@@ -67,6 +67,7 @@ if (existsSync('src/features')) {
 for (const required of [
   'src/employee/index.js',
   'src/manager/index.js',
+  'src/manager/timeline-position.js',
   'src/platform/feature-flags.js',
   'src/platform/feature-parity.js',
   'src/shared/parity-data.js',
@@ -221,12 +222,78 @@ for (const file of ['src/manager/manager-parity.js', 'src/manager/manager-first-
   }
 }
 
+const requestCard = readFileSync('src/shared/request-card.js', 'utf8');
+for (const required of [
+  'dataset: { requestId: request.id }',
+  "dataset: { managerAction: 'confirm' }",
+  "dataset: { managerAction: 'change' }",
+  "dataset: { managerAction: 'reject' }",
+  "dataset: { requestAction: 'print' }",
+]) {
+  if (!requestCard.includes(required)) fail(`src/shared/request-card.js: semantic DOM contract missing ${required}.`);
+}
+
+const employeeApplication = readFileSync('src/employee/application.js', 'utf8');
+for (const required of [
+  'dataset: { roomId: room.id }',
+  "dataset: { roomAction: 'select' }",
+  "dataset: { roomAction: 'floorplan' }",
+  'dataset: { packageId: pack.id, packageTier: variant.tier }',
+  "dataset: { packageAction: 'select' }",
+]) {
+  if (!employeeApplication.includes(required)) fail(`src/employee/application.js: semantic selection contract missing ${required}.`);
+}
+
+const employeeVisuals = readFileSync('src/employee/employee-visuals.js', 'utf8');
+for (const required of [
+  'card.dataset.requestId',
+  'card?.dataset.roomId',
+  'card?.dataset.packageId',
+  'card?.dataset.packageTier',
+  'button[data-room-action="floorplan"]',
+  'button[data-request-action="print"]',
+]) {
+  if (!employeeVisuals.includes(required)) fail(`src/employee/employee-visuals.js: semantic enhancement lookup missing ${required}.`);
+}
+if (/requestIdFromCard[\s\S]*?textContent/.test(employeeVisuals)
+  || /roomForCard[\s\S]*?textContent/.test(employeeVisuals)
+  || /packageForCard[\s\S]*?textContent/.test(employeeVisuals)
+  || /control\.textContent\.trim\(\)\s*===\s*t\(/.test(employeeVisuals)) {
+  fail('src/employee/employee-visuals.js: enhancement identity must not be derived from visible/localized text.');
+}
+
 const managerFirstUse = readFileSync('src/manager/manager-first-use.js', 'utf8');
-if (!managerFirstUse.includes('control.dataset.managerAction = action')) {
-  fail('src/manager/manager-first-use.js: native Manager decision controls must receive stable data-manager-action identities.');
+if (!managerFirstUse.includes('button[data-manager-action="${action}"]')) {
+  fail('src/manager/manager-first-use.js: Manager decisions must consume stable data-manager-action identities.');
+}
+if (/ensureNativeActionIdentity/.test(managerFirstUse) || /dataset\.managerAction\s*=/.test(managerFirstUse)) {
+  fail('src/manager/manager-first-use.js: Manager enhancement must not infer or assign action identity by control order.');
 }
 if (/nativeAction[\s\S]*?textContent\.trim\(\)/.test(managerFirstUse)) {
   fail('src/manager/manager-first-use.js: Manager decisions must not be discovered from localized visible labels.');
+}
+
+const managerParity = readFileSync('src/manager/manager-parity.js', 'utf8');
+if (!managerParity.includes("from './timeline-position.js'") || !managerParity.includes('timelinePosition(request.start, request.end)')) {
+  fail('src/manager/manager-parity.js: room timeline must use the deterministic timeline-position contract.');
+}
+if (/\.style\.(?:left|right|width|insetInlineStart|inlineSize)\s*=/.test(managerParity)) {
+  fail('src/manager/manager-parity.js: room timeline must not use inline positioning styles under the CSP.');
+}
+if (!managerParity.includes('.request-card[data-request-id]') || /requestIdFromCard/.test(managerParity)) {
+  fail('src/manager/manager-parity.js: Manager filtering must use semantic data-request-id contracts directly.');
+}
+
+const timelineCss = readFileSync('assets/feature-parity.css', 'utf8');
+for (const required of [
+  'inset-inline-start:',
+  'inline-size:',
+  'border-inline-start:',
+  'margin-inline-start:',
+  'text-align: start',
+  'text-align: end',
+]) {
+  if (!timelineCss.includes(required)) fail(`assets/feature-parity.css: logical timeline styling missing ${required}.`);
 }
 
 const managerReady = readFileSync('src/manager/conference-manager-ready.js', 'utf8');
@@ -262,6 +329,14 @@ if (!storage.includes('class RepositoryWriteError') || !storage.includes('if (!p
 }
 if (!storage.includes('failOnWrite: false')) {
   fail('src/core/storage.js: non-authoritative notification persistence must remain explicitly best-effort.');
+}
+
+const parityData = readFileSync('src/shared/parity-data.js', 'utf8');
+if (!parityData.includes('RepositoryWriteError') || !parityData.includes('writeAuthoritativeJson')) {
+  fail('src/shared/parity-data.js: Manager catalog/site persistence must fail closed on write failure.');
+}
+for (const required of ['return writeAuthoritativeJson(KEYS.catalog, catalog)', 'return writeAuthoritativeJson(KEYS.siteInfo, sites)']) {
+  if (!parityData.includes(required)) fail(`src/shared/parity-data.js: authoritative Manager persistence missing ${required}.`);
 }
 
 const apiClient = readFileSync('src/core/api-client.js', 'utf8');

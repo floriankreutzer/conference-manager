@@ -393,6 +393,7 @@ export function createEmployeeApplication({
         const selected = state.roomId === room.id;
         const card = el('article', {
           className: `option-card${selected ? ' selected' : ''}${busy ? ' disabled' : ''}`,
+          dataset: { roomId: room.id },
         });
         card.append(
           el('span', { className: `badge ${busy ? 'danger' : 'success'}`, text: busy ? t('room.busy') : t('room.available') }),
@@ -409,13 +410,14 @@ export function createEmployeeApplication({
           className: selected ? 'primary' : 'secondary',
           disabled: busy,
           attrs: { 'aria-pressed': String(selected) },
+          dataset: { roomAction: 'select' },
         });
         select.addEventListener('click', () => {
           state.roomId = room.id;
           scheduleDraftSave();
           renderRequest();
         });
-        const plan = button(t('room.floorplan'));
+        const plan = button(t('room.floorplan'), { dataset: { roomAction: 'floorplan' } });
         plan.addEventListener('click', () => openFloorplan(room));
         actions.append(select, plan);
         card.appendChild(actions);
@@ -583,7 +585,10 @@ export function createEmployeeApplication({
       catalog().cateringPackages.forEach((pack) => pack.variants.forEach((variant) => {
         const selected = state.packageSelection?.packageId === pack.id
           && state.packageSelection?.tier === variant.tier;
-        const card = el('article', { className: `option-card${selected ? ' selected' : ''}` }, [
+        const card = el('article', {
+          className: `option-card${selected ? ' selected' : ''}`,
+          dataset: { packageId: pack.id, packageTier: variant.tier },
+        }, [
           el('h3', { text: `${localized(pack.name)} · ${variant.tier}` }),
           el('p', { text: localized(variant.description) }),
           el('strong', {
@@ -594,6 +599,7 @@ export function createEmployeeApplication({
         const select = button(selected ? t('a11y.selected') : t('common.edit'), {
           className: selected ? 'primary' : 'secondary',
           attrs: { 'aria-pressed': String(selected) },
+          dataset: { packageAction: 'select' },
         });
         select.addEventListener('click', () => {
           state.packageSelection = selected ? null : { packageId: pack.id, tier: variant.tier };

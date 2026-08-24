@@ -1,5 +1,5 @@
 import { language, t, tFor } from '../core/i18n.js';
-import { KEYS, readJson, writeJson } from '../core/storage.js';
+import { KEYS, RepositoryWriteError, readJson, writeJson } from '../core/storage.js';
 import { safeHttpsUrl } from '../core/ui.js';
 
 const DEFAULT_CATERING_IMAGES = Object.freeze({
@@ -13,7 +13,7 @@ const DEFAULT_CATERING_IMAGES = Object.freeze({
   'lunch:Standard': 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=80',
   'lunch:Deluxe': 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
   'full:Basic': 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=900&q=80',
-  'full:Standard': 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=900&q=80',
+  'full:Standard': 'https://images.unsplash.com/photo-1515003197210-e0cd71810e0f?auto=format&fit=crop&w=900&q=80',
   'full:Deluxe': 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80',
 });
 
@@ -158,10 +158,15 @@ export function generatedFloorplan(room) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function writeAuthoritativeJson(key, value) {
+  if (!writeJson(key, value)) throw new RepositoryWriteError(key);
+  return value;
+}
+
 export function writeCatalog(catalog) {
-  writeJson(KEYS.catalog, catalog);
+  return writeAuthoritativeJson(KEYS.catalog, catalog);
 }
 
 export function writeSites(sites) {
-  writeJson(KEYS.siteInfo, sites);
+  return writeAuthoritativeJson(KEYS.siteInfo, sites);
 }

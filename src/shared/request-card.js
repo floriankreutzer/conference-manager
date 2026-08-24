@@ -40,7 +40,10 @@ export function createRequestCard({
   onRepeat,
 }) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId);
-  const card = el('article', { className: `request-card status-${request.status.toLowerCase().replaceAll(' ', '-')}` });
+  const card = el('article', {
+    className: `request-card status-${request.status.toLowerCase().replaceAll(' ', '-')}`,
+    dataset: { requestId: request.id },
+  });
   const header = el('header', { className: 'request-card-header' }, [
     el('div', {}, [
       el('h3', { text: request.title }),
@@ -89,40 +92,43 @@ export function createRequestCard({
   card.appendChild(renderRequestTimeline(request));
   const actions = el('footer', { className: 'request-actions' });
   if (manager && [REQUEST_STATUS.SUBMITTED, REQUEST_STATUS.IN_REVIEW].includes(request.status)) {
-    const confirm = button(t('manager.confirm'), { className: 'primary' });
+    const confirm = button(t('manager.confirm'), { className: 'primary', dataset: { managerAction: 'confirm' } });
     confirm.addEventListener('click', () => onManagerConfirm?.(request.id));
-    const change = button(t('manager.change'));
+    const change = button(t('manager.change'), { dataset: { managerAction: 'change' } });
     change.addEventListener('click', () => onManagerReason?.(request, 'change'));
-    const reject = button(t('manager.reject'), { className: 'danger' });
+    const reject = button(t('manager.reject'), { className: 'danger', dataset: { managerAction: 'reject' } });
     reject.addEventListener('click', () => onManagerReason?.(request, 'reject'));
     actions.append(confirm, change, reject);
   }
 
   if (!manager) {
-    const details = button(t('requests.details'));
+    const details = button(t('requests.details'), { dataset: { requestAction: 'details' } });
     details.addEventListener('click', () => onDetails?.(request));
     actions.appendChild(details);
     if (request.status === REQUEST_STATUS.CONFIRMED) {
-      const guest = button(t('requests.guest'));
+      const guest = button(t('requests.guest'), { dataset: { requestAction: 'guest' } });
       guest.addEventListener('click', () => onGuestInfo?.(request));
-      const pdf = button(t('requests.pdf'));
+      const pdf = button(t('requests.pdf'), { dataset: { requestAction: 'print' } });
       pdf.addEventListener('click', () => onPrint?.(request));
       actions.append(guest, pdf);
     }
     if (request.status === REQUEST_STATUS.CHANGE_REQUESTED) {
-      const editChange = button(t('requests.editChange'), { className: 'primary' });
+      const editChange = button(t('requests.editChange'), {
+        className: 'primary',
+        dataset: { requestAction: 'edit-change' },
+      });
       editChange.addEventListener('click', () => onEditChange?.(request));
       actions.appendChild(editChange);
     }
     if ([REQUEST_STATUS.SUBMITTED, REQUEST_STATUS.CONFIRMED, REQUEST_STATUS.CHANGE_REQUESTED].includes(request.status)) {
-      const cancel = button(t('requests.cancel'), { className: 'danger' });
+      const cancel = button(t('requests.cancel'), { className: 'danger', dataset: { requestAction: 'cancel' } });
       cancel.addEventListener('click', () => onCancel?.(request));
       actions.appendChild(cancel);
     }
     if ([REQUEST_STATUS.REJECTED, REQUEST_STATUS.CANCELLED].includes(request.status)) {
       const repeat = button(
         request.status === REQUEST_STATUS.REJECTED ? t('requests.repeatRejected') : t('requests.repeat'),
-        { className: 'primary' },
+        { className: 'primary', dataset: { requestAction: 'repeat' } },
       );
       repeat.addEventListener('click', () => onRepeat?.(request));
       actions.appendChild(repeat);
