@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createApplicationContext } from '../src/platform/application-context.js';
+import { createApplicationContextFromState } from '../src/platform/application-context.js';
 import { PRODUCTION_AUTH_STATUS } from '../src/platform/production-session.js';
 
 function withProductionDocument(run) {
@@ -30,7 +30,7 @@ function session({ roles, permissions }) {
 }
 
 function productionContext(productionSession, status = PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
-  return withProductionDocument(() => createApplicationContext({
+  return withProductionDocument(() => createApplicationContextFromState({
     productionSession,
     productionAuthenticationStatus: status,
   }));
@@ -102,6 +102,7 @@ test('production context requires authenticated session status before exposing a
     assert.equal(context.isManager(), false);
     assert.equal(context.canManageTenantUsers(), false);
     assert.equal(context.role(), 'employee');
+    assert.equal(context.authenticationRuntime(), null);
   }
 });
 
