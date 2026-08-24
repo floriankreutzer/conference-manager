@@ -82,15 +82,19 @@ for (const required of [
 
 const applicationContext = await readFile('src/platform/application-context.js', 'utf8');
 for (const required of [
+  'createApplicationContextFromState',
+  'bootstrapProductionAuthentication',
   'const isDemo = runtimeMode === RUNTIME_MODE.DEMO;',
   'authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED',
   'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
   'PRODUCTION_PERMISSION.REQUEST_MANAGE',
   'PRODUCTION_TENANT_ROLE.TENANT_ADMIN',
   'PRODUCTION_PERMISSION.TENANT_USERS_MANAGE',
+  'authenticationRuntime()',
   'return isDemo ? requestRepository.all() : EMPTY_REQUESTS;',
   'return isDemo ? writeString(KEYS.role, value) : false;',
   'return isDemo && [KEYS.requests, KEYS.catalog, KEYS.siteInfo, KEYS.role].includes(key);',
+  'if (runtimeMode === RUNTIME_MODE.DEMO) return createApplicationContextFromState();',
 ]) {
   if (!applicationContext.includes(required)) {
     throw new Error(`Application context production boundary is missing ${required}.`);
@@ -119,13 +123,21 @@ for (const required of [
 
 const app = await readFile('src/app.js', 'utf8');
 for (const required of [
-  'runtimeMode === RUNTIME_MODE.PRODUCTION',
-  'await bootstrapProductionAuthentication()',
-  'productionSession: productionAuthentication?.session || null',
-  'productionAuthenticationStatus: productionAuthentication?.status',
+  "from './platform/application-context.js'",
+  'const context = await createApplicationContext();',
+  'authentication: context.authenticationRuntime()',
 ]) {
   if (!app.includes(required)) {
     throw new Error(`Production application bootstrap is missing ${required}.`);
+  }
+}
+for (const forbidden of [
+  "from './core/security-policy.js'",
+  "from './platform/production-session.js'",
+  'bootstrapProductionAuthentication()',
+]) {
+  if (app.includes(forbidden)) {
+    throw new Error(`Composition Root must keep production authentication behind Platform contracts: ${forbidden}.`);
   }
 }
 
