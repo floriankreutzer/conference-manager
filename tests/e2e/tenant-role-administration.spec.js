@@ -92,7 +92,7 @@ async function installProductionFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ users }),
+        body: JSON.stringify({ users, nextAfterId: null }),
       });
       return;
     }
@@ -170,7 +170,9 @@ test('Tenant Admin manages elevated roles through the production API with CSRF a
   await save.click();
 
   await expect(page.locator('#toast')).toContainText('Rollen gespeichert.');
-  await expect(page.locator(`[data-tenant-user-id="${USER_ID}"]`).getByRole('checkbox', { name: 'Conference Manager' })).toBeChecked();
+  const updatedUserCard = page.locator(`[data-tenant-user-id="${USER_ID}"]`);
+  await expect(updatedUserCard.getByRole('checkbox', { name: 'Conference Manager' })).toBeChecked();
+  await expect(updatedUserCard).toBeFocused();
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0]).toEqual({
     csrf: CSRF_TOKEN,

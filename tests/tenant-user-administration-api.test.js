@@ -17,19 +17,50 @@ function user(overrides = {}) {
   };
 }
 
+function userAt(index) {
+  return user({
+    id: `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`,
+    displayName: `User ${index}`,
+  });
+}
+
 test('list users uses the fixed tenant-scoped endpoint and validates the response', async () => {
   const calls = [];
   const api = createTenantUserAdministrationApi({
     apiClient: {
       async request(path, options) {
         calls.push({ path, options });
-        return { users: [user()] };
+        return { users: [user()], nextAfterId: null };
       },
     },
   });
   const users = await api.listUsers();
   assert.deepEqual(calls, [{ path: 'v1/tenant/users?limit=100', options: undefined }]);
   assert.deepEqual(users, [user()]);
+});
+
+test('list users follows the server cursor until every tenant user has been loaded', async () => {
+  const calls = [];
+  const firstPage = Array.from({ length: 100 }, (_, index) => userAt(index + 1));
+  const cursor = firstPage.at(-1).id;
+  const finalUser = userAt(101);
+  const api = createTenantUserAdministrationApi({
+    apiClient: {
+      async request(path) {
+        calls.push(path);
+        if (calls.length === 1) return { users: firstPage, nextAfterId: cursor };
+        return { users: [finalUser], nextAfterId: null };
+      },
+    },
+  });
+
+  const users = await api.listUsers();
+  assert.equal(users.length, 101);
+  assert.deepEqual(calls, [
+    'v1/tenant/users?limit=100',
+    `v1/tenant/users?limit=100&afterId=${cursor}`,
+  ]);
+  assert.equal(users.at(-1).id, finalUser.id);
 });
 
 test('role update sends only allowlisted elevated roles and no tenant authority', async () => {
@@ -76,7 +107,7 @@ test('malformed server user data fails closed', async () => {
   const api = createTenantUserAdministrationApi({
     apiClient: {
       async request() {
-        return { users: [user({ roles: ['employee', 'platform_admin'] })] };
+        return { users: [user({ roles: ['employee', 'platform_admin'] })], nextAfterId: null };
       },
     },
   });

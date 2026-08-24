@@ -3,6 +3,8 @@ const ROLE_ORDER = Object.freeze(['employee', 'conference_manager', 'tenant_admi
 const ROLE_SET = new Set(ROLE_ORDER);
 const ELEVATED_ROLE_ORDER = Object.freeze(['conference_manager', 'tenant_admin']);
 const ELEVATED_ROLE_SET = new Set(ELEVATED_ROLE_ORDER);
+const PAGE_SIZE = 100;
+const MAX_PAGES = 100;
 
 function isUuid(value) {
   return typeof value === 'string' && UUID_PATTERN.test(value);
@@ -39,11 +41,20 @@ function normalizedUser(value) {
 }
 
 function normalizedUsers(value) {
-  if (!Array.isArray(value) || value.length > 100) return null;
+  if (!Array.isArray(value) || value.length > PAGE_SIZE) return null;
   const users = value.map(normalizedUser);
   if (users.some((user) => !user)) return null;
   if (new Set(users.map((user) => user.id)).size !== users.length) return null;
   return Object.freeze(users);
+}
+
+function normalizedPage(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const users = normalizedUsers(value.users);
+  const nextAfterId = value.nextAfterId;
+  if (!users || (nextAfterId !== null && !isUuid(nextAfterId))) return null;
+  if (nextAfterId !== null && (users.length !== PAGE_SIZE || users.at(-1)?.id !== nextAfterId)) return null;
+  return Object.freeze({ users, nextAfterId });
 }
 
 function elevatedRoles(value) {
@@ -71,15 +82,35 @@ export function createTenantUserAdministrationApi({ apiClient } = {}) {
 
   return Object.freeze({
     async listUsers() {
-      let payload;
-      try {
-        payload = await apiClient.request('v1/tenant/users?limit=100');
-      } catch (error) {
-        throw new TenantUserAdministrationApiError(error?.code || 'TENANT_USERS_UNAVAILABLE', { cause: error });
+      const users = [];
+      const seenUserIds = new Set();
+      const seenCursors = new Set();
+      let afterId = null;
+
+      for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex += 1) {
+        const cursor = afterId === null ? '' : `&afterId=${encodeURIComponent(afterId)}`;
+        let payload;
+        try {
+          payload = await apiClient.request(`v1/tenant/users?limit=${PAGE_SIZE}${cursor}`);
+        } catch (error) {
+          throw new TenantUserAdministrationApiError(error?.code || 'TENANT_USERS_UNAVAILABLE', { cause: error });
+        }
+        const page = normalizedPage(payload);
+        if (!page) throw new TenantUserAdministrationApiError('TENANT_USERS_RESPONSE_INVALID');
+        for (const user of page.users) {
+          if (seenUserIds.has(user.id)) throw new TenantUserAdministrationApiError('TENANT_USERS_RESPONSE_INVALID');
+          seenUserIds.add(user.id);
+          users.push(user);
+        }
+        if (page.nextAfterId === null) return Object.freeze(users);
+        if (seenCursors.has(page.nextAfterId)) {
+          throw new TenantUserAdministrationApiError('TENANT_USERS_RESPONSE_INVALID');
+        }
+        seenCursors.add(page.nextAfterId);
+        afterId = page.nextAfterId;
       }
-      const users = normalizedUsers(payload?.users);
-      if (!users) throw new TenantUserAdministrationApiError('TENANT_USERS_RESPONSE_INVALID');
-      return users;
+
+      throw new TenantUserAdministrationApiError('TENANT_USERS_LIMIT_EXCEEDED');
     },
 
     async setRoles(userId, roles) {

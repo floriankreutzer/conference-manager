@@ -10,12 +10,12 @@ for (const required of [
 
 const productionSession = await readFile('src/platform/production-session.js', 'utf8');
 for (const required of [
-  "apiClient.request('v1/session')",
-  "'conference_manager'",
-  "'tenant_admin'",
-  'csrfTokenProvider: () => csrfToken',
-  'PRODUCTION_SESSION_UNAVAILABLE',
-  'PRODUCTION_SESSION_INVALID',
+  'apiClient.request(SESSION_PATH',
+  "CONFERENCE_MANAGER: 'conference_manager'",
+  "TENANT_ADMIN: 'tenant_admin'",
+  'csrfTokenProvider: () => currentSession?.csrfToken || null',
+  "ProductionSessionError('SESSION_BOOTSTRAP_TIMEOUT'",
+  'validFutureTimestamp(session.expiresAt, clock())',
 ]) {
   if (!productionSession.includes(required)) {
     throw new Error(`Production session boundary is missing ${required}.`);
@@ -29,7 +29,9 @@ for (const forbidden of ['localStorage', 'sessionStorage', 'platform_admin']) {
 
 const api = await readFile('src/platform/tenant-user-administration-api.js', 'utf8');
 for (const required of [
-  "apiClient.request('v1/tenant/users?limit=100')",
+  'apiClient.request(`v1/tenant/users?limit=${PAGE_SIZE}${cursor}`)',
+  'nextAfterId',
+  'seenCursors',
   "method: 'PUT'",
   '`v1/tenant/users/${userId}/roles`',
   "'conference_manager'",
@@ -61,11 +63,12 @@ for (const forbidden of ['platform_admin', 'localStorage', 'sessionStorage', 'fe
 const context = await readFile('src/platform/application-context.js', 'utf8');
 for (const required of [
   "DEMO_CURRENT_USER_ID = 'demo-current-user'",
-  "PRODUCTION_CONFERENCE_MANAGER_ROLE = 'conference_manager'",
-  "PRODUCTION_TENANT_ADMIN_ROLE = 'tenant_admin'",
   'readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN',
-  'productionRoles.has(PRODUCTION_CONFERENCE_MANAGER_ROLE)',
-  'productionRoles.has(PRODUCTION_TENANT_ADMIN_ROLE)',
+  'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
+  'PRODUCTION_PERMISSION.REQUEST_MANAGE',
+  'PRODUCTION_TENANT_ROLE.TENANT_ADMIN',
+  'PRODUCTION_PERMISSION.TENANT_USERS_MANAGE',
+  'trustedProductionSession?.user?.id',
 ]) {
   if (!context.includes(required)) throw new Error(`Application context is missing role separation ${required}.`);
 }
@@ -94,7 +97,8 @@ for (const required of [
   'canSelectRole',
   'userAdministration.setRoles(user.id, currentSelection(controls))',
   "dataset: { tenantRoleAction: 'save' }",
-  "attrs: { 'aria-labelledby': headingId }",
+  "'aria-labelledby': headingId",
+  "tabindex: '-1'",
   "attrs: { 'aria-live': 'polite' }",
 ]) {
   if (!application.includes(required)) throw new Error(`Tenant Admin UI is missing ${required}.`);
@@ -106,12 +110,12 @@ for (const forbidden of ['innerHTML', 'tenantId', 'platform_admin', 'localStorag
 const app = await readFile('src/app.js', 'utf8');
 for (const required of [
   "from './tenant-admin/index.js'",
-  "from './platform/production-session.js'",
   "from './platform/tenant-user-administration-api.js'",
   'context.isDemoRuntime()',
   'createDemoTenantUserAdministration({',
-  'context.isTenantAdmin() && productionRuntime',
-  'createTenantUserAdministrationApi({ apiClient: productionRuntime.apiClient })',
+  'const authentication = context.authenticationRuntime()',
+  'context.isTenantAdmin() && authentication',
+  'createTenantUserAdministrationApi({ apiClient: authentication.apiClient })',
 ]) {
   if (!app.includes(required)) throw new Error(`Composition Root is missing Tenant Admin wiring ${required}.`);
 }

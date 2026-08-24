@@ -57,7 +57,6 @@ const allowedAppImports = new Set([
   './tenant-admin/index.js',
   './platform/application-context.js',
   './platform/app-shell.js',
-  './platform/production-session.js',
   './platform/tenant-user-administration-api.js',
 ]);
 
@@ -67,14 +66,13 @@ for (const required of [
   "from './tenant-admin/index.js'",
   "from './platform/application-context.js'",
   "from './platform/app-shell.js'",
-  "from './platform/production-session.js'",
   "from './platform/tenant-user-administration-api.js'",
   'createEmployeeApplication',
   'createManagerApplication',
   'createTenantAdminApplication',
   'createApplicationContext',
   'createAppShell',
-  'createProductionSessionRuntime',
+  'context.authenticationRuntime()',
   'createTenantUserAdministrationApi',
 ]) {
   if (!app.includes(required)) fail(`src/app.js: Composition Root missing ${required}.`);

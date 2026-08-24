@@ -47,6 +47,7 @@ export function createTenantAdminApplication({
   }
 
   let generation = 0;
+  let pendingFocusUserId = null;
 
   function loadingPanel() {
     return el('section', {
@@ -80,7 +81,7 @@ export function createTenantAdminApplication({
     const card = el('article', {
       className: 'card tenant-user-card',
       dataset: { tenantUserId: user.id },
-      attrs: { 'aria-labelledby': headingId },
+      attrs: { 'aria-labelledby': headingId, tabindex: '-1' },
     });
     const header = el('header', { className: 'tenant-user-card-header' }, [
       el('div', {}, [
@@ -144,6 +145,7 @@ export function createTenantAdminApplication({
         const updated = await userAdministration.setRoles(user.id, currentSelection(controls));
         showToast(t('tenantAdmin.users.saved'));
         announce(t('tenantAdmin.users.savedFor', { name: updated.displayName }));
+        pendingFocusUserId = updated.id;
         rerender();
       } catch (error) {
         const key = roleUpdateErrorKey(error?.code);
@@ -183,6 +185,15 @@ export function createTenantAdminApplication({
       users.forEach((user) => list.appendChild(userCard(user, () => render())));
       surface.appendChild(list);
       announce(t('tenantAdmin.users.loaded', { count: users.length }));
+      if (pendingFocusUserId) {
+        const focusUserId = pendingFocusUserId;
+        pendingFocusUserId = null;
+        requestAnimationFrame(() => {
+          [...list.children]
+            .find((card) => card.dataset.tenantUserId === focusUserId)
+            ?.focus();
+        });
+      }
     } catch (error) {
       if (targetGeneration !== generation) return;
       const surface = appRoot.querySelector('[data-tenant-admin-users]');
