@@ -52,7 +52,7 @@ The browser mirrors the backend role/permission vocabulary only to validate the 
 
 The application session remains an HttpOnly cookie and is not exposed to JavaScript.
 
-The CSRF token returned by `GET /api/v1/session` is held only in the in-memory production session runtime. `src/core/api-client.js` supplies it as `X-CSRF-Token` for unsafe same-origin methods. It is not written to LocalStorage or sessionStorage.
+The CSRF token returned by `GET /api/v1/session` is held only in the in-memory production session runtime. `src/core/api-client.js` supplies it as `X-CSRF-Token` for unsafe same-origin writes. It is not written to LocalStorage or sessionStorage.
 
 Provider access, refresh and ID tokens are not part of the browser session contract and must never be stored by this runtime.
 
@@ -63,7 +63,10 @@ Production application composition performs session bootstrap before rendering a
 - HTTP/other non-HTTPS production origins fail closed because the API client requires HTTPS.
 - HTTP 401 is treated as a normal signed-out state.
 - malformed responses, dependency failures, transport failures and insecure configuration become `unavailable` and expose no local fallback authority.
+- production session requests are bounded to 10 seconds; the runtime aborts the fetch and rejects the request when the limit is reached so initial rendering cannot remain blocked indefinitely.
 - the explicit demo runtime does not create the production session runtime and remains behaviorally separate.
+
+The timeout is a browser availability guard, not an authorization bypass or retry loop. A timeout produces the same non-authoritative unavailable presentation state as other unresolved session dependencies. The user may explicitly retry through the existing localized retry control.
 
 ## Sign-in and logout
 
@@ -115,9 +118,11 @@ Repository evidence includes:
 - fixed same-origin login/logout path tests;
 - in-memory CSRF write-header tests;
 - signed-out versus unavailable failure tests;
+- deterministic timeout/abort coverage proving stalled session requests become unavailable;
 - Employee/Conference Manager/Tenant Admin/combined presentation capability matrix tests;
 - browser-storage authority negative tests;
 - static production boundary checks preventing demo business view activation in production;
+- a static version contract requiring `index.html` to load the current application entry revision;
 - existing demo Chromium/WebKit regression coverage.
 
 A real secure production-session E2E with Microsoft remains deployment/external acceptance evidence and must not be claimed solely from the repository tests.
