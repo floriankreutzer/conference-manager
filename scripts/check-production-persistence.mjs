@@ -55,4 +55,47 @@ for (const required of [
   }
 }
 
+const applicationContext = await readFile('src/platform/application-context.js', 'utf8');
+for (const required of [
+  'const isDemo = runtimeMode === RUNTIME_MODE.DEMO;',
+  'return isDemo ? requestRepository.all() : EMPTY_REQUESTS;',
+  'return isDemo ? writeString(KEYS.role, value) : false;',
+  'return isDemo && [KEYS.requests, KEYS.catalog, KEYS.siteInfo, KEYS.role].includes(key);',
+]) {
+  if (!applicationContext.includes(required)) {
+    throw new Error(`Application context production boundary is missing ${required}.`);
+  }
+}
+
+const identityBootstrap = await readFile('src/platform/identity-bootstrap.js', 'utf8');
+if (!identityBootstrap.includes('if (mode !== RUNTIME_MODE.DEMO) return;')) {
+  throw new Error('Identity bootstrap must not read authoritative browser identity in production.');
+}
+
+const demoSecurity = await readFile('src/platform/demo-security.js', 'utf8');
+if (!demoSecurity.includes('if (runtimeMode !== RUNTIME_MODE.DEMO) return;')) {
+  throw new Error('Demo security normalization must not access demo role storage in production.');
+}
+
+const featureParity = await readFile('src/platform/feature-parity.js', 'utf8');
+for (const required of [
+  'if (runtimeMode !== RUNTIME_MODE.DEMO || syncFrame) return;',
+  'if (runtimeMode === RUNTIME_MODE.DEMO) {',
+]) {
+  if (!featureParity.includes(required)) {
+    throw new Error(`Demo enhancement scheduler production guard is missing ${required}.`);
+  }
+}
+
+const appShell = await readFile('src/platform/app-shell.js', 'utf8');
+for (const required of [
+  'context.notifications(4)',
+  'context.canSwitchRole()',
+  "context.isDemoRuntime() ? t('app.mvp') : ''",
+]) {
+  if (!appShell.includes(required)) {
+    throw new Error(`Production shell presentation boundary is missing ${required}.`);
+  }
+}
+
 console.log('Production persistence boundary check passed.');
