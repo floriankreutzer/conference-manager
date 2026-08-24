@@ -13,6 +13,11 @@ import {
   requestRepository,
   writeString,
 } from '../core/storage.js';
+import {
+  PRODUCTION_AUTH_STATUS,
+  PRODUCTION_PERMISSION,
+  PRODUCTION_TENANT_ROLE,
+} from './production-session.js';
 
 const EMPTY_PROFILE = Object.freeze({ firstName: '', lastName: '' });
 const EMPTY_CATALOG = Object.freeze({
@@ -24,15 +29,40 @@ const EMPTY_CATALOG = Object.freeze({
 const EMPTY_SITE_INFO = Object.freeze({});
 const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
+const PRODUCTION_AUTH_STATUSES = new Set(Object.values(PRODUCTION_AUTH_STATUS));
 
-export function createApplicationContext() {
+function normalizedProductionAuthenticationStatus(value) {
+  return PRODUCTION_AUTH_STATUSES.has(value) ? value : PRODUCTION_AUTH_STATUS.UNAVAILABLE;
+}
+
+export function createApplicationContext({
+  productionSession = null,
+  productionAuthenticationStatus = PRODUCTION_AUTH_STATUS.UNAUTHENTICATED,
+} = {}) {
   const runtimeMode = runtimeModeFromDocument(document);
   const isDemo = runtimeMode === RUNTIME_MODE.DEMO;
+  const authenticationStatus = normalizedProductionAuthenticationStatus(productionAuthenticationStatus);
+  const trustedProductionSession = !isDemo
+    && authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED
+    ? productionSession
+    : null;
+  const productionRoles = new Set(
+    Array.isArray(trustedProductionSession?.roles) ? trustedProductionSession.roles : [],
+  );
+  const productionPermissions = new Set(
+    Array.isArray(trustedProductionSession?.permissions) ? trustedProductionSession.permissions : [],
+  );
   const profile = isDemo
     ? readJson(KEYS.profile, { firstName: 'Florian', lastName: 'Kreutzer' })
     : EMPTY_PROFILE;
   let catalog = isDemo ? loadCatalog() : EMPTY_CATALOG;
   let siteInfo = isDemo ? loadSiteInfo() : EMPTY_SITE_INFO;
+
+  function hasProductionCapability(role, permission) {
+    return Boolean(trustedProductionSession)
+      && productionRoles.has(role)
+      && productionPermissions.has(permission);
+  }
 
   return {
     profile,
@@ -41,6 +71,12 @@ export function createApplicationContext() {
     },
     isDemoRuntime() {
       return isDemo;
+    },
+    authenticationStatus() {
+      return isDemo ? null : authenticationStatus;
+    },
+    isAuthenticated() {
+      return isDemo || Boolean(trustedProductionSession);
     },
     canSwitchRole() {
       return isDemo;
@@ -67,10 +103,25 @@ export function createApplicationContext() {
       return notificationRepository.all().slice(0, Math.max(0, Number(limit) || 0));
     },
     role() {
-      return isDemo ? readString(KEYS.role, USER_ROLE.EMPLOYEE) : USER_ROLE.EMPLOYEE;
+      if (isDemo) return readString(KEYS.role, USER_ROLE.EMPLOYEE);
+      return hasProductionCapability(
+        PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER,
+        PRODUCTION_PERMISSION.REQUEST_MANAGE,
+      ) ? USER_ROLE.MANAGER : USER_ROLE.EMPLOYEE;
     },
     isManager() {
-      return isDemo && readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.MANAGER;
+      if (isDemo) return readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.MANAGER;
+      return hasProductionCapability(
+        PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER,
+        PRODUCTION_PERMISSION.REQUEST_MANAGE,
+      );
+    },
+    canManageTenantUsers() {
+      if (isDemo) return false;
+      return hasProductionCapability(
+        PRODUCTION_TENANT_ROLE.TENANT_ADMIN,
+        PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,
+      );
     },
     setRole(value) {
       return isDemo ? writeString(KEYS.role, value) : false;
