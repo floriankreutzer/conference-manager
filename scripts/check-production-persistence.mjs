@@ -55,9 +55,39 @@ for (const required of [
   }
 }
 
+const productionSession = await readFile('src/platform/production-session.js', 'utf8');
+for (const forbidden of ['localStorage', 'sessionStorage']) {
+  if (productionSession.includes(forbidden)) {
+    throw new Error(`Production session boundary must not depend on browser persistence: ${forbidden}.`);
+  }
+}
+for (const required of [
+  "const SESSION_PATH = 'v1/session';",
+  "const LOGIN_PATH = '/api/v1/auth/microsoft/login';",
+  "const APPLICATION_ROOT = '/';",
+  'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
+  'PRODUCTION_TENANT_ROLE.TENANT_ADMIN',
+  'PRODUCTION_PERMISSION.REQUEST_MANAGE',
+  'PRODUCTION_PERMISSION.TENANT_USERS_MANAGE',
+  'roles[0] !== PRODUCTION_TENANT_ROLE.EMPLOYEE',
+  'csrfTokenProvider: () => currentSession?.csrfToken || null',
+  "apiClient.request(SESSION_PATH, { method: 'DELETE' })",
+  'bootstrapProductionAuthentication',
+  'status: PRODUCTION_AUTH_STATUS.UNAVAILABLE',
+]) {
+  if (!productionSession.includes(required)) {
+    throw new Error(`Production session trust boundary is missing ${required}.`);
+  }
+}
+
 const applicationContext = await readFile('src/platform/application-context.js', 'utf8');
 for (const required of [
   'const isDemo = runtimeMode === RUNTIME_MODE.DEMO;',
+  'authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED',
+  'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
+  'PRODUCTION_PERMISSION.REQUEST_MANAGE',
+  'PRODUCTION_TENANT_ROLE.TENANT_ADMIN',
+  'PRODUCTION_PERMISSION.TENANT_USERS_MANAGE',
   'return isDemo ? requestRepository.all() : EMPTY_REQUESTS;',
   'return isDemo ? writeString(KEYS.role, value) : false;',
   'return isDemo && [KEYS.requests, KEYS.catalog, KEYS.siteInfo, KEYS.role].includes(key);',
@@ -87,15 +117,37 @@ for (const required of [
   }
 }
 
+const app = await readFile('src/app.js', 'utf8');
+for (const required of [
+  'runtimeMode === RUNTIME_MODE.PRODUCTION',
+  'await bootstrapProductionAuthentication()',
+  'productionSession: productionAuthentication?.session || null',
+  'productionAuthenticationStatus: productionAuthentication?.status',
+]) {
+  if (!app.includes(required)) {
+    throw new Error(`Production application bootstrap is missing ${required}.`);
+  }
+}
+
 const appShell = await readFile('src/platform/app-shell.js', 'utf8');
 for (const required of [
   'context.notifications(4)',
   'context.canSwitchRole()',
   "context.isDemoRuntime() ? t('app.mvp') : ''",
+  "if (isProductionRuntime()) nextView = 'welcome';",
+  'if (context.isAuthenticated()) list.append(profileNavigationItem());',
+  'renderProductionAuthentication();',
+  'if (context.authenticationStatus() === PRODUCTION_AUTH_STATUS.UNAVAILABLE)',
+  'await authentication.signOut();',
 ]) {
   if (!appShell.includes(required)) {
     throw new Error(`Production shell presentation boundary is missing ${required}.`);
   }
+}
+const productionRenderGuard = appShell.indexOf('if (isProductionRuntime()) {\n      renderProductionAuthentication();\n      return;\n    }');
+const employeeRender = appShell.indexOf("else if (view === 'employee') employee.renderRequest();");
+if (productionRenderGuard < 0 || employeeRender < 0 || productionRenderGuard > employeeRender) {
+  throw new Error('Production shell must return before demo Employee/Manager business views can render.');
 }
 
 console.log('Production persistence boundary check passed.');
