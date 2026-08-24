@@ -7,15 +7,16 @@ const selectDemoRole = async (page, role) => {
   await expect(page.locator('#demoRoleSwitch')).toHaveValue(role);
 };
 
-test('demo role switch lives in the demo panel and no longer in the profile controls', async ({ page }) => {
+test('demo role switch exposes Employee, Conference Manager, and Tenant Admin as isolated perspectives', async ({ page }) => {
   await page.goto('/');
 
   const demoPanel = page.locator('[data-demo-security]');
   const roleSwitch = demoPanel.locator('#demoRoleSwitch');
   await expect(demoPanel).toBeVisible();
-  await expect(demoPanel).toHaveAttribute('data-demo-role-switch', '2026.08.23.55');
+  await expect(demoPanel).toHaveAttribute('data-demo-role-switch', '2026.08.24.62');
   await expect(roleSwitch).toBeVisible();
   await expect(roleSwitch).toHaveValue('employee');
+  await expect(roleSwitch.locator('option[value="tenant_admin"]')).toHaveText('Tenant Admin');
 
   await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
   await expect(page.locator('dialog')).toBeVisible();
@@ -25,10 +26,29 @@ test('demo role switch lives in the demo panel and no longer in the profile cont
   await selectDemoRole(page, 'manager');
   expect(await page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('manager');
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(1);
+  await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(0);
+
+  await selectDemoRole(page, 'tenant_admin');
+  expect(await page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('tenant_admin');
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
+  const tenantAdminNavigation = page.locator('#primaryNavigation button[data-view="tenantAdmin"]');
+  await expect(tenantAdminNavigation).toHaveCount(1);
+  await tenantAdminNavigation.click();
+  await expect(page.locator('#viewTitle')).toHaveText('Tenant Administration');
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Benutzer & Rollen' })).toBeVisible();
+
+  const employeeCard = page.locator('[data-tenant-user-id="demo-employee"]');
+  await expect(employeeCard).toContainText('David Chen');
+  await employeeCard.getByLabel('Tenant Admin').check();
+  await employeeCard.locator('button[data-tenant-role-action="save"]').click();
+  await expect(page.locator('[data-tenant-user-id="demo-employee"]')).toBeVisible();
+  await expect(page.locator('[data-tenant-user-id="demo-employee"]').getByLabel('Tenant Admin')).toBeChecked();
 
   await selectDemoRole(page, 'employee');
   expect(await page.evaluate(() => localStorage.getItem('conference_demo_role_v1'))).toBe('employee');
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(0);
 });
 
 test('production runtime exposes no demo role switch', async ({ page }) => {
