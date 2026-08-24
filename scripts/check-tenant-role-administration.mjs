@@ -1,5 +1,13 @@
 import { readFile } from 'node:fs/promises';
 
+const securityPolicy = await readFile('src/core/security-policy.js', 'utf8');
+for (const required of [
+  "TENANT_ADMIN: 'tenant_admin'",
+  'normalizeDemoRole',
+]) {
+  if (!securityPolicy.includes(required)) throw new Error(`Demo role policy is missing ${required}.`);
+}
+
 const productionSession = await readFile('src/platform/production-session.js', 'utf8');
 for (const required of [
   "apiClient.request('v1/session')",
@@ -34,10 +42,28 @@ for (const forbidden of ['tenantId', 'platform_admin', 'localStorage', 'sessionS
   if (api.includes(forbidden)) throw new Error(`Tenant role API adapter contains forbidden authority/transport ${forbidden}.`);
 }
 
+const demoAdministration = await readFile('src/tenant-admin/demo-user-administration.js', 'utf8');
+for (const required of [
+  'createDemoTenantUserAdministration',
+  "TENANT_ELEVATED_ROLE.TENANT_ADMIN",
+  "TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER",
+  "throw demoError('HTTP_403')",
+  "throw demoError('HTTP_409')",
+]) {
+  if (!demoAdministration.includes(required)) throw new Error(`Tenant Admin demo adapter is missing ${required}.`);
+}
+for (const forbidden of ['platform_admin', 'localStorage', 'sessionStorage', 'fetch(', 'apiClient']) {
+  if (demoAdministration.includes(forbidden)) {
+    throw new Error(`Tenant Admin demo adapter must remain isolated from production authority/transport: ${forbidden}.`);
+  }
+}
+
 const context = await readFile('src/platform/application-context.js', 'utf8');
 for (const required of [
+  "DEMO_CURRENT_USER_ID = 'demo-current-user'",
   "PRODUCTION_CONFERENCE_MANAGER_ROLE = 'conference_manager'",
   "PRODUCTION_TENANT_ADMIN_ROLE = 'tenant_admin'",
+  'readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN',
   'productionRoles.has(PRODUCTION_CONFERENCE_MANAGER_ROLE)',
   'productionRoles.has(PRODUCTION_TENANT_ADMIN_ROLE)',
 ]) {
@@ -52,7 +78,9 @@ for (const required of [
   "nextView === 'manager' && !context.isManager()",
   "nextView === 'tenantAdmin' && (!context.isTenantAdmin() || !tenantAdmin)",
   "navButton('nav.tenantAdmin', 'tenantAdmin')",
+  "value: 'tenant_admin'",
   "view === 'tenantAdmin'",
+  "!context.isTenantAdmin() && view === 'tenantAdmin'",
   "t('profile.role.tenantAdmin')",
 ]) {
   if (!shell.includes(required)) throw new Error(`Application shell is missing Tenant Admin separation ${required}.`);
@@ -61,6 +89,7 @@ for (const required of [
 const application = await readFile('src/tenant-admin/application.js', 'utf8');
 for (const required of [
   'context.userId()',
+  'context.isDemoRuntime()',
   'elevatedRolesFromUser',
   'canSelectRole',
   'userAdministration.setRoles(user.id, currentSelection(controls))',
@@ -79,6 +108,8 @@ for (const required of [
   "from './tenant-admin/index.js'",
   "from './platform/production-session.js'",
   "from './platform/tenant-user-administration-api.js'",
+  'context.isDemoRuntime()',
+  'createDemoTenantUserAdministration({',
   'context.isTenantAdmin() && productionRuntime',
   'createTenantUserAdministrationApi({ apiClient: productionRuntime.apiClient })',
 ]) {
