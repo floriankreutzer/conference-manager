@@ -22,8 +22,8 @@ function capabilityMessages(language) {
 test('canonical localization catalogs remain synchronized after parity consolidation', () => {
   const inventory = buildLocalizationInventory();
 
-  assert.equal(inventory.canonical.deKeys, 570);
-  assert.equal(inventory.canonical.enKeys, 570);
+  assert.equal(inventory.canonical.deKeys, 581);
+  assert.equal(inventory.canonical.enKeys, 581);
   assert.deepEqual(inventory.canonical.missingInEnglish, []);
   assert.deepEqual(inventory.canonical.missingInGerman, []);
   assert.deepEqual(inventory.canonical.placeholderMismatches, []);
@@ -32,8 +32,8 @@ test('canonical localization catalogs remain synchronized after parity consolida
 
   const de = capabilityMessages('de');
   const en = capabilityMessages('en');
-  assert.equal(de.size, 103);
-  assert.equal(en.size, 103);
+  assert.equal(de.size, 114);
+  assert.equal(en.size, 114);
   assert.deepEqual([...de.keys()], [...en.keys()]);
   assert.ok([...de.keys()].every((key) => !key.startsWith('parity.')));
 });
@@ -53,6 +53,10 @@ test('canonical migration preserves representative German and English baseline c
   const de = capabilityMessages('de');
   const en = capabilityMessages('en');
 
+  assert.equal(de.get('auth.production.signInAction'), 'Mit Microsoft anmelden');
+  assert.equal(en.get('auth.production.signInAction'), 'Sign in with Microsoft');
+  assert.equal(de.get('profile.role.tenantAdmin'), 'Tenant-Administration');
+  assert.equal(en.get('profile.role.tenantAdmin'), 'Tenant administration');
   assert.equal(de.get('manager.admin.activeRooms'), 'Aktive Räume');
   assert.equal(en.get('manager.admin.activeRooms'), 'Active rooms');
   assert.equal(de.get('manager.operational.displayed'), '{shown} von {total} Buchungen angezeigt');

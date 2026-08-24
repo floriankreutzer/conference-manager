@@ -3,13 +3,18 @@ import { formatDate, formatDateTime, language, setLanguage, t } from '../core/i1
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { kpi } from '../shared/application-presentation.js';
 import { notificationText } from '../shared/notifications.js';
+import { PRODUCTION_AUTH_STATUS } from './production-session.js';
 
-export function createAppShell({ context, employee, manager }) {
+export function createAppShell({ context, employee, manager, authentication = null }) {
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');
   const titleRoot = document.getElementById('viewTitle');
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
+
+  function isProductionRuntime() {
+    return !context.isDemoRuntime();
+  }
 
   function setPageHeading(title, subtitle) {
     titleRoot.textContent = title;
@@ -17,7 +22,8 @@ export function createAppShell({ context, employee, manager }) {
   }
 
   function setView(nextView) {
-    if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
+    if (isProductionRuntime()) nextView = 'welcome';
+    else if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
     view = nextView;
     render();
     requestAnimationFrame(() => titleRoot?.focus());
@@ -33,20 +39,17 @@ export function createAppShell({ context, employee, manager }) {
     return el('li', {}, item);
   }
 
-  function renderNavigation() {
-    document.title = t('app.title');
-    document.getElementById('skipLink').textContent = t('a11y.skip');
-    document.getElementById('sidebar').setAttribute('aria-label', t('app.title'));
-    document.getElementById('brandTitle').textContent = t('app.title');
-    document.getElementById('brandSubtitle').textContent = t('app.internalServices');
-    clear(navigationRoot);
-    const list = el('ul', { className: 'nav-list' });
-    list.append(
-      navButton('nav.welcome', 'welcome'),
-      navButton('nav.newRequest', 'employee'),
-      navButton('nav.myRequests', 'requests'),
-    );
-    if (context.isManager()) list.append(navButton('nav.manager', 'manager'));
+  function profileRoleLabel() {
+    if (context.isDemoRuntime()) {
+      return context.isManager() ? t('profile.role.manager') : t('profile.role.employee');
+    }
+    if (context.isManager() && context.canManageTenantUsers()) return t('profile.role.managerTenantAdmin');
+    if (context.isManager()) return t('profile.role.manager');
+    if (context.canManageTenantUsers()) return t('profile.role.tenantAdmin');
+    return t('profile.role.employee');
+  }
+
+  function profileNavigationItem() {
     const initials = context.initials();
     const fullName = context.fullName();
     const profileButton = button(initials ? `${initials} · ${t('nav.profile')}` : t('nav.profile'), {
@@ -57,10 +60,64 @@ export function createAppShell({ context, employee, manager }) {
       },
     });
     profileButton.addEventListener('click', openProfile);
-    list.append(el('li', {}, profileButton));
+    return el('li', {}, profileButton);
+  }
+
+  function renderNavigation() {
+    document.title = t('app.title');
+    document.getElementById('skipLink').textContent = t('a11y.skip');
+    document.getElementById('sidebar').setAttribute('aria-label', t('app.title'));
+    document.getElementById('brandTitle').textContent = t('app.title');
+    document.getElementById('brandSubtitle').textContent = t('app.internalServices');
+    clear(navigationRoot);
+    const list = el('ul', { className: 'nav-list' });
+
+    if (isProductionRuntime()) {
+      if (context.isAuthenticated()) list.append(profileNavigationItem());
+    } else {
+      list.append(
+        navButton('nav.welcome', 'welcome'),
+        navButton('nav.newRequest', 'employee'),
+        navButton('nav.myRequests', 'requests'),
+      );
+      if (context.isManager()) list.append(navButton('nav.manager', 'manager'));
+      list.append(profileNavigationItem());
+    }
+
     navigationRoot.appendChild(list);
     navigationRoot.setAttribute('aria-label', t('a11y.mainNav'));
     document.getElementById('sidebarFooter').textContent = context.isDemoRuntime() ? t('app.mvp') : '';
+  }
+
+  function renderProductionAuthentication() {
+    if (context.isAuthenticated()) {
+      setPageHeading(t('auth.production.signedInTitle'), t('auth.production.signedInText'));
+      const details = el('dl', { className: 'details-list' }, [
+        el('dt', { text: t('profile.role') }),
+        el('dd', { text: profileRoleLabel() }),
+      ]);
+      appRoot.appendChild(el('section', { className: 'card' }, [details]));
+      return;
+    }
+
+    if (context.authenticationStatus() === PRODUCTION_AUTH_STATUS.UNAVAILABLE) {
+      setPageHeading(t('auth.production.unavailableTitle'), t('auth.production.unavailableText'));
+      const retry = button(t('auth.production.retry'), { className: 'primary' });
+      retry.addEventListener('click', () => globalThis.location.reload());
+      appRoot.appendChild(el('section', { className: 'card' }, [
+        el('p', { text: t('auth.production.unavailableText') }),
+        el('div', { className: 'button-row' }, [retry]),
+      ]));
+      return;
+    }
+
+    setPageHeading(t('auth.production.signInTitle'), t('auth.production.signInText'));
+    const signIn = button(t('auth.production.signInAction'), { className: 'primary' });
+    signIn.addEventListener('click', () => authentication?.signIn());
+    appRoot.appendChild(el('section', { className: 'card' }, [
+      el('p', { text: t('auth.production.signInText') }),
+      el('div', { className: 'button-row' }, [signIn]),
+    ]));
   }
 
   function renderWelcome() {
@@ -161,11 +218,15 @@ export function createAppShell({ context, employee, manager }) {
   function openProfile() {
     const content = el('section', { className: 'profile-content' });
     const dl = el('dl', { className: 'details-list' });
-    [
-      [t('profile.first'), context.profile.firstName],
-      [t('profile.last'), context.profile.lastName],
-      [t('profile.role'), context.isManager() ? t('profile.role.manager') : t('profile.role.employee')],
-    ].forEach(([term, value]) => dl.append(el('dt', { text: term }), el('dd', { text: value })));
+    const profileDetails = [];
+    if (context.isDemoRuntime() || context.fullName()) {
+      profileDetails.push(
+        [t('profile.first'), context.profile.firstName],
+        [t('profile.last'), context.profile.lastName],
+      );
+    }
+    profileDetails.push([t('profile.role'), profileRoleLabel()]);
+    profileDetails.forEach(([term, value]) => dl.append(el('dt', { text: term }), el('dd', { text: value })));
     content.appendChild(dl);
 
     const languageSelect = el('select');
@@ -209,7 +270,20 @@ export function createAppShell({ context, employee, manager }) {
       dialog.close();
       requestAnimationFrame(openHelp);
     });
-    logout.addEventListener('click', () => showToast(t('profile.logoutMvp')));
+    logout.addEventListener('click', async () => {
+      if (context.isDemoRuntime()) {
+        showToast(t('profile.logoutMvp'));
+        return;
+      }
+      logout.disabled = true;
+      try {
+        if (!authentication) throw new Error('AUTHENTICATION_RUNTIME_UNAVAILABLE');
+        await authentication.signOut();
+      } catch {
+        logout.disabled = false;
+        showToast(t('auth.production.logoutFailed'));
+      }
+    });
     languageSelect.addEventListener('change', () => {
       setLanguage(languageSelect.value);
       dialog.close();
@@ -259,6 +333,10 @@ export function createAppShell({ context, employee, manager }) {
   function render() {
     clear(appRoot);
     renderNavigation();
+    if (isProductionRuntime()) {
+      renderProductionAuthentication();
+      return;
+    }
     if (view === 'welcome') renderWelcome();
     else if (view === 'employee') employee.renderRequest();
     else if (view === 'requests') employee.renderRequests();

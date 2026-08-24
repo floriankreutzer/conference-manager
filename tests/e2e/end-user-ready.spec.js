@@ -27,7 +27,7 @@ test('first-use hierarchy is personalized and marked end-user ready', async ({ p
   await expect(page.locator('#primaryNavigation button[data-view="employee"]')).toHaveText('Neue Konferenz');
 });
 
-test('production presentation never inherits the demo identity or demo controls', async ({ page }) => {
+test('production presentation fails closed without a secure server session and never inherits demo identity or controls', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   await page.route('**/*', async (route) => {
@@ -50,15 +50,13 @@ test('production presentation never inherits the demo identity or demo controls'
   await expect(page.locator('html')).toHaveAttribute('data-runtime-mode', 'production');
   await expect(page.locator('[data-demo-security]')).toHaveCount(0);
   await expect(page.locator('#sidebarFooter')).toBeHidden();
-  await expect(page.locator('#welcomeHeading')).toHaveText('Willkommen');
-  const profileButton = page.locator('#primaryNavigation button[aria-haspopup="dialog"]');
-  await expect(profileButton).toHaveText('Profil');
+  await expect(page.getByRole('heading', { name: 'Sichere Anmeldung nicht verfügbar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Erneut versuchen' })).toBeVisible();
+  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="employee"]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[aria-haspopup="dialog"]')).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('Florian Kreutzer');
-
-  await profileButton.click();
-  await expect(page.locator('dialog')).toBeVisible();
-  await expect(page.locator('#profileRole')).toHaveCount(0);
-  await page.locator('dialog button.primary').click();
   expect(pageErrors).toEqual([]);
 });
 
