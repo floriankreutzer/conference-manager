@@ -54,7 +54,7 @@ export function createTenantAdminApplication({
       attrs: { role: 'status', 'aria-live': 'polite' },
     }, [
       el('strong', { text: t('tenantAdmin.users.loading') }),
-      el('p', { className: 'muted', text: t('tenantAdmin.users.loadingHint') }),
+      context.isDemoRuntime() ? null : el('p', { className: 'muted', text: t('tenantAdmin.users.loadingHint') }),
     ]);
   }
 
@@ -202,7 +202,7 @@ export function createTenantAdminApplication({
     const intro = el('section', { className: 'card tenant-admin-intro' }, [
       el('h2', { text: t('tenantAdmin.users.title') }),
       el('p', { text: t('tenantAdmin.users.description') }),
-      el('p', { className: 'muted', text: t('tenantAdmin.users.securityNote') }),
+      context.isDemoRuntime() ? null : el('p', { className: 'muted', text: t('tenantAdmin.users.securityNote') }),
     ]);
     const refresh = button(t('tenantAdmin.users.refresh'), { dataset: { tenantRoleAction: 'refresh' } });
     refresh.addEventListener('click', render);
