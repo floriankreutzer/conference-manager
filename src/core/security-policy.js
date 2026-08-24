@@ -6,6 +6,7 @@ export const RUNTIME_MODE = Object.freeze({
 export const USER_ROLE = Object.freeze({
   EMPLOYEE: 'employee',
   MANAGER: 'manager',
+  TENANT_ADMIN: 'tenant_admin',
 });
 
 export const SUPPORTED_LANGUAGE = Object.freeze({

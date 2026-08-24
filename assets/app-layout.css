@@ -30,7 +30,10 @@
 .cost-summary,
 .item-list,
 .item-row,
-.allocation-row {
+.allocation-row,
+.tenant-user-grid,
+.tenant-user-card,
+.tenant-role-fieldset {
   min-width: 0;
   max-width: 100%;
 }
@@ -250,6 +253,94 @@ main {
   max-width: none;
 }
 
+/* Tenant administration */
+.tenant-admin-intro,
+.tenant-admin-status {
+  margin-bottom: var(--app-section-gap);
+}
+
+.tenant-user-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--app-section-gap);
+}
+
+.tenant-user-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.tenant-user-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.tenant-user-card-header h3,
+.tenant-user-card-header p {
+  margin-bottom: var(--space-1);
+}
+
+.tenant-user-baseline {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+  font-weight: var(--font-weight-medium);
+}
+
+.tenant-role-fieldset {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+}
+
+.tenant-role-fieldset legend {
+  padding-inline: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.tenant-role-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.tenant-role-option:has(input:focus-visible) {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+.tenant-role-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.tenant-role-option input {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  flex: 0 0 auto;
+}
+
+.tenant-user-message {
+  min-height: calc(var(--line-height-base) * 1em);
+  margin: 0;
+}
+
+.tenant-user-actions {
+  margin-top: auto;
+}
+
 /* Dialogs */
 .modal-dialog {
   width: min(760px, calc(100dvw - var(--space-8)));
@@ -357,6 +448,15 @@ main {
   .button-row button:last-child:nth-child(odd),
   .request-actions button:last-child:nth-child(odd) {
     grid-column: 1 / -1;
+  }
+
+  .tenant-user-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-user-card-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .modal-actions {

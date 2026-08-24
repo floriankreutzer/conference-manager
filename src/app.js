@@ -2,8 +2,13 @@ import { createEmployeeApplication } from './employee/index.js';
 import { createManagerApplication } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell } from './platform/app-shell.js';
+import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
+import {
+  createDemoTenantUserAdministration,
+  createTenantAdminApplication,
+} from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.24.43';
+const APP_BUILD = '2026.08.24.63';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -24,12 +29,30 @@ async function bootstrap() {
     setPageHeading,
     onNavigationRefresh: () => shell.renderNavigation(),
   });
+  const authentication = context.authenticationRuntime();
+  const tenantUserAdministration = context.isDemoRuntime()
+    ? createDemoTenantUserAdministration({
+      currentUserId: context.userId(),
+      currentDisplayName: context.fullName(),
+    })
+    : (context.isTenantAdmin() && authentication
+      ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
+      : null);
+  const tenantAdmin = tenantUserAdministration
+    ? createTenantAdminApplication({
+      context,
+      appRoot,
+      setPageHeading,
+      userAdministration: tenantUserAdministration,
+    })
+    : null;
 
   shell = createAppShell({
     context,
     employee,
     manager,
-    authentication: context.authenticationRuntime(),
+    tenantAdmin,
+    authentication,
   });
 
   function render() {

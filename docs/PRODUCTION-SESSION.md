@@ -62,6 +62,7 @@ Production application composition performs session bootstrap before rendering a
 
 - HTTP/other non-HTTPS production origins fail closed because the API client requires HTTPS.
 - HTTP 401 is treated as a normal signed-out state.
+- session bootstrap is aborted after a bounded timeout so a stalled endpoint renders the localized unavailable state instead of blocking the application shell indefinitely.
 - malformed responses, dependency failures, transport failures and insecure configuration become `unavailable` and expose no local fallback authority.
 - the explicit demo runtime does not create the production session runtime and remains behaviorally separate.
 
@@ -93,6 +94,8 @@ Therefore:
 - #114 owns production activation of Employee/Conference Manager domain views after the server-authoritative application API contract exists;
 - #61 may use the trusted Tenant Admin capability for its dedicated user/role administration UI because the corresponding backend role-administration API has been implemented separately.
 
+The Tenant Admin browser adapter follows the backend `nextAfterId` cursor until all bounded pages are loaded, rejects duplicate users/cursors and malformed page contracts, never accepts a Tenant selector, and sends only allowlisted elevated roles through the session-bound CSRF client.
+
 The production shell returns before rendering existing demo Employee/Manager business views. This is an intentional fail-closed state, not an incomplete fallback.
 
 ## Browser storage boundary
@@ -115,6 +118,8 @@ Repository evidence includes:
 - fixed same-origin login/logout path tests;
 - in-memory CSRF write-header tests;
 - signed-out versus unavailable failure tests;
+- stalled-session timeout/abort tests;
+- multi-page Tenant User cursor and malformed-page tests;
 - Employee/Conference Manager/Tenant Admin/combined presentation capability matrix tests;
 - browser-storage authority negative tests;
 - static production boundary checks preventing demo business view activation in production;

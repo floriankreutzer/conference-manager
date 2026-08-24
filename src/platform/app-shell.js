@@ -5,7 +5,13 @@ import { kpi } from '../shared/application-presentation.js';
 import { notificationText } from '../shared/notifications.js';
 import { PRODUCTION_AUTH_STATUS } from './production-session.js';
 
-export function createAppShell({ context, employee, manager, authentication = null }) {
+export function createAppShell({
+  context,
+  employee,
+  manager,
+  tenantAdmin = null,
+  authentication = null,
+}) {
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');
   const titleRoot = document.getElementById('viewTitle');
@@ -22,8 +28,14 @@ export function createAppShell({ context, employee, manager, authentication = nu
   }
 
   function setView(nextView) {
-    if (isProductionRuntime()) nextView = 'welcome';
-    else if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
+    if (isProductionRuntime()) {
+      if (nextView !== 'tenantAdmin' || !context.canManageTenantUsers() || !tenantAdmin) {
+        nextView = 'welcome';
+      }
+    } else {
+      if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
+      if (nextView === 'tenantAdmin' && (!context.isTenantAdmin() || !tenantAdmin)) nextView = 'welcome';
+    }
     view = nextView;
     render();
     requestAnimationFrame(() => titleRoot?.focus());
@@ -41,6 +53,7 @@ export function createAppShell({ context, employee, manager, authentication = nu
 
   function profileRoleLabel() {
     if (context.isDemoRuntime()) {
+      if (context.isTenantAdmin()) return t('profile.role.tenantAdmin');
       return context.isManager() ? t('profile.role.manager') : t('profile.role.employee');
     }
     if (context.isManager() && context.canManageTenantUsers()) return t('profile.role.managerTenantAdmin');
@@ -73,7 +86,12 @@ export function createAppShell({ context, employee, manager, authentication = nu
     const list = el('ul', { className: 'nav-list' });
 
     if (isProductionRuntime()) {
-      if (context.isAuthenticated()) list.append(profileNavigationItem());
+      if (context.isAuthenticated()) {
+        if (context.canManageTenantUsers() && tenantAdmin) {
+          list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
+        }
+        list.append(profileNavigationItem());
+      }
     } else {
       list.append(
         navButton('nav.welcome', 'welcome'),
@@ -81,6 +99,7 @@ export function createAppShell({ context, employee, manager, authentication = nu
         navButton('nav.myRequests', 'requests'),
       );
       if (context.isManager()) list.append(navButton('nav.manager', 'manager'));
+      if (context.isTenantAdmin() && tenantAdmin) list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
       list.append(profileNavigationItem());
     }
 
@@ -246,6 +265,7 @@ export function createAppShell({ context, employee, manager, authentication = nu
       roleSelect.append(
         el('option', { value: 'employee', text: t('profile.role.employee') }),
         el('option', { value: 'manager', text: t('profile.role.manager') }),
+        el('option', { value: 'tenant_admin', text: t('profile.role.tenantAdmin') }),
       );
       roleSelect.value = context.role();
       content.appendChild(field({
@@ -292,6 +312,7 @@ export function createAppShell({ context, employee, manager, authentication = nu
       context.setRole(roleSelect.value);
       dialog.close();
       if (!context.isManager() && view === 'manager') view = 'welcome';
+      if (!context.isTenantAdmin() && view === 'tenantAdmin') view = 'welcome';
       render();
     });
   }
@@ -334,6 +355,10 @@ export function createAppShell({ context, employee, manager, authentication = nu
     clear(appRoot);
     renderNavigation();
     if (isProductionRuntime()) {
+      if (view === 'tenantAdmin') {
+        tenantAdmin?.render();
+        return;
+      }
       renderProductionAuthentication();
       return;
     }
@@ -341,6 +366,7 @@ export function createAppShell({ context, employee, manager, authentication = nu
     else if (view === 'employee') employee.renderRequest();
     else if (view === 'requests') employee.renderRequests();
     else if (view === 'manager') manager.renderManager();
+    else if (view === 'tenantAdmin') tenantAdmin?.render();
   }
 
   return {

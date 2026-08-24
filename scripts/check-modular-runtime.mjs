@@ -39,11 +39,13 @@ function isInside(file, root) {
 const sourceFiles = javascriptFiles('src');
 const employeeRoot = normalize('src/employee');
 const managerRoot = normalize('src/manager');
+const tenantAdminRoot = normalize('src/tenant-admin');
 const platformRoot = normalize('src/platform');
 const sharedRoot = normalize('src/shared');
 const coreRoot = normalize('src/core');
 const employeeIndex = normalize('src/employee/index.js');
 const managerIndex = normalize('src/manager/index.js');
+const tenantAdminIndex = normalize('src/tenant-admin/index.js');
 const managerAdminParity = normalize('src/manager/admin-parity.js');
 const featureFlagPath = normalize('src/platform/feature-flags.js');
 const appPath = normalize('src/app.js');
@@ -52,19 +54,26 @@ const app = readFileSync(appPath, 'utf8');
 const allowedAppImports = new Set([
   './employee/index.js',
   './manager/index.js',
+  './tenant-admin/index.js',
   './platform/application-context.js',
   './platform/app-shell.js',
+  './platform/tenant-user-administration-api.js',
 ]);
 
 for (const required of [
   "from './employee/index.js'",
   "from './manager/index.js'",
+  "from './tenant-admin/index.js'",
   "from './platform/application-context.js'",
   "from './platform/app-shell.js'",
+  "from './platform/tenant-user-administration-api.js'",
   'createEmployeeApplication',
   'createManagerApplication',
+  'createTenantAdminApplication',
   'createApplicationContext',
   'createAppShell',
+  'context.authenticationRuntime()',
+  'createTenantUserAdministrationApi',
 ]) {
   if (!app.includes(required)) fail(`src/app.js: Composition Root missing ${required}.`);
 }
@@ -100,6 +109,10 @@ const managerFacade = readFileSync(managerIndex, 'utf8');
 if (!managerFacade.includes('createManagerApplication')) {
   fail('src/manager/index.js: Manager public API must expose createManagerApplication.');
 }
+const tenantAdminFacade = readFileSync(tenantAdminIndex, 'utf8');
+if (!tenantAdminFacade.includes('createTenantAdminApplication')) {
+  fail('src/tenant-admin/index.js: Tenant Admin public API must expose createTenantAdminApplication.');
+}
 
 for (const file of sourceFiles) {
   const source = readFileSync(file, 'utf8');
@@ -113,17 +126,32 @@ for (const file of sourceFiles) {
     if (!isInside(file, managerRoot) && isInside(dependency, managerRoot) && dependency !== managerIndex) {
       fail(`${file}: Manager internals are private; external consumers must use src/manager/index.js.`);
     }
+    if (!isInside(file, tenantAdminRoot) && isInside(dependency, tenantAdminRoot) && dependency !== tenantAdminIndex) {
+      fail(`${file}: Tenant Admin internals are private; external consumers must use src/tenant-admin/index.js.`);
+    }
 
-    if (isInside(file, employeeRoot) && isInside(dependency, managerRoot)) {
-      fail(`${file}: Employee must not depend on Manager implementation or facade; use composition/shared contracts instead.`);
+    if (isInside(file, employeeRoot)
+      && (isInside(dependency, managerRoot) || isInside(dependency, tenantAdminRoot))) {
+      fail(`${file}: Employee must not depend on Manager or Tenant Admin capabilities; use composition/shared contracts instead.`);
     }
     if (isInside(file, managerRoot) && isInside(dependency, employeeRoot) && dependency !== employeeIndex) {
       fail(`${file}: Manager-to-Employee collaboration must use the Employee public API.`);
     }
+    if (isInside(file, managerRoot) && isInside(dependency, tenantAdminRoot)) {
+      fail(`${file}: Conference Manager must not depend on Tenant Admin capability.`);
+    }
+    if (isInside(file, tenantAdminRoot)
+      && (isInside(dependency, employeeRoot) || isInside(dependency, managerRoot))) {
+      fail(`${file}: Tenant Admin must not depend on Employee or Manager capabilities.`);
+    }
 
     if (isInside(file, sharedRoot)
-      && (isInside(dependency, employeeRoot) || isInside(dependency, managerRoot) || isInside(dependency, platformRoot) || dependency === appPath)) {
-      fail(`${file}: Shared must remain capability-independent and must not depend on Employee, Manager, Platform or the Composition Root.`);
+      && (isInside(dependency, employeeRoot)
+        || isInside(dependency, managerRoot)
+        || isInside(dependency, tenantAdminRoot)
+        || isInside(dependency, platformRoot)
+        || dependency === appPath)) {
+      fail(`${file}: Shared must remain capability-independent and must not depend on Employee, Manager, Tenant Admin, Platform or the Composition Root.`);
     }
 
     if (isInside(file, coreRoot) && dependency.startsWith(normalize('src/')) && !isInside(dependency, coreRoot)) {
@@ -145,6 +173,7 @@ const domainModules = [
   'src/employee/request-lifecycle.js',
   'src/manager/booking-lifecycle.js',
   'src/manager/reporting.js',
+  'src/tenant-admin/user-role-model.js',
 ];
 for (const file of domainModules) {
   const source = readFileSync(file, 'utf8');
@@ -156,7 +185,9 @@ for (const file of domainModules) {
   }
 }
 
-for (const file of sourceFiles.filter((path) => isInside(path, employeeRoot) || isInside(path, managerRoot))) {
+for (const file of sourceFiles.filter((path) => (
+  isInside(path, employeeRoot) || isInside(path, managerRoot) || isInside(path, tenantAdminRoot)
+))) {
   const source = readFileSync(file, 'utf8');
   const storageKinds = directBrowserStorageKinds(source);
   if (!storageKinds.length) continue;
@@ -177,7 +208,8 @@ for (const file of ['src/platform/app-shell.js', 'src/platform/application-conte
     const dependency = resolvedDependency(file, specifier);
     if (!dependency) continue;
     if ((isInside(dependency, employeeRoot) && dependency !== employeeIndex)
-      || (isInside(dependency, managerRoot) && dependency !== managerIndex)) {
+      || (isInside(dependency, managerRoot) && dependency !== managerIndex)
+      || (isInside(dependency, tenantAdminRoot) && dependency !== tenantAdminIndex)) {
       fail(`${file}: Platform composition may consume capabilities only through their public APIs.`);
     }
   }

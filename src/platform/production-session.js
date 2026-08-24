@@ -3,6 +3,7 @@ import { ApiSecurityError, createApiClient } from '../core/api-client.js';
 const SESSION_PATH = 'v1/session';
 const LOGIN_PATH = '/api/v1/auth/microsoft/login';
 const APPLICATION_ROOT = '/';
+const DEFAULT_BOOTSTRAP_TIMEOUT_MS = 10_000;
 const INTERNAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const PRODUCTION_TENANT_STATUS = Object.freeze({
@@ -131,6 +132,13 @@ function validCsrfToken(value) {
   return typeof value === 'string' && value.length >= 16 && value.length <= 4096;
 }
 
+function normalizedBootstrapTimeout(value) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 60_000) {
+    throw new ProductionSessionError('SESSION_TIMEOUT_INVALID');
+  }
+  return value;
+}
+
 export function validateProductionSession(payload, { clock = () => Date.now() } = {}) {
   const root = assertPlainObject(payload);
   const user = assertPlainObject(root.user);
@@ -178,7 +186,9 @@ export function createProductionSessionRuntime({
   navigate = defaultNavigate,
   replace = defaultReplace,
   clock = () => Date.now(),
+  bootstrapTimeoutMs = DEFAULT_BOOTSTRAP_TIMEOUT_MS,
 } = {}) {
+  const boundedBootstrapTimeout = normalizedBootstrapTimeout(bootstrapTimeoutMs);
   let currentSession = null;
   let status = PRODUCTION_AUTH_STATUS.UNAUTHENTICATED;
   const apiClient = createApiClient({
@@ -197,9 +207,11 @@ export function createProductionSessionRuntime({
       return currentSession;
     },
     async bootstrap() {
+      const abortController = new AbortController();
+      const timeoutId = globalThis.setTimeout(() => abortController.abort(), boundedBootstrapTimeout);
       try {
         currentSession = validateProductionSession(
-          await apiClient.request(SESSION_PATH),
+          await apiClient.request(SESSION_PATH, { signal: abortController.signal }),
           { clock },
         );
         status = PRODUCTION_AUTH_STATUS.AUTHENTICATED;
@@ -212,7 +224,12 @@ export function createProductionSessionRuntime({
         }
         status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
         if (error instanceof ProductionSessionError) throw error;
+        if (error?.name === 'AbortError') {
+          throw new ProductionSessionError('SESSION_BOOTSTRAP_TIMEOUT', { cause: error });
+        }
         throw new ProductionSessionError('SESSION_BOOTSTRAP_FAILED', { cause: error });
+      } finally {
+        globalThis.clearTimeout(timeoutId);
       }
     },
     signIn() {

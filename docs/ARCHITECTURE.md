@@ -16,6 +16,7 @@ Browser / index.html
      -> Platform application shell/context
      -> Employee public module API
      -> Manager public module API
+     -> Tenant Admin public module API
         -> shared cross-capability presentation/contracts
            -> core domain and infrastructure primitives
 ```
@@ -51,9 +52,16 @@ src/
 │   ├── reporting.js               # reporting domain calculations
 │   ├── parity-i18n.js             # temporary Manager-only Core delegation bridge
 │   └── Manager experience enhancements
+├── tenant-admin/
+│   ├── index.js                   # public Tenant Admin API
+│   ├── application.js             # accessible user/role administration UI
+│   ├── demo-user-administration.js# isolated demo-only example adapter
+│   └── user-role-model.js         # testable elevated-role selection rules
 ├── platform/
 │   ├── app-shell.js               # shell/navigation/profile/help routing
 │   ├── application-context.js     # shared profile/catalog/site/request context
+│   ├── production-session.js      # validated production session/CSRF runtime
+│   ├── tenant-user-administration-api.js # Tenant-scoped role API adapter
 │   ├── demo-security.js
 │   ├── feature-flags.js
 │   ├── feature-parity.js
@@ -130,12 +138,22 @@ Manager owns the complete baseline Conference Manager application behavior behin
 
 Manager internals are private. Manager-to-Employee collaboration is permitted only through an explicit approved Employee public contract and must never reach into Employee implementation details.
 
+### `src/tenant-admin`
+
+Tenant Admin owns the Tenant-scoped user and elevated-role administration capability behind `src/tenant-admin/index.js`.
+
+`application.js` owns the accessible responsive presentation and delegates all production reads/writes to the injected Platform API adapter. `user-role-model.js` owns independently testable role-selection rules. `demo-user-administration.js` is an isolated in-memory example adapter and must never create a production session, call the API or persist browser authority.
+
+The production capability is available only when the validated server session contains the `tenant_admin` role and `tenant:users:manage` permission. It does not imply Conference Manager capability. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
+
 ### `src/platform`
 
 Platform contains application-wide composition and infrastructure-facing concerns rather than Employee/Manager business logic.
 
 - `application-context.js` owns loading/access to profile, catalog, site information, requests and demo role state through the existing core persistence contracts.
 - `app-shell.js` owns shell navigation, welcome view, profile/help dialogs and top-level view orchestration. It receives Employee/Manager application contracts from `src/app.js` rather than importing capability internals.
+- `production-session.js` owns the bounded, fail-closed production session bootstrap and in-memory CSRF runtime.
+- `tenant-user-administration-api.js` owns validated, cursor-paginated Tenant User reads and allowlisted elevated-role writes through the shared same-origin API client.
 - identity bootstrap, demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
 
 `feature-parity.js` remains the single coalesced enhancement scheduler. Manager enhancement modules must not add their own global synchronization loops. Platform localization consumers use the canonical Core localization contract directly.
@@ -161,6 +179,7 @@ Public module APIs are explicit:
 
 - Employee: `src/employee/index.js`, including `createEmployeeApplication` plus the existing Employee enhancement exports.
 - Manager: `src/manager/index.js`, including `createManagerApplication` plus the existing Manager enhancement exports.
+- Tenant Admin: `src/tenant-admin/index.js`, exposing the Tenant Admin application and isolated demo adapter factories.
 
 The application factories return capability contracts consumed by Platform composition:
 

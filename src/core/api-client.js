@@ -51,6 +51,14 @@ function normalizedMethod(method) {
   return value;
 }
 
+function normalizedSignal(signal) {
+  if (signal === undefined) return undefined;
+  if (!signal || typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function') {
+    throw new ApiSecurityError('INVALID_ABORT_SIGNAL');
+  }
+  return signal;
+}
+
 function csrfHeader(method, csrfTokenProvider) {
   if (SAFE_METHODS.has(method)) return {};
   const token = csrfTokenProvider?.();
@@ -124,10 +132,11 @@ export function createApiClient({
   const base = normalizeBaseUrl(baseUrl, origin);
 
   return Object.freeze({
-    async request(path, { method = 'GET', body } = {}) {
+    async request(path, { method = 'GET', body, signal } = {}) {
       const normalized = normalizedMethod(method);
       const url = endpointUrl(base, path);
       const serialized = serializeBody(body);
+      const abortSignal = normalizedSignal(signal);
       const response = await fetchImpl(url, {
         method: normalized,
         credentials: 'same-origin',
@@ -139,6 +148,7 @@ export function createApiClient({
           ...(serialized === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...csrfHeader(normalized, csrfTokenProvider),
         },
+        ...(abortSignal === undefined ? {} : { signal: abortSignal }),
         ...(serialized === undefined ? {} : { body: serialized }),
       });
       if (!response.ok) throw new ApiSecurityError(`HTTP_${response.status}`);

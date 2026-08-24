@@ -126,7 +126,8 @@ for (const required of [
   "from './platform/application-context.js'",
   'async function bootstrap()',
   'const context = await createApplicationContext();',
-  'authentication: context.authenticationRuntime()',
+  'const authentication = context.authenticationRuntime()',
+  'authentication,',
   'void bootstrap();',
 ]) {
   if (!app.includes(required)) {
@@ -154,8 +155,9 @@ for (const required of [
   'context.notifications(4)',
   'context.canSwitchRole()',
   "context.isDemoRuntime() ? t('app.mvp') : ''",
-  "if (isProductionRuntime()) nextView = 'welcome';",
-  'if (context.isAuthenticated()) list.append(profileNavigationItem());',
+  "nextView !== 'tenantAdmin' || !context.canManageTenantUsers() || !tenantAdmin",
+  'if (context.canManageTenantUsers() && tenantAdmin)',
+  'list.append(profileNavigationItem());',
   'renderProductionAuthentication();',
   'if (context.authenticationStatus() === PRODUCTION_AUTH_STATUS.UNAVAILABLE)',
   'await authentication.signOut();',
@@ -164,9 +166,14 @@ for (const required of [
     throw new Error(`Production shell presentation boundary is missing ${required}.`);
   }
 }
-const productionRenderGuard = appShell.indexOf('if (isProductionRuntime()) {\n      renderProductionAuthentication();\n      return;\n    }');
+const productionRenderGuard = appShell.indexOf("if (isProductionRuntime()) {\n      if (view === 'tenantAdmin') {");
+const productionAuthenticationFallback = appShell.indexOf('renderProductionAuthentication();', productionRenderGuard);
 const employeeRender = appShell.indexOf("else if (view === 'employee') employee.renderRequest();");
-if (productionRenderGuard < 0 || employeeRender < 0 || productionRenderGuard > employeeRender) {
+if (
+  productionRenderGuard < 0
+  || productionAuthenticationFallback < productionRenderGuard
+  || employeeRender < productionAuthenticationFallback
+) {
   throw new Error('Production shell must return before demo Employee/Manager business views can render.');
 }
 

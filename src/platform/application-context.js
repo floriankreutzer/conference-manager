@@ -30,6 +30,7 @@ const EMPTY_CATALOG = Object.freeze({
 const EMPTY_SITE_INFO = Object.freeze({});
 const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
+const DEMO_CURRENT_USER_ID = 'demo-current-user';
 const PRODUCTION_AUTH_STATUSES = new Set(Object.values(PRODUCTION_AUTH_STATUS));
 
 function normalizedProductionAuthenticationStatus(value) {
@@ -86,6 +87,9 @@ export function createApplicationContextFromState({
     canSwitchRole() {
       return isDemo;
     },
+    userId() {
+      return isDemo ? DEMO_CURRENT_USER_ID : (trustedProductionSession?.user?.id || '');
+    },
     getCatalog() {
       return catalog;
     },
@@ -123,6 +127,13 @@ export function createApplicationContextFromState({
     },
     canManageTenantUsers() {
       if (isDemo) return false;
+      return hasProductionCapability(
+        PRODUCTION_TENANT_ROLE.TENANT_ADMIN,
+        PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,
+      );
+    },
+    isTenantAdmin() {
+      if (isDemo) return readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN;
       return hasProductionCapability(
         PRODUCTION_TENANT_ROLE.TENANT_ADMIN,
         PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,

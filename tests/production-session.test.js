@@ -189,3 +189,26 @@ test('production bootstrap converts insecure transport or session failures into 
   assert.ok(unavailable.runtime);
   assert.equal(unavailable.runtime.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
 });
+
+test('production session bootstrap aborts a stalled endpoint and fails closed within the configured bound', async () => {
+  let aborted = false;
+  const runtime = createProductionSessionRuntime({
+    origin: 'https://conference.example',
+    bootstrapTimeoutMs: 10,
+    fetchImpl: async (_url, options) => new Promise((_resolve, reject) => {
+      options.signal.addEventListener('abort', () => {
+        aborted = true;
+        reject(new DOMException('Aborted', 'AbortError'));
+      }, { once: true });
+    }),
+    clock: () => NOW,
+  });
+
+  await assert.rejects(
+    runtime.bootstrap(),
+    (error) => error instanceof ProductionSessionError && error.code === 'SESSION_BOOTSTRAP_TIMEOUT',
+  );
+  assert.equal(aborted, true);
+  assert.equal(runtime.currentSession(), null);
+  assert.equal(runtime.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+});
