@@ -117,12 +117,14 @@ test('room timeline uses CSP-safe class positioning and remains valid in RTL', a
     managerRequest({ id: 'CR-2026-TIMELINE-002', title: 'Afternoon Timeline', date, start: '14:15', end: '16:45', roomId: 'BER-412', status: 'Confirmed' }),
   ]);
 
-  await page.getByRole('button', { name: 'Raumplanung', exact: true }).click();
-  await page.locator('#roomPlanDate').fill(date);
-  await page.locator('#roomPlanDate').dispatchEvent('change');
-  await page.locator('[data-room-plan-view="TIMELINE"]').click();
+  await page.locator('[data-manager-tab="ROOM_PLAN"]').click();
+  const roomPlan = page.locator('[data-feature-parity="room-plan"]');
+  await expect(roomPlan).toBeVisible();
+  await roomPlan.locator('#roomPlanDate').fill(date);
+  await roomPlan.locator('#roomPlanDate').dispatchEvent('change');
+  await roomPlan.locator('[data-room-plan-view="TIMELINE"]').click();
 
-  const bookings = page.locator('.room-timeline-booking');
+  const bookings = roomPlan.locator('.room-timeline-booking');
   await expect(bookings).toHaveCount(2);
   for (let index = 0; index < 2; index += 1) {
     const booking = bookings.nth(index);
