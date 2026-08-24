@@ -28,10 +28,11 @@ class SelectiveFailingStorage extends MemoryStorage {
   }
 }
 
+let runtimeMode = 'demo';
 globalThis.document = {
   documentElement: {},
   querySelector(selector) {
-    if (selector === 'meta[name="conference-runtime"]') return { getAttribute: () => 'demo' };
+    if (selector === 'meta[name="conference-runtime"]') return { getAttribute: () => runtimeMode };
     return null;
   },
 };
@@ -41,6 +42,11 @@ const storage = await import('../src/core/storage.js');
 const parityData = await import('../src/shared/parity-data.js');
 
 const existingRequests = [{ id: 'CR-2026-100001', title: 'Existing request' }];
+
+test.afterEach(() => {
+  runtimeMode = 'demo';
+  globalThis.localStorage = new MemoryStorage();
+});
 
 test('regression: request save fails closed when browser persistence fails', () => {
   globalThis.localStorage = new SelectiveFailingStorage(storage.KEYS.requests, {
@@ -108,4 +114,36 @@ test('regression: manager site persistence fails closed when browser storage rej
       && error.key === storage.KEYS.siteInfo,
   );
   assert.deepEqual(parityData.siteData(), existingSites);
+});
+
+test('progression: production runtime blocks authoritative LocalStorage reads and writes', () => {
+  runtimeMode = 'production';
+  globalThis.localStorage = new MemoryStorage({
+    [storage.KEYS.requests]: JSON.stringify([{ id: 'browser-forged' }]),
+    [storage.KEYS.role]: 'manager',
+  });
+
+  for (const operation of [
+    () => storage.requestRepository.all(),
+    () => storage.requestRepository.save([]),
+    () => storage.readString(storage.KEYS.role, 'employee'),
+    () => storage.writeString(storage.KEYS.role, 'manager'),
+    () => storage.readJson(storage.KEYS.profile, {}),
+  ]) {
+    assert.throws(
+      operation,
+      (error) => error instanceof storage.ProductionBrowserPersistenceError
+        && error.code === 'PRODUCTION_BROWSER_PERSISTENCE_BLOCKED',
+    );
+  }
+});
+
+test('progression: production still permits non-authoritative local UI preferences', () => {
+  runtimeMode = 'production';
+  globalThis.localStorage = new MemoryStorage();
+
+  assert.equal(storage.writeString(storage.KEYS.language, 'en'), true);
+  assert.equal(storage.readString(storage.KEYS.language, 'de'), 'en');
+  assert.equal(storage.writeJson(storage.KEYS.draft, { title: 'local-only draft' }), true);
+  assert.equal(storage.readJson(storage.KEYS.draft, null).title, 'local-only draft');
 });
