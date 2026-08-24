@@ -4,7 +4,13 @@ const SESSION_PATH = 'v1/session';
 const LOGIN_PATH = '/api/v1/auth/microsoft/login';
 const APPLICATION_ROOT = '/';
 const INTERNAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const TENANT_STATUS = /^[a-z][a-z0-9_]{0,31}$/;
+
+export const PRODUCTION_TENANT_STATUS = Object.freeze({
+  PENDING: 'pending',
+  ONBOARDING: 'onboarding',
+  READY: 'ready',
+  ACTIVE: 'active',
+});
 
 export const PRODUCTION_TENANT_ROLE = Object.freeze({
   EMPLOYEE: 'employee',
@@ -22,6 +28,7 @@ export const PRODUCTION_PERMISSION = Object.freeze({
   TENANT_AUDIT_READ: 'tenant:audit:read',
 });
 
+const SESSION_AVAILABLE_TENANT_STATUSES = new Set(Object.values(PRODUCTION_TENANT_STATUS));
 const ROLE_ORDER = Object.freeze([
   PRODUCTION_TENANT_ROLE.EMPLOYEE,
   PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER,
@@ -115,7 +122,7 @@ function canonicalPermissions(value, roles) {
 }
 
 function validFutureTimestamp(value, now) {
-  if (typeof value !== 'string' || value.length > 64) return false;
+  if (typeof value !== 'string' || value.length > 64 || !value.endsWith('Z')) return false;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) && parsed > now;
 }
@@ -132,7 +139,7 @@ export function validateProductionSession(payload, { clock = () => Date.now() } 
   const roles = canonicalRoles(root.roles);
   const permissions = canonicalPermissions(root.permissions, roles);
 
-  if (typeof tenant.status !== 'string' || !TENANT_STATUS.test(tenant.status)) {
+  if (!SESSION_AVAILABLE_TENANT_STATUSES.has(tenant.status)) {
     throw new ProductionSessionError('SESSION_TENANT_INVALID');
   }
   if (!validFutureTimestamp(session.expiresAt, clock())) {
