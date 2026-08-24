@@ -1,11 +1,20 @@
+import { RUNTIME_MODE, runtimeModeFromDocument } from './core/security-policy.js';
 import { createEmployeeApplication } from './employee/index.js';
 import { createManagerApplication } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell } from './platform/app-shell.js';
+import { bootstrapProductionAuthentication } from './platform/production-session.js';
 
-const APP_BUILD = '2026.08.22.40';
+const APP_BUILD = '2026.08.24.41';
 const appRoot = document.getElementById('app');
-const context = createApplicationContext();
+const runtimeMode = runtimeModeFromDocument(document);
+const productionAuthentication = runtimeMode === RUNTIME_MODE.PRODUCTION
+  ? await bootstrapProductionAuthentication()
+  : null;
+const context = createApplicationContext({
+  productionSession: productionAuthentication?.session || null,
+  productionAuthenticationStatus: productionAuthentication?.status,
+});
 let shell;
 
 const setPageHeading = (title, subtitle) => shell.setPageHeading(title, subtitle);
@@ -23,7 +32,12 @@ const manager = createManagerApplication({
   onNavigationRefresh: () => shell.renderNavigation(),
 });
 
-shell = createAppShell({ context, employee, manager });
+shell = createAppShell({
+  context,
+  employee,
+  manager,
+  authentication: productionAuthentication?.runtime || null,
+});
 
 function render() {
   shell.render();
