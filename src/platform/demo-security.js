@@ -1,5 +1,5 @@
 import { language } from '../core/i18n.js';
-import { securityMessages } from '../core/security-i18n.js?v=20260823-56';
+import { securityMessages } from '../core/security-i18n.js?v=20260824-61';
 import {
   RUNTIME_MODE,
   SUPPORTED_LANGUAGE,
@@ -11,8 +11,8 @@ import {
 import { KEYS, RepositoryWriteError, readString, writeString } from '../core/storage.js';
 import { announce, applyInputConstraints, isParticipantInput, showToast } from '../core/ui.js';
 
-const DEMO_SECURITY_BUILD = '2026.08.23.53';
-const DEMO_ROLE_SWITCH_BUILD = '2026.08.23.55';
+const DEMO_SECURITY_BUILD = '2026.08.24.61';
+const DEMO_ROLE_SWITCH_BUILD = '2026.08.24.62';
 const runtimeMode = runtimeModeFromDocument(document);
 
 function messages() {
@@ -73,7 +73,10 @@ function createRoleControl(msg) {
   const manager = document.createElement('option');
   manager.value = USER_ROLE.MANAGER;
   manager.textContent = msg.roleManager;
-  select.append(employee, manager);
+  const tenantAdmin = document.createElement('option');
+  tenantAdmin.value = USER_ROLE.TENANT_ADMIN;
+  tenantAdmin.textContent = msg.roleTenantAdmin;
+  select.append(employee, manager, tenantAdmin);
   select.value = normalizeDemoRole(readString(KEYS.role, USER_ROLE.EMPLOYEE));
 
   const hint = document.createElement('small');
