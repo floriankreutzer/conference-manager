@@ -44,6 +44,12 @@ function jsonResponse(body, status = 200) {
   });
 }
 
+function immediateTimeout(callback, delay) {
+  assert.equal(delay, 10_000);
+  callback();
+  return 'production-session-timeout';
+}
+
 test('production session validation accepts only the canonical server role/permission matrix', () => {
   const session = validateProductionSession(sessionPayload(), { clock: () => NOW });
   assert.deepEqual(session.roles, ['employee', 'tenant_admin']);
@@ -133,6 +139,7 @@ test('production session runtime keeps CSRF in memory and uses fixed login/logou
   assert.equal(calls[0].url, 'https://conference.example/api/v1/session');
   assert.equal(calls[0].options.credentials, 'same-origin');
   assert.equal(calls[0].options.headers['X-CSRF-Token'], undefined);
+  assert.ok(calls[0].options.signal instanceof AbortSignal);
 
   runtime.signIn();
   assert.deepEqual(navigation[0], ['assign', '/api/v1/auth/microsoft/login']);
@@ -140,6 +147,7 @@ test('production session runtime keeps CSRF in memory and uses fixed login/logou
   await runtime.signOut();
   assert.equal(calls[1].options.method, 'DELETE');
   assert.equal(calls[1].options.headers['X-CSRF-Token'], CSRF_TOKEN);
+  assert.ok(calls[1].options.signal instanceof AbortSignal);
   assert.equal(runtime.currentSession(), null);
   assert.equal(runtime.status(), PRODUCTION_AUTH_STATUS.UNAUTHENTICATED);
   assert.deepEqual(navigation.at(-1), ['replace', '/']);
@@ -167,6 +175,31 @@ test('production session runtime distinguishes signed-out from unavailable and n
   assert.equal(unavailable.currentSession(), null);
 });
 
+test('production session runtime aborts a stalled request and exposes unavailable state', async () => {
+  let observedSignal = null;
+  const clearedTimeouts = [];
+  const runtime = createProductionSessionRuntime({
+    origin: 'https://conference.example',
+    fetchImpl: async (_url, options) => {
+      observedSignal = options.signal;
+      return new Promise(() => {});
+    },
+    clock: () => NOW,
+    setTimeoutImpl: immediateTimeout,
+    clearTimeoutImpl: (handle) => clearedTimeouts.push(handle),
+  });
+
+  await assert.rejects(
+    runtime.bootstrap(),
+    (error) => error instanceof ProductionSessionError && error.code === 'SESSION_REQUEST_TIMEOUT',
+  );
+  assert.ok(observedSignal instanceof AbortSignal);
+  assert.equal(observedSignal.aborted, true);
+  assert.deepEqual(clearedTimeouts, ['production-session-timeout']);
+  assert.equal(runtime.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+  assert.equal(runtime.currentSession(), null);
+});
+
 test('production bootstrap converts insecure transport or session failures into a non-authoritative unavailable state', async () => {
   const insecure = await bootstrapProductionAuthentication({
     origin: 'http://conference.example',
@@ -188,4 +221,16 @@ test('production bootstrap converts insecure transport or session failures into 
   assert.equal(unavailable.session, null);
   assert.ok(unavailable.runtime);
   assert.equal(unavailable.runtime.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+
+  const timedOut = await bootstrapProductionAuthentication({
+    origin: 'https://conference.example',
+    fetchImpl: async () => new Promise(() => {}),
+    clock: () => NOW,
+    setTimeoutImpl: immediateTimeout,
+    clearTimeoutImpl: () => {},
+  });
+  assert.equal(timedOut.status, PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+  assert.equal(timedOut.session, null);
+  assert.ok(timedOut.runtime);
+  assert.equal(timedOut.runtime.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
 });
