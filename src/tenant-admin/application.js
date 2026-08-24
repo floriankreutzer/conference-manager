@@ -66,7 +66,7 @@ export function createTenantAdminApplication({
       el('strong', { text: t('tenantAdmin.users.loadError') }),
       el('p', { text: t(messageKey) }),
     ]);
-    const retryButton = button(t('common.retry'), { className: 'primary' });
+    const retryButton = button(t('tenantAdmin.users.retry'), { className: 'primary' });
     retryButton.addEventListener('click', retry);
     panel.appendChild(retryButton);
     return panel;
