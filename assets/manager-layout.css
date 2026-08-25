@@ -204,7 +204,9 @@ main,
 .manager-first-use-content > strong {
   display: block;
   margin-bottom: var(--space-1);
+  font-family: var(--font-family-display);
   font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
 }
 
 .manager-first-use-content p {

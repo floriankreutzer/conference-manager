@@ -4,6 +4,15 @@
  * Change brand colors, density, typography, radii and elevation here.
  * Component styles should consume semantic variables instead of hard-coded values.
  */
+
+@font-face {
+  font-family: "Manrope";
+  src: url("./fonts/Manrope%5Bwght%5D.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+}
+
 :root {
   /* Brand */
   --color-bordeaux-700: #651D32;
@@ -50,7 +59,8 @@
   --brand-secondary-surface-strong: var(--color-surface-camel-strong);
 
   /* Typography */
-  --font-family-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-family-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-family-display: "Manrope", var(--font-family-sans);
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
   --font-size-md: 0.9375rem;
