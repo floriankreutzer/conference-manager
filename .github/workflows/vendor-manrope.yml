@@ -1,0 +1,38 @@
+name: Vendor Manrope Asset
+
+on:
+  push:
+    branches: [codex/manrope-display-typography]
+
+permissions:
+  contents: write
+
+jobs:
+  vendor-font:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: codex/manrope-display-typography
+      - name: Download and verify Manrope variable font
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/fonts
+          curl --fail --location --silent --show-error \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/Manrope%5Bwght%5D.ttf' \
+            --output 'assets/fonts/Manrope[wght].ttf'
+          echo 'd0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40  assets/fonts/Manrope[wght].ttf' | sha256sum --check --strict
+      - name: Commit verified font asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'assets/fonts/Manrope[wght].ttf'
+          git diff --cached --quiet && exit 0
+          git commit -m 'Add verified Manrope variable font asset'
+          git push origin HEAD:codex/manrope-display-typography
