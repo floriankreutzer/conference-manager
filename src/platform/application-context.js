@@ -13,6 +13,7 @@ import {
   requestRepository,
   writeString,
 } from '../core/storage.js';
+import { createProductionPersistence } from './production-persistence.js';
 import {
   PRODUCTION_AUTH_STATUS,
   PRODUCTION_PERMISSION,
@@ -55,6 +56,9 @@ export function createApplicationContextFromState({
   const productionPermissions = new Set(
     Array.isArray(trustedProductionSession?.permissions) ? trustedProductionSession.permissions : [],
   );
+  const productionPersistence = !isDemo && authenticationRuntime?.apiClient?.request
+    ? createProductionPersistence({ apiClient: authenticationRuntime.apiClient })
+    : null;
   const profile = isDemo
     ? readJson(KEYS.profile, { firstName: 'Florian', lastName: 'Kreutzer' })
     : EMPTY_PROFILE;
@@ -80,6 +84,9 @@ export function createApplicationContextFromState({
     },
     authenticationRuntime() {
       return isDemo ? null : authenticationRuntime;
+    },
+    productionPersistence() {
+      return isDemo ? null : productionPersistence;
     },
     isAuthenticated() {
       return isDemo || Boolean(trustedProductionSession);

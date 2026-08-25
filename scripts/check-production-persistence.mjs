@@ -13,6 +13,7 @@ for (const required of [
   "requests: 'v1/application/requests'",
   "notifications: 'v1/application/notifications'",
   "configuration: 'v1/application/configuration'",
+  "sites: assertCollection(catalog.sites, 'PRODUCTION_CATALOG_INVALID')",
   'PRODUCTION_SCHEMA_VERSION_UNSUPPORTED',
   'PRODUCTION_PERSISTENCE_UNAVAILABLE',
   'createRequest',
@@ -84,6 +85,10 @@ const applicationContext = await readFile('src/platform/application-context.js',
 for (const required of [
   'createApplicationContextFromState',
   'bootstrapProductionAuthentication',
+  'createProductionPersistence',
+  'authenticationRuntime?.apiClient?.request',
+  'createProductionPersistence({ apiClient: authenticationRuntime.apiClient })',
+  'productionPersistence()',
   'const isDemo = runtimeMode === RUNTIME_MODE.DEMO;',
   'authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED',
   'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
@@ -127,6 +132,9 @@ for (const required of [
   'async function bootstrap()',
   'const context = await createApplicationContext();',
   'const authentication = context.authenticationRuntime()',
+  'const productionPersistence = context.productionPersistence()',
+  'createProductionEmployeeApplication',
+  'createProductionManagerApplication',
   'authentication,',
   'void bootstrap();',
 ]) {
@@ -137,6 +145,7 @@ for (const required of [
 for (const forbidden of [
   "from './core/security-policy.js'",
   "from './platform/production-session.js'",
+  "from './platform/production-persistence.js'",
   'bootstrapProductionAuthentication()',
   'const context = await createApplicationContext();\nlet shell;',
 ]) {
@@ -150,14 +159,61 @@ if (bootstrapFunctionStart < 0 || awaitedContext < bootstrapFunctionStart) {
   throw new Error('Application Context await must remain inside the async bootstrap function.');
 }
 
+for (const file of [
+  'src/employee/production-application.js',
+  'src/manager/production-application.js',
+]) {
+  const source = await readFile(file, 'utf8');
+  for (const forbidden of ['localStorage', 'sessionStorage', "../core/storage.js", 'tenantId', 'requesterUserId']) {
+    if (source.includes(forbidden)) {
+      throw new Error(`${file} must not contain browser or Tenant/User authority: ${forbidden}.`);
+    }
+  }
+  if (!source.includes('persistence.')) {
+    throw new Error(`${file} must consume the server-authoritative persistence port.`);
+  }
+}
+
+const employeeProduction = await readFile('src/employee/production-application.js', 'utf8');
+for (const required of [
+  'persistence.loadCatalog()',
+  'persistence.createRequest({',
+  "persistence.transitionRequest(requestId, { transition: 'cancel' })",
+  "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested'])",
+]) {
+  if (!employeeProduction.includes(required)) {
+    throw new Error(`Production Employee boundary is missing ${required}.`);
+  }
+}
+
+const managerProduction = await readFile('src/manager/production-application.js', 'utf8');
+for (const required of [
+  "Submitted: Object.freeze(['start_review', 'reject', 'request_change'])",
+  "'In Review': Object.freeze(['confirm', 'reject', 'request_change'])",
+  'persistence.listRequests()',
+  'persistence.transitionRequest(request.id, { transition })',
+]) {
+  if (!managerProduction.includes(required)) {
+    throw new Error(`Production Conference Manager boundary is missing ${required}.`);
+  }
+}
+
 const appShell = await readFile('src/platform/app-shell.js', 'utf8');
 for (const required of [
   'context.notifications(4)',
   'context.canSwitchRole()',
   "context.isDemoRuntime() ? t('app.mvp') : ''",
-  "nextView !== 'tenantAdmin' || !context.canManageTenantUsers() || !tenantAdmin",
+  "nextView === 'employee' || nextView === 'requests'",
+  "nextView === 'manager' && context.isManager() && manager",
+  "nextView === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin",
+  "context.isManager() && manager) list.append(navButton('nav.manager', 'manager'))",
   'if (context.canManageTenantUsers() && tenantAdmin)',
   'list.append(profileNavigationItem());',
+  'if (!context.isAuthenticated()) {',
+  "if (view === 'employee' && employee)",
+  "if (view === 'requests' && employee)",
+  "if (view === 'manager' && context.isManager() && manager)",
+  "if (view === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin)",
   'renderProductionAuthentication();',
   'if (context.authenticationStatus() === PRODUCTION_AUTH_STATUS.UNAVAILABLE)',
   'await authentication.signOut();',
@@ -165,16 +221,6 @@ for (const required of [
   if (!appShell.includes(required)) {
     throw new Error(`Production shell presentation boundary is missing ${required}.`);
   }
-}
-const productionRenderGuard = appShell.indexOf("if (isProductionRuntime()) {\n      if (view === 'tenantAdmin') {");
-const productionAuthenticationFallback = appShell.indexOf('renderProductionAuthentication();', productionRenderGuard);
-const employeeRender = appShell.indexOf("else if (view === 'employee') employee.renderRequest();");
-if (
-  productionRenderGuard < 0
-  || productionAuthenticationFallback < productionRenderGuard
-  || employeeRender < productionAuthenticationFallback
-) {
-  throw new Error('Production shell must return before demo Employee/Manager business views can render.');
 }
 
 console.log('Production persistence boundary check passed.');

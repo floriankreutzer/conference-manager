@@ -27,11 +27,18 @@ export function createAppShell({
     subtitleRoot.textContent = subtitle;
   }
 
+  function productionViewAllowed(nextView) {
+    if (nextView === 'welcome') return true;
+    if (!context.isAuthenticated()) return false;
+    if ((nextView === 'employee' || nextView === 'requests') && employee) return true;
+    if (nextView === 'manager' && context.isManager() && manager) return true;
+    if (nextView === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin) return true;
+    return false;
+  }
+
   function setView(nextView) {
     if (isProductionRuntime()) {
-      if (nextView !== 'tenantAdmin' || !context.canManageTenantUsers() || !tenantAdmin) {
-        nextView = 'welcome';
-      }
+      if (!productionViewAllowed(nextView)) nextView = 'welcome';
     } else {
       if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
       if (nextView === 'tenantAdmin' && (!context.isTenantAdmin() || !tenantAdmin)) nextView = 'welcome';
@@ -87,6 +94,14 @@ export function createAppShell({
 
     if (isProductionRuntime()) {
       if (context.isAuthenticated()) {
+        list.append(navButton('nav.welcome', 'welcome'));
+        if (employee) {
+          list.append(
+            navButton('nav.newRequest', 'employee'),
+            navButton('nav.myRequests', 'requests'),
+          );
+        }
+        if (context.isManager() && manager) list.append(navButton('nav.manager', 'manager'));
         if (context.canManageTenantUsers() && tenantAdmin) {
           list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
         }
@@ -355,8 +370,24 @@ export function createAppShell({
     clear(appRoot);
     renderNavigation();
     if (isProductionRuntime()) {
-      if (view === 'tenantAdmin') {
-        tenantAdmin?.render();
+      if (!context.isAuthenticated()) {
+        renderProductionAuthentication();
+        return;
+      }
+      if (view === 'employee' && employee) {
+        void employee.renderRequest();
+        return;
+      }
+      if (view === 'requests' && employee) {
+        void employee.renderRequests();
+        return;
+      }
+      if (view === 'manager' && context.isManager() && manager) {
+        void manager.renderManager();
+        return;
+      }
+      if (view === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin) {
+        tenantAdmin.render();
         return;
       }
       renderProductionAuthentication();
