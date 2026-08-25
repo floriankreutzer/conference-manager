@@ -37,6 +37,18 @@ Change these tokens to update the identity globally:
 
 Typography, spacing, control height and layout density are controlled via `--font-*`, `--space-*`, `--control-height` and layout tokens.
 
+The typography contract deliberately combines two sans-serif families rather than replacing the functional UI typeface globally:
+
+- `--font-family-display`: **Manrope** first, then the complete functional UI fallback chain. Use this token for brand/display typography, semantic H1-H3 headings, onboarding headlines and selected prominent KPI values. Hero and H1 surfaces use 700; normal H2/H3 and onboarding headings use the existing 600 weight token. H4 remains on the functional UI family unless a component has a specific justified display role.
+- `--font-family-sans`: **Inter** first, followed by system UI fallbacks. Body text, descriptions, navigation, forms, labels, inputs, buttons, tables, dense operational views, supporting information and status text continue to inherit this token.
+- Component styles consume these semantic family tokens. Literal font-family stacks outside `assets/tokens.css` are rejected by `npm run check:design`.
+
+Manrope is self-hosted as the official Google Fonts variable TrueType asset at `assets/fonts/Manrope[wght].ttf`; its SHA-256 is `d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40`. The repository ships the accompanying SIL Open Font License 1.1 and FONTLOG provenance metadata. The browser loads the font from the application origin only, consistent with the existing `font-src 'self'` CSP, and `index.html` preloads the file because a display heading is present on every application view. `font-display: swap` keeps text visible during loading; if Manrope cannot be loaded, the display token falls back through Inter and the existing system UI stack. No Google Fonts CDN request, third-party JavaScript or new runtime dependency is introduced.
+
+The self-hosted variable TTF is intentionally kept byte-identical to the reviewed upstream Google Fonts asset rather than introducing a local conversion pipeline or an independently generated binary. It is one cacheable 165 KB font file and exposes only the approved 500-700 weight range through `@font-face`. A future switch to an equally provenance-controlled WOFF2 artifact may reduce transfer size, but it must preserve the same licensing, CSP, fallback and regression guarantees.
+
+This typography change does not alter the established font sizes, line heights or spacing scale. Display typography must continue to wrap naturally in German and English, remain usable at responsive breakpoints and reflow under zoom/text enlargement; do not truncate meaningful headings to compensate for font metrics. Inter remains the default for compact controls and dense data surfaces so scanability is preserved.
+
 Application-wide layout tokens:
 
 - `--app-content-max-width`: maximum width of the operational application workspace
