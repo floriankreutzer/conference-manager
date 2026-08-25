@@ -1,5 +1,6 @@
 import { t } from '../core/i18n.js';
 import { button, clear, el, field, showToast } from '../core/ui.js';
+import { productionUtcInstant } from './production-time.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested']);
 const MAX_PARTICIPANTS = 500;
@@ -7,14 +8,6 @@ const MAX_PARTICIPANTS = 500;
 function safeParticipantCount(value) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= MAX_PARTICIPANTS ? parsed : null;
-}
-
-export function productionUtcInstant(dateValue, timeValue) {
-  if (typeof dateValue !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return null;
-  if (typeof timeValue !== 'string' || !/^\d{2}:\d{2}$/.test(timeValue)) return null;
-  const local = new Date(`${dateValue}T${timeValue}:00`);
-  if (!Number.isFinite(local.getTime())) return null;
-  return local.toISOString();
 }
 
 function errorMessage(error) {
