@@ -22,8 +22,8 @@ function capabilityMessages(language) {
 test('canonical localization catalogs remain synchronized after parity consolidation', () => {
   const inventory = buildLocalizationInventory();
 
-  assert.equal(inventory.canonical.deKeys, 611);
-  assert.equal(inventory.canonical.enKeys, 611);
+  assert.equal(inventory.canonical.deKeys, 630);
+  assert.equal(inventory.canonical.enKeys, 630);
   assert.deepEqual(inventory.canonical.missingInEnglish, []);
   assert.deepEqual(inventory.canonical.missingInGerman, []);
   assert.deepEqual(inventory.canonical.placeholderMismatches, []);
@@ -32,8 +32,8 @@ test('canonical localization catalogs remain synchronized after parity consolida
 
   const de = capabilityMessages('de');
   const en = capabilityMessages('en');
-  assert.equal(de.size, 144);
-  assert.equal(en.size, 144);
+  assert.equal(de.size, 163);
+  assert.equal(en.size, 163);
   assert.deepEqual([...de.keys()], [...en.keys()]);
   assert.ok([...de.keys()].every((key) => !key.startsWith('parity.')));
 });
@@ -69,4 +69,8 @@ test('canonical migration preserves representative German and English baseline c
   assert.equal(en.get('welcome.print.heroText'), 'We look forward to welcoming you to “{title}”. Here you will find everything for a smooth arrival and a good start on site.');
   assert.equal(de.get('room.floorplan.defaultDescription'), 'Raum für bis zu {capacity} Personen mit passender Meeting- und Präsentationsfläche.');
   assert.equal(en.get('room.floorplan.defaultDescription'), 'Room for up to {capacity} people with suitable meeting and presentation space.');
+  assert.equal(de.get('tenantAdmin.microsoft365.connect'), 'Microsoft 365 verbinden');
+  assert.equal(en.get('tenantAdmin.microsoft365.connect'), 'Connect Microsoft 365');
+  assert.equal(de.get('tenantAdmin.microsoft365.permission.calendars'), 'Kalender: {state}');
+  assert.equal(en.get('tenantAdmin.microsoft365.permission.calendars'), 'Calendars: {state}');
 });

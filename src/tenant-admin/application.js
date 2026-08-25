@@ -38,6 +38,7 @@ export function createTenantAdminApplication({
   appRoot,
   setPageHeading,
   userAdministration,
+  microsoft365Connection,
 } = {}) {
   if (!context || typeof context.isTenantAdmin !== 'function') throw new TypeError('TENANT_ADMIN_CONTEXT_REQUIRED');
   if (!(appRoot instanceof HTMLElement)) throw new TypeError('TENANT_ADMIN_ROOT_REQUIRED');
@@ -205,6 +206,94 @@ export function createTenantAdminApplication({
     }
   }
 
+  async function loadMicrosoft365(targetGeneration) {
+    const surface = appRoot.querySelector('[data-microsoft365-connection]');
+    if (!surface || !microsoft365Connection) return;
+    try {
+      const connection = await microsoft365Connection.getStatus();
+      if (targetGeneration !== generation) return;
+      clear(surface);
+      surface.append(
+        el('p', { className: 'status-chip', text: t(`tenantAdmin.microsoft365.state.${connection.state}`) }),
+        el('ul', {}, [
+          el('li', {
+            text: t('tenantAdmin.microsoft365.permission.places', {
+              state: t(`tenantAdmin.microsoft365.permissionState.${connection.permissions.place}`),
+            }),
+          }),
+          el('li', {
+            text: t('tenantAdmin.microsoft365.permission.calendars', {
+              state: t(`tenantAdmin.microsoft365.permissionState.${connection.permissions.calendars}`),
+            }),
+          }),
+        ]),
+      );
+
+      const actions = el('div', { className: 'button-row' });
+      const connect = button(
+        t(connection.state === 'disconnected' ? 'tenantAdmin.microsoft365.connect' : 'tenantAdmin.microsoft365.reconnect'),
+        { className: 'primary' },
+      );
+      connect.addEventListener('click', async () => {
+        connect.disabled = true;
+        try {
+          globalThis.location.assign((await microsoft365Connection.connect()).authorizationUrl);
+        } catch {
+          connect.disabled = false;
+          announce(t('tenantAdmin.microsoft365.error'), { assertive: true });
+        }
+      });
+      actions.appendChild(connect);
+
+      if (connection.state !== 'disconnected') {
+        const verify = button(t('tenantAdmin.microsoft365.verify'));
+        verify.addEventListener('click', async () => {
+          verify.disabled = true;
+          try {
+            await microsoft365Connection.verify();
+            render();
+          } catch {
+            verify.disabled = false;
+            announce(t('tenantAdmin.microsoft365.error'), { assertive: true });
+          }
+        });
+        const disconnect = button(t('tenantAdmin.microsoft365.disconnect'));
+        disconnect.addEventListener('click', async () => {
+          disconnect.disabled = true;
+          try {
+            await microsoft365Connection.disconnect();
+            render();
+          } catch {
+            disconnect.disabled = false;
+            announce(t('tenantAdmin.microsoft365.error'), { assertive: true });
+          }
+        });
+        actions.append(verify, disconnect);
+      }
+      surface.appendChild(actions);
+    } catch {
+      if (targetGeneration !== generation) return;
+      clear(surface);
+      surface.appendChild(el('p', {
+        attrs: { role: 'alert' },
+        text: t('tenantAdmin.microsoft365.error'),
+      }));
+    }
+  }
+
+  function microsoft365Panel() {
+    return el('section', { className: 'card tenant-admin-intro' }, [
+      el('h2', { text: t('tenantAdmin.microsoft365.title') }),
+      el('p', { text: t('tenantAdmin.microsoft365.description') }),
+      el('div', { dataset: { microsoft365Connection: 'true' } }, [
+        el('p', {
+          attrs: { role: 'status', 'aria-live': 'polite' },
+          text: t('tenantAdmin.microsoft365.loading'),
+        }),
+      ]),
+    ]);
+  }
+
   function render() {
     generation += 1;
     const currentGeneration = generation;
@@ -223,7 +312,9 @@ export function createTenantAdminApplication({
       dataset: { tenantAdminUsers: 'true' },
       attrs: { 'aria-label': t('tenantAdmin.users.title') },
     }, [loadingPanel()]);
+    if (microsoft365Connection) appRoot.appendChild(microsoft365Panel());
     appRoot.append(intro, users);
+    void loadMicrosoft365(currentGeneration);
     void loadUsers(currentGeneration);
   }
 
