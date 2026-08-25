@@ -2,13 +2,14 @@ import { createEmployeeApplication } from './employee/index.js';
 import { createManagerApplication } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell } from './platform/app-shell.js';
+import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
   createDemoTenantUserAdministration,
   createTenantAdminApplication,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.24.63';
+const APP_BUILD = '2026.08.25.64';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -38,12 +39,16 @@ async function bootstrap() {
     : (context.isTenantAdmin() && authentication
       ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
       : null);
+  const microsoft365Connection = !context.isDemoRuntime() && context.isTenantAdmin() && authentication
+    ? createMicrosoft365ConnectionApi({ apiClient: authentication.apiClient })
+    : null;
   const tenantAdmin = tenantUserAdministration
     ? createTenantAdminApplication({
       context,
       appRoot,
       setPageHeading,
       userAdministration: tenantUserAdministration,
+      microsoft365Connection,
     })
     : null;
 

@@ -38,6 +38,7 @@ export function createTenantAdminApplication({
   appRoot,
   setPageHeading,
   userAdministration,
+  microsoft365Connection,
 } = {}) {
   if (!context || typeof context.isTenantAdmin !== 'function') throw new TypeError('TENANT_ADMIN_CONTEXT_REQUIRED');
   if (!(appRoot instanceof HTMLElement)) throw new TypeError('TENANT_ADMIN_ROOT_REQUIRED');
@@ -205,6 +206,119 @@ export function createTenantAdminApplication({
     }
   }
 
+  async function loadMicrosoft365(targetGeneration) {
+    const surface = appRoot.querySelector('[data-microsoft365-connection]');
+    if (!surface || !microsoft365Connection) return;
+    try {
+      const connection = await microsoft365Connection.getStatus();
+      if (targetGeneration !== generation) return;
+      clear(surface);
+      const status = el('p', {
+        className: 'status-chip',
+        text: t(`tenantAdmin.microsoft365.state.${connection.state}`),
+        attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+      });
+      const message = el('p', {
+        className: 'field-hint',
+        attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+      });
+      surface.append(
+        status,
+        el('ul', {}, [
+          el('li', {
+            text: t('tenantAdmin.microsoft365.permission.places', {
+              state: t(`tenantAdmin.microsoft365.permissionState.${connection.permissions.place}`),
+            }),
+          }),
+          el('li', {
+            text: t('tenantAdmin.microsoft365.permission.calendars', {
+              state: t(`tenantAdmin.microsoft365.permissionState.${connection.permissions.calendars}`),
+            }),
+          }),
+        ]),
+      );
+
+      const actions = el('div', { className: 'button-row' });
+      let mutationPending = false;
+      const setLifecyclePending = (pending) => {
+        mutationPending = pending;
+        actions.querySelectorAll('button').forEach((actionButton) => {
+          actionButton.disabled = pending;
+        });
+      };
+      const showLifecycleError = () => {
+        const errorText = t('tenantAdmin.microsoft365.error');
+        message.textContent = errorText;
+        announce(errorText, { assertive: true });
+      };
+      const runLifecycleMutation = async (operation, onSuccess) => {
+        if (mutationPending) return;
+        message.textContent = '';
+        setLifecyclePending(true);
+        try {
+          const result = await operation();
+          if (targetGeneration !== generation) return;
+          await onSuccess(result);
+        } catch {
+          if (targetGeneration !== generation) return;
+          showLifecycleError();
+          setLifecyclePending(false);
+        }
+      };
+
+      const connect = button(
+        t(connection.state === 'disconnected' ? 'tenantAdmin.microsoft365.connect' : 'tenantAdmin.microsoft365.reconnect'),
+        { className: 'primary' },
+      );
+      connect.addEventListener('click', () => {
+        void runLifecycleMutation(
+          () => microsoft365Connection.connect(),
+          ({ authorizationUrl }) => globalThis.location.assign(authorizationUrl),
+        );
+      });
+      actions.appendChild(connect);
+
+      if (connection.state !== 'disconnected') {
+        const verify = button(t('tenantAdmin.microsoft365.verify'));
+        verify.addEventListener('click', () => {
+          void runLifecycleMutation(
+            () => microsoft365Connection.verify(),
+            () => render(),
+          );
+        });
+        const disconnect = button(t('tenantAdmin.microsoft365.disconnect'));
+        disconnect.addEventListener('click', () => {
+          void runLifecycleMutation(
+            () => microsoft365Connection.disconnect(),
+            () => render(),
+          );
+        });
+        actions.append(verify, disconnect);
+      }
+      surface.append(actions, message);
+    } catch {
+      if (targetGeneration !== generation) return;
+      clear(surface);
+      surface.appendChild(el('p', {
+        attrs: { role: 'alert' },
+        text: t('tenantAdmin.microsoft365.error'),
+      }));
+    }
+  }
+
+  function microsoft365Panel() {
+    return el('section', { className: 'card tenant-admin-intro' }, [
+      el('h2', { text: t('tenantAdmin.microsoft365.title') }),
+      el('p', { text: t('tenantAdmin.microsoft365.description') }),
+      el('div', { dataset: { microsoft365Connection: 'true' } }, [
+        el('p', {
+          attrs: { role: 'status', 'aria-live': 'polite' },
+          text: t('tenantAdmin.microsoft365.loading'),
+        }),
+      ]),
+    ]);
+  }
+
   function render() {
     generation += 1;
     const currentGeneration = generation;
@@ -223,7 +337,9 @@ export function createTenantAdminApplication({
       dataset: { tenantAdminUsers: 'true' },
       attrs: { 'aria-label': t('tenantAdmin.users.title') },
     }, [loadingPanel()]);
+    if (microsoft365Connection) appRoot.appendChild(microsoft365Panel());
     appRoot.append(intro, users);
+    void loadMicrosoft365(currentGeneration);
     void loadUsers(currentGeneration);
   }
 

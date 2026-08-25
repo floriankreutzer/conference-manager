@@ -58,6 +58,7 @@ const allowedAppImports = new Set([
   './platform/application-context.js',
   './platform/app-shell.js',
   './platform/tenant-user-administration-api.js',
+  './platform/microsoft365-connection-api.js',
 ]);
 
 for (const required of [
@@ -67,6 +68,7 @@ for (const required of [
   "from './platform/application-context.js'",
   "from './platform/app-shell.js'",
   "from './platform/tenant-user-administration-api.js'",
+  "from './platform/microsoft365-connection-api.js'",
   'createEmployeeApplication',
   'createManagerApplication',
   'createTenantAdminApplication',
@@ -74,6 +76,7 @@ for (const required of [
   'createAppShell',
   'context.authenticationRuntime()',
   'createTenantUserAdministrationApi',
+  'createMicrosoft365ConnectionApi',
 ]) {
   if (!app.includes(required)) fail(`src/app.js: Composition Root missing ${required}.`);
 }
