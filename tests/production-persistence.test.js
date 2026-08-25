@@ -28,7 +28,7 @@ test('production persistence loads each authoritative domain only through the AP
     [DOMAIN_ENDPOINTS.profile, { schemaVersion: 1, profile: { displayName: 'User' } }],
     [DOMAIN_ENDPOINTS.catalog, {
       schemaVersion: 1,
-      catalog: { rooms: [], services: [], cateringPackages: [], cateringItems: [] },
+      catalog: { sites: [], rooms: [], services: [], cateringPackages: [], cateringItems: [] },
     }],
     [DOMAIN_ENDPOINTS.siteInfo, { schemaVersion: 1, siteInfo: { Berlin: { active: true } } }],
     [DOMAIN_ENDPOINTS.requests, { schemaVersion: 1, requests: [{ id: 'CR-1' }] }],
@@ -40,7 +40,7 @@ test('production persistence loads each authoritative domain only through the AP
 
   assert.equal((await persistence.loadProfile()).displayName, 'User');
   assert.deepEqual(await persistence.loadCatalog(), {
-    rooms: [], services: [], cateringPackages: [], cateringItems: [],
+    sites: [], rooms: [], services: [], cateringPackages: [], cateringItems: [],
   });
   assert.equal((await persistence.loadSiteInfo()).Berlin.active, true);
   assert.deepEqual((await persistence.listRequests()).map((entry) => entry.id), ['CR-1']);
@@ -67,7 +67,7 @@ test('production persistence rejects malformed or unversioned server data fail c
     [DOMAIN_ENDPOINTS.requests, { requests: [{ id: 'stale-browser-shaped-record' }] }],
     [DOMAIN_ENDPOINTS.catalog, {
       schemaVersion: 2,
-      catalog: { rooms: [], services: [], cateringPackages: [], cateringItems: [] },
+      catalog: { sites: [], rooms: [], services: [], cateringPackages: [], cateringItems: [] },
     }],
   ]));
   const persistence = createProductionPersistence({ apiClient: api.client });
@@ -84,6 +84,22 @@ test('production persistence rejects malformed or unversioned server data fail c
   );
 });
 
+test('production catalog rejects a missing site collection instead of guessing browser authority', async () => {
+  const api = apiWithResponses(new Map([
+    [DOMAIN_ENDPOINTS.catalog, {
+      schemaVersion: 1,
+      catalog: { rooms: [], services: [], cateringPackages: [], cateringItems: [] },
+    }],
+  ]));
+  const persistence = createProductionPersistence({ apiClient: api.client });
+
+  await assert.rejects(
+    persistence.loadCatalog(),
+    (error) => error instanceof ProductionPersistenceError
+      && error.code === 'PRODUCTION_CATALOG_INVALID',
+  );
+});
+
 test('production writes use explicit API operations and propagate authoritative failure', async () => {
   const api = apiWithResponses(new Map([
     [DOMAIN_ENDPOINTS.requests, ({ method }) => {
@@ -94,7 +110,13 @@ test('production writes use explicit API operations and propagate authoritative 
   ]));
   const persistence = createProductionPersistence({ apiClient: api.client });
 
-  const created = await persistence.createRequest({ title: 'Conference' });
+  const created = await persistence.createRequest({
+    roomId: 'room-1',
+    startsAt: '2026-09-01T08:00:00.000Z',
+    endsAt: '2026-09-01T09:00:00.000Z',
+    internalParticipants: 1,
+    externalParticipants: 0,
+  });
   assert.equal(created.id, 'CR-2026-100001');
   await assert.rejects(
     persistence.transitionRequest('CR-2026-100001', { transition: 'cancel' }),
