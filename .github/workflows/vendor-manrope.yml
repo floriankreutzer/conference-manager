@@ -1,4 +1,4 @@
-name: Vendor Manrope Asset
+name: Apply Manrope Typography Change
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  vendor-font:
+  apply-typography:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -17,22 +17,509 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: codex/manrope-display-typography
-      - name: Download and verify Manrope variable font
+      - name: Verify font provenance and vendor license metadata
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p assets/fonts
-          curl --fail --location --silent --show-error \
-            'https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/Manrope%5Bwght%5D.ttf' \
-            --output 'assets/fonts/Manrope[wght].ttf'
           echo 'd0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40  assets/fonts/Manrope[wght].ttf' | sha256sum --check --strict
-      - name: Commit verified font asset
+          curl --fail --location --silent --show-error \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/OFL.txt' \
+            --output assets/fonts/OFL.txt
+          curl --fail --location --silent --show-error \
+            'https://raw.githubusercontent.com/google/fonts/main/ofl/manrope/FONTLOG.txt' \
+            --output assets/fonts/FONTLOG.txt
+      - name: Apply semantic typography changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one replacement target, found {count}')
+              file.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'assets/tokens.css',
+              ' */\n:root {',
+              ''' */
+
+@font-face {
+  font-family: "Manrope";
+  src: url("./fonts/Manrope%5Bwght%5D.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+}
+
+:root {''',
+          )
+          replace_once(
+              'assets/tokens.css',
+              '  --font-family-sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;',
+              '  --font-family-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;\n  --font-family-display: "Manrope", var(--font-family-sans);',
+          )
+
+          replace_once(
+              'assets/styles.css',
+              '''body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+button,''',
+              '''body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-family-display);
+}
+
+h1 {
+  font-weight: var(--font-weight-bold);
+}
+
+h2,
+h3 {
+  font-weight: var(--font-weight-medium);
+}
+
+button,''',
+          )
+          replace_once(
+              'assets/styles.css',
+              '''.brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  font-weight: var(--font-weight-heavy);
+  letter-spacing: -0.02em;
+}''',
+              '''.brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}''',
+          )
+          replace_once(
+              'assets/styles.css',
+              '''.brand strong {
+  letter-spacing: -0.01em;
+}''',
+              '''.brand strong {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+}''',
+          )
+          replace_once(
+              'assets/styles.css',
+              '''.welcome-hero h2 {
+  max-width: 780px;
+  margin: 12px 0;
+  font-size: clamp(2rem, 3vw, 2.55rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}''',
+              '''.welcome-hero h2 {
+  max-width: 780px;
+  margin: 12px 0;
+  font-size: clamp(2rem, 3vw, 2.55rem);
+  line-height: 1.08;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
+}''',
+          )
+          replace_once(
+              'assets/styles.css',
+              '''.kpi strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}''',
+              '''.kpi strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-family-display);
+  font-size: 1.75rem;
+  line-height: 1.1;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}''',
+          )
+
+          replace_once(
+              'assets/manager-layout.css',
+              '''.manager-first-use-content > strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-lg);
+}''',
+              '''.manager-first-use-content > strong {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}''',
+          )
+
+          replace_once(
+              'assets/feature-parity.css',
+              '''.manager-parity-kpi strong {
+  margin-top: 4px;
+  font-size: 1.55rem;
+  letter-spacing: -0.02em;
+}''',
+              '''.manager-parity-kpi strong {
+  margin-top: 4px;
+  font-family: var(--font-family-display);
+  font-size: 1.55rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}''',
+          )
+
+          replace_once(
+              'index.html',
+              '''  <title></title>
+  <link rel="stylesheet" href="./assets/tokens.css?v=20260823-47">
+  <link rel="stylesheet" href="./assets/styles.css?v=20260822-44">
+  <link rel="stylesheet" href="./assets/feature-parity.css?v=20260824-01">
+  <link rel="stylesheet" href="./assets/app-layout.css?v=20260824-61">
+  <link rel="stylesheet" href="./assets/manager-layout.css?v=20260823-71">''',
+              '''  <title></title>
+  <link rel="preload" href="./assets/fonts/Manrope%5Bwght%5D.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="./assets/tokens.css?v=20260825-01">
+  <link rel="stylesheet" href="./assets/styles.css?v=20260825-01">
+  <link rel="stylesheet" href="./assets/feature-parity.css?v=20260825-01">
+  <link rel="stylesheet" href="./assets/app-layout.css?v=20260824-61">
+  <link rel="stylesheet" href="./assets/manager-layout.css?v=20260825-01">''',
+          )
+
+          Path('scripts/check-design.mjs').write_text('''import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+const assetsDir = 'assets';
+const tokenFile = join(assetsDir, 'tokens.css');
+const manropeFontFile = join(assetsDir, 'fonts', 'Manrope[wght].ttf');
+const manropeLicenseFile = join(assetsDir, 'fonts', 'OFL.txt');
+const manropeFontlogFile = join(assetsDir, 'fonts', 'FONTLOG.txt');
+const expectedManropeSha256 = 'd0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40';
+const componentCss = readdirSync(assetsDir)
+  .filter((name) => name.endsWith('.css') && name !== 'tokens.css')
+  .map((name) => join(assetsDir, name));
+
+const hexPattern = /#[0-9a-f]{3,8}\\b/gi;
+const fontFamilyPattern = /font-family\\s*:\\s*([^;]+);/gi;
+const allowedComponentFontFamilies = new Set([
+  'var(--font-family-sans)',
+  'var(--font-family-display)',
+  'inherit',
+]);
+let failures = 0;
+
+for (const file of componentCss) {
+  const source = readFileSync(file, 'utf8');
+  const matches = [...source.matchAll(hexPattern)].map((match) => match[0]);
+  if (matches.length) {
+    console.error(`${file}: hard-coded hex colors found (${[...new Set(matches)].join(', ')}). Use assets/tokens.css.`);
+    failures += 1;
+  }
+
+  const fontFamilies = [...source.matchAll(fontFamilyPattern)].map((match) => match[1].trim());
+  const uncontrolledFamilies = fontFamilies.filter((value) => !allowedComponentFontFamilies.has(value));
+  if (uncontrolledFamilies.length) {
+    console.error(`${file}: uncontrolled font-family declarations found (${[...new Set(uncontrolledFamilies)].join(', ')}). Use semantic typography tokens.`);
+    failures += 1;
+  }
+}
+
+const tokens = readFileSync(tokenFile, 'utf8');
+for (const requiredToken of [
+  '--brand-primary',
+  '--brand-secondary',
+  '--color-surface-camel',
+  '--color-border',
+  '--focus-color',
+  '--font-family-display',
+  '--font-family-sans',
+]) {
+  if (!tokens.includes(requiredToken)) {
+    console.error(`${tokenFile}: required design token missing: ${requiredToken}`);
+    failures += 1;
+  }
+}
+
+const sansFamily = tokens.match(/--font-family-sans:\\s*([^;]+);/)?.[1]?.trim();
+const displayFamily = tokens.match(/--font-family-display:\\s*([^;]+);/)?.[1]?.trim();
+if (!sansFamily?.startsWith('"Inter",')) {
+  console.error(`${tokenFile}: --font-family-sans must keep Inter as the primary functional UI family.`);
+  failures += 1;
+}
+if (displayFamily !== '"Manrope", var(--font-family-sans)') {
+  console.error(`${tokenFile}: --font-family-display must use Manrope and fall back through the functional UI family.`);
+  failures += 1;
+}
+
+const fontFace = tokens.match(/@font-face\\s*{([\\s\\S]*?)}/)?.[1] || '';
+if (!fontFace.includes('url("./fonts/Manrope%5Bwght%5D.ttf")')) {
+  console.error(`${tokenFile}: Manrope must be loaded from the repository-controlled same-origin font asset.`);
+  failures += 1;
+}
+if (!fontFace.includes('font-display: swap;')) {
+  console.error(`${tokenFile}: Manrope must define font-display: swap for graceful loading behavior.`);
+  failures += 1;
+}
+if (/https?:\\/\\//i.test(fontFace)) {
+  console.error(`${tokenFile}: remote font sources are not allowed in the design-token font-face contract.`);
+  failures += 1;
+}
+
+if (!existsSync(manropeFontFile)) {
+  console.error(`${manropeFontFile}: required self-hosted Manrope font asset is missing.`);
+  failures += 1;
+} else {
+  const actualSha256 = createHash('sha256').update(readFileSync(manropeFontFile)).digest('hex');
+  if (actualSha256 !== expectedManropeSha256) {
+    console.error(`${manropeFontFile}: unexpected SHA-256 ${actualSha256}; review font provenance before updating the expected hash.`);
+    failures += 1;
+  }
+}
+for (const metadataFile of [manropeLicenseFile, manropeFontlogFile]) {
+  if (!existsSync(metadataFile)) {
+    console.error(`${metadataFile}: required Manrope licensing/provenance metadata is missing.`);
+    failures += 1;
+  }
+}
+
+const index = readFileSync('index.html', 'utf8');
+const tokensPosition = index.indexOf('assets/tokens.css');
+const stylesPosition = index.indexOf('assets/styles.css');
+if (tokensPosition < 0 || stylesPosition < 0 || tokensPosition > stylesPosition) {
+  console.error('index.html: tokens.css must load before component styles.');
+  failures += 1;
+}
+if (!index.includes('rel="preload" href="./assets/fonts/Manrope%5Bwght%5D.ttf" as="font" type="font/ttf" crossorigin')) {
+  console.error('index.html: the same-origin Manrope asset must be preloaded before component styles.');
+  failures += 1;
+}
+if (/fonts\\.(?:googleapis|gstatic)\\.com/i.test(`${tokens}\\n${index}`)) {
+  console.error('Runtime Google Fonts dependencies are not allowed; typography must remain same-origin and privacy-preserving.');
+  failures += 1;
+}
+
+if (failures) process.exit(1);
+console.log(`Design-token check passed for ${componentCss.length} component stylesheets, including the typography contract.`);
+''')
+
+          Path('tests/e2e/design-system.spec.js').write_text('''import { expect, test } from '@playwright/test';
+
+const rgb = {
+  bordeaux: 'rgb(122, 31, 61)',
+  camelSurface: 'rgb(245, 238, 230)',
+};
+
+async function expectNoPageHorizontalOverflow(page) {
+  const dimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
+}
+
+test('central design tokens drive Bordeaux actions and Camel surfaces', async ({ page }) => {
+  await page.goto('/');
+
+  const tokens = await page.evaluate(() => {
+    const styles = getComputedStyle(document.documentElement);
+    return {
+      primary: styles.getPropertyValue('--brand-primary').trim(),
+      secondary: styles.getPropertyValue('--brand-secondary').trim(),
+      camelSurface: styles.getPropertyValue('--color-surface-camel').trim(),
+      radius: styles.getPropertyValue('--radius-xs').trim(),
+    };
+  });
+
+  expect(tokens.primary).toBe('#7A1F3D');
+  expect(tokens.secondary).toBe('#C29A6B');
+  expect(tokens.camelSurface).toBe('#F5EEE6');
+  expect(tokens.radius).toBe('2px');
+
+  await page.locator('#primaryNavigation button[data-view="employee"]').click();
+  const primary = page.locator('.wizard-actions button.primary').first();
+  await expect(primary).toBeVisible();
+  await expect(primary).toHaveCSS('background-color', rgb.bordeaux);
+
+  const participantSurface = page.locator('.participant-total');
+  await expect(participantSurface).toBeVisible();
+  await expect(participantSurface).toHaveCSS('background-color', rgb.camelSurface);
+});
+
+test('semantic typography keeps Manrope on display surfaces and Inter on functional UI', async ({ page }) => {
+  await page.goto('/');
+
+  const typography = await page.evaluate(async () => {
+    const styles = getComputedStyle(document.documentElement);
+    const loadedFaces = await document.fonts.load('700 1rem "Manrope"');
+    return {
+      display: styles.getPropertyValue('--font-family-display').trim(),
+      functional: styles.getPropertyValue('--font-family-sans').trim(),
+      loadedFaces: loadedFaces.map((face) => ({ family: face.family, status: face.status })),
+    };
+  });
+
+  expect(typography.display).toContain('Manrope');
+  expect(typography.display).toContain('Inter');
+  expect(typography.functional).toContain('Inter');
+  expect(typography.loadedFaces.length).toBeGreaterThan(0);
+  expect(typography.loadedFaces.every((face) => face.status === 'loaded')).toBe(true);
+
+  await expect(page.locator('body')).toHaveCSS('font-family', /Inter/);
+  await expect(page.locator('.brand-mark')).toHaveCSS('font-family', /Manrope/);
+  await expect(page.locator('.brand strong')).toHaveCSS('font-family', /Manrope/);
+  await expect(page.locator('.topbar h1')).toHaveCSS('font-family', /Manrope/);
+  await expect(page.locator('.topbar h1')).toHaveCSS('font-weight', '700');
+  await expect(page.locator('.welcome-hero h2')).toHaveCSS('font-family', /Manrope/);
+  await expect(page.locator('.welcome-hero h2')).toHaveCSS('font-weight', '700');
+  await expect(page.locator('.kpi strong').first()).toHaveCSS('font-family', /Manrope/);
+  await expect(page.locator('#primaryNavigation button').first()).toHaveCSS('font-family', /Inter/);
+
+  await page.locator('#primaryNavigation button[data-view="employee"]').click();
+  await expect(page.locator('.section-heading h2').first()).toHaveCSS('font-family', /Manrope/);
+  await expect(page.locator('.section-heading h2').first()).toHaveCSS('font-weight', '600');
+  await expect(page.locator('.field-label').first()).toHaveCSS('font-family', /Inter/);
+  await expect(page.locator('.wizard-actions button.primary').first()).toHaveCSS('font-family', /Inter/);
+});
+
+test('display typography reflows across languages and representative responsive widths', async ({ page }) => {
+  const viewports = [
+    { name: 'phone-landscape', width: 844, height: 390 },
+    { name: 'tablet', width: 1024, height: 768 },
+    { name: 'large-desktop', width: 1600, height: 1000 },
+    { name: 'desktop-200-percent-reflow', width: 640, height: 450 },
+  ];
+
+  await page.goto('/');
+
+  for (const language of ['de', 'en']) {
+    await page.evaluate((value) => localStorage.setItem('conference_language_v1', value), language);
+
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.reload();
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await expect(page.locator('.welcome-hero h2')).toBeVisible();
+      await expect(page.locator('.topbar h1')).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+
+      const clipping = await page.evaluate(() => {
+        const selectors = ['.topbar h1', '.topbar p', '.welcome-hero h2', '.welcome-hero p'];
+        return selectors.map((selector) => {
+          const element = document.querySelector(selector);
+          return {
+            selector,
+            clippedInline: element ? element.scrollWidth > element.clientWidth + 1 : true,
+            clippedBlock: element ? element.scrollHeight > element.clientHeight + 1 : true,
+          };
+        });
+      });
+      expect(clipping, `${language}/${viewport.name}`).toEqual(
+        expect.arrayContaining(clipping.map((entry) => ({
+          ...entry,
+          clippedInline: false,
+          clippedBlock: false,
+        }))),
+      );
+    }
+  }
+});
+
+test('manager dashboard keeps its strong information architecture while using the refined visual system', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('conference_demo_role_v1', 'manager'));
+  await page.goto('/');
+  await page.locator('#primaryNavigation button[data-view="manager"]').click();
+
+  const overview = page.locator('[data-feature-manager-overview]');
+  await expect(overview).toBeVisible();
+  await expect(overview.locator('.manager-parity-kpi')).toHaveCount(4);
+  await expect(overview.locator('.manager-quick-filters')).toBeVisible();
+
+  const camelKpi = overview.locator('.manager-parity-kpi').nth(1);
+  await expect(camelKpi).toHaveCSS('background-color', rgb.camelSurface);
+  await expect(camelKpi.locator('strong')).toHaveCSS('font-family', /Manrope/);
+
+  const activeTab = page.locator('.manager-tabs button[aria-pressed="true"]');
+  await expect(activeTab).toHaveCSS('background-color', 'rgb(23, 23, 23)');
+  await expect(activeTab).toHaveCSS('font-family', /Inter/);
+});
+''')
+
+          replace_once(
+              'docs/DESIGN-SYSTEM.md',
+              '''### Typography, controls and density
+
+Typography, spacing, control height and layout density are controlled via `--font-*`, `--space-*`, `--control-height` and layout tokens.
+
+Application-wide layout tokens:''',
+              '''### Typography, controls and density
+
+Typography, spacing, control height and layout density are controlled via `--font-*`, `--space-*`, `--control-height` and layout tokens.
+
+The typography contract deliberately combines two sans-serif families instead of replacing the functional UI face globally:
+
+- `--font-family-display`: **Manrope** first, then the complete functional UI fallback chain. Use this token for brand/display typography, semantic H1-H3 headings, onboarding headlines and selected prominent KPI values. H1/hero surfaces use 700; normal H2/H3 and onboarding headings use the existing 600 weight token. H4 stays on the functional UI family unless a specific component has a justified display role.
+- `--font-family-sans`: **Inter** first, followed by system UI fallbacks. Body text, descriptions, navigation, forms, labels, inputs, buttons, tables, dense operational views, supporting information and status text continue to inherit this token.
+- Component styles must consume these semantic family tokens. Literal font-family stacks outside `assets/tokens.css` are rejected by `npm run check:design`.
+
+Manrope is self-hosted as the official Google Fonts variable TrueType asset at `assets/fonts/Manrope[wght].ttf`; its SHA-256 is `d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40`. The repository ships the accompanying SIL Open Font License 1.1 and FONTLOG metadata. The browser loads the font from the application origin only, consistent with the existing `font-src 'self'` CSP, and the HTML preloads the file because a display heading is present on every application view. `font-display: swap` keeps text visible during loading; if Manrope cannot be loaded, the display token falls back through Inter and the existing system UI stack. No Google Fonts CDN request, third-party JavaScript or new runtime dependency is introduced.
+
+This typography change does not alter the established font sizes, line heights or spacing scale. Display typography must continue to wrap naturally in German and English, remain usable at responsive breakpoints and reflow under zoom/text enlargement; do not truncate meaningful headings to compensate for font metrics. Inter remains the default for compact controls and dense data surfaces so scanability is preserved.
+
+Application-wide layout tokens:''',
+          )
+          PY
+      - name: Validate patch invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          node scripts/check-design.mjs
+      - name: Commit typography implementation
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add 'assets/fonts/Manrope[wght].ttf'
+          git add assets index.html scripts/check-design.mjs tests/e2e/design-system.spec.js docs/DESIGN-SYSTEM.md
           git diff --cached --quiet && exit 0
-          git commit -m 'Add verified Manrope variable font asset'
+          git commit -m 'Implement Manrope display typography system'
           git push origin HEAD:codex/manrope-display-typography
