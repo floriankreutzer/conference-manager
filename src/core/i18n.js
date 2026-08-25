@@ -1,5 +1,6 @@
 import * as base from './i18n-base.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
+import { PRODUCTION_APPLICATION_MESSAGES } from './i18n-production-application-messages.js';
 
 const LEGACY_KEY_ALIASES = Object.freeze({
   'parity.admin.accessibility': 'manager.accessibility',
@@ -73,6 +74,9 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const productionMessages = PRODUCTION_APPLICATION_MESSAGES[targetLanguage]
+    ?? PRODUCTION_APPLICATION_MESSAGES.de;
+  if (productionMessages?.[key] !== undefined) return productionMessages[key];
   const messages = CAPABILITY_MESSAGES[targetLanguage] ?? CAPABILITY_MESSAGES.de;
   return messages?.[key] ?? CAPABILITY_MESSAGES.de[key];
 }
