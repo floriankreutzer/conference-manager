@@ -100,13 +100,46 @@ test('display typography reflows across languages and representative responsive 
 
       const clipping = await page.evaluate(() => {
         const selectors = ['.topbar h1', '.topbar p', '.welcome-hero h2', '.welcome-hero p'];
+        const clippingOverflowValues = new Set(['auto', 'clip', 'hidden', 'scroll']);
+
         return selectors.map((selector) => {
           const element = document.querySelector(selector);
-          return {
-            selector,
-            clippedInline: element ? element.scrollWidth > element.clientWidth + 1 : true,
-            clippedBlock: element ? element.scrollHeight > element.clientHeight + 1 : true,
-          };
+          if (!(element instanceof HTMLElement)) {
+            return { selector, clippedInline: true, clippedBlock: true };
+          }
+
+          const textRange = document.createRange();
+          textRange.selectNodeContents(element);
+          const textRects = Array.from(textRange.getClientRects()).filter(
+            (rect) => rect.width > 0 || rect.height > 0,
+          );
+          let clippedInline = false;
+          let clippedBlock = false;
+          let ancestor = element;
+
+          while (ancestor) {
+            const styles = getComputedStyle(ancestor);
+            const rect = ancestor.getBoundingClientRect();
+            const clipLeft = rect.left + ancestor.clientLeft;
+            const clipTop = rect.top + ancestor.clientTop;
+            const clipRight = clipLeft + ancestor.clientWidth;
+            const clipBottom = clipTop + ancestor.clientHeight;
+
+            if (clippingOverflowValues.has(styles.overflowX)) {
+              clippedInline ||= textRects.some(
+                (textRect) => textRect.left < clipLeft - 1 || textRect.right > clipRight + 1,
+              );
+            }
+            if (clippingOverflowValues.has(styles.overflowY)) {
+              clippedBlock ||= textRects.some(
+                (textRect) => textRect.top < clipTop - 1 || textRect.bottom > clipBottom + 1,
+              );
+            }
+
+            ancestor = ancestor.parentElement;
+          }
+
+          return { selector, clippedInline, clippedBlock };
         });
       });
 
