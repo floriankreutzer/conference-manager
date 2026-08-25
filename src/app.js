@@ -9,7 +9,6 @@ import {
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell } from './platform/app-shell.js';
 import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';
-import { createProductionPersistence } from './platform/production-persistence.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
   createDemoTenantUserAdministration,
@@ -25,9 +24,7 @@ async function bootstrap() {
 
   const setPageHeading = (title, subtitle) => shell.setPageHeading(title, subtitle);
   const authentication = context.authenticationRuntime();
-  const productionPersistence = !context.isDemoRuntime() && authentication
-    ? createProductionPersistence({ apiClient: authentication.apiClient })
-    : null;
+  const productionPersistence = context.productionPersistence();
   const employee = context.isDemoRuntime()
     ? createEmployeeApplication({
       context,
