@@ -213,8 +213,17 @@ export function createTenantAdminApplication({
       const connection = await microsoft365Connection.getStatus();
       if (targetGeneration !== generation) return;
       clear(surface);
+      const status = el('p', {
+        className: 'status-chip',
+        text: t(`tenantAdmin.microsoft365.state.${connection.state}`),
+        attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+      });
+      const message = el('p', {
+        className: 'field-hint',
+        attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+      });
       surface.append(
-        el('p', { className: 'status-chip', text: t(`tenantAdmin.microsoft365.state.${connection.state}`) }),
+        status,
         el('ul', {}, [
           el('li', {
             text: t('tenantAdmin.microsoft365.permission.places', {
@@ -230,47 +239,63 @@ export function createTenantAdminApplication({
       );
 
       const actions = el('div', { className: 'button-row' });
+      let mutationPending = false;
+      const setLifecyclePending = (pending) => {
+        mutationPending = pending;
+        actions.querySelectorAll('button').forEach((actionButton) => {
+          actionButton.disabled = pending;
+        });
+      };
+      const showLifecycleError = () => {
+        const errorText = t('tenantAdmin.microsoft365.error');
+        message.textContent = errorText;
+        announce(errorText, { assertive: true });
+      };
+      const runLifecycleMutation = async (operation, onSuccess) => {
+        if (mutationPending) return;
+        message.textContent = '';
+        setLifecyclePending(true);
+        try {
+          const result = await operation();
+          if (targetGeneration !== generation) return;
+          await onSuccess(result);
+        } catch {
+          if (targetGeneration !== generation) return;
+          showLifecycleError();
+          setLifecyclePending(false);
+        }
+      };
+
       const connect = button(
         t(connection.state === 'disconnected' ? 'tenantAdmin.microsoft365.connect' : 'tenantAdmin.microsoft365.reconnect'),
         { className: 'primary' },
       );
-      connect.addEventListener('click', async () => {
-        connect.disabled = true;
-        try {
-          globalThis.location.assign((await microsoft365Connection.connect()).authorizationUrl);
-        } catch {
-          connect.disabled = false;
-          announce(t('tenantAdmin.microsoft365.error'), { assertive: true });
-        }
+      connect.addEventListener('click', () => {
+        void runLifecycleMutation(
+          () => microsoft365Connection.connect(),
+          ({ authorizationUrl }) => globalThis.location.assign(authorizationUrl),
+        );
       });
       actions.appendChild(connect);
 
       if (connection.state !== 'disconnected') {
         const verify = button(t('tenantAdmin.microsoft365.verify'));
-        verify.addEventListener('click', async () => {
-          verify.disabled = true;
-          try {
-            await microsoft365Connection.verify();
-            render();
-          } catch {
-            verify.disabled = false;
-            announce(t('tenantAdmin.microsoft365.error'), { assertive: true });
-          }
+        verify.addEventListener('click', () => {
+          void runLifecycleMutation(
+            () => microsoft365Connection.verify(),
+            () => render(),
+          );
         });
         const disconnect = button(t('tenantAdmin.microsoft365.disconnect'));
-        disconnect.addEventListener('click', async () => {
-          disconnect.disabled = true;
-          try {
-            await microsoft365Connection.disconnect();
-            render();
-          } catch {
-            disconnect.disabled = false;
-            announce(t('tenantAdmin.microsoft365.error'), { assertive: true });
-          }
+        disconnect.addEventListener('click', () => {
+          void runLifecycleMutation(
+            () => microsoft365Connection.disconnect(),
+            () => render(),
+          );
         });
         actions.append(verify, disconnect);
       }
-      surface.appendChild(actions);
+      surface.append(actions, message);
     } catch {
       if (targetGeneration !== generation) return;
       clear(surface);
