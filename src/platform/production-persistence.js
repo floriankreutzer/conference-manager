@@ -76,6 +76,7 @@ export function createProductionPersistence({ apiClient } = {}) {
         'catalog',
       ));
       return Object.freeze({
+        sites: assertCollection(catalog.sites, 'PRODUCTION_CATALOG_INVALID'),
         rooms: assertCollection(catalog.rooms, 'PRODUCTION_CATALOG_INVALID'),
         services: assertCollection(catalog.services, 'PRODUCTION_CATALOG_INVALID'),
         cateringPackages: assertCollection(catalog.cateringPackages, 'PRODUCTION_CATALOG_INVALID'),
