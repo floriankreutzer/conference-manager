@@ -1,6 +1,7 @@
 const BASE_PATH = 'v1/integrations/microsoft365';
 const MAX_ROOMS = 1_000;
 const MAX_TEXT = 512;
+const SAFE_LOCAL_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const TENANT_STATUSES = new Set(['pending', 'onboarding', 'ready', 'active', 'suspended']);
 
 export class Microsoft365OnboardingApiError extends Error {
@@ -105,15 +106,21 @@ function readinessPayload(payload) {
   });
 }
 
+function requireLocalId(value) {
+  if (typeof value !== 'string' || !SAFE_LOCAL_ID.test(value)) throw new TypeError('ROOM_SELECTION_INVALID');
+  return value;
+}
+
 function selection(value) {
   if (!plain(value)) throw new TypeError('ROOM_SELECTION_INVALID');
   const externalRoomId = text(value.externalRoomId, { required: true });
+  const siteId = requireLocalId(value.siteId);
   const name = text(value.name, { required: true });
-  const capacity = value.capacity === null ? null : value.capacity;
-  if (capacity !== null && (!Number.isSafeInteger(capacity) || capacity < 0 || capacity > 1_000_000)) {
+  const capacity = value.capacity;
+  if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 100_000) {
     throw new TypeError('ROOM_SELECTION_INVALID');
   }
-  return Object.freeze({ externalRoomId, name, capacity });
+  return Object.freeze({ externalRoomId, siteId, name, capacity });
 }
 
 export function createMicrosoft365OnboardingApi({ apiClient } = {}) {
