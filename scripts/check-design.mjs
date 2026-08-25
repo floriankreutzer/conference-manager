@@ -14,11 +14,13 @@ const componentCss = readdirSync(assetsDir)
 
 const hexPattern = /#[0-9a-f]{3,8}\b/gi;
 const fontFamilyPattern = /font-family\s*:\s*([^;]+);/gi;
+const fontShorthandPattern = /\bfont\s*:\s*([^;]+);/gi;
 const allowedComponentFontFamilies = new Set([
   'var(--font-family-sans)',
   'var(--font-family-display)',
   'inherit',
 ]);
+const allowedComponentFontShorthands = new Set(['inherit']);
 let failures = 0;
 
 for (const file of componentCss) {
@@ -33,6 +35,13 @@ for (const file of componentCss) {
   const uncontrolledFamilies = fontFamilies.filter((value) => !allowedComponentFontFamilies.has(value));
   if (uncontrolledFamilies.length) {
     console.error(`${file}: uncontrolled font-family declarations found (${[...new Set(uncontrolledFamilies)].join(', ')}). Use semantic typography tokens.`);
+    failures += 1;
+  }
+
+  const fontShorthands = [...source.matchAll(fontShorthandPattern)].map((match) => match[1].trim());
+  const uncontrolledShorthands = fontShorthands.filter((value) => !allowedComponentFontShorthands.has(value));
+  if (uncontrolledShorthands.length) {
+    console.error(`${file}: uncontrolled font shorthand declarations found (${[...new Set(uncontrolledShorthands)].join(', ')}). Use font: inherit or semantic typography-token longhands.`);
     failures += 1;
   }
 }
