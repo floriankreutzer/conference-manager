@@ -6,6 +6,7 @@ import { productionUtcInstant } from '../src/employee/production-application.js'
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
 const MANAGER_SOURCE = new URL('../src/manager/production-application.js', import.meta.url);
 const APP_SOURCE = new URL('../src/app.js', import.meta.url);
+const CONTEXT_SOURCE = new URL('../src/platform/application-context.js', import.meta.url);
 const SHELL_SOURCE = new URL('../src/platform/app-shell.js', import.meta.url);
 
 async function source(url) {
@@ -32,12 +33,13 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(manager, /persistence\.transitionRequest/);
 });
 
-test('production composition uses only the authenticated in-memory API client and preserves demo applications', async () => {
-  const app = await source(APP_SOURCE);
-  assert.match(app, /createProductionPersistence\(\{ apiClient: authentication\.apiClient \}\)/);
+test('Platform owns production persistence and Composition Root preserves demo applications', async () => {
+  const [app, context] = await Promise.all([source(APP_SOURCE), source(CONTEXT_SOURCE)]);
+  assert.match(context, /createProductionPersistence\(\{ apiClient: authenticationRuntime\.apiClient \}\)/);
+  assert.match(app, /context\.productionPersistence\(\)/);
   assert.match(app, /context\.isDemoRuntime\(\)[\s\S]*createEmployeeApplication/);
   assert.match(app, /context\.isDemoRuntime\(\)[\s\S]*createManagerApplication/);
-  assert.doesNotMatch(app, /localStorage|sessionStorage/);
+  assert.doesNotMatch(app, /production-persistence\.js|localStorage|sessionStorage/);
 });
 
 test('production navigation keeps Tenant Admin and Conference Manager capabilities independent', async () => {
