@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { productionUtcInstant } from '../src/employee/production-application.js';
+import { productionUtcInstant } from '../src/employee/production-time.js';
 
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
 const MANAGER_SOURCE = new URL('../src/manager/production-application.js', import.meta.url);
