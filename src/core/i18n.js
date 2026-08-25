@@ -1,5 +1,6 @@
 import * as base from './i18n-base.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
+import { ONBOARDING_MESSAGES } from './i18n-onboarding-messages.js';
 import { PRODUCTION_APPLICATION_MESSAGES } from './i18n-production-application-messages.js';
 
 const LEGACY_KEY_ALIASES = Object.freeze({
@@ -74,6 +75,8 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const onboardingMessages = ONBOARDING_MESSAGES[targetLanguage] ?? ONBOARDING_MESSAGES.de;
+  if (onboardingMessages?.[key] !== undefined) return onboardingMessages[key];
   const productionMessages = PRODUCTION_APPLICATION_MESSAGES[targetLanguage]
     ?? PRODUCTION_APPLICATION_MESSAGES.de;
   if (productionMessages?.[key] !== undefined) return productionMessages[key];

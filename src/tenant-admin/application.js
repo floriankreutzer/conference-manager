@@ -1,5 +1,6 @@
 import { t } from '../core/i18n.js';
 import { announce, button, clear, el, showToast } from '../core/ui.js';
+import { createTenantOnboardingWizard } from './onboarding-wizard.js';
 import {
   TENANT_ELEVATED_ROLE,
   canSelectRole,
@@ -39,6 +40,7 @@ export function createTenantAdminApplication({
   setPageHeading,
   userAdministration,
   microsoft365Connection,
+  onboardingRuntime,
 } = {}) {
   if (!context || typeof context.isTenantAdmin !== 'function') throw new TypeError('TENANT_ADMIN_CONTEXT_REQUIRED');
   if (!(appRoot instanceof HTMLElement)) throw new TypeError('TENANT_ADMIN_ROOT_REQUIRED');
@@ -49,6 +51,9 @@ export function createTenantAdminApplication({
 
   let generation = 0;
   let pendingFocusUserId = null;
+  const onboarding = onboardingRuntime
+    ? createTenantOnboardingWizard({ onboardingRuntime, runtime: onboardingRuntime })
+    : null;
 
   function loadingPanel() {
     return el('section', {
@@ -324,6 +329,20 @@ export function createTenantAdminApplication({
     const currentGeneration = generation;
     setPageHeading(t('tenantAdmin.title'), t('tenantAdmin.subtitle'));
     clear(appRoot);
+
+    if (onboarding) {
+      const onboardingRoot = el('section', {
+        className: 'tenant-onboarding',
+        dataset: { tenantOnboarding: 'true' },
+        attrs: { 'aria-label': t('tenantAdmin.onboarding.title') },
+      });
+      appRoot.appendChild(onboardingRoot);
+      void onboarding.renderInto(onboardingRoot);
+    } else if (microsoft365Connection) {
+      appRoot.appendChild(microsoft365Panel());
+      void loadMicrosoft365(currentGeneration);
+    }
+
     const intro = el('section', { className: 'card tenant-admin-intro' }, [
       el('h2', { text: t('tenantAdmin.users.title') }),
       el('p', { text: t('tenantAdmin.users.description') }),
@@ -337,9 +356,7 @@ export function createTenantAdminApplication({
       dataset: { tenantAdminUsers: 'true' },
       attrs: { 'aria-label': t('tenantAdmin.users.title') },
     }, [loadingPanel()]);
-    if (microsoft365Connection) appRoot.appendChild(microsoft365Panel());
     appRoot.append(intro, users);
-    void loadMicrosoft365(currentGeneration);
     void loadUsers(currentGeneration);
   }
 

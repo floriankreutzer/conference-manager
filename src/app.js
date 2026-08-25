@@ -13,9 +13,10 @@ import { createTenantUserAdministrationApi } from './platform/tenant-user-admini
 import {
   createDemoTenantUserAdministration,
   createTenantAdminApplication,
+  createTenantAdminOnboardingRuntime,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.25.65';
+const APP_BUILD = '2026.08.26.67';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -65,6 +66,12 @@ async function bootstrap() {
   const microsoft365Connection = !context.isDemoRuntime() && context.isTenantAdmin() && authentication
     ? createMicrosoft365ConnectionApi({ apiClient: authentication.apiClient })
     : null;
+  const onboardingRuntime = createTenantAdminOnboardingRuntime({
+    demo: context.isDemoRuntime(),
+    apiClient: context.isTenantAdmin() ? authentication?.apiClient : null,
+    connectionApi: microsoft365Connection,
+    persistence: context.isTenantAdmin() ? productionPersistence : null,
+  });
   const tenantAdmin = tenantUserAdministration
     ? createTenantAdminApplication({
       context,
@@ -72,6 +79,7 @@ async function bootstrap() {
       setPageHeading,
       userAdministration: tenantUserAdministration,
       microsoft365Connection,
+      onboardingRuntime,
     })
     : null;
 
