@@ -32,3 +32,13 @@ export function tenantAdminHashForSection(sectionId) {
 export function isTenantAdminRoute(hash = globalThis.location?.hash) {
   return /^#tenant-admin(?:\/|$)/.test(String(hash || ''));
 }
+
+export function clearTenantAdminRoute({
+  history = globalThis.history,
+  location = globalThis.location,
+} = {}) {
+  if (!isTenantAdminRoute(location?.hash)) return false;
+  const nextUrl = `${String(location?.pathname || '')}${String(location?.search || '')}` || '/';
+  history?.replaceState?.(null, '', nextUrl);
+  return true;
+}
