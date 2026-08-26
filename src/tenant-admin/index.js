@@ -3,11 +3,21 @@ import { createMicrosoft365OnboardingRuntime } from '../platform/microsoft365-on
 import { createTenantAdminApplication } from './application.js';
 import { createDemoOnboarding } from './demo-onboarding.js';
 import { createDemoTenantUserAdministration } from './demo-user-administration.js';
+import {
+  clearTenantAdminRoute,
+  isTenantAdminRoute,
+  tenantAdminHashForSection,
+  tenantAdminSectionFromHash,
+} from './route.js';
 
 export {
+  clearTenantAdminRoute,
   createDemoOnboarding,
   createDemoTenantUserAdministration,
   createTenantAdminApplication,
+  isTenantAdminRoute,
+  tenantAdminHashForSection,
+  tenantAdminSectionFromHash,
 };
 
 export function createTenantAdminOnboardingRuntime({

@@ -149,7 +149,8 @@ async function openTenantAdministration(page) {
   await nav.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#viewTitle')).toBeFocused();
-  await expect(page.getByRole('heading', { name: 'Benutzer & Rollen' })).toBeVisible();
+  await page.locator('[data-tenant-admin-section="users"]').click();
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Benutzer & Rollen');
   await expect(page.getByText('2 Benutzer geladen.')).toBeAttached();
 }
 
@@ -172,7 +173,7 @@ test('Tenant Admin manages elevated roles through the production API with CSRF a
   await expect(page.locator('#toast')).toContainText('Rollen gespeichert.');
   const updatedUserCard = page.locator(`[data-tenant-user-id="${USER_ID}"]`);
   await expect(updatedUserCard.getByRole('checkbox', { name: 'Conference Manager' })).toBeChecked();
-  await expect(updatedUserCard).toBeFocused();
+  await expect(updatedUserCard.locator('[data-tenant-role-action="save"]')).toBeDisabled();
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0]).toEqual({
     csrf: CSRF_TOKEN,
@@ -206,9 +207,10 @@ test('Tenant Admin navigation is server-session scoped and DE/EN copy stays func
   await installProductionFixture(page);
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
+  await page.locator('[data-tenant-admin-section="users"]').click();
   await page.getByRole('button', { name: 'Profil' }).click();
   await page.locator('#profileLanguage').selectOption('en');
-  await expect(page.getByRole('heading', { name: 'Users & roles' })).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Users & roles');
   await expect(page.getByText('Baseline role: Employee').first()).toBeVisible();
 
   const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);

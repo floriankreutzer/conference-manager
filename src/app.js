@@ -11,12 +11,14 @@ import { createAppShell, renderAppBootstrapLoading } from './platform/app-shell.
 import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
+  clearTenantAdminRoute,
   createDemoTenantUserAdministration,
   createTenantAdminApplication,
   createTenantAdminOnboardingRuntime,
+  isTenantAdminRoute,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.26.68';
+const APP_BUILD = '2026.08.27.70';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -78,9 +80,13 @@ async function bootstrap() {
       context,
       appRoot,
       setPageHeading,
-      userAdministration: tenantUserAdministration,
-      microsoft365Connection,
-      onboardingRuntime,
+      sectionAdapters: Object.freeze({
+        users: tenantUserAdministration,
+        microsoft365: Object.freeze({
+          connection: microsoft365Connection,
+          onboardingRuntime,
+        }),
+      }),
     })
     : null;
 
@@ -90,6 +96,9 @@ async function bootstrap() {
     manager,
     tenantAdmin,
     authentication,
+    onViewChange: (nextView) => {
+      if (nextView !== 'tenantAdmin') clearTenantAdminRoute();
+    },
   });
 
   function render() {
@@ -104,7 +113,13 @@ async function bootstrap() {
     render();
   });
 
-  render();
+  if (tenantAdmin && context.isTenantAdmin() && isTenantAdminRoute()) {
+    shell.setView('tenantAdmin');
+    document.documentElement.dataset.appBuild = APP_BUILD;
+  } else {
+    if (isTenantAdminRoute()) clearTenantAdminRoute();
+    render();
+  }
 }
 
 void bootstrap();

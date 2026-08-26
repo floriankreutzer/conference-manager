@@ -1,0 +1,126 @@
+/*
+ * Tenant Administration settings shell.
+ * Uses only canonical design tokens and remains independent from domain-specific
+ * section implementation.
+ */
+
+.tenant-admin-settings-shell,
+.tenant-admin-section-content,
+.tenant-admin-overview,
+.tenant-admin-section-grid,
+.tenant-admin-section-card,
+.tenant-admin-domain-summary,
+.tenant-admin-capability-list,
+.tenant-admin-audit-list {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tenant-admin-settings-shell {
+  display: grid;
+  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.tenant-admin-section-nav {
+  position: sticky;
+  top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.tenant-admin-section-nav-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tenant-admin-section-nav-button {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-ink);
+  text-align: start;
+}
+
+.tenant-admin-section-nav-button:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.tenant-admin-section-nav-button.active {
+  border-color: var(--brand-primary);
+  background: var(--color-surface-bordeaux);
+  font-weight: var(--font-weight-bold);
+}
+
+.tenant-admin-section-content {
+  min-height: 18rem;
+}
+
+.tenant-admin-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--app-section-gap);
+}
+
+.tenant-admin-section-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+
+.tenant-admin-section-card .button-row {
+  margin-top: auto;
+}
+
+.tenant-admin-domain-summary {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.tenant-admin-capability-list,
+.tenant-admin-audit-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tenant-admin-capability-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-soft);
+}
+
+@media (max-width: 900px) {
+  .tenant-admin-settings-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-admin-section-nav {
+    position: static;
+  }
+
+  .tenant-admin-section-nav-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .tenant-admin-section-grid,
+  .tenant-admin-section-nav-list {
+    grid-template-columns: 1fr;
+  }
+}

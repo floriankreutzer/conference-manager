@@ -36,7 +36,12 @@ export function createAppShell({
   manager,
   tenantAdmin = null,
   authentication = null,
+  onViewChange = null,
 }) {
+  if (onViewChange !== null && typeof onViewChange !== 'function') {
+    throw new TypeError('APP_SHELL_VIEW_CHANGE_HANDLER_INVALID');
+  }
+
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');
   const titleRoot = document.getElementById('viewTitle');
@@ -68,6 +73,7 @@ export function createAppShell({
       if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
       if (nextView === 'tenantAdmin' && (!context.isTenantAdmin() || !tenantAdmin)) nextView = 'welcome';
     }
+    onViewChange?.(nextView);
     view = nextView;
     render();
     requestAnimationFrame(() => titleRoot?.focus());
@@ -351,8 +357,11 @@ export function createAppShell({
     roleSelect?.addEventListener('change', () => {
       context.setRole(roleSelect.value);
       dialog.close();
-      if (!context.isManager() && view === 'manager') view = 'welcome';
-      if (!context.isTenantAdmin() && view === 'tenantAdmin') view = 'welcome';
+      if ((!context.isManager() && view === 'manager')
+        || (!context.isTenantAdmin() && view === 'tenantAdmin')) {
+        setView('welcome');
+        return;
+      }
       render();
     });
   }
