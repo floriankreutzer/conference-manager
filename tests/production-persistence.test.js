@@ -173,6 +173,22 @@ test('blocked booking-change alternatives are bounded arrays of unique public ID
   }
 });
 
+test('booking-change rejection requires a matching authoritative rejected payload', async () => {
+  const requestId = 'CR-2026-100001';
+  const change = bookingChangeFixture();
+  const path = `v1/requests/${requestId}/booking-change/${change.id}/decision`;
+  const persistence = createProductionPersistence({ apiClient: apiWithResponses(new Map([[
+    path,
+    { schemaVersion: 1, result: { status: 'rejected', change } },
+  ]])).client });
+
+  await assert.rejects(
+    persistence.decideBookingChange(requestId, change.id, 'reject', 'No longer required'),
+    (error) => error instanceof ProductionPersistenceError
+      && error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
+});
+
 test('room availability uses the exact server-authoritative UTC request contract', async () => {
   const api = apiWithResponses(new Map([
     [DOMAIN_ENDPOINTS.roomAvailability, (options) => {

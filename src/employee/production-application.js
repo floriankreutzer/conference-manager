@@ -110,7 +110,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
     const startValue = wallValues(request.startsAt, timeZone);
     const endValue = wallValues(request.endsAt, timeZone);
     const room = el('select');
-    catalog.rooms.filter((entry) => entry.active).forEach((entry) => {
+    catalog.rooms.filter((entry) => entry.active || entry.id === request.roomId).forEach((entry) => {
       room.appendChild(el('option', { value: entry.id, text: roomLabel(entry) }));
     });
     room.value = request.roomId;
@@ -146,10 +146,11 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       const endsAt = productionUtcInstant(date.value, end.value, targetTimeZone);
       const internalParticipants = safeParticipantCount(internal.value);
       const externalParticipants = safeParticipantCount(external.value);
+      const totalParticipants = Number(internalParticipants) + Number(externalParticipants);
       if (!startsAt || !endsAt || Date.parse(startsAt) <= Date.now()
         || Date.parse(endsAt) <= Date.parse(startsAt)
         || internalParticipants === null || externalParticipants === null
-        || internalParticipants + externalParticipants < 1) {
+        || totalParticipants < 1 || totalParticipants > MAX_PARTICIPANTS) {
         error.textContent = t('production.employee.validation');
         return;
       }

@@ -464,7 +464,11 @@ export function createProductionPersistence({ apiClient } = {}) {
       if (decision === 'reject') {
         const rejected = assertExactObject(result, ['status', 'change'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
         if (rejected.status !== 'rejected') throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
-        return Object.freeze({ status: 'rejected', change: bookingChangePayload(rejected.change) });
+        const normalizedChange = bookingChangePayload(rejected.change);
+        if (normalizedChange?.status !== 'rejected') {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        return Object.freeze({ status: 'rejected', change: normalizedChange });
       }
       if (result?.status === 'blocked') {
         const blocked = assertExactObject(result, ['status', 'alternatives'], 'PRODUCTION_BOOKING_CHANGE_INVALID');

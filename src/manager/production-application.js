@@ -201,52 +201,54 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
               el('h4', { text: t('production.bookingChange.pendingTitle') }),
               requestSummary(bookingChange, catalog),
             );
-            const approve = button(t('production.bookingChange.approve'), { className: 'primary' });
-            const reject = button(t('production.bookingChange.reject'), { className: 'danger' });
-            let decisionInFlight = false;
-            const beginDecision = () => {
-              if (decisionInFlight) return false;
-              decisionInFlight = true;
-              approve.disabled = true;
-              reject.disabled = true;
-              return true;
-            };
-            const endDecision = () => {
-              decisionInFlight = false;
-              approve.disabled = false;
-              reject.disabled = false;
-            };
-            approve.addEventListener('click', async () => {
-              if (!beginDecision()) return;
-              try {
-                const result = await persistence.decideBookingChange(
-                  request.id,
-                  bookingChange.id,
-                  'approve',
-                );
-                if (result.status === 'blocked') {
-                  const labels = result.alternatives.map((id) => roomLabel(
-                    catalog.rooms.find((room) => room.id === id),
-                  ) || id);
-                  showToast(labels.length
-                    ? t('production.bookingChange.blockedAlternatives', { alternatives: labels.join(', ') })
-                    : t('production.bookingChange.blocked'));
+            if (bookingChange.status === 'pending') {
+              const approve = button(t('production.bookingChange.approve'), { className: 'primary' });
+              const reject = button(t('production.bookingChange.reject'), { className: 'danger' });
+              let decisionInFlight = false;
+              const beginDecision = () => {
+                if (decisionInFlight) return false;
+                decisionInFlight = true;
+                approve.disabled = true;
+                reject.disabled = true;
+                return true;
+              };
+              const endDecision = () => {
+                decisionInFlight = false;
+                approve.disabled = false;
+                reject.disabled = false;
+              };
+              approve.addEventListener('click', async () => {
+                if (!beginDecision()) return;
+                try {
+                  const result = await persistence.decideBookingChange(
+                    request.id,
+                    bookingChange.id,
+                    'approve',
+                  );
+                  if (result.status === 'blocked') {
+                    const labels = result.alternatives.map((id) => roomLabel(
+                      catalog.rooms.find((room) => room.id === id),
+                    ) || id);
+                    showToast(labels.length
+                      ? t('production.bookingChange.blockedAlternatives', { alternatives: labels.join(', ') })
+                      : t('production.bookingChange.blocked'));
+                    endDecision();
+                    return;
+                  }
+                  showToast(t('production.bookingChange.applied'));
+                  await refresh(request.id);
+                } catch (caught) {
                   endDecision();
-                  return;
+                  showToast(errorMessage(caught));
                 }
-                showToast(t('production.bookingChange.applied'));
-                await refresh(request.id);
-              } catch (caught) {
-                endDecision();
-                showToast(errorMessage(caught));
-              }
-            });
-            reject.addEventListener('click', () => {
-              if (!decisionInFlight) {
-                rejectChangeDialog(request, bookingChange, refresh, beginDecision, endDecision);
-              }
-            });
-            article.appendChild(el('div', { className: 'button-row' }, [approve, reject]));
+              });
+              reject.addEventListener('click', () => {
+                if (!decisionInFlight) {
+                  rejectChangeDialog(request, bookingChange, refresh, beginDecision, endDecision);
+                }
+              });
+              article.appendChild(el('div', { className: 'button-row' }, [approve, reject]));
+            }
           }
           const actions = ACTIONS_BY_STATUS[request.status] || [];
           if (actions.length) {
