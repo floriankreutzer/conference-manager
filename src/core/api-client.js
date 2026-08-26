@@ -2,13 +2,17 @@ const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 const SAFE_METHODS = new Set(['GET']);
 const JSON_CONTENT_TYPE = /^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|$)/i;
 const ABSOLUTE_OR_PROTOCOL_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+const SERVER_ERROR_CODE = /^[A-Z][A-Z0-9_]{1,127}$/;
 const MAX_RESPONSE_BYTES = 1_000_000;
 
 export class ApiSecurityError extends Error {
   constructor(code, options = {}) {
-    super(code, options);
+    super(code, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'ApiSecurityError';
     this.code = code;
+    this.serverCode = typeof options.serverCode === 'string' && SERVER_ERROR_CODE.test(options.serverCode)
+      ? options.serverCode
+      : null;
   }
 }
 
@@ -122,6 +126,25 @@ async function parseJsonResponse(response) {
   }
 }
 
+async function responseError(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!JSON_CONTENT_TYPE.test(contentType)) {
+    return new ApiSecurityError(`HTTP_${response.status}`);
+  }
+  const payload = await parseJsonResponse(response);
+  const serverCode = payload
+    && typeof payload === 'object'
+    && !Array.isArray(payload)
+    && payload.error
+    && typeof payload.error === 'object'
+    && !Array.isArray(payload.error)
+    && typeof payload.error.code === 'string'
+    && SERVER_ERROR_CODE.test(payload.error.code)
+    ? payload.error.code
+    : null;
+  return new ApiSecurityError(`HTTP_${response.status}`, { serverCode });
+}
+
 export function createApiClient({
   baseUrl = '/api/',
   origin = globalThis.location?.origin,
@@ -151,7 +174,7 @@ export function createApiClient({
         ...(abortSignal === undefined ? {} : { signal: abortSignal }),
         ...(serialized === undefined ? {} : { body: serialized }),
       });
-      if (!response.ok) throw new ApiSecurityError(`HTTP_${response.status}`);
+      if (!response.ok) throw await responseError(response);
       return parseJsonResponse(response);
     },
   });

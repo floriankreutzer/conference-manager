@@ -96,6 +96,53 @@ test('API responses must use JSON content types', async () => {
   );
 });
 
+test('API errors preserve only a bounded machine-readable server code for safe recovery UX', async () => {
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    fetchImpl: async () => jsonResponse({
+      error: {
+        code: 'MICROSOFT365_CONNECTION_REVOKED',
+        requestId: 'not-forwarded-as-authority',
+      },
+    }, { status: 409 }),
+  });
+  await assert.rejects(
+    () => client.request('integration'),
+    (error) => error instanceof ApiSecurityError
+      && error.code === 'HTTP_409'
+      && error.serverCode === 'MICROSOFT365_CONNECTION_REVOKED',
+  );
+});
+
+test('API errors reject malformed server error codes instead of exposing arbitrary response text', async () => {
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    fetchImpl: async () => jsonResponse({
+      error: { code: '<script>alert(1)</script>', detail: 'sensitive provider response' },
+    }, { status: 503 }),
+  });
+  await assert.rejects(
+    () => client.request('integration'),
+    (error) => error instanceof ApiSecurityError
+      && error.code === 'HTTP_503'
+      && error.serverCode === null
+      && !error.message.includes('sensitive'),
+  );
+});
+
+test('API errors preserve the HTTP classification when no public JSON error body exists', async () => {
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    fetchImpl: async () => new Response(null, { status: 401 }),
+  });
+  await assert.rejects(
+    () => client.request('session'),
+    (error) => error instanceof ApiSecurityError
+      && error.code === 'HTTP_401'
+      && error.serverCode === null,
+  );
+});
+
 test('oversized API responses are rejected from Content-Length before body processing', async () => {
   const client = createApiClient({
     origin: 'https://conference.example',

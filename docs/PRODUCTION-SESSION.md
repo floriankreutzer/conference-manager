@@ -84,19 +84,18 @@ A 401 during logout is treated as already signed out. Other failures remain visi
 
 ## Production capability activation boundary
 
-A trusted session does not automatically activate every existing application view.
+A trusted session does not activate any demo implementation. Issue #114 and its server-authoritative application API contract are complete, so production composition now creates the dedicated production Employee and Conference Manager applications from `src/employee/production-application.js` and `src/manager/production-application.js`. Both consume only `src/platform/production-persistence.js`; they have no browser-storage fallback.
 
-The current Employee and Conference Manager business views still contain demo-domain persistence paths. `docs/PRODUCTION-PERSISTENCE-MIGRATION.md` requires capability-by-capability migration to trusted backend use cases before those views may be activated in production.
+Production capability remains session- and role-bound:
 
-Therefore:
-
-- #115 enables trusted authentication state and presentation capability derivation;
-- #114 owns production activation of Employee/Conference Manager domain views after the server-authoritative application API contract exists;
-- #61 may use the trusted Tenant Admin capability for its dedicated user/role administration UI because the corresponding backend role-administration API has been implemented separately.
+- #115 supplies trusted authentication state and presentation capability derivation;
+- the Employee production application is available only to an authenticated production Principal and uses the backend application API for profile, catalog, site, Request, notification, and configuration state;
+- the Conference Manager production application additionally requires the validated `conference_manager` role and `request:manage` permission;
+- the Tenant Admin application requires the validated `tenant_admin` role and Tenant-administration permission and uses its dedicated server-authoritative administration, Microsoft 365, and onboarding APIs.
 
 The Tenant Admin browser adapter follows the backend `nextAfterId` cursor until all bounded pages are loaded, rejects duplicate users/cursors and malformed page contracts, never accepts a Tenant selector, and sends only allowlisted elevated roles through the session-bound CSRF client.
 
-The production shell returns before rendering existing demo Employee/Manager business views. This is an intentional fail-closed state, not an incomplete fallback.
+Signed-out and unavailable production states return before any production business view renders. Authenticated production renders only the dedicated production implementations allowed by the validated presentation capability. Existing demo Employee/Manager implementations remain reachable only when the document explicitly selects the demo runtime.
 
 ## Browser storage boundary
 
@@ -122,7 +121,7 @@ Repository evidence includes:
 - multi-page Tenant User cursor and malformed-page tests;
 - Employee/Conference Manager/Tenant Admin/combined presentation capability matrix tests;
 - browser-storage authority negative tests;
-- static production boundary checks preventing demo business view activation in production;
+- static production boundary checks requiring the server-authoritative production Employee/Conference Manager implementations and preventing demo business view activation in production;
 - existing demo Chromium/WebKit regression coverage.
 
 A real secure production-session E2E with Microsoft remains deployment/external acceptance evidence and must not be claimed solely from the repository tests.

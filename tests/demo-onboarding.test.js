@@ -57,3 +57,54 @@ test('changing Demo room mappings invalidates prior simulated free-busy verifica
   await runtime.importRooms([selection(rooms[1])]);
   assert.equal((await runtime.getReadiness()).checks.freeBusyVerified, false);
 });
+
+test('Demo room imports merge with existing mappings instead of replacing them', async () => {
+  const runtime = createDemoOnboarding();
+  await runtime.connect();
+  await runtime.verify();
+  const rooms = await runtime.discoverRooms();
+  const selection = (room) => ({
+    externalRoomId: room.id,
+    siteId: 'berlin',
+    name: room.name,
+    capacity: room.capacity,
+  });
+
+  await runtime.importRooms([selection(rooms[0])]);
+  const firstMapping = (await runtime.listMappings())[0];
+  await runtime.importRooms([selection(rooms[1])]);
+  const mappings = await runtime.listMappings();
+
+  assert.equal(mappings.length, 2);
+  assert.equal(
+    mappings.find((mapping) => mapping.externalRoomId === rooms[0].id)?.roomId,
+    firstMapping.roomId,
+  );
+  assert.equal(mappings.some((mapping) => mapping.externalRoomId === rooms[1].id), true);
+});
+
+test('Demo disconnect is visible in runtime state and invalidates verification readiness', async () => {
+  const runtime = createDemoOnboarding();
+  await runtime.connect();
+  await runtime.verify();
+  const [room] = await runtime.discoverRooms();
+  await runtime.importRooms([{
+    externalRoomId: room.id,
+    siteId: 'berlin',
+    name: room.name,
+    capacity: room.capacity,
+  }]);
+  await runtime.verifyFreeBusy();
+  const mappingsBeforeDisconnect = await runtime.listMappings();
+
+  await runtime.disconnect();
+
+  assert.equal((await runtime.getConnection()).state, 'disconnected');
+  const readiness = await runtime.getReadiness();
+  assert.equal(readiness.ready, false);
+  assert.equal(readiness.checks.microsoft365Connected, false);
+  assert.equal(readiness.checks.placesPermissionGranted, false);
+  assert.equal(readiness.checks.calendarPermissionGranted, false);
+  assert.equal(readiness.checks.freeBusyVerified, false);
+  assert.deepEqual(await runtime.listMappings(), mappingsBeforeDisconnect);
+});

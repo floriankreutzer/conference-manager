@@ -1,14 +1,30 @@
+import { isProductionTimeZone } from '../core/production-time.js';
+
 const DOMAIN_ENDPOINTS = Object.freeze({
   profile: 'v1/application/profile',
   catalog: 'v1/application/catalog',
   siteInfo: 'v1/application/site-info',
   requests: 'v1/application/requests',
+  roomAvailability: 'v1/application/room-availability',
   notifications: 'v1/application/notifications',
   configuration: 'v1/application/configuration',
 });
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const CURRENCY = /^[A-Z]{3}$/;
+const REQUEST_STATUSES = new Set([
+  'Submitted',
+  'In Review',
+  'Confirmed',
+  'Rejected',
+  'Change Requested',
+  'Cancelled',
+]);
+const REASON_REQUEST_STATUSES = new Set(['Rejected', 'Change Requested']);
 const MAX_COLLECTION = 2_000;
+const MAX_TEXT = 160;
+const MAX_PARTICIPANTS = 100_000;
 
 export class ProductionPersistenceError extends Error {
   constructor(code, options = {}) {
@@ -28,10 +44,183 @@ function assertCollection(value, code) {
   return Object.freeze(value.map((entry) => Object.freeze({ ...assertPlainObject(entry, code) })));
 }
 
+function assertExactObject(value, keys, code) {
+  const object = assertPlainObject(value, code);
+  const actual = Object.keys(object);
+  if (actual.length !== keys.length || actual.some((key) => !keys.includes(key))) {
+    throw new ProductionPersistenceError(code);
+  }
+  return object;
+}
+
+function assertText(value, code, { max = MAX_TEXT, nullable = false } = {}) {
+  if (nullable && value === null) return null;
+  if (
+    typeof value !== 'string'
+    || value.length < 1
+    || value.length > max
+    || value.trim() !== value
+    || /[\u0000-\u001f\u007f]/.test(value)
+  ) throw new ProductionPersistenceError(code);
+  return value;
+}
+
+function assertPublicId(value, code) {
+  if (typeof value !== 'string' || !SAFE_ID.test(value)) throw new ProductionPersistenceError(code);
+  return value;
+}
+
+function assertCanonicalUtc(value, code) {
+  if (typeof value !== 'string' || !UTC_INSTANT.test(value) || !Number.isFinite(Date.parse(value))) {
+    throw new ProductionPersistenceError(code);
+  }
+  const canonical = new Date(value).toISOString();
+  if (value !== canonical && value !== canonical.replace(/\.000Z$/, 'Z')) {
+    throw new ProductionPersistenceError(code);
+  }
+  return value;
+}
+
+function normalizedCollection(value, code, normalize) {
+  if (!Array.isArray(value) || value.length > MAX_COLLECTION) throw new ProductionPersistenceError(code);
+  const entries = value.map((entry) => normalize(entry, code));
+  const ids = entries.map((entry) => entry.id);
+  if (new Set(ids).size !== ids.length) throw new ProductionPersistenceError(code);
+  return Object.freeze(entries);
+}
+
+function catalogSite(value, code) {
+  const site = assertExactObject(value, ['id', 'name', 'active', 'timeZone'], code);
+  const timeZone = site.timeZone;
+  if (
+    typeof site.active !== 'boolean'
+    || (timeZone !== null && !isProductionTimeZone(timeZone))
+  ) throw new ProductionPersistenceError(code);
+  return Object.freeze({
+    id: assertPublicId(site.id, code),
+    name: assertText(site.name, code),
+    active: site.active,
+    timeZone,
+  });
+}
+
+function catalogRoom(value, code) {
+  const room = assertExactObject(value, ['id', 'siteId', 'name', 'capacity', 'active'], code);
+  if (!Number.isSafeInteger(room.capacity) || room.capacity < 1 || room.capacity > 100_000) {
+    throw new ProductionPersistenceError(code);
+  }
+  if (typeof room.active !== 'boolean') throw new ProductionPersistenceError(code);
+  return Object.freeze({
+    id: assertPublicId(room.id, code),
+    siteId: assertPublicId(room.siteId, code),
+    name: assertText(room.name, code),
+    capacity: room.capacity,
+    active: room.active,
+  });
+}
+
+function catalogPriced(value, code) {
+  const entry = assertExactObject(value, ['id', 'name', 'active', 'priceMinor', 'currency'], code);
+  if (
+    typeof entry.active !== 'boolean'
+    || !Number.isSafeInteger(entry.priceMinor)
+    || entry.priceMinor < 0
+    || typeof entry.currency !== 'string'
+    || !CURRENCY.test(entry.currency)
+  ) throw new ProductionPersistenceError(code);
+  return Object.freeze({
+    id: assertPublicId(entry.id, code),
+    name: assertText(entry.name, code),
+    active: entry.active,
+    priceMinor: entry.priceMinor,
+    currency: entry.currency,
+  });
+}
+
+function catalogPayload(value) {
+  const code = 'PRODUCTION_CATALOG_INVALID';
+  const catalog = assertExactObject(
+    value,
+    ['sites', 'rooms', 'services', 'cateringPackages', 'cateringItems'],
+    code,
+  );
+  const sites = normalizedCollection(catalog.sites, code, catalogSite);
+  const rooms = normalizedCollection(catalog.rooms, code, catalogRoom);
+  const siteIds = new Set(sites.map((site) => site.id));
+  if (rooms.some((room) => !siteIds.has(room.siteId))) throw new ProductionPersistenceError(code);
+  return Object.freeze({
+    sites,
+    rooms,
+    services: normalizedCollection(catalog.services, code, catalogPriced),
+    cateringPackages: normalizedCollection(catalog.cateringPackages, code, catalogPriced),
+    cateringItems: normalizedCollection(catalog.cateringItems, code, catalogPriced),
+  });
+}
+
+function requestPayload(value, code = 'PRODUCTION_REQUEST_INVALID') {
+  const request = assertExactObject(value, [
+    'id',
+    'roomId',
+    'status',
+    'statusReason',
+    'startsAt',
+    'endsAt',
+    'internalParticipants',
+    'externalParticipants',
+    'statusChangedAt',
+    'updatedAt',
+  ], code);
+  if (!REQUEST_STATUSES.has(request.status)) throw new ProductionPersistenceError(code);
+  const statusReason = request.statusReason === null
+    ? null
+    : assertText(request.statusReason, code, { max: 1_000 });
+  if (REASON_REQUEST_STATUSES.has(request.status) !== (statusReason !== null)) {
+    throw new ProductionPersistenceError(code);
+  }
+  const startsAt = assertCanonicalUtc(request.startsAt, code);
+  const endsAt = assertCanonicalUtc(request.endsAt, code);
+  const statusChangedAt = assertCanonicalUtc(request.statusChangedAt, code);
+  const updatedAt = assertCanonicalUtc(request.updatedAt, code);
+  if (Date.parse(endsAt) <= Date.parse(startsAt)) throw new ProductionPersistenceError(code);
+  for (const count of [request.internalParticipants, request.externalParticipants]) {
+    if (!Number.isSafeInteger(count) || count < 0 || count > MAX_PARTICIPANTS) {
+      throw new ProductionPersistenceError(code);
+    }
+  }
+  if (request.internalParticipants + request.externalParticipants < 1) {
+    throw new ProductionPersistenceError(code);
+  }
+  return Object.freeze({
+    id: assertPublicId(request.id, code),
+    roomId: request.roomId === null ? null : assertPublicId(request.roomId, code),
+    status: request.status,
+    statusReason,
+    startsAt,
+    endsAt,
+    internalParticipants: request.internalParticipants,
+    externalParticipants: request.externalParticipants,
+    statusChangedAt,
+    updatedAt,
+  });
+}
+
+function requestCollection(value) {
+  return normalizedCollection(value, 'PRODUCTION_REQUESTS_INVALID', requestPayload);
+}
+
 function assertVersionedEnvelope(payload, field) {
   const envelope = assertPlainObject(payload);
   if (envelope.schemaVersion !== 1) throw new ProductionPersistenceError('PRODUCTION_SCHEMA_VERSION_UNSUPPORTED');
   if (!(field in envelope)) throw new ProductionPersistenceError('PRODUCTION_DATA_INVALID');
+  return envelope[field];
+}
+
+function assertExactVersionedEnvelope(payload, field, code) {
+  const envelope = assertPlainObject(payload, code);
+  if (envelope.schemaVersion !== 1) {
+    throw new ProductionPersistenceError('PRODUCTION_SCHEMA_VERSION_UNSUPPORTED');
+  }
+  assertExactObject(envelope, ['schemaVersion', field], code);
   return envelope[field];
 }
 
@@ -40,6 +229,52 @@ function assertRequestId(value) {
     throw new ProductionPersistenceError('REQUEST_ID_INVALID');
   }
   return value;
+}
+
+function assertUtcInstant(value) {
+  return assertCanonicalUtc(value, 'AVAILABILITY_WINDOW_INVALID');
+}
+
+function availabilityRequest(value) {
+  const request = assertPlainObject(value, 'AVAILABILITY_WINDOW_INVALID');
+  const roomId = assertRequestId(request.roomId);
+  const startsAt = assertUtcInstant(request.startsAt);
+  const endsAt = assertUtcInstant(request.endsAt);
+  if (Date.parse(endsAt) <= Date.parse(startsAt)) {
+    throw new ProductionPersistenceError('AVAILABILITY_WINDOW_INVALID');
+  }
+  return Object.freeze({ roomId, startsAt, endsAt });
+}
+
+function availabilityPayload(value) {
+  const availability = assertPlainObject(value, 'PRODUCTION_AVAILABILITY_INVALID');
+  const keys = Object.keys(availability);
+  if (
+    keys.length !== 2
+    || !keys.includes('available')
+    || !keys.includes('conflictCount')
+    || typeof availability.available !== 'boolean'
+    || ![0, 1].includes(availability.conflictCount)
+    || availability.available !== (availability.conflictCount === 0)
+  ) {
+    throw new ProductionPersistenceError('PRODUCTION_AVAILABILITY_INVALID');
+  }
+  return Object.freeze({
+    available: availability.available,
+    conflictCount: availability.conflictCount,
+  });
+}
+
+function availabilityEnvelope(value) {
+  const envelope = assertPlainObject(value, 'PRODUCTION_AVAILABILITY_INVALID');
+  const keys = Object.keys(envelope);
+  if (envelope.schemaVersion !== 1) {
+    throw new ProductionPersistenceError('PRODUCTION_SCHEMA_VERSION_UNSUPPORTED');
+  }
+  if (keys.length !== 2 || !keys.includes('schemaVersion') || !keys.includes('availability')) {
+    throw new ProductionPersistenceError('PRODUCTION_AVAILABILITY_INVALID');
+  }
+  return availabilityPayload(envelope.availability);
 }
 
 function wrapApiError(error) {
@@ -71,17 +306,11 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async loadCatalog() {
-      const catalog = assertPlainObject(assertVersionedEnvelope(
+      return catalogPayload(assertExactVersionedEnvelope(
         await call(apiClient, DOMAIN_ENDPOINTS.catalog),
         'catalog',
+        'PRODUCTION_CATALOG_INVALID',
       ));
-      return Object.freeze({
-        sites: assertCollection(catalog.sites, 'PRODUCTION_CATALOG_INVALID'),
-        rooms: assertCollection(catalog.rooms, 'PRODUCTION_CATALOG_INVALID'),
-        services: assertCollection(catalog.services, 'PRODUCTION_CATALOG_INVALID'),
-        cateringPackages: assertCollection(catalog.cateringPackages, 'PRODUCTION_CATALOG_INVALID'),
-        cateringItems: assertCollection(catalog.cateringItems, 'PRODUCTION_CATALOG_INVALID'),
-      });
     },
 
     async loadSiteInfo() {
@@ -94,10 +323,11 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async listRequests() {
-      return assertCollection(
-        assertVersionedEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.requests), 'requests'),
+      return requestCollection(assertExactVersionedEnvelope(
+        await call(apiClient, DOMAIN_ENDPOINTS.requests),
+        'requests',
         'PRODUCTION_REQUESTS_INVALID',
-      );
+      ));
     },
 
     async listNotifications() {
@@ -105,6 +335,14 @@ export function createProductionPersistence({ apiClient } = {}) {
         assertVersionedEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.notifications), 'notifications'),
         'PRODUCTION_NOTIFICATIONS_INVALID',
       );
+    },
+
+    async checkRoomAvailability(window) {
+      const payload = availabilityRequest(window);
+      return availabilityEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.roomAvailability, {
+        method: 'POST',
+        body: payload,
+      }));
     },
 
     async loadConfiguration() {
@@ -117,23 +355,25 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async createRequest(requestDraft) {
-      const result = assertVersionedEnvelope(
+      const result = assertExactVersionedEnvelope(
         await call(apiClient, DOMAIN_ENDPOINTS.requests, { method: 'POST', body: requestDraft }),
         'request',
+        'PRODUCTION_REQUEST_INVALID',
       );
-      return Object.freeze({ ...assertPlainObject(result, 'PRODUCTION_REQUEST_INVALID') });
+      return requestPayload(result);
     },
 
     async transitionRequest(requestId, transition) {
       const id = assertRequestId(requestId);
-      const result = assertVersionedEnvelope(
+      const result = assertExactVersionedEnvelope(
         await call(apiClient, `v1/requests/${encodeURIComponent(id)}/transitions`, {
           method: 'POST',
           body: assertPlainObject(transition, 'PRODUCTION_TRANSITION_INVALID'),
         }),
         'request',
+        'PRODUCTION_REQUEST_INVALID',
       );
-      return Object.freeze({ ...assertPlainObject(result, 'PRODUCTION_REQUEST_INVALID') });
+      return requestPayload(result);
     },
 
     async updateProfile(profile) {

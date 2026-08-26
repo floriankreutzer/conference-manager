@@ -160,7 +160,7 @@ The implementation targets WCAG 2.2 Level AA. A formal conformance statement add
 
 ## MVP security boundary
 
-The current application is a static demo. Data, the demo role, and language preference are stored client-side. The demo role switch is **not authorization** and must not be used as production access control.
+The default GitHub Pages deployment is an explicit static demo. Its data, demo role, and language preference are stored client-side. The demo role switch is **not authorization** and must not be used as production access control. The repository separately contains production browser clients that consume the same-origin server-authoritative API and never use demo storage as a fallback.
 
 Production operation requires at least:
 
@@ -172,7 +172,7 @@ Production operation requires at least:
 - secure calendar integration, for example through Microsoft Graph
 - security controls appropriate to the backend architecture, including CSRF protection for cookie-based authentication
 
-The SaaS production topology decision fixes the trusted backend in `conference-manager-api` and keeps browser/API access same-origin under `/api/*`; implementation details remain with the owning SaaS foundation issues.
+The SaaS production topology fixes the trusted backend in `conference-manager-api` and keeps browser/API access same-origin under `/api/*`. The repository implementation covers the production session, Employee/Conference Manager application API clients, Tenant administration, Microsoft 365 connection, and guided Pilot onboarding. A deployable Pilot still requires the external infrastructure and acceptance evidence defined by the owning SaaS issues.
 
 See `docs/DEMO-SECURITY.md`, `docs/PRODUCTION-SECURITY.md` and `docs/SAAS-PRODUCTION-TOPOLOGY.md` for additional details.
 

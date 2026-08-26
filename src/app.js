@@ -7,7 +7,7 @@ import {
   createProductionManagerApplication,
 } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
-import { createAppShell } from './platform/app-shell.js';
+import { createAppShell, renderAppBootstrapLoading } from './platform/app-shell.js';
 import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
@@ -16,10 +16,11 @@ import {
   createTenantAdminOnboardingRuntime,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.26.67';
+const APP_BUILD = '2026.08.26.68';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
+  renderAppBootstrapLoading();
   const context = await createApplicationContext();
   let shell;
 
