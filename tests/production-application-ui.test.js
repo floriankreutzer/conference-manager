@@ -24,7 +24,8 @@ test('production request time conversion uses the authoritative IANA site timezo
   );
   assert.equal(isProductionTimeZone('Europe/Berlin'), true);
   assert.equal(isProductionTimeZone('Etc/UTC'), true);
-  assert.equal(isProductionTimeZone('UTC'), false);
+  assert.equal(isProductionTimeZone('UTC'), true);
+  assert.equal(isProductionTimeZone('GMT'), true);
   assert.equal(isProductionTimeZone('not/a-zone'), false);
   assert.equal(productionUtcInstant('not-a-date', '09:30', 'Europe/Berlin'), null);
   assert.equal(productionUtcInstant('2026-09-15', 'bad-time', 'Europe/Berlin'), null);

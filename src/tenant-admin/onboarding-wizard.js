@@ -108,6 +108,33 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
   let selectedRoomIds = new Set();
   let selectedSiteId = '';
   let capacities = new Map();
+  let mutationInFlight = false;
+
+  function registerMutationControl(control) {
+    control.dataset.onboardingMutation = '';
+    control.dataset.onboardingDefaultDisabled = control.disabled ? 'true' : 'false';
+    control.disabled = mutationInFlight || control.disabled;
+    return control;
+  }
+
+  function setMutationControls(root, pending) {
+    root.querySelectorAll('[data-onboarding-mutation]').forEach((control) => {
+      control.disabled = pending || control.dataset.onboardingDefaultDisabled === 'true';
+    });
+  }
+
+  async function runMutation(root, operation) {
+    if (mutationInFlight) return false;
+    mutationInFlight = true;
+    setMutationControls(root, true);
+    try {
+      await operation();
+      return true;
+    } finally {
+      mutationInFlight = false;
+      if (root.isConnected) setMutationControls(root, false);
+    }
+  }
 
   function showOperationError(message, error, operation) {
     message.textContent = t(onboardingErrorKey(error, operation));
@@ -142,117 +169,116 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
     ]);
   }
 
-  function connectionActions(connection, render, isActive) {
+  function connectionActions(root, connection, render, isActive) {
     const actions = el('div', { className: 'button-row onboarding-actions' });
     const message = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
-    const setPending = (pending) => {
-      actions.querySelectorAll('button').forEach((control) => { control.disabled = pending; });
-    };
-    const connect = button(
+    const connect = registerMutationControl(button(
       t(connection.state === 'disconnected'
         ? 'tenantAdmin.onboarding.connect'
         : 'tenantAdmin.onboarding.reconnect'),
       { className: 'primary' },
-    );
+    ));
     connect.addEventListener('click', async () => {
-      setPending(true);
-      message.textContent = t('tenantAdmin.onboarding.connecting');
-      try {
-        const result = await runtime.connect();
-        if (!isActive()) return;
-        if (typeof result?.authorizationUrl === 'string') {
-          globalThis.location.assign(result.authorizationUrl);
-          return;
-        }
-        showToast(t('tenantAdmin.onboarding.demoConnected'));
-        await render();
-      } catch (error) {
-        if (!isActive()) return;
-        showOperationError(message, error, 'connect');
-        setPending(false);
-      }
-    });
-    actions.appendChild(connect);
-    if (connection.state !== 'disconnected') {
-      const disconnect = button(t('tenantAdmin.onboarding.disconnect'));
-      disconnect.addEventListener('click', async () => {
-        setPending(true);
-        message.textContent = t('tenantAdmin.onboarding.disconnecting');
+      await runMutation(root, async () => {
+        message.textContent = t('tenantAdmin.onboarding.connecting');
         try {
-          await runtime.disconnect();
+          const result = await runtime.connect();
           if (!isActive()) return;
-          discoveredRooms = [];
-          selectedRoomIds = new Set();
-          showToast(t('tenantAdmin.onboarding.disconnected'));
-          onChanged?.();
+          if (typeof result?.authorizationUrl === 'string') {
+            globalThis.location.assign(result.authorizationUrl);
+            return;
+          }
+          showToast(t('tenantAdmin.onboarding.demoConnected'));
           await render();
         } catch (error) {
           if (!isActive()) return;
-          showOperationError(message, error, 'disconnect');
-          setPending(false);
+          showOperationError(message, error, 'connect');
         }
+      });
+    });
+    actions.appendChild(connect);
+    if (connection.state !== 'disconnected') {
+      const disconnect = registerMutationControl(button(t('tenantAdmin.onboarding.disconnect')));
+      disconnect.addEventListener('click', async () => {
+        await runMutation(root, async () => {
+          message.textContent = t('tenantAdmin.onboarding.disconnecting');
+          try {
+            await runtime.disconnect();
+            if (!isActive()) return;
+            discoveredRooms = [];
+            selectedRoomIds = new Set();
+            showToast(t('tenantAdmin.onboarding.disconnected'));
+            onChanged?.();
+            await render();
+          } catch (error) {
+            if (!isActive()) return;
+            showOperationError(message, error, 'disconnect');
+          }
+        });
       });
       actions.appendChild(disconnect);
     }
     return [actions, message];
   }
 
-  function verificationActions(connection, render, isActive) {
+  function verificationActions(root, connection, render, isActive) {
     const actions = el('div', { className: 'button-row onboarding-actions' });
     const message = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
     const verify = button(t('tenantAdmin.onboarding.verify'), { className: 'primary' });
     verify.disabled = connection.state === 'disconnected';
+    registerMutationControl(verify);
     verify.addEventListener('click', async () => {
-      verify.disabled = true;
-      message.textContent = t('tenantAdmin.onboarding.verifying');
-      try {
-        await runtime.verify();
-        if (!isActive()) return;
-        showToast(t('tenantAdmin.onboarding.verified'));
-        await render();
-      } catch (error) {
-        if (!isActive()) return;
-        showOperationError(message, error, 'verify');
-        verify.disabled = false;
-      }
+      await runMutation(root, async () => {
+        message.textContent = t('tenantAdmin.onboarding.verifying');
+        try {
+          await runtime.verify();
+          if (!isActive()) return;
+          showToast(t('tenantAdmin.onboarding.verified'));
+          await render();
+        } catch (error) {
+          if (!isActive()) return;
+          showOperationError(message, error, 'verify');
+        }
+      });
     });
     actions.appendChild(verify);
     return [actions, message];
   }
 
-  function discoveryActions(readiness, mappings, render, isActive) {
+  function discoveryActions(root, readiness, mappings, render, isActive) {
     const importedIds = new Set(mappings.filter((entry) => entry.providerStatus === 'active')
       .map((entry) => entry.externalRoomId));
     const actions = el('div', { className: 'button-row onboarding-actions' });
     const message = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
     const discover = button(t('tenantAdmin.onboarding.discoverRooms'), { className: 'primary' });
     discover.disabled = !readiness.checks.placesPermissionGranted;
+    registerMutationControl(discover);
     discover.addEventListener('click', async () => {
-      discover.disabled = true;
-      message.textContent = t('tenantAdmin.onboarding.discoveringRooms');
-      try {
-        const rooms = await runtime.discoverRooms();
-        if (!isActive()) return;
-        discoveredRooms = rooms;
-        selectedRoomIds = new Set(discoveredRooms
-          .filter((room) => !importedIds.has(room.id))
-          .map((room) => room.id));
-        capacities = new Map(discoveredRooms.map((room) => [room.id, room.capacity || 1]));
-        const result = t('tenantAdmin.onboarding.roomsFound', { count: discoveredRooms.length });
-        showToast(result);
-        announce(result);
-        await render();
-      } catch (error) {
-        if (!isActive()) return;
-        showOperationError(message, error, 'discover');
-        discover.disabled = !readiness.checks.placesPermissionGranted;
-      }
+      await runMutation(root, async () => {
+        message.textContent = t('tenantAdmin.onboarding.discoveringRooms');
+        try {
+          const rooms = await runtime.discoverRooms();
+          if (!isActive()) return;
+          discoveredRooms = rooms;
+          selectedRoomIds = new Set(discoveredRooms
+            .filter((room) => !importedIds.has(room.id))
+            .map((room) => room.id));
+          capacities = new Map(discoveredRooms.map((room) => [room.id, room.capacity || 1]));
+          const result = t('tenantAdmin.onboarding.roomsFound', { count: discoveredRooms.length });
+          showToast(result);
+          announce(result);
+          await render();
+        } catch (error) {
+          if (!isActive()) return;
+          showOperationError(message, error, 'discover');
+        }
+      });
     });
     actions.appendChild(discover);
     return [actions, message];
   }
 
-  function importSurface(sites, mappings, readiness, render, isActive) {
+  function importSurface(root, sites, mappings, readiness, render, isActive) {
     const importedIds = new Set(mappings.filter((entry) => entry.providerStatus === 'active')
       .map((entry) => entry.externalRoomId));
     const wrapper = el('div', { className: 'onboarding-room-surface' });
@@ -332,7 +358,10 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
       ]));
     });
 
-    const importButton = button(t('tenantAdmin.onboarding.importSelected'), { className: 'primary' });
+    const importButton = registerMutationControl(button(
+      t('tenantAdmin.onboarding.importSelected'),
+      { className: 'primary' },
+    ));
     const importMessage = el('p', {
       id: importMessageId,
       className: 'field-hint',
@@ -369,22 +398,22 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
         invalidControl?.focus();
         return;
       }
-      importButton.disabled = true;
-      importMessage.textContent = t('tenantAdmin.onboarding.importing');
-      try {
-        const payload = selected.map((room) => selectedRoomPayload(room, selectedSiteId, capacities.get(room.id)));
-        await runtime.importRooms(payload);
-        if (!isActive()) return;
-        showToast(t('tenantAdmin.onboarding.imported', { count: payload.length }));
-        discoveredRooms = [];
-        selectedRoomIds = new Set();
-        onChanged?.();
-        await render();
-      } catch (error) {
-        if (!isActive()) return;
-        showOperationError(importMessage, error, 'import');
-        importButton.disabled = false;
-      }
+      await runMutation(root, async () => {
+        importMessage.textContent = t('tenantAdmin.onboarding.importing');
+        try {
+          const payload = selected.map((room) => selectedRoomPayload(room, selectedSiteId, capacities.get(room.id)));
+          await runtime.importRooms(payload);
+          if (!isActive()) return;
+          showToast(t('tenantAdmin.onboarding.imported', { count: payload.length }));
+          discoveredRooms = [];
+          selectedRoomIds = new Set();
+          onChanged?.();
+          await render();
+        } catch (error) {
+          if (!isActive()) return;
+          showOperationError(importMessage, error, 'import');
+        }
+      });
     });
     wrapper.append(
       siteField,
@@ -395,25 +424,26 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
     return wrapper;
   }
 
-  function availabilityActions(readiness, render, isActive) {
+  function availabilityActions(root, readiness, render, isActive) {
     const actions = el('div', { className: 'button-row onboarding-actions' });
     const message = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
     const verify = button(t('tenantAdmin.onboarding.verifyAvailability'), { className: 'primary' });
     verify.disabled = !readiness.checks.roomImported || !readiness.checks.calendarPermissionGranted;
+    registerMutationControl(verify);
     verify.addEventListener('click', async () => {
-      verify.disabled = true;
-      message.textContent = t('tenantAdmin.onboarding.verifyingAvailability');
-      try {
-        await runtime.verifyFreeBusy();
-        if (!isActive()) return;
-        showToast(t('tenantAdmin.onboarding.availabilityVerified'));
-        onChanged?.();
-        await render();
-      } catch (error) {
-        if (!isActive()) return;
-        showOperationError(message, error, 'availability');
-        verify.disabled = false;
-      }
+      await runMutation(root, async () => {
+        message.textContent = t('tenantAdmin.onboarding.verifyingAvailability');
+        try {
+          await runtime.verifyFreeBusy();
+          if (!isActive()) return;
+          showToast(t('tenantAdmin.onboarding.availabilityVerified'));
+          onChanged?.();
+          await render();
+        } catch (error) {
+          if (!isActive()) return;
+          showOperationError(message, error, 'availability');
+        }
+      });
     });
     actions.appendChild(verify);
     return [actions, message];
@@ -474,7 +504,7 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
           el('p', { className: 'status-chip', text: t(`tenantAdmin.microsoft365.state.${connection.state}`) }),
           permissionExplanation(),
           recoveryKey ? el('p', { className: 'error-box', attrs: { role: 'status' }, text: t(recoveryKey) }) : null,
-          ...connectionActions(connection, renderWithFocus, isActive),
+          ...connectionActions(root, connection, renderWithFocus, isActive),
         ],
       }));
       root.appendChild(stepCard('verification', 3, {
@@ -485,7 +515,7 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
             checkRow('tenantAdmin.onboarding.check.places', readiness.checks.placesPermissionGranted),
             checkRow('tenantAdmin.onboarding.check.calendar', readiness.checks.calendarPermissionGranted),
           ]),
-          ...verificationActions(connection, renderWithFocus, isActive),
+          ...verificationActions(root, connection, renderWithFocus, isActive),
         ],
       }));
 
@@ -500,13 +530,13 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
               ? t('tenantAdmin.onboarding.roomsFound', { count: discoveredRooms.length })
               : t('tenantAdmin.onboarding.noRoomsLoaded'),
           }),
-          ...discoveryActions(readiness, mappings, renderWithFocus, isActive),
+          ...discoveryActions(root, readiness, mappings, renderWithFocus, isActive),
         ],
       }));
       root.appendChild(stepCard('import', 5, {
         done: readiness.checks.roomImported,
         current: currentStep === 'import',
-        children: [importSurface(sites, mappings, readiness, renderWithFocus, isActive)],
+        children: [importSurface(root, sites, mappings, readiness, renderWithFocus, isActive)],
       }));
       root.appendChild(stepCard('availability', 6, {
         done: readiness.checks.freeBusyVerified,
@@ -515,7 +545,7 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
           el('ul', { className: 'onboarding-check-list' }, [
             checkRow('tenantAdmin.onboarding.check.freeBusy', readiness.checks.freeBusyVerified),
           ]),
-          ...availabilityActions(readiness, renderWithFocus, isActive),
+          ...availabilityActions(root, readiness, renderWithFocus, isActive),
         ],
       }));
 

@@ -238,6 +238,12 @@ function elementByText(root, tagName, text) {
   return root.querySelectorAll(tagName).find((element) => element.textContent.includes(text));
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((settle) => { resolve = settle; });
+  return { promise, resolve };
+}
+
 test('production onboarding explains permissions before consent and maps recoverable provider failures', async () => {
   const fixture = installDomFixture();
   try {
@@ -403,6 +409,55 @@ test('production onboarding links validation guidance and focuses site, room and
     assert.equal(capacity.getAttribute('aria-invalid'), 'true');
     assert.equal(capacity.getAttribute('aria-describedby'), 'onboarding-import-message');
     assert.equal(fixture.document.activeElement, capacity);
+  } finally {
+    fixture.restore();
+  }
+});
+
+test('production onboarding serializes mutations across every step card', async () => {
+  const fixture = installDomFixture();
+  try {
+    const { createTenantOnboardingWizard } = await import('../src/tenant-admin/onboarding-wizard.js');
+    const root = fixture.document.createElement('div');
+    fixture.document.body.appendChild(root);
+    const verification = deferred();
+    let disconnectCalls = 0;
+    const runtime = {
+      isDemo: false,
+      listSites: async () => [{ id: 'berlin', name: 'Berlin' }],
+      getConnection: async () => ({
+        state: 'connected',
+        reason: null,
+        permissions: { place: 'granted', calendars: 'granted' },
+      }),
+      listMappings: async () => [],
+      getReadiness: async () => readiness({
+        microsoft365Connected: true,
+        placesPermissionGranted: true,
+        calendarPermissionGranted: true,
+      }),
+      connect: async () => ({}),
+      disconnect: async () => { disconnectCalls += 1; },
+      verify: async () => verification.promise,
+      discoverRooms: async () => [],
+      importRooms: async () => {},
+      verifyFreeBusy: async () => {},
+    };
+    await createTenantOnboardingWizard({ runtime }).renderInto(root);
+
+    const verify = elementByText(root, 'button', 'Verbindung und Berechtigungen prüfen');
+    const disconnect = elementByText(root, 'button', 'Microsoft 365 trennen');
+    const pendingVerification = verify.dispatch('click');
+    await Promise.resolve();
+
+    assert.equal(root.querySelectorAll('[data-onboarding-mutation]').every((control) => control.disabled), true);
+    await disconnect.dispatch('click');
+    assert.equal(disconnectCalls, 0);
+
+    verification.resolve({});
+    await pendingVerification;
+    assert.equal(disconnectCalls, 0);
+    assert.equal(elementByText(root, 'button', 'Microsoft 365 trennen').disabled, false);
   } finally {
     fixture.restore();
   }

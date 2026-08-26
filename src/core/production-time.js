@@ -1,6 +1,6 @@
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
-const IANA_TIME_ZONE = /^[A-Za-z0-9._+-]+(?:\/[A-Za-z0-9._+-]+)+$/;
+const IANA_TIME_ZONE = /^[A-Za-z0-9._+-]+(?:\/[A-Za-z0-9._+-]+)*$/;
 const TIME_ZONE_MAX_LENGTH = 64;
 const OFFSET_SAMPLE_HOURS = Object.freeze([-36, -24, -12, 0, 12, 24, 36]);
 
