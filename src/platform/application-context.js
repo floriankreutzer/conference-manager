@@ -33,6 +33,12 @@ const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
 const DEMO_CURRENT_USER_ID = 'demo-current-user';
 const PRODUCTION_AUTH_STATUSES = new Set(Object.values(PRODUCTION_AUTH_STATUS));
+const TENANT_ADMIN_PERMISSIONS = new Set([
+  PRODUCTION_PERMISSION.TENANT_CONFIGURE,
+  PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,
+  PRODUCTION_PERMISSION.TENANT_INTEGRATIONS_MANAGE,
+  PRODUCTION_PERMISSION.TENANT_AUDIT_READ,
+]);
 
 function normalizedProductionAuthenticationStatus(value) {
   return PRODUCTION_AUTH_STATUSES.has(value) ? value : PRODUCTION_AUTH_STATUS.UNAVAILABLE;
@@ -69,6 +75,10 @@ export function createApplicationContextFromState({
     return Boolean(trustedProductionSession)
       && productionRoles.has(role)
       && productionPermissions.has(permission);
+  }
+
+  function isDemoTenantAdmin() {
+    return isDemo && readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN;
   }
 
   return Object.freeze({
@@ -132,6 +142,11 @@ export function createApplicationContextFromState({
         PRODUCTION_PERMISSION.REQUEST_MANAGE,
       );
     },
+    hasTenantAdminPermission(permission) {
+      if (!TENANT_ADMIN_PERMISSIONS.has(permission)) return false;
+      if (isDemo) return isDemoTenantAdmin();
+      return hasProductionCapability(PRODUCTION_TENANT_ROLE.TENANT_ADMIN, permission);
+    },
     canManageTenantUsers() {
       if (isDemo) return false;
       return hasProductionCapability(
@@ -140,7 +155,7 @@ export function createApplicationContextFromState({
       );
     },
     isTenantAdmin() {
-      if (isDemo) return readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN;
+      if (isDemo) return isDemoTenantAdmin();
       return hasProductionCapability(
         PRODUCTION_TENANT_ROLE.TENANT_ADMIN,
         PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,

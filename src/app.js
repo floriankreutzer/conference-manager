@@ -14,9 +14,10 @@ import {
   createDemoTenantUserAdministration,
   createTenantAdminApplication,
   createTenantAdminOnboardingRuntime,
+  isTenantAdminRoute,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.26.68';
+const APP_BUILD = '2026.08.26.69';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -78,9 +79,13 @@ async function bootstrap() {
       context,
       appRoot,
       setPageHeading,
-      userAdministration: tenantUserAdministration,
-      microsoft365Connection,
-      onboardingRuntime,
+      sectionAdapters: Object.freeze({
+        users: tenantUserAdministration,
+        microsoft365: Object.freeze({
+          connection: microsoft365Connection,
+          onboardingRuntime,
+        }),
+      }),
     })
     : null;
 
@@ -104,7 +109,12 @@ async function bootstrap() {
     render();
   });
 
-  render();
+  if (tenantAdmin && context.isTenantAdmin() && isTenantAdminRoute()) {
+    shell.setView('tenantAdmin');
+    document.documentElement.dataset.appBuild = APP_BUILD;
+  } else {
+    render();
+  }
 }
 
 void bootstrap();

@@ -2,6 +2,7 @@ import * as base from './i18n-base.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
 import { ONBOARDING_MESSAGES } from './i18n-onboarding-messages.js';
 import { PRODUCTION_APPLICATION_MESSAGES } from './i18n-production-application-messages.js';
+import { TENANT_ADMIN_SETTINGS_MESSAGES } from './i18n-tenant-admin-settings-messages.js';
 
 const LEGACY_KEY_ALIASES = Object.freeze({
   'parity.admin.accessibility': 'manager.accessibility',
@@ -75,6 +76,9 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const tenantAdminMessages = TENANT_ADMIN_SETTINGS_MESSAGES[targetLanguage]
+    ?? TENANT_ADMIN_SETTINGS_MESSAGES.de;
+  if (tenantAdminMessages?.[key] !== undefined) return tenantAdminMessages[key];
   const onboardingMessages = ONBOARDING_MESSAGES[targetLanguage] ?? ONBOARDING_MESSAGES.de;
   if (onboardingMessages?.[key] !== undefined) return onboardingMessages[key];
   const productionMessages = PRODUCTION_APPLICATION_MESSAGES[targetLanguage]
