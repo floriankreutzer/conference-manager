@@ -24,7 +24,7 @@ function readiness(overrides = {}) {
         placesPermissionGranted: true,
         calendarPermissionGranted: true,
         roomImported: false,
-        freeBusyVerified: true,
+        freeBusyVerified: false,
         directoryEntitled: true,
         calendarEntitled: true,
         ...overrides,
@@ -89,20 +89,49 @@ test('onboarding room import preserves mandatory local site and capacity contrac
   });
 });
 
+test('free-busy verification uses the fixed same-origin API operation and minimizes the result', async () => {
+  const apiClient = client([{
+    verification: {
+      verified: true,
+      checkedAt: '2026-08-26T06:00:00.000Z',
+      tenantId: 'not-exposed',
+      roomId: 'not-exposed',
+    },
+  }]);
+  const api = createMicrosoft365OnboardingApi({ apiClient });
+  assert.deepEqual(await api.verifyFreeBusy(), {
+    verified: true,
+    checkedAt: '2026-08-26T06:00:00.000Z',
+  });
+  assert.deepEqual(apiClient.calls[0], {
+    path: 'v1/integrations/microsoft365/free-busy/verify',
+    options: { method: 'POST' },
+  });
+});
+
 test('onboarding readiness remains server authoritative and treats calendar write as optional', async () => {
   const api = createMicrosoft365OnboardingApi({ apiClient: client([readiness()]) });
   const result = await api.getReadiness();
   assert.equal(result.ready, false);
   assert.equal(result.checks.tenantIdentityClaimed, true);
+  assert.equal(result.checks.freeBusyVerified, false);
   assert.equal(result.entitlements.microsoftCalendarWrite, false);
 });
 
-test('onboarding API rejects malformed readiness and unsafe room selections', async () => {
+test('onboarding API rejects malformed readiness, availability evidence and unsafe room selections', async () => {
   const invalidReadiness = createMicrosoft365OnboardingApi({
     apiClient: client([{ readiness: { ready: true, checks: {}, entitlements: {} } }]),
   });
   await assert.rejects(
     () => invalidReadiness.getReadiness(),
+    (error) => error.code === 'ONBOARDING_RESPONSE_INVALID',
+  );
+
+  const invalidAvailability = createMicrosoft365OnboardingApi({
+    apiClient: client([{ verification: { verified: true, checkedAt: 'not-utc' } }]),
+  });
+  await assert.rejects(
+    () => invalidAvailability.verifyFreeBusy(),
     (error) => error.code === 'ONBOARDING_RESPONSE_INVALID',
   );
 

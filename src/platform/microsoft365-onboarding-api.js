@@ -2,6 +2,7 @@ const BASE_PATH = 'v1/integrations/microsoft365';
 const MAX_ROOMS = 1_000;
 const MAX_TEXT = 512;
 const SAFE_LOCAL_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const UTC_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const TENANT_STATUSES = new Set(['pending', 'onboarding', 'ready', 'active', 'suspended']);
 
 export class Microsoft365OnboardingApiError extends Error {
@@ -66,6 +67,14 @@ function mappingsPayload(payload) {
     throw new Microsoft365OnboardingApiError('ONBOARDING_RESPONSE_INVALID');
   }
   return Object.freeze(payload.mappings.map(mapping));
+}
+
+function availabilityVerificationPayload(payload) {
+  const value = payload?.verification;
+  if (!plain(value) || value.verified !== true || typeof value.checkedAt !== 'string' || !UTC_ISO.test(value.checkedAt)) {
+    throw new Microsoft365OnboardingApiError('ONBOARDING_RESPONSE_INVALID');
+  }
+  return Object.freeze({ verified: true, checkedAt: value.checkedAt });
 }
 
 const CHECK_KEYS = Object.freeze([
@@ -140,6 +149,11 @@ export function createMicrosoft365OnboardingApi({ apiClient } = {}) {
       return mappingsPayload(await apiClient.request(`${BASE_PATH}/room-mappings/import`, {
         method: 'POST',
         body: payload,
+      }));
+    },
+    async verifyFreeBusy() {
+      return availabilityVerificationPayload(await apiClient.request(`${BASE_PATH}/free-busy/verify`, {
+        method: 'POST',
       }));
     },
     async getReadiness() {

@@ -17,6 +17,9 @@ export function createMicrosoft365OnboardingRuntime({
   if (!onboardingApi || typeof onboardingApi.getReadiness !== 'function') {
     throw new TypeError('ONBOARDING_API_REQUIRED');
   }
+  if (typeof onboardingApi.verifyFreeBusy !== 'function') {
+    throw new TypeError('ONBOARDING_FREE_BUSY_API_REQUIRED');
+  }
   if (!connectionApi || typeof connectionApi.getStatus !== 'function') {
     throw new TypeError('MICROSOFT365_CONNECTION_API_REQUIRED');
   }
@@ -34,6 +37,7 @@ export function createMicrosoft365OnboardingRuntime({
     discoverRooms: () => onboardingApi.discoverRooms(),
     listMappings: () => onboardingApi.listMappings(),
     importRooms: (selections) => onboardingApi.importRooms(selections),
+    verifyFreeBusy: () => onboardingApi.verifyFreeBusy(),
     getReadiness: () => onboardingApi.getReadiness(),
   });
 }

@@ -5,7 +5,8 @@ const STEPS = Object.freeze([
   'organization',
   'connection',
   'verification',
-  'rooms',
+  'discovery',
+  'import',
   'availability',
   'review',
 ]);
@@ -57,11 +58,12 @@ function connectionComplete(connection) {
     && connection.permissions?.calendars === 'granted';
 }
 
-function firstIncomplete(readiness) {
+function firstIncomplete(readiness, discoveredRooms) {
   if (!readiness.checks.tenantIdentityClaimed) return 'organization';
   if (!readiness.checks.microsoft365Connected) return 'connection';
   if (!readiness.checks.placesPermissionGranted || !readiness.checks.calendarPermissionGranted) return 'verification';
-  if (!readiness.checks.roomImported) return 'rooms';
+  if (!readiness.checks.roomImported && discoveredRooms.length === 0) return 'discovery';
+  if (!readiness.checks.roomImported) return 'import';
   if (!readiness.checks.freeBusyVerified) return 'availability';
   return 'review';
 }
@@ -80,8 +82,12 @@ function selectedRoomPayload(room, siteId, capacity) {
 }
 
 export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
-  if (!runtime || typeof runtime.getReadiness !== 'function') throw new TypeError('ONBOARDING_RUNTIME_REQUIRED');
-  if (onChanged !== undefined && typeof onChanged !== 'function') throw new TypeError('ONBOARDING_CHANGE_HANDLER_INVALID');
+  if (!runtime || typeof runtime.getReadiness !== 'function' || typeof runtime.verifyFreeBusy !== 'function') {
+    throw new TypeError('ONBOARDING_RUNTIME_REQUIRED');
+  }
+  if (onChanged !== undefined && typeof onChanged !== 'function') {
+    throw new TypeError('ONBOARDING_CHANGE_HANDLER_INVALID');
+  }
 
   let generation = 0;
   let discoveredRooms = [];
@@ -158,115 +164,159 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
     return [actions, message];
   }
 
-  function roomDiscoverySurface(sites, mappings, readiness, render) {
+  function discoveryActions(readiness, mappings, render) {
     const importedIds = new Set(mappings.filter((entry) => entry.providerStatus === 'active')
       .map((entry) => entry.externalRoomId));
-    const wrapper = el('div', { className: 'onboarding-room-surface' });
+    const actions = el('div', { className: 'button-row onboarding-actions' });
+    const message = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
     const discover = button(t('tenantAdmin.onboarding.discoverRooms'), { className: 'primary' });
     discover.disabled = !readiness.checks.placesPermissionGranted;
-    const message = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
     discover.addEventListener('click', async () => {
       discover.disabled = true;
       message.textContent = t('tenantAdmin.onboarding.discoveringRooms');
       try {
         discoveredRooms = await runtime.discoverRooms();
-        selectedRoomIds = new Set(discoveredRooms.filter((room) => !importedIds.has(room.id)).map((room) => room.id));
+        selectedRoomIds = new Set(discoveredRooms
+          .filter((room) => !importedIds.has(room.id))
+          .map((room) => room.id));
         capacities = new Map(discoveredRooms.map((room) => [room.id, room.capacity || 1]));
-        message.textContent = t('tenantAdmin.onboarding.roomsFound', { count: discoveredRooms.length });
-        renderRooms();
-        announce(message.textContent);
+        const result = t('tenantAdmin.onboarding.roomsFound', { count: discoveredRooms.length });
+        showToast(result);
+        announce(result);
+        await render();
       } catch {
         message.textContent = t('tenantAdmin.onboarding.roomDiscoveryError');
         announce(message.textContent, { assertive: true });
-      } finally {
         discover.disabled = !readiness.checks.placesPermissionGranted;
       }
     });
-    wrapper.append(el('div', { className: 'button-row onboarding-actions' }, [discover]), message);
+    actions.appendChild(discover);
+    return [actions, message];
+  }
 
-    const roomsRoot = el('div', { dataset: { onboardingRooms: 'true' } });
-    wrapper.appendChild(roomsRoot);
-
-    function renderRooms() {
-      clear(roomsRoot);
-      if (!discoveredRooms.length) {
-        roomsRoot.appendChild(el('p', { className: 'muted', text: t('tenantAdmin.onboarding.noRoomsLoaded') }));
-        return;
-      }
-      const siteField = el('label', { className: 'field onboarding-site-field' }, [
-        el('span', { text: t('tenantAdmin.onboarding.site') }),
-      ]);
-      const siteSelect = el('select');
-      siteSelect.appendChild(el('option', { value: '', text: t('tenantAdmin.onboarding.selectSite') }));
-      sites.forEach((site) => siteSelect.appendChild(el('option', { value: site.id, text: site.name })));
-      if (!selectedSiteId && sites.length === 1) selectedSiteId = sites[0].id;
-      siteSelect.value = selectedSiteId;
-      siteSelect.addEventListener('change', () => { selectedSiteId = siteSelect.value; });
-      siteField.appendChild(siteSelect);
-
-      const list = el('fieldset', { className: 'onboarding-room-list' });
-      list.appendChild(el('legend', { text: t('tenantAdmin.onboarding.selectRooms') }));
-      discoveredRooms.forEach((room) => {
-        const alreadyImported = importedIds.has(room.id);
-        const inputId = `onboarding-room-${room.id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
-        const checkbox = el('input', { type: 'checkbox', checked: selectedRoomIds.has(room.id), disabled: alreadyImported });
-        checkbox.id = inputId;
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) selectedRoomIds.add(room.id);
-          else selectedRoomIds.delete(room.id);
-        });
-        const capacity = el('input', {
-          type: 'number',
-          value: String(capacities.get(room.id) || room.capacity || 1),
-          attrs: { min: '1', max: '100000', inputmode: 'numeric', 'aria-label': t('tenantAdmin.onboarding.capacityFor', { name: room.name }) },
-        });
-        capacity.addEventListener('input', () => capacities.set(room.id, Number(capacity.value)));
-        const metadata = [room.building, room.floorLabel, room.address].filter(Boolean).join(' · ');
-        list.appendChild(el('div', { className: 'onboarding-room-option' }, [
-          el('label', { attrs: { for: inputId } }, [checkbox, el('span', {}, [
-            el('strong', { text: room.name }),
-            el('small', { text: alreadyImported ? t('tenantAdmin.onboarding.alreadyImported') : metadata }),
-          ])]),
-          capacity,
-        ]));
-      });
-
-      const importButton = button(t('tenantAdmin.onboarding.importSelected'), { className: 'primary' });
-      const importMessage = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
-      importButton.addEventListener('click', async () => {
-        const selected = discoveredRooms.filter((room) => selectedRoomIds.has(room.id) && !importedIds.has(room.id));
-        if (!selectedSiteId) {
-          importMessage.textContent = t('tenantAdmin.onboarding.siteRequired');
-          announce(importMessage.textContent, { assertive: true });
-          siteSelect.focus();
-          return;
-        }
-        if (!selected.length) {
-          importMessage.textContent = t('tenantAdmin.onboarding.roomRequired');
-          announce(importMessage.textContent, { assertive: true });
-          return;
-        }
-        importButton.disabled = true;
-        importMessage.textContent = t('tenantAdmin.onboarding.importing');
-        try {
-          const payload = selected.map((room) => selectedRoomPayload(room, selectedSiteId, capacities.get(room.id)));
-          await runtime.importRooms(payload);
-          showToast(t('tenantAdmin.onboarding.imported', { count: payload.length }));
-          discoveredRooms = [];
-          selectedRoomIds = new Set();
-          onChanged?.();
-          await render();
-        } catch {
-          importMessage.textContent = t('tenantAdmin.onboarding.importError');
-          announce(importMessage.textContent, { assertive: true });
-          importButton.disabled = false;
-        }
-      });
-      roomsRoot.append(siteField, list, el('div', { className: 'button-row onboarding-actions' }, [importButton]), importMessage);
+  function importSurface(sites, mappings, readiness, render) {
+    const importedIds = new Set(mappings.filter((entry) => entry.providerStatus === 'active')
+      .map((entry) => entry.externalRoomId));
+    const wrapper = el('div', { className: 'onboarding-room-surface' });
+    if (readiness.checks.roomImported) {
+      wrapper.appendChild(el('ul', { className: 'onboarding-check-list' }, [
+        checkRow('tenantAdmin.onboarding.check.roomImported', true),
+      ]));
+      return wrapper;
+    }
+    if (!discoveredRooms.length) {
+      wrapper.appendChild(el('p', { className: 'muted', text: t('tenantAdmin.onboarding.discoveryRequired') }));
+      return wrapper;
     }
 
-    renderRooms();
+    const siteField = el('label', { className: 'field onboarding-site-field' }, [
+      el('span', { text: t('tenantAdmin.onboarding.site') }),
+    ]);
+    const siteSelect = el('select');
+    siteSelect.appendChild(el('option', { value: '', text: t('tenantAdmin.onboarding.selectSite') }));
+    sites.forEach((site) => siteSelect.appendChild(el('option', { value: site.id, text: site.name })));
+    if (!selectedSiteId && sites.length === 1) selectedSiteId = sites[0].id;
+    siteSelect.value = selectedSiteId;
+    siteSelect.addEventListener('change', () => { selectedSiteId = siteSelect.value; });
+    siteField.appendChild(siteSelect);
+
+    const list = el('fieldset', { className: 'onboarding-room-list' });
+    list.appendChild(el('legend', { text: t('tenantAdmin.onboarding.selectRooms') }));
+    discoveredRooms.forEach((room) => {
+      const alreadyImported = importedIds.has(room.id);
+      const inputId = `onboarding-room-${room.id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+      const checkbox = el('input', {
+        type: 'checkbox',
+        checked: selectedRoomIds.has(room.id),
+        disabled: alreadyImported,
+      });
+      checkbox.id = inputId;
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) selectedRoomIds.add(room.id);
+        else selectedRoomIds.delete(room.id);
+      });
+      const capacity = el('input', {
+        type: 'number',
+        value: String(capacities.get(room.id) || room.capacity || 1),
+        attrs: {
+          min: '1',
+          max: '100000',
+          inputmode: 'numeric',
+          'aria-label': t('tenantAdmin.onboarding.capacityFor', { name: room.name }),
+        },
+      });
+      capacity.addEventListener('input', () => capacities.set(room.id, Number(capacity.value)));
+      const metadata = [room.building, room.floorLabel, room.address].filter(Boolean).join(' · ');
+      list.appendChild(el('div', { className: 'onboarding-room-option' }, [
+        el('label', { attrs: { for: inputId } }, [checkbox, el('span', {}, [
+          el('strong', { text: room.name }),
+          el('small', { text: alreadyImported ? t('tenantAdmin.onboarding.alreadyImported') : metadata }),
+        ])]),
+        capacity,
+      ]));
+    });
+
+    const importButton = button(t('tenantAdmin.onboarding.importSelected'), { className: 'primary' });
+    const importMessage = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
+    importButton.addEventListener('click', async () => {
+      const selected = discoveredRooms.filter((room) => selectedRoomIds.has(room.id) && !importedIds.has(room.id));
+      if (!selectedSiteId) {
+        importMessage.textContent = t('tenantAdmin.onboarding.siteRequired');
+        announce(importMessage.textContent, { assertive: true });
+        siteSelect.focus();
+        return;
+      }
+      if (!selected.length) {
+        importMessage.textContent = t('tenantAdmin.onboarding.roomRequired');
+        announce(importMessage.textContent, { assertive: true });
+        return;
+      }
+      importButton.disabled = true;
+      importMessage.textContent = t('tenantAdmin.onboarding.importing');
+      try {
+        const payload = selected.map((room) => selectedRoomPayload(room, selectedSiteId, capacities.get(room.id)));
+        await runtime.importRooms(payload);
+        showToast(t('tenantAdmin.onboarding.imported', { count: payload.length }));
+        discoveredRooms = [];
+        selectedRoomIds = new Set();
+        onChanged?.();
+        await render();
+      } catch {
+        importMessage.textContent = t('tenantAdmin.onboarding.importError');
+        announce(importMessage.textContent, { assertive: true });
+        importButton.disabled = false;
+      }
+    });
+    wrapper.append(
+      siteField,
+      list,
+      el('div', { className: 'button-row onboarding-actions' }, [importButton]),
+      importMessage,
+    );
     return wrapper;
+  }
+
+  function availabilityActions(readiness, render) {
+    const actions = el('div', { className: 'button-row onboarding-actions' });
+    const message = el('p', { className: 'field-hint', attrs: { 'aria-live': 'polite' } });
+    const verify = button(t('tenantAdmin.onboarding.verifyAvailability'), { className: 'primary' });
+    verify.disabled = !readiness.checks.roomImported || !readiness.checks.calendarPermissionGranted;
+    verify.addEventListener('click', async () => {
+      verify.disabled = true;
+      message.textContent = t('tenantAdmin.onboarding.verifyingAvailability');
+      try {
+        await runtime.verifyFreeBusy();
+        showToast(t('tenantAdmin.onboarding.availabilityVerified'));
+        onChanged?.();
+        await render();
+      } catch {
+        message.textContent = t('tenantAdmin.onboarding.availabilityError');
+        announce(message.textContent, { assertive: true });
+        verify.disabled = false;
+      }
+    });
+    actions.appendChild(verify);
+    return [actions, message];
   }
 
   async function renderInto(root) {
@@ -283,18 +333,23 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
       ]);
       if (currentGeneration !== generation) return;
       clear(root);
-      const currentStep = firstIncomplete(readiness);
+      const currentStep = firstIncomplete(readiness, discoveredRooms);
       root.appendChild(el('section', { className: 'onboarding-hero' }, [
         el('div', {}, [
           el('p', { className: 'eyebrow', text: t('tenantAdmin.onboarding.eyebrow') }),
           el('h2', { text: t('tenantAdmin.onboarding.title') }),
           el('p', { text: t('tenantAdmin.onboarding.description') }),
         ]),
-        runtime.isDemo ? el('p', { className: 'onboarding-demo-note', text: t('tenantAdmin.onboarding.demoNote') }) : null,
+        runtime.isDemo
+          ? el('p', { className: 'onboarding-demo-note', text: t('tenantAdmin.onboarding.demoNote') })
+          : null,
       ]));
 
-      const progress = el('ol', { className: 'onboarding-progress', attrs: { 'aria-label': t('tenantAdmin.onboarding.progress') } });
-      STEPS.forEach((step, index) => {
+      const progress = el('ol', {
+        className: 'onboarding-progress',
+        attrs: { 'aria-label': t('tenantAdmin.onboarding.progress') },
+      });
+      STEPS.forEach((step) => {
         const item = el('li', { text: t(`tenantAdmin.onboarding.step.${step}.short`) });
         if (step === currentStep) item.setAttribute('aria-current', 'step');
         progress.appendChild(item);
@@ -307,7 +362,6 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
         current: currentStep === 'organization',
         children: [checkRow('tenantAdmin.onboarding.check.identity', organizationDone)],
       }));
-
       root.appendChild(stepCard('connection', 2, {
         done: readiness.checks.microsoft365Connected,
         current: currentStep === 'connection',
@@ -316,7 +370,6 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
           ...connectionActions(connection, () => renderInto(root)),
         ],
       }));
-
       root.appendChild(stepCard('verification', 3, {
         done: connectionComplete(connection),
         current: currentStep === 'verification',
@@ -329,25 +382,38 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
         ],
       }));
 
-      root.appendChild(stepCard('rooms', 4, {
-        done: readiness.checks.roomImported,
-        current: currentStep === 'rooms',
+      const discoveryDone = readiness.checks.roomImported || discoveredRooms.length > 0;
+      root.appendChild(stepCard('discovery', 4, {
+        done: discoveryDone,
+        current: currentStep === 'discovery',
         children: [
-          checkRow('tenantAdmin.onboarding.check.roomImported', readiness.checks.roomImported),
-          roomDiscoverySurface(sites, mappings, readiness, () => renderInto(root)),
+          el('p', {
+            className: 'muted',
+            text: discoveredRooms.length > 0
+              ? t('tenantAdmin.onboarding.roomsFound', { count: discoveredRooms.length })
+              : t('tenantAdmin.onboarding.noRoomsLoaded'),
+          }),
+          ...discoveryActions(readiness, mappings, () => renderInto(root)),
+        ],
+      }));
+      root.appendChild(stepCard('import', 5, {
+        done: readiness.checks.roomImported,
+        current: currentStep === 'import',
+        children: [importSurface(sites, mappings, readiness, () => renderInto(root))],
+      }));
+      root.appendChild(stepCard('availability', 6, {
+        done: readiness.checks.freeBusyVerified,
+        current: currentStep === 'availability',
+        children: [
+          el('ul', { className: 'onboarding-check-list' }, [
+            checkRow('tenantAdmin.onboarding.check.freeBusy', readiness.checks.freeBusyVerified),
+          ]),
+          ...availabilityActions(readiness, () => renderInto(root)),
         ],
       }));
 
-      root.appendChild(stepCard('availability', 5, {
-        done: readiness.checks.freeBusyVerified,
-        current: currentStep === 'availability',
-        children: [el('ul', { className: 'onboarding-check-list' }, [
-          checkRow('tenantAdmin.onboarding.check.freeBusy', readiness.checks.freeBusyVerified),
-        ])],
-      }));
-
       const requiredReady = readiness.checks.directoryEntitled && readiness.checks.calendarEntitled;
-      root.appendChild(stepCard('review', 6, {
+      root.appendChild(stepCard('review', 7, {
         done: readiness.ready,
         current: currentStep === 'review',
         children: [
@@ -370,7 +436,9 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
             el('p', { text: t(readiness.ready
               ? 'tenantAdmin.onboarding.readyText'
               : 'tenantAdmin.onboarding.notReadyText') }),
-            requiredReady ? null : el('p', { className: 'muted', text: t('tenantAdmin.onboarding.entitlementHint') }),
+            requiredReady
+              ? null
+              : el('p', { className: 'muted', text: t('tenantAdmin.onboarding.entitlementHint') }),
           ]),
         ],
       }));
