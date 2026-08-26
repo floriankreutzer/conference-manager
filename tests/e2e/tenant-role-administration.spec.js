@@ -173,7 +173,7 @@ test('Tenant Admin manages elevated roles through the production API with CSRF a
   await expect(page.locator('#toast')).toContainText('Rollen gespeichert.');
   const updatedUserCard = page.locator(`[data-tenant-user-id="${USER_ID}"]`);
   await expect(updatedUserCard.getByRole('checkbox', { name: 'Conference Manager' })).toBeChecked();
-  await expect(updatedUserCard).toBeFocused();
+  await expect(updatedUserCard.locator('[data-tenant-role-action="save"]')).toBeDisabled();
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0]).toEqual({
     csrf: CSRF_TOKEN,
