@@ -1,14 +1,16 @@
 import { expect, test } from '@playwright/test';
 
-async function selectTenantAdmin(page) {
-  await page.locator('#demoRoleSwitch').selectOption('tenant_admin');
+async function startAsTenantAdmin(page) {
+  await page.addInitScript(() => {
+    localStorage.setItem('conference_demo_role_v1', 'tenant_admin');
+  });
+  await page.goto('/');
   await expect(page.locator('#demoRoleSwitch')).toHaveValue('tenant_admin');
   await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(1);
 }
 
 test('Tenant Admin shell provides authorized direct navigation, keyboard focus and responsive sections', async ({ page }) => {
-  await page.goto('/');
-  await selectTenantAdmin(page);
+  await startAsTenantAdmin(page);
 
   await page.locator('#primaryNavigation button[data-view="tenantAdmin"]').click();
   await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
