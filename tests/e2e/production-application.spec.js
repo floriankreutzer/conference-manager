@@ -68,15 +68,20 @@ async function productionHtml() {
 async function installProductionApplicationFixture(page, {
   roles = ['employee'],
   timeZone = 'Europe/Berlin',
+  catalog = catalogPayload(timeZone),
+  bookingChange: initialBookingChange = null,
   availabilityResponses = [{ available: true, conflictCount: 0 }],
   requestCreateErrors = [],
   holdAvailability = false,
+  holdBookingDecision = false,
   holdSession = false,
   microsoft365 = null,
 } = {}) {
   const writes = [];
+  const decisionWrites = [];
   const availabilityChecks = [];
   let requests = [];
+  let bookingChange = initialBookingChange;
   let releaseSession = () => {};
   const sessionGate = holdSession
     ? new Promise((resolve) => { releaseSession = resolve; })
@@ -84,6 +89,10 @@ async function installProductionApplicationFixture(page, {
   let releaseAvailability = () => {};
   const availabilityGate = holdAvailability
     ? new Promise((resolve) => { releaseAvailability = resolve; })
+    : null;
+  let releaseBookingDecision = () => {};
+  const bookingDecisionGate = holdBookingDecision
+    ? new Promise((resolve) => { releaseBookingDecision = resolve; })
     : null;
   let availabilityIndex = 0;
   let requestCreateIndex = 0;
@@ -106,7 +115,7 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify(catalogPayload(timeZone)),
+        body: JSON.stringify(catalog),
       });
       return;
     }
@@ -295,6 +304,53 @@ async function installProductionApplicationFixture(page, {
       return;
     }
 
+    if (url.pathname === `/api/v1/requests/${REQUEST_ID}/booking-change` && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ schemaVersion: 1, result: { change: bookingChange } }),
+      });
+      return;
+    }
+
+    if (url.pathname === `/api/v1/requests/${REQUEST_ID}/booking-change` && request.method() === 'POST') {
+      const body = request.postDataJSON();
+      writes.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
+      bookingChange = {
+        id: '33333333-3333-4333-8333-333333333333',
+        status: 'pending',
+        rejectionReason: null,
+        createdAt: '2026-08-26T10:00:00.000Z',
+        updatedAt: '2026-08-26T10:00:00.000Z',
+        ...body,
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({
+          schemaVersion: 1,
+          result: { change: bookingChange, request: requests[0] },
+        }),
+      });
+      return;
+    }
+
+    if (bookingChange && url.pathname === `/api/v1/requests/${REQUEST_ID}/booking-change/${bookingChange.id}/decision` && request.method() === 'POST') {
+      const body = request.postDataJSON();
+      decisionWrites.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
+      if (bookingDecisionGate) await bookingDecisionGate;
+      bookingChange = { ...bookingChange, status: 'applied', updatedAt: '2026-08-26T11:00:00.000Z' };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({
+          schemaVersion: 1,
+          result: { status: 'applied', request: requests[0] },
+        }),
+      });
+      return;
+    }
+
     let relativePath = decodeURIComponent(url.pathname).replace(/^\/+/, '');
     if (!relativePath) relativePath = 'index.html';
     const filePath = path.resolve(ROOT, relativePath);
@@ -314,7 +370,9 @@ async function installProductionApplicationFixture(page, {
 
   return {
     availabilityChecks,
+    decisionWrites,
     releaseAvailability,
+    releaseBookingDecision,
     releaseSession,
     requests: () => requests,
     writes,
@@ -325,6 +383,38 @@ function futureDate(days = 14) {
   const value = new Date();
   value.setDate(value.getDate() + days);
   return value.toISOString().slice(0, 10);
+}
+
+function confirmedRequestFixture() {
+  const date = futureDate();
+  return {
+    id: REQUEST_ID,
+    roomId: 'room-a',
+    status: 'Confirmed',
+    statusReason: null,
+    startsAt: `${date}T07:00:00.000Z`,
+    endsAt: `${date}T08:00:00.000Z`,
+    internalParticipants: 2,
+    externalParticipants: 0,
+    statusChangedAt: '2026-08-25T20:00:00.000Z',
+    updatedAt: '2026-08-25T20:00:00.000Z',
+  };
+}
+
+function bookingChangeFixture(status = 'pending') {
+  const request = confirmedRequestFixture();
+  return {
+    id: '33333333-3333-4333-8333-333333333333',
+    status,
+    roomId: request.roomId,
+    startsAt: request.startsAt,
+    endsAt: request.endsAt,
+    internalParticipants: 3,
+    externalParticipants: 0,
+    rejectionReason: null,
+    createdAt: '2026-08-26T10:00:00.000Z',
+    updatedAt: '2026-08-26T10:00:00.000Z',
+  };
 }
 
 test('Employee production flow uses server catalog and CSRF-protected request persistence', async ({ page }) => {
@@ -464,6 +554,28 @@ test('Employee production flow blocks availability checks without an authoritati
   expect(fixture.writes).toHaveLength(0);
 });
 
+test('confirmed-booking dialog retains an inactive booked room and blocks combined participant overflow', async ({ page }) => {
+  const catalog = catalogPayload();
+  catalog.catalog.rooms[0].active = false;
+  const fixture = await installProductionApplicationFixture(page, { catalog });
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Bestätigte Buchung ändern' }).click();
+  const dialog = page.getByRole('dialog');
+
+  await expect(dialog.locator('select')).toHaveValue('room-a');
+  await expect(dialog.locator('option[value="room-a"]')).toHaveCount(1);
+  await dialog.locator(`#changeInternal-${REQUEST_ID}`).fill('500');
+  await dialog.locator(`#changeExternal-${REQUEST_ID}`).fill('1');
+  await dialog.getByRole('button', { name: 'Änderung einreichen' }).click();
+
+  await expect(dialog.getByRole('alert')).toContainText(
+    'Bitte wählen Sie einen Raum, ein gültiges zukünftiges Zeitfenster und mindestens eine teilnehmende Person.',
+  );
+  expect(fixture.writes).toHaveLength(0);
+});
+
 test('Conference Manager capability is independent and transitions server-owned request state', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
@@ -494,6 +606,42 @@ test('Conference Manager capability is independent and transitions server-owned 
     csrf: CSRF_TOKEN,
     body: { transition: 'start_review' },
   });
+});
+
+test('Conference Manager keeps applying proposals visible but fail-closed', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    roles: ['employee', 'conference_manager'],
+    bookingChange: bookingChangeFixture('applying'),
+  });
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+
+  await expect(page.getByText('Umsetzung läuft')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Änderung freigeben' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Änderung ablehnen' })).toHaveCount(0);
+});
+
+test('Conference Manager serializes a booking-change decision across refreshes', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    roles: ['employee', 'conference_manager'],
+    bookingChange: bookingChangeFixture(),
+    holdBookingDecision: true,
+  });
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('button', { name: 'Änderung freigeben' }).click();
+  await expect.poll(() => fixture.decisionWrites.length).toBe(1);
+
+  await page.getByRole('button', { name: 'Aktualisieren' }).click();
+  await expect(page.getByRole('button', { name: 'Änderung freigeben' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Änderung ablehnen' })).toBeDisabled();
+  expect(fixture.decisionWrites).toHaveLength(1);
+
+  fixture.releaseBookingDecision();
+  await expect(page.locator('#toast')).toContainText('Die Änderung wurde erfolgreich umgesetzt.');
+  expect(fixture.decisionWrites).toHaveLength(1);
 });
 
 test('Conference Manager reason validation is accessible and restores focus after refresh', async ({ page }) => {

@@ -43,6 +43,8 @@ Current contract paths are:
 | Requests | `GET/POST /api/v1/application/requests` | authorized backend Request use cases |
 | Room availability | `POST /api/v1/application/room-availability` | Tenant-scoped local conflict and Microsoft Free/Busy use case |
 | Request transition | `POST /api/v1/requests/{id}/transitions` | existing server workflow policy |
+| Confirmed booking change | `GET/POST /api/v1/requests/{id}/booking-change` | owner/manager proposal policy and single-open invariant |
+| Booking change decision | `POST /api/v1/requests/{id}/booking-change/{changeId}/decision` | Conference Manager approval with server revalidation |
 | Notifications | `GET /api/v1/application/notifications` | authenticated User/Tenant backend state |
 | Notification read state | `PATCH /api/v1/application/notifications/{id}` | authenticated User ownership |
 | Configuration | `GET/PUT /api/v1/application/configuration` | explicitly authorized Tenant configuration |
@@ -50,6 +52,8 @@ Current contract paths are:
 These paths are transport contracts. Backend implementations must continue to derive Tenant, User, roles, permissions, ownership, prices, statuses and audit context server-side. Browser fields with those names are never authoritative.
 
 The production Employee client converts a selected room/date/time window only with the authoritative IANA time zone returned on that room's `catalog.sites[]` entry. It never uses the browser time zone or silently assumes UTC. A missing or invalid site time zone blocks availability verification and request submission. Every room or time change invalidates the prior availability result; submission remains disabled until the backend verifies the exact current `{ roomId, startsAt, endsAt }` tuple. This browser check is a prerequisite for the production UI, but the server's final confirmation check remains the booking authority.
+
+For a confirmed booking, the Employee and Conference Manager production clients render the server's single open proposal. The browser sends only the desired room, UTC window and participant counts. It cannot set proposal state, initiator, decision actor, Tenant, Request owner or provider references. The Manager UI exposes approve/reject only and renders server-derived alternatives when approval is blocked. The original booking remains presented as active until the server returns a successfully applied Request.
 
 ## Versioned data boundary
 

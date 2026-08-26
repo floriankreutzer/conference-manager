@@ -71,6 +71,7 @@ for (const required of [
   'src/platform/feature-flags.js',
   'src/platform/feature-parity.js',
   'src/shared/parity-data.js',
+  'src/shared/booking-change-loader.js',
   'src/core/i18n.js',
   'src/core/i18n-base.js',
   'src/core/i18n-capability-messages.js',
@@ -202,6 +203,15 @@ for (const file of javascriptFiles('src/shared')) {
   if (/from\s+['"]\.\.\/(?:employee|manager)\//.test(source)) {
     fail(`${file}: shared modules must not depend on Employee or Manager modules.`);
   }
+}
+for (const file of ['src/employee/production-application.js', 'src/manager/production-application.js']) {
+  const source = readFileSync(file, 'utf8');
+  if (!source.includes("from '../shared/booking-change-loader.js'")) {
+    fail(`${file}: confirmed-booking lookup orchestration must use the deliberate Shared contract.`);
+  }
+}
+if (existsSync('src/core/booking-change-loader.js')) {
+  fail('src/core/booking-change-loader.js: feature-specific booking-change orchestration is forbidden in Core.');
 }
 
 const managerTabs = readFileSync('src/manager/manager-tabs.js', 'utf8');

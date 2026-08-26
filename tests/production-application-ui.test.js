@@ -59,6 +59,14 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(employee, /site\?\.timeZone/);
   assert.match(employee, /persistence\.transitionRequest/);
   assert.match(manager, /persistence\.transitionRequest/);
+  assert.match(employee, /isProductionTimeZone\(timeZone\)/);
+  assert.match(employee, /Date\.parse\(startsAt\) <= Date\.now\(\)/);
+  assert.match(employee, /totalParticipants > MAX_PARTICIPANTS/);
+  assert.match(employee, /entry\.active \|\| entry\.id === request\.roomId/);
+  assert.match(employee, /loadOpenBookingChanges/);
+  assert.match(manager, /loadOpenBookingChanges/);
+  assert.match(manager, /bookingChangeDecisions/);
+  assert.match(manager, /bookingChange\.status === 'pending'/);
 });
 
 test('Platform owns production persistence and Composition Root preserves demo applications', async () => {

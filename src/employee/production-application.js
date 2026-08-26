@@ -1,5 +1,6 @@
 import { locale, t } from '../core/i18n.js';
-import { button, clear, el, field, showToast } from '../core/ui.js';
+import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
+import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import {
   formatProductionDateTime,
   isProductionTimeZone,
@@ -32,7 +33,7 @@ function roomTimeZone(room, catalog) {
   return site?.timeZone || null;
 }
 
-function requestCard(request, catalog, onCancel) {
+function requestCard(request, catalog, openChange, onCancel, onChange) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId);
   const timeZone = roomTimeZone(room, catalog);
   const startsAt = formatProductionDateTime(request.startsAt, { locale: locale(), timeZone });
@@ -52,6 +53,21 @@ function requestCard(request, catalog, onCancel) {
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
   if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
+  if (openChange === undefined && request.status === 'Confirmed') {
+    article.appendChild(el('p', {
+      className: 'error-box',
+      text: t('production.bookingChange.unavailable'),
+    }));
+  } else if (openChange) {
+    article.appendChild(el('p', {
+      className: 'info-box',
+      text: t(`production.bookingChange.status.${openChange.status}`),
+    }));
+  } else if (request.status === 'Confirmed') {
+    const change = button(t('production.bookingChange.propose'));
+    change.addEventListener('click', () => onChange(request));
+    article.appendChild(change);
+  }
   if (CANCELLABLE_STATUSES.has(request.status)) {
     const cancel = button(t('requests.cancel'), { className: 'danger' });
     cancel.addEventListener('click', () => onCancel(request.id, cancel));
@@ -66,11 +82,92 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
     !persistence
     || typeof persistence.loadCatalog !== 'function'
     || typeof persistence.checkRoomAvailability !== 'function'
+    || typeof persistence.loadBookingChange !== 'function'
+    || typeof persistence.proposeBookingChange !== 'function'
   ) {
     throw new TypeError('PRODUCTION_PERSISTENCE_REQUIRED');
   }
 
   let catalog = Object.freeze({ rooms: Object.freeze([]) });
+
+  function wallValues(timestamp, timeZone) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(Date.parse(timestamp));
+    const values = Object.fromEntries(parts.filter(({ type }) => type !== 'literal')
+      .map(({ type, value }) => [type, value]));
+    return Object.freeze({ date: `${values.year}-${values.month}-${values.day}`, time: `${values.hour}:${values.minute}` });
+  }
+
+  function changeDialog(request, refresh) {
+    const selectedRoom = catalog.rooms.find((entry) => entry.id === request.roomId);
+    const timeZone = roomTimeZone(selectedRoom, catalog);
+    if (!isProductionTimeZone(timeZone)) {
+      showToast(t('production.employee.timeZoneUnavailable'));
+      return;
+    }
+    const startValue = wallValues(request.startsAt, timeZone);
+    const endValue = wallValues(request.endsAt, timeZone);
+    const room = el('select');
+    catalog.rooms.filter((entry) => entry.active || entry.id === request.roomId).forEach((entry) => {
+      room.appendChild(el('option', { value: entry.id, text: roomLabel(entry) }));
+    });
+    room.value = request.roomId;
+    const date = el('input', { attrs: { type: 'date', value: startValue.date } });
+    const start = el('input', { attrs: { type: 'time', value: startValue.time } });
+    const end = el('input', { attrs: { type: 'time', value: endValue.time } });
+    const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(request.internalParticipants) } });
+    const external = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(request.externalParticipants) } });
+    const error = el('p', { className: 'field-error', attrs: { role: 'alert' } });
+    const content = el('section', {}, [
+      field({ id: `changeRoom-${request.id}`, label: t('production.employee.room'), control: room, required: true }),
+      field({ id: `changeDate-${request.id}`, label: t('schedule.date'), control: date, required: true }),
+      field({ id: `changeStart-${request.id}`, label: t('production.employee.start'), control: start, required: true }),
+      field({ id: `changeEnd-${request.id}`, label: t('production.employee.end'), control: end, required: true }),
+      field({ id: `changeInternal-${request.id}`, label: t('production.employee.internal'), control: internal, required: true }),
+      field({ id: `changeExternal-${request.id}`, label: t('production.employee.external'), control: external, required: true }),
+      error,
+    ]);
+    const cancel = button(t('common.cancel'));
+    const submit = button(t('production.bookingChange.submit'), { className: 'primary' });
+    const dialog = openDialog({
+      title: t('production.bookingChange.propose'),
+      description: t('production.bookingChange.originalActive'),
+      content,
+      actions: [cancel, submit],
+      labelledById: `bookingChangeTitle-${request.id}`,
+    });
+    cancel.addEventListener('click', () => dialog.close());
+    submit.addEventListener('click', async () => {
+      const targetRoom = catalog.rooms.find((entry) => entry.id === room.value);
+      const targetTimeZone = roomTimeZone(targetRoom, catalog);
+      const startsAt = productionUtcInstant(date.value, start.value, targetTimeZone);
+      const endsAt = productionUtcInstant(date.value, end.value, targetTimeZone);
+      const internalParticipants = safeParticipantCount(internal.value);
+      const externalParticipants = safeParticipantCount(external.value);
+      const totalParticipants = Number(internalParticipants) + Number(externalParticipants);
+      if (!startsAt || !endsAt || Date.parse(startsAt) <= Date.now()
+        || Date.parse(endsAt) <= Date.parse(startsAt)
+        || internalParticipants === null || externalParticipants === null
+        || totalParticipants < 1 || totalParticipants > MAX_PARTICIPANTS) {
+        error.textContent = t('production.employee.validation');
+        return;
+      }
+      submit.disabled = true;
+      try {
+        await persistence.proposeBookingChange(request.id, {
+          roomId: room.value, startsAt, endsAt, internalParticipants, externalParticipants,
+        });
+        dialog.close();
+        showToast(t('production.bookingChange.proposed'));
+        await refresh(request.id);
+      } catch (caught) {
+        submit.disabled = false;
+        error.textContent = errorMessage(caught);
+      }
+    });
+  }
 
   async function loadCatalog() {
     catalog = await persistence.loadCatalog();
@@ -242,6 +339,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       root.appendChild(el('p', { className: 'muted', text: t('production.common.loading') }));
       try {
         const [nextCatalog, requests] = await Promise.all([loadCatalog(), persistence.listRequests()]);
+        const changes = await loadOpenBookingChanges(requests, persistence);
         clear(root);
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', refresh);
@@ -250,8 +348,8 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
           root.appendChild(el('p', { className: 'info-box', text: t('requests.none') }));
           return;
         }
-        for (const request of requests) {
-          root.appendChild(requestCard(request, nextCatalog, async (requestId, control) => {
+        for (const [index, request] of requests.entries()) {
+          root.appendChild(requestCard(request, nextCatalog, changes[index], async (requestId, control) => {
             control.disabled = true;
             try {
               await persistence.transitionRequest(requestId, { transition: 'cancel' });
@@ -261,7 +359,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
               control.disabled = false;
               showToast(errorMessage(error));
             }
-          }));
+          }, (target) => changeDialog(target, refresh)));
         }
         if (focusRequestId) {
           requestAnimationFrame(() => {

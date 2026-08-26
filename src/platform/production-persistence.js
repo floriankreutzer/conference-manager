@@ -25,6 +25,7 @@ const REASON_REQUEST_STATUSES = new Set(['Rejected', 'Change Requested']);
 const MAX_COLLECTION = 2_000;
 const MAX_TEXT = 160;
 const MAX_PARTICIPANTS = 100_000;
+const BOOKING_CHANGE_STATUSES = new Set(['pending', 'applying', 'applied', 'rejected']);
 
 export class ProductionPersistenceError extends Error {
   constructor(code, options = {}) {
@@ -208,6 +209,52 @@ function requestCollection(value) {
   return normalizedCollection(value, 'PRODUCTION_REQUESTS_INVALID', requestPayload);
 }
 
+function bookingChangePayload(value, code = 'PRODUCTION_BOOKING_CHANGE_INVALID') {
+  if (value === null) return null;
+  const change = assertExactObject(value, [
+    'id', 'status', 'roomId', 'startsAt', 'endsAt', 'internalParticipants',
+    'externalParticipants', 'rejectionReason', 'createdAt', 'updatedAt',
+  ], code);
+  if (!BOOKING_CHANGE_STATUSES.has(change.status)) throw new ProductionPersistenceError(code);
+  const startsAt = assertCanonicalUtc(change.startsAt, code);
+  const endsAt = assertCanonicalUtc(change.endsAt, code);
+  if (Date.parse(endsAt) <= Date.parse(startsAt)) throw new ProductionPersistenceError(code);
+  for (const count of [change.internalParticipants, change.externalParticipants]) {
+    if (!Number.isSafeInteger(count) || count < 0 || count > MAX_PARTICIPANTS) {
+      throw new ProductionPersistenceError(code);
+    }
+  }
+  if (change.internalParticipants + change.externalParticipants < 1) {
+    throw new ProductionPersistenceError(code);
+  }
+  const rejectionReason = change.rejectionReason === null
+    ? null
+    : assertText(change.rejectionReason, code, { max: 1_000 });
+  if ((change.status === 'rejected') !== (rejectionReason !== null)) {
+    throw new ProductionPersistenceError(code);
+  }
+  return Object.freeze({
+    id: assertPublicId(change.id, code),
+    status: change.status,
+    roomId: assertPublicId(change.roomId, code),
+    startsAt,
+    endsAt,
+    internalParticipants: change.internalParticipants,
+    externalParticipants: change.externalParticipants,
+    rejectionReason,
+    createdAt: assertCanonicalUtc(change.createdAt, code),
+    updatedAt: assertCanonicalUtc(change.updatedAt, code),
+  });
+}
+
+function bookingChangeEnvelope(value) {
+  return assertExactVersionedEnvelope(
+    value,
+    'result',
+    'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
+}
+
 function assertVersionedEnvelope(payload, field) {
   const envelope = assertPlainObject(payload);
   if (envelope.schemaVersion !== 1) throw new ProductionPersistenceError('PRODUCTION_SCHEMA_VERSION_UNSUPPORTED');
@@ -374,6 +421,78 @@ export function createProductionPersistence({ apiClient } = {}) {
         'PRODUCTION_REQUEST_INVALID',
       );
       return requestPayload(result);
+    },
+
+    async loadBookingChange(requestId) {
+      const id = assertRequestId(requestId);
+      const result = assertExactObject(
+        bookingChangeEnvelope(await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`)),
+        ['change'],
+        'PRODUCTION_BOOKING_CHANGE_INVALID',
+      );
+      return bookingChangePayload(result.change);
+    },
+
+    async proposeBookingChange(requestId, proposed) {
+      const id = assertRequestId(requestId);
+      const result = assertExactObject(
+        bookingChangeEnvelope(await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, {
+          method: 'POST',
+          body: assertPlainObject(proposed, 'PRODUCTION_BOOKING_CHANGE_INVALID'),
+        })),
+        ['change', 'request'],
+        'PRODUCTION_BOOKING_CHANGE_INVALID',
+      );
+      const change = bookingChangePayload(result.change);
+      if (change?.status !== 'pending') {
+        throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+      }
+      return Object.freeze({
+        change,
+        request: requestPayload(result.request),
+      });
+    },
+
+    async decideBookingChange(requestId, changeId, decision, reason = undefined) {
+      const id = assertRequestId(requestId);
+      const change = assertRequestId(changeId);
+      if (decision !== 'approve' && decision !== 'reject') {
+        throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+      }
+      const body = reason === undefined ? { decision } : { decision, reason };
+      const result = bookingChangeEnvelope(await call(
+        apiClient,
+        `v1/requests/${encodeURIComponent(id)}/booking-change/${encodeURIComponent(change)}/decision`,
+        { method: 'POST', body },
+      ));
+      if (decision === 'reject') {
+        const rejected = assertExactObject(result, ['status', 'change'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
+        if (rejected.status !== 'rejected') throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        const normalizedChange = bookingChangePayload(rejected.change);
+        if (normalizedChange?.status !== 'rejected') {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        return Object.freeze({ status: 'rejected', change: normalizedChange });
+      }
+      if (result?.status === 'blocked') {
+        const blocked = assertExactObject(result, ['status', 'alternatives'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
+        if (!Array.isArray(blocked.alternatives) || blocked.alternatives.length > 5) {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        const alternatives = blocked.alternatives.map((entry) => (
+          assertPublicId(entry, 'PRODUCTION_BOOKING_CHANGE_INVALID')
+        ));
+        if (new Set(alternatives).size !== alternatives.length) {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        return Object.freeze({
+          status: 'blocked',
+          alternatives: Object.freeze(alternatives),
+        });
+      }
+      const applied = assertExactObject(result, ['status', 'request'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
+      if (applied.status !== 'applied') throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+      return Object.freeze({ status: 'applied', request: requestPayload(applied.request) });
     },
 
     async updateProfile(profile) {

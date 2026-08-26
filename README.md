@@ -17,6 +17,7 @@ The readiness status describes clarity, usability, responsive behavior, and regr
 - Final room validation against location, capacity, active status, and simulated calendar occupancy
 - Provisional reservation, confirmation, change request, rejection, and cancellation
 - Editing and resubmission of change requests
+- Server-authoritative post-confirmation room, schedule and participant changes with Conference Manager approval
 - Catering packages, individual options, separate catering participant count, and dietary requirements
 - Cost-center allocation with 0–100% validation and total validation
 - List, calendar, request history, guest information, and printable welcome view
@@ -173,6 +174,8 @@ Production operation requires at least:
 - security controls appropriate to the backend architecture, including CSRF protection for cookie-based authentication
 
 The SaaS production topology fixes the trusted backend in `conference-manager-api` and keeps browser/API access same-origin under `/api/*`. The repository implementation covers the production session, Employee/Conference Manager application API clients, Tenant administration, Microsoft 365 connection, and guided Pilot onboarding. A deployable Pilot still requires the external infrastructure and acceptance evidence defined by the owning SaaS issues.
+
+Confirmed-booking changes remain server-authoritative: proposal lookups are concurrency-bounded and isolated per Request, unavailable state fails closed, and Conference Manager decision controls are exposed only for pending proposals.
 
 See `docs/DEMO-SECURITY.md`, `docs/PRODUCTION-SECURITY.md` and `docs/SAAS-PRODUCTION-TOPOLOGY.md` for additional details.
 

@@ -69,6 +69,7 @@ src/
 │   └── requester-attribution.js
 └── shared/
     ├── application-presentation.js
+    ├── booking-change-loader.js       # bounded cross-capability proposal lookup contract
     ├── notifications.js
     ├── request-card.js
     └── parity-data.js
@@ -166,6 +167,7 @@ Shared contains code genuinely reused across capabilities with stable cross-capa
 
 - `request-card.js` owns the common request-card/timeline DOM contract and receives capability-specific actions as callbacks.
 - `application-presentation.js` owns the small cross-capability form/section/KPI presentation primitives extracted from the former composition root.
+- `booking-change-loader.js` owns the bounded, failure-isolated proposal lookup contract used by the Employee and Manager production capabilities. Its explicit Shared ownership prevents feature workflow orchestration from leaking into capability-independent Core.
 - `notifications.js` owns the common notification persistence/presentation contract.
 - `parity-data.js` centralizes the existing enhanced catalog/site/request presentation data helpers and uses the canonical Core localization contract where localized defaults are required.
 
