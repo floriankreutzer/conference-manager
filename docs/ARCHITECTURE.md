@@ -174,7 +174,7 @@ The Composition Root selects Production or Demo section adapters and injects the
 
 Tenant Admin uses bounded hash routes in the form `#tenant-admin/<section>`. Authorized routes may restore the selected Tenant Admin section on reload. When the final resolved top-level view changes away from Tenant Admin, the Tenant Admin hash is removed so a later reload does not reopen a view the user already left. The application shell exposes only a generic view-change callback; `src/app.js` composes Tenant Admin route cleanup through the public Tenant Admin route helper. Platform does not import Tenant Admin internals.
 
-Explicit Tenant Admin section navigation moves focus to the target section heading. Section-internal rerenders retain section-owned focus, including post-save restoration to the updated User card. This focus ownership is part of the observable accessibility contract and is regression protected.
+Explicit Tenant Admin section navigation moves focus to the target section heading. A successful Users role save explicitly restores focus to the updated User card after rerender. Other section-internal rerenders have no repository-wide focus-restoration guarantee unless the owning section implements and regression-protects that behavior.
 
 The Production Tenant Admin capability is available only when the validated server session grants the required Tenant Admin role/permissions for the relevant section. Tenant Admin capability does not imply Conference Manager capability or Platform Operator authority. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
 
@@ -330,7 +330,7 @@ Together they enforce, among other controls:
 - Employee and Manager public facades;
 - Tenant Admin section identities, public section contracts and private section boundaries;
 - rejection of cross-section Tenant Admin imports and direct Tenant Admin section dependencies on Platform, Employee or Conference Manager internals;
-- rejection of Production-to-Demo dependency leakage in Tenant Admin composition;
+- rejection of Demo imports from Production-named modules covered by the SaaS 2 static boundary policy;
 - public-API-only external capability consumption;
 - Employee/Manager implementation isolation;
 - Shared independence from Employee/Manager internals;
@@ -347,6 +347,8 @@ Together they enforce, among other controls:
 - circular ES-module dependency detection;
 - DAST fail-closed configuration;
 - design-system CSS ownership.
+
+The Composition Root Production/Demo runtime-selection conditional is not fully proven by static import analysis; it remains a regression, security-review and runtime-validation responsibility.
 
 The detailed SaaS 2 Tenant Admin constraints, including the approved section set and section-isolation expectations, are maintained in `docs/SAAS2-MODULAR-BOUNDARIES.md` and their corresponding architecture fixtures/checks. Architecture rules and their regression fixtures must change together.
 
