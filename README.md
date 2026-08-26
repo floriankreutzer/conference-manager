@@ -175,6 +175,8 @@ Production operation requires at least:
 
 The SaaS production topology fixes the trusted backend in `conference-manager-api` and keeps browser/API access same-origin under `/api/*`. The repository implementation covers the production session, Employee/Conference Manager application API clients, Tenant administration, Microsoft 365 connection, and guided Pilot onboarding. A deployable Pilot still requires the external infrastructure and acceptance evidence defined by the owning SaaS issues.
 
+Confirmed-booking changes remain server-authoritative: proposal lookups are concurrency-bounded and isolated per Request, unavailable state fails closed, and Conference Manager decision controls are exposed only for pending proposals.
+
 See `docs/DEMO-SECURITY.md`, `docs/PRODUCTION-SECURITY.md` and `docs/SAAS-PRODUCTION-TOPOLOGY.md` for additional details.
 
 ## Calendar integration
