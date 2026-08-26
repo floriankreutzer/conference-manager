@@ -1,0 +1,891 @@
+/*
+ * Application-wide layout system
+ *
+ * Normalizes content width, controls, action groups, responsive cards, wizard
+ * surfaces and dialogs. Manager-specific two-dimensional content remains in
+ * manager-layout.css.
+ */
+
+#app,
+#app > *,
+.card,
+.wizard-card,
+.request-card,
+.notification-card,
+.option-card,
+.review-card,
+.detail-card,
+.help-card,
+.calendar-shell,
+.modal-dialog,
+.field,
+.form-grid,
+.selection-grid,
+.package-grid,
+.review-grid,
+.details-grid,
+.help-grid,
+.request-grid,
+.request-timeline,
+.cost-summary,
+.item-list,
+.item-row,
+.allocation-row,
+.tenant-user-grid,
+.tenant-user-card,
+.tenant-role-fieldset {
+  min-width: 0;
+  max-width: 100%;
+}
+
+main {
+  width: 100%;
+  max-width: none;
+}
+
+#app {
+  width: min(100%, var(--app-content-max-width));
+}
+
+#app > :last-child {
+  margin-bottom: 0;
+}
+
+.card,
+.wizard-card,
+.request-card,
+.notification-card,
+.option-card,
+.review-card,
+.detail-card,
+.help-card,
+.recovery-card,
+.info-box,
+.tentative-box {
+  border-radius: var(--radius-xs);
+}
+
+.card,
+.wizard-card,
+.request-card {
+  box-shadow: var(--shadow-sm);
+}
+
+/* One control system */
+:where(
+  .primary,
+  .secondary,
+  .danger,
+  .step,
+  .button-row button,
+  .toolbar button,
+  .segmented button,
+  .request-actions button,
+  .wizard-actions button,
+  .mode-option,
+  .quantity-control button,
+  .calendar-header button
+) {
+  min-height: var(--control-height);
+  min-width: 0;
+  padding-inline: var(--control-padding-inline);
+}
+
+.step {
+  height: var(--step-control-height);
+  padding-block: var(--space-2);
+  line-height: var(--line-height-tight);
+}
+
+:where(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea
+) {
+  max-width: 100%;
+}
+
+.button-row,
+.toolbar,
+.segmented,
+.request-actions,
+.wizard-actions,
+.mode-selector {
+  gap: var(--app-control-gap);
+}
+
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(var(--button-min-inline-size), 1fr);
+  max-width: 100%;
+}
+
+.segmented button,
+.mode-selector .mode-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.button-row button,
+.request-actions button,
+.wizard-actions button,
+.segmented button {
+  overflow-wrap: normal;
+}
+
+/* Shared headings and structured content */
+.section-heading,
+.request-card-header,
+.allocation-header,
+.calendar-header {
+  min-width: 0;
+}
+
+.section-heading > *,
+.request-card-header > *,
+.allocation-header > *,
+.calendar-header > * {
+  min-width: 0;
+}
+
+.form-grid,
+.selection-grid,
+.package-grid,
+.review-grid,
+.details-grid,
+.help-grid,
+.cost-summary,
+.request-grid,
+.request-timeline ol,
+.dashboard-grid {
+  gap: var(--app-section-gap);
+}
+
+.option-card,
+.review-card,
+.detail-card,
+.help-card,
+.notification-card,
+.request-grid div,
+.cost-summary article {
+  overflow-wrap: anywhere;
+}
+
+.option-card {
+  height: 100%;
+}
+
+.selection-grid > *,
+.package-grid > *,
+.review-grid > *,
+.details-grid > *,
+.help-grid > *,
+.dashboard-grid > * {
+  min-width: 0;
+}
+
+/* Wizard */
+.stepper,
+.wizard-card {
+  width: 100%;
+}
+
+.stepper li {
+  min-width: 0;
+}
+
+.wizard-card {
+  padding: var(--app-card-padding);
+}
+
+.wizard-actions {
+  width: 100%;
+}
+
+.draft-status {
+  min-width: 0;
+}
+
+.item-row > * {
+  min-width: 0;
+}
+
+.quantity-control {
+  flex-wrap: nowrap;
+}
+
+.quantity-control output,
+.quantity-control span {
+  min-width: 2ch;
+  text-align: center;
+}
+
+.allocation-row > * {
+  min-width: 0;
+}
+
+/* Requests and calendar */
+.toolbar,
+.request-card-header,
+.request-actions {
+  width: 100%;
+}
+
+.request-card-header {
+  align-items: flex-start;
+}
+
+.request-grid div,
+.request-timeline li {
+  overflow-wrap: anywhere;
+}
+
+.calendar-shell {
+  width: 100%;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar-table {
+  max-width: none;
+}
+
+/* Tenant administration */
+.tenant-admin-intro,
+.tenant-admin-status {
+  margin-bottom: var(--app-section-gap);
+}
+
+.tenant-user-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--app-section-gap);
+}
+
+.tenant-user-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.tenant-user-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.tenant-user-card-header h3,
+.tenant-user-card-header p {
+  margin-bottom: var(--space-1);
+}
+
+.tenant-user-baseline {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface-subtle);
+  font-weight: var(--font-weight-medium);
+}
+
+.tenant-role-fieldset {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+}
+
+.tenant-role-fieldset legend {
+  padding-inline: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.tenant-role-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.tenant-role-option:has(input:focus-visible) {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+.tenant-role-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.tenant-role-option input {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  flex: 0 0 auto;
+}
+
+.tenant-user-message {
+  min-height: calc(var(--line-height-base) * 1em);
+  margin: 0;
+}
+
+.tenant-user-actions {
+  margin-top: auto;
+}
+
+/* Tenant onboarding */
+.tenant-onboarding {
+  display: grid;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--app-section-gap);
+  margin-bottom: var(--space-8);
+}
+
+.onboarding-hero {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.onboarding-hero h2,
+.onboarding-hero p {
+  margin: 0;
+}
+
+.onboarding-hero > .onboarding-demo-note {
+  margin-block-start: var(--space-3);
+  padding: var(--space-3);
+  border-inline-start: 4px solid var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.onboarding-progress {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-progress li {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.onboarding-progress li[aria-current="step"] {
+  border-color: var(--brand-primary);
+  background: var(--color-surface-bordeaux);
+  font-weight: var(--font-weight-bold);
+}
+
+.onboarding-step-card {
+  display: grid;
+  gap: var(--space-4);
+  border-inline-start: 4px solid var(--color-border-strong);
+}
+
+.onboarding-step-card.is-complete {
+  border-inline-start-color: var(--color-success);
+}
+
+.onboarding-step-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.onboarding-step-number {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  color: var(--color-on-dark);
+  font-weight: var(--font-weight-bold);
+}
+
+.onboarding-step-heading h3,
+.onboarding-step-heading p {
+  margin: 0;
+}
+
+.onboarding-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.onboarding-status.is-complete {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.onboarding-status.is-pending {
+  background: var(--color-surface-subtle);
+  color: var(--color-muted);
+}
+
+.onboarding-check-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-check-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.onboarding-check-marker {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-subtle);
+  font-weight: var(--font-weight-bold);
+}
+
+.onboarding-check-marker.is-complete {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.onboarding-actions {
+  margin-block-start: var(--space-2);
+}
+
+.onboarding-room-surface {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.onboarding-site-field {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 28rem;
+}
+
+.onboarding-room-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+}
+
+.onboarding-room-list legend {
+  padding-inline: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.onboarding-room-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7rem, 10rem);
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+}
+
+.onboarding-room-option label {
+  display: flex;
+  min-width: 0;
+  gap: var(--space-3);
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.onboarding-room-option label > span {
+  display: grid;
+  min-width: 0;
+}
+
+.onboarding-room-option strong,
+.onboarding-room-option small {
+  overflow-wrap: anywhere;
+}
+
+.onboarding-room-option input[type="checkbox"] {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  flex: 0 0 auto;
+}
+
+.onboarding-room-option:has(input:focus-visible) {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+.onboarding-readiness {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+}
+
+.onboarding-readiness.is-ready {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.onboarding-readiness.is-blocked {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.onboarding-readiness p:last-child {
+  margin-block-end: 0;
+}
+
+.field-error {
+  min-height: calc(var(--line-height-base) * 1em);
+  margin: var(--space-2) 0 0;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Dialogs */
+.modal-dialog {
+  width: min(760px, calc(100dvw - var(--space-8)));
+  max-width: calc(100dvw - var(--space-8));
+  max-height: calc(100dvh - var(--space-8));
+}
+
+.modal-body {
+  overscroll-behavior: contain;
+}
+
+.modal-actions button {
+  min-height: var(--control-height);
+  min-width: var(--button-min-inline-size);
+}
+
+.details-list {
+  min-width: 0;
+}
+
+.details-list dd {
+  overflow-wrap: anywhere;
+}
+
+.toast {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1000px) {
+  #app {
+    width: 100%;
+  }
+
+  .stepper ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--app-control-gap);
+  }
+
+  .onboarding-progress {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .content-shell,
+  main,
+  #app {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .onboarding-progress {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .onboarding-step-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .onboarding-step-header .onboarding-status {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .onboarding-room-option {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-room-option input[type="number"] {
+    width: 100%;
+  }
+
+  .topbar,
+  main {
+    padding-inline: var(--app-mobile-gutter);
+  }
+
+  .nav-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    gap: var(--app-control-gap);
+  }
+
+  .nav-list > li {
+    min-width: 0;
+  }
+
+  .nav-list > li:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .nav-item {
+    min-height: var(--control-height);
+    height: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .welcome-hero,
+  .card,
+  .wizard-card,
+  .request-card {
+    padding: var(--app-card-padding);
+  }
+
+  .welcome-hero h2 {
+    font-size: clamp(1.8rem, 8vw, 2.2rem);
+  }
+
+  .button-row,
+  .request-actions,
+  .wizard-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .button-row button,
+  .request-actions button,
+  .wizard-actions button {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    white-space: normal;
+  }
+
+  .button-row button:last-child:nth-child(odd),
+  .request-actions button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .tenant-user-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-user-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--app-control-gap);
+    width: 100%;
+  }
+
+  .modal-actions button {
+    width: 100%;
+    min-width: 0;
+    height: var(--control-height);
+    white-space: nowrap;
+  }
+
+  .wizard-actions .spacer {
+    display: none;
+  }
+
+  .wizard-actions .draft-status {
+    grid-column: 1 / -1;
+    width: 100%;
+    order: initial;
+  }
+
+  .segmented {
+    display: grid;
+    grid-auto-flow: initial;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .segmented button {
+    width: 100%;
+    height: 100%;
+    white-space: normal;
+  }
+
+  .mode-selector {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .mode-selector legend {
+    grid-column: 1 / -1;
+  }
+
+  .mode-option {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stepper ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--app-control-gap);
+  }
+
+  .step {
+    width: 100%;
+  }
+
+  .section-heading,
+  .request-card-header,
+  .allocation-header,
+  .calendar-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section-heading > :where(button, .primary, .secondary),
+  .allocation-header > :where(button, .primary, .secondary),
+  .calendar-header > :where(button, .primary, .secondary) {
+    width: 100%;
+  }
+
+  .form-grid.two,
+  .selection-grid,
+  .selection-grid.compact,
+  .package-grid,
+  .review-grid,
+  .details-grid,
+  .help-grid,
+  .cost-summary,
+  .dashboard-grid,
+  .request-grid,
+  .request-timeline ol,
+  .allocation-row {
+    grid-template-columns: 1fr;
+  }
+
+  .participant-total {
+    min-height: var(--control-height);
+  }
+
+  .item-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .item-row > :first-child {
+    grid-column: 1 / -1;
+  }
+
+  .quantity-control {
+    justify-content: flex-end;
+  }
+
+  .allocation-row button {
+    width: 100%;
+  }
+
+  .request-grid div {
+    padding: var(--space-3);
+  }
+
+  .calendar-header {
+    gap: var(--space-3);
+  }
+
+  .calendar-shell {
+    padding: var(--space-3);
+  }
+
+  .details-list {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .details-list dd + dt {
+    margin-top: var(--space-3);
+  }
+
+  .modal-dialog {
+    width: calc(100dvw - var(--space-8));
+    max-width: calc(100dvw - var(--space-8));
+    max-height: calc(100dvh - var(--space-8));
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-actions {
+    padding: var(--app-mobile-gutter);
+  }
+
+  .toast {
+    right: var(--app-mobile-gutter);
+    bottom: var(--app-mobile-gutter);
+    left: var(--app-mobile-gutter);
+    max-width: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .onboarding-progress {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-list,
+  .button-row,
+  .request-actions,
+  .wizard-actions,
+  .segmented,
+  .mode-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-list > li:last-child:nth-child(odd),
+  .button-row button:last-child:nth-child(odd),
+  .request-actions button:last-child:nth-child(odd),
+  .mode-selector legend {
+    grid-column: 1;
+  }
+}
