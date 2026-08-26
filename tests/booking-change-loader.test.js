@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadOpenBookingChanges } from '../src/core/booking-change-loader.js';
+import { loadOpenBookingChanges } from '../src/shared/booking-change-loader.js';
 
 test('booking-change lookups are bounded, isolated, ordered and fail closed', async () => {
   const requests = Array.from({ length: 20 }, (_, index) => ({

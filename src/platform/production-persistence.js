@@ -443,8 +443,12 @@ export function createProductionPersistence({ apiClient } = {}) {
         ['change', 'request'],
         'PRODUCTION_BOOKING_CHANGE_INVALID',
       );
+      const change = bookingChangePayload(result.change);
+      if (change?.status !== 'pending') {
+        throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+      }
       return Object.freeze({
-        change: bookingChangePayload(result.change),
+        change,
         request: requestPayload(result.request),
       });
     },

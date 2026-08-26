@@ -1,5 +1,5 @@
 import { locale, t } from '../core/i18n.js';
-import { loadOpenBookingChanges } from '../core/booking-change-loader.js';
+import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import {
   formatProductionDateTime,

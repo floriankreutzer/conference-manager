@@ -65,7 +65,7 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(employee, /entry\.active \|\| entry\.id === request\.roomId/);
   assert.match(employee, /loadOpenBookingChanges/);
   assert.match(manager, /loadOpenBookingChanges/);
-  assert.match(manager, /decisionInFlight/);
+  assert.match(manager, /bookingChangeDecisions/);
   assert.match(manager, /bookingChange\.status === 'pending'/);
 });
 

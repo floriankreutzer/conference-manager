@@ -149,6 +149,33 @@ test('booking-change responses reject extra authority and malformed workflow sta
   }
 });
 
+test('booking-change proposal requires a non-null authoritative pending change', async () => {
+  const requestId = 'CR-2026-100001';
+  const path = `v1/requests/${requestId}/booking-change`;
+  for (const change of [
+    null,
+    bookingChangeFixture({ status: 'applying' }),
+    bookingChangeFixture({ status: 'applied' }),
+    bookingChangeFixture({ status: 'rejected', rejectionReason: 'Declined' }),
+  ]) {
+    const persistence = createProductionPersistence({ apiClient: apiWithResponses(new Map([[
+      path,
+      { schemaVersion: 1, result: { change, request: requestFixture({ status: 'Confirmed' }) } },
+    ]])).client });
+    await assert.rejects(
+      persistence.proposeBookingChange(requestId, {
+        roomId: 'room-1',
+        startsAt: '2026-09-01T08:00:00.000Z',
+        endsAt: '2026-09-01T09:00:00.000Z',
+        internalParticipants: 1,
+        externalParticipants: 0,
+      }),
+      (error) => error instanceof ProductionPersistenceError
+        && error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+    );
+  }
+});
+
 test('blocked booking-change alternatives are bounded arrays of unique public IDs', async () => {
   const requestId = 'CR-2026-100001';
   const changeId = bookingChangeFixture().id;

@@ -1,5 +1,5 @@
 import { locale, t } from '../core/i18n.js';
-import { loadOpenBookingChanges } from '../core/booking-change-loader.js';
+import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 
@@ -118,6 +118,8 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
     });
   }
 
+  const bookingChangeDecisions = new Set();
+
   function rejectChangeDialog(request, change, refresh, beginDecision, endDecision) {
     const textarea = el('textarea', { attrs: { maxlength: '1000' } });
     const error = el('p', { className: 'field-error', attrs: { role: 'alert' } });
@@ -147,6 +149,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
         dialog.close();
         showToast(t('production.bookingChange.rejected'));
         await refresh(request.id);
+        endDecision();
       } catch (caught) {
         endDecision();
         reject.disabled = false;
@@ -204,19 +207,23 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
             if (bookingChange.status === 'pending') {
               const approve = button(t('production.bookingChange.approve'), { className: 'primary' });
               const reject = button(t('production.bookingChange.reject'), { className: 'danger' });
-              let decisionInFlight = false;
+              const decisionInFlight = () => bookingChangeDecisions.has(bookingChange.id);
               const beginDecision = () => {
-                if (decisionInFlight) return false;
-                decisionInFlight = true;
+                if (decisionInFlight()) return false;
+                bookingChangeDecisions.add(bookingChange.id);
                 approve.disabled = true;
                 reject.disabled = true;
                 return true;
               };
               const endDecision = () => {
-                decisionInFlight = false;
+                bookingChangeDecisions.delete(bookingChange.id);
                 approve.disabled = false;
                 reject.disabled = false;
               };
+              if (decisionInFlight()) {
+                approve.disabled = true;
+                reject.disabled = true;
+              }
               approve.addEventListener('click', async () => {
                 if (!beginDecision()) return;
                 try {
@@ -237,13 +244,14 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
                   }
                   showToast(t('production.bookingChange.applied'));
                   await refresh(request.id);
+                  endDecision();
                 } catch (caught) {
                   endDecision();
                   showToast(errorMessage(caught));
                 }
               });
               reject.addEventListener('click', () => {
-                if (!decisionInFlight) {
+                if (!decisionInFlight()) {
                   rejectChangeDialog(request, bookingChange, refresh, beginDecision, endDecision);
                 }
               });
