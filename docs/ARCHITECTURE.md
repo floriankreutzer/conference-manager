@@ -328,7 +328,7 @@ Together they enforce, among other controls:
 - absence of the former `src/features` directory;
 - `src/app.js` Composition Root dependency restrictions;
 - Employee and Manager public facades;
-- Tenant Admin section identities, public section contracts and private section boundaries;
+- Tenant Admin section identities, section `index.js` entry-point usage and private section boundaries;
 - rejection of cross-section Tenant Admin imports and direct Tenant Admin section dependencies on Platform, Employee or Conference Manager internals;
 - rejection of Demo imports from Production-named modules covered by the SaaS 2 static boundary policy;
 - public-API-only external capability consumption;
