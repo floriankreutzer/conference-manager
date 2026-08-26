@@ -81,6 +81,12 @@ export function createDemoOnboarding() {
       verified = true;
       return this.getConnection();
     },
+    async disconnect() {
+      connected = false;
+      verified = false;
+      freeBusyVerified = false;
+      return this.getConnection();
+    },
     async discoverRooms() {
       if (!verified) throw new Error('DEMO_CONNECTION_NOT_VERIFIED');
       return DEMO_ROOMS;
@@ -89,11 +95,16 @@ export function createDemoOnboarding() {
       return Object.freeze([...mappings]);
     },
     async importRooms(selections) {
-      mappings = selections.map((selection, index) => Object.freeze({
-        roomId: `demo-import-${index + 1}`,
-        externalRoomId: selection.externalRoomId,
-        providerStatus: 'active',
-      }));
+      const merged = new Map(mappings.map((entry) => [entry.externalRoomId, entry]));
+      selections.forEach((selection, index) => {
+        const existing = merged.get(selection.externalRoomId);
+        merged.set(selection.externalRoomId, Object.freeze({
+          roomId: existing?.roomId || `demo-import-${mappings.length + index + 1}`,
+          externalRoomId: selection.externalRoomId,
+          providerStatus: 'active',
+        }));
+      });
+      mappings = [...merged.values()];
       freeBusyVerified = false;
       return Object.freeze([...mappings]);
     },

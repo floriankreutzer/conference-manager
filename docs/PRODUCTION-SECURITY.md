@@ -12,7 +12,7 @@ The GitHub Pages application is an explicit **demo runtime**. It does not provid
 
 `src/core/security-policy.js` treats a missing, malformed, or unknown runtime value as `production` so configuration errors fail closed. Demo roles are only valid when the runtime is explicitly `demo`.
 
-The repository now also contains the browser-side production session trust boundary in `src/platform/production-session.js`. That code does **not** turn the GitHub Pages deployment into production. A real production deployment still requires the trusted same-origin backend, HTTPS/security-header configuration, server persistence and operational controls defined below.
+The repository now also contains the browser-side production session trust boundary in `src/platform/production-session.js` and dedicated server-authoritative Employee/Conference Manager production clients. That code does **not** turn the GitHub Pages deployment into production. A real production deployment still requires the trusted same-origin backend, HTTPS/security-header configuration, server persistence and operational controls defined below.
 
 ## Mandatory production architecture
 
@@ -64,15 +64,16 @@ The production Application Context consumes only this validated session result f
 
 ### Production activation boundary
 
-A valid production session does not automatically activate existing demo business views. The current Employee and Conference Manager implementations still contain demo-domain persistence/orchestration paths. Per `docs/PRODUCTION-PERSISTENCE-MIGRATION.md`, they remain disabled in production until their server-authoritative contracts are completed under issue #114.
+A valid production session never activates existing demo business views. The server-authoritative application API contract from issue #114 is complete. Production composition now uses dedicated Employee and Conference Manager implementations backed only by `src/platform/production-persistence.js`; the demo implementations and LocalStorage path remain isolated to the explicit demo runtime.
 
 This means:
 
 - unauthenticated production renders only the Microsoft sign-in state;
 - an unavailable/unverifiable session renders a fail-closed retry state;
-- an authenticated production session renders only safe session/profile presentation until a production capability is explicitly wired;
-- the Tenant Admin role-management UI may be added independently under #61 because its dedicated backend API is already server-authoritative, but it must consume this session/CSRF boundary;
-- existing demo Employee/Manager views must not be exposed merely because a trusted role is present.
+- an authenticated production session may render the dedicated production Employee application backed by the same-origin application API;
+- Conference Manager presentation additionally requires the validated `conference_manager` role and `request:manage` permission;
+- Tenant Admin presentation additionally requires the validated `tenant_admin` role and Tenant-administration permission and consumes the session/CSRF boundary;
+- existing demo Employee/Manager views are never exposed merely because a trusted role is present.
 
 ## Authorization
 
@@ -117,6 +118,8 @@ The production API must be same-origin and HTTPS-only. The browser client is int
 - response size limit;
 - HTTP method allowlist.
 
+For non-success responses the browser retains only the HTTP status classification and, when present, a bounded uppercase machine-readable `error.code`. Arbitrary server text, provider payloads and request details are neither stored on the client error nor reflected into recovery UI. This permits specific remediation for consent/session/provider failures without broadening the public error-data boundary.
+
 CORS should remain disabled when the production UI and API are same-origin. If cross-origin access becomes mandatory, use an explicit origin allowlist and never reflect arbitrary `Origin` values.
 
 The current demo HTML intentionally uses `connect-src 'none'`. It must not be copied unchanged as the production CSP because the production browser must reach the same-origin `/api/*` backend. The production deployment must deliver its CSP/security headers at the HTTP layer with the minimum same-origin connectivity required by the accepted topology; deployment evidence belongs to the production hosting/IaC work under #113.
@@ -140,6 +143,8 @@ Use parameterized database queries or an ORM that preserves parameter binding. N
 ## Transactional room and calendar booking
 
 The final room availability check must be performed by the trusted backend in the same logical transaction as the reservation/confirmation operation. Client-side checks are advisory only.
+
+Before the production Employee UI accepts a new Request, it also requires the same-origin availability endpoint to verify the exact current room and UTC window. Local wall time is converted only with the room site's authoritative IANA time zone from the Tenant catalog; the browser time zone and implicit UTC are forbidden fallbacks. Missing/invalid site configuration, a changed room/window, an occupied result or an unavailable provider all keep submission disabled. This improves user feedback and fails closed but does not replace the final server-side confirmation check or make browser state authoritative.
 
 The backend must prevent race conditions by using an appropriate database/calendar concurrency control, for example a transaction plus a uniqueness/exclusion constraint or another atomic reservation mechanism. A second concurrent request for the same room and overlapping time must fail deterministically rather than double-booking.
 
@@ -181,7 +186,7 @@ The repository currently provides:
 - static defensive-code checks;
 - deterministic Node regression/progression tests;
 - deterministic production-session validation, role/permission-matrix and CSRF/no-fallback tests;
-- a production-persistence/session architecture gate that prevents browser-storage authority and requires the production shell to return before demo Employee/Manager views render;
+- a production-persistence/session architecture gate that requires dedicated server-authoritative production applications, prevents browser-storage authority, and requires the production shell to return before any business view renders for signed-out/unavailable state;
 - deterministic input-manipulation/fuzz tests;
 - Chromium and WebKit/iPhone Playwright regression tests for the demo runtime;
 - OWASP ZAP baseline scan against the deployed Pages demo.

@@ -11,12 +11,16 @@ for (const required of [
   "catalog: 'v1/application/catalog'",
   "siteInfo: 'v1/application/site-info'",
   "requests: 'v1/application/requests'",
+  "roomAvailability: 'v1/application/room-availability'",
   "notifications: 'v1/application/notifications'",
   "configuration: 'v1/application/configuration'",
-  "sites: assertCollection(catalog.sites, 'PRODUCTION_CATALOG_INVALID')",
+  'return catalogPayload(assertExactVersionedEnvelope(',
+  'return requestCollection(assertExactVersionedEnvelope(',
+  'assertExactObject(value, keys, code)',
   'PRODUCTION_SCHEMA_VERSION_UNSUPPORTED',
   'PRODUCTION_PERSISTENCE_UNAVAILABLE',
   'createRequest',
+  'checkRoomAvailability',
   'transitionRequest',
 ]) {
   if (!production.includes(required)) {
@@ -154,8 +158,13 @@ for (const forbidden of [
   }
 }
 const bootstrapFunctionStart = app.indexOf('async function bootstrap()');
+const bootstrapLoading = app.indexOf('renderAppBootstrapLoading();');
 const awaitedContext = app.indexOf('const context = await createApplicationContext();');
-if (bootstrapFunctionStart < 0 || awaitedContext < bootstrapFunctionStart) {
+if (
+  bootstrapFunctionStart < 0
+  || bootstrapLoading < bootstrapFunctionStart
+  || awaitedContext < bootstrapLoading
+) {
   throw new Error('Application Context await must remain inside the async bootstrap function.');
 }
 
@@ -177,6 +186,9 @@ for (const file of [
 const employeeProduction = await readFile('src/employee/production-application.js', 'utf8');
 for (const required of [
   'persistence.loadCatalog()',
+  'persistence.checkRoomAvailability(window)',
+  'site?.timeZone',
+  'productionUtcInstant(date.value, start.value, timeZone)',
   'persistence.createRequest({',
   "persistence.transitionRequest(requestId, { transition: 'cancel' })",
   "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested'])",
@@ -220,6 +232,44 @@ for (const required of [
 ]) {
   if (!appShell.includes(required)) {
     throw new Error(`Production shell presentation boundary is missing ${required}.`);
+  }
+}
+
+const productionSessionContract = await readFile('docs/PRODUCTION-SESSION.md', 'utf8');
+for (const required of [
+  'Issue #114 and its server-authoritative application API contract are complete',
+  'src/employee/production-application.js',
+  'src/manager/production-application.js',
+  'have no browser-storage fallback',
+  'Existing demo Employee/Manager implementations remain reachable only',
+]) {
+  if (!productionSessionContract.includes(required)) {
+    throw new Error(`Production session documentation is stale or incomplete: ${required}.`);
+  }
+}
+
+const productionSecurityContract = await readFile('docs/PRODUCTION-SECURITY.md', 'utf8');
+for (const required of [
+  'The server-authoritative application API contract from issue #114 is complete.',
+  'dedicated Employee and Conference Manager implementations',
+  'demo implementations and LocalStorage path remain isolated',
+  'authoritative IANA time zone',
+  'changed room/window',
+]) {
+  if (!productionSecurityContract.includes(required)) {
+    throw new Error(`Production security documentation is stale or incomplete: ${required}.`);
+  }
+}
+
+const productionPersistenceContract = await readFile('docs/PRODUCTION-PERSISTENCE-MIGRATION.md', 'utf8');
+for (const required of [
+  'POST /api/v1/application/room-availability',
+  'catalog.sites[]',
+  'never uses the browser time zone',
+  'exact current `{ roomId, startsAt, endsAt }` tuple',
+]) {
+  if (!productionPersistenceContract.includes(required)) {
+    throw new Error(`Production persistence migration documentation is incomplete: ${required}.`);
   }
 }
 

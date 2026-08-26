@@ -23,15 +23,46 @@ function apiWithResponses(responses = new Map()) {
   };
 }
 
+function requestFixture(overrides = {}) {
+  return {
+    id: 'CR-2026-100001',
+    roomId: 'room-1',
+    status: 'Submitted',
+    statusReason: null,
+    startsAt: '2026-09-01T08:00:00.000Z',
+    endsAt: '2026-09-01T09:00:00.000Z',
+    internalParticipants: 1,
+    externalParticipants: 0,
+    statusChangedAt: '2026-08-26T10:00:00.000Z',
+    updatedAt: '2026-08-26T10:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function catalogFixture(overrides = {}) {
+  return {
+    sites: [{ id: 'berlin', name: 'Berlin', active: true, timeZone: 'Europe/Berlin' }],
+    rooms: [{ id: 'room-1', siteId: 'berlin', name: 'Room 1', capacity: 12, active: true }],
+    services: [{ id: 'service-1', name: 'Service', active: true, priceMinor: 100, currency: 'EUR' }],
+    cateringPackages: [],
+    cateringItems: [],
+    ...overrides,
+  };
+}
+
 test('production persistence loads each authoritative domain only through the API contract', async () => {
   const responses = new Map([
     [DOMAIN_ENDPOINTS.profile, { schemaVersion: 1, profile: { displayName: 'User' } }],
     [DOMAIN_ENDPOINTS.catalog, {
       schemaVersion: 1,
-      catalog: { sites: [], rooms: [], services: [], cateringPackages: [], cateringItems: [] },
+      catalog: catalogFixture(),
     }],
     [DOMAIN_ENDPOINTS.siteInfo, { schemaVersion: 1, siteInfo: { Berlin: { active: true } } }],
-    [DOMAIN_ENDPOINTS.requests, { schemaVersion: 1, requests: [{ id: 'CR-1' }] }],
+    [DOMAIN_ENDPOINTS.requests, { schemaVersion: 1, requests: [requestFixture()] }],
+    [DOMAIN_ENDPOINTS.roomAvailability, {
+      schemaVersion: 1,
+      availability: { available: true, conflictCount: 0 },
+    }],
     [DOMAIN_ENDPOINTS.notifications, { schemaVersion: 1, notifications: [{ id: 'notice-1' }] }],
     [DOMAIN_ENDPOINTS.configuration, { schemaVersion: 1, configuration: { timezone: 'Europe/Berlin' } }],
   ]);
@@ -39,14 +70,83 @@ test('production persistence loads each authoritative domain only through the AP
   const persistence = createProductionPersistence({ apiClient: api.client });
 
   assert.equal((await persistence.loadProfile()).displayName, 'User');
-  assert.deepEqual(await persistence.loadCatalog(), {
-    sites: [], rooms: [], services: [], cateringPackages: [], cateringItems: [],
-  });
+  assert.deepEqual(await persistence.loadCatalog(), catalogFixture());
   assert.equal((await persistence.loadSiteInfo()).Berlin.active, true);
-  assert.deepEqual((await persistence.listRequests()).map((entry) => entry.id), ['CR-1']);
+  assert.deepEqual((await persistence.listRequests()).map((entry) => entry.id), ['CR-2026-100001']);
+  assert.deepEqual(await persistence.checkRoomAvailability({
+    roomId: 'room-1',
+    startsAt: '2026-09-01T08:00:00.000Z',
+    endsAt: '2026-09-01T09:00:00.000Z',
+  }), { available: true, conflictCount: 0 });
   assert.deepEqual((await persistence.listNotifications()).map((entry) => entry.id), ['notice-1']);
   assert.equal((await persistence.loadConfiguration()).timezone, 'Europe/Berlin');
   assert.deepEqual(api.calls.map((call) => call.path), Object.values(DOMAIN_ENDPOINTS));
+});
+
+test('room availability uses the exact server-authoritative UTC request contract', async () => {
+  const api = apiWithResponses(new Map([
+    [DOMAIN_ENDPOINTS.roomAvailability, (options) => {
+      assert.deepEqual(options, {
+        method: 'POST',
+        body: {
+          roomId: 'room-1',
+          startsAt: '2026-09-01T08:00:00.000Z',
+          endsAt: '2026-09-01T09:00:00.000Z',
+        },
+      });
+      return { schemaVersion: 1, availability: { available: false, conflictCount: 1 } };
+    }],
+  ]));
+  const persistence = createProductionPersistence({ apiClient: api.client });
+
+  assert.deepEqual(await persistence.checkRoomAvailability({
+    roomId: 'room-1',
+    startsAt: '2026-09-01T08:00:00.000Z',
+    endsAt: '2026-09-01T09:00:00.000Z',
+    ignoredByAdapter: 'not-forwarded',
+  }), { available: false, conflictCount: 1 });
+  assert.equal(api.calls.length, 1);
+});
+
+test('room availability rejects malformed requests before transport', async () => {
+  const api = apiWithResponses();
+  const persistence = createProductionPersistence({ apiClient: api.client });
+  const invalidWindows = [
+    { roomId: 'room-1', startsAt: '2026-02-30T08:00:00.000Z', endsAt: '2026-03-02T09:00:00.000Z' },
+    { roomId: 'room-1', startsAt: '2026-09-01T09:00:00.000Z', endsAt: '2026-09-01T08:00:00.000Z' },
+    { roomId: 'room-1', startsAt: '2026-09-01T08:00:00+02:00', endsAt: '2026-09-01T09:00:00+02:00' },
+  ];
+  for (const window of invalidWindows) {
+    await assert.rejects(
+      persistence.checkRoomAvailability(window),
+      (error) => error instanceof ProductionPersistenceError
+        && error.code === 'AVAILABILITY_WINDOW_INVALID',
+    );
+  }
+  assert.equal(api.calls.length, 0);
+});
+
+test('room availability rejects malformed positive-response schemas fail closed', async () => {
+  const invalidResponses = [
+    { schemaVersion: 1, availability: { available: true, conflictCount: 1 } },
+    { schemaVersion: 1, availability: { available: false, conflictCount: 2 } },
+    { schemaVersion: 1, availability: { available: true, conflictCount: 0, provider: 'hidden' } },
+    { schemaVersion: 1, availability: { available: true, conflictCount: 0 }, extra: true },
+  ];
+  const window = {
+    roomId: 'room-1',
+    startsAt: '2026-09-01T08:00:00.000Z',
+    endsAt: '2026-09-01T09:00:00.000Z',
+  };
+  for (const response of invalidResponses) {
+    const api = apiWithResponses(new Map([[DOMAIN_ENDPOINTS.roomAvailability, response]]));
+    const persistence = createProductionPersistence({ apiClient: api.client });
+    await assert.rejects(
+      persistence.checkRoomAvailability(window),
+      (error) => error instanceof ProductionPersistenceError
+        && error.code === 'PRODUCTION_AVAILABILITY_INVALID',
+    );
+  }
 });
 
 test('production persistence never converts an API failure into browser-local success', async () => {
@@ -100,11 +200,90 @@ test('production catalog rejects a missing site collection instead of guessing b
   );
 });
 
+test('production catalog accepts only the minimized backend wire schema and valid references', async () => {
+  const invalidCatalogs = [
+    catalogFixture({ unexpected: true }),
+    catalogFixture({ sites: [{ id: 'berlin', name: 'Berlin', active: true, timeZone: 'Invalid/Zone' }] }),
+    catalogFixture({ sites: [{ id: 'berlin', name: 'Berlin', active: true, timeZone: null, tenantId: 'injected' }] }),
+    catalogFixture({ sites: [
+      { id: 'berlin', name: 'Berlin', active: true, timeZone: 'Europe/Berlin' },
+      { id: 'berlin', name: 'Duplicate', active: true, timeZone: 'Europe/Berlin' },
+    ] }),
+    catalogFixture({ rooms: [{ id: 'room-1', siteId: 'missing', name: 'Room 1', capacity: 12, active: true }] }),
+    catalogFixture({ rooms: [{ id: 'room-1', siteId: 'berlin', name: 'Room 1', capacity: 0, active: true }] }),
+    catalogFixture({ services: [{ id: 'service-1', name: 'Service', active: true, priceMinor: -1, currency: 'EUR' }] }),
+  ];
+  for (const catalog of invalidCatalogs) {
+    const api = apiWithResponses(new Map([[
+      DOMAIN_ENDPOINTS.catalog,
+      { schemaVersion: 1, catalog },
+    ]]));
+    await assert.rejects(
+      createProductionPersistence({ apiClient: api.client }).loadCatalog(),
+      (error) => error instanceof ProductionPersistenceError
+        && error.code === 'PRODUCTION_CATALOG_INVALID',
+    );
+  }
+});
+
+test('production request collections reject unknown fields, missing fields, invalid types and duplicate IDs', async () => {
+  const invalidCollections = [
+    [requestFixture({ tenantId: 'injected' })],
+    [{ ...requestFixture(), roomId: undefined }],
+    [requestFixture({ status: 'Browser Approved' })],
+    [requestFixture({ status: 'Rejected', statusReason: null })],
+    [requestFixture({ statusReason: 'Unexpected browser reason' })],
+    [requestFixture({ startsAt: '2026-09-01T08:00:00+02:00' })],
+    [requestFixture({ internalParticipants: 1.5 })],
+    [requestFixture(), requestFixture()],
+  ];
+  for (const requests of invalidCollections) {
+    const api = apiWithResponses(new Map([[
+      DOMAIN_ENDPOINTS.requests,
+      { schemaVersion: 1, requests },
+    ]]));
+    await assert.rejects(
+      createProductionPersistence({ apiClient: api.client }).listRequests(),
+      (error) => error instanceof ProductionPersistenceError
+        && error.code === 'PRODUCTION_REQUESTS_INVALID',
+    );
+  }
+});
+
+test('production request response accepts the backend nullable room reference without inventing a replacement', async () => {
+  const api = apiWithResponses(new Map([[
+    DOMAIN_ENDPOINTS.requests,
+    { schemaVersion: 1, requests: [requestFixture({ roomId: null })] },
+  ]]));
+  const [request] = await createProductionPersistence({ apiClient: api.client }).listRequests();
+  assert.equal(request.roomId, null);
+});
+
+test('production catalog and request envelopes reject unknown response fields', async () => {
+  const catalogApi = apiWithResponses(new Map([[
+    DOMAIN_ENDPOINTS.catalog,
+    { schemaVersion: 1, catalog: catalogFixture(), tenantId: 'injected' },
+  ]]));
+  await assert.rejects(
+    createProductionPersistence({ apiClient: catalogApi.client }).loadCatalog(),
+    (error) => error.code === 'PRODUCTION_CATALOG_INVALID',
+  );
+
+  const requestApi = apiWithResponses(new Map([[
+    DOMAIN_ENDPOINTS.requests,
+    { schemaVersion: 1, requests: [requestFixture()], requesterUserId: 'injected' },
+  ]]));
+  await assert.rejects(
+    createProductionPersistence({ apiClient: requestApi.client }).listRequests(),
+    (error) => error.code === 'PRODUCTION_REQUESTS_INVALID',
+  );
+});
+
 test('production writes use explicit API operations and propagate authoritative failure', async () => {
   const api = apiWithResponses(new Map([
     [DOMAIN_ENDPOINTS.requests, ({ method }) => {
       assert.equal(method, 'POST');
-      return { schemaVersion: 1, request: { id: 'CR-2026-100001', status: 'Submitted' } };
+      return { schemaVersion: 1, request: requestFixture() };
     }],
     ['v1/requests/CR-2026-100001/transitions', new Error('database unavailable')],
   ]));

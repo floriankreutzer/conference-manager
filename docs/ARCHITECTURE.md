@@ -278,7 +278,7 @@ Parallel active business implementations are prohibited. Temporary compatibility
 
 ## Security boundaries
 
-The application remains a static demo. The modular architecture does not turn client-side role checks into authorization. Production authentication/authorization requirements remain defined in `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md`.
+The default GitHub Pages deployment remains an explicitly selected static demo. The repository also contains a separate production browser path backed by the same-origin API. Neither modularity nor client-side presentation checks are authorization: production authority stays in the backend, and the browser must never fall back to demo storage or demo implementations. Production authentication/authorization requirements remain defined in `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md`.
 
 CSP, safe DOM creation, defensive storage, safe URL handling, API restrictions, secret scanning, dependency review and SAST-style checks remain unchanged or stronger.
 

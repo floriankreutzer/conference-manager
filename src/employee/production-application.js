@@ -1,6 +1,10 @@
-import { t } from '../core/i18n.js';
+import { locale, t } from '../core/i18n.js';
 import { button, clear, el, field, showToast } from '../core/ui.js';
-import { productionUtcInstant } from './production-time.js';
+import {
+  formatProductionDateTime,
+  isProductionTimeZone,
+  productionUtcInstant,
+} from '../core/production-time.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested']);
 const MAX_PARTICIPANTS = 500;
@@ -23,13 +27,27 @@ function roomLabel(room) {
   return capacity ? `${room.name} · ${capacity}` : String(room.name || room.id);
 }
 
+function roomTimeZone(room, catalog) {
+  const site = catalog.sites?.find((entry) => entry.id === room?.siteId);
+  return site?.timeZone || null;
+}
+
 function requestCard(request, catalog, onCancel) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId);
+  const timeZone = roomTimeZone(room, catalog);
+  const startsAt = formatProductionDateTime(request.startsAt, { locale: locale(), timeZone });
+  const endsAt = formatProductionDateTime(request.endsAt, { locale: locale(), timeZone });
   const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
-  const article = el('article', { className: 'request-card' }, [
+  const article = el('article', {
+    className: 'request-card',
+    dataset: { productionRequestId: request.id },
+    attrs: { tabindex: '-1' },
+  }, [
     el('h3', { text: t('production.common.requestId', { id: request.id }) }),
     el('p', { text: room ? roomLabel(room) : request.roomId }),
-    el('p', { text: `${request.startsAt} – ${request.endsAt}` }),
+    el('p', {
+      text: startsAt && endsAt ? `${startsAt} – ${endsAt}` : t('production.common.timeUnavailable'),
+    }),
     el('p', { text: t('production.common.participants', { count: participants }) }),
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
@@ -44,7 +62,11 @@ function requestCard(request, catalog, onCancel) {
 
 export function createProductionEmployeeApplication({ appRoot, setPageHeading, persistence } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_EMPLOYEE_UI_REQUIRED');
-  if (!persistence || typeof persistence.loadCatalog !== 'function') {
+  if (
+    !persistence
+    || typeof persistence.loadCatalog !== 'function'
+    || typeof persistence.checkRoomAvailability !== 'function'
+  ) {
     throw new TypeError('PRODUCTION_PERSISTENCE_REQUIRED');
   }
 
@@ -84,8 +106,35 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
     const end = el('input', { attrs: { type: 'time' } });
     const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: '1' } });
     const external = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: '0' } });
-    const status = el('p', { className: 'muted', attrs: { role: 'status', 'aria-live': 'polite' } });
-    const submit = button(t('production.employee.submit'), { className: 'primary' });
+    const status = el('p', {
+      className: 'muted',
+      attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+    });
+    const checkAvailability = button(t('production.employee.checkAvailability'));
+    const submit = button(t('production.employee.submit'), { className: 'primary', disabled: true });
+    let verifiedAvailabilityKey = null;
+    let availabilityGeneration = 0;
+
+    const currentAvailabilityWindow = () => {
+      const selectedRoom = catalog.rooms.find((entry) => entry.id === room.value);
+      const timeZone = roomTimeZone(selectedRoom, catalog);
+      const startsAt = productionUtcInstant(date.value, start.value, timeZone);
+      const endsAt = productionUtcInstant(date.value, end.value, timeZone);
+      if (!selectedRoom || !startsAt || !endsAt || Date.parse(endsAt) <= Date.parse(startsAt)) return null;
+      return Object.freeze({ roomId: selectedRoom.id, startsAt, endsAt });
+    };
+    const availabilityKey = (window) => window
+      ? `${window.roomId}|${window.startsAt}|${window.endsAt}`
+      : null;
+    const invalidateAvailability = () => {
+      availabilityGeneration += 1;
+      verifiedAvailabilityKey = null;
+      checkAvailability.disabled = false;
+      submit.disabled = true;
+      status.className = 'muted';
+      status.textContent = t('production.employee.availabilityRequired');
+    };
+    [room, date, start, end].forEach((control) => control.addEventListener('input', invalidateAvailability));
 
     root.append(
       field({ id: 'productionRoom', label: t('production.employee.room'), control: room, required: true }),
@@ -95,21 +144,65 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
       field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
       status,
-      el('div', { className: 'button-row' }, [submit]),
+      el('div', { className: 'button-row' }, [checkAvailability, submit]),
     );
+    invalidateAvailability();
+
+    checkAvailability.addEventListener('click', async () => {
+      const selectedRoom = catalog.rooms.find((entry) => entry.id === room.value);
+      if (selectedRoom && !isProductionTimeZone(roomTimeZone(selectedRoom, catalog))) {
+        status.className = 'error-box';
+        status.textContent = t('production.employee.timeZoneUnavailable');
+        return;
+      }
+      const window = currentAvailabilityWindow();
+      if (!window || Date.parse(window.startsAt) <= Date.now()) {
+        status.className = 'error-box';
+        status.textContent = t('production.employee.validation');
+        return;
+      }
+      const generation = ++availabilityGeneration;
+      const key = availabilityKey(window);
+      verifiedAvailabilityKey = null;
+      submit.disabled = true;
+      checkAvailability.disabled = true;
+      status.className = 'muted';
+      status.textContent = t('production.employee.checkingAvailability');
+      try {
+        const result = await persistence.checkRoomAvailability(window);
+        if (generation !== availabilityGeneration || key !== availabilityKey(currentAvailabilityWindow())) return;
+        if (!result.available) {
+          status.className = 'error-box';
+          status.textContent = t('production.employee.availabilityOccupied');
+          return;
+        }
+        verifiedAvailabilityKey = key;
+        submit.disabled = false;
+        status.className = 'info-box';
+        status.textContent = t('production.employee.availabilityAvailable');
+      } catch {
+        if (generation !== availabilityGeneration) return;
+        status.className = 'error-box';
+        status.textContent = t('production.employee.availabilityError');
+      } finally {
+        if (generation === availabilityGeneration) checkAvailability.disabled = false;
+      }
+    });
 
     submit.addEventListener('click', async () => {
-      const startsAt = productionUtcInstant(date.value, start.value);
-      const endsAt = productionUtcInstant(date.value, end.value);
+      const window = currentAvailabilityWindow();
       const internalParticipants = safeParticipantCount(internal.value);
       const externalParticipants = safeParticipantCount(external.value);
       const total = Number(internalParticipants) + Number(externalParticipants);
-      const valid = room.value && startsAt && endsAt && Date.parse(endsAt) > Date.parse(startsAt)
-        && Date.parse(startsAt) > Date.now() && internalParticipants !== null
+      const valid = window && availabilityKey(window) === verifiedAvailabilityKey
+        && Date.parse(window.startsAt) > Date.now() && internalParticipants !== null
         && externalParticipants !== null && total >= 1 && total <= MAX_PARTICIPANTS;
       if (!valid) {
-        status.textContent = t('production.employee.validation');
+        status.textContent = window && availabilityKey(window) !== verifiedAvailabilityKey
+          ? t('production.employee.availabilityRequired')
+          : t('production.employee.validation');
         status.className = 'error-box';
+        submit.disabled = true;
         return;
       }
       submit.disabled = true;
@@ -117,19 +210,21 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       status.textContent = t('production.employee.submitting');
       try {
         await persistence.createRequest({
-          roomId: room.value,
-          startsAt,
-          endsAt,
+          roomId: window.roomId,
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
           internalParticipants,
           externalParticipants,
         });
         status.textContent = t('production.employee.submitted');
         showToast(t('production.employee.submitted'));
+        verifiedAvailabilityKey = null;
       } catch (error) {
+        verifiedAvailabilityKey = null;
         status.className = 'error-box';
         status.textContent = errorMessage(error);
       } finally {
-        submit.disabled = false;
+        submit.disabled = availabilityKey(currentAvailabilityWindow()) !== verifiedAvailabilityKey;
       }
     });
   }
@@ -142,7 +237,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
     ]);
     appRoot.appendChild(root);
 
-    async function refresh() {
+    async function refresh(focusRequestId = null) {
       clear(root);
       root.appendChild(el('p', { className: 'muted', text: t('production.common.loading') }));
       try {
@@ -161,12 +256,19 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
             try {
               await persistence.transitionRequest(requestId, { transition: 'cancel' });
               showToast(t('production.employee.cancelled'));
-              await refresh();
+              await refresh(requestId);
             } catch (error) {
               control.disabled = false;
               showToast(errorMessage(error));
             }
           }));
+        }
+        if (focusRequestId) {
+          requestAnimationFrame(() => {
+            [...root.querySelectorAll('[data-production-request-id]')]
+              .find((card) => card.dataset.productionRequestId === focusRequestId)
+              ?.focus();
+          });
         }
       } catch {
         clear(root);
