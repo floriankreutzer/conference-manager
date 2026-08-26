@@ -1,34 +1,11 @@
 import { t } from '../core/i18n.js';
 import { button, clear, el } from '../core/ui.js';
+import {
+  tenantAdminHashForSection,
+  tenantAdminSectionFromHash,
+} from './route.js';
 
 const OVERVIEW_ID = 'overview';
-const ROUTE_PREFIX = '#tenant-admin/';
-
-function sectionIds(sections) {
-  return new Set(sections.filter((section) => section.available).map((section) => section.id));
-}
-
-export function tenantAdminSectionFromHash(hash, sections) {
-  const availableIds = sectionIds(sections);
-  const raw = String(hash || '');
-  if (!raw.startsWith(ROUTE_PREFIX)) return OVERVIEW_ID;
-  let candidate = '';
-  try {
-    candidate = decodeURIComponent(raw.slice(ROUTE_PREFIX.length).split(/[?#]/, 1)[0]);
-  } catch {
-    return OVERVIEW_ID;
-  }
-  return availableIds.has(candidate) ? candidate : OVERVIEW_ID;
-}
-
-export function tenantAdminHashForSection(sectionId) {
-  const normalized = String(sectionId || OVERVIEW_ID);
-  return `${ROUTE_PREFIX}${encodeURIComponent(normalized)}`;
-}
-
-export function isTenantAdminRoute(hash = globalThis.location?.hash) {
-  return /^#tenant-admin(?:\/|$)/.test(String(hash || ''));
-}
 
 export function createTenantAdminSettingsShell({
   appRoot,

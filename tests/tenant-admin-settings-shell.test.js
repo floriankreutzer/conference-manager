@@ -5,7 +5,7 @@ import { TENANT_ADMIN_SETTINGS_MESSAGES } from '../src/core/i18n-tenant-admin-se
 import {
   tenantAdminHashForSection,
   tenantAdminSectionFromHash,
-} from '../src/tenant-admin/settings-shell.js';
+} from '../src/tenant-admin/route.js';
 import {
   TENANT_ADMIN_SECTION_PERMISSION,
   defineTenantAdminSection,
@@ -42,6 +42,7 @@ test('Tenant Admin direct routes restore only registered and available sections'
     tenantAdminSectionFromHash('#tenant-admin/%E0%A4%A', sections),
     'overview',
   );
+  assert.equal(tenantAdminSectionFromHash('#tenant-admin/users', null), 'overview');
 });
 
 test('Tenant Admin route generation is bounded to a hash route', () => {

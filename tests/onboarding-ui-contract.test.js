@@ -7,9 +7,15 @@ import { createMicrosoft365OnboardingRuntime } from '../src/platform/microsoft36
 const WIZARD_SOURCE = new URL('../src/tenant-admin/onboarding-wizard.js', import.meta.url);
 const RUNTIME_SOURCE = new URL('../src/platform/microsoft365-onboarding-runtime.js', import.meta.url);
 const APP_LAYOUT = new URL('../assets/app-layout.css', import.meta.url);
+const APP_LAYOUT_FOUNDATION = new URL('../assets/app-layout-foundation.css', import.meta.url);
 
-test('Tenant onboarding owns its responsive presentation in the application layout stylesheet', async () => {
-  const layout = await readFile(APP_LAYOUT, 'utf8');
+test('Tenant onboarding remains owned by the composed application layout contract', async () => {
+  const [manifest, layout] = await Promise.all([
+    readFile(APP_LAYOUT, 'utf8'),
+    readFile(APP_LAYOUT_FOUNDATION, 'utf8'),
+  ]);
+  assert.match(manifest, /@import url\('\.\/app-layout-foundation\.css'\);/);
+  assert.match(manifest, /@import url\('\.\/tenant-admin-settings\.css'\);/);
   for (const selector of [
     '.tenant-onboarding',
     '.onboarding-progress',

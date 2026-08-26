@@ -7,7 +7,7 @@ import {
   isTenantAdminRoute,
   tenantAdminHashForSection,
   tenantAdminSectionFromHash,
-} from './settings-shell.js';
+} from './route.js';
 
 export {
   createDemoOnboarding,
