@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { TENANT_ADMIN_SETTINGS_MESSAGES } from '../src/core/i18n-tenant-admin-settings-messages.js';
 import {
+  clearTenantAdminRoute,
   tenantAdminHashForSection,
   tenantAdminSectionFromHash,
 } from '../src/tenant-admin/route.js';
@@ -51,6 +52,39 @@ test('Tenant Admin route generation is bounded to a hash route', () => {
     tenantAdminHashForSection('booking-policies'),
     '#tenant-admin/booking-policies',
   );
+});
+
+test('Tenant Admin route cleanup removes only Tenant Admin hashes and preserves the document URL', () => {
+  const replacements = [];
+  const history = {
+    replaceState(state, title, url) {
+      replacements.push({ state, title, url });
+    },
+  };
+
+  assert.equal(clearTenantAdminRoute({
+    history,
+    location: {
+      hash: '#tenant-admin/users',
+      pathname: '/conference-manager/',
+      search: '?mode=demo',
+    },
+  }), true);
+  assert.deepEqual(replacements, [{
+    state: null,
+    title: '',
+    url: '/conference-manager/?mode=demo',
+  }]);
+
+  assert.equal(clearTenantAdminRoute({
+    history,
+    location: {
+      hash: '#employee',
+      pathname: '/conference-manager/',
+      search: '?mode=demo',
+    },
+  }), false);
+  assert.equal(replacements.length, 1);
 });
 
 test('Tenant Admin settings localization stays synchronized in German and English', () => {
