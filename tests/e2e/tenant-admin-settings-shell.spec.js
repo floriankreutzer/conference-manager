@@ -15,22 +15,22 @@ test('Tenant Admin shell provides authorized direct navigation, keyboard focus a
 
   await page.locator('#primaryNavigation button[data-view="tenantAdmin"]').click();
   await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Übersicht' })).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="overview"] h2')).toHaveText('Übersicht');
   await expect(page.locator('[data-tenant-admin-section="users"]')).toHaveCount(1);
   await expect(page.locator('[data-tenant-admin-section="microsoft365"]')).toHaveCount(1);
   await expect(page.locator('[data-tenant-admin-section="organization"]')).toHaveCount(0);
 
   await page.locator('[data-tenant-admin-section="users"]').click();
   await expect(page).toHaveURL(/#tenant-admin\/users$/);
-  await expect(page.getByRole('heading', { name: 'Benutzer & Rollen' })).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Benutzer & Rollen');
 
   await page.reload();
   await expect(page.locator('[data-tenant-admin-section-content="users"]')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Benutzer & Rollen' })).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Benutzer & Rollen');
 
   await page.locator('[data-tenant-admin-section="microsoft365"]').focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'Microsoft 365' })).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="microsoft365"] h2')).toHaveText('Microsoft 365');
 
   await page.setViewportSize({ width: 390, height: 844 });
   const shellBox = await page.locator('[data-tenant-admin-shell]').boundingBox();
