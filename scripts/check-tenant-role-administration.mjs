@@ -89,22 +89,34 @@ for (const required of [
   if (!shell.includes(required)) throw new Error(`Application shell is missing Tenant Admin separation ${required}.`);
 }
 
-const application = await readFile('src/tenant-admin/application.js', 'utf8');
+const userSection = await readFile('src/tenant-admin/sections/users/index.js', 'utf8');
 for (const required of [
   'context.userId()',
   'context.isDemoRuntime()',
   'elevatedRolesFromUser',
   'canSelectRole',
-  'userAdministration.setRoles(user.id, currentSelection(controls))',
+  'adapter.setRoles(user.id, currentSelection(controls))',
   "dataset: { tenantRoleAction: 'save' }",
   "'aria-labelledby': headingId",
   "tabindex: '-1'",
   "attrs: { 'aria-live': 'polite' }",
 ]) {
-  if (!application.includes(required)) throw new Error(`Tenant Admin UI is missing ${required}.`);
+  if (!userSection.includes(required)) throw new Error(`Tenant Admin User section is missing ${required}.`);
 }
 for (const forbidden of ['innerHTML', 'tenantId', 'platform_admin', 'localStorage', 'sessionStorage']) {
-  if (application.includes(forbidden)) throw new Error(`Tenant Admin UI contains forbidden ${forbidden}.`);
+  if (userSection.includes(forbidden)) throw new Error(`Tenant Admin User section contains forbidden ${forbidden}.`);
+}
+
+const application = await readFile('src/tenant-admin/application.js', 'utf8');
+for (const required of [
+  'createTenantAdminSectionRegistry',
+  'createTenantAdminSettingsShell',
+  'sectionAdapters',
+]) {
+  if (!application.includes(required)) throw new Error(`Tenant Admin composition is missing ${required}.`);
+}
+for (const forbidden of ['innerHTML', 'tenantId', 'platform_admin', 'localStorage', 'sessionStorage']) {
+  if (application.includes(forbidden)) throw new Error(`Tenant Admin composition contains forbidden ${forbidden}.`);
 }
 
 const app = await readFile('src/app.js', 'utf8');
@@ -132,7 +144,7 @@ for (const key of [
   if (occurrences !== 2) throw new Error(`Tenant Admin localization key ${key} must exist exactly once in DE and EN.`);
 }
 
-const css = await readFile('assets/app-layout.css', 'utf8');
+const css = await readFile('assets/app-layout-foundation.css', 'utf8');
 for (const required of [
   '.tenant-user-grid',
   '.tenant-user-card',
