@@ -58,3 +58,17 @@ test('Tenant Admin shell provides authorized direct navigation, keyboard focus a
   await expect(page.locator('#primaryNavigation button[data-view="welcome"]')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
 });
+
+test('Unauthorized Tenant Admin deep links are cleared without exposing the settings shell', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('conference_demo_role_v1', 'employee');
+  });
+  await page.goto('/#tenant-admin/users');
+
+  await expect(page.locator('html')).toHaveAttribute('data-app-build', /\S+/);
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue('employee');
+  await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="welcome"]')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
+  await expect(page).not.toHaveURL(/#tenant-admin(?:\/|$)/);
+});
