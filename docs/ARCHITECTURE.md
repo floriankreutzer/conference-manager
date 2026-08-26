@@ -54,9 +54,27 @@ src/
 │   └── Manager experience enhancements
 ├── tenant-admin/
 │   ├── index.js                   # public Tenant Admin API
-│   ├── application.js             # accessible user/role administration UI
-│   ├── demo-user-administration.js# isolated demo-only example adapter
-│   └── user-role-model.js         # testable elevated-role selection rules
+│   ├── application.js             # settings-shell composition/orchestration
+│   ├── settings-shell.js          # authorized settings navigation/focus/error orchestration
+│   ├── section-registry.js        # bounded section registration/visibility
+│   ├── section-contract.js        # section contract validation
+│   ├── section-presentation.js    # shared Tenant Admin section presentation
+│   ├── route.js                   # bounded Tenant Admin hash route helpers
+│   ├── demo-onboarding.js         # isolated demo-only onboarding adapter
+│   ├── demo-user-administration.js# isolated demo-only User administration adapter
+│   ├── onboarding-error.js
+│   ├── onboarding-wizard.js       # existing Microsoft 365 onboarding presentation
+│   ├── user-role-model.js         # testable elevated-role selection rules
+│   └── sections/
+│       ├── organization/index.js
+│       ├── locations/index.js
+│       ├── catalog/index.js
+│       ├── booking-policies/index.js
+│       ├── cost-allocation/index.js
+│       ├── users/index.js
+│       ├── microsoft365/index.js
+│       ├── capabilities/index.js
+│       └── audit/index.js
 ├── platform/
 │   ├── app-shell.js               # shell/navigation/profile/help routing
 │   ├── application-context.js     # shared profile/catalog/site/request context
@@ -85,7 +103,8 @@ The former flat `src/features` directory is not part of the modular architecture
 
 - application bootstrap;
 - top-level dependency composition;
-- Employee and Manager capability initialization through their public APIs;
+- Employee, Manager and Tenant Admin capability initialization through their public APIs;
+- Production/Demo adapter selection and injection at the owning architectural boundary;
 - application-shell initialization;
 - global application event registration;
 - top-level orchestration between explicit contracts;
@@ -141,18 +160,30 @@ Manager internals are private. Manager-to-Employee collaboration is permitted on
 
 ### `src/tenant-admin`
 
-Tenant Admin owns the Tenant-scoped user and elevated-role administration capability behind `src/tenant-admin/index.js`.
+Tenant Admin owns the Tenant self-service settings capability behind `src/tenant-admin/index.js`. The SaaS 2 implementation is a bounded settings shell rather than a combined User/Microsoft administration surface. Detailed permanent section-boundary rules are documented in `docs/SAAS2-MODULAR-BOUNDARIES.md`.
 
-`application.js` owns the accessible responsive presentation and delegates all production reads/writes to the injected Platform API adapter. `user-role-model.js` owns independently testable role-selection rules. `demo-user-administration.js` is an isolated in-memory example adapter and must never create a production session, call the API or persist browser authority.
+`application.js` composes the Tenant Admin section registry and settings shell. The shell and registry own only section registration, authorized visibility/navigation, shared headings, explicit-navigation focus, and loading/empty/error orchestration. They must not contain organization, catalogue, booking-policy, cost-allocation, Microsoft lifecycle, audit or User lifecycle business decisions.
 
-The production capability is available only when the validated server session contains the `tenant_admin` role and `tenant:users:manage` permission. It does not imply Conference Manager capability. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
+Each settings domain is owned below `src/tenant-admin/sections/<section-id>/` and exposes its section through that directory's `index.js`. Section internals must not import one another. Cross-section collaboration must use explicit injected contracts rather than private implementation access.
+
+The `users` section preserves the existing Tenant-scoped User/elevated-role administration capability. `user-role-model.js` remains the independently testable elevated-role selection model and Production reads/writes continue through the injected Platform Tenant User API adapter. `demo-user-administration.js` is an isolated in-memory Demo adapter and must never create a Production session, call the Production API or persist browser authority.
+
+The `microsoft365` section preserves the existing Microsoft 365 onboarding and connection behavior. `onboarding-wizard.js`, the onboarding error model and the onboarding runtime selected through the public Tenant Admin API remain the owned implementation; the section composes those existing contracts rather than duplicating lifecycle operations.
+
+The Composition Root selects Production or Demo section adapters and injects them into Tenant Admin. Production authorization remains authoritative in the trusted backend/server-session path; section visibility is presentation behavior only. A failed or unauthorized Production path must never select Demo adapters or browser-stored Tenant authority.
+
+Tenant Admin uses bounded hash routes in the form `#tenant-admin/<section>`. Authorized routes may restore the selected Tenant Admin section on reload. When the final resolved top-level view changes away from Tenant Admin, the Tenant Admin hash is removed so a later reload does not reopen a view the user already left. The application shell exposes only a generic view-change callback; `src/app.js` composes Tenant Admin route cleanup through the public Tenant Admin route helper. Platform does not import Tenant Admin internals.
+
+Explicit Tenant Admin section navigation moves focus to the target section heading. Section-internal rerenders retain section-owned focus, including post-save restoration to the updated User card. This focus ownership is part of the observable accessibility contract and is regression protected.
+
+The Production Tenant Admin capability is available only when the validated server session grants the required Tenant Admin role/permissions for the relevant section. Tenant Admin capability does not imply Conference Manager capability or Platform Operator authority. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
 
 ### `src/platform`
 
 Platform contains application-wide composition and infrastructure-facing concerns rather than Employee/Manager business logic.
 
 - `application-context.js` owns loading/access to profile, catalog, site information, requests and demo role state through the existing core persistence contracts.
-- `app-shell.js` owns shell navigation, welcome view, profile/help dialogs and top-level view orchestration. It receives Employee/Manager application contracts from `src/app.js` rather than importing capability internals.
+- `app-shell.js` owns shell navigation, welcome view, profile/help dialogs and top-level view orchestration. It receives Employee/Manager/Tenant Admin application contracts from `src/app.js` rather than importing capability internals. Its optional view-change callback is generic and must not encode Tenant Admin routing rules.
 - `production-session.js` owns the bounded, fail-closed production session bootstrap and in-memory CSRF runtime.
 - `tenant-user-administration-api.js` owns validated, cursor-paginated Tenant User reads and allowlisted elevated-role writes through the shared same-origin API client.
 - identity bootstrap, demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
@@ -181,12 +212,13 @@ Public module APIs are explicit:
 
 - Employee: `src/employee/index.js`, including `createEmployeeApplication` plus the existing Employee enhancement exports.
 - Manager: `src/manager/index.js`, including `createManagerApplication` plus the existing Manager enhancement exports.
-- Tenant Admin: `src/tenant-admin/index.js`, exposing the Tenant Admin application and isolated demo adapter factories.
+- Tenant Admin: `src/tenant-admin/index.js`, exposing `createTenantAdminApplication`, `createTenantAdminOnboardingRuntime`, the isolated Demo onboarding/User-administration factories, and the bounded route helpers `clearTenantAdminRoute`, `isTenantAdminRoute`, `tenantAdminHashForSection` and `tenantAdminSectionFromHash`.
 
 The application factories return capability contracts consumed by Platform composition:
 
 - Employee runtime contract: request rendering, request-list rendering, draft restore/query/save behavior.
 - Manager runtime contract: Manager application rendering.
+- Tenant Admin runtime contract: modular settings-shell rendering through injected section adapters; Microsoft onboarding/runtime and route helpers remain explicit public contracts rather than Platform-owned behavior.
 
 Cross-capability rendering is handled by Shared presentation contracts. A consumer outside a capability must not import a private capability implementation file.
 
@@ -201,7 +233,7 @@ Composition
         -> approved Core / Platform infrastructure contracts
 ```
 
-`request-session.js`, `request-lifecycle.js`, `booking-lifecycle.js` and `reporting.js` must remain independent of browser rendering APIs. Rendering/application modules may consume those rules, not the reverse.
+`request-session.js`, `request-lifecycle.js`, `booking-lifecycle.js`, `reporting.js` and Tenant Admin's independently testable role/route rules must remain independent of unrelated browser rendering responsibilities. Rendering/application modules may consume those rules, not the reverse.
 
 Significant business rules should be independently testable where practical and must not be buried unnecessarily inside DOM event callbacks, large rendering functions, browser-storage handlers or the Composition Root.
 
@@ -288,7 +320,7 @@ Architecture changes must not bypass security wrappers, validation, authorizatio
 
 ## Architecture enforcement
 
-`npm run check:architecture` executes the repository architecture gate and `scripts/check-modular-runtime.mjs`.
+`npm run check:architecture` executes the repository architecture gate, `scripts/check-modular-runtime.mjs` and the SaaS 2 boundary enforcement used for the modular Tenant Admin settings architecture.
 
 Together they enforce, among other controls:
 
@@ -296,6 +328,9 @@ Together they enforce, among other controls:
 - absence of the former `src/features` directory;
 - `src/app.js` Composition Root dependency restrictions;
 - Employee and Manager public facades;
+- Tenant Admin section identities, public section contracts and private section boundaries;
+- rejection of cross-section Tenant Admin imports and direct Tenant Admin section dependencies on Platform, Employee or Conference Manager internals;
+- rejection of Production-to-Demo dependency leakage in Tenant Admin composition;
 - public-API-only external capability consumption;
 - Employee/Manager implementation isolation;
 - Shared independence from Employee/Manager internals;
@@ -312,6 +347,8 @@ Together they enforce, among other controls:
 - circular ES-module dependency detection;
 - DAST fail-closed configuration;
 - design-system CSS ownership.
+
+The detailed SaaS 2 Tenant Admin constraints, including the approved section set and section-isolation expectations, are maintained in `docs/SAAS2-MODULAR-BOUNDARIES.md` and their corresponding architecture fixtures/checks. Architecture rules and their regression fixtures must change together.
 
 Architecture checks must represent architectural intent. Do not add arbitrary line-count or file-count gates. Filenames may be enforced when they are established public contracts/entry points. When a new meaningful boundary is introduced, assess whether the architecture gate must be extended.
 
