@@ -69,6 +69,7 @@ async function installProductionApplicationFixture(page, {
   roles = ['employee'],
   timeZone = 'Europe/Berlin',
   availabilityResponses = [{ available: true, conflictCount: 0 }],
+  requestCreateErrors = [],
   holdAvailability = false,
   holdSession = false,
   microsoft365 = null,
@@ -85,6 +86,7 @@ async function installProductionApplicationFixture(page, {
     ? new Promise((resolve) => { releaseAvailability = resolve; })
     : null;
   let availabilityIndex = 0;
+  let requestCreateIndex = 0;
 
   await page.route(`${ORIGIN}/**`, async (route) => {
     const request = route.request();
@@ -241,6 +243,16 @@ async function installProductionApplicationFixture(page, {
     if (url.pathname === '/api/v1/application/requests' && request.method() === 'POST') {
       const body = request.postDataJSON();
       writes.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
+      const createError = requestCreateErrors[requestCreateIndex];
+      requestCreateIndex += 1;
+      if (createError) {
+        await route.fulfill({
+          status: createError.status,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: createError.code, requestId: 'fixture-request' } }),
+        });
+        return;
+      }
       const created = {
         id: REQUEST_ID,
         roomId: body.roomId,
@@ -374,6 +386,31 @@ test('Employee production flow uses server catalog and CSRF-protected request pe
     csrf: CSRF_TOKEN,
     body: { transition: 'cancel' },
   });
+});
+
+test('Employee production flow invalidates availability after request creation fails', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    requestCreateErrors: [{ status: 409, code: 'REQUEST_CONFLICT' }],
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await page.locator('#productionRoom').selectOption('room-a');
+  await page.locator('#productionDate').fill(futureDate());
+  await page.locator('#productionStart').fill('09:00');
+  await page.locator('#productionEnd').fill('10:00');
+  await page.locator('#productionInternal').fill('1');
+
+  const availability = page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' });
+  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
+  await availability.click();
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect(submit).toBeDisabled();
+
+  await availability.click();
+  await expect(submit).toBeEnabled();
+  expect(fixture.availabilityChecks).toHaveLength(2);
+  expect(fixture.writes).toHaveLength(1);
 });
 
 test('Employee production flow exposes occupied, transport-error, and available states', async ({ page }) => {

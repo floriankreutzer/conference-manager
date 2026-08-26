@@ -220,6 +220,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
         showToast(t('production.employee.submitted'));
         verifiedAvailabilityKey = null;
       } catch (error) {
+        verifiedAvailabilityKey = null;
         status.className = 'error-box';
         status.textContent = errorMessage(error);
       } finally {
