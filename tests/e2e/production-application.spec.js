@@ -727,6 +727,7 @@ test('production onboarding explains permissions and maps admin, revoked and Gra
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
+  await page.locator('[data-tenant-admin-section="microsoft365"]').click();
   const onboarding = page.locator('[data-tenant-onboarding]');
 
   await expect(onboarding.getByText(/Place\.Read\.All.*Places-Lesezugriff/)).toBeVisible();
