@@ -36,10 +36,10 @@ test('demo role switch exposes Employee, Conference Manager, and Tenant Admin as
   await tenantAdminNavigation.click();
   await expect(page.locator('#viewTitle')).toHaveText('Tenant Administration');
   await expect(page.locator('#viewTitle')).toBeFocused();
-  await expect(page.getByRole('heading', { name: 'Übersicht' })).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="overview"] h2')).toHaveText('Übersicht');
 
   await page.locator('[data-tenant-admin-section="users"]').click();
-  await expect(page.getByRole('heading', { name: 'Benutzer & Rollen' })).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Benutzer & Rollen');
 
   const employeeCard = page.locator('[data-tenant-user-id="demo-employee"]');
   await expect(employeeCard).toContainText('David Chen');
