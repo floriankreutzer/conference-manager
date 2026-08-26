@@ -5,6 +5,7 @@ async function startAsTenantAdmin(page) {
     localStorage.setItem('conference_demo_role_v1', 'tenant_admin');
   });
   await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-app-build', /\S+/);
   await expect(page.locator('#demoRoleSwitch')).toHaveValue('tenant_admin');
   await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(1);
 }
