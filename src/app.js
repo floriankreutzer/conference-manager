@@ -117,6 +117,7 @@ async function bootstrap() {
     shell.setView('tenantAdmin');
     document.documentElement.dataset.appBuild = APP_BUILD;
   } else {
+    if (isTenantAdminRoute()) clearTenantAdminRoute();
     render();
   }
 }
