@@ -7,7 +7,7 @@
     "check:syntax": "node scripts/check-syntax.mjs",
     "check:agents": "node scripts/check-agent-instructions.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "check:architecture": "node scripts/check-architecture.mjs && node scripts/check-modular-runtime.mjs",
+    "check:architecture": "node scripts/check-architecture.mjs && node scripts/check-modular-runtime.mjs && node scripts/check-saas2-module-boundaries.mjs",
     "check:persistence": "node scripts/check-production-persistence.mjs",
     "check:roles": "node scripts/check-tenant-role-administration.mjs",
     "check:static": "node scripts/check-static.mjs",
