@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 async function selectTenantAdmin(page) {
-  const reloadPromise = page.waitForEvent('load');
   await page.locator('#demoRoleSwitch').selectOption('tenant_admin');
-  await reloadPromise;
+  await expect(page.locator('#demoRoleSwitch')).toHaveValue('tenant_admin');
+  await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(1);
 }
 
 test('Tenant Admin shell provides authorized direct navigation, keyboard focus and responsive sections', async ({ page }) => {
