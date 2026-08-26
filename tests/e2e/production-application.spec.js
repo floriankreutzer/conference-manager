@@ -570,7 +570,9 @@ test('confirmed-booking dialog retains an inactive booked room and blocks combin
   await dialog.locator(`#changeExternal-${REQUEST_ID}`).fill('1');
   await dialog.getByRole('button', { name: 'Änderung einreichen' }).click();
 
-  await expect(dialog.getByRole('alert')).toContainText('Bitte prüfen Sie Raum, Zeitraum und Teilnehmendenzahlen.');
+  await expect(dialog.getByRole('alert')).toContainText(
+    'Bitte wählen Sie einen Raum, ein gültiges zukünftiges Zeitfenster und mindestens eine teilnehmende Person.',
+  );
   expect(fixture.writes).toHaveLength(0);
 });
 
