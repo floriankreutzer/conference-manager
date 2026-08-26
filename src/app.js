@@ -11,13 +11,14 @@ import { createAppShell, renderAppBootstrapLoading } from './platform/app-shell.
 import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
+  clearTenantAdminRoute,
   createDemoTenantUserAdministration,
   createTenantAdminApplication,
   createTenantAdminOnboardingRuntime,
   isTenantAdminRoute,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.26.69';
+const APP_BUILD = '2026.08.27.70';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -95,6 +96,9 @@ async function bootstrap() {
     manager,
     tenantAdmin,
     authentication,
+    onViewChange: (nextView) => {
+      if (nextView !== 'tenantAdmin') clearTenantAdminRoute();
+    },
   });
 
   function render() {
