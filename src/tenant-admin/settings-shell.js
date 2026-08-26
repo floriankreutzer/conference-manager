@@ -124,10 +124,7 @@ export function createTenantAdminSettingsShell({
       generation: currentGeneration,
       isCurrent: () => generation === currentGeneration,
       rerender: render,
-    })).then(() => {
-      if (generation !== currentGeneration) return;
-      requestAnimationFrame(() => content.querySelector('h2')?.focus());
-    }).catch(() => {
+    })).catch(() => {
       if (generation !== currentGeneration) return;
       clear(content);
       content.appendChild(el('section', {
