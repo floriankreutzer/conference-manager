@@ -37,17 +37,25 @@ function pathSegments(file) {
   return normalized(file).split('/');
 }
 
+function semanticModuleName(segment) {
+  return String(segment).endsWith('.js') ? String(segment).slice(0, -3) : String(segment);
+}
+
 function sectionIdentity(file) {
   const match = normalized(file).match(/^src\/tenant-admin\/sections\/([^/]+)\//);
   return match?.[1] || null;
 }
 
 function isDemoModule(file) {
-  return pathSegments(file).some((segment) => segment === 'demo' || segment.startsWith('demo-'));
+  return pathSegments(file)
+    .map(semanticModuleName)
+    .some((segment) => segment === 'demo' || segment.startsWith('demo-'));
 }
 
 function isProductionModule(file) {
-  return pathSegments(file).some((segment) => segment === 'production' || segment.startsWith('production-'));
+  return pathSegments(file)
+    .map(semanticModuleName)
+    .some((segment) => segment === 'production' || segment.startsWith('production-'));
 }
 
 function violation(file, message) {
