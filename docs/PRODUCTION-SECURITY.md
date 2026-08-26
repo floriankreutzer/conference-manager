@@ -137,6 +137,7 @@ At minimum validate:
 - text lengths and allowed formats;
 - request identifiers and workflow transitions;
 - manager status-change reasons.
+- confirmed-booking proposal fields and manager approval/rejection reasons;
 
 Use parameterized database queries or an ORM that preserves parameter binding. Never construct SQL from user-controlled strings.
 
@@ -147,6 +148,8 @@ The final room availability check must be performed by the trusted backend in th
 Before the production Employee UI accepts a new Request, it also requires the same-origin availability endpoint to verify the exact current room and UTC window. Local wall time is converted only with the room site's authoritative IANA time zone from the Tenant catalog; the browser time zone and implicit UTC are forbidden fallbacks. Missing/invalid site configuration, a changed room/window, an occupied result or an unavailable provider all keep submission disabled. This improves user feedback and fails closed but does not replace the final server-side confirmation check or make browser state authoritative.
 
 The backend must prevent race conditions by using an appropriate database/calendar concurrency control, for example a transaction plus a uniqueness/exclusion constraint or another atomic reservation mechanism. A second concurrent request for the same room and overlapping time must fail deterministically rather than double-booking.
+
+Post-confirmation proposals remain server-authoritative. The browser cannot reserve the target while approval is pending, cannot create a second open proposal, cannot edit another User's proposal, and cannot mark provider work successful. Participant-only changes are applied only after server capacity validation. Schedule/room approval is Conference-Manager-only and notifications are displayed only after the backend reports successful application.
 
 External calendar calls must use fixed service endpoints and allowlisted destinations. User input must never control arbitrary outbound URLs, protecting the service against SSRF.
 

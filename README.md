@@ -17,6 +17,7 @@ The readiness status describes clarity, usability, responsive behavior, and regr
 - Final room validation against location, capacity, active status, and simulated calendar occupancy
 - Provisional reservation, confirmation, change request, rejection, and cancellation
 - Editing and resubmission of change requests
+- Server-authoritative post-confirmation room, schedule and participant changes with Conference Manager approval
 - Catering packages, individual options, separate catering participant count, and dietary requirements
 - Cost-center allocation with 0–100% validation and total validation
 - List, calendar, request history, guest information, and printable welcome view

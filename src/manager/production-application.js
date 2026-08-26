@@ -50,7 +50,9 @@ function requestSummary(request, catalog) {
     el('dt', { text: t('production.common.participants', { count: participants }) }),
     el('dd', { text: `${request.internalParticipants} / ${request.externalParticipants}` }),
     el('dt', { text: t('production.common.status') }),
-    el('dd', { text: t(`status.${request.status}`) }),
+    el('dd', { text: ['pending', 'applying', 'applied', 'rejected'].includes(request.status)
+      ? t(`production.bookingChange.status.${request.status}`)
+      : t(`status.${request.status}`) }),
   ]);
 }
 
@@ -60,6 +62,8 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
     !persistence
     || typeof persistence.listRequests !== 'function'
     || typeof persistence.loadCatalog !== 'function'
+    || typeof persistence.loadBookingChange !== 'function'
+    || typeof persistence.decideBookingChange !== 'function'
   ) {
     throw new TypeError('PRODUCTION_PERSISTENCE_REQUIRED');
   }
@@ -113,6 +117,41 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
     });
   }
 
+  function rejectChangeDialog(request, change, refresh) {
+    const textarea = el('textarea', { attrs: { maxlength: '1000' } });
+    const error = el('p', { className: 'field-error', attrs: { role: 'alert' } });
+    const cancel = button(t('common.cancel'));
+    const reject = button(t('production.bookingChange.reject'), { className: 'danger' });
+    const dialog = openDialog({
+      title: t('production.bookingChange.reject'),
+      content: el('section', {}, [
+        field({ id: `changeReject-${change.id}`, label: t('production.manager.reason'), control: textarea, required: true }),
+        error,
+      ]),
+      actions: [cancel, reject],
+      labelledById: `changeRejectTitle-${change.id}`,
+    });
+    cancel.addEventListener('click', () => dialog.close());
+    reject.addEventListener('click', async () => {
+      const reason = textarea.value.trim();
+      if (!reason) {
+        error.textContent = t('production.manager.reasonRequired');
+        textarea.focus();
+        return;
+      }
+      reject.disabled = true;
+      try {
+        await persistence.decideBookingChange(request.id, change.id, 'reject', reason);
+        dialog.close();
+        showToast(t('production.bookingChange.rejected'));
+        await refresh(request.id);
+      } catch (caught) {
+        reject.disabled = false;
+        showToast(errorMessage(caught));
+      }
+    });
+  }
+
   async function renderManager() {
     clear(appRoot);
     setPageHeading(t('production.manager.title'), t('production.manager.subtitle'));
@@ -129,6 +168,9 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
           persistence.loadCatalog(),
           persistence.listRequests(),
         ]);
+        const changes = await Promise.all(requests.map((request) => (
+          request.status === 'Confirmed' ? persistence.loadBookingChange(request.id) : null
+        )));
         clear(root);
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', refresh);
@@ -137,7 +179,8 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
           root.appendChild(el('p', { className: 'info-box', text: t('production.manager.none') }));
           return;
         }
-        for (const request of requests) {
+        for (const [index, request] of requests.entries()) {
+          const bookingChange = changes[index];
           const article = el('article', {
             className: 'request-card',
             dataset: { productionRequestId: request.id },
@@ -147,6 +190,41 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
             requestSummary(request, catalog),
           ]);
           if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
+          if (bookingChange) {
+            article.append(
+              el('h4', { text: t('production.bookingChange.pendingTitle') }),
+              requestSummary(bookingChange, catalog),
+            );
+            const approve = button(t('production.bookingChange.approve'), { className: 'primary' });
+            const reject = button(t('production.bookingChange.reject'), { className: 'danger' });
+            approve.addEventListener('click', async () => {
+              approve.disabled = true;
+              try {
+                const result = await persistence.decideBookingChange(
+                  request.id,
+                  bookingChange.id,
+                  'approve',
+                );
+                if (result.status === 'blocked') {
+                  const labels = result.alternatives.map((id) => roomLabel(
+                    catalog.rooms.find((room) => room.id === id),
+                  ) || id);
+                  showToast(labels.length
+                    ? t('production.bookingChange.blockedAlternatives', { alternatives: labels.join(', ') })
+                    : t('production.bookingChange.blocked'));
+                  approve.disabled = false;
+                  return;
+                }
+                showToast(t('production.bookingChange.applied'));
+                await refresh(request.id);
+              } catch (caught) {
+                approve.disabled = false;
+                showToast(errorMessage(caught));
+              }
+            });
+            reject.addEventListener('click', () => rejectChangeDialog(request, bookingChange, refresh));
+            article.appendChild(el('div', { className: 'button-row' }, [approve, reject]));
+          }
           const actions = ACTIONS_BY_STATUS[request.status] || [];
           if (actions.length) {
             const row = el('div', { className: 'button-row' });
