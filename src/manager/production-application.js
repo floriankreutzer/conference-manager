@@ -1,4 +1,5 @@
 import { locale, t } from '../core/i18n.js';
+import { loadOpenBookingChanges } from '../core/booking-change-loader.js';
 import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 
@@ -117,7 +118,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
     });
   }
 
-  function rejectChangeDialog(request, change, refresh) {
+  function rejectChangeDialog(request, change, refresh, beginDecision, endDecision) {
     const textarea = el('textarea', { attrs: { maxlength: '1000' } });
     const error = el('p', { className: 'field-error', attrs: { role: 'alert' } });
     const cancel = button(t('common.cancel'));
@@ -139,6 +140,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
         textarea.focus();
         return;
       }
+      if (!beginDecision()) return;
       reject.disabled = true;
       try {
         await persistence.decideBookingChange(request.id, change.id, 'reject', reason);
@@ -146,6 +148,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
         showToast(t('production.bookingChange.rejected'));
         await refresh(request.id);
       } catch (caught) {
+        endDecision();
         reject.disabled = false;
         showToast(errorMessage(caught));
       }
@@ -168,9 +171,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
           persistence.loadCatalog(),
           persistence.listRequests(),
         ]);
-        const changes = await Promise.all(requests.map((request) => (
-          request.status === 'Confirmed' ? persistence.loadBookingChange(request.id) : null
-        )));
+        const changes = await loadOpenBookingChanges(requests, persistence);
         clear(root);
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', refresh);
@@ -190,15 +191,33 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
             requestSummary(request, catalog),
           ]);
           if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
-          if (bookingChange) {
+          if (bookingChange === undefined && request.status === 'Confirmed') {
+            article.appendChild(el('p', {
+              className: 'error-box',
+              text: t('production.bookingChange.unavailable'),
+            }));
+          } else if (bookingChange) {
             article.append(
               el('h4', { text: t('production.bookingChange.pendingTitle') }),
               requestSummary(bookingChange, catalog),
             );
             const approve = button(t('production.bookingChange.approve'), { className: 'primary' });
             const reject = button(t('production.bookingChange.reject'), { className: 'danger' });
-            approve.addEventListener('click', async () => {
+            let decisionInFlight = false;
+            const beginDecision = () => {
+              if (decisionInFlight) return false;
+              decisionInFlight = true;
               approve.disabled = true;
+              reject.disabled = true;
+              return true;
+            };
+            const endDecision = () => {
+              decisionInFlight = false;
+              approve.disabled = false;
+              reject.disabled = false;
+            };
+            approve.addEventListener('click', async () => {
+              if (!beginDecision()) return;
               try {
                 const result = await persistence.decideBookingChange(
                   request.id,
@@ -212,17 +231,21 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
                   showToast(labels.length
                     ? t('production.bookingChange.blockedAlternatives', { alternatives: labels.join(', ') })
                     : t('production.bookingChange.blocked'));
-                  approve.disabled = false;
+                  endDecision();
                   return;
                 }
                 showToast(t('production.bookingChange.applied'));
                 await refresh(request.id);
               } catch (caught) {
-                approve.disabled = false;
+                endDecision();
                 showToast(errorMessage(caught));
               }
             });
-            reject.addEventListener('click', () => rejectChangeDialog(request, bookingChange, refresh));
+            reject.addEventListener('click', () => {
+              if (!decisionInFlight) {
+                rejectChangeDialog(request, bookingChange, refresh, beginDecision, endDecision);
+              }
+            });
             article.appendChild(el('div', { className: 'button-row' }, [approve, reject]));
           }
           const actions = ACTIONS_BY_STATUS[request.status] || [];

@@ -149,6 +149,30 @@ test('booking-change responses reject extra authority and malformed workflow sta
   }
 });
 
+test('blocked booking-change alternatives are bounded arrays of unique public IDs', async () => {
+  const requestId = 'CR-2026-100001';
+  const changeId = bookingChangeFixture().id;
+  const path = `v1/requests/${requestId}/booking-change/${changeId}/decision`;
+  const invalidAlternatives = [
+    null,
+    'room-1',
+    ['room-1', 'room-1'],
+    ['room-1', 'room-2', 'room-3', 'room-4', 'room-5', 'room-6'],
+    ['room-1', { id: 'injected' }],
+  ];
+  for (const alternatives of invalidAlternatives) {
+    const persistence = createProductionPersistence({ apiClient: apiWithResponses(new Map([[
+      path,
+      { schemaVersion: 1, result: { status: 'blocked', alternatives } },
+    ]])).client });
+    await assert.rejects(
+      persistence.decideBookingChange(requestId, changeId, 'approve'),
+      (error) => error instanceof ProductionPersistenceError
+        && error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+    );
+  }
+});
+
 test('room availability uses the exact server-authoritative UTC request contract', async () => {
   const api = apiWithResponses(new Map([
     [DOMAIN_ENDPOINTS.roomAvailability, (options) => {

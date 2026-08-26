@@ -1,4 +1,5 @@
 import { locale, t } from '../core/i18n.js';
+import { loadOpenBookingChanges } from '../core/booking-change-loader.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import {
   formatProductionDateTime,
@@ -52,7 +53,12 @@ function requestCard(request, catalog, openChange, onCancel, onChange) {
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
   if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
-  if (openChange) {
+  if (openChange === undefined && request.status === 'Confirmed') {
+    article.appendChild(el('p', {
+      className: 'error-box',
+      text: t('production.bookingChange.unavailable'),
+    }));
+  } else if (openChange) {
     article.appendChild(el('p', {
       className: 'info-box',
       text: t(`production.bookingChange.status.${openChange.status}`),
@@ -97,6 +103,10 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
   function changeDialog(request, refresh) {
     const selectedRoom = catalog.rooms.find((entry) => entry.id === request.roomId);
     const timeZone = roomTimeZone(selectedRoom, catalog);
+    if (!isProductionTimeZone(timeZone)) {
+      showToast(t('production.employee.timeZoneUnavailable'));
+      return;
+    }
     const startValue = wallValues(request.startsAt, timeZone);
     const endValue = wallValues(request.endsAt, timeZone);
     const room = el('select');
@@ -136,7 +146,8 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       const endsAt = productionUtcInstant(date.value, end.value, targetTimeZone);
       const internalParticipants = safeParticipantCount(internal.value);
       const externalParticipants = safeParticipantCount(external.value);
-      if (!startsAt || !endsAt || Date.parse(endsAt) <= Date.parse(startsAt)
+      if (!startsAt || !endsAt || Date.parse(startsAt) <= Date.now()
+        || Date.parse(endsAt) <= Date.parse(startsAt)
         || internalParticipants === null || externalParticipants === null
         || internalParticipants + externalParticipants < 1) {
         error.textContent = t('production.employee.validation');
@@ -327,9 +338,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       root.appendChild(el('p', { className: 'muted', text: t('production.common.loading') }));
       try {
         const [nextCatalog, requests] = await Promise.all([loadCatalog(), persistence.listRequests()]);
-        const changes = await Promise.all(requests.map((request) => (
-          request.status === 'Confirmed' ? persistence.loadBookingChange(request.id) : null
-        )));
+        const changes = await loadOpenBookingChanges(requests, persistence);
         clear(root);
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', refresh);

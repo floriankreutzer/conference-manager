@@ -468,9 +468,18 @@ export function createProductionPersistence({ apiClient } = {}) {
       }
       if (result?.status === 'blocked') {
         const blocked = assertExactObject(result, ['status', 'alternatives'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
+        if (!Array.isArray(blocked.alternatives) || blocked.alternatives.length > 5) {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        const alternatives = blocked.alternatives.map((entry) => (
+          assertPublicId(entry, 'PRODUCTION_BOOKING_CHANGE_INVALID')
+        ));
+        if (new Set(alternatives).size !== alternatives.length) {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
         return Object.freeze({
           status: 'blocked',
-          alternatives: Object.freeze(blocked.alternatives.map((entry) => assertPublicId(entry, 'PRODUCTION_BOOKING_CHANGE_INVALID'))),
+          alternatives: Object.freeze(alternatives),
         });
       }
       const applied = assertExactObject(result, ['status', 'request'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
