@@ -32,20 +32,21 @@ const DEMO_ROOMS = Object.freeze([
 export function createDemoOnboarding() {
   let connected = false;
   let verified = false;
+  let freeBusyVerified = false;
   let mappings = [];
 
   function readiness() {
     const roomImported = mappings.length > 0;
     return Object.freeze({
-      tenantStatus: roomImported && verified ? 'ready' : 'onboarding',
-      ready: connected && verified && roomImported,
+      tenantStatus: roomImported && freeBusyVerified ? 'ready' : 'onboarding',
+      ready: connected && verified && roomImported && freeBusyVerified,
       checks: Object.freeze({
         tenantIdentityClaimed: true,
         microsoft365Connected: connected,
         placesPermissionGranted: verified,
         calendarPermissionGranted: verified,
         roomImported,
-        freeBusyVerified: verified,
+        freeBusyVerified,
         directoryEntitled: true,
         calendarEntitled: true,
       }),
@@ -93,7 +94,13 @@ export function createDemoOnboarding() {
         externalRoomId: selection.externalRoomId,
         providerStatus: 'active',
       }));
+      freeBusyVerified = false;
       return Object.freeze([...mappings]);
+    },
+    async verifyFreeBusy() {
+      if (!verified || mappings.length < 1) throw new Error('DEMO_FREE_BUSY_NOT_READY');
+      freeBusyVerified = true;
+      return Object.freeze({ verified: true, checkedAt: '2026-08-26T06:00:00.000Z' });
     },
     async getReadiness() {
       return readiness();
