@@ -139,9 +139,7 @@ export function createMicrosoft365Section({ adapter = null } = {}) {
       root.appendChild(onboardingRoot);
       await onboarding.renderInto(onboardingRoot);
       if (!isCurrent()) return;
-    }
-
-    if (connection) {
+    } else if (connection) {
       root.appendChild(el('section', { className: 'card tenant-admin-intro' }, [
         el('h3', { text: t('tenantAdmin.microsoft365.connectionTitle') }),
         el('div', { dataset: { microsoft365Connection: 'true' } }, [
