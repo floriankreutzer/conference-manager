@@ -30,7 +30,10 @@ test('Tenant Admin shell provides authorized direct navigation, keyboard focus a
 
   await page.locator('[data-tenant-admin-section="microsoft365"]').focus();
   await page.keyboard.press('Enter');
-  await expect(page.locator('[data-tenant-admin-section-content="microsoft365"] h2')).toHaveText('Microsoft 365');
+  await expect(
+    page.locator('[data-tenant-admin-section-content="microsoft365"]')
+      .getByRole('heading', { name: 'Microsoft 365', exact: true, level: 2 }),
+  ).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   const shellBox = await page.locator('[data-tenant-admin-shell]').boundingBox();
