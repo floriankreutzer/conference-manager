@@ -7,6 +7,8 @@ async function selectTenantAdmin(page) {
   await reload;
   await page.locator('#primaryNavigation button[data-view="tenantAdmin"]').click();
   await expect(page.locator('#viewTitle')).toBeFocused();
+  await page.locator('[data-tenant-admin-section="microsoft365"]').click();
+  await expect(page.locator('[data-tenant-admin-section-content="microsoft365"]')).toBeVisible();
 }
 
 test('guided Tenant Admin onboarding completes seven explicit Demo steps without browser-authoritative activation', async ({ page }) => {
