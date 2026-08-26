@@ -22,11 +22,19 @@ test('Tenant Admin shell provides authorized direct navigation, keyboard focus a
 
   await page.locator('[data-tenant-admin-section="users"]').click();
   await expect(page).toHaveURL(/#tenant-admin\/users$/);
-  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Benutzer & Rollen');
+  const usersHeading = page.locator('[data-tenant-admin-section-content="users"] h2');
+  await expect(usersHeading).toHaveText('Benutzer & Rollen');
+  await expect(usersHeading).toBeFocused();
 
   await page.reload();
   await expect(page.locator('[data-tenant-admin-section-content="users"]')).toBeVisible();
   await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Benutzer & Rollen');
+
+  const employeeCard = page.locator('[data-tenant-user-id="demo-employee"]');
+  await expect(employeeCard).toBeVisible();
+  await employeeCard.locator('#tenant-user-manager-demo-employee').check();
+  await employeeCard.locator('[data-tenant-role-action="save"]').click();
+  await expect(employeeCard).toBeFocused();
 
   await page.locator('[data-tenant-admin-section="microsoft365"]').focus();
   await page.keyboard.press('Enter');
@@ -39,4 +47,14 @@ test('Tenant Admin shell provides authorized direct navigation, keyboard focus a
   const shellBox = await page.locator('[data-tenant-admin-shell]').boundingBox();
   expect(shellBox?.width).toBeLessThanOrEqual(390);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.locator('#primaryNavigation button[data-view="welcome"]').click();
+  await expect(page.locator('#primaryNavigation button[data-view="welcome"]')).toHaveAttribute('aria-current', 'page');
+  await expect(page).not.toHaveURL(/#tenant-admin(?:\/|$)/);
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator('#primaryNavigation button[data-view="welcome"]')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
 });
