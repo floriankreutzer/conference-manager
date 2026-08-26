@@ -19,7 +19,7 @@ Delivered behavior includes:
 - restoration of authorized Tenant Admin routes on reload without persisting Production authority in the browser;
 - cleanup of Tenant Admin hashes when the user leaves the Tenant Admin top-level view, including authorization normalization back to Welcome;
 - keyboard-accessible section navigation and section-heading focus on explicit navigation;
-- preservation of section-owned focus after internal rerenders, including focus restoration to the updated User card after a role save;
+- regression coverage that a successful User role save restores focus to the updated User card; other section-internal rerenders remain owned by their section and are not claimed to restore focus automatically;
 - synchronized German and English Tenant Admin copy;
 - responsive Tenant Admin shell behavior covered by Chromium and WebKit/iPhone E2E profiles;
 - no new framework, router, generic service locator, parallel translation mechanism or browser-side Production authority.
@@ -74,9 +74,11 @@ Top-level view changes are reported through a generic application-shell callback
 - protects section-private modules;
 - rejects cross-section dependencies;
 - rejects direct section dependencies on Platform, Employee or Conference Manager;
-- rejects Production-to-Demo imports;
+- rejects Demo imports from Production-named modules covered by the static boundary policy;
 - rejects generic `utils`, `helpers` or `common` dumping-ground modules and directories;
 - restricts section identities to the approved information architecture.
+
+Composition Root Production/Demo runtime selection cannot be proven completely by this static gate; it remains covered by regression tests, security review and runtime validation.
 
 `tests/saas2-module-boundaries.test.js` contains positive and intentionally invalid virtual module fixtures. Architecture rules must be changed together with these regression tests and an explicit architecture decision.
 
