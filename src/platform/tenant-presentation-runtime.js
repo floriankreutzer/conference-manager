@@ -2,6 +2,10 @@ import { configureTenantLocalization } from '../core/i18n.js';
 import { MANAGED_BRAND_LOGO_PRESET } from '../shared/tenant-branding.js';
 import { TENANT_PRESENTATION_FALLBACK } from './tenant-presentation-api.js';
 
+const PRODUCT_DEFAULT_LOGO_ASSET = new URL(
+  '../../assets/brand/pavurel-signet-monochrome-white.svg?v=20260827-75',
+  import.meta.url,
+).href;
 const MANAGED_LOGO_ASSET = new URL('../../assets/brand/conference-manager-mark.svg?v=20260827-74', import.meta.url).href;
 
 function sameSnapshot(left, right) {
@@ -97,12 +101,23 @@ export function createPresentationRefreshingOrganizationSettings({
   return Object.freeze(adapter);
 }
 
-function renderProductDefault(mark, documentRoot) {
+function renderTextFallback(mark, documentRoot) {
   mark.textContent = 'CM';
   const accent = documentRoot.createElement('span');
   accent.textContent = '.';
   mark.appendChild(accent);
   delete mark.dataset.logoPreset;
+}
+
+function renderProductDefault(mark, documentRoot) {
+  mark.textContent = '';
+  const image = documentRoot.createElement('img');
+  image.alt = '';
+  image.src = PRODUCT_DEFAULT_LOGO_ASSET;
+  image.decoding = 'async';
+  image.addEventListener('error', () => renderTextFallback(mark, documentRoot), { once: true });
+  delete mark.dataset.logoPreset;
+  mark.appendChild(image);
 }
 
 function renderManagedMark(mark, documentRoot) {
