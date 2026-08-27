@@ -10,7 +10,7 @@ The demo must therefore not be presented as an authenticated production applicat
 
 ## Security controls implemented for the demo
 
-- Content Security Policy (CSP) restricts scripts and images to the application origin, permits deterministic inline image data, blocks plugins/objects and network connections, and prevents base-URL manipulation. Catering illustrations and the baseline route QR code are generated or served locally; the demo does not contact an external image or QR service automatically.
+- Content Security Policy (CSP) restricts scripts and images to the application origin, permits deterministic inline image data, blocks plugins/objects and network connections, and prevents base-URL manipulation. Catering illustrations and the baseline route QR code are generated or served locally; the demo does not contact an external image or QR service automatically. Conference Manager image fields accept only bounded managed paths under `assets/` or constrained inline SVG data and reject cross-origin sources before browser-local persistence.
 - Referrer policy is `no-referrer`.
 - Application rendering uses DOM APIs and `textContent`; direct `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `eval`, `document.write` and Function constructors are blocked by the static quality gate.
 - DOM helper code rejects inline event-handler attributes and `srcdoc`.

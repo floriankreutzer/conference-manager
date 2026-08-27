@@ -116,6 +116,56 @@ test('regression: manager site persistence fails closed when browser storage rej
   assert.deepEqual(parityData.siteData(), existingSites);
 });
 
+test('regression: Demo image sources reject remote URLs and preserve managed local assets', () => {
+  const browserContext = {
+    baseUrl: 'https://conference.test/conference-manager/',
+    origin: 'https://conference.test',
+  };
+  const managedAsset = 'assets/demo/route-openstreetmap.svg';
+  assert.equal(parityData.validatedImageSource(managedAsset, browserContext), managedAsset);
+  assert.equal(
+    parityData.validatedImageSource(
+      'https://conference.test/conference-manager/assets/demo/route-openstreetmap.svg',
+      browserContext,
+    ),
+    'https://conference.test/conference-manager/assets/demo/route-openstreetmap.svg',
+  );
+  assert.equal(
+    parityData.validatedImageSource('https://example.invalid/remote.svg', browserContext),
+    null,
+  );
+  assert.equal(
+    parityData.validatedImageSource('x'.repeat(parityData.DEMO_IMAGE_SOURCE_MAX_LENGTH + 1), browserContext),
+    null,
+  );
+
+  const safeSvg = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>';
+  const safeDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(safeSvg)}`;
+  assert.equal(parityData.validatedImageSource(safeDataUrl, browserContext), safeDataUrl);
+  const remoteSvg = '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://example.invalid/a.svg"/></svg>';
+  assert.equal(
+    parityData.validatedImageSource(
+      `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(remoteSvg)}`,
+      browserContext,
+    ),
+    null,
+  );
+
+  globalThis.localStorage = new MemoryStorage({
+    [storage.KEYS.catalog]: JSON.stringify({
+      rooms: [],
+      services: [],
+      cateringItems: [],
+      cateringPackages: [{
+        id: 'meeting',
+        variants: [{ tier: 'Basic', image: managedAsset }],
+      }],
+    }),
+  });
+  parityData.ensureParityCatalog();
+  assert.equal(parityData.catalogData().cateringPackages[0].variants[0].image, managedAsset);
+});
+
 test('progression: production runtime blocks authoritative LocalStorage reads and writes', () => {
   runtimeMode = 'production';
   globalThis.localStorage = new MemoryStorage({

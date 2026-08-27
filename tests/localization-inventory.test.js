@@ -22,8 +22,8 @@ function capabilityMessages(language) {
 test('canonical localization catalogs remain synchronized after parity consolidation', () => {
   const inventory = buildLocalizationInventory();
 
-  assert.equal(inventory.canonical.deKeys, 632);
-  assert.equal(inventory.canonical.enKeys, 632);
+  assert.equal(inventory.canonical.deKeys, 633);
+  assert.equal(inventory.canonical.enKeys, 633);
   assert.deepEqual(inventory.canonical.missingInEnglish, []);
   assert.deepEqual(inventory.canonical.missingInGerman, []);
   assert.deepEqual(inventory.canonical.placeholderMismatches, []);
@@ -32,8 +32,8 @@ test('canonical localization catalogs remain synchronized after parity consolida
 
   const de = capabilityMessages('de');
   const en = capabilityMessages('en');
-  assert.equal(de.size, 165);
-  assert.equal(en.size, 165);
+  assert.equal(de.size, 166);
+  assert.equal(en.size, 166);
   assert.deepEqual([...de.keys()], [...en.keys()]);
   assert.ok([...de.keys()].every((key) => !key.startsWith('parity.')));
 });
@@ -59,6 +59,10 @@ test('canonical migration preserves representative German and English baseline c
   assert.equal(en.get('profile.role.tenantAdmin'), 'Tenant administration');
   assert.equal(de.get('manager.admin.activeRooms'), 'Aktive Räume');
   assert.equal(en.get('manager.admin.activeRooms'), 'Active rooms');
+  assert.equal(de.get('manager.admin.image'), 'Bild (lokaler Asset-Pfad oder SVG-Daten-URL)');
+  assert.equal(en.get('manager.admin.image'), 'Image (local asset path or SVG data URL)');
+  assert.equal(de.get('manager.admin.invalidImage'), 'Bitte einen lokalen Bild-Asset-Pfad oder eine sichere SVG-Daten-URL verwenden.');
+  assert.equal(en.get('manager.admin.invalidImage'), 'Please use a local image asset path or a safe SVG data URL.');
   assert.equal(de.get('manager.operational.displayed'), '{shown} von {total} Buchungen angezeigt');
   assert.equal(en.get('manager.operational.displayed'), '{shown} of {total} bookings displayed');
   assert.equal(de.get('manager.report.range'), '{start} bis {end}');

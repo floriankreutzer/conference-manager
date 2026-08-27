@@ -79,3 +79,54 @@ test('automatic Demo catering and route-code rendering stays on the application 
   });
   expect(crossOriginRequests).toEqual([]);
 });
+
+test('Demo administration rejects remote images and retains a managed local asset', async ({ context, page }) => {
+  const observedRequests = [];
+  context.on('request', (request) => observedRequests.push(request.url()));
+  await page.addInitScript(() => {
+    localStorage.setItem('conference_demo_role_v1', 'manager');
+  });
+
+  await page.goto('/');
+  const applicationOrigin = new URL(page.url()).origin;
+  await page.locator('#primaryNavigation button[data-view="manager"]').click();
+  await page.getByRole('button', { name: 'Administration' }).click();
+  await page.locator('[data-admin-section="PACKAGES"]').click();
+
+  const image = page.locator('input[id^="parity-package-image-"]').first();
+  const card = image.locator('xpath=ancestor::article[contains(@class, "catering-package-admin")]');
+  const save = card.getByRole('button', { name: 'Speichern' });
+  const originalImage = await page.evaluate(() => (
+    JSON.parse(localStorage.getItem('conference_catalog_v2')).cateringPackages[0].variants[0].image
+  ));
+
+  await image.fill('https://example.invalid/remote-catering.svg');
+  await save.click();
+  await expect(page.locator('#toast')).toContainText(
+    'Bitte einen lokalen Bild-Asset-Pfad oder eine sichere SVG-Daten-URL verwenden.',
+  );
+  await expect(image).toBeFocused();
+  await expect(image).toHaveAttribute('aria-invalid', 'true');
+  expect(await page.evaluate(() => (
+    JSON.parse(localStorage.getItem('conference_catalog_v2')).cateringPackages[0].variants[0].image
+  ))).toBe(originalImage);
+
+  const managedAsset = 'assets/demo/route-openstreetmap.svg';
+  await image.fill(managedAsset);
+  await expect(image).not.toHaveAttribute('aria-invalid', 'true');
+  const reload = page.waitForEvent('load');
+  await save.click();
+  await reload;
+
+  const restoredImage = page.locator('input[id^="parity-package-image-"]').first();
+  await expect(restoredImage).toHaveValue(managedAsset);
+  expect(await page.evaluate(() => (
+    JSON.parse(localStorage.getItem('conference_catalog_v2')).cateringPackages[0].variants[0].image
+  ))).toBe(managedAsset);
+
+  const crossOriginRequests = observedRequests.filter((value) => {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && url.origin !== applicationOrigin;
+  });
+  expect(crossOriginRequests).toEqual([]);
+});

@@ -27,7 +27,7 @@ test('audit history filters are keyboard operable, localized, redacted, and resp
   await expect(section.getByText('Geben Sie eine gültige interne Benutzer-ID ein.')).toBeVisible();
   await expect(actor).toBeFocused();
 
-  await page.getByRole('button', { name: 'Profil' }).click();
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
   await page.locator('#profileLanguage').selectOption('en');
   await expect(section.getByRole('heading', { name: 'Audit & change history' })).toBeVisible();
   await expect(section.getByText('The complete integrity chain is verified by the server before filtered results are shown.')).toBeVisible();
@@ -47,7 +47,7 @@ test('capability readiness is a server-shaped read-only view with no entitlement
   await expect(section.locator('[data-tenant-capability-id="microsoft.calendar"]')).toContainText('Eingeschränkt');
   await expect(section.locator('[data-tenant-capability-id="microsoft.calendar.write"]')).toContainText('Nicht gebucht');
   const recovery = section.getByRole('link', { name: 'Microsoft-365-Verbindung verwalten' });
-  await expect(recovery).toHaveAttribute('href', '#tenant-admin/microsoft365');
+  await expect(recovery).toHaveAttribute('href', /#tenant-admin\/microsoft365$/);
   await recovery.click();
   await expect(page.locator('[data-tenant-admin-section-content="microsoft365"]')).toBeVisible();
   await expect(page.locator('[data-tenant-admin-section="microsoft365"]')).toHaveAttribute('aria-current', 'page');

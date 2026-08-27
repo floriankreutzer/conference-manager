@@ -61,6 +61,12 @@ const DEFAULT_ROOM_DESCRIPTIONS = Object.freeze({
   },
 });
 
+export const DEMO_IMAGE_SOURCE_MAX_LENGTH = 32_768;
+
+const INLINE_SVG_PATTERN = /^data:image\/svg\+xml(?:;charset=utf-8)?,/i;
+const MANAGED_IMAGE_PATH_PATTERN = /(?:^|\/)assets\/[^?#]+\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
+const UNSAFE_INLINE_SVG_PATTERN = /(?:<\s*(?:script|style|foreignobject|iframe|object|embed|image|use|a)\b|<\s*!|<\s*\?|\b(?:href|xlink:href|src|style|on[a-z]+)\s*=|(?:url\s*\(|@import))/i;
+
 export const catalogData = () => readJson(KEYS.catalog, {
   rooms: [],
   services: [],
@@ -94,15 +100,56 @@ function escapeXml(value) {
   })[character]);
 }
 
-export function safeImageSource(value, fallback = '') {
+export function validatedImageSource(value, {
+  baseUrl = globalThis.window?.location?.href,
+  origin = globalThis.window?.location?.origin,
+} = {}) {
   const raw = String(value || '').trim();
-  if (raw.startsWith('data:image/svg+xml')) return raw;
-  if (!raw || typeof window === 'undefined') return fallback;
+  if (!raw) return '';
+  if (raw.length > DEMO_IMAGE_SOURCE_MAX_LENGTH) return null;
+
+  if (INLINE_SVG_PATTERN.test(raw)) {
+    const separator = raw.indexOf(',');
+    try {
+      const svg = decodeURIComponent(raw.slice(separator + 1)).trim();
+      if (
+        !/^<svg\b[^>]*xmlns=["']http:\/\/www\.w3\.org\/2000\/svg["'][^>]*>/i.test(svg)
+        || !/<\/svg>$/i.test(svg)
+        || UNSAFE_INLINE_SVG_PATTERN.test(svg)
+      ) return null;
+      return raw;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!baseUrl && origin) baseUrl = `${origin}/`;
+  if (!baseUrl && !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(raw)) {
+    baseUrl = 'https://demo.invalid/';
+    origin = 'https://demo.invalid';
+  }
+  if (!baseUrl) return null;
   try {
-    const url = new URL(raw, window.location.href);
-    const localNetworkSource = ['http:', 'https:'].includes(url.protocol)
-      && url.origin === window.location.origin;
-    return localNetworkSource ? url.href : fallback;
+    const base = new URL(baseUrl);
+    const trustedOrigin = origin || base.origin;
+    const url = new URL(raw, base);
+    const localManagedAsset = ['http:', 'https:'].includes(url.protocol)
+      && !url.username
+      && !url.password
+      && url.origin === trustedOrigin
+      && MANAGED_IMAGE_PATH_PATTERN.test(url.pathname);
+    return localManagedAsset ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function safeImageSource(value, fallback = '') {
+  const source = validatedImageSource(value);
+  if (!source) return fallback;
+  if (INLINE_SVG_PATTERN.test(source)) return source;
+  try {
+    return new URL(source, window.location.href).href;
   } catch {
     return fallback;
   }
@@ -121,8 +168,12 @@ export function ensureParityCatalog() {
   for (const pack of catalog.cateringPackages || []) {
     for (const variant of pack.variants || []) {
       const fallback = DEFAULT_CATERING_IMAGES[`${pack.id}:${variant.tier}`];
-      if (fallback && safeImageSource(variant.image) !== variant.image) {
+      const imageSource = validatedImageSource(variant.image);
+      if (fallback && !imageSource) {
         variant.image = fallback;
+        changed = true;
+      } else if (imageSource && imageSource !== variant.image) {
+        variant.image = imageSource;
         changed = true;
       }
     }

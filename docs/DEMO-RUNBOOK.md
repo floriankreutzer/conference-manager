@@ -19,7 +19,7 @@ After an explicit Demo reset and reload, the following baseline is recreated:
 | Tenant settings and presentation | Organization, locations, catalogue, booking policies and cost allocation start in their normal fixtures at revision `1`. The effective presentation is Northstar Events, German, EUR and the code-shipped managed mark. | In memory for the page lifecycle |
 | Microsoft 365 onboarding | Disconnected, unverified, no imported mappings and FreeBusy not verified. Calendar Write is not entitled in the current fixture. | In memory for the page lifecycle |
 | Tenant users, audit and readiness | Deterministic example fixtures with fixed identifiers and timestamps. | In memory for the page lifecycle |
-| Images and route code | Catering art is deterministic inline SVG. The baseline OpenStreetMap QR code is a repository-owned asset. No external image or QR service is contacted automatically. | Repository-owned |
+| Images and route code | Catering art is deterministic inline SVG. The baseline OpenStreetMap QR code is a repository-owned asset. Conference Manager image edits accept only bounded managed `assets/` paths or constrained inline SVG data; cross-origin sources are rejected before save. No external image or QR service is contacted automatically. | Repository-owned |
 
 The capabilities/readiness panel is a separate read-only fixture in the current Demo. Do not infer that it changes in response to the Microsoft 365 onboarding controls.
 

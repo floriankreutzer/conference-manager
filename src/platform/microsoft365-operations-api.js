@@ -178,7 +178,7 @@ function normalizedMapping(value) {
     || !isUuid(value.roomId)
     || !safeText(value.externalRoomId)
     || !safeText(value.resourceAddress, 320)
-    || !safeText(value.providerDisplayName, 160)
+    || !safeText(value.providerDisplayName, 512)
     || (
       value.providerCapacity !== null
       && (

@@ -140,6 +140,8 @@ test('managed asset controls reject URLs, duplicates, and more than 20 reference
   expect(await callsFor(page, 'saveLocations')).toHaveLength(0);
 
   await page.locator('#tenant-site-active-0').check();
+  await expect(page.locator('#tenant-room-site-0')).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('#tenant-room-site-0')).toHaveJSProperty('validationMessage', '');
   await page.locator('[data-tenant-settings-form="locations"] button[type="submit"]').click();
   await expect(page.locator('#tenant-location-settings-fixture h2')).toBeFocused();
   expect(await callsFor(page, 'saveLocations')).toHaveLength(1);

@@ -60,7 +60,7 @@ test('revision conflicts are announced with reload and deliberate reapply action
   await page.locator('[data-tenant-settings-form="organization"] button[type="submit"]').click();
   await expect(page.locator('[data-tenant-settings-conflict-reload="true"]')).toBeVisible();
   await expect(page.locator('[data-tenant-settings-conflict-reapply="true"]')).toBeVisible();
-  await expect(page.locator('#tenant-settings-domain-fixture [role="alert"]')).toBeVisible();
+  await expect(page.locator('#tenant-settings-domain-fixture .tenant-admin-status[role="alert"]')).toBeVisible();
   await page.locator('[data-tenant-settings-conflict-reload="true"]').click();
   await expect(page.locator('[data-tenant-settings-form="organization"]')).toBeVisible();
 });
@@ -98,8 +98,20 @@ test('locations, catalogue, policies, and allocation expose bounded accessible c
     };
     return fixture.render();
   });
-  await page.getByRole('button', { name: /tenantSettings\.catalogue\.addVariant|Variante|variant/i }).click();
-  await expect(page.locator('[data-catalogue-variant-id="package-coffee-variant-4"]')).toBeVisible();
+  const packageEditor = page.locator('[data-catalogue-entry-id="package-coffee"]');
+  const variants = packageEditor.locator('[data-catalogue-variant-id]');
+  const existingVariantIds = await variants.evaluateAll((nodes) => (
+    nodes.map((node) => node.dataset.catalogueVariantId)
+  ));
+  await packageEditor.getByRole('button', { name: /tenantSettings\.catalogue\.addVariant|Variante|variant/i }).click();
+  await expect(variants).toHaveCount(existingVariantIds.length + 1);
+  const addedVariantIds = (await variants.evaluateAll((nodes) => (
+    nodes.map((node) => node.dataset.catalogueVariantId)
+  ))).filter((id) => !existingVariantIds.includes(id));
+  expect(addedVariantIds).toHaveLength(1);
+  expect(addedVariantIds[0]).toMatch(/^package-coffee-variant-\d+$/);
+  expect(addedVariantIds[0]).not.toBe('package-coffee-variant-3');
+  await expect(packageEditor.locator(`[data-catalogue-variant-id="${addedVariantIds[0]}"]`)).toBeVisible();
 
   await mount(page, 'policies');
   await expect(page.locator('[data-booking-policy-id="policy-default"] input').first()).toBeDisabled();

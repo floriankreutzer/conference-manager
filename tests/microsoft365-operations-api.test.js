@@ -48,13 +48,13 @@ function connection(overrides = {}) {
   };
 }
 
-function mappings() {
+function mappings({ providerDisplayName = 'Berlin Room 3.21' } = {}) {
   return {
     mappings: [{
       roomId: ROOM_ID,
       externalRoomId: 'provider-room-object-id',
       resourceAddress: 'room@example.invalid',
-      providerDisplayName: 'Berlin Room 3.21',
+      providerDisplayName,
       providerCapacity: 14,
       providerStatus: 'active',
       lastSeenAt: CHECKED_AT,
@@ -132,6 +132,33 @@ test('operations adapter reuses current endpoints and redacts provider identifie
   assert.equal(JSON.stringify(result).includes('room@example.invalid'), false);
   assert.equal(result.connection.health.calendarWrite.status, 'permission_missing');
   assert.equal(result.readiness.entitlements.microsoftCalendarWrite, false);
+});
+
+test('operations adapter accepts the backend provider display-name boundary and rejects overflow', async () => {
+  const acceptedName = 'R'.repeat(512);
+  const accepted = createMicrosoft365OperationsApi({
+    apiClient: client(new Map([
+      ['v1/integrations/microsoft365', connection()],
+      ['v1/integrations/microsoft365/room-mappings', mappings({ providerDisplayName: acceptedName })],
+      ['v1/integrations/microsoft365/pilot-readiness', readiness()],
+    ])),
+  });
+  assert.equal((await accepted.getOperations()).mappings[0].providerName, acceptedName);
+
+  const rejected = createMicrosoft365OperationsApi({
+    apiClient: client(new Map([
+      ['v1/integrations/microsoft365', connection()],
+      ['v1/integrations/microsoft365/room-mappings', mappings({
+        providerDisplayName: 'R'.repeat(513),
+      })],
+      ['v1/integrations/microsoft365/pilot-readiness', readiness()],
+    ])),
+  });
+  await assert.rejects(
+    rejected.getOperations(),
+    (error) => error instanceof Microsoft365OperationsApiError
+      && error.code === 'MICROSOFT365_OPERATIONS_RESPONSE_INVALID',
+  );
 });
 
 test('operations adapter preserves the canonical revoked authorization state for recovery', async () => {

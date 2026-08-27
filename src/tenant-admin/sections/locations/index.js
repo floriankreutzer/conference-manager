@@ -209,6 +209,15 @@ export function createLocationsSection({ adapter = null } = {}) {
       index,
       snapshot.configuration.sites,
     ));
+    const clearRoomSiteValidity = () => roomEditors.forEach(({ controls }) => {
+      clearCustomValidity(controls.siteId);
+    });
+    siteEditors.forEach(({ controls }) => {
+      controls.active.addEventListener('change', clearRoomSiteValidity);
+    });
+    roomEditors.forEach(({ controls }) => {
+      controls.active.addEventListener('change', () => clearCustomValidity(controls.siteId));
+    });
     const sitesSurface = el('div', {}, siteEditors.map((entry) => entry.node));
     const roomsSurface = el('div', {}, roomEditors.map((entry) => entry.node));
     const addSite = button(t('tenantSettings.locations.addSite'));
@@ -226,6 +235,7 @@ export function createLocationsSection({ adapter = null } = {}) {
       const editor = siteEditor({ id, name: t('tenantSettings.locations.newSite'), active: true, timeZone: 'Europe/Berlin', address: null }, siteEditors.length);
       siteEditors.push(editor);
       editor.controls.name.addEventListener('input', () => updateSiteOptionLabels(editor));
+      editor.controls.active.addEventListener('change', clearRoomSiteValidity);
       roomEditors.forEach((roomEntry) => roomEntry.controls.siteId.appendChild(siteOption(editor.site)));
       sitesSurface.appendChild(editor.node);
       editor.controls.name.focus();
