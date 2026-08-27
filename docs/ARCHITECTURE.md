@@ -79,6 +79,8 @@ src/
 │   ├── app-shell.js               # shell/navigation/profile/help routing
 │   ├── application-context.js     # shared profile/catalog/site/request context
 │   ├── production-session.js      # validated production session/CSRF runtime
+│   ├── tenant-admin-operations-api.js # public Tenant operations adapter facade
+│   ├── tenant-settings-api.js     # public Tenant settings adapter facade
 │   ├── tenant-user-administration-api.js # Tenant-scoped role API adapter
 │   ├── demo-security.js
 │   ├── feature-flags.js
@@ -185,6 +187,8 @@ Platform contains application-wide composition and infrastructure-facing concern
 - `application-context.js` owns loading/access to profile, catalog, site information, requests and demo role state through the existing core persistence contracts.
 - `app-shell.js` owns shell navigation, welcome view, profile/help dialogs and top-level view orchestration. It receives Employee/Manager/Tenant Admin application contracts from `src/app.js` rather than importing capability internals. Its optional view-change callback is generic and must not encode Tenant Admin routing rules.
 - `production-session.js` owns the bounded, fail-closed production session bootstrap and in-memory CSRF runtime.
+- `tenant-admin-operations-api.js` is the explicit Composition Root facade for the Tenant audit-history and effective-capability Production adapters. User lifecycle operations remain behind the established Tenant User facade, while Microsoft operations decorate the existing Microsoft 365 connection port.
+- `tenant-settings-api.js` is the explicit Composition Root facade for the bounded Organization, Location, Catalogue, Booking Policy and Cost Allocation Production adapters. The domain adapters retain their individual response-validation and wire-contract ownership behind that facade.
 - `tenant-user-administration-api.js` owns validated, cursor-paginated Tenant User reads and allowlisted elevated-role writes through the shared same-origin API client.
 - identity bootstrap, demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
 

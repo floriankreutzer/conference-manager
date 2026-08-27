@@ -1,3 +1,5 @@
+import { createMicrosoft365OperationsApi } from './microsoft365-operations-api.js';
+
 const CONNECTION_PATH = 'v1/integrations/microsoft365';
 const STATES = new Set(['pending', 'connected', 'degraded', 'revoked', 'disconnected']);
 const PLACES_PERMISSION_STATES = new Set(['granted', 'missing', 'unknown']);
@@ -65,7 +67,7 @@ function consentUrl(value) {
 
 export function createMicrosoft365ConnectionApi({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') throw new TypeError('API_CLIENT_REQUIRED');
-  return Object.freeze({
+  const lifecycle = Object.freeze({
     async getStatus() {
       return result(await apiClient.request(CONNECTION_PATH));
     },
@@ -82,5 +84,9 @@ export function createMicrosoft365ConnectionApi({ apiClient } = {}) {
     async disconnect() {
       return result(await apiClient.request(CONNECTION_PATH, { method: 'DELETE' }));
     },
+  });
+  return Object.freeze({
+    ...lifecycle,
+    ...createMicrosoft365OperationsApi({ apiClient }),
   });
 }

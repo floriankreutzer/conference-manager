@@ -1,0 +1,268 @@
+/* Tenant Administration operational sections (#86–#89). */
+
+.tenant-operations-filter,
+.tenant-operations-user-card,
+.tenant-audit-event,
+.tenant-capability-card,
+.tenant-microsoft365-operations,
+.tenant-microsoft365-operations > [data-microsoft365-operations-surface] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tenant-operations-filter {
+  display: grid;
+  gap: var(--space-4);
+  margin-block: var(--space-4);
+}
+
+.tenant-operations-filter h3,
+.tenant-operation-section-header h2,
+.tenant-operation-card-header h3,
+.tenant-operation-card-header h4,
+.tenant-audit-event-header h3,
+.tenant-capability-card-header h3 {
+  margin: 0;
+}
+
+.tenant-operations-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.tenant-operations-result-status {
+  margin-block: var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.tenant-operations-metadata {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.55fr) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin-block: var(--space-3);
+}
+
+.tenant-operations-metadata dt {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.tenant-operations-metadata dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.tenant-operations-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
+  margin-block: var(--space-4);
+}
+
+.tenant-user-offboarding,
+.tenant-operation-warning {
+  margin-block: var(--space-3);
+  padding: var(--space-3);
+  border-inline-start: 4px solid var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-ink);
+}
+
+.tenant-user-offboarding p:last-child {
+  margin-bottom: 0;
+}
+
+.tenant-user-lifecycle-message {
+  min-height: calc(var(--line-height-base) * 1em);
+}
+
+.tenant-operation-section-header,
+.tenant-operation-card-header,
+.tenant-audit-event-header,
+.tenant-capability-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.tenant-operation-success,
+.tenant-capability-ready {
+  color: var(--color-success);
+  font-weight: var(--font-weight-medium);
+}
+
+.tenant-operation-identifier {
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tenant-admin-audit-list,
+.tenant-capability-grid,
+.tenant-microsoft365-mapping-grid {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tenant-admin-audit-list,
+.tenant-capability-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tenant-audit-event,
+.tenant-capability-card,
+.tenant-microsoft365-mapping-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.tenant-audit-change summary {
+  min-height: var(--control-height);
+  padding-block: var(--space-3);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+}
+
+.tenant-audit-state-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.tenant-operation-outcome-failure,
+.tenant-operation-outcome-denied,
+.tenant-capability-state-blocked,
+.tenant-capability-state-unavailable,
+.tenant-microsoft365-health-revoked,
+.tenant-microsoft365-health-unavailable,
+.tenant-microsoft365-mapping-missing {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.tenant-operation-outcome-success,
+.tenant-capability-state-operational,
+.tenant-microsoft365-health-healthy,
+.tenant-microsoft365-mapping-active {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.tenant-capability-state-degraded,
+.tenant-capability-state-not_entitled,
+.tenant-microsoft365-health-degraded,
+.tenant-microsoft365-health-permission_missing,
+.tenant-microsoft365-health-not_configured {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.tenant-capability-reasons,
+.tenant-microsoft365-drift-list {
+  margin-block: var(--space-2);
+  padding-inline-start: var(--space-5);
+}
+
+.tenant-capability-action {
+  justify-self: start;
+}
+
+.tenant-microsoft365-operations {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.tenant-microsoft365-operations > [data-microsoft365-operations-surface] {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.tenant-microsoft365-health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.tenant-microsoft365-readiness-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tenant-microsoft365-readiness-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.tenant-microsoft365-mapping-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 900px) {
+  .tenant-operations-filter-grid,
+  .tenant-microsoft365-health-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tenant-admin-audit-list,
+  .tenant-capability-grid,
+  .tenant-microsoft365-mapping-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .tenant-operations-filter-grid,
+  .tenant-microsoft365-health-grid,
+  .tenant-audit-state-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-operations-metadata {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .tenant-operations-metadata dd + dt {
+    margin-top: var(--space-2);
+  }
+
+  .tenant-operations-pagination {
+    justify-content: stretch;
+  }
+
+  .tenant-operations-pagination button {
+    flex: 1 1 8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tenant-microsoft365-operations *,
+  .tenant-operations-filter * {
+    scroll-behavior: auto;
+  }
+}

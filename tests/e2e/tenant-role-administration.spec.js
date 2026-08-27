@@ -48,12 +48,20 @@ function initialUsers() {
       displayName: 'Alex Admin',
       active: true,
       roles: ['employee', 'tenant_admin'],
+      lifecycle: { status: 'active', version: 1 },
+      identityProvider: { linked: true, linkedAt: '2026-08-20T08:00:00.000Z' },
+      lastSignInAt: '2026-08-27T07:45:00.000Z',
+      requestOwnership: { openRequestCount: 1, ownershipPreservedOnDisable: true },
     },
     {
       id: USER_ID,
       displayName: 'Casey User',
       active: true,
       roles: ['employee'],
+      lifecycle: { status: 'active', version: 3 },
+      identityProvider: { linked: false, linkedAt: null },
+      lastSignInAt: null,
+      requestOwnership: { openRequestCount: 2, ownershipPreservedOnDisable: true },
     },
   ];
 }
@@ -74,6 +82,8 @@ async function installProductionFixture(page, {
 } = {}) {
   let users = initialUsers();
   const writes = [];
+  const accessWrites = [];
+  const reads = [];
 
   await page.route(`${ORIGIN}/**`, async (route) => {
     const request = route.request();
@@ -89,10 +99,35 @@ async function installProductionFixture(page, {
     }
 
     if (url.pathname === '/api/v1/tenant/users' && request.method() === 'GET') {
+      reads.push(Object.fromEntries(url.searchParams));
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ users, nextAfterId: null }),
+        body: JSON.stringify({ users, nextAfterId: null, requestId: ADMIN_ID }),
+      });
+      return;
+    }
+
+    if (url.pathname === `/api/v1/tenant/users/${USER_ID}/access` && request.method() === 'PUT') {
+      const body = request.postDataJSON();
+      accessWrites.push({ csrf: request.headers()['x-csrf-token'], body });
+      users = users.map((user) => user.id === USER_ID
+        ? {
+          ...user,
+          active: body.active,
+          lifecycle: {
+            status: body.active ? 'active' : 'disabled',
+            version: user.lifecycle.version + 1,
+          },
+        }
+        : user);
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({
+          user: users.find((user) => user.id === USER_ID),
+          requestId: ADMIN_ID,
+        }),
       });
       return;
     }
@@ -117,7 +152,15 @@ async function installProductionFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ user: users.find((user) => user.id === USER_ID) }),
+        body: JSON.stringify({
+          user: (({ id, displayName, active, roles: userRoles }) => ({
+            id,
+            displayName,
+            active,
+            roles: userRoles,
+          }))(users.find((user) => user.id === USER_ID)),
+          requestId: ADMIN_ID,
+        }),
       });
       return;
     }
@@ -139,7 +182,7 @@ async function installProductionFixture(page, {
     }
   });
 
-  return { writes };
+  return { writes, accessWrites, reads };
 }
 
 async function openTenantAdministration(page) {
@@ -182,6 +225,33 @@ test('Tenant Admin manages elevated roles through the production API with CSRF a
 
   const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(noOverflow).toBe(true);
+});
+
+test('Tenant Admin lifecycle is keyboard operable, server-authoritative, and responsive', async ({ page }) => {
+  const fixture = await installProductionFixture(page);
+  await page.setViewportSize({ width: 375, height: 760 });
+  await openTenantAdministration(page);
+
+  const search = page.locator('#tenant-user-search');
+  await search.fill('Casey');
+  await search.press('Enter');
+  await expect.poll(() => fixture.reads.at(-1)?.search).toBe('Casey');
+
+  const userCard = page.locator(`[data-tenant-user-id="${USER_ID}"]`);
+  await expect(userCard.getByText(/2 offene Anfragen/)).toBeVisible();
+  const disable = userCard.locator('[data-tenant-user-lifecycle-action="disable"]');
+  await disable.focus();
+  await page.keyboard.press('Enter');
+
+  const updated = page.locator(`[data-tenant-user-id="${USER_ID}"]`);
+  await expect(updated).toBeFocused();
+  await expect(updated.getByText('Deaktiviert', { exact: true })).toBeVisible();
+  await expect(updated.locator('[data-tenant-user-lifecycle-action="reactivate"]')).toBeVisible();
+  expect(fixture.accessWrites).toEqual([{
+    csrf: CSRF_TOKEN,
+    body: { active: false, expectedVersion: 3 },
+  }]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('role conflicts are localized, announced and return focus to the failed save action', async ({ page }) => {

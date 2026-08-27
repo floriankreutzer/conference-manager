@@ -9,16 +9,34 @@ import {
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell, renderAppBootstrapLoading } from './platform/app-shell.js';
 import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';
+import {
+  createTenantAuditApi,
+  createTenantCapabilitiesApi,
+} from './platform/tenant-admin-operations-api.js';
+import {
+  createTenantBookingPolicySettingsApi,
+  createTenantCatalogueSettingsApi,
+  createTenantCostAllocationSettingsApi,
+  createTenantLocationSettingsApi,
+  createTenantOrganizationSettingsApi,
+} from './platform/tenant-settings-api.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
   clearTenantAdminRoute,
+  createDemoBookingPolicySettings,
+  createDemoCatalogueSettings,
+  createDemoCostAllocationSettings,
+  createDemoLocationSettings,
+  createDemoOrganizationSettings,
+  createDemoTenantAudit,
+  createDemoTenantCapabilities,
   createDemoTenantUserAdministration,
   createTenantAdminApplication,
   createTenantAdminOnboardingRuntime,
   isTenantAdminRoute,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.27.71';
+const APP_BUILD = '2026.08.27.73';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -66,6 +84,33 @@ async function bootstrap() {
     : (context.isTenantAdmin() && authentication
       ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
       : null);
+  const tenantAudit = context.isDemoRuntime()
+    ? createDemoTenantAudit()
+    : (context.isTenantAdmin() && authentication
+      ? createTenantAuditApi({ apiClient: authentication.apiClient })
+      : null);
+  const tenantCapabilities = context.isDemoRuntime()
+    ? createDemoTenantCapabilities()
+    : (context.isTenantAdmin() && authentication
+      ? createTenantCapabilitiesApi({ apiClient: authentication.apiClient })
+      : null);
+  const tenantSettingsAdapters = context.isDemoRuntime()
+    ? Object.freeze({
+      organization: createDemoOrganizationSettings(),
+      locations: createDemoLocationSettings(),
+      catalog: createDemoCatalogueSettings(),
+      bookingPolicies: createDemoBookingPolicySettings(),
+      costAllocation: createDemoCostAllocationSettings(),
+    })
+    : (context.isTenantAdmin() && authentication
+      ? Object.freeze({
+        organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
+        locations: createTenantLocationSettingsApi({ apiClient: authentication.apiClient }),
+        catalog: createTenantCatalogueSettingsApi({ apiClient: authentication.apiClient }),
+        bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
+        costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
+      })
+      : Object.freeze({}));
   const microsoft365Connection = !context.isDemoRuntime() && context.isTenantAdmin() && authentication
     ? createMicrosoft365ConnectionApi({ apiClient: authentication.apiClient })
     : null;
@@ -81,11 +126,14 @@ async function bootstrap() {
       appRoot,
       setPageHeading,
       sectionAdapters: Object.freeze({
+        ...tenantSettingsAdapters,
         users: tenantUserAdministration,
         microsoft365: Object.freeze({
           connection: microsoft365Connection,
           onboardingRuntime,
         }),
+        capabilities: tenantCapabilities,
+        audit: tenantAudit,
       }),
     })
     : null;

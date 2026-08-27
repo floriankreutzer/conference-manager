@@ -27,16 +27,22 @@ for (const forbidden of ['localStorage', 'sessionStorage', 'platform_admin']) {
   }
 }
 
-const api = await readFile('src/platform/tenant-user-administration-api.js', 'utf8');
+const api = await readFile('src/platform/tenant-user-operations-api.js', 'utf8');
 for (const required of [
-  'apiClient.request(`v1/tenant/users?limit=${PAGE_SIZE}${cursor}`)',
+  'apiClient.request(queryPath(normalizedQuery(filters)))',
+  "parameters.set('afterId', query.afterId)",
+  "parameters.set('search', query.search)",
+  "parameters.set('status', query.status)",
+  "parameters.set('role', query.role)",
+  "parameters.set('providerLink', query.providerLink)",
   'nextAfterId',
-  'seenCursors',
   "method: 'PUT'",
-  '`v1/tenant/users/${userId}/roles`',
+  '`v1/tenant/users/${userId.toLowerCase()}/roles`',
+  '`v1/tenant/users/${userId.toLowerCase()}/access`',
   "'conference_manager'",
   "'tenant_admin'",
   'body: { roles: normalized }',
+  'body: { active, expectedVersion }',
 ]) {
   if (!api.includes(required)) throw new Error(`Tenant role API adapter is missing ${required}.`);
 }
@@ -44,9 +50,9 @@ for (const forbidden of ['tenantId', 'platform_admin', 'localStorage', 'sessionS
   if (api.includes(forbidden)) throw new Error(`Tenant role API adapter contains forbidden authority/transport ${forbidden}.`);
 }
 
-const demoAdministration = await readFile('src/tenant-admin/demo-user-administration.js', 'utf8');
+const demoAdministration = await readFile('src/tenant-admin/demo-user-operations.js', 'utf8');
 for (const required of [
-  'createDemoTenantUserAdministration',
+  'createDemoTenantUserOperations',
   "TENANT_ELEVATED_ROLE.TENANT_ADMIN",
   "TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER",
   "throw demoError('HTTP_403')",
@@ -99,7 +105,7 @@ for (const required of [
   "dataset: { tenantRoleAction: 'save' }",
   "'aria-labelledby': headingId",
   "tabindex: '-1'",
-  "attrs: { 'aria-live': 'polite' }",
+  "'aria-live': 'polite', 'aria-atomic': 'true'",
 ]) {
   if (!userSection.includes(required)) throw new Error(`Tenant Admin User section is missing ${required}.`);
 }
@@ -122,12 +128,19 @@ for (const forbidden of ['innerHTML', 'tenantId', 'platform_admin', 'localStorag
 const app = await readFile('src/app.js', 'utf8');
 for (const required of [
   "from './tenant-admin/index.js'",
+  "from './platform/tenant-admin-operations-api.js'",
   "from './platform/tenant-user-administration-api.js'",
   'context.isDemoRuntime()',
+  'createDemoTenantAudit()',
+  'createDemoTenantCapabilities()',
   'createDemoTenantUserAdministration({',
   'const authentication = context.authenticationRuntime()',
   'context.isTenantAdmin() && authentication',
+  'createTenantAuditApi({ apiClient: authentication.apiClient })',
+  'createTenantCapabilitiesApi({ apiClient: authentication.apiClient })',
   'createTenantUserAdministrationApi({ apiClient: authentication.apiClient })',
+  'capabilities: tenantCapabilities',
+  'audit: tenantAudit',
 ]) {
   if (!app.includes(required)) throw new Error(`Composition Root is missing Tenant Admin wiring ${required}.`);
 }

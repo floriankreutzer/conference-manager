@@ -63,7 +63,7 @@ Top-level view changes are reported through a generic application-shell callback
 
 ## Stylesheet ownership
 
-`assets/app-layout.css` remains the single public application-layout entry point declared by `index.html`. It composes the stable application foundation and the bounded Tenant Admin settings layout. `assets/app-layout-foundation.css` is the pre-existing application-wide layout responsibility; `assets/tenant-admin-settings.css` owns only the Tenant Admin shell and section presentation. Neither file is an alternative runtime implementation, and both remain subject to the shared design-token gate.
+`assets/app-layout.css` remains the single public application-layout entry point declared by `index.html`. It composes the stable application foundation and the bounded Tenant Admin layouts. `assets/app-layout-foundation.css` is the pre-existing application-wide layout responsibility; `assets/tenant-admin-settings.css` owns the Tenant Admin shell and shared settings-section presentation; `assets/tenant-admin-operations.css` owns only User lifecycle, Microsoft 365 operational recovery, effective-capability and audit-history presentation. None is an alternative runtime implementation, and all remain subject to the shared design-token gate.
 
 ## Automated enforcement
 

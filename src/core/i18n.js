@@ -2,7 +2,9 @@ import * as base from './i18n-base.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
 import { ONBOARDING_MESSAGES } from './i18n-onboarding-messages.js';
 import { PRODUCTION_APPLICATION_MESSAGES } from './i18n-production-application-messages.js';
+import { TENANT_ADMIN_OPERATIONS_MESSAGES } from './i18n-tenant-admin-operations-messages.js';
 import { TENANT_ADMIN_SETTINGS_MESSAGES } from './i18n-tenant-admin-settings-messages.js';
+import { TENANT_SETTINGS_DOMAIN_MESSAGES } from './i18n-tenant-settings-domain-messages.js';
 
 const LEGACY_KEY_ALIASES = Object.freeze({
   'parity.admin.accessibility': 'manager.accessibility',
@@ -76,6 +78,12 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const tenantSettingsDomainMessages = TENANT_SETTINGS_DOMAIN_MESSAGES[targetLanguage]
+    ?? TENANT_SETTINGS_DOMAIN_MESSAGES.de;
+  if (tenantSettingsDomainMessages?.[key] !== undefined) return tenantSettingsDomainMessages[key];
+  const operationsMessages = TENANT_ADMIN_OPERATIONS_MESSAGES[targetLanguage]
+    ?? TENANT_ADMIN_OPERATIONS_MESSAGES.de;
+  if (operationsMessages?.[key] !== undefined) return operationsMessages[key];
   const tenantAdminMessages = TENANT_ADMIN_SETTINGS_MESSAGES[targetLanguage]
     ?? TENANT_ADMIN_SETTINGS_MESSAGES.de;
   if (tenantAdminMessages?.[key] !== undefined) return tenantAdminMessages[key];
