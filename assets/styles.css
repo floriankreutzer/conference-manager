@@ -110,6 +110,7 @@ a {
   display: grid;
   width: 42px;
   height: 42px;
+  flex: 0 0 auto;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.72);
   font-family: var(--font-family-display);
@@ -117,14 +118,22 @@ a {
   letter-spacing: -0.02em;
 }
 
+.brand-mark img {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  object-fit: contain;
+}
+
 .brand-mark span {
   color: var(--brand-secondary);
 }
 
 .brand strong {
+  display: block;
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-bold);
   letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
 .brand small {

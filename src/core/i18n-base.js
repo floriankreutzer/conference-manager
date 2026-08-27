@@ -79,11 +79,28 @@ const EN = {
 Object.assign(MESSAGES.en, EN);
 
 const SUPPORTED = Object.freeze(['de', 'en']);
-let currentLanguage = SUPPORTED.includes(readString(KEYS.language, 'de')) ? readString(KEYS.language, 'de') : 'de';
+const SUPPORTED_TENANT_LOCALES = Object.freeze({ 'de-DE': 'de', 'en-GB': 'en' });
+const SUPPORTED_CURRENCIES = new Set(['CHF', 'EUR', 'GBP', 'USD']);
+let persistedLanguage = readString(KEYS.language, '');
+let userLanguage = SUPPORTED.includes(persistedLanguage) ? persistedLanguage : null;
+let currentLanguage = userLanguage || 'de';
+let tenantCurrency = 'EUR';
 
 export function language() { return currentLanguage; }
 export function locale() { return currentLanguage === 'en' ? 'en-GB' : 'de-DE'; }
+export function currency() { return tenantCurrency; }
 export function supportedLanguages() { return [...SUPPORTED]; }
+
+export function configureTenantLocalization({ defaultLocale, defaultCurrency } = {}) {
+  const tenantLanguage = SUPPORTED_TENANT_LOCALES[defaultLocale];
+  if (!tenantLanguage || !SUPPORTED_CURRENCIES.has(defaultCurrency)) {
+    throw new TypeError('TENANT_LOCALIZATION_INVALID');
+  }
+  tenantCurrency = defaultCurrency;
+  if (userLanguage === null) currentLanguage = tenantLanguage;
+  document.documentElement.lang = currentLanguage;
+  return Object.freeze({ language: currentLanguage, locale: locale(), currency: tenantCurrency });
+}
 
 export function t(key, values = {}) {
   const template = MESSAGES[currentLanguage]?.[key] ?? MESSAGES.de[key] ?? key;
@@ -91,9 +108,12 @@ export function t(key, values = {}) {
 }
 
 export function setLanguage(nextLanguage) {
-  if (!SUPPORTED.includes(nextLanguage) || nextLanguage === currentLanguage) return;
+  if (!SUPPORTED.includes(nextLanguage)) return;
+  userLanguage = nextLanguage;
+  if (nextLanguage === currentLanguage && persistedLanguage === nextLanguage) return;
   currentLanguage = nextLanguage;
   writeString(KEYS.language, nextLanguage);
+  persistedLanguage = nextLanguage;
   document.documentElement.lang = nextLanguage;
   window.dispatchEvent(new CustomEvent('conference-language-changed', { detail: { language: nextLanguage } }));
 }
@@ -113,7 +133,7 @@ export function formatDateTime(value) {
 }
 
 export function formatTime(value) { return value || ''; }
-export function formatMoney(value) { return new Intl.NumberFormat(locale(), { style: 'currency', currency: 'EUR' }).format(Number(value || 0)); }
+export function formatMoney(value) { return new Intl.NumberFormat(locale(), { style: 'currency', currency: tenantCurrency }).format(Number(value || 0)); }
 export function formatNumber(value, options) { return new Intl.NumberFormat(locale(), options).format(Number(value || 0)); }
 
 document.documentElement.lang = currentLanguage;

@@ -3,7 +3,14 @@ import { existsSync, readFileSync } from 'node:fs';
 const PUBLIC_I18N_PATH = 'src/core/i18n.js';
 const BASE_CATALOG_PATH = 'src/core/i18n-base.js';
 const CAPABILITY_CATALOG_PATH = 'src/core/i18n-capability-messages.js';
-const CANONICAL_CATALOG_PATHS = [BASE_CATALOG_PATH, CAPABILITY_CATALOG_PATH];
+const TENANT_ADMIN_OPERATIONS_CATALOG_PATH = 'src/core/i18n-tenant-admin-operations-messages.js';
+const TENANT_SETTINGS_DOMAIN_CATALOG_PATH = 'src/core/i18n-tenant-settings-domain-messages.js';
+const CANONICAL_CATALOG_PATHS = [
+  BASE_CATALOG_PATH,
+  CAPABILITY_CATALOG_PATH,
+  TENANT_ADMIN_OPERATIONS_CATALOG_PATH,
+  TENANT_SETTINGS_DOMAIN_CATALOG_PATH,
+];
 let failures = 0;
 
 function fail(message) {
@@ -81,11 +88,19 @@ function readBaseCatalog() {
   };
 }
 
-function readCapabilityCatalog() {
-  const source = readFileSync(CAPABILITY_CATALOG_PATH, 'utf8');
+function readFrozenCatalog(path) {
+  const source = readFileSync(path, 'utf8');
   return {
-    de: parseMessages(sectionBetween(source, '  de: Object.freeze({', '\n  }),\n  en: Object.freeze({', CAPABILITY_CATALOG_PATH, 'German'), CAPABILITY_CATALOG_PATH, 'German'),
-    en: parseMessages(sectionBetween(source, '  en: Object.freeze({', '\n  }),\n});', CAPABILITY_CATALOG_PATH, 'English'), CAPABILITY_CATALOG_PATH, 'English'),
+    de: parseMessages(sectionBetween(source, '  de: Object.freeze({', '\n  }),\n  en: Object.freeze({', path, 'German'), path, 'German'),
+    en: parseMessages(sectionBetween(source, '  en: Object.freeze({', '\n  }),\n});', path, 'English'), path, 'English'),
+  };
+}
+
+function readNamedFrozenCatalog(path, exportName) {
+  const source = readFileSync(path, 'utf8');
+  return {
+    de: parseMessages(sectionBetween(source, 'const DE = Object.freeze({', '\n});\n\nconst EN = Object.freeze({', path, 'German'), path, 'German'),
+    en: parseMessages(sectionBetween(source, 'const EN = Object.freeze({', `\n});\n\nexport const ${exportName}`, path, 'English'), path, 'English'),
   };
 }
 
@@ -120,7 +135,12 @@ for (const required of [
   if (!publicI18n.includes(required)) fail(`${PUBLIC_I18N_PATH}: canonical localization contract missing ${required}.`);
 }
 
-const canonical = mergeCatalogs(readBaseCatalog(), readCapabilityCatalog());
+const canonical = mergeCatalogs(
+  readBaseCatalog(),
+  readFrozenCatalog(CAPABILITY_CATALOG_PATH),
+  readNamedFrozenCatalog(TENANT_ADMIN_OPERATIONS_CATALOG_PATH, 'TENANT_ADMIN_OPERATIONS_MESSAGES'),
+  readFrozenCatalog(TENANT_SETTINGS_DOMAIN_CATALOG_PATH),
+);
 const missingInEnglish = [...canonical.de.keys()].filter((key) => !canonical.en.has(key)).sort();
 const missingInGerman = [...canonical.en.keys()].filter((key) => !canonical.de.has(key)).sort();
 if (missingInEnglish.length) fail(`Canonical English translations missing keys: ${missingInEnglish.join(', ')}`);

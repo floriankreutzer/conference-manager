@@ -4,15 +4,15 @@ import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { kpi } from '../shared/application-presentation.js';
 import { notificationText } from '../shared/notifications.js';
 import { PRODUCTION_AUTH_STATUS } from './production-session.js';
+import { TENANT_PRESENTATION_FALLBACK } from './tenant-presentation-api.js';
+import { applyTenantPresentationToDocument } from './tenant-presentation-runtime.js';
 
 export function renderAppBootstrapLoading() {
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');
   const mainRoot = document.getElementById('mainContent');
-  document.title = t('app.title');
+  applyTenantPresentationToDocument(document, TENANT_PRESENTATION_FALLBACK);
   document.getElementById('skipLink').textContent = t('a11y.skip');
-  document.getElementById('sidebar').setAttribute('aria-label', t('app.title'));
-  document.getElementById('brandTitle').textContent = t('app.title');
   document.getElementById('brandSubtitle').textContent = t('app.internalServices');
   document.getElementById('viewTitle').textContent = t('auth.production.loadingTitle');
   document.getElementById('viewSubtitle').textContent = t('auth.production.loadingText');
@@ -36,6 +36,7 @@ export function createAppShell({
   manager,
   tenantAdmin = null,
   authentication = null,
+  tenantPresentation = null,
   onViewChange = null,
 }) {
   if (onViewChange !== null && typeof onViewChange !== 'function') {
@@ -115,10 +116,11 @@ export function createAppShell({
   }
 
   function renderNavigation() {
-    document.title = t('app.title');
+    applyTenantPresentationToDocument(
+      document,
+      tenantPresentation?.current?.() || TENANT_PRESENTATION_FALLBACK,
+    );
     document.getElementById('skipLink').textContent = t('a11y.skip');
-    document.getElementById('sidebar').setAttribute('aria-label', t('app.title'));
-    document.getElementById('brandTitle').textContent = t('app.title');
     document.getElementById('brandSubtitle').textContent = t('app.internalServices');
     clear(navigationRoot);
     const list = el('ul', { className: 'nav-list' });
@@ -200,10 +202,12 @@ export function createAppShell({
     const next = [...upcoming]
       .sort((left, right) => `${left.date}${left.start}`.localeCompare(`${right.date}${right.start}`))[0];
     const firstName = String(context.profile.firstName || '').trim();
+    const displayName = tenantPresentation?.current?.().presentation.displayName
+      || TENANT_PRESENTATION_FALLBACK.presentation.displayName;
 
     const hero = el('section', { className: 'welcome-hero', attrs: { 'aria-labelledby': 'welcomeHeading' } });
     hero.append(
-      el('p', { className: 'eyebrow', text: t('app.title') }),
+      el('p', { className: 'eyebrow', text: displayName }),
       el('h2', {
         id: 'welcomeHeading',
         text: firstName ? t('welcome.greeting', { name: firstName }) : t('nav.welcome'),

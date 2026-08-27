@@ -51,13 +51,50 @@ export function renderSectionConflict(root, titleKey, {
   });
   reload.addEventListener('click', onReload);
   const actions = [reload];
+  const feedback = [];
   if (onReapply) {
+    const pendingStatus = el('p', {
+      className: 'field-hint',
+      dataset: { tenantSettingsConflictPending: 'true' },
+      attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
+    });
+    pendingStatus.hidden = true;
+    const errorStatus = el('p', {
+      className: 'field-hint',
+      dataset: { tenantSettingsConflictError: 'true' },
+      attrs: { role: 'alert', 'aria-live': 'assertive', 'aria-atomic': 'true' },
+    });
+    errorStatus.hidden = true;
     const reapply = button(t('tenantAdmin.section.conflictReapply'), {
       className: 'secondary',
       dataset: { tenantSettingsConflictReapply: 'true' },
     });
-    reapply.addEventListener('click', onReapply);
     actions.push(reapply);
+    feedback.push(pendingStatus, errorStatus);
+
+    let reapplyPending = false;
+    const setReapplyPending = (pending) => {
+      reapplyPending = pending;
+      actions.forEach((action) => { action.disabled = pending; });
+      pendingStatus.textContent = pending ? t('tenantSettings.status.saving') : '';
+      pendingStatus.hidden = !pending;
+    };
+    reapply.addEventListener('click', async () => {
+      if (reapplyPending) return;
+      errorStatus.textContent = '';
+      errorStatus.hidden = true;
+      setReapplyPending(true);
+      try {
+        await onReapply();
+      } catch {
+        setReapplyPending(false);
+        errorStatus.textContent = t('tenantSettings.status.saveFailed');
+        errorStatus.hidden = false;
+        if (reapply.isConnected) reapply.focus();
+        return;
+      }
+      setReapplyPending(false);
+    });
   }
 
   clear(root);
@@ -75,5 +112,6 @@ export function renderSectionConflict(root, titleKey, {
       text: t('tenantAdmin.section.revision', { revision }),
     }),
     el('div', { className: 'button-row' }, actions),
+    ...feedback,
   ]));
 }

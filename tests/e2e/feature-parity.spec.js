@@ -52,7 +52,7 @@ test('employee catering visuals and rich floorplan survive the reorganization', 
   await page.locator('input[name="cateringMode"][value="PACKAGE"]').check();
   const images = page.locator('.package-grid .catering-card-image');
   await expect(images).toHaveCount(12);
-  await expect(images.first()).toHaveAttribute('src', /^https:\/\/images\.unsplash\.com\//);
+  await expect(images.first()).toHaveAttribute('src', /^data:image\/svg\+xml;charset=UTF-8,/);
 });
 
 test('manager cockpit restores overview, timeline/list room planning, detailed reports and full administration', async ({ page }) => {

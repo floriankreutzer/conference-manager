@@ -57,6 +57,8 @@ const allowedAppImports = new Set([
   './tenant-admin/index.js',
   './platform/application-context.js',
   './platform/app-shell.js',
+  './platform/tenant-admin-operations-api.js',
+  './platform/tenant-settings-api.js',
   './platform/tenant-user-administration-api.js',
   './platform/microsoft365-connection-api.js',
 ]);
@@ -67,6 +69,8 @@ for (const required of [
   "from './tenant-admin/index.js'",
   "from './platform/application-context.js'",
   "from './platform/app-shell.js'",
+  "from './platform/tenant-admin-operations-api.js'",
+  "from './platform/tenant-settings-api.js'",
   "from './platform/tenant-user-administration-api.js'",
   "from './platform/microsoft365-connection-api.js'",
   'createEmployeeApplication',

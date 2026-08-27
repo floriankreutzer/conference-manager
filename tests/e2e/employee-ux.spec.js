@@ -162,6 +162,7 @@ test('desktop and mobile receive the intended responsive request experience', as
   }
 
   await page.locator('#primaryNavigation button[data-view="employee"]').click();
+  await expect(page.locator('label[for="date"]')).toHaveClass(/ux-order-date/);
 
   const order = await page.evaluate(() => Object.fromEntries(
     ['date', 'start', 'end', 'internalParticipants', 'externalParticipants'].map((id) => {

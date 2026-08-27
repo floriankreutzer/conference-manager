@@ -2,6 +2,10 @@ import { formatDate, language, t } from '../core/i18n.js';
 import { safeHttpsUrl } from '../core/ui.js';
 import { catalogData, localized, requestData, siteData } from './parity-data.js';
 
+const LOCAL_ROUTE_CODES = Object.freeze({
+  'https://www.openstreetmap.org/': new URL('../../assets/demo/route-openstreetmap.svg', import.meta.url).href,
+});
+
 function docElement(doc, tagName, { text = '', className = '', attrs = {} } = {}) {
   const node = doc.createElement(tagName);
   if (className) node.className = className;
@@ -78,8 +82,18 @@ export function richPrint(requestId) {
   if (route) {
     const routeRow = docElement(doc, 'div', { className: 'route' });
     const link = docElement(doc, 'a', { text: t('guest.route'), attrs: { href: route, target: '_blank', rel: 'noopener noreferrer' } });
-    const qr = docElement(doc, 'img', { className: 'qr', attrs: { src: `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(route)}`, alt: t('welcome.print.qrAlt'), referrerpolicy: 'no-referrer' } });
-    routeRow.append(link, qr);
+    const routeCode = LOCAL_ROUTE_CODES[route];
+    routeRow.appendChild(link);
+    if (routeCode) {
+      routeRow.appendChild(docElement(doc, 'img', {
+        className: 'qr',
+        attrs: {
+          src: routeCode,
+          alt: t('welcome.print.qrAlt'),
+          referrerpolicy: 'no-referrer',
+        },
+      }));
+    }
     directions.appendChild(routeRow);
   }
   firstGrid.append(directions, card(t('manager.parking'), [site.parking]));

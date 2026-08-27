@@ -3,10 +3,12 @@ import { button, clear, el, field, showToast } from '../core/ui.js';
 import { pt } from './parity-i18n.js';
 import {
   catalogData,
+  DEMO_IMAGE_SOURCE_MAX_LENGTH,
   localized,
   setLocalized,
   siteData,
   validatedHttps,
+  validatedImageSource,
   writeCatalog,
   writeSites,
 } from './parity-data.js';
@@ -25,6 +27,22 @@ export function getAdminSection() {
 
 function textInput(value, type = 'text') {
   return el('input', { type, value: value ?? '' });
+}
+
+function imageInput(value) {
+  const control = textInput(value);
+  control.maxLength = DEMO_IMAGE_SOURCE_MAX_LENGTH;
+  control.addEventListener('input', () => control.removeAttribute('aria-invalid'));
+  return control;
+}
+
+function imageSourceOrReport(control) {
+  const source = validatedImageSource(control.value);
+  if (source !== null) return source;
+  control.setAttribute('aria-invalid', 'true');
+  showToast(pt('parity.admin.invalidImage'));
+  control.focus();
+  return null;
 }
 
 function numberInput(value, min = 0, step = '1') {
@@ -96,7 +114,7 @@ function renderRooms(root) {
     const floor = textInput(localized(room.floor));
     const description = el('textarea');
     description.value = localized(room.floorplanDescription);
-    const image = textInput(room.floorplanImage || '', 'url');
+    const image = imageInput(room.floorplanImage || '');
     const active = checkboxInput(room.active !== false);
 
     card.append(
@@ -120,12 +138,8 @@ function renderRooms(root) {
     );
 
     card.appendChild(adminActions(() => {
-      const imageUrl = validatedHttps(image.value);
-      if (image.value.trim() && !imageUrl) {
-        showToast(pt('parity.admin.invalidUrl'));
-        image.focus();
-        return;
-      }
+      const imageSource = imageSourceOrReport(image);
+      if (imageSource === null) return;
 
       const latest = catalogData();
       const target = (latest.rooms || []).find((entry) => entry.id === room.id);
@@ -140,7 +154,7 @@ function renderRooms(root) {
         target.floorplanDescription,
         description.value.trim(),
       );
-      target.floorplanImage = imageUrl;
+      target.floorplanImage = imageSource;
       target.active = active.checked;
       saveAndReload({ catalog: latest, section: 'ROOMS' });
     }, () => {
@@ -249,7 +263,7 @@ function renderPackages(root) {
       const variantDescription = el('textarea');
       variantDescription.value = localized(variant.description);
       const price = numberInput(variant.pricePerPerson, 0, '0.01');
-      const image = textInput(variant.image || '', 'url');
+      const image = imageInput(variant.image || '');
 
       group.append(
         field({ id: `parity-package-tier-${pack.id}-${index}`, label: pt('parity.admin.tier'), control: tier }),
@@ -263,12 +277,11 @@ function renderPackages(root) {
     });
 
     card.appendChild(adminActions(() => {
+      const imageSources = [];
       for (const variant of variants) {
-        if (variant.image.value.trim() && !validatedHttps(variant.image.value)) {
-          showToast(pt('parity.admin.invalidUrl'));
-          variant.image.focus();
-          return;
-        }
+        const source = imageSourceOrReport(variant.image);
+        if (source === null) return;
+        imageSources.push(source);
       }
 
       const latest = catalogData();
@@ -281,7 +294,7 @@ function renderPackages(root) {
         tier: variants[index].tier.value.trim(),
         description: setLocalized(variant.description, variants[index].description.value.trim()),
         pricePerPerson: Math.max(0, Number(variants[index].price.value || 0)),
-        image: validatedHttps(variants[index].image.value),
+        image: imageSources[index],
       }));
       saveAndReload({ catalog: latest, section: 'PACKAGES' });
     }, () => {
