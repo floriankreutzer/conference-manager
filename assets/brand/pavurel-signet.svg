@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 512 512"
+   version="1.1"
+   id="svg2"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <g
+     fill="none"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="g2">
+    <path
+       d="M132 390 V215 C132 119 214 69 293 106 C351 133 379 194 360 250 C345 294 305 323 258 323 H215"
+       stroke="#7A1F3D"
+       stroke-width="58"
+       id="path1" />
+    <path
+       d="M215 390 V252 C215 202 254 169 299 169 C344 169 381 205 381 250 C381 291 354 315 321 339 L246 392"
+       stroke="#C29A6B"
+       stroke-width="58"
+       id="path2" />
+  </g>
+</svg>
