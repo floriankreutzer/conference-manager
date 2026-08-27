@@ -16,9 +16,19 @@ test('Tenant Admin shell provides authorized direct navigation, keyboard focus a
   await page.locator('#primaryNavigation button[data-view="tenantAdmin"]').click();
   await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
   await expect(page.locator('[data-tenant-admin-section-content="overview"] h2')).toHaveText('Übersicht');
-  await expect(page.locator('[data-tenant-admin-section="users"]')).toHaveCount(1);
-  await expect(page.locator('[data-tenant-admin-section="microsoft365"]')).toHaveCount(1);
-  await expect(page.locator('[data-tenant-admin-section="organization"]')).toHaveCount(0);
+  for (const sectionId of [
+    'organization',
+    'locations',
+    'catalog',
+    'booking-policies',
+    'cost-allocation',
+    'users',
+    'microsoft365',
+    'audit',
+    'capabilities',
+  ]) {
+    await expect(page.locator(`[data-tenant-admin-section="${sectionId}"]`)).toHaveCount(1);
+  }
 
   await page.locator('[data-tenant-admin-section="users"]').click();
   await expect(page).toHaveURL(/#tenant-admin\/users$/);
