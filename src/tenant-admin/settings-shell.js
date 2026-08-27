@@ -132,6 +132,7 @@ export function createTenantAdminSettingsShell({
       root: content,
       generation: currentGeneration,
       isCurrent: () => generation === currentGeneration,
+      navigate,
       rerender: render,
     })).then(() => {
       focusActiveHeading(activeSection.id, currentGeneration);

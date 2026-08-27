@@ -128,6 +128,12 @@
   gap: var(--space-2);
 }
 
+.tenant-admin-capability-list > .tenant-capability-card {
+  display: grid;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
 .tenant-audit-change summary {
   min-height: var(--control-height);
   padding-block: var(--space-3);

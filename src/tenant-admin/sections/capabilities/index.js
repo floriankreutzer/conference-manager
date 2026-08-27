@@ -30,7 +30,7 @@ function actionHref(action) {
     : action.href;
 }
 
-function capabilityCard(capability) {
+function capabilityCard(capability, navigate) {
   const headingId = `tenant-capability-${capability.id.replaceAll('.', '-')}`;
   const card = el('li', {
     className: 'card tenant-capability-card',
@@ -65,11 +65,19 @@ function capabilityCard(capability) {
     el('dd', { text: timestamp(capability.lastCheckedAt) }),
   ]));
   if (capability.action !== null) {
-    card.appendChild(el('a', {
+    const action = el('a', {
       className: 'secondary tenant-capability-action',
       href: actionHref(capability.action),
       text: t(`tenantAdmin.operations.capabilities.action.${capability.action.id}`),
-    }));
+    });
+    if (capability.action.id === 'manage_microsoft_connection' && typeof navigate === 'function') {
+      action.addEventListener('click', (event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        navigate('microsoft365');
+      });
+    }
+    card.appendChild(action);
   }
   return card;
 }
@@ -77,7 +85,7 @@ function capabilityCard(capability) {
 export function createCapabilitiesSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('CAPABILITIES_SECTION_ADAPTER_INVALID');
 
-  async function render({ root, isCurrent }) {
+  async function render({ root, isCurrent, navigate }) {
     clear(root);
     root.appendChild(el('section', { className: 'card tenant-admin-intro' }, [
       el('h2', { text: t('tenantAdmin.capabilities.title'), attrs: { tabindex: '-1' } }),
@@ -106,7 +114,7 @@ export function createCapabilitiesSection({ adapter = null } = {}) {
         ]),
       ]));
       const list = el('ul', { className: 'tenant-admin-capability-list tenant-capability-grid' });
-      snapshot.capabilities.forEach((capability) => list.appendChild(capabilityCard(capability)));
+      snapshot.capabilities.forEach((capability) => list.appendChild(capabilityCard(capability, navigate)));
       surface.appendChild(list);
       announce(t('tenantAdmin.operations.capabilities.loaded'));
     } catch (error) {

@@ -169,8 +169,19 @@ test('operations stylesheet uses canonical tokens and includes bounded responsiv
   assert.match(css, /@media \(max-width: 620px\)/);
   assert.match(css, /grid-template-columns: 1fr/);
   assert.match(css, /var\(--color-/);
+  assert.match(
+    css,
+    /\.tenant-admin-capability-list\s*>\s*\.tenant-capability-card\s*\{[^}]*display:\s*grid[^}]*align-items:\s*stretch[^}]*justify-content:\s*stretch/s,
+  );
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i);
   assert.doesNotMatch(css, /overflow-x:\s*hidden/i);
+});
+
+test('capability recovery delegates internal navigation to the settings shell', () => {
+  const shell = readFileSync('src/tenant-admin/settings-shell.js', 'utf8');
+  const capabilities = readFileSync('src/tenant-admin/sections/capabilities/index.js', 'utf8');
+  assert.match(shell, /activeSection\.render\(\{[\s\S]*navigate,[\s\S]*rerender: render/);
+  assert.match(capabilities, /event\.preventDefault\(\);\s*navigate\('microsoft365'\);/);
 });
 
 test('production adapters never import Demo and Demo adapters have no external transport', () => {
