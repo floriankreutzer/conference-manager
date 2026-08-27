@@ -162,7 +162,7 @@ Manager internals are private. Manager-to-Employee collaboration is permitted on
 
 Tenant Admin owns the Tenant self-service settings capability behind `src/tenant-admin/index.js`. The SaaS 2 implementation is a bounded settings shell rather than a combined User/Microsoft administration surface. Detailed permanent section-boundary rules are documented in `docs/SAAS2-MODULAR-BOUNDARIES.md`.
 
-`application.js` composes the Tenant Admin section registry and settings shell. The shell and registry own only section registration, authorized visibility/navigation, shared headings, explicit-navigation focus, and loading/empty/error orchestration. They must not contain organization, catalogue, booking-policy, cost-allocation, Microsoft lifecycle, audit or User lifecycle business decisions.
+`application.js` composes the Tenant Admin section registry and settings shell. The registry owns section registration and authorized visibility; the shell owns navigation, shared headings, explicit-navigation focus, and the fallback for an unexpectedly rejected section render. Each section owns its normal loading, empty, and error presentation and orchestration. The shell and registry must not contain organization, catalogue, booking-policy, cost-allocation, Microsoft lifecycle, audit or User lifecycle business decisions.
 
 Each settings domain is owned below `src/tenant-admin/sections/<section-id>/` and exposes its section through that directory's `index.js`. Section internals must not import one another. Cross-section collaboration must use explicit injected contracts rather than private implementation access.
 
@@ -176,7 +176,7 @@ Tenant Admin uses bounded hash routes in the form `#tenant-admin/<section>`. Aut
 
 Explicit Tenant Admin section navigation moves focus to the target section heading. A successful Users role save explicitly restores focus to the updated User card after rerender. Other section-internal rerenders have no repository-wide focus-restoration guarantee unless the owning section implements and regression-protects that behavior.
 
-The Production Tenant Admin capability is available only when the validated server session grants the required Tenant Admin role/permissions for the relevant section. Tenant Admin capability does not imply Conference Manager capability or Platform Operator authority. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
+The Production Tenant Admin capability is composed only when the validated server session grants the `tenant_admin` role and the capability-wide `tenant:users:manage` permission; an individual section is then exposed only when the same trusted session also grants that section's registered permission. Tenant Admin capability does not imply Conference Manager capability or Platform Operator authority. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
 
 ### `src/platform`
 
