@@ -89,7 +89,10 @@ function catalogPayload(timeZone = 'Europe/Berlin') {
     schemaVersion: 1,
     catalog: {
       sites: [{ id: 'berlin', name: 'Berlin', active: true, timeZone }],
-      rooms: [{ id: 'room-a', siteId: 'berlin', name: 'Room A', capacity: 12, active: true }],
+      rooms: [{
+        id: 'room-a', siteId: 'berlin', name: 'Room A', capacity: 12, active: true,
+        price: { amountMinor: 0, currency: 'EUR' },
+      }],
       services: [],
       cateringPackages: [],
       cateringItems: [],
@@ -163,10 +166,37 @@ async function installProductionApplicationFixture(page, {
     }
 
     if (url.pathname === '/api/v1/application/catalog' && request.method() === 'GET') {
+      const section = url.searchParams.get('section');
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify(catalog),
+        body: JSON.stringify({
+          schemaVersion: 2,
+          configurationRevisions: {
+            organization: 1, locations: 1, catalogue: 1, bookingPolicies: 1, costAllocation: 1,
+          },
+          bookingPolicy: {
+            policyVersionId: 'policy-1',
+            effectiveFrom: '2026-01-01T00:00:00.000Z',
+            evaluatedAt: '2026-08-27T12:00:00.000Z',
+            rules: {
+              minimumLeadTimeMinutes: 0,
+              maximumAdvanceMinutes: 527040,
+              cancellationWindowMinutes: 0,
+              changeWindowMinutes: 0,
+              maximumParticipants: 500,
+              allowedSiteIds: [],
+              allowedRoomIds: [],
+              allowedServiceIds: [],
+            },
+          },
+          organization: { defaultCurrency: 'EUR' },
+          costAllocation: { allocationRequired: false },
+          context: 'fixture_catalog_context',
+          section,
+          entries: section === 'costCenters' ? [] : catalog.catalog[section],
+          page: { limit: 10, complete: true, nextCursor: null },
+        }),
       });
       return;
     }
