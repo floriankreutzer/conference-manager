@@ -100,6 +100,24 @@ function catalogPayload(timeZone = 'Europe/Berlin') {
   };
 }
 
+function publicRequest(value) {
+  return {
+    schemaVersion: 1,
+    version: value.version ?? 1,
+    ...value,
+    createdAt: value.createdAt ?? value.updatedAt,
+    details: null,
+    pricing: null,
+    configurationRevisions: null,
+    policy: null,
+    allocations: null,
+  };
+}
+
+function requestRef(value) {
+  return { id: value.id, schemaVersion: 1, version: value.version ?? 1, status: value.status };
+}
+
 async function productionHtml() {
   const source = await readFile(path.join(ROOT, 'index.html'), 'utf8');
   return source
@@ -328,13 +346,19 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ schemaVersion: 1, requests }),
+        body: JSON.stringify({
+          schemaVersion: 2,
+          asOf: '2026-09-24T12:00:00.000Z',
+          requests: requests.map(publicRequest),
+          page: { limit: 10, complete: true, nextCursor: null },
+        }),
       });
       return;
     }
 
     if (url.pathname === '/api/v1/application/requests' && request.method() === 'POST') {
-      const body = request.postDataJSON();
+      const envelope = request.postDataJSON();
+      const body = envelope.request;
       writes.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
       const createError = requestCreateErrors[requestCreateIndex];
       requestCreateIndex += 1;
@@ -362,7 +386,7 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 201,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ schemaVersion: 1, request: created }),
+        body: JSON.stringify({ schemaVersion: 2, request: publicRequest(created), requestId: API_REQUEST_ID }),
       });
       return;
     }
@@ -383,7 +407,7 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ schemaVersion: 1, request: transitioned }),
+        body: JSON.stringify({ schemaVersion: 2, request: publicRequest(transitioned), requestId: API_REQUEST_ID }),
       });
       return;
     }
@@ -392,7 +416,10 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ schemaVersion: 1, result: { change: bookingChange } }),
+        body: JSON.stringify({
+          schemaVersion: 2,
+          result: { change: bookingChange, requestRef: requestRef(requests[0]) },
+        }),
       });
       return;
     }
@@ -406,14 +433,18 @@ async function installProductionApplicationFixture(page, {
         rejectionReason: null,
         createdAt: '2026-08-26T10:00:00.000Z',
         updatedAt: '2026-08-26T10:00:00.000Z',
+        requestSchemaVersion: 1,
+        baseRequestVersion: requests[0].version ?? 1,
+        request: null,
+        proposedRequest: null,
         ...body,
       };
       await route.fulfill({
         status: 201,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify({
-          schemaVersion: 1,
-          result: { change: bookingChange, request: requests[0] },
+          schemaVersion: 2,
+          result: { change: bookingChange, requestRef: requestRef(requests[0]) },
         }),
       });
       return;
@@ -423,13 +454,13 @@ async function installProductionApplicationFixture(page, {
       const body = request.postDataJSON();
       decisionWrites.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
       if (bookingDecisionGate) await bookingDecisionGate;
-      bookingChange = { ...bookingChange, status: 'applied', updatedAt: '2026-08-26T11:00:00.000Z' };
+      bookingChange = null;
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify({
-          schemaVersion: 1,
-          result: { status: 'applied', request: requests[0] },
+          schemaVersion: 2,
+          result: { change: bookingChange, requestRef: requestRef(requests[0]) },
         }),
       });
       return;
@@ -498,6 +529,10 @@ function bookingChangeFixture(status = 'pending') {
     rejectionReason: null,
     createdAt: '2026-08-26T10:00:00.000Z',
     updatedAt: '2026-08-26T10:00:00.000Z',
+    requestSchemaVersion: 1,
+    baseRequestVersion: 1,
+    request: null,
+    proposedRequest: null,
   };
 }
 
@@ -640,7 +675,6 @@ test('Employee production flow blocks availability checks without an authoritati
 
 test('confirmed-booking dialog retains an inactive booked room and blocks combined participant overflow', async ({ page }) => {
   const catalog = catalogPayload();
-  catalog.catalog.rooms[0].active = false;
   const fixture = await installProductionApplicationFixture(page, { catalog });
   fixture.requests().push(confirmedRequestFixture());
   await page.goto(`${ORIGIN}/`);
