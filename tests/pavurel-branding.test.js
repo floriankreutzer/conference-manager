@@ -42,6 +42,14 @@ test('normal Demo tenant projection keeps Conference Manager on the PAVUREL prod
   assert.equal(afterReset.presentation.branding.logoPreset, 'product-default');
 });
 
+test('Demo runbook documents the same Conference Manager and PAVUREL baseline as the runtime', async () => {
+  const runbook = await source('docs/DEMO-RUNBOOK.md');
+
+  assert.match(runbook, /effective presentation is Conference Manager, German, EUR and the code-shipped PAVUREL product-default signet/i);
+  assert.match(runbook, /role change recreates their fixtures[\s\S]*PAVUREL product-default presentation/i);
+  assert.doesNotMatch(runbook, /Northstar Events/i);
+});
+
 test('approved PAVUREL runtime SVG masters retain the governed palette and local-only structure', async () => {
   const [signet, reversedSignet, appIcon] = await Promise.all([
     source('assets/brand/pavurel-signet.svg'),
