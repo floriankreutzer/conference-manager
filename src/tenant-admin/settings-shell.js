@@ -24,14 +24,22 @@ export function createTenantAdminSettingsShell({
   }
 
   let generation = 0;
+  let focusSectionId = null;
+
+  function focusActiveHeading(sectionId, currentGeneration) {
+    if (generation !== currentGeneration || focusSectionId !== sectionId) return;
+    requestAnimationFrame(() => {
+      if (generation !== currentGeneration || focusSectionId !== sectionId) return;
+      appRoot.querySelector('[data-tenant-admin-section-content] h2')?.focus();
+      focusSectionId = null;
+    });
+  }
 
   function navigate(sectionId) {
     const nextHash = tenantAdminHashForSection(sectionId);
     if (location?.hash !== nextHash) history?.replaceState?.(null, '', nextHash);
+    focusSectionId = sectionId;
     render();
-    requestAnimationFrame(() => {
-      appRoot.querySelector('[data-tenant-admin-section-content] h2')?.focus();
-    });
   }
 
   function overview(availableSections) {
@@ -116,6 +124,7 @@ export function createTenantAdminSettingsShell({
 
     if (!activeSection) {
       content.appendChild(overview(availableSections));
+      focusActiveHeading(OVERVIEW_ID, currentGeneration);
       return;
     }
 
@@ -124,7 +133,9 @@ export function createTenantAdminSettingsShell({
       generation: currentGeneration,
       isCurrent: () => generation === currentGeneration,
       rerender: render,
-    })).catch(() => {
+    })).then(() => {
+      focusActiveHeading(activeSection.id, currentGeneration);
+    }).catch(() => {
       if (generation !== currentGeneration) return;
       clear(content);
       content.appendChild(el('section', {
@@ -134,6 +145,7 @@ export function createTenantAdminSettingsShell({
         el('h2', { text: t(activeSection.titleKey), attrs: { tabindex: '-1' } }),
         el('p', { text: t('tenantAdmin.section.errorText') }),
       ]));
+      focusActiveHeading(activeSection.id, currentGeneration);
     });
   }
 
