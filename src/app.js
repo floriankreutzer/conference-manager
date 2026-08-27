@@ -40,7 +40,7 @@ import {
   isTenantAdminRoute,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.27.74';
+const APP_BUILD = '2026.08.27.75';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
