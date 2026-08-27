@@ -12,6 +12,7 @@ import {
   safeIdList,
   utcInstant,
 } from './tenant-settings-wire.js';
+import { createTenantBulkSettingsApi } from './tenant-bulk-settings-api.js';
 
 const CURRENT_PATH = 'v1/tenant/settings/locations';
 const HISTORY_PATH = `${CURRENT_PATH}/history`;
@@ -167,7 +168,14 @@ function history(value) {
 
 export function createTenantLocationSettingsApi({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') throw new TypeError('TENANT_LOCATION_API_CLIENT_REQUIRED');
+  const bulk = createTenantBulkSettingsApi({
+    apiClient,
+    basePath: CURRENT_PATH,
+    types: ['sites', 'rooms'],
+    normalizeApplied: wrapped,
+  });
   return Object.freeze({
+    ...bulk,
     async loadLocations() {
       try { return wrapped(await apiClient.request(CURRENT_PATH)); }
       catch (error) { throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_LOCATIONS_UNAVAILABLE'); }

@@ -10,6 +10,7 @@ import {
   safeIdList,
   schemaRevision,
 } from './tenant-settings-wire.js';
+import { createTenantBulkSettingsApi } from './tenant-bulk-settings-api.js';
 
 const CURRENT_PATH = 'v1/tenant/settings/catalogue';
 const HISTORY_PATH = `${CURRENT_PATH}/history`;
@@ -134,7 +135,14 @@ function historyQuery({ limit = 25, beforeRevision = null } = {}) {
 
 export function createTenantCatalogueSettingsApi({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') throw new TypeError('TENANT_CATALOGUE_API_CLIENT_REQUIRED');
+  const bulk = createTenantBulkSettingsApi({
+    apiClient,
+    basePath: CURRENT_PATH,
+    types: ['services', 'catering-items', 'catering-packages'],
+    normalizeApplied: current,
+  });
   return Object.freeze({
+    ...bulk,
     async loadCatalogue() {
       try { return current(await apiClient.request(CURRENT_PATH)); }
       catch (error) { throw adapterError(TenantCatalogueSettingsApiError, error, 'TENANT_CATALOGUE_UNAVAILABLE'); }

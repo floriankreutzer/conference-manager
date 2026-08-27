@@ -1,5 +1,6 @@
 import { TENANT_SETTINGS_REVISION_CONFLICT, createDemoTenantSettingsRevision } from '../../settings-revision.js';
 import { COST_ALLOCATION_DEMO_PERCENTAGES, COST_ALLOCATION_DEMO_SCENARIO, COST_ALLOCATION_DEMO_SCENARIOS, costAllocationDemoFixture } from './demo-fixtures.js';
+import { createDemoBulkTransfer } from '../../demo-bulk-transfer.js';
 
 const clone = structuredClone;
 const changedAt = (value) => `2026-08-27T14:${String(value).padStart(2, '0')}:00.000Z`;
@@ -17,6 +18,7 @@ const advance = (revision, expectedRevision) => {
 };
 
 export function createDemoCostAllocationSettings({ scenario = COST_ALLOCATION_DEMO_SCENARIO.NORMAL } = {}) {
+  let adapter;
   let revision;
   let configuration;
   let snapshots;
@@ -33,8 +35,19 @@ export function createDemoCostAllocationSettings({ scenario = COST_ALLOCATION_DE
     recoveryPending = nextScenario === COST_ALLOCATION_DEMO_SCENARIO.RECOVERY;
     return 1;
   };
+  const bulk = createDemoBulkTransfer({
+    types: ['cost-centers'],
+    current: async () => {
+      const value = await adapter.loadCostAllocation();
+      return { revision: value.revision, configuration: value.configuration };
+    },
+    save: ({ expectedRevision, configuration: next }) => adapter.saveCostAllocation({
+      expectedRevision, configuration: next,
+    }),
+  });
   reset({ scenario });
-  return Object.freeze({
+  adapter = Object.freeze({
+    ...bulk,
     isDemo: true,
     async loadCostAllocation() {
       if (recoveryPending) { recoveryPending = false; throw Object.assign(new Error('DEMO_RECOVERY_REQUIRED'), { code: 'HTTP_503' }); }
@@ -59,7 +72,8 @@ export function createDemoCostAllocationSettings({ scenario = COST_ALLOCATION_DE
       return clone(found);
     },
     async loadDemoPercentageAllocation() { return clone(COST_ALLOCATION_DEMO_PERCENTAGES); },
-    reset,
+    reset(options) { bulk.reset(); return reset(options); },
     scenario() { return currentScenario; },
   });
+  return adapter;
 }

@@ -3,6 +3,7 @@ import { announce, button, clear, el, field, showToast, validationSummary } from
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
+import { createBulkTransferPanel, supportsBulkTransfer } from '../../bulk-transfer-panel.js';
 
 export { createDemoCatalogueSettings } from './demo-adapter.js';
 
@@ -240,6 +241,11 @@ export function createCatalogSection({ adapter = null } = {}) {
       ]),
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
     );
+    if (supportsBulkTransfer(adapter)) root.appendChild(createBulkTransferPanel({
+      adapter,
+      types: ['services', 'catering-items', 'catering-packages'],
+      rerender,
+    }));
     if (focusAfterSave) { focusAfterSave = false; requestAnimationFrame(() => root.querySelector('h2')?.focus()); }
   }
 
