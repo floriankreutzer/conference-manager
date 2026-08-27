@@ -9,6 +9,7 @@ import {
   safeId,
   utcInstant,
 } from './tenant-settings-wire.js';
+import { createTenantBulkSettingsApi } from './tenant-bulk-settings-api.js';
 
 const CURRENT_PATH = 'v1/tenant/settings/cost-allocation';
 const HISTORY_PATH = `${CURRENT_PATH}/history`;
@@ -84,7 +85,14 @@ function history(value) {
 
 export function createTenantCostAllocationSettingsApi({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') throw new TypeError('TENANT_COST_ALLOCATION_API_CLIENT_REQUIRED');
+  const bulk = createTenantBulkSettingsApi({
+    apiClient,
+    basePath: CURRENT_PATH,
+    types: ['cost-centers'],
+    normalizeApplied: wrapped,
+  });
   return Object.freeze({
+    ...bulk,
     async loadCostAllocation() {
       try { return wrapped(await apiClient.request(CURRENT_PATH)); }
       catch (error) { throw adapterError(TenantCostAllocationSettingsApiError, error, 'TENANT_COST_ALLOCATION_UNAVAILABLE'); }

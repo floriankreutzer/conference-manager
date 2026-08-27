@@ -1,5 +1,6 @@
 import { TENANT_SETTINGS_REVISION_CONFLICT, createDemoTenantSettingsRevision } from '../../settings-revision.js';
 import { CATALOGUE_DEMO_SCENARIO, CATALOGUE_DEMO_SCENARIOS, catalogueDemoFixture } from './demo-fixtures.js';
+import { createDemoBulkTransfer } from '../../demo-bulk-transfer.js';
 
 const clone = structuredClone;
 const effectiveAt = (value) => `2026-08-27T12:${String(value).padStart(2, '0')}:00.000Z`;
@@ -15,6 +16,7 @@ const advance = (revision, expectedRevision) => {
 };
 
 export function createDemoCatalogueSettings({ scenario = CATALOGUE_DEMO_SCENARIO.NORMAL } = {}) {
+  let adapter;
   let revision;
   let catalogue;
   let revisions;
@@ -31,8 +33,19 @@ export function createDemoCatalogueSettings({ scenario = CATALOGUE_DEMO_SCENARIO
     recoveryPending = nextScenario === CATALOGUE_DEMO_SCENARIO.RECOVERY;
     return 1;
   };
+  const bulk = createDemoBulkTransfer({
+    types: ['services', 'catering-items', 'catering-packages'],
+    current: async () => {
+      const value = await adapter.loadCatalogue();
+      return { revision: value.revision, configuration: value.catalogue };
+    },
+    save: async ({ expectedRevision, configuration }) => adapter.saveCatalogue({
+      expectedRevision, catalogue: configuration,
+    }),
+  });
   reset({ scenario });
-  return Object.freeze({
+  adapter = Object.freeze({
+    ...bulk,
     isDemo: true,
     async loadCatalogue() {
       if (recoveryPending) { recoveryPending = false; throw Object.assign(new Error('DEMO_RECOVERY_REQUIRED'), { code: 'HTTP_503' }); }
@@ -54,7 +67,8 @@ export function createDemoCatalogueSettings({ scenario = CATALOGUE_DEMO_SCENARIO
       const filtered = revisions.filter((entry) => beforeRevision === null || entry.revision < beforeRevision).reverse();
       return { schemaVersion: 1, revisions: Object.freeze(filtered.slice(0, limit).map((entry) => clone(entry))), nextBeforeRevision: filtered.length > limit ? filtered[limit - 1].revision : null };
     },
-    reset,
+    reset(options) { bulk.reset(); return reset(options); },
     scenario() { return currentScenario; },
   });
+  return adapter;
 }

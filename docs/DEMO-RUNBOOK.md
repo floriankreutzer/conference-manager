@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-This runbook describes the deterministic baseline that is available in the static Demo today. It is an operating aid, not evidence that every SaaS 2 milestone requirement is complete. The Demo has no backend, real identity provider, customer tenant or production authorization boundary. Use example data only.
+This runbook describes the deterministic SaaS 2 baseline available in the static Demo. It is an operating aid, not production acceptance evidence. The Demo has no backend, real identity provider, customer tenant or production authorization boundary. Use example data only.
 
 The browser declares `conference-runtime=demo`. The visible role selector changes presentation perspective only; it does not grant a production role.
 
@@ -16,7 +16,7 @@ After an explicit Demo reset and reload, the following baseline is recreated:
 | Perspective | Employee | Browser-local |
 | Profile | The example profile `Florian Kreutzer` is seeded when no profile exists. | Browser-local |
 | Employee data | No saved requests, request draft or notifications. The built-in room, service, catering and site examples are seeded on first use. | Browser-local |
-| Tenant settings and presentation | Organization, locations, catalogue, booking policies and cost allocation start in their normal fixtures at revision `1`. The effective presentation is Northstar Events, German, EUR and the code-shipped managed mark. | In memory for the page lifecycle |
+| Tenant settings and presentation | Organization, locations, catalogue, booking policies and cost allocation start in their normal fixtures at revision `1`. Bulk validation/apply receipts are reset. The effective presentation is Northstar Events, German, EUR and the code-shipped managed mark. | In memory for the page lifecycle |
 | Microsoft 365 onboarding | Disconnected, unverified, no imported mappings and FreeBusy not verified. Calendar Write is not entitled in the current fixture. | In memory for the page lifecycle |
 | Tenant users, audit and readiness | Deterministic example fixtures with fixed identifiers and timestamps. | In memory for the page lifecycle |
 | Images and route code | Catering art is deterministic inline SVG. The baseline OpenStreetMap QR code is a repository-owned asset. Conference Manager image edits accept only bounded managed `assets/` paths or constrained inline SVG data; cross-origin sources are rejected before save. No external image or QR service is contacted automatically. | Repository-owned |
@@ -42,18 +42,20 @@ Changing the Demo role also reloads the page. Tenant Admin adapters are currentl
 - Employee: create and submit an example conference request, inspect room and catering illustrations, and clear the browser-local result with the reset control.
 - Conference Manager: inspect submitted requests, make the currently supported decisions, review room planning and reports, and edit the legacy browser-local reference examples.
 - Tenant Admin: inspect and edit the normal in-memory fixtures for organization, locations, catalogue, booking policies and cost allocation; exercise the currently exposed Microsoft 365 connect, verify, room import and FreeBusy sequence; inspect example users, audit entries and readiness.
+- Tenant Admin bulk transfer: in Locations, Catalogue or Cost Allocation, download a template or minimized export; edit only rows of the selected type; select the JSON document; run validation; then apply the receipt-backed change. Reapplying the same receipt returns the same result without advancing the revision again. Reset restores revision `1` and clears all receipts.
 - Confirmed request print view: open the visitor information view. The baseline route link is external but is contacted only after deliberate navigation; its QR image is served by the Demo origin.
 
 There is no supported end-user scenario selector for empty, conflict, history, recovery, degraded or revoked provider fixtures. Private adapter fixtures and test-only module construction are not a documented customer scenario.
 
-## Tracked capabilities that are not complete
+## Representative SaaS 2 story
 
-Do not present the following work as implemented by this runbook:
+1. Reset the Demo and create an Employee request using the seeded Site, room, services, catering and optional cost allocation.
+2. Switch to Conference Manager, review the request, inspect planning/reporting, and complete a supported workflow or confirmed-booking change.
+3. Switch to Tenant Admin, update a settings aggregate, inspect its history, and exercise one deterministic conflict/recovery case in the focused scenario harness.
+4. Complete the simulated Microsoft connection, room import/mapping and FreeBusy sequence; inspect readiness and audit evidence. Calendar Write remains visibly independent.
+5. Export one supported master-data type, validate a changed document, apply it once, replay it, then reset and verify the baseline revision and data.
 
-- [#126](https://github.com/floriankreutzer/conference-manager/issues/126): full productive request-contract parity. In particular, the Demo does not yet provide the complete confirmed-booking change lifecycle or make Tenant Settings the authoritative request catalogue and policy source.
-- [#127](https://github.com/floriankreutzer/conference-manager/issues/127): governed master-data import/export, including dry-run validation, transactional commit, replay behavior and minimized export. No such Demo flow is available yet.
-
-Those issues must add their own deterministic fixtures, reset behavior, documented acceptance steps and regression coverage before their capabilities can be added to the supported scenario list.
+Focused `empty`, `conflict`, `history`, `recovery`, degraded and revoked fixtures are deterministic test and demonstration harnesses. They do not claim production identity, provider or tenant evidence.
 
 ## Network and data-safety verification
 
@@ -63,6 +65,7 @@ Run the focused checks with:
 
 ```bash
 node --test tests/demo-network-isolation.test.js
+node --test tests/tenant-bulk-settings.test.js
 npx playwright test tests/e2e/demo-network-isolation.spec.js
 npm run check:static
 ```

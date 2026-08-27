@@ -3,6 +3,7 @@ import { announce, button, clear, el, field, openDialog, showToast, validationSu
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
+import { createBulkTransferPanel, supportsBulkTransfer } from '../../bulk-transfer-panel.js';
 import { createLocationRollbackPreview } from './rollback-preview.js';
 
 export { createDemoLocationSettings } from './demo-adapter.js';
@@ -450,6 +451,9 @@ export function createLocationsSection({ adapter = null } = {}) {
       ]),
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList, historyStatus]),
     );
+    if (supportsBulkTransfer(adapter)) root.appendChild(createBulkTransferPanel({
+      adapter, types: ['sites', 'rooms'], rerender,
+    }));
     if (focusAfterSave) { focusAfterSave = false; requestAnimationFrame(() => root.querySelector('h2')?.focus()); }
   }
 
