@@ -114,6 +114,47 @@ test('API errors preserve only a bounded machine-readable server code for safe r
   );
 });
 
+test('API errors retain only an exact Tenant settings current-revision conflict context', async () => {
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    fetchImpl: async () => jsonResponse({
+      error: {
+        code: 'TENANT_SETTINGS_REVISION_CONFLICT',
+        currentRevision: 7,
+        requestId: '123e4567-e89b-42d3-a456-426614174000',
+      },
+    }, { status: 409 }),
+  });
+  await assert.rejects(
+    () => client.request('tenant/settings/locations'),
+    (error) => error instanceof ApiSecurityError
+      && error.code === 'HTTP_409'
+      && error.serverCode === 'TENANT_SETTINGS_REVISION_CONFLICT'
+      && error.currentRevision === 7,
+  );
+});
+
+test('API errors discard malformed, misplaced and expanded Tenant settings conflict context', async () => {
+  const variants = [
+    { status: 400, error: { code: 'TENANT_SETTINGS_REVISION_CONFLICT', currentRevision: 7, requestId: '123e4567-e89b-42d3-a456-426614174000' } },
+    { status: 409, error: { code: 'OTHER_CONFLICT', currentRevision: 7, requestId: '123e4567-e89b-42d3-a456-426614174000' } },
+    { status: 409, error: { code: 'TENANT_SETTINGS_REVISION_CONFLICT', currentRevision: '7', requestId: '123e4567-e89b-42d3-a456-426614174000' } },
+    { status: 409, error: { code: 'TENANT_SETTINGS_REVISION_CONFLICT', currentRevision: 7, requestId: 'not-a-server-request-id' } },
+    { status: 409, error: { code: 'TENANT_SETTINGS_REVISION_CONFLICT', currentRevision: 7, requestId: '123e4567-e89b-42d3-a456-426614174000', tenantId: 'hidden' } },
+  ];
+
+  for (const variant of variants) {
+    const client = createApiClient({
+      origin: 'https://conference.example',
+      fetchImpl: async () => jsonResponse({ error: variant.error }, { status: variant.status }),
+    });
+    await assert.rejects(
+      () => client.request('tenant/settings/locations'),
+      (error) => error instanceof ApiSecurityError && error.currentRevision === null,
+    );
+  }
+});
+
 test('API errors reject malformed server error codes instead of exposing arbitrary response text', async () => {
   const client = createApiClient({
     origin: 'https://conference.example',

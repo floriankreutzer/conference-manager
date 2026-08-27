@@ -18,7 +18,7 @@ import {
   isTenantAdminRoute,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.27.70';
+const APP_BUILD = '2026.08.27.71';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {

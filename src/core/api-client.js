@@ -3,6 +3,9 @@ const SAFE_METHODS = new Set(['GET']);
 const JSON_CONTENT_TYPE = /^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|$)/i;
 const ABSOLUTE_OR_PROTOCOL_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 const SERVER_ERROR_CODE = /^[A-Z][A-Z0-9_]{1,127}$/;
+const SERVER_REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TENANT_SETTINGS_REVISION_CONFLICT = 'TENANT_SETTINGS_REVISION_CONFLICT';
+const TENANT_SETTINGS_CONFLICT_KEYS = Object.freeze(['code', 'currentRevision', 'requestId']);
 const MAX_RESPONSE_BYTES = 1_000_000;
 
 export class ApiSecurityError extends Error {
@@ -12,6 +15,9 @@ export class ApiSecurityError extends Error {
     this.code = code;
     this.serverCode = typeof options.serverCode === 'string' && SERVER_ERROR_CODE.test(options.serverCode)
       ? options.serverCode
+      : null;
+    this.currentRevision = Number.isSafeInteger(options.currentRevision) && options.currentRevision > 0
+      ? options.currentRevision
       : null;
   }
 }
@@ -142,7 +148,24 @@ async function responseError(response) {
     && SERVER_ERROR_CODE.test(payload.error.code)
     ? payload.error.code
     : null;
-  return new ApiSecurityError(`HTTP_${response.status}`, { serverCode });
+  const errorKeys = payload?.error && typeof payload.error === 'object' && !Array.isArray(payload.error)
+    ? Object.keys(payload.error).sort()
+    : [];
+  const currentRevision = response.status === 409
+    && serverCode === TENANT_SETTINGS_REVISION_CONFLICT
+    && payload
+    && typeof payload === 'object'
+    && !Array.isArray(payload)
+    && Object.keys(payload).length === 1
+    && errorKeys.length === TENANT_SETTINGS_CONFLICT_KEYS.length
+    && errorKeys.every((key, index) => key === TENANT_SETTINGS_CONFLICT_KEYS[index])
+    && typeof payload.error.requestId === 'string'
+    && SERVER_REQUEST_ID.test(payload.error.requestId)
+    && Number.isSafeInteger(payload.error.currentRevision)
+    && payload.error.currentRevision > 0
+    ? payload.error.currentRevision
+    : null;
+  return new ApiSecurityError(`HTTP_${response.status}`, { serverCode, currentRevision });
 }
 
 export function createApiClient({

@@ -53,7 +53,7 @@ Each section lives below `src/tenant-admin/sections/<section-id>/` and exposes a
 
 ## Shell and adapter rules
 
-The settings shell and section registry own only registration, authorized navigation, headings, focus, loading, empty and error orchestration. They do not own catalogue, pricing, policy, cost-allocation, Microsoft, audit or User lifecycle decisions.
+The settings shell and section registry own only registration, authorized navigation, shared page headings, explicit-navigation focus and the fallback for an unexpectedly rejected section render. Each section owns its normal loading, empty, conflict and error presentation. The shell and registry do not own catalogue, pricing, policy, cost-allocation, Microsoft, audit or User lifecycle decisions.
 
 Section applications receive Production or Demo adapters through explicit composition. They do not import Platform APIs directly. Production modules must never import Demo modules, and a failed Production API/session/configuration path must never select a Demo adapter or browser-local authority.
 

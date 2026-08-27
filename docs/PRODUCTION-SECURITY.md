@@ -118,7 +118,7 @@ The production API must be same-origin and HTTPS-only. The browser client is int
 - response size limit;
 - HTTP method allowlist.
 
-For non-success responses the browser retains only the HTTP status classification and, when present, a bounded uppercase machine-readable `error.code`. Arbitrary server text, provider payloads and request details are neither stored on the client error nor reflected into recovery UI. This permits specific remediation for consent/session/provider failures without broadening the public error-data boundary.
+For non-success responses the browser retains only the HTTP status classification and, when present, a bounded uppercase machine-readable `error.code`. The sole additional context currently accepted is a positive safe-integer `currentRevision` on the exact HTTP 409 `TENANT_SETTINGS_REVISION_CONFLICT` envelope with a valid server request ID and no unknown fields. Arbitrary server text, provider payloads, identifiers and other request details are neither stored on the client error nor reflected into recovery UI. This permits specific settings-conflict and consent/session/provider remediation without broadening the public error-data boundary.
 
 CORS should remain disabled when the production UI and API are same-origin. If cross-origin access becomes mandatory, use an explicit origin allowlist and never reflect arbitrary `Origin` values.
 
