@@ -41,6 +41,19 @@ function sessionPayload(roles = ['employee', 'tenant_admin']) {
   };
 }
 
+function presentationPayload() {
+  return {
+    schemaVersion: 1,
+    revision: 1,
+    presentation: {
+      displayName: 'Conference Manager',
+      defaultLocale: 'de-DE',
+      defaultCurrency: 'EUR',
+      branding: { logoPreset: 'product-default', accentToken: 'default' },
+    },
+  };
+}
+
 function initialUsers() {
   return [
     {
@@ -94,6 +107,15 @@ async function installProductionFixture(page, {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify(sessionPayload(roles)),
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/v1/tenant/presentation' && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify(presentationPayload()),
       });
       return;
     }
@@ -194,7 +216,9 @@ async function openTenantAdministration(page) {
   await expect(page.locator('#viewTitle')).toBeFocused();
   await page.locator('[data-tenant-admin-section="users"]').click();
   await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Benutzer & Rollen');
-  await expect(page.getByText('2 Benutzer geladen.')).toBeAttached();
+  await expect(page.locator(
+    '[data-tenant-admin-section-content="users"] .tenant-operations-result-status',
+  )).toHaveText('2 Benutzer geladen.');
 }
 
 test('Tenant Admin manages elevated roles through the production API with CSRF and keyboard focus', async ({ page }) => {

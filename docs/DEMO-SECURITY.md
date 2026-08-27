@@ -10,7 +10,7 @@ The demo must therefore not be presented as an authenticated production applicat
 
 ## Security controls implemented for the demo
 
-- Content Security Policy (CSP) restricts scripts to the application origin, blocks plugins/objects and network connections, restricts images to the known demo sources and prevents base-URL manipulation.
+- Content Security Policy (CSP) restricts scripts and images to the application origin, permits deterministic inline image data, blocks plugins/objects and network connections, and prevents base-URL manipulation. Catering illustrations and the baseline route QR code are generated or served locally; the demo does not contact an external image or QR service automatically.
 - Referrer policy is `no-referrer`.
 - Application rendering uses DOM APIs and `textContent`; direct `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `eval`, `document.write` and Function constructors are blocked by the static quality gate.
 - DOM helper code rejects inline event-handler attributes and `srcdoc`.
@@ -19,6 +19,7 @@ The demo must therefore not be presented as an authenticated production applicat
 - Demo role and language values are allow-listed. Unknown demo roles fail back to Employee.
 - The Tenant Admin demo adapter accepts only `conference_manager` and `tenant_admin` as elevated example roles, blocks self-role changes, rejects privilege additions to inactive example users and never exposes `platform_admin`.
 - Demo Tenant Admin state is isolated from the production session/API adapters and has no network transport or direct browser-storage authority.
+- External route links require deliberate user navigation. Their target is not fetched to render the Demo or its print view.
 - Text inputs and free-text areas receive bounded lengths; participant fields are constrained to realistic demo values.
 - A visible Demo Mode notice explains that there is no SSO or server-side authorization and that data remains in the browser.
 - Users can clear all `conference_*` local/session demo data from the UI.

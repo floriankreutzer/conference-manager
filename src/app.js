@@ -17,8 +17,12 @@ import {
   createTenantBookingPolicySettingsApi,
   createTenantCatalogueSettingsApi,
   createTenantCostAllocationSettingsApi,
+  createDemoTenantPresentationApi,
+  createPresentationRefreshingOrganizationSettings,
   createTenantLocationSettingsApi,
   createTenantOrganizationSettingsApi,
+  createTenantPresentationApi,
+  createTenantPresentationRuntime,
 } from './platform/tenant-settings-api.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
@@ -36,7 +40,7 @@ import {
   isTenantAdminRoute,
 } from './tenant-admin/index.js';
 
-const APP_BUILD = '2026.08.27.73';
+const APP_BUILD = '2026.08.27.74';
 const appRoot = document.getElementById('app');
 
 async function bootstrap() {
@@ -47,6 +51,39 @@ async function bootstrap() {
   const setPageHeading = (title, subtitle) => shell.setPageHeading(title, subtitle);
   const authentication = context.authenticationRuntime();
   const productionPersistence = context.productionPersistence();
+  const tenantSettingsAdapters = context.isDemoRuntime()
+    ? Object.freeze({
+      organization: createDemoOrganizationSettings(),
+      locations: createDemoLocationSettings(),
+      catalog: createDemoCatalogueSettings(),
+      bookingPolicies: createDemoBookingPolicySettings(),
+      costAllocation: createDemoCostAllocationSettings(),
+    })
+    : (context.isTenantAdmin() && authentication
+      ? Object.freeze({
+        organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
+        locations: createTenantLocationSettingsApi({ apiClient: authentication.apiClient }),
+        catalog: createTenantCatalogueSettingsApi({ apiClient: authentication.apiClient }),
+        bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
+        costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
+      })
+      : Object.freeze({}));
+  const tenantPresentationAdapter = context.isDemoRuntime()
+    ? createDemoTenantPresentationApi({ organizationSettings: tenantSettingsAdapters.organization })
+    : (context.isAuthenticated() && authentication
+      ? createTenantPresentationApi({ apiClient: authentication.apiClient })
+      : null);
+  const tenantPresentation = createTenantPresentationRuntime({ adapter: tenantPresentationAdapter });
+  await tenantPresentation.refresh();
+  const effectiveTenantSettingsAdapters = Object.hasOwn(tenantSettingsAdapters, 'organization')
+    ? Object.freeze({
+      ...tenantSettingsAdapters,
+      organization: createPresentationRefreshingOrganizationSettings({
+        organizationSettings: tenantSettingsAdapters.organization,
+        presentationRuntime: tenantPresentation,
+      }),
+    })
+    : tenantSettingsAdapters;
   const employee = context.isDemoRuntime()
     ? createEmployeeApplication({
       context,
@@ -94,23 +131,6 @@ async function bootstrap() {
     : (context.isTenantAdmin() && authentication
       ? createTenantCapabilitiesApi({ apiClient: authentication.apiClient })
       : null);
-  const tenantSettingsAdapters = context.isDemoRuntime()
-    ? Object.freeze({
-      organization: createDemoOrganizationSettings(),
-      locations: createDemoLocationSettings(),
-      catalog: createDemoCatalogueSettings(),
-      bookingPolicies: createDemoBookingPolicySettings(),
-      costAllocation: createDemoCostAllocationSettings(),
-    })
-    : (context.isTenantAdmin() && authentication
-      ? Object.freeze({
-        organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
-        locations: createTenantLocationSettingsApi({ apiClient: authentication.apiClient }),
-        catalog: createTenantCatalogueSettingsApi({ apiClient: authentication.apiClient }),
-        bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
-        costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
-      })
-      : Object.freeze({}));
   const microsoft365Connection = !context.isDemoRuntime() && context.isTenantAdmin() && authentication
     ? createMicrosoft365ConnectionApi({ apiClient: authentication.apiClient })
     : null;
@@ -126,7 +146,7 @@ async function bootstrap() {
       appRoot,
       setPageHeading,
       sectionAdapters: Object.freeze({
-        ...tenantSettingsAdapters,
+        ...effectiveTenantSettingsAdapters,
         users: tenantUserAdministration,
         microsoft365: Object.freeze({
           connection: microsoft365Connection,
@@ -144,6 +164,7 @@ async function bootstrap() {
     manager,
     tenantAdmin,
     authentication,
+    tenantPresentation,
     onViewChange: (nextView) => {
       if (nextView !== 'tenantAdmin') clearTenantAdminRoute();
     },
@@ -153,6 +174,15 @@ async function bootstrap() {
     shell.render();
     document.documentElement.dataset.appBuild = APP_BUILD;
   }
+
+  let presentationRenderFrame = 0;
+  tenantPresentation.subscribe(() => {
+    if (presentationRenderFrame) cancelAnimationFrame(presentationRenderFrame);
+    presentationRenderFrame = requestAnimationFrame(() => {
+      presentationRenderFrame = 0;
+      render();
+    });
+  });
 
   window.addEventListener('conference-language-changed', render);
   window.addEventListener('storage', (event) => {

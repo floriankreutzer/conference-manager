@@ -97,6 +97,8 @@ function capabilityTemplate(targetLanguage, key) {
 }
 
 export {
+  configureTenantLocalization,
+  currency,
   formatDate,
   formatDateTime,
   formatMoney,

@@ -100,7 +100,7 @@ function normalizedHealth(value, capability) {
   });
 }
 
-function normalizedConnectionPayload(payload) {
+export function normalizedMicrosoft365ConnectionPayload(payload) {
   if (!exactKeys(payload, ['connection', 'requestId']) || !isUuid(payload.requestId)) return null;
   const value = payload?.connection;
   if (
@@ -264,6 +264,18 @@ function apiError(error, fallback) {
   return new Microsoft365OperationsApiError(error?.serverCode || error?.code || fallback, { cause: error });
 }
 
+function consistentOperations(connectionValue, mappingsValue, readinessValue) {
+  const { checks } = readinessValue;
+  return checks.microsoft365Connected === (connectionValue.state === 'connected')
+    && checks.placesPermissionGranted === (connectionValue.permissions.place === 'granted')
+    && checks.calendarPermissionGranted === (connectionValue.permissions.calendars === 'granted')
+    && checks.roomImported === mappingsValue.some((mapping) => mapping.providerStatus === 'active')
+    && checks.freeBusyVerified === (
+      connectionValue.health.freeBusy.status === 'healthy'
+      && connectionValue.health.freeBusy.lastSuccessAt !== null
+    );
+}
+
 export class Microsoft365OperationsApiError extends Error {
   constructor(code, options = {}) {
     super(code, options);
@@ -282,7 +294,7 @@ export function createMicrosoft365OperationsApi({ apiClient } = {}) {
     } catch (error) {
       throw apiError(error, 'MICROSOFT365_OPERATIONS_UNAVAILABLE');
     }
-    const result = normalizedConnectionPayload(payload);
+    const result = normalizedMicrosoft365ConnectionPayload(payload);
     if (!result) throw new Microsoft365OperationsApiError('MICROSOFT365_OPERATIONS_RESPONSE_INVALID');
     return result;
   }
@@ -311,18 +323,28 @@ export function createMicrosoft365OperationsApi({ apiClient } = {}) {
     return result;
   }
 
-  return Object.freeze({
-    async getOperations() {
-      const [connectionValue, mappingsValue, readinessValue] = await Promise.all([
-        connection(),
-        mappings(),
-        readiness(),
-      ]);
-      return Object.freeze({
+  async function operationsSnapshot() {
+    const [connectionValue, mappingsValue, readinessValue] = await Promise.all([
+      connection(),
+      mappings(),
+      readiness(),
+    ]);
+    return consistentOperations(connectionValue, mappingsValue, readinessValue)
+      ? Object.freeze({
         connection: connectionValue,
         mappings: mappingsValue,
         readiness: readinessValue,
-      });
+      })
+      : null;
+  }
+
+  return Object.freeze({
+    async getOperations() {
+      const first = await operationsSnapshot();
+      if (first) return first;
+      const retry = await operationsSnapshot();
+      if (retry) return retry;
+      throw new Microsoft365OperationsApiError('MICROSOFT365_OPERATIONS_RESPONSE_INVALID');
     },
 
     async synchronizeMappings() {

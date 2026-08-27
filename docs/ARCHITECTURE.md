@@ -81,6 +81,8 @@ src/
 │   ├── production-session.js      # validated production session/CSRF runtime
 │   ├── tenant-admin-operations-api.js # public Tenant operations adapter facade
 │   ├── tenant-settings-api.js     # public Tenant settings adapter facade
+│   ├── tenant-presentation-api.js # minimized effective Tenant presentation projection
+│   ├── tenant-presentation-runtime.js # in-memory revision/localization/shell integration
 │   ├── tenant-user-administration-api.js # Tenant-scoped role API adapter
 │   ├── demo-security.js
 │   ├── feature-flags.js
@@ -189,6 +191,7 @@ Platform contains application-wide composition and infrastructure-facing concern
 - `production-session.js` owns the bounded, fail-closed production session bootstrap and in-memory CSRF runtime.
 - `tenant-admin-operations-api.js` is the explicit Composition Root facade for the Tenant audit-history and effective-capability Production adapters. User lifecycle operations remain behind the established Tenant User facade, while Microsoft operations decorate the existing Microsoft 365 connection port.
 - `tenant-settings-api.js` is the explicit Composition Root facade for the bounded Organization, Location, Catalogue, Booking Policy and Cost Allocation Production adapters. The domain adapters retain their individual response-validation and wire-contract ownership behind that facade.
+- `tenant-presentation-api.js` owns the exact minimized presentation projection used by every authenticated Tenant role. `tenant-presentation-runtime.js` owns only its fail-safe in-memory revision lifecycle, Core localization configuration, reviewed same-origin mark rendering, and Organization-save refresh integration. Neither accepts remote assets, custom styles, Demo fallback, or browser-side authority. The complete contract is documented in `docs/SAAS2-TENANT-PRESENTATION.md`.
 - `tenant-user-administration-api.js` owns validated, cursor-paginated Tenant User reads and allowlisted elevated-role writes through the shared same-origin API client.
 - identity bootstrap, demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
 
@@ -292,7 +295,7 @@ Application localization has one translation-ownership path under Core. The form
 
 The canonical application catalogs now contain 570 synchronized DE/EN keys. `scripts/check-i18n.mjs` enforces key synchronization, duplicate-definition detection, DE/EN placeholder parity, absence of canonical `parity.*` keys and the rule that any retained compatibility bridge cannot own translations. `tests/localization-inventory.test.js` protects the consolidated end state and representative baseline copy.
 
-`src/core/i18n.js` is the public resolver. Normal UI rendering uses `t()`. `tFor(locale, key)` exists only for the established bilingual master-data initialization path that must materialize both DE and EN values independent of the currently selected UI language. Locale persistence, fallback behavior, language-change events and `Intl` formatting continue to use the preserved baseline Core implementation.
+`src/core/i18n.js` is the public resolver. Normal UI rendering uses `t()`. `tFor(locale, key)` exists only for the established bilingual master-data initialization path that must materialize both DE and EN values independent of the currently selected UI language. Locale persistence, fallback behavior, language-change events and `Intl` formatting continue to use the preserved baseline Core implementation. A valid explicit User language remains authoritative; when it is absent, the effective Tenant locale is applied without persisting it as a User choice. The effective Tenant ISO currency drives the shared money formatter.
 
 The remaining Manager `parity-i18n.js` file is a name-compatibility adapter only, not a localization catalog or alternative API implementation. New code must import the Core contract directly.
 

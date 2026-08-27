@@ -70,26 +70,31 @@ function mappings() {
   };
 }
 
-function readiness() {
+function readiness(overrides = {}) {
+  const checks = {
+    tenantIdentityClaimed: true,
+    microsoft365Connected: true,
+    placesPermissionGranted: true,
+    calendarPermissionGranted: true,
+    roomImported: true,
+    freeBusyVerified: true,
+    directoryEntitled: true,
+    calendarEntitled: true,
+    ...overrides.checks,
+  };
+  const entitlements = {
+    microsoftDirectory: true,
+    microsoftCalendar: true,
+    microsoftCalendarWrite: false,
+    ...overrides.entitlements,
+  };
   return {
     readiness: {
       tenantStatus: 'ready',
-      ready: true,
-      checks: {
-        tenantIdentityClaimed: true,
-        microsoft365Connected: true,
-        placesPermissionGranted: true,
-        calendarPermissionGranted: true,
-        roomImported: true,
-        freeBusyVerified: true,
-        directoryEntitled: true,
-        calendarEntitled: true,
-      },
-      entitlements: {
-        microsoftDirectory: true,
-        microsoftCalendar: true,
-        microsoftCalendarWrite: false,
-      },
+      ready: Object.values(checks).every(Boolean),
+      checks,
+      entitlements,
+      ...Object.fromEntries(Object.entries(overrides).filter(([key]) => !['checks', 'entitlements'].includes(key))),
     },
     requestId: REQUEST_ID,
   };
@@ -157,7 +162,14 @@ test('operations adapter preserves the canonical revoked authorization state for
         },
       })],
       ['v1/integrations/microsoft365/room-mappings', mappings()],
-      ['v1/integrations/microsoft365/pilot-readiness', readiness()],
+      ['v1/integrations/microsoft365/pilot-readiness', readiness({
+        checks: {
+          microsoft365Connected: false,
+          placesPermissionGranted: false,
+          calendarPermissionGranted: false,
+          freeBusyVerified: false,
+        },
+      })],
     ])),
   });
 
@@ -203,6 +215,39 @@ test('operations fail closed when health, permission, mapping, or readiness cont
         && error.code === 'MICROSOFT365_OPERATIONS_RESPONSE_INVALID',
     );
   }
+});
+
+test('operations retries one interleaved snapshot and fails closed when endpoint state stays inconsistent', async () => {
+  let readinessCalls = 0;
+  const apiClient = client(new Map([
+    ['v1/integrations/microsoft365', connection()],
+    ['v1/integrations/microsoft365/room-mappings', mappings()],
+    ['v1/integrations/microsoft365/pilot-readiness', () => {
+      readinessCalls += 1;
+      return readinessCalls === 1
+        ? readiness({ checks: { microsoft365Connected: false } })
+        : readiness();
+    }],
+  ]));
+  const result = await createMicrosoft365OperationsApi({ apiClient }).getOperations();
+  assert.equal(result.readiness.checks.microsoft365Connected, true);
+  assert.equal(readinessCalls, 2);
+  assert.equal(apiClient.calls.length, 6);
+
+  const inconsistent = createMicrosoft365OperationsApi({
+    apiClient: client(new Map([
+      ['v1/integrations/microsoft365', connection()],
+      ['v1/integrations/microsoft365/room-mappings', mappings()],
+      ['v1/integrations/microsoft365/pilot-readiness', readiness({
+        checks: { roomImported: false },
+      })],
+    ])),
+  });
+  await assert.rejects(
+    inconsistent.getOperations(),
+    (error) => error instanceof Microsoft365OperationsApiError
+      && error.code === 'MICROSOFT365_OPERATIONS_RESPONSE_INVALID',
+  );
 });
 
 test('connection adapter composes lifecycle and operational ports without production fallback', () => {

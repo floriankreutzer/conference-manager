@@ -245,6 +245,8 @@ test('CSP blocks unsafe script and style primitives while retaining required dem
   expect(csp).toContain("script-src 'self'");
   expect(csp).toContain("style-src 'self'");
   expect(csp).toContain("style-src-attr 'none'");
+  expect(csp).toContain("img-src 'self' data:");
+  expect(csp).not.toMatch(/img-src[^;]*https?:/);
   expect(csp).not.toMatch(/style-src[^;]*'unsafe-inline'/);
   expect(csp).not.toMatch(/script-src[^;]*'unsafe-(?:inline|eval)'/);
   expect(csp).toContain("object-src 'none'");

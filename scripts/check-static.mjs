@@ -43,6 +43,7 @@ const requiredCspDirectives = [
   "script-src 'self'",
   "style-src 'self'",
   "style-src-attr 'none'",
+  "img-src 'self' data:",
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
@@ -65,6 +66,11 @@ if (/style-src[^;]*'unsafe-inline'/i.test(index)) {
 }
 if (/script-src[^;]*'unsafe-(?:inline|eval)'/i.test(index)) {
   console.error('index.html: script-src must not allow unsafe-inline or unsafe-eval');
+  failures += 1;
+}
+const imageSources = index.match(/img-src\s+([^;]+)/i)?.[1].trim().split(/\s+/) || [];
+if (imageSources.some((source) => !["'self'", 'data:'].includes(source))) {
+  console.error("index.html: img-src must allow only 'self' and data:");
   failures += 1;
 }
 if (!/<meta\s+name=["']referrer["']\s+content=["']no-referrer["']/i.test(index)) {

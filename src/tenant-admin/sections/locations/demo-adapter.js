@@ -1,5 +1,6 @@
 import { TENANT_SETTINGS_REVISION_CONFLICT, createDemoTenantSettingsRevision } from '../../settings-revision.js';
 import { LOCATIONS_DEMO_SCENARIO, LOCATIONS_DEMO_SCENARIOS, locationsDemoFixture } from './demo-fixtures.js';
+import { createLocationRollbackConfiguration } from './rollback-preview.js';
 
 const clone = structuredClone;
 const changedAt = (value) => `2026-08-27T11:${String(value).padStart(2, '0')}:00.000Z`;
@@ -64,7 +65,7 @@ export function createDemoLocationSettings({ scenario = LOCATIONS_DEMO_SCENARIO.
       const source = snapshots.find((entry) => entry.revision === sourceRevision);
       if (!source) throw Object.assign(new Error('HTTP_404'), { code: 'HTTP_404' });
       const nextRevision = advance(revision, expectedRevision);
-      configuration = clone(source.configuration);
+      configuration = clone(createLocationRollbackConfiguration(configuration, source.configuration));
       snapshots.push({ revision: nextRevision, configuration: clone(configuration), changedAt: changedAt(nextRevision), actorUserId: DEMO_ACTOR });
       return { schemaVersion: 1, revision: nextRevision, configuration: clone(configuration), providerContext: clone(providerContext) };
     },

@@ -2,20 +2,37 @@ import { language, t, tFor } from '../core/i18n.js';
 import { KEYS, RepositoryWriteError, readJson, writeJson } from '../core/storage.js';
 import { safeHttpsUrl } from '../core/ui.js';
 
-const DEFAULT_CATERING_IMAGES = Object.freeze({
-  'meeting:Basic': 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80',
-  'meeting:Standard': 'https://images.unsplash.com/photo-1511081692775-05d0f180a065?auto=format&fit=crop&w=900&q=80',
-  'meeting:Deluxe': 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?auto=format&fit=crop&w=900&q=80',
-  'breakfast:Basic': 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?auto=format&fit=crop&w=900&q=80',
-  'breakfast:Standard': 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=80',
-  'breakfast:Deluxe': 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80',
-  'lunch:Basic': 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80',
-  'lunch:Standard': 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=80',
-  'lunch:Deluxe': 'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80',
-  'full:Basic': 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=900&q=80',
-  'full:Standard': 'https://images.unsplash.com/photo-1515003197210-e0cd71810e0f?auto=format&fit=crop&w=900&q=80',
-  'full:Deluxe': 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80',
+const CATERING_ART = Object.freeze({
+  meeting: '<path d="M244 148h250v160a92 92 0 0 1-92 92h-66a92 92 0 0 1-92-92z" fill="#fff"/><path d="M494 194h34a64 64 0 0 1 0 128h-34" fill="none" stroke="#1d1d1f" stroke-width="24"/><path d="M304 112c-28-34 26-48 0-80M374 112c-28-34 26-48 0-80M444 112c-28-34 26-48 0-80" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="18"/>',
+  breakfast: '<circle cx="370" cy="172" r="92" fill="#fff"/><path d="M370 40v-30M370 334v-30M238 172h-30M532 172h-30M276 78l-22-22M486 288l-22-22M464 78l22-22M254 288l22-22" stroke="#fff" stroke-linecap="round" stroke-width="18"/><path d="M232 402h276l-34-124H266z" fill="#fff"/><path d="M286 330h168" stroke="#1d1d1f" stroke-linecap="round" stroke-width="18"/>',
+  lunch: '<circle cx="370" cy="230" r="160" fill="#fff"/><circle cx="370" cy="230" r="104" fill="none" stroke="#d0d0ce" stroke-width="18"/><path d="M164 78v304M128 78v112a36 36 0 0 0 72 0V78M576 78v304M576 78c72 52 72 138 0 176" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="20"/>',
+  full: '<path d="M138 108h236v152a86 86 0 0 1-86 86h-64a86 86 0 0 1-86-86z" fill="#fff"/><path d="M374 146h30a58 58 0 0 1 0 116h-30" fill="none" stroke="#1d1d1f" stroke-width="22"/><circle cx="528" cy="282" r="118" fill="#fff"/><circle cx="528" cy="282" r="74" fill="none" stroke="#d0d0ce" stroke-width="16"/><path d="M220 80c-24-30 22-42 0-70M286 80c-24-30 22-42 0-70" fill="none" stroke="#fff" stroke-linecap="round" stroke-width="16"/>',
 });
+
+const TIER_ACCENTS = Object.freeze({
+  Basic: '#53565a',
+  Standard: '#7a1f3d',
+  Deluxe: '#8a6334',
+});
+
+function generatedCateringImage(packageId, tier) {
+  const art = CATERING_ART[packageId] || CATERING_ART.meeting;
+  const accent = TIER_ACCENTS[tier] || TIER_ACCENTS.Basic;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 460">
+    <rect width="740" height="460" fill="${accent}"/>
+    <circle cx="92" cy="78" r="120" fill="#ffffff" opacity=".08"/>
+    <circle cx="674" cy="412" r="170" fill="#ffffff" opacity=".08"/>
+    ${art}
+  </svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+const DEFAULT_CATERING_IMAGES = Object.freeze(Object.fromEntries(
+  Object.keys(CATERING_ART).flatMap((packageId) => Object.keys(TIER_ACCENTS).map((tier) => [
+    `${packageId}:${tier}`,
+    generatedCateringImage(packageId, tier),
+  ])),
+));
 
 const DEFAULT_ROOM_DESCRIPTIONS = Object.freeze({
   'BER-321': {
@@ -80,7 +97,15 @@ function escapeXml(value) {
 export function safeImageSource(value, fallback = '') {
   const raw = String(value || '').trim();
   if (raw.startsWith('data:image/svg+xml')) return raw;
-  return safeHttpsUrl(raw) || fallback;
+  if (!raw || typeof window === 'undefined') return fallback;
+  try {
+    const url = new URL(raw, window.location.href);
+    const localNetworkSource = ['http:', 'https:'].includes(url.protocol)
+      && url.origin === window.location.origin;
+    return localNetworkSource ? url.href : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export function validatedHttps(value) {
@@ -95,12 +120,10 @@ export function ensureParityCatalog() {
 
   for (const pack of catalog.cateringPackages || []) {
     for (const variant of pack.variants || []) {
-      if (!variant.image) {
-        const fallback = DEFAULT_CATERING_IMAGES[`${pack.id}:${variant.tier}`];
-        if (fallback) {
-          variant.image = fallback;
-          changed = true;
-        }
+      const fallback = DEFAULT_CATERING_IMAGES[`${pack.id}:${variant.tier}`];
+      if (fallback && safeImageSource(variant.image) !== variant.image) {
+        variant.image = fallback;
+        changed = true;
       }
     }
   }

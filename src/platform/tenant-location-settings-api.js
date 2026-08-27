@@ -78,9 +78,12 @@ function room(value) {
     'id', 'siteId', 'name', 'capacity', 'active', 'floor', 'equipment', 'accessibility',
     'serviceIds', 'cateringPackageIds', 'floorplanAssetId', 'mediaAssetIds',
   ], 'TENANT_LOCATIONS_RESPONSE_INVALID');
-  if (value.floorplanAssetId !== null && !ASSET_ID.test(value.floorplanAssetId)) invalid();
+  if (
+    value.floorplanAssetId !== null
+    && (typeof value.floorplanAssetId !== 'string' || !ASSET_ID.test(value.floorplanAssetId))
+  ) invalid();
   if (!Array.isArray(value.mediaAssetIds) || value.mediaAssetIds.length > 20
-    || value.mediaAssetIds.some((assetId) => !ASSET_ID.test(assetId))
+    || value.mediaAssetIds.some((assetId) => typeof assetId !== 'string' || !ASSET_ID.test(assetId))
     || new Set(value.mediaAssetIds).size !== value.mediaAssetIds.length) invalid();
   return Object.freeze({
     id: safeId(value.id, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
@@ -120,7 +123,7 @@ function provider(value) {
     roomId: safeId(value.roomId, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     provider: value.provider,
     status: value.status,
-    displayName: boundedText(value.displayName, { code: 'TENANT_LOCATIONS_RESPONSE_INVALID', maximum: 160 }),
+    displayName: boundedText(value.displayName, { code: 'TENANT_LOCATIONS_RESPONSE_INVALID', maximum: 512 }),
     capacity: value.capacity === null ? null : boundedInteger(value.capacity, 'TENANT_LOCATIONS_RESPONSE_INVALID', { maximum: 1_000_000 }),
     lastSeenAt: utcInstant(value.lastSeenAt, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
   });

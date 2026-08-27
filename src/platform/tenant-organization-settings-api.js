@@ -6,12 +6,12 @@ import {
   immutable,
   schemaRevision,
 } from './tenant-settings-wire.js';
+import { MANAGED_BRAND_REFERENCE } from '../shared/tenant-branding.js';
 
 const CURRENT_PATH = 'v1/tenant/settings/organization';
 const HISTORY_PATH = `${CURRENT_PATH}/history`;
 const LOCALES = new Set(['de-DE', 'en-GB']);
 const CURRENCIES = new Set(['CHF', 'EUR', 'GBP', 'USD']);
-const LOGO_REFERENCE = /^managed-brand:[A-Za-z0-9_-]{22,128}$/;
 const UNSAFE_ORGANIZATION_TEXT = /[<>\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 
 export class TenantOrganizationSettingsApiError extends Error {
@@ -50,7 +50,7 @@ function normalizeOrganization(value) {
     exactObject(value.branding, ['logoAssetRef', 'accentToken'], 'TENANT_ORGANIZATION_RESPONSE_INVALID');
     if (!LOCALES.has(value.presentation.defaultLocale) || !CURRENCIES.has(value.presentation.defaultCurrency)) responseInvalid();
     if (value.businessMetadata.countryCode !== null && !/^[A-Z]{2}$/.test(value.businessMetadata.countryCode)) responseInvalid();
-    if (value.branding.logoAssetRef !== null && !LOGO_REFERENCE.test(value.branding.logoAssetRef)) responseInvalid();
+    if (value.branding.logoAssetRef !== null && value.branding.logoAssetRef !== MANAGED_BRAND_REFERENCE) responseInvalid();
     if (value.branding.accentToken !== 'default') responseInvalid();
     if (typeof value.displayName !== 'string' || UNSAFE_ORGANIZATION_TEXT.test(value.displayName)) responseInvalid();
     return immutable({

@@ -24,6 +24,12 @@ function timestamp(value) {
     : formatDateTime(value);
 }
 
+function actionHref(action) {
+  return action.id === 'manage_microsoft_connection'
+    ? '#tenant-admin/microsoft365'
+    : action.href;
+}
+
 function capabilityCard(capability) {
   const headingId = `tenant-capability-${capability.id.replaceAll('.', '-')}`;
   const card = el('li', {
@@ -61,7 +67,7 @@ function capabilityCard(capability) {
   if (capability.action !== null) {
     card.appendChild(el('a', {
       className: 'secondary tenant-capability-action',
-      href: capability.action.href,
+      href: actionHref(capability.action),
       text: t(`tenantAdmin.operations.capabilities.action.${capability.action.id}`),
     }));
   }

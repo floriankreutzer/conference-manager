@@ -1,4 +1,4 @@
-import { formatDateTime, locale, t } from '../../../core/i18n.js';
+import { currency as tenantCurrency, formatDateTime, locale, t } from '../../../core/i18n.js';
 import { announce, button, clear, el, field, showToast, validationSummary } from '../../../core/ui.js';
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
@@ -105,7 +105,8 @@ function entryEditor(entry, category, index) {
     const addVariant = button(t('tenantSettings.catalogue.addVariant'));
     addVariant.addEventListener('click', () => {
       const count = variantEditors.length + 1;
-      const editor = variantEditor({ id: `${entry.id}-variant-${count}`, name: t('tenantSettings.catalogue.newVariant'), description: null, price: { amountMinor: 0, currency: entry.price.currency }, active: true, order: count }, prefix, count - 1);
+      const id = nextId(`${entry.id}-variant`, new Set(variantEditors.map(({ variant }) => variant.id)));
+      const editor = variantEditor({ id, name: t('tenantSettings.catalogue.newVariant'), description: null, price: { amountMinor: 0, currency: entry.price.currency }, active: true, order: count }, prefix, count - 1);
       variantEditors.push(editor);
       variants.appendChild(editor.node);
       editor.controls.name.focus();
@@ -174,7 +175,7 @@ export function createCatalogSection({ adapter = null } = {}) {
         const id = nextId(category, new Set(editors[category].map((entry) => entry.entry.id)));
         const base = {
           id, name: t('tenantSettings.catalogue.newEntry'), description: null,
-          price: { amountMinor: 0, currency: 'EUR' }, active: true, order: count,
+          price: { amountMinor: 0, currency: tenantCurrency() }, active: true, order: count,
           siteIds: [], roomIds: [], ...(category === 'cateringPackages' ? { itemIds: [], variants: [] } : {}),
         };
         const editor = entryEditor(base, category, count - 1);
@@ -213,12 +214,10 @@ export function createCatalogSection({ adapter = null } = {}) {
           renderSectionConflict(root, TITLE, {
             currentRevision, onReload: rerender,
             onReapply: async () => {
-              try {
-                const current = await adapter.loadCatalogue();
-                await adapter.saveCatalogue({ expectedRevision: current.revision, catalogue: pendingDraft });
-                focusAfterSave = true;
-                rerender();
-              } catch { announce(t('tenantSettings.status.saveFailed'), { assertive: true }); }
+              const current = await adapter.loadCatalogue();
+              await adapter.saveCatalogue({ expectedRevision: current.revision, catalogue: pendingDraft });
+              focusAfterSave = true;
+              rerender();
             },
           });
           root.querySelector('h2')?.focus();

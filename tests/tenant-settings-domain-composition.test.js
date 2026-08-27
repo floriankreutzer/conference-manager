@@ -25,7 +25,7 @@ test('Composition Root injects all five settings domains through one explicit ru
   assert.match(source, /const tenantSettingsAdapters = context\.isDemoRuntime\(\)/);
   assert.match(source, /: \(context\.isTenantAdmin\(\) && authentication\s+\? Object\.freeze\(/);
   assert.match(source, /: Object\.freeze\(\{\}\)\);/);
-  assert.match(source, /sectionAdapters: Object\.freeze\(\{\s+\.\.\.tenantSettingsAdapters,\s+users:/);
+  assert.match(source, /sectionAdapters: Object\.freeze\(\{\s+\.\.\.effectiveTenantSettingsAdapters,\s+users:/);
   assert.doesNotMatch(source, /createTenant\w+SettingsApi[\s\S]{0,120}(?:\|\||\?\?)\s*createDemo/);
 });
 

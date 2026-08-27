@@ -76,6 +76,30 @@ test('locations, catalogue, policies, and allocation expose bounded accessible c
     await expect(page.locator(`[data-catalogue-category="${category}"]`).first()).toBeVisible();
   }
   await expect(page.locator('[data-catalogue-variant-id="variant-large"]')).toBeVisible();
+  await page.evaluate(() => {
+    const fixture = globalThis.__tenantSettingsDomainFixture;
+    const originalLoad = fixture.adapter.loadCatalogue.bind(fixture.adapter);
+    fixture.adapter.loadCatalogue = async () => {
+      const snapshot = await originalLoad();
+      const entry = snapshot.catalogue.cateringPackages[0];
+      return {
+        ...snapshot,
+        catalogue: {
+          ...snapshot.catalogue,
+          cateringPackages: [{
+            ...entry,
+            variants: [
+              ...entry.variants,
+              { ...entry.variants[0], id: `${entry.id}-variant-3`, name: 'Reserved ID' },
+            ],
+          }],
+        },
+      };
+    };
+    return fixture.render();
+  });
+  await page.getByRole('button', { name: /tenantSettings\.catalogue\.addVariant|Variante|variant/i }).click();
+  await expect(page.locator('[data-catalogue-variant-id="package-coffee-variant-4"]')).toBeVisible();
 
   await mount(page, 'policies');
   await expect(page.locator('[data-booking-policy-id="policy-default"] input').first()).toBeDisabled();

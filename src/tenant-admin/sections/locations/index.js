@@ -1,13 +1,17 @@
 import { formatDateTime, formatNumber, t } from '../../../core/i18n.js';
-import { announce, button, clear, el, field, showToast, validationSummary } from '../../../core/ui.js';
+import { announce, button, clear, el, field, openDialog, showToast, validationSummary } from '../../../core/ui.js';
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
+import { createLocationRollbackPreview } from './rollback-preview.js';
 
 export { createDemoLocationSettings } from './demo-adapter.js';
 
 const TITLE = 'tenantAdmin.locations.title';
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const ASSET_ID_PATTERN = '[A-Za-z0-9][A-Za-z0-9._\\-]{0,127}';
+const MEDIA_ASSET_LIMIT = 20;
 
 function validAdapter(adapter) {
   return adapter !== null && ['loadLocations', 'saveLocations', 'listLocationsHistory', 'loadLocationRevision', 'rollbackLocations']
@@ -16,10 +20,20 @@ function validAdapter(adapter) {
 
 const textInput = (value, attrs = {}) => el('input', { type: 'text', value: value ?? '', attrs });
 const checkbox = (checked) => el('input', { type: 'checkbox', checked });
-const commaList = (value, { safe = false } = {}) => {
+const inputError = (code, control = null) => Object.assign(new TypeError(code), { code, control });
+const clearCustomValidity = (control) => {
+  control.setCustomValidity('');
+  control.removeAttribute('aria-invalid');
+};
+const commaList = (value, {
+  pattern = null,
+  limit = Number.POSITIVE_INFINITY,
+  control = null,
+  code = 'TENANT_LOCATION_LIST_INVALID',
+} = {}) => {
   const values = value.split(',').map((entry) => entry.trim()).filter(Boolean);
-  if (new Set(values).size !== values.length || (safe && values.some((entry) => !SAFE_ID.test(entry)))) {
-    throw new TypeError('TENANT_LOCATION_LIST_INVALID');
+  if (values.length > limit || new Set(values).size !== values.length || (pattern && values.some((entry) => !pattern.test(entry)))) {
+    throw inputError(code, control);
   }
   return values;
 };
@@ -55,8 +69,20 @@ function siteEditor(site, index) {
   return { node, controls, site };
 }
 
-function roomEditor(room, provider, index) {
+const siteOption = (site) => el('option', {
+  value: site.id,
+  text: t('tenantSettings.locations.siteOption', { name: site.name, id: site.id }),
+});
+
+function siteSelector(sites, selectedSiteId) {
+  const control = el('select', { attrs: { required: 'required' } }, sites.map(siteOption));
+  control.value = selectedSiteId;
+  return control;
+}
+
+function roomEditor(room, provider, index, sites) {
   const controls = {
+    siteId: siteSelector(sites, room.siteId),
     name: textInput(room.name, { required: 'required', maxlength: '160' }),
     capacity: el('input', { type: 'number', value: room.capacity, attrs: { min: '1', max: '100000', step: '1', required: 'required' } }),
     active: checkbox(room.active),
@@ -65,7 +91,17 @@ function roomEditor(room, provider, index) {
     accessibility: textInput(room.accessibility.join(', '), { maxlength: '1618' }),
     serviceIds: textInput(room.serviceIds.join(', '), { maxlength: '2000' }),
     cateringPackageIds: textInput(room.cateringPackageIds.join(', '), { maxlength: '2000' }),
+    floorplanAssetId: textInput(room.floorplanAssetId, {
+      maxlength: '128', pattern: ASSET_ID_PATTERN, title: t('tenantSettings.locations.managedAssetFormat'),
+    }),
+    mediaAssetIds: textInput(room.mediaAssetIds.join(', '), {
+      maxlength: '2598', title: t('tenantSettings.locations.managedMediaFormat'),
+    }),
   };
+  [controls.siteId, controls.floorplanAssetId, controls.mediaAssetIds].forEach((control) => {
+    const eventName = control instanceof HTMLSelectElement ? 'change' : 'input';
+    control.addEventListener(eventName, () => clearCustomValidity(control));
+  });
   const node = el('fieldset', { className: 'card', dataset: { tenantRoomId: room.id } });
   node.append(el('legend', { text: room.name }), el('p', { className: 'muted', text: t('tenantSettings.locations.importedRoom') }));
   if (provider) {
@@ -80,6 +116,7 @@ function roomEditor(room, provider, index) {
     ]));
   }
   node.append(el('div', { className: 'form-grid' }, [
+    field({ id: `tenant-room-site-${index}`, label: t('tenantSettings.locations.roomSite'), control: controls.siteId, required: true }),
     field({ id: `tenant-room-name-${index}`, label: t('tenantSettings.locations.roomName'), control: controls.name, required: true }),
     field({ id: `tenant-room-capacity-${index}`, label: t('tenantSettings.locations.capacity'), control: controls.capacity, required: true }),
     field({ id: `tenant-room-floor-${index}`, label: t('tenantSettings.locations.floor'), control: controls.floor, optional: true }),
@@ -87,6 +124,8 @@ function roomEditor(room, provider, index) {
     field({ id: `tenant-room-accessibility-${index}`, label: t('tenantSettings.locations.accessibility'), control: controls.accessibility, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
     field({ id: `tenant-room-services-${index}`, label: t('tenantSettings.locations.serviceIds'), control: controls.serviceIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
     field({ id: `tenant-room-packages-${index}`, label: t('tenantSettings.locations.cateringPackageIds'), control: controls.cateringPackageIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
+    field({ id: `tenant-room-floorplan-asset-${index}`, label: t('tenantSettings.locations.floorplanAssetId'), control: controls.floorplanAssetId, optional: true, hint: t('tenantSettings.locations.managedAssetFormat') }),
+    field({ id: `tenant-room-media-assets-${index}`, label: t('tenantSettings.locations.mediaAssetIds'), control: controls.mediaAssetIds, optional: true, hint: t('tenantSettings.locations.managedMediaFormat') }),
     field({ id: `tenant-room-active-${index}`, label: t('tenantSettings.common.active'), control: controls.active }),
   ]));
   return { node, controls, room };
@@ -108,15 +147,35 @@ function configurationFromEditors(siteEditors, roomEditors) {
       } : null,
     };
   });
-  const rooms = roomEditors.map(({ room, controls }) => ({
-    ...room, name: controls.name.value.trim(), capacity: Number(controls.capacity.value), active: controls.active.checked,
-    floor: controls.floor.value.trim() || null, equipment: commaList(controls.equipment.value),
-    accessibility: commaList(controls.accessibility.value), serviceIds: commaList(controls.serviceIds.value, { safe: true }),
-    cateringPackageIds: commaList(controls.cateringPackageIds.value, { safe: true }),
-  }));
+  const rooms = roomEditors.map(({ room, controls }) => {
+    const floorplanAssetId = controls.floorplanAssetId.value.trim();
+    if (floorplanAssetId && !ASSET_ID.test(floorplanAssetId)) {
+      throw inputError('TENANT_ROOM_FLOORPLAN_INVALID', controls.floorplanAssetId);
+    }
+    return {
+      ...room,
+      siteId: controls.siteId.value,
+      name: controls.name.value.trim(),
+      capacity: Number(controls.capacity.value),
+      active: controls.active.checked,
+      floor: controls.floor.value.trim() || null,
+      equipment: commaList(controls.equipment.value),
+      accessibility: commaList(controls.accessibility.value),
+      serviceIds: commaList(controls.serviceIds.value, { pattern: SAFE_ID }),
+      cateringPackageIds: commaList(controls.cateringPackageIds.value, { pattern: SAFE_ID }),
+      floorplanAssetId: floorplanAssetId || null,
+      mediaAssetIds: commaList(controls.mediaAssetIds.value, {
+        pattern: ASSET_ID,
+        limit: MEDIA_ASSET_LIMIT,
+        control: controls.mediaAssetIds,
+        code: 'TENANT_ROOM_MEDIA_INVALID',
+      }),
+    };
+  });
   const siteById = new Map(sites.map((site) => [site.id, site]));
-  if (rooms.some((room) => room.active && !siteById.get(room.siteId)?.active)) {
-    throw new TypeError('TENANT_INACTIVE_SITE_HAS_ACTIVE_ROOM');
+  const invalidRoomIndex = rooms.findIndex((room) => room.active && !siteById.get(room.siteId)?.active);
+  if (invalidRoomIndex !== -1) {
+    throw inputError('TENANT_INACTIVE_SITE_HAS_ACTIVE_ROOM', roomEditors[invalidRoomIndex].controls.siteId);
   }
   return { sites, rooms };
 }
@@ -144,14 +203,30 @@ export function createLocationsSection({ adapter = null } = {}) {
     const form = el('form', { dataset: { tenantSettingsForm: 'locations' } });
     const providerByRoom = new Map(snapshot.providerContext.map((entry) => [entry.roomId, entry]));
     const siteEditors = snapshot.configuration.sites.map(siteEditor);
-    const roomEditors = snapshot.configuration.rooms.map((room, index) => roomEditor(room, providerByRoom.get(room.id), index));
+    const roomEditors = snapshot.configuration.rooms.map((room, index) => roomEditor(
+      room,
+      providerByRoom.get(room.id),
+      index,
+      snapshot.configuration.sites,
+    ));
     const sitesSurface = el('div', {}, siteEditors.map((entry) => entry.node));
     const roomsSurface = el('div', {}, roomEditors.map((entry) => entry.node));
     const addSite = button(t('tenantSettings.locations.addSite'));
+    const updateSiteOptionLabels = ({ site, controls }) => {
+      const name = controls.name.value.trim() || t('tenantSettings.locations.newSite');
+      roomEditors.forEach((roomEntry) => {
+        const option = [...roomEntry.controls.siteId.options].find((entry) => entry.value === site.id);
+        if (option) option.textContent = t('tenantSettings.locations.siteOption', { name, id: site.id });
+      });
+    };
+    siteEditors.forEach((entry) => entry.controls.name.addEventListener('input', () => updateSiteOptionLabels(entry)));
     addSite.addEventListener('click', () => {
+      if (mutationPending) return;
       const id = nextId('site', new Set(siteEditors.map((entry) => entry.site.id)));
       const editor = siteEditor({ id, name: t('tenantSettings.locations.newSite'), active: true, timeZone: 'Europe/Berlin', address: null }, siteEditors.length);
       siteEditors.push(editor);
+      editor.controls.name.addEventListener('input', () => updateSiteOptionLabels(editor));
+      roomEditors.forEach((roomEntry) => roomEntry.controls.siteId.appendChild(siteOption(editor.site)));
       sitesSurface.appendChild(editor.node);
       editor.controls.name.focus();
     });
@@ -162,19 +237,42 @@ export function createLocationsSection({ adapter = null } = {}) {
     const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
     const save = button(t('tenantSettings.action.save'), { className: 'primary', attrs: { type: 'submit' } });
     let mutationPending = false;
+    const rollbackButtons = [];
+    const setMutationPending = (pending) => {
+      mutationPending = pending;
+      save.disabled = pending;
+      addSite.disabled = pending;
+      rollbackButtons.forEach(({ control, sourceRevision }) => {
+        control.disabled = pending || sourceRevision === snapshot.revision;
+      });
+      form.setAttribute('aria-busy', String(pending));
+    };
     form.append(el('div', { className: 'button-row' }, [save]), status);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;
+      roomEditors.forEach(({ controls }) => {
+        [controls.siteId, controls.floorplanAssetId, controls.mediaAssetIds].forEach(clearCustomValidity);
+      });
       if (!form.reportValidity()) return;
       try { pendingDraft = configurationFromEditors(siteEditors, roomEditors); }
-      catch {
+      catch (error) {
+        if (typeof error?.control?.setCustomValidity === 'function') {
+          const messageKey = error.code === 'TENANT_ROOM_MEDIA_INVALID'
+            ? 'tenantSettings.locations.managedMediaInvalid'
+            : (error.code === 'TENANT_INACTIVE_SITE_HAS_ACTIVE_ROOM'
+              ? 'tenantSettings.locations.roomSiteInvalid'
+              : 'tenantSettings.locations.managedAssetInvalid');
+          error.control.setCustomValidity(t(messageKey));
+          error.control.setAttribute('aria-invalid', 'true');
+        }
         validationSummary(form, t('tenantSettings.validation.checkFields'));
-        form.querySelector('input:invalid, input')?.focus();
+        const invalidControl = form.querySelector('input:invalid, select:invalid, textarea:invalid')
+          ?? form.querySelector('input, select, textarea');
+        invalidControl?.focus();
         return;
       }
-      save.disabled = true;
-      mutationPending = true;
+      setMutationPending(true);
       status.textContent = t('tenantSettings.status.saving');
       try {
         await adapter.saveLocations({ expectedRevision: snapshot.revision, configuration: pendingDraft });
@@ -188,48 +286,147 @@ export function createLocationsSection({ adapter = null } = {}) {
           renderSectionConflict(root, TITLE, {
             currentRevision, onReload: rerender,
             onReapply: async () => {
-              try {
-                const current = await adapter.loadLocations();
-                await adapter.saveLocations({ expectedRevision: current.revision, configuration: pendingDraft });
-                focusAfterSave = true;
-                rerender();
-              } catch { announce(t('tenantSettings.status.saveFailed'), { assertive: true }); }
+              const current = await adapter.loadLocations();
+              await adapter.saveLocations({ expectedRevision: current.revision, configuration: pendingDraft });
+              focusAfterSave = true;
+              rerender();
             },
           });
           root.querySelector('h2')?.focus();
           return;
         }
-        save.disabled = false;
-        mutationPending = false;
+        setMutationPending(false);
         status.textContent = t('tenantSettings.status.saveFailed');
         announce(status.textContent, { assertive: true });
         save.focus();
       }
     });
     const historyList = el('ol');
+    const historyStatus = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
     history.forEach((entry) => {
       const rollback = button(t('tenantSettings.history.restore'), { dataset: { sourceRevision: entry.revision } });
       rollback.disabled = entry.revision === snapshot.revision;
+      rollbackButtons.push({ control: rollback, sourceRevision: entry.revision });
       rollback.addEventListener('click', async () => {
         if (mutationPending) return;
-        mutationPending = true;
-        rollback.disabled = true;
+        setMutationPending(true);
+        historyStatus.textContent = t('tenantSettings.locations.rollback.loading', { revision: entry.revision });
+        let source;
         try {
-          await adapter.rollbackLocations({ expectedRevision: snapshot.revision, sourceRevision: entry.revision });
-          announce(t('tenantSettings.history.restored'));
-          focusAfterSave = true;
-          rerender();
-        } catch (error) {
-          const currentRevision = tenantSettingsConflictRevision(error);
-          if (currentRevision !== null) {
-            renderSectionConflict(root, TITLE, { currentRevision, onReload: rerender });
-            root.querySelector('h2')?.focus();
-          } else {
-            mutationPending = false;
-            rollback.disabled = false;
-            announce(t('tenantSettings.status.saveFailed'), { assertive: true });
-          }
+          source = await adapter.loadLocationRevision(entry.revision);
+        } catch {
+          setMutationPending(false);
+          historyStatus.textContent = t('tenantSettings.locations.rollback.previewFailed');
+          announce(historyStatus.textContent, { assertive: true });
+          requestAnimationFrame(() => rollback.focus());
+          return;
         }
+        if (!isCurrent()) {
+          setMutationPending(false);
+          return;
+        }
+        historyStatus.textContent = '';
+        const preview = createLocationRollbackPreview(snapshot.configuration, source.configuration);
+        const dialogStatus = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
+        const dialogError = el('p', { attrs: { role: 'alert', 'aria-atomic': 'true' } });
+        const previewList = el('ul', { dataset: { tenantLocationRollbackDiff: 'true' } }, [
+          el('li', {
+            text: t('tenantSettings.locations.rollback.changedSites', { count: formatNumber(preview.changedSites) }),
+            dataset: { tenantLocationRollbackChangedSites: preview.changedSites },
+          }),
+          el('li', {
+            text: t('tenantSettings.locations.rollback.changedRooms', { count: formatNumber(preview.changedRooms) }),
+            dataset: { tenantLocationRollbackChangedRooms: preview.changedRooms },
+          }),
+          el('li', {
+            text: t('tenantSettings.locations.rollback.retainedSites', { count: formatNumber(preview.retainedSites) }),
+            dataset: { tenantLocationRollbackRetainedSites: preview.retainedSites },
+          }),
+          el('li', {
+            text: t('tenantSettings.locations.rollback.retainedRooms', { count: formatNumber(preview.retainedRooms) }),
+            dataset: { tenantLocationRollbackRetainedRooms: preview.retainedRooms },
+          }),
+        ]);
+        const content = el('div', { dataset: { tenantLocationRollbackPreview: 'true' } }, [
+          el('p', {
+            text: t('tenantSettings.locations.rollback.source', {
+              sourceRevision: source.revision,
+              expectedRevision: snapshot.revision,
+              date: formatDateTime(source.changedAt),
+            }),
+          }),
+          previewList,
+          el('p', {
+            text: t('tenantSettings.locations.rollback.consequence'),
+            dataset: { tenantLocationRollbackConsequence: 'true' },
+          }),
+          dialogStatus,
+          dialogError,
+        ]);
+        const cancel = button(t('tenantSettings.locations.rollback.cancel'));
+        const confirm = button(t('tenantSettings.locations.rollback.confirm'), {
+          className: 'primary',
+          dataset: {
+            tenantLocationRollbackConfirm: 'true',
+            expectedRevision: snapshot.revision,
+            sourceRevision: source.revision,
+          },
+        });
+        let dialog;
+        let completed = false;
+        let rollbackPending = false;
+        cancel.addEventListener('click', () => {
+          setMutationPending(false);
+          dialog.close();
+        });
+        confirm.addEventListener('click', async () => {
+          if (rollbackPending) return;
+          rollbackPending = true;
+          confirm.disabled = true;
+          cancel.disabled = true;
+          dialogStatus.textContent = t('tenantSettings.locations.rollback.restoring');
+          dialogError.textContent = '';
+          try {
+            await adapter.rollbackLocations({
+              expectedRevision: snapshot.revision,
+              sourceRevision: source.revision,
+            });
+            completed = true;
+            dialog.close();
+            announce(t('tenantSettings.history.restored'));
+            focusAfterSave = true;
+            rerender();
+          } catch (error) {
+            const currentRevision = tenantSettingsConflictRevision(error);
+            if (currentRevision !== null) {
+              completed = true;
+              dialog.close();
+              renderSectionConflict(root, TITLE, { currentRevision, onReload: rerender });
+              root.querySelector('h2')?.focus();
+              return;
+            }
+            rollbackPending = false;
+            confirm.disabled = false;
+            cancel.disabled = false;
+            dialogStatus.textContent = '';
+            dialogError.textContent = t('tenantSettings.locations.rollback.failed');
+            confirm.focus();
+          }
+        });
+        dialog = openDialog({
+          title: t('tenantSettings.locations.rollback.title', { revision: source.revision }),
+          description: t('tenantSettings.locations.rollback.description'),
+          content,
+          actions: [cancel, confirm],
+          labelledById: `tenant-location-rollback-title-${source.revision}`,
+        });
+        dialog.addEventListener('close', () => {
+          if (completed) return;
+          setMutationPending(false);
+          requestAnimationFrame(() => {
+            if (rollback.isConnected) rollback.focus();
+          });
+        }, { once: true });
       });
       historyList.appendChild(el('li', {}, [
         el('span', { text: t('tenantSettings.history.entry', { revision: entry.revision, date: formatDateTime(entry.changedAt) }) }), rollback,
@@ -241,7 +438,7 @@ export function createLocationsSection({ adapter = null } = {}) {
         el('h2', { text: t(TITLE), attrs: { tabindex: '-1' } }), el('p', { text: t('tenantAdmin.locations.description') }),
         el('p', { className: 'muted', text: t('tenantAdmin.section.revision', { revision: snapshot.revision }) }), form,
       ]),
-      el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
+      el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList, historyStatus]),
     );
     if (focusAfterSave) { focusAfterSave = false; requestAnimationFrame(() => root.querySelector('h2')?.focus()); }
   }

@@ -86,7 +86,7 @@ The integration branch applies the following bounded root changes. They remain t
 
 4. `src/tenant-admin/section-registry.js` already maps the exact keys above. No registry change is required. `src/tenant-admin/application.js` also requires no change.
 
-5. No new CSS is required for these five settings domains. The sections use existing `card`, `form-grid`, `field`, `button-row`, `muted`, validation, status, and focus patterns. The domain-only integration advanced the build/cache marker to `.72`; the later combined operations integration advances the final shared marker to `.73` without adding a settings-domain stylesheet.
+5. No new CSS is required for these five settings domains. The sections use existing `card`, `form-grid`, `field`, `button-row`, `muted`, validation, status, and focus patterns. The domain-only integration advanced the build/cache marker to `.72`; the combined operations integration advanced it to `.73`; effective Tenant presentation advances the shared marker to `.74` for the reviewed shell branding and reflow rules.
 
 ## Backend contract reconciliation
 
@@ -95,7 +95,7 @@ The integration branch applies the following bounded root changes. They remain t
 - Booking policies match backend package `ba44e84f979bf2ab5832a7042a1419310e5ac4aa`: `{bookingPolicies:{schemaVersion,revision,configuration}}`, versioned effective dates, metadata history, and revision reads. Already-effective versions are disabled in the UI and retained unchanged.
 - Cost allocation matches backend package `ba44e84f979bf2ab5832a7042a1419310e5ac4aa`: route `v1/tenant/settings/cost-allocation`, wrapper key `costAllocation`, `{allocationRequired,costCenters}` configuration, metadata history, and revision reads.
 - The cost allocation helper and Demo fixture use only `percentage_basis_points`. Non-empty allocations must contain unique active cost centers and total exactly 10,000 basis points (100%). No fixed-amount or browser-authoritative allocation model is present.
-- Organization branding accepts only same-tenant managed asset references with the `managed-brand:` prefix. Server-side tenant authorization of that reference remains mandatory.
+- Organization branding accepts only `null` or the exact reviewed reference `managed-brand:conference-manager-mark-v1`. The form exposes a bounded native picker rather than a raw reference field. Server-side Tenant authorization remains mandatory; uploads, remote URLs and custom styles are not part of the browser contract.
 - IDs shown for local configuration records are immutable. Microsoft provider technical IDs never enter the browser response contract and therefore cannot be displayed or edited.
 
 ## Demo contract

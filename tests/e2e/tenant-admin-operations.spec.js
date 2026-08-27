@@ -27,13 +27,13 @@ test('audit history filters are keyboard operable, localized, redacted, and resp
   await expect(section.getByText('Geben Sie eine gültige interne Benutzer-ID ein.')).toBeVisible();
   await expect(actor).toBeFocused();
 
-  await page.setViewportSize({ width: 375, height: 812 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-
   await page.getByRole('button', { name: 'Profil' }).click();
   await page.locator('#profileLanguage').selectOption('en');
   await expect(section.getByRole('heading', { name: 'Audit & change history' })).toBeVisible();
   await expect(section.getByText('The complete integrity chain is verified by the server before filtered results are shown.')).toBeVisible();
+
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test('capability readiness is a server-shaped read-only view with no entitlement controls', async ({ page }) => {
@@ -46,8 +46,11 @@ test('capability readiness is a server-shaped read-only view with no entitlement
   await expect(section.locator('input, select, textarea, button')).toHaveCount(0);
   await expect(section.locator('[data-tenant-capability-id="microsoft.calendar"]')).toContainText('Eingeschränkt');
   await expect(section.locator('[data-tenant-capability-id="microsoft.calendar.write"]')).toContainText('Nicht gebucht');
-  await expect(section.getByRole('link', { name: 'Microsoft-365-Verbindung verwalten' }))
-    .toHaveAttribute('href', /\/settings\/integrations\/microsoft365$/);
+  const recovery = section.getByRole('link', { name: 'Microsoft-365-Verbindung verwalten' });
+  await expect(recovery).toHaveAttribute('href', '#tenant-admin/microsoft365');
+  await recovery.click();
+  await expect(page.locator('[data-tenant-admin-section-content="microsoft365"]')).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section="microsoft365"]')).toHaveAttribute('aria-current', 'page');
 });
 
 test('Microsoft 365 operational recovery separates readiness and restores focus after refresh and resync', async ({ page }) => {

@@ -102,6 +102,38 @@ test('location settings keep provider context read-only and write configuration 
   assert.equal(Object.hasOwn(apiClient.calls[0].options.body, 'providerContext'), false);
 });
 
+test('location response accepts the bounded provider name and rejects non-string asset identifiers', async () => {
+  const longProviderName = 'Provider room '.padEnd(512, 'x');
+  const valid = {
+    locations: {
+      schemaVersion: 1,
+      revision: 1,
+      configuration: locations(),
+      providerContext: [{
+        roomId: 'atlas', provider: 'microsoft365', status: 'active', displayName: longProviderName,
+        capacity: null, lastSeenAt: '2026-08-27T10:00:00.000Z',
+      }],
+    },
+  };
+  const result = await createTenantLocationSettingsApi({ apiClient: client([valid]) }).loadLocations();
+  assert.equal(result.providerContext[0].displayName.length, 512);
+
+  for (const roomOverrides of [
+    { floorplanAssetId: 123 },
+    { mediaAssetIds: [123] },
+  ]) {
+    const configuration = locations();
+    configuration.rooms[0] = { ...configuration.rooms[0], ...roomOverrides };
+    const api = createTenantLocationSettingsApi({
+      apiClient: client([{ locations: { ...valid.locations, configuration } }]),
+    });
+    await assert.rejects(
+      api.loadLocations(),
+      (error) => error.code === 'TENANT_LOCATIONS_RESPONSE_INVALID',
+    );
+  }
+});
+
 test('catalogue settings preserve all four bounded collections and British wire spelling', async () => {
   const response = { schemaVersion: 1, revision: 3, catalogue: catalogue() };
   const apiClient = client([response]);

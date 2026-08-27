@@ -10,6 +10,35 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_ID = '22222222-2222-4222-8222-222222222222';
 const CSRF_TOKEN = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 const REQUEST_ID = 'CR-2026-100001';
+const API_REQUEST_ID = '33333333-3333-4333-8333-333333333333';
+const PROVIDER_TENANT_ID = '44444444-4444-4444-8444-444444444444';
+
+function microsoftHealth(capability, connection) {
+  const revoked = connection.status === 'revoked';
+  return {
+    capability,
+    status: revoked ? 'revoked' : 'not_configured',
+    reason: revoked ? connection.reason : null,
+    lastCheckedAt: null,
+    lastSuccessAt: null,
+  };
+}
+
+function microsoftConnection(value) {
+  const connection = {
+    lastVerifiedAt: null,
+    requiredPermissions: ['Place.Read.All', 'Calendars.ReadBasic.All'],
+    ...value,
+  };
+  return {
+    ...connection,
+    capabilities: {
+      places: microsoftHealth('places', connection),
+      freeBusy: microsoftHealth('free_busy', connection),
+      calendarWrite: microsoftHealth('calendar_write', connection),
+    },
+  };
+}
 
 function contentType(filePath) {
   if (filePath.endsWith('.html')) return 'text/html; charset=utf-8';
@@ -39,6 +68,19 @@ function sessionPayload(roles) {
     permissions,
     session: { expiresAt: '2026-09-24T12:00:00.000Z' },
     csrfToken: CSRF_TOKEN,
+  };
+}
+
+function presentationPayload() {
+  return {
+    schemaVersion: 1,
+    revision: 1,
+    presentation: {
+      displayName: 'Conference Manager',
+      defaultLocale: 'de-DE',
+      defaultCurrency: 'EUR',
+      branding: { logoPreset: 'product-default', accentToken: 'default' },
+    },
   };
 }
 
@@ -111,6 +153,15 @@ async function installProductionApplicationFixture(page, {
       return;
     }
 
+    if (url.pathname === '/api/v1/tenant/presentation' && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify(presentationPayload()),
+      });
+      return;
+    }
+
     if (url.pathname === '/api/v1/application/catalog' && request.method() === 'GET') {
       await route.fulfill({
         status: 200,
@@ -143,7 +194,9 @@ async function installProductionApplicationFixture(page, {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify({
-          authorizationUrl: 'https://login.microsoftonline.com/organizations/v2.0/adminconsent?client_id=fixture',
+          authorizationUrl: `https://login.microsoftonline.com/${PROVIDER_TENANT_ID}/v2.0/adminconsent?client_id=fixture`,
+          expiresAt: '2026-08-25T12:10:00.000Z',
+          requestId: API_REQUEST_ID,
         }),
       });
       return;
@@ -162,7 +215,7 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ connection: microsoft365.connection }),
+        body: JSON.stringify({ connection: microsoftConnection(microsoft365.connection), requestId: API_REQUEST_ID }),
       });
       return;
     }
@@ -174,7 +227,7 @@ async function installProductionApplicationFixture(page, {
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify(failure
           ? { error: { code: failure.code, requestId: 'fixture-request' } }
-          : { connection: microsoft365.connection }),
+          : { connection: microsoftConnection(microsoft365.connection), requestId: API_REQUEST_ID }),
       });
       return;
     }
@@ -183,7 +236,7 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ mappings: [] }),
+        body: JSON.stringify({ mappings: [], requestId: API_REQUEST_ID }),
       });
       return;
     }
@@ -212,6 +265,7 @@ async function installProductionApplicationFixture(page, {
               microsoftCalendarWrite: false,
             },
           },
+          requestId: API_REQUEST_ID,
         }),
       });
       return;
@@ -719,7 +773,7 @@ test('production onboarding explains permissions and maps admin, revoked and Gra
         status: 'revoked',
         placesPermission: 'missing',
         calendarsPermission: 'missing',
-        reason: 'provider_authorization_failed',
+        reason: 'provider_unauthorized',
       },
       connectError: { status: 403, code: 'FORBIDDEN' },
       verifyError: { status: 503, code: 'MICROSOFT365_CONNECTION_UNAVAILABLE' },

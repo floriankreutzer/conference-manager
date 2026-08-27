@@ -463,9 +463,11 @@ export function createUsersSection({ context, adapter = null } = {}) {
       if (focusTarget !== null) {
         requestAnimationFrame(() => {
           if (focusTarget === 'results') resultStatus.focus();
-          else [...surface.querySelectorAll('[data-tenant-user-id]')]
-            .find((card) => card.dataset.tenantUserId === focusTarget)
-            ?.focus();
+          else {
+            const updatedCard = [...surface.querySelectorAll('[data-tenant-user-id]')]
+              .find((card) => card.dataset.tenantUserId === focusTarget);
+            (updatedCard || resultStatus).focus();
+          }
         });
       }
     } catch (error) {

@@ -1,5 +1,6 @@
 import { formatDateTime, t } from '../../../core/i18n.js';
 import { announce, button, clear, el, field, showToast, validationSummary } from '../../../core/ui.js';
+import { MANAGED_BRAND_REFERENCE } from '../../../shared/tenant-branding.js';
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
@@ -27,6 +28,16 @@ function select(values, selected, labelKey) {
     value, text: t(`${labelKey}.${value}`), attrs: value === selected ? { selected: 'selected' } : {},
   })));
   control.value = selected;
+  return control;
+}
+
+function logoPresetSelect(selectedReference) {
+  const control = el('select');
+  control.append(
+    el('option', { value: '', text: t('common.none') }),
+    el('option', { value: MANAGED_BRAND_REFERENCE, text: t('app.title') }),
+  );
+  control.value = selectedReference === MANAGED_BRAND_REFERENCE ? selectedReference : '';
   return control;
 }
 
@@ -75,7 +86,7 @@ export function createOrganizationSection({ adapter = null } = {}) {
       countryCode: input(organization.businessMetadata.countryCode, { attrs: { maxlength: '2', pattern: '[A-Za-z]{2}', autocomplete: 'country' } }),
       defaultLocale: select(LOCALES, organization.presentation.defaultLocale, 'tenantSettings.locale'),
       defaultCurrency: select(CURRENCIES, organization.presentation.defaultCurrency, 'tenantSettings.currency'),
-      logoAssetRef: input(organization.branding.logoAssetRef, { attrs: { maxlength: '142', pattern: 'managed-brand:[A-Za-z0-9_-]{22,128}' } }),
+      logoAssetRef: logoPresetSelect(organization.branding.logoAssetRef),
     };
     const form = el('form', { dataset: { tenantSettingsForm: 'organization' } });
     form.append(el('div', { className: 'form-grid' }, [
@@ -117,12 +128,10 @@ export function createOrganizationSection({ adapter = null } = {}) {
             currentRevision,
             onReload: rerender,
             onReapply: async () => {
-              try {
-                const current = await adapter.loadOrganization();
-                await adapter.saveOrganization({ expectedRevision: current.revision, organization: draft });
-                focusAfterSave = true;
-                rerender();
-              } catch { announce(t('tenantSettings.status.saveFailed'), { assertive: true }); }
+              const current = await adapter.loadOrganization();
+              await adapter.saveOrganization({ expectedRevision: current.revision, organization: draft });
+              focusAfterSave = true;
+              rerender();
             },
           });
           root.querySelector('h2')?.focus();

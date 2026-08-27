@@ -153,12 +153,10 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
           renderSectionConflict(root, TITLE, {
             currentRevision, onReload: rerender,
             onReapply: async () => {
-              try {
-                const current = await adapter.loadBookingPolicies();
-                await adapter.saveBookingPolicies({ expectedRevision: current.revision, configuration: pendingDraft });
-                focusAfterSave = true;
-                rerender();
-              } catch { announce(t('tenantSettings.status.saveFailed'), { assertive: true }); }
+              const current = await adapter.loadBookingPolicies();
+              await adapter.saveBookingPolicies({ expectedRevision: current.revision, configuration: pendingDraft });
+              focusAfterSave = true;
+              rerender();
             },
           });
           root.querySelector('h2')?.focus();
