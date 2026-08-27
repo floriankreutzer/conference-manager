@@ -1,4 +1,16 @@
 import { isProductionTimeZone } from '../core/production-time.js';
+import {
+  PRODUCTION_CATALOG_SECTIONS,
+  normalizeProductionBookingChangeEnvelope,
+  normalizeProductionCatalog,
+  normalizeProductionCatalogPage,
+  normalizeProductionRequestDetailEnvelope,
+  normalizeProductionRequestDraft,
+  normalizeProductionRequestHistoryPage,
+  normalizeProductionRequestListPage,
+  normalizeProductionRequestMutationEnvelope,
+  normalizeProductionRequestReportPage,
+} from './production-request-wire.js';
 
 const DOMAIN_ENDPOINTS = Object.freeze({
   profile: 'v1/application/profile',
@@ -337,6 +349,61 @@ async function call(apiClient, path, options) {
   }
 }
 
+function queryPath(path, values) {
+  const query = new URLSearchParams(values);
+  return `${path}?${query.toString()}`;
+}
+
+async function loadCatalogV2(apiClient) {
+  const assembled = Object.fromEntries(PRODUCTION_CATALOG_SECTIONS.map((section) => [section, []]));
+  let authority = null;
+  for (const section of PRODUCTION_CATALOG_SECTIONS) {
+    let cursor = null;
+    do {
+      const values = cursor
+        ? { section, limit: '10', cursor }
+        : { section, limit: '10', ...(authority ? { context: authority.context } : {}) };
+      const page = normalizeProductionCatalogPage(await call(
+        apiClient, queryPath(DOMAIN_ENDPOINTS.catalog, values),
+      ));
+      if (page.section !== section) throw new ProductionPersistenceError('PRODUCTION_CATALOG_INVALID');
+      if (authority === null) {
+        authority = page;
+      } else if (
+        page.context !== authority.context
+        || JSON.stringify(page.configurationRevisions) !== JSON.stringify(authority.configurationRevisions)
+        || JSON.stringify(page.bookingPolicy) !== JSON.stringify(authority.bookingPolicy)
+        || JSON.stringify(page.organization) !== JSON.stringify(authority.organization)
+        || JSON.stringify(page.costAllocation) !== JSON.stringify(authority.costAllocation)
+      ) {
+        throw new ProductionPersistenceError('PRODUCTION_CATALOG_INVALID');
+      }
+      assembled[section].push(...page.entries);
+      cursor = page.page.nextCursor;
+    } while (cursor !== null);
+  }
+  return normalizeProductionCatalog({
+    configurationRevisions: authority.configurationRevisions,
+    bookingPolicy: authority.bookingPolicy,
+    organization: authority.organization,
+    costAllocation: authority.costAllocation,
+    ...assembled,
+  });
+}
+
+async function loadAllRequestPages(apiClient, path, normalize) {
+  const requests = [];
+  let cursor = null;
+  do {
+    const page = normalize(await call(apiClient, queryPath(path, {
+      limit: '10', ...(cursor ? { cursor } : {}),
+    })));
+    requests.push(...page.requests);
+    cursor = page.page.nextCursor;
+  } while (cursor !== null);
+  return Object.freeze(requests);
+}
+
 export function createProductionPersistence({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') {
     throw new TypeError('PRODUCTION_API_CLIENT_REQUIRED');
@@ -353,11 +420,7 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async loadCatalog() {
-      return catalogPayload(assertExactVersionedEnvelope(
-        await call(apiClient, DOMAIN_ENDPOINTS.catalog),
-        'catalog',
-        'PRODUCTION_CATALOG_INVALID',
-      ));
+      return loadCatalogV2(apiClient);
     },
 
     async loadSiteInfo() {
@@ -370,11 +433,7 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async listRequests() {
-      return requestCollection(assertExactVersionedEnvelope(
-        await call(apiClient, DOMAIN_ENDPOINTS.requests),
-        'requests',
-        'PRODUCTION_REQUESTS_INVALID',
-      ));
+      return loadAllRequestPages(apiClient, DOMAIN_ENDPOINTS.requests, normalizeProductionRequestListPage);
     },
 
     async listNotifications() {
@@ -402,55 +461,103 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async createRequest(requestDraft) {
-      const result = assertExactVersionedEnvelope(
-        await call(apiClient, DOMAIN_ENDPOINTS.requests, { method: 'POST', body: requestDraft }),
-        'request',
-        'PRODUCTION_REQUEST_INVALID',
-      );
-      return requestPayload(result);
+      const request = normalizeProductionRequestDraft(requestDraft);
+      return normalizeProductionRequestMutationEnvelope(await call(
+        apiClient,
+        DOMAIN_ENDPOINTS.requests,
+        { method: 'POST', body: { schemaVersion: 2, request } },
+      ));
+    },
+
+    async resubmitRequest(requestId, expectedVersion, requestDraft) {
+      const id = assertRequestId(requestId);
+      if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+        throw new ProductionPersistenceError('PRODUCTION_REQUEST_INVALID');
+      }
+      const request = normalizeProductionRequestDraft(requestDraft);
+      return normalizeProductionRequestMutationEnvelope(await call(
+        apiClient,
+        `${DOMAIN_ENDPOINTS.requests}/${encodeURIComponent(id)}/resubmissions`,
+        { method: 'POST', body: { schemaVersion: 2, expectedVersion, request } },
+      ));
+    },
+
+    async loadRequest(requestId) {
+      const id = assertRequestId(requestId);
+      return normalizeProductionRequestDetailEnvelope(await call(
+        apiClient, `v1/requests/${encodeURIComponent(id)}`,
+      ));
+    },
+
+    async loadRequestHistory(requestId) {
+      const id = assertRequestId(requestId);
+      const history = [];
+      let cursor = null;
+      do {
+        const page = normalizeProductionRequestHistoryPage(await call(
+          apiClient,
+          queryPath(`v1/requests/${encodeURIComponent(id)}/history`, {
+            limit: '10', ...(cursor ? { cursor } : {}),
+          }),
+        ));
+        history.push(...page.history);
+        cursor = page.page.nextCursor;
+      } while (cursor !== null);
+      return Object.freeze(history);
+    },
+
+    async loadRequestReport(from, to) {
+      const fromInclusive = assertCanonicalUtc(from, 'PRODUCTION_REQUEST_REPORT_INVALID');
+      const toExclusive = assertCanonicalUtc(to, 'PRODUCTION_REQUEST_REPORT_INVALID');
+      const requests = [];
+      let cursor = null;
+      do {
+        const page = normalizeProductionRequestReportPage(await call(
+          apiClient,
+          queryPath('v1/application/reports/requests', {
+            from: fromInclusive,
+            to: toExclusive,
+            limit: '10',
+            ...(cursor ? { cursor } : {}),
+          }),
+        ));
+        requests.push(...page.requests);
+        cursor = page.page.nextCursor;
+      } while (cursor !== null);
+      return Object.freeze({ fromInclusive, toExclusive, requests: Object.freeze(requests) });
     },
 
     async transitionRequest(requestId, transition) {
       const id = assertRequestId(requestId);
-      const result = assertExactVersionedEnvelope(
+      return normalizeProductionRequestDetailEnvelope(
         await call(apiClient, `v1/requests/${encodeURIComponent(id)}/transitions`, {
           method: 'POST',
           body: assertPlainObject(transition, 'PRODUCTION_TRANSITION_INVALID'),
         }),
-        'request',
-        'PRODUCTION_REQUEST_INVALID',
       );
-      return requestPayload(result);
     },
 
     async loadBookingChange(requestId) {
       const id = assertRequestId(requestId);
-      const result = assertExactObject(
-        bookingChangeEnvelope(await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`)),
-        ['change'],
-        'PRODUCTION_BOOKING_CHANGE_INVALID',
-      );
-      return bookingChangePayload(result.change);
+      return normalizeProductionBookingChangeEnvelope(
+        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`),
+      ).change;
     },
 
     async proposeBookingChange(requestId, proposed) {
       const id = assertRequestId(requestId);
-      const result = assertExactObject(
-        bookingChangeEnvelope(await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, {
+      const current = await this.loadRequest(id);
+      const request = normalizeProductionRequestDraft(proposed);
+      const result = normalizeProductionBookingChangeEnvelope(
+        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, {
           method: 'POST',
-          body: assertPlainObject(proposed, 'PRODUCTION_BOOKING_CHANGE_INVALID'),
-        })),
-        ['change', 'request'],
-        'PRODUCTION_BOOKING_CHANGE_INVALID',
+          body: { schemaVersion: 2, expectedVersion: current.version, request },
+        }),
       );
-      const change = bookingChangePayload(result.change);
-      if (change?.status !== 'pending') {
+      if (!result.change || !['pending', 'applied'].includes(result.change.status)) {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
-      return Object.freeze({
-        change,
-        request: requestPayload(result.request),
-      });
+      return result;
     },
 
     async decideBookingChange(requestId, changeId, decision, reason = undefined) {
@@ -460,39 +567,22 @@ export function createProductionPersistence({ apiClient } = {}) {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
       const body = reason === undefined ? { decision } : { decision, reason };
-      const result = bookingChangeEnvelope(await call(
+      const result = normalizeProductionBookingChangeEnvelope(await call(
         apiClient,
         `v1/requests/${encodeURIComponent(id)}/booking-change/${encodeURIComponent(change)}/decision`,
         { method: 'POST', body },
       ));
       if (decision === 'reject') {
-        const rejected = assertExactObject(result, ['status', 'change'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
-        if (rejected.status !== 'rejected') throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
-        const normalizedChange = bookingChangePayload(rejected.change);
-        if (normalizedChange?.status !== 'rejected') {
+        if (result.change?.status !== 'rejected') {
           throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
         }
-        return Object.freeze({ status: 'rejected', change: normalizedChange });
+        return result;
       }
-      if (result?.status === 'blocked') {
-        const blocked = assertExactObject(result, ['status', 'alternatives'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
-        if (!Array.isArray(blocked.alternatives) || blocked.alternatives.length > 5) {
-          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
-        }
-        const alternatives = blocked.alternatives.map((entry) => (
-          assertPublicId(entry, 'PRODUCTION_BOOKING_CHANGE_INVALID')
-        ));
-        if (new Set(alternatives).size !== alternatives.length) {
-          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
-        }
-        return Object.freeze({
-          status: 'blocked',
-          alternatives: Object.freeze(alternatives),
-        });
+      if (result.status === 'blocked') {
+        return result;
       }
-      const applied = assertExactObject(result, ['status', 'request'], 'PRODUCTION_BOOKING_CHANGE_INVALID');
-      if (applied.status !== 'applied') throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
-      return Object.freeze({ status: 'applied', request: requestPayload(applied.request) });
+      if (result.change?.status !== 'applied') throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+      return result;
     },
 
     async updateProfile(profile) {

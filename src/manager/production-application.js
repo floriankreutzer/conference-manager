@@ -65,6 +65,8 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
     || typeof persistence.loadCatalog !== 'function'
     || typeof persistence.loadBookingChange !== 'function'
     || typeof persistence.decideBookingChange !== 'function'
+    || typeof persistence.loadRequestHistory !== 'function'
+    || typeof persistence.loadRequestReport !== 'function'
   ) {
     throw new TypeError('PRODUCTION_PERSISTENCE_REQUIRED');
   }
@@ -178,7 +180,32 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
         clear(root);
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', refresh);
-        root.appendChild(el('div', { className: 'button-row' }, [refreshButton]));
+        const reportButton = button(t('production.manager.reportTab'));
+        reportButton.addEventListener('click', async () => {
+          reportButton.disabled = true;
+          try {
+            const year = new Date().getUTCFullYear();
+            const report = await persistence.loadRequestReport(
+              `${year}-01-01T00:00:00.000Z`, `${year + 1}-01-01T00:00:00.000Z`,
+            );
+            const participants = report.requests.reduce((sum, entry) => (
+              sum + entry.internalParticipants + entry.externalParticipants
+            ), 0);
+            const hours = report.requests.reduce((sum, entry) => (
+              sum + (Date.parse(entry.endsAt) - Date.parse(entry.startsAt)) / 3_600_000
+            ), 0);
+            showToast(t('production.manager.reportSummary', {
+              count: report.requests.length, participants, hours: hours.toFixed(1),
+            }));
+          } catch (error) {
+            showToast(errorMessage(error));
+          } finally {
+            reportButton.disabled = false;
+          }
+        });
+        root.appendChild(el('div', { className: 'button-row', attrs: { role: 'tablist' } }, [
+          refreshButton, reportButton,
+        ]));
         if (!requests.length) {
           root.appendChild(el('p', { className: 'info-box', text: t('production.manager.none') }));
           return;
@@ -194,6 +221,29 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
             requestSummary(request, catalog),
           ]);
           if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
+          const historyButton = button(t('production.manager.historyTab'));
+          historyButton.addEventListener('click', async () => {
+            historyButton.disabled = true;
+            try {
+              const history = await persistence.loadRequestHistory(request.id);
+              const content = history.length
+                ? history.map((entry) => el('p', {
+                  text: `${entry.version} · ${entry.operation} · ${formattedRequestTime(entry.capturedAt, 'UTC')}`,
+                }))
+                : [el('p', { text: t('production.manager.historyEmpty') })];
+              const close = button(t('common.close'));
+              const dialog = openDialog({
+                title: t('production.manager.historyTab'), content: el('section', {}, content),
+                actions: [close], labelledById: `requestHistory-${request.id}`,
+              });
+              close.addEventListener('click', () => dialog.close());
+            } catch (error) {
+              showToast(errorMessage(error));
+            } finally {
+              historyButton.disabled = false;
+            }
+          });
+          article.appendChild(historyButton);
           if (bookingChange === undefined && request.status === 'Confirmed') {
             article.appendChild(el('p', {
               className: 'error-box',

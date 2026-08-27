@@ -33,6 +33,33 @@ function roomTimeZone(room, catalog) {
   return site?.timeZone || null;
 }
 
+function compositionDraft(request, catalog, overrides = {}) {
+  const details = request?.details;
+  const allocations = request?.allocations?.entries?.map((entry) => ({
+    costCenterId: entry.costCenterId,
+    percentageBasisPoints: entry.percentageBasisPoints,
+  })) || (catalog.costAllocation?.allocationRequired && catalog.costCenters?.length
+    ? [{ costCenterId: catalog.costCenters[0].id, percentageBasisPoints: 10_000 }]
+    : []);
+  return {
+    title: details?.title || t('production.employee.title'),
+    roomId: request?.roomId || '',
+    startsAt: request?.startsAt || '',
+    endsAt: request?.endsAt || '',
+    internalParticipants: request?.internalParticipants ?? 1,
+    externalParticipants: request?.externalParticipants ?? 0,
+    serviceIds: details?.serviceIds || [],
+    catering: details?.catering || {
+      participantCount: 0, packageSelection: null, itemQuantities: [],
+    },
+    dietaryRequirements: details?.dietaryRequirements || null,
+    specialRequirements: details?.specialRequirements || null,
+    allocations,
+    configurationRevisions: catalog.configurationRevisions,
+    ...overrides,
+  };
+}
+
 function requestCard(request, catalog, openChange, onCancel, onChange) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId);
   const timeZone = roomTimeZone(room, catalog);
@@ -156,9 +183,9 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       }
       submit.disabled = true;
       try {
-        await persistence.proposeBookingChange(request.id, {
+        await persistence.proposeBookingChange(request.id, compositionDraft(request, catalog, {
           roomId: room.value, startsAt, endsAt, internalParticipants, externalParticipants,
-        });
+        }));
         dialog.close();
         showToast(t('production.bookingChange.proposed'));
         await refresh(request.id);
@@ -203,6 +230,17 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
     const end = el('input', { attrs: { type: 'time' } });
     const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: '1' } });
     const external = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: '0' } });
+    const title = el('input', { attrs: { type: 'text', maxlength: '160', value: '' } });
+    const specialRequirements = el('textarea', { attrs: { maxlength: '2000' } });
+    const dietaryRequirements = el('textarea', { attrs: { maxlength: '2000' } });
+    const selectedServices = new Set();
+    const serviceControls = catalog.services.map((service) => {
+      const control = el('input', { attrs: { type: 'checkbox', value: service.id } });
+      control.addEventListener('change', () => {
+        if (control.checked) selectedServices.add(service.id); else selectedServices.delete(service.id);
+      });
+      return el('label', {}, [control, document.createTextNode(` ${service.name}`)]);
+    });
     const status = el('p', {
       className: 'muted',
       attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
@@ -233,13 +271,32 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
     };
     [room, date, start, end].forEach((control) => control.addEventListener('input', invalidateAvailability));
 
+    const step = (number, label, children) => el('fieldset', { className: 'card' }, [
+      el('legend', { text: `${number}/6 · ${label}` }), ...children,
+    ]);
     root.append(
-      field({ id: 'productionRoom', label: t('production.employee.room'), control: room, required: true }),
-      field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
-      field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
-      field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
-      field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
-      field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
+      step(1, t('production.employee.title'), [
+        field({ id: 'productionTitle', label: t('production.employee.title'), control: title, required: true }),
+      ]),
+      step(2, t('schedule.date'), [
+        field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
+        field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
+        field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
+      ]),
+      step(3, t('production.employee.room'), [
+        field({ id: 'productionRoom', label: t('production.employee.room'), control: room, required: true }),
+      ]),
+      step(4, t('production.common.participants', { count: 0 }), [
+        field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
+        field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
+      ]),
+      step(5, t('settings.catalogue.title'), serviceControls.length ? serviceControls : [
+        el('p', { className: 'muted', text: t('production.common.timeUnavailable') }),
+      ]),
+      step(6, t('production.employee.submit'), [
+        field({ id: 'productionDietary', label: t('production.employee.internal'), control: dietaryRequirements }),
+        field({ id: 'productionSpecial', label: t('production.manager.reason'), control: specialRequirements }),
+      ]),
       status,
       el('div', { className: 'button-row' }, [checkAvailability, submit]),
     );
@@ -291,9 +348,11 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       const internalParticipants = safeParticipantCount(internal.value);
       const externalParticipants = safeParticipantCount(external.value);
       const total = Number(internalParticipants) + Number(externalParticipants);
+      const normalizedTitle = title.value.trim();
       const valid = window && availabilityKey(window) === verifiedAvailabilityKey
         && Date.parse(window.startsAt) > Date.now() && internalParticipants !== null
-        && externalParticipants !== null && total >= 1 && total <= MAX_PARTICIPANTS;
+        && externalParticipants !== null && total >= 1 && total <= MAX_PARTICIPANTS
+        && normalizedTitle.length >= 1 && normalizedTitle.length <= 160;
       if (!valid) {
         status.textContent = window && availabilityKey(window) !== verifiedAvailabilityKey
           ? t('production.employee.availabilityRequired')
@@ -306,13 +365,16 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       status.className = 'muted';
       status.textContent = t('production.employee.submitting');
       try {
-        await persistence.createRequest({
-          roomId: window.roomId,
+        await persistence.createRequest(compositionDraft(null, catalog, {
+          title: normalizedTitle, roomId: window.roomId,
           startsAt: window.startsAt,
           endsAt: window.endsAt,
           internalParticipants,
           externalParticipants,
-        });
+          serviceIds: [...selectedServices].sort(),
+          dietaryRequirements: dietaryRequirements.value.trim() || null,
+          specialRequirements: specialRequirements.value.trim() || null,
+        }));
         status.textContent = t('production.employee.submitted');
         showToast(t('production.employee.submitted'));
         verifiedAvailabilityKey = null;
