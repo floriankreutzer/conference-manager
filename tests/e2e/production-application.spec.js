@@ -153,7 +153,7 @@ function appliedRequest(current, change) {
       },
     },
     allocations: {
-      schemaVersion: 1, configurationRevision: 1, snapshottedAt: '2026-08-26T11:00:00.000Z',
+      schemaVersion: 1, configurationRevision: 1, snapshottedAt: '2026-08-27T12:00:00.000Z',
       model: 'percentage_basis_points', totalBasisPoints: 0, totalMinor: 0,
       allocatedMinor: 0, unallocatedMinor: 0, currency: 'EUR', entries: [],
     },
