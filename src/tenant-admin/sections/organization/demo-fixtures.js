@@ -1,5 +1,3 @@
-import { MANAGED_BRAND_REFERENCE } from '../../../shared/tenant-branding.js';
-
 export const ORGANIZATION_DEMO_SCENARIO = Object.freeze({
   NORMAL: 'normal', EMPTY: 'empty', CONFLICT: 'conflict', HISTORY: 'history', RECOVERY: 'recovery',
 });
@@ -7,10 +5,10 @@ export const ORGANIZATION_DEMO_SCENARIO = Object.freeze({
 export const ORGANIZATION_DEMO_SCENARIOS = Object.freeze(Object.values(ORGANIZATION_DEMO_SCENARIO));
 
 const NORMAL = Object.freeze({
-  displayName: 'Northstar Events',
-  businessMetadata: Object.freeze({ legalName: 'Northstar Events GmbH', registrationNumber: 'HRB 12345', countryCode: 'DE' }),
+  displayName: 'Conference Manager',
+  businessMetadata: Object.freeze({ legalName: null, registrationNumber: null, countryCode: 'DE' }),
   presentation: Object.freeze({ defaultLocale: 'de-DE', defaultCurrency: 'EUR' }),
-  branding: Object.freeze({ logoAssetRef: MANAGED_BRAND_REFERENCE, accentToken: 'default' }),
+  branding: Object.freeze({ logoAssetRef: null, accentToken: 'default' }),
 });
 
 const EMPTY = Object.freeze({
