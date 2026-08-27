@@ -10,7 +10,7 @@ export const TENANT_ADMIN_SETTINGS_MESSAGES = Object.freeze({
     'tenantAdmin.section.errorText': 'Die Daten konnten nicht sicher geladen werden. Laden Sie den Bereich erneut.',
     'tenantAdmin.section.empty': 'Für diesen Bereich liegen noch keine Einträge vor.',
     'tenantAdmin.section.revision': 'Konfigurationsstand: {revision}',
-    'tenantAdmin.section.conflictTitle': 'Für {section} liegt eine neuere Änderung vor.',
+    'tenantAdmin.section.conflictTitle': 'Im Bereich „{section}“ liegt eine neuere Änderung vor.',
     'tenantAdmin.section.conflictText': 'Ihre Änderungen wurden nicht gespeichert. Laden Sie den aktuellen Stand oder wenden Sie Ihre Eingaben bewusst erneut an.',
     'tenantAdmin.section.conflictReload': 'Aktuellen Stand laden',
     'tenantAdmin.section.conflictReapply': 'Meine Änderungen erneut anwenden',
