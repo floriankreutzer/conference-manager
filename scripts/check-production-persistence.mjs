@@ -14,8 +14,13 @@ for (const required of [
   "roomAvailability: 'v1/application/room-availability'",
   "notifications: 'v1/application/notifications'",
   "configuration: 'v1/application/configuration'",
-  'return catalogPayload(assertExactVersionedEnvelope(',
-  'return requestCollection(assertExactVersionedEnvelope(',
+  'normalizeProductionCatalogPage',
+  'normalizeProductionCatalog',
+  'normalizeProductionRequestListPage',
+  'normalizeProductionRequestMutationEnvelope',
+  'normalizeProductionRequestHistoryPage',
+  'normalizeProductionRequestReportPage',
+  'normalizeProductionBookingChangeEnvelope',
   'assertExactObject(value, keys, code)',
   'PRODUCTION_SCHEMA_VERSION_UNSUPPORTED',
   'PRODUCTION_PERSISTENCE_UNAVAILABLE',
@@ -189,7 +194,7 @@ for (const required of [
   'persistence.checkRoomAvailability(window)',
   'site?.timeZone',
   'productionUtcInstant(date.value, start.value, timeZone)',
-  'persistence.createRequest({',
+  'persistence.createRequest(compositionDraft(',
   "persistence.transitionRequest(requestId, { transition: 'cancel' })",
   "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested'])",
 ]) {
@@ -204,6 +209,8 @@ for (const required of [
   "'In Review': Object.freeze(['confirm', 'reject', 'request_change'])",
   'persistence.listRequests()',
   'persistence.transitionRequest(request.id, { transition })',
+  'persistence.loadRequestHistory(request.id)',
+  'persistence.loadRequestReport(',
 ]) {
   if (!managerProduction.includes(required)) {
     throw new Error(`Production Conference Manager boundary is missing ${required}.`);
