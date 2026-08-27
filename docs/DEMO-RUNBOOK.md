@@ -16,7 +16,7 @@ After an explicit Demo reset and reload, the following baseline is recreated:
 | Perspective | Employee | Browser-local |
 | Profile | The example profile `Florian Kreutzer` is seeded when no profile exists. | Browser-local |
 | Employee data | No saved requests, request draft or notifications. The built-in room, service, catering and site examples are seeded on first use. | Browser-local |
-| Tenant settings and presentation | Organization, locations, catalogue, booking policies and cost allocation start in their normal fixtures at revision `1`. Bulk validation/apply receipts are reset. The effective presentation is Northstar Events, German, EUR and the code-shipped managed mark. | In memory for the page lifecycle |
+| Tenant settings and presentation | Organization, locations, catalogue, booking policies and cost allocation start in their normal fixtures at revision `1`. Bulk validation/apply receipts are reset. The effective presentation is Conference Manager, German, EUR and the code-shipped PAVUREL product-default signet. | In memory for the page lifecycle |
 | Microsoft 365 onboarding | Disconnected, unverified, no imported mappings and FreeBusy not verified. Calendar Write is not entitled in the current fixture. | In memory for the page lifecycle |
 | Tenant users, audit and readiness | Deterministic example fixtures with fixed identifiers and timestamps. | In memory for the page lifecycle |
 | Images and route code | Catering art is deterministic inline SVG. The baseline OpenStreetMap QR code is a repository-owned asset. Conference Manager image edits accept only bounded managed `assets/` paths or constrained inline SVG data; cross-origin sources are rejected before save. No external image or QR service is contacted automatically. | Repository-owned |
@@ -31,11 +31,11 @@ The capabilities/readiness panel is a separate read-only fixture in the current 
 4. Wait for the automatic reload.
 5. Verify that the role selector shows Employee and no saved request is present.
 6. Switch to Tenant Admin only when the Tenant Admin baseline needs to be inspected.
-7. Verify revision `1` in each settings section, the Northstar Events managed mark and a disconnected Microsoft 365 onboarding state.
+7. Verify revision `1` in each settings section, **Conference Manager** as the presentation name, the PAVUREL product-default signet and a disconnected Microsoft 365 onboarding state.
 
 The reset removes every `conference_*` key from both `localStorage` and `sessionStorage`, restores only the selected language, and reloads the page. The profile, reference catalogue and site examples are then seeded again by the normal Demo bootstrap. Tenant Admin adapters are newly constructed by the application composition root.
 
-Changing the Demo role also reloads the page. Tenant Admin adapters are currently in memory, so an ordinary role change recreates their fixtures. Do not use a role switch as evidence that Tenant Admin configuration persists across perspectives.
+Changing the Demo role also reloads the page. Tenant Admin adapters are currently in memory, so an ordinary role change recreates their fixtures. The recreated Organization fixture remains Conference Manager with the PAVUREL product-default presentation. Do not use a role switch as evidence that Tenant Admin configuration persists across perspectives.
 
 ## Current usable baseline scenarios
 
