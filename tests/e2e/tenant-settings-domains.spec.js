@@ -46,8 +46,8 @@ async function mount(page, domain, scenario = 'normal') {
 test('organization form saves through the revision contract and restores heading focus', async ({ page }) => {
   await mount(page, 'organization');
   const name = page.locator('#tenant-organization-display-name');
-  await expect(name).toHaveValue('Northstar Events');
-  await name.fill('Updated Northstar');
+  await expect(name).toHaveValue('Conference Manager');
+  await name.fill('Updated Conference Manager');
   await page.locator('[data-tenant-settings-form="organization"] button[type="submit"]').click();
   await expect(page.locator('[data-tenant-settings-form="organization"]')).toBeVisible();
   await expect(page.locator('#tenant-settings-domain-fixture h2')).toBeFocused();

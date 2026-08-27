@@ -1,14 +1,25 @@
 import { expect, test } from '@playwright/test';
 
+const expectPavurelDemoBrand = async (page) => {
+  await expect(page.locator('#brandTitle')).toHaveText('Conference Manager');
+  await expect(page.locator('.brand-mark img')).toHaveAttribute(
+    'src',
+    /pavurel-signet-monochrome-white\.svg\?v=20260827-75$/,
+  );
+  await expect(page.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '1');
+};
+
 const selectDemoRole = async (page, role) => {
   const reloadPromise = page.waitForEvent('load');
   await page.locator('#demoRoleSwitch').selectOption(role);
   await reloadPromise;
   await expect(page.locator('#demoRoleSwitch')).toHaveValue(role);
+  await expectPavurelDemoBrand(page);
 };
 
 test('demo role switch exposes Employee, Conference Manager, and Tenant Admin as isolated perspectives', async ({ page }) => {
   await page.goto('/');
+  await expectPavurelDemoBrand(page);
 
   const demoPanel = page.locator('[data-demo-security]');
   const roleSwitch = demoPanel.locator('#demoRoleSwitch');

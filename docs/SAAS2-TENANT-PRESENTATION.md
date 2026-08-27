@@ -6,6 +6,8 @@ The effective Tenant presentation is a minimized, read-only projection for every
 
 The browser presentation is not an authorization boundary. Tenant configuration writes and managed-brand authorization remain server-side controls. Production never falls back to Demo fixtures, browser-stored Tenant authority, a remote image, or tenant-controlled CSS.
 
+PAVUREL is the code-shipped product-default visual identity. The product name remains **Conference Manager**. A Tenant may select an explicitly allowlisted, code-shipped managed branding preset without changing the product-default identity or weakening the same-origin asset boundary.
+
 ## Production read contract
 
 The existing same-origin authenticated API client reads `GET /api/v1/tenant/presentation` with its normal no-store, redirect rejection, response-size, and session protections. The response must match this exact versioned envelope:
@@ -15,11 +17,11 @@ The existing same-origin authenticated API client reads `GET /api/v1/tenant/pres
   "schemaVersion": 1,
   "revision": 1,
   "presentation": {
-    "displayName": "Northstar Events",
+    "displayName": "Example Tenant",
     "defaultLocale": "de-DE",
     "defaultCurrency": "EUR",
     "branding": {
-      "logoPreset": "conference-manager-mark",
+      "logoPreset": "product-default",
       "accentToken": "default"
     }
   }
@@ -33,17 +35,17 @@ Allowed values are deliberately bounded:
 - `logoPreset`: `product-default` or `conference-manager-mark`;
 - `accentToken`: `default` only.
 
-Unknown fields, unsupported schema versions, non-positive revisions, unsafe display names, remote references, arbitrary URLs, data URLs, custom styles, and unknown presets invalidate the complete response. Transport and response-validation failures apply the product-owned fallback: Conference Manager, German, EUR, the default text mark, and revision `0`. That fallback does not activate Demo data or authority.
+Unknown fields, unsupported schema versions, non-positive revisions, unsafe display names, remote references, arbitrary URLs, data URLs, custom styles, and unknown presets invalidate the complete response. Transport and response-validation failures apply the product-owned fallback: Conference Manager, German, EUR, the approved PAVUREL product-default signet, and revision `0`. If the local PAVUREL asset itself cannot load, the shell degrades to the safe `CM.` text mark. Neither fallback activates Demo data or authority.
 
 ## Organization write and branding contract
 
-The Organization form provides a native bounded select with two choices: no Tenant logo or the reviewed Conference Manager mark. It never accepts a raw reference, URL, upload, or style value. The only non-null wire reference is:
+The Organization form provides a native bounded select with two choices: no Tenant-specific managed logo, which resolves to the PAVUREL product default, or the reviewed legacy Conference Manager managed mark. It never accepts a raw reference, URL, upload, or style value. The only non-null wire reference is:
 
 ```text
 managed-brand:conference-manager-mark-v1
 ```
 
-The browser maps the effective `conference-manager-mark` preset only to `assets/brand/conference-manager-mark.svg`, a code-shipped same-origin asset permitted by the existing CSP. If that asset cannot load, the existing product text mark remains the visual fallback. The adjacent Organization display name remains the accessible textual identity, so the decorative image has empty alternative text and does not change heading, navigation, or focus semantics.
+The browser maps the effective `conference-manager-mark` preset only to `assets/brand/conference-manager-mark.svg`, a code-shipped same-origin asset permitted by the existing CSP. The `product-default` preset maps only to the approved local PAVUREL signet. If either configured local mark cannot load, the safe product text mark remains the final visual fallback. The adjacent Organization display name remains the accessible textual identity, so decorative images use empty alternative text and do not change heading, navigation, or focus semantics.
 
 Uploads are intentionally unsupported in this milestone. Therefore upload MIME, filename, size, malware-scanning, and storage tests are not applicable. Adding uploads later requires a separately approved managed-asset service and its complete server-side security controls.
 
@@ -61,17 +63,19 @@ The presentation runtime stores only the current validated snapshot in memory. I
 
 ## Demo and reset behavior
 
-Demo derives the projection from the same in-memory Organization adapter used by Tenant Admin. The normal fixture is deterministic: Northstar Events, German, EUR, and the code-shipped managed mark at revision `1`. An Organization save refreshes the effective presentation in the current page lifecycle. A Demo role change or explicit reset reloads and reconstructs the same deterministic fixture. The reset retains a valid explicit User language preference, which continues to win over the Tenant default.
+Demo derives the projection from the same in-memory Organization adapter used by Tenant Admin. The normal fixture is deterministic: **Conference Manager**, German, EUR, and `product-default`, which renders the code-shipped PAVUREL signet at revision `1`. It does not select the legacy managed Conference Manager mark by default.
+
+An Organization save refreshes the effective presentation in the current page lifecycle. A Demo role change or explicit reset reloads and reconstructs the same PAVUREL product-default fixture, so the shell must not revert to a former sample Tenant name or managed-logo preset. The reset retains a valid explicit User language preference, which continues to win over the Tenant default.
 
 ## Verification
 
-Focused unit coverage validates exact envelopes, unknown fields, unsafe/remote values, safe fallback, stale revisions, ordered async reset refresh, User-language precedence, Tenant currency, and semantic mark replacement. Browser coverage exercises all canonical role combinations, Organization save refresh, Production fallback without Demo activation, and narrow-viewport reflow on both configured Chromium and WebKit projects.
+Focused unit coverage validates exact envelopes, unknown fields, unsafe/remote values, safe fallback, stale revisions, ordered async reset refresh, User-language precedence, Tenant currency, semantic mark replacement, and the deterministic PAVUREL Demo default before and after reset. Browser coverage exercises all canonical role combinations, Organization save refresh, Production fallback without Demo activation, narrow-viewport reflow, and PAVUREL identity retention across Demo role-switch reloads on both configured Chromium and WebKit projects.
 
 Run:
 
 ```bash
-node --test tests/tenant-presentation.test.js
-npx playwright test tests/e2e/tenant-presentation.spec.js
+node --test tests/tenant-presentation.test.js tests/pavurel-branding.test.js
+npx playwright test tests/e2e/tenant-presentation.spec.js tests/e2e/demo-role-switch.spec.js
 npm run check
 npm run audit
 ```
