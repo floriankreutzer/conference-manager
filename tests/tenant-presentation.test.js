@@ -270,7 +270,7 @@ test('tenant localization supplies defaults while an explicit User language rema
   assert.match(formatMoney(1234.5), /£|GBP/);
 });
 
-test('shell application preserves its semantic brand container and uses only the code-shipped preset asset', () => {
+test('shell application preserves its semantic brand container and uses only code-shipped preset assets', () => {
   const elements = {
     sidebar: new FixtureElement('aside'),
     brandTitle: new FixtureElement('strong'),
@@ -296,6 +296,15 @@ test('shell application preserves its semantic brand container and uses only the
   assert.doesNotMatch(mark.children[0].src, /^https:\/\/(?!conference\.test)/);
 
   applyTenantPresentationToDocument(documentRoot, TENANT_PRESENTATION_FALLBACK);
+  assert.equal(mark.textContent, '');
+  assert.equal(mark.children.length, 1);
+  assert.equal(mark.children[0].tagName, 'IMG');
+  assert.equal(mark.children[0].alt, '');
+  assert.match(mark.children[0].src, /\/assets\/brand\/pavurel-signet-monochrome-white\.svg\?v=20260827-75$/);
+  assert.doesNotMatch(mark.children[0].src, /^https:\/\/(?!conference\.test)/);
+  assert.equal(mark.dataset.logoPreset, undefined);
+
+  mark.children[0].listener.listener();
   assert.equal(mark.textContent, 'CM.');
   assert.equal(mark.children.length, 1);
   assert.equal(mark.children[0].tagName, 'SPAN');

@@ -94,6 +94,7 @@ async function installFixture(page, {
   roles = ['employee'],
   initialPresentation = presentationPayload(),
   presentationFailure = false,
+  productDefaultAssetFailure = false,
   organizationSettings = false,
 } = {}) {
   let presentation = structuredClone(initialPresentation);
@@ -161,6 +162,13 @@ async function installFixture(page, {
     }
     if (url.pathname.startsWith('/api/')) {
       await fulfillJson(route, { error: { code: 'NOT_FOUND' } }, 404);
+      return;
+    }
+    if (
+      productDefaultAssetFailure
+      && url.pathname === '/assets/brand/pavurel-signet-monochrome-white.svg'
+    ) {
+      await route.fulfill({ status: 404, body: 'Not found' });
       return;
     }
 
@@ -275,8 +283,24 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   expect(fixture.writes[0].organization.branding.logoAssetRef).toBe(MANAGED_BRAND_REFERENCE);
 });
 
-test('transient presentation failure stays in the safe Production shell fallback', async ({ page }) => {
+test('transient presentation failure stays in the PAVUREL Production shell fallback', async ({ page }) => {
   await installFixture(page, { presentationFailure: true });
+  await page.goto(`${ORIGIN}/`);
+  await expect(page.locator('#brandTitle')).toHaveText('Conference Manager');
+  await expect(page.locator('.brand-mark img')).toHaveAttribute(
+    'src',
+    /pavurel-signet-monochrome-white\.svg\?v=20260827-75$/,
+  );
+  await expect(page.locator('.brand-mark')).toHaveText('');
+  await expect(page.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '0');
+  await expect(page.locator('[data-demo-security]')).toHaveCount(0);
+});
+
+test('product-default asset failure degrades to the safe textual mark', async ({ page }) => {
+  await installFixture(page, {
+    presentationFailure: true,
+    productDefaultAssetFailure: true,
+  });
   await page.goto(`${ORIGIN}/`);
   await expect(page.locator('#brandTitle')).toHaveText('Conference Manager');
   await expect(page.locator('.brand-mark img')).toHaveCount(0);
