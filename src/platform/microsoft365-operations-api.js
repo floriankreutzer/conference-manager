@@ -33,6 +33,7 @@ const HEALTH_REASONS = new Set([
   'provider_operation_failed',
   'provider_permission_missing',
   'provider_throttled',
+  'provider_unauthorized',
   'provider_unavailable',
   'resource_mapping_invalid',
 ]);

@@ -129,6 +129,44 @@ test('operations adapter reuses current endpoints and redacts provider identifie
   assert.equal(result.readiness.entitlements.microsoftCalendarWrite, false);
 });
 
+test('operations adapter preserves the canonical revoked authorization state for recovery', async () => {
+  const api = createMicrosoft365OperationsApi({
+    apiClient: client(new Map([
+      ['v1/integrations/microsoft365', connection({
+        status: 'revoked',
+        reason: 'provider_unauthorized',
+        lastVerifiedAt: null,
+        placesPermission: 'unknown',
+        calendarsPermission: 'unknown',
+        capabilities: {
+          places: health('places', {
+            status: 'revoked',
+            reason: 'provider_unauthorized',
+            lastSuccessAt: null,
+          }),
+          freeBusy: health('free_busy', {
+            status: 'revoked',
+            reason: 'provider_unauthorized',
+            lastSuccessAt: null,
+          }),
+          calendarWrite: health('calendar_write', {
+            status: 'revoked',
+            reason: 'provider_unauthorized',
+            lastSuccessAt: null,
+          }),
+        },
+      })],
+      ['v1/integrations/microsoft365/room-mappings', mappings()],
+      ['v1/integrations/microsoft365/pilot-readiness', readiness()],
+    ])),
+  });
+
+  const result = await api.getOperations();
+  assert.equal(result.connection.state, 'revoked');
+  assert.equal(result.connection.reason, 'provider_unauthorized');
+  assert.equal(result.connection.health.places.reason, 'provider_unauthorized');
+});
+
 test('room synchronization sends no body or tenant selector and returns the redacted inventory', async () => {
   const apiClient = client(new Map([
     ['v1/integrations/microsoft365/room-mappings/sync', (options) => {
