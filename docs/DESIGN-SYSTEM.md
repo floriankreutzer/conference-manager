@@ -1,8 +1,16 @@
 # Conference Manager Design System
 
+## Brand architecture
+
+PAVUREL is the standard corporate visual identity shipped with Conference Manager. The official product name remains **Conference Manager**; **by Pavurel** is the subordinate corporate endorsement and is not part of the product name.
+
+The code-shipped `product-default` presentation uses the approved PAVUREL Connection & Flow signet and PAVUREL browser/app icon from `assets/brand/`. Tenant presentation remains modular: the existing allowlisted managed-preset contract may select another code-shipped preset without allowing arbitrary remote images, CSS, HTML or URLs.
+
+This technical adoption establishes the product default but does not itself represent trademark, company-name or domain clearance. That legal/business gate remains separate.
+
 ## Design direction
 
-The application uses one restrained consulting-style visual language across employee and manager experiences: high contrast, clear hierarchy, compact business surfaces and limited decorative effects. The product retains its own identity through Bordeaux and Camel rather than copying another brand.
+The application uses one restrained consulting-style visual language across employee and manager experiences: high contrast, clear hierarchy, compact business surfaces and limited decorative effects. The PAVUREL identity combines operational precision with warm hospitality through the approved Bordeaux, Camel, Black, White and warm-neutral palette.
 
 - Bordeaux is the primary action and selection color.
 - Camel remains an intentional surface color for contextual information, selected business summaries, calendar items and selected KPI surfaces.
@@ -24,6 +32,8 @@ Change these tokens to update the identity globally:
 - `--color-camel-500`
 - `--color-camel-200`
 - `--color-camel-100`
+
+Approved PAVUREL logo, signet and app-icon geometry is governed separately under `assets/brand/` and must not be recreated through CSS or redrawn from screenshots/mockups.
 
 ### Surfaces
 
