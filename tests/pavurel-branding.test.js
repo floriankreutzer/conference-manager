@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+import { createDemoTenantPresentationApi } from '../src/platform/tenant-presentation-api.js';
+import { createDemoOrganizationSettings } from '../src/tenant-admin/sections/organization/demo-adapter.js';
+
 const EXPECTED_THEME = '#7A1F3D';
 
 async function source(path) {
@@ -19,6 +22,24 @@ test('PAVUREL is the code-shipped product-default shell and browser identity', a
   assert.match(index, /<img src="\.\/assets\/brand\/pavurel-signet-monochrome-white\.svg" alt="" decoding="async">/);
   assert.match(runtime, /pavurel-signet-monochrome-white\.svg\?v=20260827-75/);
   assert.doesNotMatch(runtime, /https?:\/\/[^'"`]+pavurel/i);
+});
+
+test('normal Demo tenant projection keeps Conference Manager on the PAVUREL product default', async () => {
+  const organizationSettings = createDemoOrganizationSettings();
+  const presentationApi = createDemoTenantPresentationApi({ organizationSettings });
+
+  const first = await presentationApi.loadPresentation();
+  assert.equal(first.revision, 1);
+  assert.equal(first.presentation.displayName, 'Conference Manager');
+  assert.equal(first.presentation.branding.logoPreset, 'product-default');
+
+  const organization = await organizationSettings.loadOrganization();
+  assert.equal(organization.organization.branding.logoAssetRef, null);
+
+  organizationSettings.reset();
+  const afterReset = await presentationApi.loadPresentation();
+  assert.equal(afterReset.presentation.displayName, 'Conference Manager');
+  assert.equal(afterReset.presentation.branding.logoPreset, 'product-default');
 });
 
 test('approved PAVUREL runtime SVG masters retain the governed palette and local-only structure', async () => {
