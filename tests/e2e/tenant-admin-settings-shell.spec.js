@@ -72,3 +72,67 @@ test('Unauthorized Tenant Admin deep links are cleared without exposing the sett
   await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
   await expect(page).not.toHaveURL(/#tenant-admin(?:\/|$)/);
 });
+
+test('asynchronous settings navigation focuses the final section heading', async ({ page }) => {
+  await page.goto('/');
+
+  const result = await page.evaluate(async () => {
+    const [{ createTenantAdminSettingsShell }, { defineTenantAdminSection }, { renderSectionLoading }] = await Promise.all([
+      import('/src/tenant-admin/settings-shell.js'),
+      import('/src/tenant-admin/section-contract.js'),
+      import('/src/tenant-admin/section-presentation.js'),
+    ]);
+    const appRoot = document.createElement('div');
+    document.body.appendChild(appRoot);
+    const location = { hash: '#tenant-admin/overview' };
+    const history = {
+      replaceState(_state, _title, hash) {
+        location.hash = hash;
+      },
+    };
+    let finishLoading;
+    const loading = new Promise((resolve) => { finishLoading = resolve; });
+    const section = defineTenantAdminSection({
+      id: 'organization',
+      titleKey: 'tenantAdmin.organization.title',
+      descriptionKey: 'tenantAdmin.organization.description',
+      permission: 'tenant:configure',
+      available: true,
+      async render({ root }) {
+        renderSectionLoading(root, 'tenantAdmin.organization.title');
+        await loading;
+        const heading = document.createElement('h2');
+        heading.tabIndex = -1;
+        heading.textContent = 'Loaded organization';
+        root.replaceChildren(heading);
+      },
+    });
+    const shell = createTenantAdminSettingsShell({
+      appRoot,
+      setPageHeading() {},
+      sections: [section],
+      history,
+      location,
+    });
+
+    shell.render();
+    shell.navigate('organization');
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const focusedWhileLoading = document.activeElement?.textContent || '';
+    finishLoading();
+    await loading;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const finalHeading = appRoot.querySelector('[data-tenant-admin-section-content] h2');
+    const response = {
+      focusedWhileLoading,
+      finalText: finalHeading?.textContent || '',
+      finalFocused: document.activeElement === finalHeading,
+    };
+    appRoot.remove();
+    return response;
+  });
+
+  expect(result.focusedWhileLoading).not.toBe('Organisation');
+  expect(result.finalText).toBe('Loaded organization');
+  expect(result.finalFocused).toBe(true);
+});
