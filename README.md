@@ -65,6 +65,7 @@ Current repository entry points:
 │   ├── DESIGN-SYSTEM.md
 │   ├── PHASE-2-PLAN.md
 │   ├── PRODUCTION-SECURITY.md
+│   ├── SAAS3-PLATFORM-CONTROL-PLANE.md
 │   └── SAAS-PRODUCTION-TOPOLOGY.md
 ├── scripts/
 │   ├── check-agent-instructions.mjs
@@ -107,9 +108,9 @@ CSS responsibilities remain consolidated: `assets/employee-ux.css` owns Employee
 
 New user-visible application copy belongs to the canonical Core localization mechanism and is rendered through `t()`. The former Shared parity translation catalogue has been consolidated into Core under semantic key namespaces. A temporary Manager-only `pt()` name-compatibility adapter remains for two baseline enhancement modules; it delegates directly to Core and owns no translations or fallback behavior.
 
-The approved SaaS production topology keeps this repository as the browser application and places the trusted production backend in a dedicated `conference-manager-api` repository while exposing the browser and `/api/*` through one HTTPS origin.
+The approved SaaS production topology keeps this repository as the browser application and places the trusted production backend in a dedicated `conference-manager-api` repository while exposing the customer browser and `/api/*` through one HTTPS origin. The accepted SaaS 3 extension adds a separately deployable Platform Operator artifact and operator origin backed by a Platform-only process in the same backend repository; it does not add Platform authority to Tenant Admin or existing customer `src/platform` modules.
 
-See `docs/BASELINE.md`, `docs/ARCHITECTURE.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+See `docs/BASELINE.md`, `docs/ARCHITECTURE.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md`, `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
 
 ## Feature flags
 
@@ -173,11 +174,11 @@ Production operation requires at least:
 - secure calendar integration, for example through Microsoft Graph
 - security controls appropriate to the backend architecture, including CSRF protection for cookie-based authentication
 
-The SaaS production topology fixes the trusted backend in `conference-manager-api` and keeps browser/API access same-origin under `/api/*`. The repository implementation covers the production session, Employee/Conference Manager application API clients, Tenant administration, Microsoft 365 connection, and guided Pilot onboarding. A deployable Pilot still requires the external infrastructure and acceptance evidence defined by the owning SaaS issues.
+The SaaS production topology fixes the trusted backend in `conference-manager-api` and keeps customer browser/API access same-origin under `/api/*`. `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` separately fixes the future operator artifact, origin, `/api/v1/platform/*` process, identity/session and audit boundaries. The repository implementation covers the customer production session, Employee/Conference Manager application API clients, Tenant administration, Microsoft 365 connection, and guided Pilot onboarding; the Platform Control Plane runtime is not claimed as implemented by that architecture decision. A deployable Pilot or Control Plane still requires the external infrastructure and acceptance evidence defined by the owning SaaS issues.
 
 Confirmed-booking changes remain server-authoritative: proposal lookups are concurrency-bounded and isolated per Request, unavailable state fails closed, and Conference Manager decision controls are exposed only for pending proposals.
 
-See `docs/DEMO-SECURITY.md`, `docs/PRODUCTION-SECURITY.md` and `docs/SAAS-PRODUCTION-TOPOLOGY.md` for additional details.
+See `docs/DEMO-SECURITY.md`, `docs/PRODUCTION-SECURITY.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md` and `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` for additional details.
 
 ## Calendar integration
 

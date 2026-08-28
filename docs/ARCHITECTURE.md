@@ -321,6 +321,10 @@ Parallel active business implementations are prohibited. Temporary compatibility
 
 The default GitHub Pages deployment remains an explicitly selected static demo. The repository also contains a separate production browser path backed by the same-origin API. Neither modularity nor client-side presentation checks are authorization: production authority stays in the backend, and the browser must never fall back to demo storage or demo implementations. Production authentication/authorization requirements remain defined in `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md`.
 
+The accepted SaaS 3 control-plane decision in `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` adds a separately deployable Platform Operator browser artifact and operator origin. It does not change the current customer runtime graph. Existing `src/platform` remains customer application-wide composition; operator presentation belongs to the independent `src/platform-admin` boundary and must not import Employee, Manager, Tenant Admin, customer Platform, or customer session internals. Its Production entry point is `platform-admin/index.html` with `src/platform-admin/production/bootstrap.js`; the isolated Demo entry point is `platform-admin-demo/index.html` with `src/platform-admin/demo/bootstrap.js`.
+
+The customer and operator artifacts use separate backend processes, sessions, API routing and deployment manifests. Customer `src/app.js` never composes the operator artifact, and a failed Production operator session/API must never select either the customer application or the isolated Demo Control Plane. Architecture gates and their invalid fixtures must be extended with the implementation that introduces those runtime paths.
+
 CSP, safe DOM creation, defensive storage, safe URL handling, API restrictions, secret scanning, dependency review and SAST-style checks remain unchanged or stronger.
 
 Architecture changes must not bypass security wrappers, validation, authorization boundaries, dependency controls, secret controls or secure configuration. Automated checks are evidence for the executed controls only and must not be described as complete OWASP compliance.
@@ -358,6 +362,8 @@ Together they enforce, among other controls:
 The Composition Root Production/Demo runtime-selection conditional is not fully proven by static import analysis; it remains a regression, security-review and runtime-validation responsibility.
 
 The detailed SaaS 2 Tenant Admin constraints, including the approved section set and section-isolation expectations, are maintained in `docs/SAAS2-MODULAR-BOUNDARIES.md` and their corresponding architecture fixtures/checks. Architecture rules and their regression fixtures must change together.
+
+The SaaS 3 Platform Operator artifact and customer/operator deployment isolation are governed by `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`. Its future architecture gate must reject cross-entry-point authority imports, customer capability internals in the operator artifact, customer/operator session reuse, Production-to-Demo fallback, and a Production manifest that serves both entry points on one origin.
 
 Architecture checks must represent architectural intent. Do not add arbitrary line-count or file-count gates. Filenames may be enforced when they are established public contracts/entry points. When a new meaningful boundary is introduced, assess whether the architecture gate must be extended.
 

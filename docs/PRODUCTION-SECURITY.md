@@ -47,6 +47,18 @@ Session cookies must be generated server-side and configured with:
 
 Long-lived bearer tokens must not be stored in LocalStorage or JavaScript-accessible browser storage.
 
+### Platform Operator separation
+
+The accepted SaaS 3 boundary in `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` introduces a second, privileged browser/API trust boundary. It does not broaden the customer session contract described below.
+
+Platform access uses a dedicated operator origin, fixed single-Tenant workforce identity registration, pre-provisioned server-side operator identity, enterprise MFA/Conditional Access, separate opaque session and OIDC transaction cookies, separate CSRF and session secrets, and a Platform-only backend process. Employee, Conference Manager, Tenant Admin, customer Entra identities, customer cookies, browser claims, email domains, and provider groups can never create or upgrade into Platform authority.
+
+High-impact invitation, lifecycle, entitlement, recovery, identity-unbind, operator-administration, and sensitive audit-export operations additionally require recent step-up/re-authentication. Unknown roles, permissions, assurance values, or target scopes invalidate the Platform authorization snapshot. Every operation is authorized against a server-owned target-Tenant scope, and unrestricted customer impersonation is prohibited.
+
+Platform audit is distinct from Tenant-visible audit in authorization, schema, persistence, integrity key, API presentation, retention, and database grants. A required Platform audit failure rolls back the privileged mutation; customer-impacting operations also retain their Tenant audit evidence in the same transaction. Tenant Admin and the customer API/database runtime cannot read Platform events.
+
+The process-local operator CLI is break-glass fallback only. It must use the same application services and audit transactions and requires an individually attributable, action/target-bound, reason-bound, single-use grant with a maximum one-hour lifetime. It is not a generic command, SQL, Graph, log-query, or impersonation console.
+
 ### Browser production-session contract
 
 `src/platform/production-session.js` is the browser-side consumer of the existing backend session contract. Its responsibilities are intentionally limited:
@@ -87,6 +99,8 @@ Current Tenant roles and permission boundaries are:
 
 `tenant_admin` does not implicitly inherit `conference_manager`. A User receives both capability sets only when the server Principal contains both roles and their corresponding permissions. Platform Admin/operator authority remains outside this Tenant role model.
 
+The Platform roles defined by `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` are a separate deny-by-default policy. Assigning or changing customer roles never changes Platform identity, roles, permissions, assurance, target scope, or session state.
+
 Required controls:
 
 - object ownership checks for employee operations;
@@ -121,6 +135,8 @@ The production API must be same-origin and HTTPS-only. The browser client is int
 For non-success responses the browser retains only the HTTP status classification and, when present, a bounded uppercase machine-readable `error.code`. The sole additional context currently accepted is a positive safe-integer `currentRevision` on the exact HTTP 409 `TENANT_SETTINGS_REVISION_CONFLICT` envelope with a valid server request ID and no unknown fields. Arbitrary server text, provider payloads, identifiers and other request details are neither stored on the client error nor reflected into recovery UI. This permits specific settings-conflict and consent/session/provider remediation without broadening the public error-data boundary.
 
 CORS should remain disabled when the production UI and API are same-origin. If cross-origin access becomes mandatory, use an explicit origin allowlist and never reflect arbitrary `Origin` values.
+
+The operator application follows the same-origin principle independently at its own HTTPS origin. The customer origin must not route `/api/v1/platform/*`, and the operator origin must not route customer API paths. This origin split does not justify enabling CORS between the applications.
 
 The current demo HTML intentionally uses `connect-src 'none'`. It must not be copied unchanged as the production CSP because the production browser must reach the same-origin `/api/*` backend. The production deployment must deliver its CSP/security headers at the HTTP layer with the minimum same-origin connectivity required by the accepted topology; deployment evidence belongs to the production hosting/IaC work under #113.
 
@@ -166,6 +182,8 @@ Security-relevant and workflow-relevant actions must be recorded server-side wit
 - success/failure outcome.
 
 Do not log secrets, session cookies, CSRF tokens, or unnecessary personal data.
+
+Platform/operator events use their own integrity-protected audit domain and server-derived operator, assurance, target-Tenant, action, outcome, time, and request context. They are never exposed through Tenant audit permissions. Privileged mutations that require both Tenant and Platform evidence commit both with the authoritative change or roll back.
 
 ## Security headers
 
