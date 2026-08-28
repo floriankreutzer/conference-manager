@@ -139,16 +139,16 @@ The initial Platform roles and permission sets are:
 
 | Role | Initial permissions |
 | --- | --- |
-| `platform_support_reader` | `platform:tenant:read`, `platform:readiness:read`, `platform:integration-health:read`, `platform:diagnostics:read`, `platform:entitlement:read` |
-| `platform_tenant_operator` | Reader permissions plus `platform:invitation:manage`, `platform:lifecycle:manage`, `platform:entitlement:manage` |
-| `platform_security_auditor` | `platform:tenant:read`, `platform:diagnostics:read`, `platform:audit:read`, `platform:audit:export` |
-| `platform_security_admin` | `platform:tenant:read`, `platform:recovery:execute`, `platform:audit:read`, `platform:operator:manage` |
+| `platform_support_reader` | `platform:tenant:read`, `platform:readiness:read`, `platform:integration-health:read`, `platform:diagnostics:read`, `platform:entitlement:read`, `platform:metering:read`, `platform:runtime:read` |
+| `platform_tenant_operator` | Reader permissions plus `platform:invitation:manage`, `platform:lifecycle:manage`, `platform:entitlement:manage`, `platform:quota:manage` |
+| `platform_security_auditor` | `platform:tenant:read`, `platform:diagnostics:read`, `platform:diagnostics:sensitive`, `platform:audit:read`, `platform:audit:export`, `platform:runtime:read` |
+| `platform_security_admin` | `platform:tenant:read`, `platform:diagnostics:read`, `platform:diagnostics:sensitive`, `platform:recovery:execute`, `platform:audit:read`, `platform:session:revoke`, `platform:operator:manage`, `platform:break-glass:manage` |
 
 Roles may be combined only through server-side assignment. No role silently inherits a customer role, and `platform_security_admin` is not an unrestricted superuser. Unknown roles or permissions invalidate the complete operator authorization snapshot. Operator target scope is server-owned and is either an explicit Tenant allowlist or the separately approved fleet scope; a browser-selected Tenant never broadens it.
 
 Normal access requires enterprise MFA enforced through the approved Conditional Access policy or an equivalent reviewed control. Repository claim validation and external Conditional Access evidence are both required; the application must not infer policy enforcement from an unreviewed browser claim alone.
 
-High-impact operations require a recent stronger assurance/reauthentication result in addition to the normal session. This includes invitation issue/revoke, lifecycle mutation, entitlement mutation, recovery, identity unbinding, operator administration, and sensitive audit export. Issue #128 owns the exact bounded session and step-up lifetimes; the maximum accepted step-up age must not exceed five minutes without a new architecture/security review.
+High-impact operations require a recent stronger assurance/reauthentication result in addition to the normal session. This includes every `manage`, `execute`, `sensitive`, `export`, `revoke`, or `break-glass` permission: invitation issue/revoke, lifecycle mutation, entitlement/quota mutation, sensitive diagnostics, recovery, identity unbinding, session revocation, operator/break-glass administration, and audit export. Issue #128 owns the exact bounded session and step-up lifetimes; the maximum accepted step-up age must not exceed five minutes without a new architecture/security review.
 
 ## Session, cookie, and CSRF separation
 
