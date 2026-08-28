@@ -10,6 +10,14 @@ Decision date: 2026-08-23
 
 This decision is subordinate to root `AGENTS.md`, `docs/CODING-STANDARDS.md`, `docs/ARCHITECTURE.md`, `docs/BASELINE.md`, and `docs/PRODUCTION-SECURITY.md`. If any future implementation conflicts with those sources, the repository standards win until an explicit reviewed architecture change updates the baseline.
 
+## SaaS 3 control-plane extension
+
+`docs/SAAS3-PLATFORM-CONTROL-PLANE.md`, accepted on 2026-08-28 for #92 and roadmap #75, extends this topology with a separate operator origin, operator frontend artifact, and Platform-only backend process. The extension leaves this document's customer same-origin contract unchanged: the customer browser and customer `/api/*` remain on one customer origin with the existing customer session and CORS assumptions.
+
+The operator application has its own same-origin contract under a different HTTPS origin and routes only `/api/v1/platform/*` to the dedicated Platform process. Customer and operator identity registrations, Principals, cookies, CSRF keys, secrets, database runtime roles, and audit domains are separate. Neither process registers the other process's routes, and the customer origin does not route the Platform namespace.
+
+Both backend processes remain in `conference-manager-api` so they can reuse the existing application services and preserve atomic Tenant mutation plus Tenant/Platform audit transactions. Both browser artifacts remain in `conference-manager` but are independently deployed. This is not permission to place operator controls in Tenant Admin or existing customer `src/platform` modules.
+
 ## Decision summary
 
 The production SaaS backend will be implemented in a dedicated repository named `conference-manager-api`.
