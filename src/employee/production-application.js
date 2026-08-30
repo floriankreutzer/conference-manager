@@ -10,6 +10,11 @@ import {
   composeServerRequestDraft,
   repeatRequestProjection,
 } from './server-request-projection.js';
+import {
+  cateringEditorOptions,
+  normalizeAllocationEditorDraft,
+  normalizeCateringEditorDraft,
+} from './server-request-editor.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested']);
 const MAX_PARTICIPANTS = 500;
@@ -44,6 +49,22 @@ function compositionDraft(request, catalog, overrides = {}) {
     overrides,
     defaultTitle: t('production.employee.title'),
   });
+}
+
+function openDetachedPrintWindow() {
+  const printWindow = globalThis.window?.open?.('', '_blank');
+  if (!printWindow) return null;
+  try {
+    printWindow.opener = null;
+    if (printWindow.opener !== null) {
+      printWindow.close?.();
+      return null;
+    }
+  } catch {
+    try { printWindow.close?.(); } catch {}
+    return null;
+  }
+  return printWindow;
 }
 
 function requestCard(request, catalog, openChange, {
@@ -137,7 +158,7 @@ export function createProductionEmployeeApplication({
   }
 
   function printRequest(request) {
-    const printWindow = globalThis.window?.open?.('', '_blank', 'noopener,noreferrer');
+    const printWindow = openDetachedPrintWindow();
     if (!printWindow) return;
     const doc = printWindow.document;
     const room = catalog.rooms.find((entry) => entry.id === request.roomId);
@@ -306,6 +327,17 @@ export function createProductionEmployeeApplication({
     const specialRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.specialRequirements || '' });
     const dietaryRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.dietaryRequirements || '' });
     const selectedServices = new Set(sourceRequest?.details?.serviceIds || []);
+    let packageSelection = sourceRequest?.details?.catering?.packageSelection
+      ? { ...sourceRequest.details.catering.packageSelection } : null;
+    const itemQuantities = Object.fromEntries(
+      (sourceRequest?.details?.catering?.itemQuantities || []).map((entry) => [entry.itemId, entry.quantity]),
+    );
+    const cateringParticipants = el('input', {
+      attrs: {
+        type: 'number', min: '0', max: String(MAX_PARTICIPANTS), step: '1',
+        value: String(sourceRequest?.details?.catering?.participantCount || 0),
+      },
+    });
     const serviceControls = catalog.services.map((service) => {
       const control = el('input', { attrs: { type: 'checkbox', value: service.id } });
       control.checked = selectedServices.has(service.id);
@@ -314,6 +346,113 @@ export function createProductionEmployeeApplication({
       });
       return el('label', {}, [control, document.createTextNode(` ${service.name}`)]);
     });
+    const cateringPanel = el('section', { attrs: { 'aria-label': t('catering.heading') } });
+    const renderCateringControls = () => {
+      clear(cateringPanel);
+      const options = cateringEditorOptions(catalog, room.value);
+      const applicableItemIds = new Set(options.items.map((entry) => entry.id));
+      Object.keys(itemQuantities).forEach((itemId) => {
+        if (!applicableItemIds.has(itemId)) delete itemQuantities[itemId];
+      });
+      const packageOptions = options.packages.flatMap((entry) => (
+        (entry.variants || []).filter((variant) => variant.active !== false)
+          .map((variant) => ({ packageId: entry.id, variantId: variant.id, label: `${entry.name} · ${variant.name}` }))
+      ));
+      const packageControl = el('select');
+      packageControl.appendChild(el('option', { value: '', text: t('catering.noPackage') }));
+      packageOptions.forEach((entry, index) => {
+        packageControl.appendChild(el('option', { value: String(index), text: entry.label }));
+        if (entry.packageId === packageSelection?.packageId && entry.variantId === packageSelection?.variantId) {
+          packageControl.value = String(index);
+        }
+      });
+      if (!packageOptions.some((entry) => entry.packageId === packageSelection?.packageId
+        && entry.variantId === packageSelection?.variantId)) packageSelection = null;
+      packageControl.addEventListener('change', () => {
+        packageSelection = packageControl.value === '' ? null : {
+          packageId: packageOptions[Number(packageControl.value)].packageId,
+          variantId: packageOptions[Number(packageControl.value)].variantId,
+        };
+      });
+      cateringPanel.append(
+        el('h3', { text: t('catering.heading') }),
+        field({
+          id: 'productionCateringParticipants', label: t('catering.people'), control: cateringParticipants,
+          hint: t('catering.peopleHint'),
+        }),
+        field({ id: 'productionCateringPackage', label: t('catering.package'), control: packageControl }),
+        el('h3', { text: t('catering.items') }),
+      );
+      if (!options.items.length) cateringPanel.appendChild(el('p', { className: 'muted', text: t('catering.noItems') }));
+      options.items.forEach((item) => {
+        const quantity = el('input', {
+          attrs: { type: 'number', min: '0', max: '1000', step: '1', value: String(itemQuantities[item.id] || 0) },
+        });
+        quantity.addEventListener('input', () => { itemQuantities[item.id] = quantity.value; });
+        cateringPanel.appendChild(field({
+          id: `productionCateringItem-${item.id}`, label: item.name, control: quantity,
+        }));
+      });
+    };
+
+    const allocationRows = (sourceRequest?.allocations?.entries || []).map((entry) => ({
+      costCenterId: entry.costCenterId,
+      percentage: (entry.percentageBasisPoints / 100).toFixed(2).replace(/\.00$/, ''),
+    }));
+    if (!allocationRows.length && catalog.costAllocation?.allocationRequired && catalog.costCenters.length) {
+      allocationRows.push({ costCenterId: catalog.costCenters[0].id, percentage: '100' });
+    }
+    const allocationPanel = el('section', { attrs: { 'aria-label': t('cost.allocations') } });
+    const renderAllocationControls = () => {
+      clear(allocationPanel);
+      allocationPanel.append(
+        el('h3', { text: t('cost.allocations') }),
+        el('p', { className: 'muted', text: t('cost.allocHint') }),
+      );
+      allocationRows.forEach((allocation, index) => {
+        const row = el('article', { className: 'allocation-row' });
+        const center = el('select');
+        center.appendChild(el('option', { value: '', text: t('cost.costCenter') }));
+        catalog.costCenters.filter((entry) => entry.active !== false).forEach((entry) => {
+          center.appendChild(el('option', { value: entry.id, text: `${entry.code} · ${entry.name}` }));
+        });
+        center.value = allocation.costCenterId;
+        center.addEventListener('change', () => { allocation.costCenterId = center.value; });
+        const percentage = el('input', {
+          attrs: { type: 'number', min: '0.01', max: '100', step: '0.01', value: allocation.percentage },
+        });
+        percentage.addEventListener('input', () => { allocation.percentage = percentage.value; });
+        const remove = button(t('common.delete'));
+        remove.addEventListener('click', () => {
+          allocationRows.splice(index, 1);
+          renderAllocationControls();
+        });
+        row.append(
+          field({ id: `productionAllocationCenter-${index}`, label: t('cost.costCenter'), control: center, required: true }),
+          field({ id: `productionAllocationPercent-${index}`, label: t('cost.percent'), control: percentage, required: true }),
+          remove,
+        );
+        allocationPanel.appendChild(row);
+      });
+      const sum = allocationRows.reduce((total, entry) => total + Number(entry.percentage || 0), 0);
+      allocationPanel.appendChild(el('p', {
+        className: Math.abs(sum - 100) < 0.001 || (!allocationRows.length && !catalog.costAllocation?.allocationRequired)
+          ? 'validation-ok' : 'validation-bad',
+        text: t('cost.sum', { sum: sum.toFixed(2).replace(/\.00$/, '') }),
+        attrs: { role: 'status', 'aria-live': 'polite' },
+      }));
+      const add = button(t('cost.add'));
+      add.disabled = allocationRows.length >= Math.min(100, catalog.costCenters.length);
+      add.addEventListener('click', () => {
+        const used = new Set(allocationRows.map((entry) => entry.costCenterId));
+        const next = catalog.costCenters.find((entry) => entry.active !== false && !used.has(entry.id));
+        if (next) allocationRows.push({ costCenterId: next.id, percentage: '0' });
+        renderAllocationControls();
+      });
+      allocationPanel.appendChild(add);
+    };
+    renderCateringControls();
+    renderAllocationControls();
     const status = el('p', {
       className: 'muted',
       attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
@@ -343,6 +482,7 @@ export function createProductionEmployeeApplication({
       status.textContent = t('production.employee.availabilityRequired');
     };
     [room, date, start, end].forEach((control) => control.addEventListener('input', invalidateAvailability));
+    room.addEventListener('change', renderCateringControls);
 
     const step = (number, label, children) => el('fieldset', { className: 'card' }, [
       el('legend', { text: `${number}/6 · ${label}` }), ...children,
@@ -363,11 +503,15 @@ export function createProductionEmployeeApplication({
         field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
         field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
       ]),
-      step(5, t('settings.catalogue.title'), serviceControls.length ? serviceControls : [
-        el('p', { className: 'muted', text: t('production.common.timeUnavailable') }),
+      step(5, t('settings.catalogue.title'), [
+        ...(serviceControls.length ? serviceControls : [
+          el('p', { className: 'muted', text: t('production.common.timeUnavailable') }),
+        ]),
+        cateringPanel,
       ]),
       step(6, t('production.employee.submit'), [
-        field({ id: 'productionDietary', label: t('production.employee.internal'), control: dietaryRequirements }),
+        allocationPanel,
+        field({ id: 'productionDietary', label: t('catering.dietary'), control: dietaryRequirements }),
         field({ id: 'productionSpecial', label: t('production.manager.reason'), control: specialRequirements }),
       ]),
       status,
@@ -434,6 +578,23 @@ export function createProductionEmployeeApplication({
         submit.disabled = true;
         return;
       }
+      let catering;
+      let allocations;
+      try {
+        catering = normalizeCateringEditorDraft({
+          participantCount: cateringParticipants.value,
+          packageSelection,
+          itemQuantities,
+          totalParticipants: total,
+          catalog,
+          roomId: window.roomId,
+        });
+        allocations = normalizeAllocationEditorDraft({ allocations: allocationRows, catalog });
+      } catch {
+        status.className = 'error-box';
+        status.textContent = t('production.employee.validation');
+        return;
+      }
       submit.disabled = true;
       status.className = 'muted';
       status.textContent = t('production.employee.submitting');
@@ -445,8 +606,10 @@ export function createProductionEmployeeApplication({
           internalParticipants,
           externalParticipants,
           serviceIds: [...selectedServices].sort(),
+          catering,
           dietaryRequirements: dietaryRequirements.value.trim() || null,
           specialRequirements: specialRequirements.value.trim() || null,
+          allocations,
         };
         if (isResubmission) {
           await persistence.resubmitRequest(

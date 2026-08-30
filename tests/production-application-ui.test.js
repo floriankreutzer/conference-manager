@@ -10,6 +10,11 @@ import {
   composeServerRequestDraft,
   repeatRequestProjection,
 } from '../src/employee/server-request-projection.js';
+import {
+  cateringEditorOptions,
+  normalizeAllocationEditorDraft,
+  normalizeCateringEditorDraft,
+} from '../src/employee/server-request-editor.js';
 import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
 
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
@@ -111,6 +116,63 @@ test('schema-v2 repeat composition preserves catering and cost allocations from 
   assert.notEqual(draft.catering.itemQuantities, request.details.catering.itemQuantities);
 });
 
+test('Employee editor exposes only catering applicable to the selected authoritative room', () => {
+  const catalog = {
+    rooms: [{ id: 'room-1', siteId: 'site-1' }],
+    cateringPackages: [
+      { id: 'site-package', siteIds: ['site-1'], roomIds: [], variants: [] },
+      { id: 'other-package', siteIds: ['site-2'], roomIds: [], variants: [] },
+    ],
+    cateringItems: [
+      { id: 'room-item', siteIds: [], roomIds: ['room-1'] },
+      { id: 'other-item', siteIds: [], roomIds: ['room-2'] },
+    ],
+  };
+  const options = cateringEditorOptions(catalog, 'room-1');
+  assert.deepEqual(options.packages.map(({ id }) => id), ['site-package']);
+  assert.deepEqual(options.items.map(({ id }) => id), ['room-item']);
+});
+
+test('Employee editor produces bounded schema-v2 catering and exact cost allocations', () => {
+  const catalog = {
+    rooms: [{ id: 'room-1', siteId: 'site-1' }],
+    cateringPackages: [{
+      id: 'package-1', siteIds: [], roomIds: [],
+      variants: [{ id: 'variant-1', active: true }],
+    }],
+    cateringItems: [{ id: 'item-1', siteIds: [], roomIds: [] }],
+    costCenters: [{ id: 'cost-1', active: true }, { id: 'cost-2', active: true }],
+    costAllocation: { allocationRequired: true },
+  };
+  assert.deepEqual(normalizeCateringEditorDraft({
+    participantCount: '6', totalParticipants: 8, roomId: 'room-1', catalog,
+    packageSelection: { packageId: 'package-1', variantId: 'variant-1' },
+    itemQuantities: { 'item-1': '3' },
+  }), {
+    participantCount: 6,
+    packageSelection: { packageId: 'package-1', variantId: 'variant-1' },
+    itemQuantities: [{ itemId: 'item-1', quantity: 3 }],
+  });
+  assert.deepEqual(normalizeAllocationEditorDraft({
+    catalog,
+    allocations: [
+      { costCenterId: 'cost-2', percentage: '40' },
+      { costCenterId: 'cost-1', percentage: '60.00' },
+    ],
+  }), [
+    { costCenterId: 'cost-1', percentageBasisPoints: 6_000 },
+    { costCenterId: 'cost-2', percentageBasisPoints: 4_000 },
+  ]);
+  assert.throws(() => normalizeAllocationEditorDraft({
+    catalog,
+    allocations: [{ costCenterId: 'cost-1', percentage: '99.99' }],
+  }), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+  assert.throws(() => normalizeCateringEditorDraft({
+    participantCount: '7', totalParticipants: 6, roomId: 'room-1', catalog,
+    packageSelection: null, itemQuantities: {},
+  }), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+});
+
 test('Manager room planning derives today and request membership from the selected site timezone', () => {
   const instant = Date.parse('2026-08-30T23:30:00.000Z');
   assert.equal(siteLocalIsoDate(instant, 'Europe/Berlin'), '2026-08-31');
@@ -130,11 +192,52 @@ test('Manager room planning derives today and request membership from the select
     roomId: 'room-berlin',
     status: 'Confirmed',
     startsAt: '2026-08-30T23:30:00.000Z',
+    endsAt: '2026-08-31T00:30:00.000Z',
   }];
   const berlin = roomPlanProjection({ catalog, requests, siteId: 'berlin', date: '2026-08-31' });
   const newYork = roomPlanProjection({ catalog, requests, siteId: 'new-york', date: '2026-08-30' });
   assert.deepEqual(berlin.map((entry) => entry.requests.map((request) => request.id)), [['request-1']]);
   assert.deepEqual(newYork.map((entry) => entry.requests.map((request) => request.id)), [[]]);
+});
+
+test('Manager room planning includes bookings on every overlapping site-local day', () => {
+  const catalog = {
+    sites: [{ id: 'berlin', timeZone: 'Europe/Berlin' }],
+    rooms: [{ id: 'room-berlin', siteId: 'berlin' }],
+  };
+  const requests = [
+    {
+      id: 'overnight',
+      roomId: 'room-berlin',
+      status: 'Confirmed',
+      startsAt: '2026-08-30T21:30:00.000Z',
+      endsAt: '2026-08-31T01:00:00.000Z',
+    },
+    {
+      id: 'ends-at-midnight',
+      roomId: 'room-berlin',
+      status: 'Confirmed',
+      startsAt: '2026-08-30T20:00:00.000Z',
+      endsAt: '2026-08-30T22:00:00.000Z',
+    },
+    {
+      id: 'starts-at-midnight',
+      roomId: 'room-berlin',
+      status: 'Confirmed',
+      startsAt: '2026-08-30T22:00:00.000Z',
+      endsAt: '2026-08-30T23:00:00.000Z',
+    },
+  ];
+  const august30 = roomPlanProjection({ catalog, requests, siteId: 'berlin', date: '2026-08-30' });
+  const august31 = roomPlanProjection({ catalog, requests, siteId: 'berlin', date: '2026-08-31' });
+  assert.deepEqual(
+    august30[0].requests.map(({ id }) => id),
+    ['overnight', 'ends-at-midnight'],
+  );
+  assert.deepEqual(
+    august31[0].requests.map(({ id }) => id),
+    ['overnight', 'starts-at-midnight'],
+  );
 });
 
 test('production Employee and Manager applications cannot depend on browser persistence authority', async () => {
@@ -163,6 +266,25 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(manager, /loadOpenBookingChanges/);
   assert.match(manager, /bookingChangeDecisions/);
   assert.match(manager, /bookingChange\.status === 'pending'/);
+});
+
+test('production print popup detaches its opener before accessing the new document', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  const helperStart = employee.indexOf('function openDetachedPrintWindow()');
+  const openCall = employee.indexOf("globalThis.window?.open?.('', '_blank')", helperStart);
+  const detach = employee.indexOf('printWindow.opener = null', openCall);
+  const verifyDetached = employee.indexOf('printWindow.opener !== null', detach);
+  const helperEnd = employee.indexOf('\n}', verifyDetached);
+  const documentAccess = employee.indexOf('const doc = printWindow.document', helperEnd);
+
+  assert.equal(helperStart >= 0, true);
+  assert.equal(openCall > helperStart, true);
+  assert.equal(detach > openCall, true);
+  assert.equal(verifyDetached > detach, true);
+  assert.equal(documentAccess > helperEnd, true);
+  assert.doesNotMatch(employee.slice(helperStart, helperEnd), /noopener|noreferrer/);
+  assert.match(employee.slice(helperStart, helperEnd), /printWindow\.close\?\.\(\)/);
+  assert.match(employee, /const printWindow = openDetachedPrintWindow\(\)/);
 });
 
 test('Platform owns shared server persistence and Composition Root uses only server applications', async () => {

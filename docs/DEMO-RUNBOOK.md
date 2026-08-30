@@ -79,3 +79,20 @@ npm run check:static
 ```
 
 Use the repository-wide `npm run check`, `npm run audit` and full Chromium/WebKit Playwright suite before integration.
+
+## Continuous integration
+
+Frontend CI runs the shared PostgreSQL journey exactly once in its dedicated
+`shared-demo-e2e` job. The regular `e2e` job continues to own only
+`tests/e2e`; the shared job invokes `npm run test:e2e:shared-demo`, whose
+configuration owns only `tests/e2e-shared`. This separation prevents duplicate
+browser execution while keeping both suites required for frontend changes.
+
+The shared job checks out the API at immutable commit
+`366c6cbf51dfd79436613b37ad631c80358f1de2`, provisions an isolated PostgreSQL
+database, runs the canonical and Demo migrations, starts the separate Customer
+and Platform API processes, and then executes the Chromium and WebKit journey.
+Because `conference-manager-api` is private, repository administrators must
+configure `SHARED_DEMO_API_READ_TOKEN` as a read-only Actions secret. The job
+fails closed before checkout when the credential is absent; no secret value is
+printed or included in artifacts.
