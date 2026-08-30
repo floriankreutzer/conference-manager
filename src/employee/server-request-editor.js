@@ -29,12 +29,15 @@ export function roomEditorOptions(catalog) {
   )));
 }
 
-export function roomSupportsParticipants(room, totalParticipants) {
+export function roomSupportsParticipants(room, totalParticipants, policyMaximumParticipants = MAX_PARTICIPANTS) {
   const capacity = Number(room?.capacity);
   const participants = Number(totalParticipants);
+  const policyMaximum = Number(policyMaximumParticipants);
   return Number.isSafeInteger(capacity) && capacity >= 1
     && Number.isSafeInteger(participants) && participants >= 1
-    && participants <= MAX_PARTICIPANTS && capacity >= participants;
+    && Number.isSafeInteger(policyMaximum) && policyMaximum >= 1
+    && participants <= Math.min(MAX_PARTICIPANTS, policyMaximum)
+    && capacity >= participants;
 }
 
 export function cateringEditorOptions(catalog, roomId) {

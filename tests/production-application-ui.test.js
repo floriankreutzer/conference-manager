@@ -130,7 +130,8 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /if \(draftTimer\) clearTimeout\(draftTimer\);\s*draftTimer = null;\s*draftStore\.clear\(\);/);
   assert.match(employee, /allocationRows\.splice\(index, 1\);\s*scheduleDraftSave\(\);/);
   assert.match(employee, /allocationRows\.push\([^;]+;\s*scheduleDraftSave\(\);/);
-  assert.match(employee, /roomSupportsParticipants\(selectedRoom, totalParticipants\)/);
+  assert.match(employee, /roomSupportsParticipants\([\s\S]*catalog\.bookingPolicy\?\.rules\?\.maximumParticipants/);
+  assert.match(employee, /if \(!sourceRequest && !restoredDraft && !allocationRows\.length/);
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
@@ -255,6 +256,8 @@ test('Employee editor applies the authoritative booking-policy allowlists to roo
 test('Employee editor rejects rooms below the current participant total', () => {
   assert.equal(roomSupportsParticipants({ capacity: 12 }, 12), true);
   assert.equal(roomSupportsParticipants({ capacity: 12 }, 13), false);
+  assert.equal(roomSupportsParticipants({ capacity: 50 }, 20, 10), false);
+  assert.equal(roomSupportsParticipants({ capacity: 50 }, 10, 10), true);
   assert.equal(roomSupportsParticipants({ capacity: 12 }, 0), false);
   assert.equal(roomSupportsParticipants({ capacity: 'invalid' }, 1), false);
 });

@@ -459,7 +459,8 @@ export function createProductionEmployeeApplication({
       : (restoredDraft?.allocations || [])
         .filter((entry) => activeCostCenterIds.has(entry.costCenterId))
         .map((entry) => ({ ...entry }));
-    if (!allocationRows.length && catalog.costAllocation?.allocationRequired && catalog.costCenters.length) {
+    if (!sourceRequest && !restoredDraft && !allocationRows.length
+      && catalog.costAllocation?.allocationRequired && catalog.costCenters.length) {
       allocationRows.push({ costCenterId: catalog.costCenters[0].id, percentage: '100' });
     }
     const allocationPanel = el('section', { attrs: { 'aria-label': t('cost.allocations') } });
@@ -547,7 +548,11 @@ export function createProductionEmployeeApplication({
       const timeZone = roomTimeZone(selectedRoom, catalog);
       const startsAt = productionUtcInstant(date.value, start.value, timeZone);
       const endsAt = productionUtcInstant(endDate.value, end.value, timeZone);
-      if (!roomSupportsParticipants(selectedRoom, totalParticipants)
+      if (!roomSupportsParticipants(
+        selectedRoom,
+        totalParticipants,
+        catalog.bookingPolicy?.rules?.maximumParticipants,
+      )
         || !startsAt || !endsAt || Date.parse(endsAt) <= Date.parse(startsAt)) return null;
       return Object.freeze({ roomId: selectedRoom.id, startsAt, endsAt });
     };
