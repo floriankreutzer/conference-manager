@@ -20,6 +20,11 @@ test('isolated Platform Admin Demo discloses synthetic local-only data and makes
   await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(6);
   await expect(page.locator('body')).not.toContainText('platformAdmin.');
   await expect(page.locator('[data-platform-admin-demo-reset]')).toBeVisible();
+  await page.locator('[data-platform-admin-fleet-view="readiness"]').click();
+  await expect(page.locator('.platform-admin-data-note').filter({
+    hasText: /1 (readiness check evaluated|Bereitschaftsprüfung ausgewertet)/,
+  })).not.toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('platformAdmin.');
   expect(apiRequests).toEqual([]);
   expect(externalRequests).toEqual([]);
 });
