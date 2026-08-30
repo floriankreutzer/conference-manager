@@ -315,8 +315,8 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect(employeeFollowUp.request).toMatchObject({
     id: createdRequestId,
-    title: REQUEST_TITLE,
     status: 'Confirmed',
+    details: { title: REQUEST_TITLE },
   });
   const cancellationResponse = await customerContext.request.post(
     `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}/transitions`,
