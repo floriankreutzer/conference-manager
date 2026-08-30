@@ -58,6 +58,31 @@ test('Platform Admin tenant contract rejects expanded and malformed server data'
   );
 });
 
+test('Platform Admin Tenant names preserve the canonical 160-character API bound', () => {
+  const tenant = createPlatformAdminDemoFixtures().tenants[0];
+  const displayName = 'N'.repeat(160);
+  assert.equal(normalizePlatformTenant({ ...tenant, displayName }).displayName, displayName);
+  assert.equal(normalizePlatformTenantDirectoryResponse({
+    schemaVersion: 1,
+    snapshotAt: '2026-08-01T08:00:00.000Z',
+    items: [{
+      tenantId: tenant.id,
+      displayName,
+      lifecycle: { status: tenant.lifecycleState, revision: tenant.version },
+      onboardingState: tenant.onboardingState,
+      identityState: tenant.identityState,
+      invitation: {
+        id: tenant.invitationId,
+        state: tenant.invitationState,
+        revision: tenant.invitationRevision,
+        expiresAt: tenant.invitationExpiresAt,
+      },
+      updatedAt: tenant.updatedAt,
+    }],
+    nextCursor: null,
+  }).items[0].displayName, displayName);
+});
+
 test('operator roles use the accepted permission matrix and all high-impact permissions require step-up', () => {
   const reader = platformAdminDemoOperator('support_reader');
   const tenantOperator = platformAdminDemoOperator('tenant_operator');

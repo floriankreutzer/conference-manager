@@ -56,6 +56,40 @@ test('recovery controls require the simulated step-up Security Admin', async ({ 
   await expect(page.locator('[data-platform-admin-section="recovery"] [data-state="step_up"]')).toBeVisible();
 });
 
+test('Demo role changes clear privileged resources and canonical metering remains available', async ({ page }) => {
+  await page.goto('/platform-admin-demo/');
+  const role = page.locator('select[aria-label]').filter({ has: page.locator('option[value="security_auditor"]') });
+  await role.selectOption('security_auditor');
+  await page.locator('[data-platform-admin-fleet-view="platform-audit"]').click();
+  await expect(page.locator('.platform-admin-audit-list')).toBeVisible();
+
+  await role.selectOption('support_reader');
+  await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(6);
+  await expect(page.locator('.platform-admin-audit-list')).toHaveCount(0);
+
+  await role.selectOption('tenant_operator');
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+  await page.locator('[data-platform-admin-navigate="metering"]').click();
+  await expect(page.locator('[data-platform-admin-section="metering"]')).toBeVisible();
+  await expect(page.locator('[data-platform-admin-quota]')).not.toHaveCount(0);
+  await expect(page.locator('.platform-admin-error')).toHaveCount(0);
+});
+
+test('Demo direct entitlement application uses the aggregate entitlement revision', async ({ page }) => {
+  await page.goto('/platform-admin-demo/');
+  await page.locator('select[aria-label]').filter({ has: page.locator('option[value="tenant_operator"]') }).selectOption('tenant_operator');
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+  await page.locator('[data-platform-admin-navigate="entitlements"]').click();
+  await page.locator('.platform-admin-entitlement-form input[type="checkbox"]').first().click();
+  await page.locator('.platform-admin-entitlement-form button[type="submit"]').click();
+  await page.locator('[data-platform-admin-apply-entitlements="direct"]').click();
+  await page.locator('#platformAdminResourceReason').fill('Synthetic entitlement exercise');
+  await page.locator('#platformAdminResourceConfirmation').fill('Dune Collective');
+  await page.locator('dialog button.danger').click();
+  await expect(page.locator('.platform-admin-error')).toHaveCount(0);
+  await expect(page.locator('[data-platform-admin-section="entitlements"]')).toBeVisible();
+});
+
 test('Production entry fails closed on an insecure or unavailable operator session', async ({ page }) => {
   const apiRequests = [];
   page.on('request', (request) => {
@@ -129,4 +163,65 @@ test('Production privileged actions start only the fixed step-up route and requi
   expect(request.method()).toBe('GET');
   expect(new URL(request.url()).search).toBe('');
   expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
+});
+
+test('Production directory survives ordinary renders and exposes every cursor page', async ({ page }) => {
+  await page.route('**/api/v1/platform/session', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      operatorId: '00000000-0000-4000-8000-000000000102',
+      roles: ['platform_tenant_operator'],
+      permissions: [
+        'platform:tenant:read',
+        'platform:readiness:read',
+        'platform:integration-health:read',
+        'platform:diagnostics:read',
+        'platform:entitlement:read',
+        'platform:metering:read',
+        'platform:runtime:read',
+        'platform:invitation:manage',
+        'platform:lifecycle:manage',
+        'platform:entitlement:manage',
+        'platform:quota:manage',
+      ],
+      assurance: { level: 'mfa', authenticatedAt: '2099-01-01T00:00:00.000Z' },
+      expiresAt: '2099-01-01T01:00:00.000Z',
+      stepUpExpiresAt: null,
+      csrfToken: 'c'.repeat(43),
+    }),
+  }));
+  const directoryRequests = [];
+  await page.route('**/api/v1/platform/tenants?*', async (route) => {
+    const url = new URL(route.request().url());
+    const cursor = url.searchParams.get('cursor');
+    directoryRequests.push(cursor);
+    if (!cursor) await new Promise((resolve) => setTimeout(resolve, 200));
+    const suffix = cursor ? '5' : '4';
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        snapshotAt: '2026-08-01T08:00:00.000Z',
+        items: [{
+          tenantId: `10000000-0000-4000-8000-00000000000${suffix}`,
+          displayName: cursor ? 'Elm Partners' : 'Dune Collective',
+          lifecycle: { status: 'active', revision: 3 },
+          onboardingState: 'complete',
+          identityState: 'active',
+          invitation: { id: null, state: 'none', revision: null, expiresAt: null },
+          updatedAt: '2026-08-01T08:00:00.000Z',
+        }],
+        nextCursor: cursor ? null : 'next_page',
+      }),
+    });
+  });
+
+  await page.goto('/platform-admin/');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('conference-language-changed')));
+  await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(1);
+  await page.locator('[data-platform-admin-directory-next]').click();
+  await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(2);
+  expect(directoryRequests).toEqual([null, 'next_page']);
 });

@@ -390,7 +390,7 @@ export function normalizePlatformTenant(value) {
   if (
     !UUID_PATTERN.test(value.id)
     || (value.reference !== null && !REFERENCE_PATTERN.test(value.reference))
-    || !boundedString(value.displayName, 1, 120)
+    || !boundedString(value.displayName, 1, 160)
     || !LIFECYCLE_STATES.has(value.lifecycleState)
     || !Number.isSafeInteger(value.version)
     || value.version < 1
@@ -501,7 +501,7 @@ function normalizeDirectoryItem(value) {
       'updatedAt',
     ])
     || !UUID_PATTERN.test(value.tenantId)
-    || !boundedString(value.displayName, 1, 120)
+    || !boundedString(value.displayName, 1, 160)
     || !exactKeys(value.lifecycle, ['status', 'revision'])
     || !LIFECYCLE_STATES.has(value.lifecycle.status)
     || !Number.isSafeInteger(value.lifecycle.revision)

@@ -128,9 +128,10 @@ export function createPlatformAdminApplication({
   let fleet = null;
   let filters = normalizePlatformDirectoryQuery();
   let loading = sessionState === 'authenticated';
+  let directoryLoadingMore = false;
   let loadError = false;
   let actionError = false;
-  let generation = 0;
+  let fleetRequestGeneration = 0;
   let fleetView = 'directory';
   const fleetResources = new Map();
   const tenantResources = new Map();
@@ -204,6 +205,9 @@ export function createPlatformAdminApplication({
       roleSelect.addEventListener('change', async () => {
         currentOperator = demoControls.setRole(roleSelect.value);
         actionError = false;
+        fleetView = 'directory';
+        fleetResources.clear();
+        tenantResources.clear();
         await loadFleet();
         announce(t('platformAdmin.demo.roleChanged'));
       });
@@ -214,6 +218,9 @@ export function createPlatformAdminApplication({
       reset.addEventListener('click', async () => {
         currentOperator = demoControls.reset();
         filters = normalizePlatformDirectoryQuery();
+        fleetView = 'directory';
+        fleetResources.clear();
+        tenantResources.clear();
         navigate(platformAdminFleetHash(), { replace: true });
         await loadFleet();
         announce(t('platformAdmin.demo.resetComplete'));
@@ -293,7 +300,7 @@ export function createPlatformAdminApplication({
     }
     if (sectionId === 'metering') {
       const now = new Date();
-      const periodStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+      const periodStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01T00:00:00.000Z`;
       return dataSource.loadMetering(tenant.id, periodStart);
     }
     return dataSource.loadTenantRuntime(tenant.id);
@@ -358,7 +365,7 @@ export function createPlatformAdminApplication({
           tenantId: tenant.id,
           proposals: preview.plan.changes.map(({ capabilityId, enabled }) => ({ capabilityId, enabled })),
           knownCapabilities: resource.data.workspace.capabilities.items.map(({ capabilityId }) => capabilityId),
-          expectedRevision: preview.plan.sourceRevision,
+          expectedEntitlementRevision: preview.plan.sourceRevision,
           reason,
           confirmation: { action: 'tenant.entitlement.apply', tenantId: tenant.id },
         });
@@ -587,6 +594,15 @@ export function createPlatformAdminApplication({
       ]));
     });
     section.appendChild(list);
+    if (fleet.nextCursor) {
+      const next = button(t('platformAdmin.pagination.next'), {
+        className: 'secondary',
+        dataset: { platformAdminDirectoryNext: 'true' },
+      });
+      next.disabled = directoryLoadingMore;
+      next.addEventListener('click', () => loadFleet({ cursor: fleet.nextCursor, append: true }));
+      section.append(el('div', { className: 'button-row platform-admin-pagination' }, [next]));
+    }
     return section;
   }
 
@@ -1005,7 +1021,6 @@ export function createPlatformAdminApplication({
   }
 
   function render() {
-    generation += 1;
     documentRef.title = t('platformAdmin.documentTitle');
     nodes.skipLink.textContent = t('a11y.skip');
     nodes.brandTitle.textContent = t('platformAdmin.brand.title');
@@ -1053,23 +1068,33 @@ export function createPlatformAdminApplication({
         : renderSelectedFleetView());
   }
 
-  async function loadFleet() {
-    const currentGeneration = ++generation;
-    loading = true;
-    loadError = false;
+  async function loadFleet({ cursor = null, append = false } = {}) {
+    const currentGeneration = ++fleetRequestGeneration;
+    loading = !append;
+    directoryLoadingMore = append;
+    if (!append) loadError = false;
     actionError = false;
     render();
     try {
-      const result = await dataSource.loadFleet(filters);
-      if (currentGeneration + 1 !== generation) return;
-      fleet = result;
+      const result = await dataSource.loadFleet({ ...filters, cursor });
+      if (currentGeneration !== fleetRequestGeneration) return;
+      fleet = append && fleet
+        ? Object.freeze({
+          ...result,
+          tenants: Object.freeze([...fleet.tenants, ...result.tenants]),
+        })
+        : result;
     } catch {
-      if (currentGeneration + 1 !== generation) return;
-      loadError = true;
-      fleet = null;
+      if (currentGeneration !== fleetRequestGeneration) return;
+      if (append) actionError = true;
+      else {
+        loadError = true;
+        fleet = null;
+      }
     } finally {
-      if (currentGeneration + 1 === generation) {
+      if (currentGeneration === fleetRequestGeneration) {
         loading = false;
+        directoryLoadingMore = false;
         render();
         void ensureVisibleResource();
       }
