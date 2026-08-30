@@ -15,6 +15,7 @@ import {
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
   roomEditorOptions,
+  roomSupportsParticipants,
   serviceEditorOptions,
 } from './server-request-editor.js';
 import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
@@ -462,6 +463,7 @@ export function createProductionEmployeeApplication({
       allocationRows.push({ costCenterId: catalog.costCenters[0].id, percentage: '100' });
     }
     const allocationPanel = el('section', { attrs: { 'aria-label': t('cost.allocations') } });
+    let scheduleDraftSave = () => {};
     const renderAllocationControls = () => {
       clear(allocationPanel);
       allocationPanel.append(
@@ -499,6 +501,7 @@ export function createProductionEmployeeApplication({
         const remove = button(t('common.delete'));
         remove.addEventListener('click', () => {
           allocationRows.splice(index, 1);
+          scheduleDraftSave();
           renderAllocationControls();
         });
         row.append(
@@ -515,7 +518,10 @@ export function createProductionEmployeeApplication({
       add.addEventListener('click', () => {
         const used = new Set(allocationRows.map((entry) => entry.costCenterId));
         const next = catalog.costCenters.find((entry) => entry.active !== false && !used.has(entry.id));
-        if (next) allocationRows.push({ costCenterId: next.id, percentage: '0' });
+        if (next) {
+          allocationRows.push({ costCenterId: next.id, percentage: '0' });
+          scheduleDraftSave();
+        }
         renderAllocationControls();
       });
       allocationPanel.appendChild(add);
@@ -534,10 +540,15 @@ export function createProductionEmployeeApplication({
 
     const currentAvailabilityWindow = () => {
       const selectedRoom = rooms.find((entry) => entry.id === room.value);
+      const internalParticipants = safeParticipantCount(internal.value);
+      const externalParticipants = safeParticipantCount(external.value);
+      const totalParticipants = internalParticipants === null || externalParticipants === null
+        ? null : internalParticipants + externalParticipants;
       const timeZone = roomTimeZone(selectedRoom, catalog);
       const startsAt = productionUtcInstant(date.value, start.value, timeZone);
       const endsAt = productionUtcInstant(endDate.value, end.value, timeZone);
-      if (!selectedRoom || !startsAt || !endsAt || Date.parse(endsAt) <= Date.parse(startsAt)) return null;
+      if (!roomSupportsParticipants(selectedRoom, totalParticipants)
+        || !startsAt || !endsAt || Date.parse(endsAt) <= Date.parse(startsAt)) return null;
       return Object.freeze({ roomId: selectedRoom.id, startsAt, endsAt });
     };
     const availabilityKey = (window) => window
@@ -556,7 +567,8 @@ export function createProductionEmployeeApplication({
       if (!endDate.value || endDate.value === previousStartDate) endDate.value = date.value;
       previousStartDate = date.value;
     });
-    [room, date, endDate, start, end].forEach((control) => control.addEventListener('input', invalidateAvailability));
+    [room, date, endDate, start, end, internal, external]
+      .forEach((control) => control.addEventListener('input', invalidateAvailability));
     room.addEventListener('change', () => {
       renderServiceControls();
       renderCateringControls();
@@ -621,7 +633,7 @@ export function createProductionEmployeeApplication({
           specialRequirements: specialRequirements.value,
         });
       };
-      const scheduleDraftSave = () => {
+      scheduleDraftSave = () => {
         draftDirty = true;
         if (draftTimer) clearTimeout(draftTimer);
         draftTimer = setTimeout(saveDraft, 400);

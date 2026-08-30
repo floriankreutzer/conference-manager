@@ -29,6 +29,14 @@ export function roomEditorOptions(catalog) {
   )));
 }
 
+export function roomSupportsParticipants(room, totalParticipants) {
+  const capacity = Number(room?.capacity);
+  const participants = Number(totalParticipants);
+  return Number.isSafeInteger(capacity) && capacity >= 1
+    && Number.isSafeInteger(participants) && participants >= 1
+    && participants <= MAX_PARTICIPANTS && capacity >= participants;
+}
+
 export function cateringEditorOptions(catalog, roomId) {
   const room = catalog?.rooms?.find((entry) => entry.id === roomId);
   return Object.freeze({

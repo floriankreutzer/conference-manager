@@ -15,6 +15,7 @@ import {
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
   roomEditorOptions,
+  roomSupportsParticipants,
   serviceEditorOptions,
 } from '../src/employee/server-request-editor.js';
 import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
@@ -125,8 +126,11 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /value: sourceEnd\?\.date \|\| restoredDraft\?\.endDate/);
   assert.match(employee, /sum: formatNumber\(sum, \{ maximumFractionDigits: 2 \}\)/);
   assert.doesNotMatch(employee, /allocationStatus\.textContent[\s\S]{0,120}toFixed/);
-  assert.match(employee, /const scheduleDraftSave = \(\) => \{\s*draftDirty = true;/);
+  assert.match(employee, /scheduleDraftSave = \(\) => \{\s*draftDirty = true;/);
   assert.match(employee, /if \(draftTimer\) clearTimeout\(draftTimer\);\s*draftTimer = null;\s*draftStore\.clear\(\);/);
+  assert.match(employee, /allocationRows\.splice\(index, 1\);\s*scheduleDraftSave\(\);/);
+  assert.match(employee, /allocationRows\.push\([^;]+;\s*scheduleDraftSave\(\);/);
+  assert.match(employee, /roomSupportsParticipants\(selectedRoom, totalParticipants\)/);
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
@@ -246,6 +250,13 @@ test('Employee editor applies the authoritative booking-policy allowlists to roo
   };
   assert.deepEqual(roomEditorOptions(catalog).map(({ id }) => id), ['room-1']);
   assert.deepEqual(serviceEditorOptions(catalog, 'room-1').map(({ id }) => id), ['service-1']);
+});
+
+test('Employee editor rejects rooms below the current participant total', () => {
+  assert.equal(roomSupportsParticipants({ capacity: 12 }, 12), true);
+  assert.equal(roomSupportsParticipants({ capacity: 12 }, 13), false);
+  assert.equal(roomSupportsParticipants({ capacity: 12 }, 0), false);
+  assert.equal(roomSupportsParticipants({ capacity: 'invalid' }, 1), false);
 });
 
 test('Employee editor produces bounded schema-v2 catering and exact cost allocations', () => {
