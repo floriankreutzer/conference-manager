@@ -178,14 +178,17 @@ export function createAppShell({
   async function renderWelcome(revision) {
     setPageHeading(t('nav.welcome'), t('welcome.subtitle'));
     let currentRequests;
-    try {
-      currentRequests = await context.refreshRequests();
-    } catch {
+    const [requestResult] = await Promise.allSettled([
+      context.refreshRequests(),
+      context.refreshNotifications(),
+    ]);
+    if (requestResult.status === 'rejected') {
       if (revision !== renderRevision || view !== 'welcome') return;
       clear(appRoot);
       renderProjectionUnavailable();
       return;
     }
+    currentRequests = requestResult.value;
     if (revision !== renderRevision || view !== 'welcome') return;
     const now = Date.now();
     const openCount = currentRequests.filter((request) => [

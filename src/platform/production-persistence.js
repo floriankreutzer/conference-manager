@@ -445,10 +445,10 @@ export function createProductionPersistence({ apiClient } = {}) {
       return loadCatalogV2(apiClient);
     },
 
-    async loadSiteInfo() {
+    async loadSiteInfo(options = {}) {
       return Object.freeze({
         ...assertPlainObject(assertVersionedEnvelope(
-          await call(apiClient, DOMAIN_ENDPOINTS.siteInfo),
+          await call(apiClient, DOMAIN_ENDPOINTS.siteInfo, options),
           'siteInfo',
         )),
       });
@@ -458,9 +458,12 @@ export function createProductionPersistence({ apiClient } = {}) {
       return loadAllRequestPages(apiClient, DOMAIN_ENDPOINTS.requests, normalizeProductionRequestListPage);
     },
 
-    async listNotifications() {
+    async listNotifications(options = {}) {
       return assertCollection(
-        assertVersionedEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.notifications), 'notifications'),
+        assertVersionedEnvelope(
+          await call(apiClient, DOMAIN_ENDPOINTS.notifications, options),
+          'notifications',
+        ),
         'PRODUCTION_NOTIFICATIONS_INVALID',
       );
     },

@@ -23,6 +23,7 @@ const EMPTY_CATALOG = Object.freeze({
 const EMPTY_SITE_INFO = Object.freeze({});
 const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
+const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const PRODUCTION_AUTH_STATUSES = new Set(Object.values(PRODUCTION_AUTH_STATUS));
 const TENANT_ADMIN_PERMISSIONS = new Set([
   PRODUCTION_PERMISSION.TENANT_CONFIGURE,
@@ -53,6 +54,22 @@ function localizedValue(value) {
   return String(value[selected] || value.de || value.en || '');
 }
 
+function normalizedOptionalProjectionTimeout(value) {
+  return Number.isSafeInteger(value) && value >= 1 && value <= 30_000
+    ? value
+    : OPTIONAL_PROJECTION_TIMEOUT_MS;
+}
+
+async function loadBoundedOptionalProjection(load, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await load(controller.signal);
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
 export function createApplicationContextFromState({
   runtimeMode = runtimeModeFromDocument(document),
   productionSession = null,
@@ -64,6 +81,7 @@ export function createApplicationContextFromState({
   serverSiteInfo = EMPTY_SITE_INFO,
   serverRequests = EMPTY_REQUESTS,
   serverNotifications = EMPTY_NOTIFICATIONS,
+  optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
   const isDemo = runtimeMode === RUNTIME_MODE.DEMO;
   const authenticationStatus = normalizedAuthenticationStatus(productionAuthenticationStatus);
@@ -80,7 +98,9 @@ export function createApplicationContextFromState({
   const siteInfo = serverSiteInfo && typeof serverSiteInfo === 'object' ? serverSiteInfo : EMPTY_SITE_INFO;
   let requests = immutableArray(serverRequests, EMPTY_REQUESTS);
   let requestRefreshRevision = 0;
-  const notifications = immutableArray(serverNotifications, EMPTY_NOTIFICATIONS);
+  let notifications = immutableArray(serverNotifications, EMPTY_NOTIFICATIONS);
+  let notificationRefreshRevision = 0;
+  const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   const tenants = immutableArray(demoTenants, EMPTY_REQUESTS);
 
   function hasCapability(role, permission) {
@@ -175,6 +195,17 @@ export function createApplicationContextFromState({
       if (revision === requestRefreshRevision) requests = refreshed;
       return requests;
     },
+    async refreshNotifications() {
+      if (!serverPersistence) return notifications;
+      const revision = notificationRefreshRevision + 1;
+      notificationRefreshRevision = revision;
+      const refreshed = immutableArray(await loadBoundedOptionalProjection(
+        (signal) => serverPersistence.listNotifications({ signal }),
+        optionalTimeout,
+      ), EMPTY_NOTIFICATIONS);
+      if (revision === notificationRefreshRevision) notifications = refreshed;
+      return notifications;
+    },
     notifications(limit = 4) {
       return notifications.slice(0, Math.max(0, Number(limit) || 0));
     },
@@ -224,7 +255,9 @@ export function createApplicationContextFromState({
 export async function createApplicationContext({
   runtimeMode = runtimeModeFromDocument(document),
   authenticationBootstrap,
+  optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
+  const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   if (typeof authenticationBootstrap !== 'function') {
     throw new TypeError('AUTHENTICATION_BOOTSTRAP_REQUIRED');
   }
@@ -249,8 +282,14 @@ export async function createApplicationContext({
           persistence.listRequests(),
         ]),
         Promise.allSettled([
-          persistence.loadSiteInfo(),
-          persistence.listNotifications(),
+          loadBoundedOptionalProjection(
+            (signal) => persistence.loadSiteInfo({ signal }),
+            optionalTimeout,
+          ),
+          loadBoundedOptionalProjection(
+            (signal) => persistence.listNotifications({ signal }),
+            optionalTimeout,
+          ),
         ]),
       ]);
       [profile, catalog, requests] = required;
@@ -273,5 +312,6 @@ export async function createApplicationContext({
     serverSiteInfo: siteInfo,
     serverRequests: requests,
     serverNotifications: notifications,
+    optionalProjectionTimeoutMs: optionalTimeout,
   });
 }

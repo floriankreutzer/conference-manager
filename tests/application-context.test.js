@@ -52,6 +52,36 @@ function session({ roles, permissions }) {
   });
 }
 
+function startupCatalogPage(section) {
+  return {
+    schemaVersion: 2,
+    configurationRevisions: {
+      organization: 1, locations: 1, catalogue: 1, bookingPolicies: 1, costAllocation: 1,
+    },
+    bookingPolicy: {
+      policyVersionId: 'policy-1',
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      evaluatedAt: '2026-08-30T12:00:00.000Z',
+      rules: {
+        minimumLeadTimeMinutes: 0,
+        maximumAdvanceMinutes: 527040,
+        cancellationWindowMinutes: 0,
+        changeWindowMinutes: 0,
+        maximumParticipants: 500,
+        allowedSiteIds: [],
+        allowedRoomIds: [],
+        allowedServiceIds: [],
+      },
+    },
+    organization: { defaultCurrency: 'EUR' },
+    costAllocation: { allocationRequired: false },
+    context: 'startup_context',
+    section,
+    entries: [],
+    page: { limit: 10, complete: true, nextCursor: null },
+  };
+}
+
 function productionContext(productionSession, status = PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
   return withProductionDocument(() => createApplicationContextFromState({
     productionSession,
@@ -223,6 +253,93 @@ test('authenticated context refreshes its Request projection from server persist
   assert.deepEqual(context.requests(), [{ id: 'stale-request' }]);
   assert.deepEqual(await context.refreshRequests(), []);
   assert.deepEqual(context.requests(), []);
+});
+
+test('authenticated context refreshes its notification projection from server persistence', async () => {
+  const runtime = Object.freeze({
+    apiClient: Object.freeze({
+      async request(path, options) {
+        assert.equal(path, 'v1/application/notifications');
+        assert.equal(options.signal instanceof AbortSignal, true);
+        return {
+          schemaVersion: 1,
+          notifications: [{ id: 'notification-2', title: 'Request changed' }],
+        };
+      },
+    }),
+    status() { return PRODUCTION_AUTH_STATUS.AUTHENTICATED; },
+  });
+  const context = createApplicationContextFromState({
+    runtimeMode: 'production',
+    productionSession: session({
+      roles: ['employee'],
+      permissions: ['request:read', 'request:cancel'],
+    }),
+    productionAuthenticationStatus: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+    authenticationRuntime: runtime,
+    serverNotifications: [{ id: 'notification-1', title: 'Stale' }],
+    optionalProjectionTimeoutMs: 50,
+  });
+
+  assert.deepEqual(context.notifications(), [{ id: 'notification-1', title: 'Stale' }]);
+  assert.deepEqual(await context.refreshNotifications(), [
+    { id: 'notification-2', title: 'Request changed' },
+  ]);
+  assert.deepEqual(context.notifications(), [{ id: 'notification-2', title: 'Request changed' }]);
+});
+
+test('stalled optional startup projections are aborted without blocking authenticated rendering', async () => {
+  const authenticatedSession = session({
+    roles: ['employee'],
+    permissions: ['request:read', 'request:cancel'],
+  });
+  let aborted = 0;
+  const context = await createApplicationContext({
+    runtimeMode: 'production',
+    optionalProjectionTimeoutMs: 5,
+    async authenticationBootstrap() {
+      return {
+        status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+        session: authenticatedSession,
+        runtime: Object.freeze({
+          apiClient: Object.freeze({
+            async request(path, options = {}) {
+              if (path === 'v1/application/profile') {
+                return { schemaVersion: 1, profile: { displayName: 'Demo Employee' } };
+              }
+              if (path.startsWith('v1/application/catalog?')) {
+                const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+                return startupCatalogPage(section);
+              }
+              if (path.startsWith('v1/application/requests?')) {
+                return {
+                  schemaVersion: 2,
+                  asOf: '2026-08-30T12:00:00.000Z',
+                  requests: [],
+                  page: { limit: 10, complete: true, nextCursor: null },
+                };
+              }
+              if (['v1/application/site-info', 'v1/application/notifications'].includes(path)) {
+                return new Promise((resolve, reject) => {
+                  options.signal.addEventListener('abort', () => {
+                    aborted += 1;
+                    reject(new Error('OPTIONAL_PROJECTION_ABORTED'));
+                  }, { once: true });
+                });
+              }
+              throw new Error('UNEXPECTED_STARTUP_PATH');
+            },
+          }),
+        }),
+      };
+    },
+  });
+
+  assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.AUTHENTICATED);
+  assert.equal(context.isAuthenticated(), true);
+  assert.equal(aborted, 2);
+  assert.deepEqual(context.getSiteInfo(), {});
+  assert.deepEqual(context.notifications(), []);
 });
 
 test('required startup projection failure invalidates the effective authenticated context', async () => {

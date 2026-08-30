@@ -417,7 +417,9 @@ test('production print popup detaches its opener before accessing the new docume
 });
 
 test('Platform owns shared server persistence and Composition Root uses only server applications', async () => {
-  const [app, context] = await Promise.all([source(APP_SOURCE), source(CONTEXT_SOURCE)]);
+  const [app, context, shell] = await Promise.all([
+    source(APP_SOURCE), source(CONTEXT_SOURCE), source(SHELL_SOURCE),
+  ]);
   assert.match(context, /createProductionPersistence\(\{ apiClient: authenticationRuntime\.apiClient \}\)/);
   assert.match(app, /context\.serverPersistence\(\)/);
   assert.match(app, /createServerEmployeeApplication/);
@@ -429,7 +431,10 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   assert.match(context, /persistence\.loadProfile\(\)/);
   assert.match(context, /persistence\.loadCatalog\(\)/);
   assert.match(context, /persistence\.listRequests\(\)/);
-  assert.match(context, /persistence\.listNotifications\(\)/);
+  assert.match(context, /persistence\.listNotifications\(\{ signal \}\)/);
+  assert.match(context, /loadBoundedOptionalProjection/);
+  assert.match(context, /refreshNotifications/);
+  assert.match(shell, /Promise\.allSettled\(\[\s*context\.refreshRequests\(\),\s*context\.refreshNotifications\(\)/);
 });
 
 test('production navigation keeps Tenant Admin and Conference Manager capabilities independent', async () => {
