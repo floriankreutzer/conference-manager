@@ -83,10 +83,15 @@ function futureBusinessWindow() {
 }
 
 async function employeeRequestDraft(context) {
-  const response = await context.request.get(
-    `${CUSTOMER_ORIGIN}/api/v1/application/catalog?section=rooms&limit=10`,
+  const sitesResponse = await context.request.get(
+    `${CUSTOMER_ORIGIN}/api/v1/application/catalog?section=sites&limit=10`,
   );
-  const catalog = await expectStatus(response, 200);
+  const sites = await expectStatus(sitesResponse, 200);
+  expect(sites.context).toMatch(/^[A-Za-z0-9_-]+$/);
+  const roomsResponse = await context.request.get(
+    `${CUSTOMER_ORIGIN}/api/v1/application/catalog?section=rooms&limit=10&context=${encodeURIComponent(sites.context)}`,
+  );
+  const catalog = await expectStatus(roomsResponse, 200);
   expect(catalog.entries.length).toBeGreaterThan(0);
   expect(catalog.costAllocation.allocationRequired).toBe(false);
   return Object.freeze({
