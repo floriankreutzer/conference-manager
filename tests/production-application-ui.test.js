@@ -6,7 +6,11 @@ import {
   isProductionTimeZone,
   productionUtcInstant,
 } from '../src/employee/production-time.js';
-import { repeatRequestProjection } from '../src/employee/server-request-projection.js';
+import {
+  composeServerRequestDraft,
+  repeatRequestProjection,
+} from '../src/employee/server-request-projection.js';
+import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
 
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
 const MANAGER_SOURCE = new URL('../src/manager/production-application.js', import.meta.url);
@@ -61,6 +65,76 @@ test('server-backed repeat preserves request content while moving an elapsed slo
   assert.equal(repeated.endsAt, '2026-08-31T09:30:00.000Z');
   assert.equal(repeated.details, source.details);
   assert.equal(source.startsAt, '2026-08-03T08:00:00.000Z');
+});
+
+test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
+  const request = {
+    roomId: 'room-1',
+    startsAt: '2026-09-07T08:00:00.000Z',
+    endsAt: '2026-09-07T09:00:00.000Z',
+    internalParticipants: 4,
+    externalParticipants: 2,
+    details: {
+      title: 'Repeated request',
+      serviceIds: ['service-1'],
+      catering: {
+        participantCount: 6,
+        packageSelection: { packageId: 'package-1', variantId: 'variant-1' },
+        itemQuantities: [{ itemId: 'item-1', quantity: 6 }],
+      },
+      dietaryRequirements: 'Vegetarian',
+      specialRequirements: 'Accessible room',
+    },
+    allocations: {
+      entries: [
+        { costCenterId: 'cost-1', percentageBasisPoints: 6_000 },
+        { costCenterId: 'cost-2', percentageBasisPoints: 4_000 },
+      ],
+    },
+  };
+  const draft = composeServerRequestDraft({
+    request,
+    catalog: { configurationRevisions: { catalogue: 4 } },
+    defaultTitle: 'Fallback',
+    overrides: {
+      startsAt: '2026-10-05T08:00:00.000Z',
+      endsAt: '2026-10-05T09:00:00.000Z',
+    },
+  });
+  assert.deepEqual(draft.catering, request.details.catering);
+  assert.deepEqual(draft.allocations, [
+    { costCenterId: 'cost-1', percentageBasisPoints: 6_000 },
+    { costCenterId: 'cost-2', percentageBasisPoints: 4_000 },
+  ]);
+  assert.equal(draft.startsAt, '2026-10-05T08:00:00.000Z');
+  assert.notEqual(draft.catering, request.details.catering);
+  assert.notEqual(draft.catering.itemQuantities, request.details.catering.itemQuantities);
+});
+
+test('Manager room planning derives today and request membership from the selected site timezone', () => {
+  const instant = Date.parse('2026-08-30T23:30:00.000Z');
+  assert.equal(siteLocalIsoDate(instant, 'Europe/Berlin'), '2026-08-31');
+  assert.equal(siteLocalIsoDate(instant, 'America/New_York'), '2026-08-30');
+  const catalog = {
+    sites: [
+      { id: 'berlin', timeZone: 'Europe/Berlin' },
+      { id: 'new-york', timeZone: 'America/New_York' },
+    ],
+    rooms: [
+      { id: 'room-berlin', siteId: 'berlin' },
+      { id: 'room-new-york', siteId: 'new-york' },
+    ],
+  };
+  const requests = [{
+    id: 'request-1',
+    roomId: 'room-berlin',
+    status: 'Confirmed',
+    startsAt: '2026-08-30T23:30:00.000Z',
+  }];
+  const berlin = roomPlanProjection({ catalog, requests, siteId: 'berlin', date: '2026-08-31' });
+  const newYork = roomPlanProjection({ catalog, requests, siteId: 'new-york', date: '2026-08-30' });
+  assert.deepEqual(berlin.map((entry) => entry.requests.map((request) => request.id)), [['request-1']]);
+  assert.deepEqual(newYork.map((entry) => entry.requests.map((request) => request.id)), [[]]);
 });
 
 test('production Employee and Manager applications cannot depend on browser persistence authority', async () => {

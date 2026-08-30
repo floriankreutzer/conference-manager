@@ -6,7 +6,10 @@ import {
   isProductionTimeZone,
   productionUtcInstant,
 } from '../core/production-time.js';
-import { repeatRequestProjection } from './server-request-projection.js';
+import {
+  composeServerRequestDraft,
+  repeatRequestProjection,
+} from './server-request-projection.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested']);
 const MAX_PARTICIPANTS = 500;
@@ -35,30 +38,12 @@ function roomTimeZone(room, catalog) {
 }
 
 function compositionDraft(request, catalog, overrides = {}) {
-  const details = request?.details;
-  const allocations = request?.allocations?.entries?.map((entry) => ({
-    costCenterId: entry.costCenterId,
-    percentageBasisPoints: entry.percentageBasisPoints,
-  })) || (catalog.costAllocation?.allocationRequired && catalog.costCenters?.length
-    ? [{ costCenterId: catalog.costCenters[0].id, percentageBasisPoints: 10_000 }]
-    : []);
-  return {
-    title: details?.title || t('production.employee.title'),
-    roomId: request?.roomId || '',
-    startsAt: request?.startsAt || '',
-    endsAt: request?.endsAt || '',
-    internalParticipants: request?.internalParticipants ?? 1,
-    externalParticipants: request?.externalParticipants ?? 0,
-    serviceIds: details?.serviceIds || [],
-    catering: details?.catering || {
-      participantCount: 0, packageSelection: null, itemQuantities: [],
-    },
-    dietaryRequirements: details?.dietaryRequirements || null,
-    specialRequirements: details?.specialRequirements || null,
-    allocations,
-    configurationRevisions: catalog.configurationRevisions,
-    ...overrides,
-  };
+  return composeServerRequestDraft({
+    request,
+    catalog,
+    overrides,
+    defaultTitle: t('production.employee.title'),
+  });
 }
 
 function requestCard(request, catalog, openChange, {
@@ -470,7 +455,7 @@ export function createProductionEmployeeApplication({
             compositionDraft(sourceRequest, catalog, overrides),
           );
         } else {
-          await persistence.createRequest(compositionDraft(null, catalog, overrides));
+          await persistence.createRequest(compositionDraft(sourceRequest, catalog, overrides));
         }
         status.textContent = t('production.employee.submitted');
         showToast(t('production.employee.submitted'));

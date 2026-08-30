@@ -1,8 +1,8 @@
 import { locale, t } from '../core/i18n.js';
-import { localTodayIso } from '../core/domain.js';
 import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
+import { roomPlanProjection, siteLocalIsoDate } from './server-room-plan.js';
 
 const ACTIONS_BY_STATUS = Object.freeze({
   Submitted: Object.freeze(['start_review', 'reject', 'request_change']),
@@ -183,48 +183,81 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
         refreshButton.addEventListener('click', refresh);
         const roomPlanButton = button(t('manager.roomPlan'));
         roomPlanButton.addEventListener('click', () => {
-          const selectedDate = localTodayIso();
-          const table = el('table', { className: 'data-table' });
-          table.appendChild(el('thead', {}, el('tr', {}, [
-            el('th', { text: t('production.employee.room') }),
-            el('th', { text: t('production.employee.start') }),
-            el('th', { text: t('schedule.title') }),
-            el('th', { text: t('production.common.status') }),
-          ])));
-          const body = el('tbody');
-          catalog.rooms.forEach((room) => {
-            const timeZone = roomTimeZone(room, catalog);
-            const bookings = requests.filter((request) => {
-              if (!timeZone || request.roomId !== room.id || ['Rejected', 'Cancelled'].includes(request.status)) return false;
-              const parts = new Intl.DateTimeFormat('en-CA', {
-                timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-              }).formatToParts(Date.parse(request.startsAt));
-              const values = Object.fromEntries(parts.filter(({ type }) => type !== 'literal')
-                .map(({ type, value }) => [type, value]));
-              return `${values.year}-${values.month}-${values.day}` === selectedDate;
-            });
-            if (!bookings.length) {
-              body.appendChild(el('tr', {}, [
-                el('td', { text: roomLabel(room) }),
-                el('td', { text: '—' }),
-                el('td', { text: '—' }),
-                el('td', { text: t('room.available') }),
-              ]));
-              return;
-            }
-            bookings.forEach((request) => body.appendChild(el('tr', {}, [
-              el('td', { text: roomLabel(room) }),
-              el('td', { text: formattedRequestTime(request.startsAt, timeZone) }),
-              el('td', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-              el('td', { text: t(`status.${request.status}`) }),
-            ])));
+          const sites = catalog.sites.filter((site) => (
+            catalog.rooms.some((room) => room.siteId === site.id) && site.timeZone
+          ));
+          if (!sites.length) {
+            showToast(t('production.employee.timeZoneUnavailable'));
+            return;
+          }
+          const siteSelect = el('select');
+          sites.forEach((site) => siteSelect.appendChild(el('option', {
+            value: site.id,
+            text: site.name,
+          })));
+          const date = el('input', {
+            attrs: { type: 'date', value: siteLocalIsoDate(Date.now(), sites[0].timeZone) },
           });
-          table.appendChild(body);
+          const tableRoot = el('section');
+          const renderTable = () => {
+            const site = sites.find((entry) => entry.id === siteSelect.value);
+            const table = el('table', { className: 'data-table' });
+            table.appendChild(el('thead', {}, el('tr', {}, [
+              el('th', { text: t('production.employee.room') }),
+              el('th', { text: t('production.employee.start') }),
+              el('th', { text: t('schedule.title') }),
+              el('th', { text: t('production.common.status') }),
+            ])));
+            const body = el('tbody');
+            roomPlanProjection({
+              catalog,
+              requests,
+              siteId: site.id,
+              date: date.value,
+            }).forEach(({ room, requests: bookings }) => {
+              if (!bookings.length) {
+                body.appendChild(el('tr', {}, [
+                  el('td', { text: roomLabel(room) }),
+                  el('td', { text: '—' }),
+                  el('td', { text: '—' }),
+                  el('td', { text: t('room.available') }),
+                ]));
+                return;
+              }
+              bookings.forEach((request) => body.appendChild(el('tr', {}, [
+                el('td', { text: roomLabel(room) }),
+                el('td', { text: formattedRequestTime(request.startsAt, site.timeZone) }),
+                el('td', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+                el('td', { text: t(`status.${request.status}`) }),
+              ])));
+            });
+            table.appendChild(body);
+            tableRoot.replaceChildren(table);
+          };
+          siteSelect.addEventListener('change', () => {
+            const site = sites.find((entry) => entry.id === siteSelect.value);
+            date.value = siteLocalIsoDate(Date.now(), site.timeZone);
+            renderTable();
+          });
+          date.addEventListener('change', renderTable);
+          renderTable();
           const close = button(t('common.close'));
           const dialog = openDialog({
             title: t('manager.roomPlan'),
             description: t('manager.roomPlanDesc'),
-            content: el('section', {}, table),
+            content: el('section', {}, [
+              field({
+                id: 'productionRoomPlanSite',
+                label: t('schedule.location'),
+                control: siteSelect,
+              }),
+              field({
+                id: 'productionRoomPlanDate',
+                label: t('manager.referenceDate'),
+                control: date,
+              }),
+              tableRoot,
+            ]),
             actions: [close],
             labelledById: 'productionRoomPlan',
           });
