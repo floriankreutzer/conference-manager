@@ -16,6 +16,7 @@ import {
   normalizeCateringEditorDraft,
   serviceEditorOptions,
 } from './server-request-editor.js';
+import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed']);
 const MAX_PARTICIPANTS = 500;
@@ -81,7 +82,10 @@ function requestCard(request, catalog, openChange, {
     dataset: { productionRequestId: request.id },
     attrs: { tabindex: '-1' },
   }, [
-    el('h3', { text: t('production.common.requestId', { id: request.id }) }),
+    el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+    request.details?.title
+      ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
+      : null,
     el('p', { text: room ? roomLabel(room) : request.roomId }),
     el('p', {
       text: startsAt && endsAt ? `${startsAt} – ${endsAt}` : t('production.common.timeUnavailable'),
@@ -89,6 +93,8 @@ function requestCard(request, catalog, openChange, {
     el('p', { text: t('production.common.participants', { count: participants }) }),
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
+  const businessDetails = renderProductionRequestBusinessDetails(request);
+  if (businessDetails) article.appendChild(businessDetails);
   if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
   if (openChange === undefined && request.status === 'Confirmed') {
     article.appendChild(el('p', {
@@ -447,6 +453,16 @@ export function createProductionEmployeeApplication({
         el('h3', { text: t('cost.allocations') }),
         el('p', { className: 'muted', text: t('cost.allocHint') }),
       );
+      const allocationStatus = el('p', {
+        attrs: { role: 'status', 'aria-live': 'polite' },
+      });
+      const updateAllocationStatus = () => {
+        const sum = allocationRows.reduce((total, entry) => total + Number(entry.percentage || 0), 0);
+        allocationStatus.className = Math.abs(sum - 100) < 0.001
+          || (!allocationRows.length && !catalog.costAllocation?.allocationRequired)
+          ? 'validation-ok' : 'validation-bad';
+        allocationStatus.textContent = t('cost.sum', { sum: sum.toFixed(2).replace(/\.00$/, '') });
+      };
       allocationRows.forEach((allocation, index) => {
         const row = el('article', { className: 'allocation-row' });
         const center = el('select');
@@ -459,7 +475,10 @@ export function createProductionEmployeeApplication({
         const percentage = el('input', {
           attrs: { type: 'number', min: '0.01', max: '100', step: '0.01', value: allocation.percentage },
         });
-        percentage.addEventListener('input', () => { allocation.percentage = percentage.value; });
+        percentage.addEventListener('input', () => {
+          allocation.percentage = percentage.value;
+          updateAllocationStatus();
+        });
         const remove = button(t('common.delete'));
         remove.addEventListener('click', () => {
           allocationRows.splice(index, 1);
@@ -472,13 +491,8 @@ export function createProductionEmployeeApplication({
         );
         allocationPanel.appendChild(row);
       });
-      const sum = allocationRows.reduce((total, entry) => total + Number(entry.percentage || 0), 0);
-      allocationPanel.appendChild(el('p', {
-        className: Math.abs(sum - 100) < 0.001 || (!allocationRows.length && !catalog.costAllocation?.allocationRequired)
-          ? 'validation-ok' : 'validation-bad',
-        text: t('cost.sum', { sum: sum.toFixed(2).replace(/\.00$/, '') }),
-        attrs: { role: 'status', 'aria-live': 'polite' },
-      }));
+      allocationPanel.appendChild(allocationStatus);
+      updateAllocationStatus();
       const add = button(t('cost.add'));
       add.disabled = allocationRows.length >= Math.min(100, catalog.costCenters.length);
       add.addEventListener('click', () => {

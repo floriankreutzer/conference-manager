@@ -23,6 +23,7 @@ const MANAGER_SOURCE = new URL('../src/manager/production-application.js', impor
 const APP_SOURCE = new URL('../src/app.js', import.meta.url);
 const CONTEXT_SOURCE = new URL('../src/platform/application-context.js', import.meta.url);
 const SHELL_SOURCE = new URL('../src/platform/app-shell.js', import.meta.url);
+const PRODUCTION_DETAILS_SOURCE = new URL('../src/shared/production-request-details.js', import.meta.url);
 
 async function source(url) {
   return readFile(url, 'utf8');
@@ -163,6 +164,24 @@ test('schema-v2 repeat composition preserves catering and cost allocations from 
   assert.equal(draft.startsAt, '2026-10-05T08:00:00.000Z');
   assert.notEqual(draft.catering, request.details.catering);
   assert.notEqual(draft.catering.itemQuantities, request.details.catering.itemQuantities);
+});
+
+test('server-backed cards expose the complete immutable business projection', async () => {
+  const details = await source(PRODUCTION_DETAILS_SOURCE);
+  for (const projection of [
+    'details.title',
+    'pricing.services',
+    'pricing.catering.packageSelection',
+    'pricing.catering.items',
+    'details.dietaryRequirements',
+    'details.specialRequirements',
+    'pricing.totalMinor',
+    'allocations.entries',
+  ]) assert.match(details, new RegExp(projection.replaceAll('.', '\\.')));
+  const employee = await source(EMPLOYEE_SOURCE);
+  const manager = await source(MANAGER_SOURCE);
+  assert.match(employee, /renderProductionRequestBusinessDetails\(request\)/);
+  assert.match(manager, /renderProductionRequestBusinessDetails\(request\)/);
 });
 
 test('Employee editor exposes only catering applicable to the selected authoritative room', () => {

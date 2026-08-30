@@ -3,6 +3,7 @@ import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { roomPlanProjection, siteLocalIsoDate } from './server-room-plan.js';
+import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
 
 const ACTIONS_BY_STATUS = Object.freeze({
   Submitted: Object.freeze(['start_review', 'reject', 'request_change']),
@@ -300,9 +301,14 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
             dataset: { productionRequestId: request.id },
             attrs: { tabindex: '-1' },
           }, [
-            el('h3', { text: t('production.common.requestId', { id: request.id }) }),
+            el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+            request.details?.title
+              ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
+              : null,
             requestSummary(request, catalog),
           ]);
+          const businessDetails = renderProductionRequestBusinessDetails(request);
+          if (businessDetails) article.appendChild(businessDetails);
           if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
           const historyButton = button(t('production.manager.historyTab'));
           historyButton.addEventListener('click', async () => {
