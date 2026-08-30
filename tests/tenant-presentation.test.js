@@ -80,6 +80,7 @@ const {
   createTenantPresentationRuntime,
 } = await import('../src/platform/tenant-presentation-runtime.js');
 const { createTenantOrganizationSettingsApi } = await import('../src/platform/tenant-organization-settings-api.js');
+const { productionRequestBusinessDetails } = await import('../src/shared/production-request-details.js');
 const {
   configureTenantLocalization,
   currency,
@@ -87,6 +88,7 @@ const {
   language,
   locale,
   setLanguage,
+  t,
 } = await import('../src/core/i18n.js');
 
 function payload(overrides = {}) {
@@ -268,6 +270,41 @@ test('tenant localization supplies defaults while an explicit User language rema
   assert.equal(currency(), 'GBP');
   assert.equal(storage.getItem('conference_language_v1'), 'de');
   assert.match(formatMoney(1234.5), /£|GBP/);
+});
+
+test('production request business numbers follow the active locale', () => {
+  const request = {
+    details: {
+      title: 'Locale review',
+      catering: { participantCount: 1_234.5 },
+      dietaryRequirements: '',
+      specialRequirements: '',
+    },
+    pricing: {
+      currency: 'EUR',
+      totalMinor: 12_345,
+      services: [],
+      catering: {
+        packageSelection: null,
+        items: [{ item: { name: 'Coffee' }, quantity: 1_234.5 }],
+      },
+    },
+    allocations: {
+      entries: [{ code: 'CC-1', name: 'Events', percentageBasisPoints: 1_250 }],
+    },
+  };
+
+  setLanguage('de');
+  const german = new Map(productionRequestBusinessDetails(request));
+  assert.equal(german.get(t('catering.people')), '1.234,5');
+  assert.match(german.get(t('catering.items')), /1\.234,5/);
+  assert.match(german.get(t('cost.allocations')), /12,5\s%/u);
+
+  setLanguage('en');
+  const english = new Map(productionRequestBusinessDetails(request));
+  assert.equal(english.get(t('catering.people')), '1,234.5');
+  assert.match(english.get(t('catering.items')), /1,234\.5/);
+  assert.match(english.get(t('cost.allocations')), /12\.5%/);
 });
 
 test('shell application preserves its semantic brand container and uses only code-shipped preset assets', () => {
