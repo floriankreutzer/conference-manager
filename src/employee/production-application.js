@@ -597,17 +597,12 @@ export function createProductionEmployeeApplication({
     invalidateAvailability();
 
     if (restoredDraft) showToast(t('draft.restored'));
+    let draftTimer = null;
+    let draftDirty = false;
     if (!sourceRequest && draftStore) {
-      let draftTimer = null;
       const saveDraft = () => {
         draftTimer = null;
-        const meaningful = title.value.trim() || room.value || date.value || start.value || end.value
-          || selectedServices.size || packageSelection || Object.values(itemQuantities).some((value) => Number(value) > 0)
-          || dietaryRequirements.value.trim() || specialRequirements.value.trim();
-        if (!meaningful) {
-          draftStore.clear();
-          return;
-        }
+        if (!draftDirty) return;
         draftStore.save({
           roomId: room.value,
           startDate: date.value,
@@ -627,6 +622,7 @@ export function createProductionEmployeeApplication({
         });
       };
       const scheduleDraftSave = () => {
+        draftDirty = true;
         if (draftTimer) clearTimeout(draftTimer);
         draftTimer = setTimeout(saveDraft, 400);
       };
@@ -737,7 +733,12 @@ export function createProductionEmployeeApplication({
         }
         status.textContent = t('production.employee.submitted');
         showToast(t('production.employee.submitted'));
-        draftStore?.clear?.();
+        if (!sourceRequest && draftStore) {
+          draftDirty = false;
+          if (draftTimer) clearTimeout(draftTimer);
+          draftTimer = null;
+          draftStore.clear();
+        }
         verifiedAvailabilityKey = null;
         if (typeof onNavigate === 'function') onNavigate('requests');
       } catch (error) {

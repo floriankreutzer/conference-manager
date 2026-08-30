@@ -125,6 +125,8 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /value: sourceEnd\?\.date \|\| restoredDraft\?\.endDate/);
   assert.match(employee, /sum: formatNumber\(sum, \{ maximumFractionDigits: 2 \}\)/);
   assert.doesNotMatch(employee, /allocationStatus\.textContent[\s\S]{0,120}toFixed/);
+  assert.match(employee, /const scheduleDraftSave = \(\) => \{\s*draftDirty = true;/);
+  assert.match(employee, /if \(draftTimer\) clearTimeout\(draftTimer\);\s*draftTimer = null;\s*draftStore\.clear\(\);/);
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
