@@ -78,9 +78,19 @@ function readiness(resource, onSelectTenant, onLoadMore) {
       el('div', { className: 'platform-admin-inline-status' }, [
         el('span', { text: t('platformAdmin.field.readiness') }),
         status(item.readiness.state),
-        el('span', { text: t('platformAdmin.readiness.enabledEntitlements', { count: formatNumber(item.entitlements.enabledCount) }) }),
+        el('span', { text: t(
+          item.entitlements.enabledCount === 1
+            ? 'platformAdmin.readiness.enabledEntitlementsOne'
+            : 'platformAdmin.readiness.enabledEntitlementsMany',
+          { count: formatNumber(item.entitlements.enabledCount) },
+        ) }),
       ]),
-      el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.readiness.checkCount', { count: formatNumber(item.readiness.checks.length) }) }),
+      el('p', { className: 'platform-admin-data-note', text: t(
+        item.readiness.checks.length === 1
+          ? 'platformAdmin.readiness.checkCountOne'
+          : 'platformAdmin.readiness.checkCountMany',
+        { count: formatNumber(item.readiness.checks.length) },
+      ) }),
       ...(item.readiness.blockerCodes.length ? [blockers] : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
     ]));
   });
