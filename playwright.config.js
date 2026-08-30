@@ -31,6 +31,7 @@ export default defineConfig({
   webServer: {
     command: 'node scripts/serve-e2e.mjs',
     url: 'https://127.0.0.1:4173',
+    ignoreHTTPSErrors: true,
     reuseExistingServer: false,
     timeout: 30_000,
   },
