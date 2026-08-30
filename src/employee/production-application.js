@@ -6,6 +6,7 @@ import {
   isProductionTimeZone,
   productionUtcInstant,
 } from '../core/production-time.js';
+import { repeatRequestProjection } from './server-request-projection.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested']);
 const MAX_PARTICIPANTS = 500;
@@ -60,7 +61,9 @@ function compositionDraft(request, catalog, overrides = {}) {
   };
 }
 
-function requestCard(request, catalog, openChange, onCancel, onChange) {
+function requestCard(request, catalog, openChange, {
+  onCancel, onChange, onHistory, onPrint, onRepeat, onResubmit,
+}) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId);
   const timeZone = roomTimeZone(room, catalog);
   const startsAt = formatProductionDateTime(request.startsAt, { locale: locale(), timeZone });
@@ -100,10 +103,28 @@ function requestCard(request, catalog, openChange, onCancel, onChange) {
     cancel.addEventListener('click', () => onCancel(request.id, cancel));
     article.appendChild(cancel);
   }
+  const history = button(t('production.manager.historyTab'));
+  history.addEventListener('click', () => onHistory(request, history));
+  const print = button(t('guest.print'));
+  print.addEventListener('click', () => onPrint(request));
+  const repeat = button(t(request.status === 'Rejected' ? 'requests.repeatRejected' : 'requests.repeat'));
+  repeat.addEventListener('click', () => onRepeat(request));
+  article.appendChild(el('div', { className: 'button-row' }, [history, print, repeat]));
+  if (request.status === 'Change Requested') {
+    const resubmit = button(t('requests.editChange'), { className: 'primary' });
+    resubmit.addEventListener('click', () => onResubmit(request));
+    article.appendChild(resubmit);
+  }
   return article;
 }
 
-export function createProductionEmployeeApplication({ appRoot, setPageHeading, persistence } = {}) {
+export function createProductionEmployeeApplication({
+  appRoot,
+  setPageHeading,
+  persistence,
+  onNavigate = null,
+  siteInfo = Object.freeze({}),
+} = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_EMPLOYEE_UI_REQUIRED');
   if (
     !persistence
@@ -116,6 +137,61 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
   }
 
   let catalog = Object.freeze({ rooms: Object.freeze([]) });
+  let queuedRequest = null;
+  let queuedResubmission = false;
+
+  function queueRequest(request, { resubmit = false } = {}) {
+    if (resubmit || Date.parse(request.startsAt) > Date.now()) {
+      queuedRequest = request;
+    } else {
+      queuedRequest = repeatRequestProjection(request);
+    }
+    queuedResubmission = resubmit;
+    if (typeof onNavigate === 'function') onNavigate('employee');
+    else void renderRequest();
+  }
+
+  function printRequest(request) {
+    const printWindow = globalThis.window?.open?.('', '_blank', 'noopener,noreferrer');
+    if (!printWindow) return;
+    const doc = printWindow.document;
+    const room = catalog.rooms.find((entry) => entry.id === request.roomId);
+    const site = catalog.sites?.find((entry) => entry.id === room?.siteId);
+    const details = siteInfo?.sites?.find?.((entry) => entry.id === site?.id) || {};
+    doc.documentElement.lang = locale().split('-')[0];
+    doc.title = `${t('requests.pdf')} · ${request.id}`;
+    const heading = doc.createElement('h1');
+    heading.textContent = t('guest.welcome', {
+      title: request.details?.title || t('production.common.requestId', { id: request.id }),
+    });
+    const list = doc.createElement('dl');
+    [
+      [t('production.employee.start'), formattedRequestValue(request.startsAt, room, catalog)],
+      [t('production.employee.end'), formattedRequestValue(request.endsAt, room, catalog)],
+      [t('production.employee.room'), roomLabel(room || { id: request.roomId })],
+      [t('guest.address'), details.address || t('guest.askOrganizer')],
+      [t('guest.contact'), details.contact || t('guest.contactDefault')],
+    ].forEach(([term, value]) => {
+      const dt = doc.createElement('dt');
+      const dd = doc.createElement('dd');
+      dt.textContent = term;
+      dd.textContent = value;
+      list.append(dt, dd);
+    });
+    const print = doc.createElement('button');
+    print.type = 'button';
+    print.textContent = t('guest.print');
+    print.addEventListener('click', () => printWindow.print());
+    doc.body.append(heading, list, print);
+    printWindow.focus();
+  }
+
+  function formattedRequestValue(value, room, requestCatalog) {
+    return formatProductionDateTime(value, {
+      locale: locale(),
+      timeZone: roomTimeZone(room, requestCatalog),
+    }) || t('production.common.timeUnavailable');
+  }
 
   function wallValues(timestamp, timeZone) {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -216,6 +292,10 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       return;
     }
     clear(root);
+    const sourceRequest = queuedRequest;
+    const isResubmission = queuedResubmission;
+    queuedRequest = null;
+    queuedResubmission = false;
     const rooms = catalog.rooms.filter((room) => room.active !== false);
     if (!rooms.length) {
       root.appendChild(el('p', { className: 'info-box', text: t('production.employee.noRooms') }));
@@ -225,17 +305,25 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
     const room = el('select');
     room.appendChild(el('option', { value: '', text: t('schedule.locationPlaceholder') }));
     rooms.forEach((entry) => room.appendChild(el('option', { value: entry.id, text: roomLabel(entry) })));
-    const date = el('input', { attrs: { type: 'date' } });
-    const start = el('input', { attrs: { type: 'time' } });
-    const end = el('input', { attrs: { type: 'time' } });
-    const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: '1' } });
-    const external = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: '0' } });
-    const title = el('input', { attrs: { type: 'text', maxlength: '160', value: '' } });
-    const specialRequirements = el('textarea', { attrs: { maxlength: '2000' } });
-    const dietaryRequirements = el('textarea', { attrs: { maxlength: '2000' } });
-    const selectedServices = new Set();
+    const sourceRoom = rooms.find((entry) => entry.id === sourceRequest?.roomId);
+    const sourceTimeZone = roomTimeZone(sourceRoom, catalog);
+    const sourceStart = sourceRequest && isProductionTimeZone(sourceTimeZone)
+      ? wallValues(sourceRequest.startsAt, sourceTimeZone) : null;
+    const sourceEnd = sourceRequest && isProductionTimeZone(sourceTimeZone)
+      ? wallValues(sourceRequest.endsAt, sourceTimeZone) : null;
+    if (sourceRoom) room.value = sourceRoom.id;
+    const date = el('input', { attrs: { type: 'date', value: sourceStart?.date || '' } });
+    const start = el('input', { attrs: { type: 'time', value: sourceStart?.time || '' } });
+    const end = el('input', { attrs: { type: 'time', value: sourceEnd?.time || '' } });
+    const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.internalParticipants ?? 1) } });
+    const external = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.externalParticipants ?? 0) } });
+    const title = el('input', { attrs: { type: 'text', maxlength: '160', value: sourceRequest?.details?.title || '' } });
+    const specialRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.specialRequirements || '' });
+    const dietaryRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.dietaryRequirements || '' });
+    const selectedServices = new Set(sourceRequest?.details?.serviceIds || []);
     const serviceControls = catalog.services.map((service) => {
       const control = el('input', { attrs: { type: 'checkbox', value: service.id } });
+      control.checked = selectedServices.has(service.id);
       control.addEventListener('change', () => {
         if (control.checked) selectedServices.add(service.id); else selectedServices.delete(service.id);
       });
@@ -246,7 +334,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
     });
     const checkAvailability = button(t('production.employee.checkAvailability'));
-    const submit = button(t('production.employee.submit'), { className: 'primary', disabled: true });
+    const submit = button(t(isResubmission ? 'review.resubmit' : 'production.employee.submit'), { className: 'primary', disabled: true });
     let verifiedAvailabilityKey = null;
     let availabilityGeneration = 0;
 
@@ -365,7 +453,7 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
       status.className = 'muted';
       status.textContent = t('production.employee.submitting');
       try {
-        await persistence.createRequest(compositionDraft(null, catalog, {
+        const overrides = {
           title: normalizedTitle, roomId: window.roomId,
           startsAt: window.startsAt,
           endsAt: window.endsAt,
@@ -374,10 +462,20 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
           serviceIds: [...selectedServices].sort(),
           dietaryRequirements: dietaryRequirements.value.trim() || null,
           specialRequirements: specialRequirements.value.trim() || null,
-        }));
+        };
+        if (isResubmission) {
+          await persistence.resubmitRequest(
+            sourceRequest.id,
+            sourceRequest.version,
+            compositionDraft(sourceRequest, catalog, overrides),
+          );
+        } else {
+          await persistence.createRequest(compositionDraft(null, catalog, overrides));
+        }
         status.textContent = t('production.employee.submitted');
         showToast(t('production.employee.submitted'));
         verifiedAvailabilityKey = null;
+        if (typeof onNavigate === 'function') onNavigate('requests');
       } catch (error) {
         verifiedAvailabilityKey = null;
         status.className = 'error-box';
@@ -411,7 +509,8 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
           return;
         }
         for (const [index, request] of requests.entries()) {
-          root.appendChild(requestCard(request, nextCatalog, changes[index], async (requestId, control) => {
+          root.appendChild(requestCard(request, nextCatalog, changes[index], {
+            onCancel: async (requestId, control) => {
             control.disabled = true;
             try {
               await persistence.transitionRequest(requestId, { transition: 'cancel' });
@@ -421,7 +520,33 @@ export function createProductionEmployeeApplication({ appRoot, setPageHeading, p
               control.disabled = false;
               showToast(errorMessage(error));
             }
-          }, (target) => changeDialog(target, refresh)));
+            },
+            onChange: (target) => changeDialog(target, refresh),
+            onHistory: async (target, control) => {
+              control.disabled = true;
+              try {
+                const entries = await persistence.loadRequestHistory(target.id);
+                const content = el('section', {}, entries.length
+                  ? entries.map((entry) => el('p', {
+                    text: `${entry.version} · ${entry.operation} · ${formatProductionDateTime(entry.capturedAt, { locale: locale(), timeZone: 'UTC' })}`,
+                  }))
+                  : [el('p', { text: t('production.manager.historyEmpty') })]);
+                const close = button(t('common.close'));
+                const dialog = openDialog({
+                  title: t('production.manager.historyTab'), content, actions: [close],
+                  labelledById: `employeeHistory-${target.id}`,
+                });
+                close.addEventListener('click', () => dialog.close());
+              } catch (error) {
+                showToast(errorMessage(error));
+              } finally {
+                control.disabled = false;
+              }
+            },
+            onPrint: printRequest,
+            onRepeat: (target) => queueRequest(target),
+            onResubmit: (target) => queueRequest(target, { resubmit: true }),
+          }));
         }
         if (focusRequestId) {
           requestAnimationFrame(() => {

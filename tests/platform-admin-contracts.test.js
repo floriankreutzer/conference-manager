@@ -13,8 +13,11 @@ import {
   PlatformAdminContractError,
   shouldPresentPlatformAction,
 } from '../src/platform-admin/contracts.js';
-import { createPlatformAdminDemoFixtures } from '../src/platform-admin/demo/fixtures.js';
-import { platformAdminDemoOperator } from '../src/platform-admin/demo/operator-fixtures.js';
+import {
+  platformFleetFixture,
+  platformOperatorFixture,
+  platformTenantFixture,
+} from './support/platform-admin-contract-fixtures.js';
 import {
   platformAdminFleetHash,
   platformAdminRouteFromHash,
@@ -22,13 +25,7 @@ import {
 } from '../src/platform-admin/route.js';
 
 function fleetPayload() {
-  const fixture = createPlatformAdminDemoFixtures();
-  return {
-    tenants: fixture.tenants,
-    auditEvents: fixture.auditEvents,
-    evaluatedAt: '2026-08-01T08:00:00.000Z',
-    nextCursor: null,
-  };
+  return platformFleetFixture();
 }
 
 test('Platform Admin fleet contract accepts the bounded deterministic lifecycle matrix', () => {
@@ -46,7 +43,7 @@ test('Platform Admin fleet contract accepts the bounded deterministic lifecycle 
 });
 
 test('Platform Admin tenant contract rejects expanded and malformed server data', () => {
-  const tenant = createPlatformAdminDemoFixtures().tenants[0];
+  const tenant = platformTenantFixture(0, 'pending');
   assert.throws(
     () => normalizePlatformTenant({ ...tenant, secret: 'must-not-pass' }),
     (error) => error instanceof PlatformAdminContractError && error.code === 'PLATFORM_TENANT_INVALID',
@@ -59,7 +56,7 @@ test('Platform Admin tenant contract rejects expanded and malformed server data'
 });
 
 test('Platform Admin Tenant names preserve the canonical 160-character API bound', () => {
-  const tenant = createPlatformAdminDemoFixtures().tenants[0];
+  const tenant = platformTenantFixture(0, 'pending');
   const displayName = 'N'.repeat(160);
   assert.equal(normalizePlatformTenant({ ...tenant, displayName }).displayName, displayName);
   assert.equal(normalizePlatformTenantDirectoryResponse({
@@ -84,10 +81,10 @@ test('Platform Admin Tenant names preserve the canonical 160-character API bound
 });
 
 test('operator roles use the accepted permission matrix and all high-impact permissions require step-up', () => {
-  const reader = platformAdminDemoOperator('support_reader');
-  const tenantOperator = platformAdminDemoOperator('tenant_operator');
-  const securityAdmin = platformAdminDemoOperator('security_admin');
-  const tenant = normalizePlatformTenant(createPlatformAdminDemoFixtures().tenants[4]);
+  const reader = normalizePlatformOperator(platformOperatorFixture('platform_support_reader'));
+  const tenantOperator = normalizePlatformOperator(platformOperatorFixture('platform_tenant_operator'));
+  const securityAdmin = normalizePlatformOperator(platformOperatorFixture('platform_security_admin'));
+  const tenant = normalizePlatformTenant(platformTenantFixture(4, 'suspended'));
   const now = Date.parse('2099-01-01T00:01:00.000Z');
 
   assert.equal(shouldPresentPlatformAction(reader, tenant, 'reactivate', now), false);

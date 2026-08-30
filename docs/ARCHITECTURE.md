@@ -12,7 +12,8 @@ The runtime dependency direction is:
 
 ```text
 Browser / index.html
-  -> src/app.js composition/bootstrap
+  -> Customer Production or Demo bootstrap
+  -> src/app.js composition
      -> Platform application shell/context
      -> Employee public module API
      -> Manager public module API
@@ -22,6 +23,19 @@ Browser / index.html
 ```
 
 `src/core` must not depend on Employee or Manager modules. `src/shared` must not depend on Employee or Manager modules. Employee modules must not depend on Manager modules. Consumers outside Employee or Manager must use the respective `index.js` public API rather than private implementation files.
+
+## Ownership and architecture decisions
+
+The cross-repository canonical ownership matrix, dependency rules, consolidation findings, compatibility-bridge register and Demo migration inventory are maintained in `docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md`.
+
+Accepted topology decisions are cumulative:
+
+- `docs/SAAS-PRODUCTION-TOPOLOGY.md` owns the dedicated backend and customer same-origin boundary;
+- `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` owns the separate Platform Operator artifact/process/session/audit boundary;
+- `docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md` revalidates **KEEP** for Platform frontend and backend source ownership while retaining separate deployable artifacts and processes;
+- `docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` owns the isolated PostgreSQL-backed shared Demo topology, separate Customer/Platform Demo sessions and deterministic reset/seed requirements.
+
+The accepted decisions define boundaries and implementation constraints. A decision document does not by itself prove that its runtime, deployment or governance work has been completed; the owning milestone issue and merged executable evidence remain required.
 
 ## Runtime structure
 
@@ -37,6 +51,7 @@ src/
 │   ├── i18n-capability-messages.js# consolidated capability messages
 │   ├── security-i18n.js
 │   ├── security-policy.js
+│   ├── preferences.js             # bounded non-authoritative preferences only
 │   ├── storage.js
 │   └── ui.js
 ├── employee/
@@ -60,8 +75,9 @@ src/
 │   ├── section-contract.js        # section contract validation
 │   ├── section-presentation.js    # shared Tenant Admin section presentation
 │   ├── route.js                   # bounded Tenant Admin hash route helpers
-│   ├── demo-onboarding.js         # isolated demo-only onboarding adapter
-│   ├── demo-user-administration.js# isolated demo-only User administration adapter
+│   ├── server.js                  # server-backed Customer runtime facade
+│   ├── demo-onboarding.js         # retired compatibility file; not in active roots
+│   ├── demo-user-administration.js# retired compatibility file; not in active roots
 │   ├── onboarding-error.js
 │   ├── onboarding-wizard.js       # existing Microsoft 365 onboarding presentation
 │   ├── user-role-model.js         # testable elevated-role selection rules
@@ -77,18 +93,28 @@ src/
 │       └── audit/index.js
 ├── platform/
 │   ├── app-shell.js               # shell/navigation/profile/help routing
-│   ├── application-context.js     # shared profile/catalog/site/request context
+│   ├── application-context.js     # validated session and injected repository context
+│   ├── demo-bootstrap.js          # Customer Demo-only composition root
+│   ├── demo-session.js            # Customer Demo session/context API boundary
 │   ├── production-session.js      # validated production session/CSRF runtime
+│   ├── production-bootstrap.js    # Customer Production-only composition root
 │   ├── tenant-admin-operations-api.js # public Tenant operations adapter facade
 │   ├── tenant-settings-api.js     # public Tenant settings adapter facade
+│   ├── server-tenant-settings-api.js # shared server-backed settings facade
 │   ├── tenant-presentation-api.js # minimized effective Tenant presentation projection
 │   ├── tenant-presentation-runtime.js # in-memory revision/localization/shell integration
 │   ├── tenant-user-administration-api.js # Tenant-scoped role API adapter
 │   ├── demo-security.js
 │   ├── feature-flags.js
 │   ├── feature-parity.js
-│   ├── identity-bootstrap.js
 │   └── requester-attribution.js
+├── platform-admin/
+│   ├── application.js             # shared operator presentation only
+│   ├── platform-api.js            # validated Platform HTTP adapter
+│   ├── production/bootstrap.js    # Platform Production-only composition root
+│   └── demo/
+│       ├── bootstrap.js           # Platform Demo-only composition root
+│       └── operator-session.js    # server-issued Demo persona/reset boundary
 └── shared/
     ├── application-presentation.js
     ├── booking-change-loader.js       # bounded cross-capability proposal lookup contract
@@ -108,7 +134,7 @@ The former flat `src/features` directory is not part of the modular architecture
 - application bootstrap;
 - top-level dependency composition;
 - Employee, Manager and Tenant Admin capability initialization through their public APIs;
-- Production/Demo adapter selection and injection at the owning architectural boundary;
+- injection of the already selected Production or Demo server/session adapters;
 - application-shell initialization;
 - global application event registration;
 - top-level orchestration between explicit contracts;
@@ -170,11 +196,11 @@ Tenant Admin owns the Tenant self-service settings capability behind `src/tenant
 
 Each settings domain is owned below `src/tenant-admin/sections/<section-id>/` and exposes its section through that directory's `index.js`. Section internals must not import one another. Cross-section collaboration must use explicit injected contracts rather than private implementation access.
 
-The `users` section preserves the existing Tenant-scoped User/elevated-role administration capability. `user-role-model.js` remains the independently testable elevated-role selection model and Production reads/writes continue through the injected Platform Tenant User API adapter. `demo-user-administration.js` is an isolated in-memory Demo adapter and must never create a Production session, call the Production API or persist browser authority.
+The `users` section preserves the existing Tenant-scoped User/elevated-role administration capability. `user-role-model.js` remains the independently testable elevated-role selection model. Production and Demo reads/writes use the injected server-backed Tenant User API adapter. Historical in-memory Demo adapters are not active business authorities and must never be reintroduced into either runtime graph.
 
 The `microsoft365` section preserves the existing Microsoft 365 onboarding and connection behavior. `onboarding-wizard.js`, the onboarding error model and the onboarding runtime selected through the public Tenant Admin API remain the owned implementation; the section composes those existing contracts rather than duplicating lifecycle operations.
 
-The Composition Root selects Production or Demo section adapters and injects them into Tenant Admin. Production authorization remains authoritative in the trusted backend/server-session path; section visibility is presentation behavior only. A failed or unauthorized Production path must never select Demo adapters or browser-stored Tenant authority.
+The owning Customer bootstrap establishes either a Production or Customer Demo server session before `src/app.js` composes the corresponding server-backed section adapters. Authorization remains authoritative in the trusted backend/session path; section visibility is presentation behavior only. A failed or unauthorized API path must never select fixtures, browser mutation code or browser-stored Tenant authority.
 
 Tenant Admin uses bounded hash routes in the form `#tenant-admin/<section>`. Authorized routes may restore the selected Tenant Admin section on reload. When the final resolved top-level view changes away from Tenant Admin, the Tenant Admin hash is removed so a later reload does not reopen a view the user already left. The application shell exposes only a generic view-change callback; `src/app.js` composes Tenant Admin route cleanup through the public Tenant Admin route helper. Platform does not import Tenant Admin internals.
 
@@ -186,14 +212,16 @@ The Production Tenant Admin capability is composed only when the validated serve
 
 Platform contains application-wide composition and infrastructure-facing concerns rather than Employee/Manager business logic.
 
-- `application-context.js` owns loading/access to profile, catalog, site information, requests and demo role state through the existing core persistence contracts.
+- `application-context.js` owns access to the validated server session, injected profile/catalog/site/Request repositories and the bounded Demo context-switch contract.
+- `demo-bootstrap.js` and `demo-session.js` own Customer Demo bootstrap, same-origin `/api/v1/demo/*` session/context calls and strict reuse of the Production session projection validator. Persona or Tenant choices are browser request input only; the server returns effective authority.
+- `production-bootstrap.js` owns the mutually exclusive Customer Production bootstrap.
 - `app-shell.js` owns shell navigation, welcome view, profile/help dialogs and top-level view orchestration. It receives Employee/Manager/Tenant Admin application contracts from `src/app.js` rather than importing capability internals. Its optional view-change callback is generic and must not encode Tenant Admin routing rules.
 - `production-session.js` owns the bounded, fail-closed production session bootstrap and in-memory CSRF runtime.
 - `tenant-admin-operations-api.js` is the explicit Composition Root facade for the Tenant audit-history and effective-capability Production adapters. User lifecycle operations remain behind the established Tenant User facade, while Microsoft operations decorate the existing Microsoft 365 connection port.
 - `tenant-settings-api.js` is the explicit Composition Root facade for the bounded Organization, Location, Catalogue, Booking Policy and Cost Allocation Production adapters. The domain adapters retain their individual response-validation and wire-contract ownership behind that facade.
 - `tenant-presentation-api.js` owns the exact minimized presentation projection used by every authenticated Tenant role. `tenant-presentation-runtime.js` owns only its fail-safe in-memory revision lifecycle, Core localization configuration, reviewed same-origin mark rendering, and Organization-save refresh integration. Neither accepts remote assets, custom styles, Demo fallback, or browser-side authority. The complete contract is documented in `docs/SAAS2-TENANT-PRESENTATION.md`.
 - `tenant-user-administration-api.js` owns validated, cursor-paginated Tenant User reads and allowlisted elevated-role writes through the shared same-origin API client.
-- identity bootstrap, demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
+- Demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
 
 `feature-parity.js` remains the single coalesced enhancement scheduler. Manager enhancement modules must not add their own global synchronization loops. Platform localization consumers use the canonical Core localization contract directly.
 
@@ -219,7 +247,7 @@ Public module APIs are explicit:
 
 - Employee: `src/employee/index.js`, including `createEmployeeApplication` plus the existing Employee enhancement exports.
 - Manager: `src/manager/index.js`, including `createManagerApplication` plus the existing Manager enhancement exports.
-- Tenant Admin: `src/tenant-admin/index.js`, exposing `createTenantAdminApplication`, `createTenantAdminOnboardingRuntime`, the isolated Demo onboarding/User-administration factories, and the bounded route helpers `clearTenantAdminRoute`, `isTenantAdminRoute`, `tenantAdminHashForSection` and `tenantAdminSectionFromHash`.
+- Tenant Admin: `src/tenant-admin/index.js`, exposing `createTenantAdminApplication`, the server-backed `createTenantAdminOnboardingRuntime`, and the bounded route helpers `clearTenantAdminRoute`, `isTenantAdminRoute`, `tenantAdminHashForSection` and `tenantAdminSectionFromHash`.
 
 The application factories return capability contracts consumed by Platform composition:
 
@@ -262,13 +290,15 @@ Runtime modules outside `src/platform/feature-flags.js` may consume the exported
 
 ## Persistence and data compatibility
 
-The static MVP uses LocalStorage/sessionStorage. Canonical storage conventions and defensive parsing remain in `src/core/storage.js` and approved repository/context interfaces.
+The active Customer and Platform Demo runtimes use one isolated PostgreSQL database through separate server processes and least-privilege database roles. Customer and Platform sessions, cookies, CSRF state, audit domains, API namespaces and origins remain separate. A shared database is not a shared authorization boundary.
+
+`src/core/preferences.js` owns the bounded browser-local language preference. An explicitly reviewed navigation marker or unsaved draft may remain local only when it cannot establish identity, Tenant, permission, workflow, price, entitlement, provider, audit or other business authority. `src/core/storage.js` contains historical/static-MVP persistence contracts but is unreachable as authoritative persistence from the active Demo and Production roots.
 
 Capability runtimes must not invent direct browser-storage conventions. New storage keys, serialization formats, restore/cache behavior or persistence abstractions require explicit architectural justification.
 
 One historical compatibility exception is explicitly approved for the existing baseline: `src/manager/admin-parity.js` writes `PARITY_RETURN_KEY` directly to `sessionStorage` immediately before a controlled page reload so the Manager administration view can restore its return position. This is a narrow session-scoped navigation marker, not a general persistence convention. The architecture gate permits only that exact `sessionStorage.setItem(PARITY_RETURN_KEY, ...)` call in that file and rejects any additional direct Employee/Manager browser-storage access. Do not expand this exception; removing it should be a separate regression-protected runtime cleanup routed through an approved contract.
 
-The current baseline preserves without silent migration:
+Historical browser data is never silently uploaded into the shared Demo or a Production Tenant. Server/API schema changes and any deliberately retained local preference migration remain explicit and tested. The repository retains compatibility documentation for:
 
 - existing storage key names;
 - request/catalog/site/profile/notification/draft object shapes;
@@ -319,11 +349,11 @@ Parallel active business implementations are prohibited. Temporary compatibility
 
 ## Security boundaries
 
-The default GitHub Pages deployment remains an explicitly selected static demo. The repository also contains a separate production browser path backed by the same-origin API. Neither modularity nor client-side presentation checks are authorization: production authority stays in the backend, and the browser must never fall back to demo storage or demo implementations. Production authentication/authorization requirements remain defined in `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md`.
+The active Customer Demo and Platform Demo are explicitly selected, server-backed browser artifacts. Neither modularity nor client-side presentation checks are authorization: Demo and Production authority stays in the appropriate backend process, and the browser must never fall back to storage, fixtures or browser mutation rules. Production authentication/authorization requirements remain defined in `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md`; the Demo-specific topology is defined by ADR-010.
 
 The accepted SaaS 3 control-plane decision in `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` adds a separately deployable Platform Operator browser artifact and operator origin. It does not change the current customer runtime graph. Existing `src/platform` remains customer application-wide composition; operator presentation belongs to the independent `src/platform-admin` boundary and must not import Employee, Manager, Tenant Admin, customer Platform, or customer session internals. Its Production entry point is `platform-admin/index.html` with `src/platform-admin/production/bootstrap.js`; the isolated Demo entry point is `platform-admin-demo/index.html` with `src/platform-admin/demo/bootstrap.js`.
 
-The customer and operator artifacts use separate backend processes, sessions, API routing and deployment manifests. Customer `src/app.js` never composes the operator artifact, and a failed Production operator session/API must never select either the customer application or the isolated Demo Control Plane. Architecture gates and their invalid fixtures must be extended with the implementation that introduces those runtime paths.
+The Customer and operator artifacts use separate backend processes, sessions, API routing and deployment manifests. Customer `src/app.js` never composes the operator artifact. A failed Customer or Platform session/API renders unavailable and never selects the other trust domain, a Production/Demo alternative, LocalStorage, fixtures or browser mutation logic.
 
 CSP, safe DOM creation, defensive storage, safe URL handling, API restrictions, secret scanning, dependency review and SAST-style checks remain unchanged or stronger.
 
@@ -342,6 +372,8 @@ Together they enforce, among other controls:
 - Tenant Admin section identities, section `index.js` entry-point usage and private section boundaries;
 - rejection of cross-section Tenant Admin imports and direct Tenant Admin section dependencies on Platform, Employee or Conference Manager internals;
 - rejection of Demo imports from Production-named modules covered by the SaaS 2 static boundary policy;
+- separate Customer Demo and Platform Demo entry points, sessions and same-origin API namespaces;
+- rejection of browser-storage business/persona/permission authority and Demo API fallback;
 - public-API-only external capability consumption;
 - Employee/Manager implementation isolation;
 - Shared independence from Employee/Manager internals;
@@ -359,11 +391,11 @@ Together they enforce, among other controls:
 - DAST fail-closed configuration;
 - design-system CSS ownership.
 
-The Composition Root Production/Demo runtime-selection conditional is not fully proven by static import analysis; it remains a regression, security-review and runtime-validation responsibility.
+Static import checks cannot prove runtime authorization, Tenant scoping, session rotation, reset atomicity or shared-state propagation; those remain database, integration, E2E and security-review responsibilities.
 
 The detailed SaaS 2 Tenant Admin constraints, including the approved section set and section-isolation expectations, are maintained in `docs/SAAS2-MODULAR-BOUNDARIES.md` and their corresponding architecture fixtures/checks. Architecture rules and their regression fixtures must change together.
 
-The SaaS 3 Platform Operator artifact and customer/operator deployment isolation are governed by `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`. Its future architecture gate must reject cross-entry-point authority imports, customer capability internals in the operator artifact, customer/operator session reuse, Production-to-Demo fallback, and a Production manifest that serves both entry points on one origin.
+The SaaS 3 Platform Operator artifact and Customer/operator deployment isolation are governed by `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`. The Platform boundary gate rejects cross-entry-point authority imports, customer capability internals in the operator artifact, Customer/operator session reuse, Production-to-Demo fallback, browser-owned Platform authority, and a Production manifest that serves both entry points on one origin. The Customer Demo gate rejects LocalStorage business authority, browser role authority and API-failure fallback.
 
 Architecture checks must represent architectural intent. Do not add arbitrary line-count or file-count gates. Filenames may be enforced when they are established public contracts/entry points. When a new meaningful boundary is introduced, assess whether the architecture gate must be extended.
 

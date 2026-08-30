@@ -48,6 +48,26 @@ function requestPage(overrides = {}) {
   };
 }
 
+test('profile hydration accepts only the exact server profile projection', async () => {
+  const harness = api(() => ({ profile: { displayName: 'Demo Employee' } }));
+  assert.deepEqual(
+    await createProductionPersistence({ apiClient: harness.client }).loadProfile(),
+    { displayName: 'Demo Employee' },
+  );
+  assert.deepEqual(harness.calls, [{ path: 'v1/application/profile', options: {} }]);
+
+  for (const payload of [
+    { schemaVersion: 1, profile: { displayName: 'Demo Employee' } },
+    { profile: { displayName: 'Demo Employee', tenantId: 'attacker' } },
+    { profile: { displayName: ' Demo Employee ' } },
+  ]) {
+    await assert.rejects(
+      createProductionPersistence({ apiClient: api(() => payload).client }).loadProfile(),
+      (error) => error.code === 'PRODUCTION_PROFILE_INVALID',
+    );
+  }
+});
+
 test('production persistence assembles every bounded catalogue section with one generation', async () => {
   const harness = api((path) => catalogPage(new URL(`https://example.test/${path}`).searchParams.get('section')));
   const catalog = await createProductionPersistence({ apiClient: harness.client }).loadCatalog();

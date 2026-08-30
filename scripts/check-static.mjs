@@ -47,7 +47,7 @@ const requiredCspDirectives = [
   "object-src 'none'",
   "base-uri 'none'",
   "form-action 'self'",
-  "connect-src 'none'",
+  "connect-src 'self'",
   "worker-src 'none'",
 ];
 if (!/http-equiv=["']Content-Security-Policy["']/i.test(index)) {
@@ -84,7 +84,7 @@ if (!/<meta\s+name=["']conference-runtime["']\s+content=["']demo["']/i.test(inde
 
 for (const [file, runtime, connectDirective] of [
   ['platform-admin/index.html', 'production', "connect-src 'self'"],
-  ['platform-admin-demo/index.html', 'demo', "connect-src 'none'"],
+  ['platform-admin-demo/index.html', 'demo', "connect-src 'self'"],
 ]) {
   const source = readFileSync(file, 'utf8');
   if (!/http-equiv=["']Content-Security-Policy["']/i.test(source)) {

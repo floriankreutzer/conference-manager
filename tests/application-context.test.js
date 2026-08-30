@@ -145,3 +145,48 @@ test('production context never reads browser demo role state to establish author
     else globalThis.localStorage = previousLocalStorage;
   }
 });
+
+test('Customer Demo context derives identity and capabilities only from the validated server session', async () => {
+  const calls = [];
+  const demoSession = Object.freeze({
+    ...session({
+      roles: ['employee', 'conference_manager'],
+      permissions: ['request:read', 'request:cancel', 'request:manage'],
+    }),
+    demo: Object.freeze({ persona: 'conference_manager' }),
+  });
+  const runtime = Object.freeze({
+    apiClient: Object.freeze({ async request() { throw new Error('NOT_EXPECTED'); } }),
+    status() { return PRODUCTION_AUTH_STATUS.AUTHENTICATED; },
+    async selectContext(value) { calls.push(value); },
+  });
+  const tenants = Object.freeze([
+    Object.freeze({ id: demoSession.tenant.id, displayName: 'Northwind' }),
+    Object.freeze({ id: '33333333-3333-4333-8333-333333333333', displayName: 'Contoso' }),
+  ]);
+  const context = createApplicationContextFromState({
+    runtimeMode: 'demo',
+    productionSession: demoSession,
+    productionAuthenticationStatus: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+    authenticationRuntime: runtime,
+    demoTenants: tenants,
+    serverProfile: { displayName: 'Demo Manager' },
+  });
+
+  assert.equal(context.isDemoRuntime(), true);
+  assert.equal(context.isAuthenticated(), true);
+  assert.equal(context.isManager(), true);
+  assert.equal(context.canManageTenantUsers(), false);
+  assert.equal(context.userId(), demoSession.user.id);
+  assert.equal(context.tenantId(), demoSession.tenant.id);
+  assert.equal(context.demoPersona(), 'conference_manager');
+  assert.equal(context.fullName(), 'Demo Manager');
+  assert.equal(context.serverPersistence(), context.productionPersistence());
+  assert.deepEqual(context.demoTenants(), tenants);
+  await context.switchDemoContext({ tenantId: tenants[1].id, persona: 'tenant_admin' });
+  await context.setRole('manager');
+  assert.deepEqual(calls, [
+    { tenantId: tenants[1].id, persona: 'tenant_admin' },
+    { tenantId: demoSession.tenant.id, persona: 'conference_manager' },
+  ]);
+});

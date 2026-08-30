@@ -175,7 +175,10 @@ async function productionHtml() {
       '<meta name="conference-runtime" content="demo">',
       '<meta name="conference-runtime" content="production">',
     )
-    .replace("connect-src 'none'", "connect-src 'self'");
+    .replace(
+      './src/platform/demo-bootstrap.js?v=20260830-77',
+      './src/platform/production-bootstrap.js?v=20260830-77',
+    );
 }
 
 async function installProductionApplicationFixture(page, {

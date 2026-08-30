@@ -1,5 +1,7 @@
-import { t } from '../core/i18n.js';
 import { notificationRepository } from '../core/storage.js';
+import { notificationText } from './notification-presentation.js';
+
+export { notificationText };
 
 export function notify(key, request, values = {}) {
   const list = notificationRepository.all();
@@ -11,16 +13,6 @@ export function notify(key, request, values = {}) {
     at: new Date().toISOString(),
   });
   notificationRepository.save(list.slice(0, 30));
-}
-
-export function notificationText(notification) {
-  if (notification.key) {
-    const title = t(`notification.${notification.key}`);
-    const textKey = `notification.${notification.key}Text`;
-    const text = t(textKey, notification.values || {});
-    return { title, text: text === textKey ? '' : text };
-  }
-  return { title: notification.title || '', text: notification.text || '' };
 }
 
 export function recentNotifications(limit = 4) {

@@ -6,8 +6,6 @@ import { tenantSettingsConflictRevision } from '../../settings-revision.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../../bulk-transfer-panel.js';
 import { createLocationRollbackPreview } from './rollback-preview.js';
 
-export { createDemoLocationSettings } from './demo-adapter.js';
-
 const TITLE = 'tenantAdmin.locations.title';
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;

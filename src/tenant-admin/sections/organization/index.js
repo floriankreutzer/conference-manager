@@ -5,8 +5,6 @@ import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../..
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
 
-export { createDemoOrganizationSettings } from './demo-adapter.js';
-
 const TITLE = 'tenantAdmin.organization.title';
 const LOCALES = ['de-DE', 'en-GB'];
 const CURRENCIES = ['CHF', 'EUR', 'GBP', 'USD'];

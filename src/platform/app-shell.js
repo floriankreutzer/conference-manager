@@ -1,8 +1,8 @@
-import { REQUEST_STATUS, localTodayIso } from '../core/domain.js';
-import { formatDate, formatDateTime, language, setLanguage, t } from '../core/i18n.js';
+import { REQUEST_STATUS } from '../core/domain.js';
+import { formatDateTime, language, setLanguage, t } from '../core/i18n.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { kpi } from '../shared/application-presentation.js';
-import { notificationText } from '../shared/notifications.js';
+import { notificationText } from '../shared/notification-presentation.js';
 import { PRODUCTION_AUTH_STATUS } from './production-session.js';
 import { TENANT_PRESENTATION_FALLBACK } from './tenant-presentation-api.js';
 import { applyTenantPresentationToDocument } from './tenant-presentation-runtime.js';
@@ -49,16 +49,12 @@ export function createAppShell({
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
 
-  function isProductionRuntime() {
-    return !context.isDemoRuntime();
-  }
-
   function setPageHeading(title, subtitle) {
     titleRoot.textContent = title;
     subtitleRoot.textContent = subtitle;
   }
 
-  function productionViewAllowed(nextView) {
+  function serverViewAllowed(nextView) {
     if (nextView === 'welcome') return true;
     if (!context.isAuthenticated()) return false;
     if ((nextView === 'employee' || nextView === 'requests') && employee) return true;
@@ -68,12 +64,7 @@ export function createAppShell({
   }
 
   function setView(nextView) {
-    if (isProductionRuntime()) {
-      if (!productionViewAllowed(nextView)) nextView = 'welcome';
-    } else {
-      if (nextView === 'manager' && !context.isManager()) nextView = 'welcome';
-      if (nextView === 'tenantAdmin' && (!context.isTenantAdmin() || !tenantAdmin)) nextView = 'welcome';
-    }
+    if (!serverViewAllowed(nextView)) nextView = 'welcome';
     onViewChange?.(nextView);
     view = nextView;
     render();
@@ -91,10 +82,6 @@ export function createAppShell({
   }
 
   function profileRoleLabel() {
-    if (context.isDemoRuntime()) {
-      if (context.isTenantAdmin()) return t('profile.role.tenantAdmin');
-      return context.isManager() ? t('profile.role.manager') : t('profile.role.employee');
-    }
     if (context.isManager() && context.canManageTenantUsers()) return t('profile.role.managerTenantAdmin');
     if (context.isManager()) return t('profile.role.manager');
     if (context.canManageTenantUsers()) return t('profile.role.tenantAdmin');
@@ -125,35 +112,24 @@ export function createAppShell({
     clear(navigationRoot);
     const list = el('ul', { className: 'nav-list' });
 
-    if (isProductionRuntime()) {
-      if (context.isAuthenticated()) {
-        list.append(navButton('nav.welcome', 'welcome'));
-        if (employee) {
-          list.append(
-            navButton('nav.newRequest', 'employee'),
-            navButton('nav.myRequests', 'requests'),
-          );
-        }
-        if (context.isManager() && manager) list.append(navButton('nav.manager', 'manager'));
-        if (context.canManageTenantUsers() && tenantAdmin) {
-          list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
-        }
-        list.append(profileNavigationItem());
+    if (context.isAuthenticated()) {
+      list.append(navButton('nav.welcome', 'welcome'));
+      if (employee) {
+        list.append(
+          navButton('nav.newRequest', 'employee'),
+          navButton('nav.myRequests', 'requests'),
+        );
       }
-    } else {
-      list.append(
-        navButton('nav.welcome', 'welcome'),
-        navButton('nav.newRequest', 'employee'),
-        navButton('nav.myRequests', 'requests'),
-      );
-      if (context.isManager()) list.append(navButton('nav.manager', 'manager'));
-      if (context.isTenantAdmin() && tenantAdmin) list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
+      if (context.isManager() && manager) list.append(navButton('nav.manager', 'manager'));
+      if (context.canManageTenantUsers() && tenantAdmin) {
+        list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
+      }
       list.append(profileNavigationItem());
     }
 
     navigationRoot.appendChild(list);
     navigationRoot.setAttribute('aria-label', t('a11y.mainNav'));
-    document.getElementById('sidebarFooter').textContent = context.isDemoRuntime() ? t('app.mvp') : '';
+    document.getElementById('sidebarFooter').textContent = context.isDemoRuntime() ? t('app.demoShared') : '';
   }
 
   function renderProductionAuthentication() {
@@ -190,17 +166,17 @@ export function createAppShell({
   function renderWelcome() {
     setPageHeading(t('nav.welcome'), t('welcome.subtitle'));
     const currentRequests = context.requests();
-    const today = localTodayIso();
+    const now = Date.now();
     const openCount = currentRequests.filter((request) => [
       REQUEST_STATUS.SUBMITTED,
       REQUEST_STATUS.IN_REVIEW,
       REQUEST_STATUS.CHANGE_REQUESTED,
     ].includes(request.status)).length;
     const upcoming = currentRequests.filter(
-      (request) => request.status === REQUEST_STATUS.CONFIRMED && request.date >= today,
+      (request) => request.status === REQUEST_STATUS.CONFIRMED && Date.parse(request.startsAt) >= now,
     );
     const next = [...upcoming]
-      .sort((left, right) => `${left.date}${left.start}`.localeCompare(`${right.date}${right.start}`))[0];
+      .sort((left, right) => left.startsAt.localeCompare(right.startsAt))[0];
     const firstName = String(context.profile.firstName || '').trim();
     const displayName = tenantPresentation?.current?.().presentation.displayName
       || TENANT_PRESENTATION_FALLBACK.presentation.displayName;
@@ -220,7 +196,7 @@ export function createAppShell({
     const requestButton = button(t('welcome.bookings'));
     requestButton.addEventListener('click', () => setView('requests'));
     heroActions.append(newButton, requestButton);
-    if (employee.hasDraft()) {
+    if (employee?.hasDraft()) {
       const draftButton = button(t('draft.continue'));
       draftButton.addEventListener('click', employee.restoreDraft);
       heroActions.appendChild(draftButton);
@@ -231,13 +207,21 @@ export function createAppShell({
     overview.append(
       kpi(t('welcome.open'), openCount),
       kpi(t('welcome.upcoming'), upcoming.length),
-      kpi(t('welcome.today'), upcoming.filter((request) => request.date === today).length),
+      kpi(t('welcome.today'), upcoming.filter((request) => {
+        const date = new Date(request.startsAt);
+        const today = new Date(now);
+        return date.getFullYear() === today.getFullYear()
+          && date.getMonth() === today.getMonth()
+          && date.getDate() === today.getDate();
+      }).length),
     );
 
     const nextSection = el('section', { className: 'card' }, [el('h3', { text: t('welcome.next') })]);
     if (next) {
       nextSection.append(
-        el('p', { text: `${next.title} · ${formatDate(next.date)} · ${next.start}–${next.end}` }),
+        el('p', {
+          text: `${next.details?.title || t('production.common.requestId', { id: next.id })} · ${formatDateTime(next.startsAt)}`,
+        }),
         el('p', {
           text: context.localized(
             context.getCatalog().rooms.find((room) => room.id === next.roomId)?.name || next.roomId,
@@ -276,7 +260,7 @@ export function createAppShell({
         notifications.append(el('article', { className: 'notification-card' }, [
           el('strong', { text: text.title }),
           text.text ? el('p', { text: text.text }) : null,
-          el('small', { text: formatDateTime(notification.at) }),
+          el('small', { text: formatDateTime(notification.at || notification.createdAt) }),
         ]));
       });
     }
@@ -287,13 +271,9 @@ export function createAppShell({
   function openProfile() {
     const content = el('section', { className: 'profile-content' });
     const dl = el('dl', { className: 'details-list' });
-    const profileDetails = [];
-    if (context.isDemoRuntime() || context.fullName()) {
-      profileDetails.push(
-        [t('profile.first'), context.profile.firstName],
-        [t('profile.last'), context.profile.lastName],
-      );
-    }
+    const profileDetails = context.fullName()
+      ? [[t('profile.displayName'), context.fullName()]]
+      : [];
     profileDetails.push([t('profile.role'), profileRoleLabel()]);
     profileDetails.forEach(([term, value]) => dl.append(el('dt', { text: term }), el('dd', { text: value })));
     content.appendChild(dl);
@@ -309,30 +289,13 @@ export function createAppShell({
       hint: t('profile.languageNote'),
     }));
 
-    let roleSelect = null;
-    if (context.canSwitchRole()) {
-      roleSelect = el('select');
-      roleSelect.append(
-        el('option', { value: 'employee', text: t('profile.role.employee') }),
-        el('option', { value: 'manager', text: t('profile.role.manager') }),
-        el('option', { value: 'tenant_admin', text: t('profile.role.tenantAdmin') }),
-      );
-      roleSelect.value = context.role();
-      content.appendChild(field({
-        id: 'profileRole',
-        label: t('profile.demo'),
-        control: roleSelect,
-        hint: t('profile.demoNote'),
-      }));
-    }
-
     const help = button(t('profile.help'));
-    const logout = button(t('profile.logout'), { className: 'danger' });
+    const logout = context.isDemoRuntime() ? null : button(t('profile.logout'), { className: 'danger' });
     const close = button(t('common.close'), { className: 'primary' });
     const dialog = openDialog({
       title: t('profile.title'),
       content,
-      actions: [help, logout, close],
+      actions: [help, logout, close].filter(Boolean),
       labelledById: 'profileTitle',
     });
     close.addEventListener('click', () => dialog.close());
@@ -340,11 +303,7 @@ export function createAppShell({
       dialog.close();
       requestAnimationFrame(openHelp);
     });
-    logout.addEventListener('click', async () => {
-      if (context.isDemoRuntime()) {
-        showToast(t('profile.logoutMvp'));
-        return;
-      }
+    logout?.addEventListener('click', async () => {
       logout.disabled = true;
       try {
         if (!authentication) throw new Error('AUTHENTICATION_RUNTIME_UNAVAILABLE');
@@ -357,16 +316,6 @@ export function createAppShell({
     languageSelect.addEventListener('change', () => {
       setLanguage(languageSelect.value);
       dialog.close();
-    });
-    roleSelect?.addEventListener('change', () => {
-      context.setRole(roleSelect.value);
-      dialog.close();
-      if ((!context.isManager() && view === 'manager')
-        || (!context.isTenantAdmin() && view === 'tenantAdmin')) {
-        setView('welcome');
-        return;
-      }
-      render();
     });
   }
 
@@ -408,35 +357,31 @@ export function createAppShell({
     document.getElementById('mainContent').removeAttribute('aria-busy');
     clear(appRoot);
     renderNavigation();
-    if (isProductionRuntime()) {
-      if (!context.isAuthenticated()) {
-        renderProductionAuthentication();
-        return;
-      }
-      if (view === 'employee' && employee) {
-        void employee.renderRequest();
-        return;
-      }
-      if (view === 'requests' && employee) {
-        void employee.renderRequests();
-        return;
-      }
-      if (view === 'manager' && context.isManager() && manager) {
-        void manager.renderManager();
-        return;
-      }
-      if (view === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin) {
-        tenantAdmin.render();
-        return;
-      }
+    if (!context.isAuthenticated()) {
       renderProductionAuthentication();
       return;
     }
-    if (view === 'welcome') renderWelcome();
-    else if (view === 'employee') employee.renderRequest();
-    else if (view === 'requests') employee.renderRequests();
-    else if (view === 'manager') manager.renderManager();
-    else if (view === 'tenantAdmin') tenantAdmin?.render();
+    if (view === 'welcome') {
+      renderWelcome();
+      return;
+    }
+    if (view === 'employee' && employee) {
+      void employee.renderRequest();
+      return;
+    }
+    if (view === 'requests' && employee) {
+      void employee.renderRequests();
+      return;
+    }
+    if (view === 'manager' && context.isManager() && manager) {
+      void manager.renderManager();
+      return;
+    }
+    if (view === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin) {
+      tenantAdmin.render();
+      return;
+    }
+    renderWelcome();
   }
 
   return {

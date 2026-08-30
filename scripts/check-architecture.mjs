@@ -49,13 +49,7 @@ if (JSON.stringify(cssLinks) !== JSON.stringify(expectedCss)) {
 }
 
 const scriptSources = [...index.matchAll(/<script[^>]+src=["']\.\/([^"']+\.js)(?:\?[^"']*)?["']/g)].map((match) => match[1]);
-const expectedScripts = [
-  'src/platform/identity-bootstrap.js',
-  'src/platform/demo-security.js',
-  'src/platform/requester-attribution.js',
-  'src/app.js',
-  'src/platform/feature-parity.js',
-];
+const expectedScripts = ['src/platform/demo-bootstrap.js'];
 if (JSON.stringify(scriptSources) !== JSON.stringify(expectedScripts)) {
   fail(`index.html: runtime orchestration drifted. Expected ${expectedScripts.join(', ')}; found ${scriptSources.join(', ')}.`);
 }
@@ -88,6 +82,12 @@ for (const required of [
   'src/manager/timeline-position.js',
   'src/platform/feature-flags.js',
   'src/platform/feature-parity.js',
+  'src/platform/demo-bootstrap.js',
+  'src/platform/production-bootstrap.js',
+  'src/platform/demo-session.js',
+  'src/employee/server.js',
+  'src/manager/server.js',
+  'src/tenant-admin/server.js',
   'src/shared/parity-data.js',
   'src/shared/booking-change-loader.js',
   'src/core/i18n.js',

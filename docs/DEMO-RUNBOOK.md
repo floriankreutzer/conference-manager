@@ -2,71 +2,79 @@
 
 ## Purpose and status
 
-This runbook describes the deterministic SaaS 2 baseline available in the static Demo. It is an operating aid, not production acceptance evidence. The Demo has no backend, real identity provider, customer tenant or production authorization boundary. Use example data only.
+This runbook describes the deterministic, server-backed Customer Demo introduced by SaaS 3.5. It is an operating aid, not Production or real-provider acceptance evidence. Use example data only.
 
-The browser declares `conference-runtime=demo`. The visible role selector changes presentation perspective only; it does not grant a production role.
+The browser declares `conference-runtime=demo` and `conference-demo-data=synthetic-server-backed`. It calls the Customer Demo API on the same Customer Demo origin. A separate Customer Demo process issues the Customer session and accesses the isolated shared Demo PostgreSQL database with a least-privilege customer role.
+
+The Tenant and persona selectors are request controls, not authorization controls. The browser sends an allowlisted context choice; the server resolves the fixture User, Tenant, roles and permissions and returns a minimized effective session. Customer Demo cookies, CSRF state and Principals are separate from the Platform Demo boundary.
 
 ## Deterministic baseline
 
-After an explicit Demo reset and reload, the following baseline is recreated:
+After the documented backend reset/reseed operation, the complete shared Demo baseline is recreated:
+
+The effective presentation is Conference Manager, German, EUR and the code-shipped PAVUREL product-default signet.
 
 | Surface | Baseline | Lifetime |
 | --- | --- | --- |
-| Language | The language selected immediately before reset is retained. German is the fallback when no valid preference exists. | Browser-local |
-| Perspective | Employee | Browser-local |
-| Profile | The example profile `Florian Kreutzer` is seeded when no profile exists. | Browser-local |
-| Employee data | No saved requests, request draft or notifications. The built-in room, service, catering and site examples are seeded on first use. | Browser-local |
-| Tenant settings and presentation | Organization, locations, catalogue, booking policies and cost allocation start in their normal fixtures at revision `1`. Bulk validation/apply receipts are reset. The effective presentation is Conference Manager, German, EUR and the code-shipped PAVUREL product-default signet. | In memory for the page lifecycle |
-| Microsoft 365 onboarding | Disconnected, unverified, no imported mappings and FreeBusy not verified. Calendar Write is not entitled in the current fixture. | In memory for the page lifecycle |
-| Tenant users, audit and readiness | Deterministic example fixtures with fixed identifiers and timestamps. | In memory for the page lifecycle |
+| Language | A valid selected language may remain as a non-authoritative preference. German is the fallback when no valid preference exists. | Browser-local preference |
+| Customer context | A seeded Tenant and Employee persona are returned by the Customer Demo session service. | Server session |
+| Customer Tenants | At least two stable, isolated Tenants with distinct Users, roles, lifecycle/readiness and business state. | Shared Demo PostgreSQL |
+| Profile and Employee data | Deterministic fixture profile, catalogue, Sites/Rooms, Requests, history and notifications. | Shared Demo PostgreSQL |
+| Tenant settings and presentation | Deterministic Organization, Locations, Catalogue, Booking Policies and Cost Allocation revisions, including the code-shipped PAVUREL product-default signet. | Shared Demo PostgreSQL |
+| Integration simulation | Deterministic provider-neutral success and failure scenarios; no real Microsoft Graph or identity-provider calls. | Demo provider adapter and PostgreSQL |
+| Tenant users, audit and readiness | Deterministic fixture identities and server-owned Tenant/audit/readiness projections. | Shared Demo PostgreSQL |
 | Images and route code | Catering art is deterministic inline SVG. The baseline OpenStreetMap QR code is a repository-owned asset. Conference Manager image edits accept only bounded managed `assets/` paths or constrained inline SVG data; cross-origin sources are rejected before save. No external image or QR service is contacted automatically. | Repository-owned |
 
-The capabilities/readiness panel is a separate read-only fixture in the current Demo. Do not infer that it changes in response to the Microsoft 365 onboarding controls.
+The Demo reuses canonical Customer application services and repository contracts. A shared database does not combine the Customer and Platform trust domains or authorize either process to use the other's session, cookie, CSRF state, routes or database role.
 
 ## Reset and reseed
 
-1. Select the language that should remain active.
-2. Choose **Clear demo data** in the Demo Mode panel.
-3. Confirm the browser prompt.
-4. Wait for the automatic reload.
-5. Verify that the role selector shows Employee and no saved request is present.
-6. Switch to Tenant Admin only when the Tenant Admin baseline needs to be inspected.
-7. Verify revision `1` in each settings section, **Conference Manager** as the presentation name, the PAVUREL product-default signet and a disconnected Microsoft 365 onboarding state.
+1. Use the documented `conference-manager-api` Demo reset command, or the authenticated Platform Demo reset control.
+2. Supply the exact expected seed version when using the command-line reset.
+3. Wait for the reset to complete and record the returned seed version and checksum.
+4. Reload the Customer Demo. The prior Demo sessions have been invalidated, so a fresh Customer session is established.
+5. Verify the seeded Tenant and Employee persona, then inspect the deterministic catalogue, Site/Room and Request baseline.
+6. Select Tenant Admin through the Demo context control and verify the seeded settings, Users, integration simulation, audit and readiness state.
+7. Open the Platform Demo separately and verify that it observes the same canonical Tenant identifiers and reset baseline through its own session.
 
-The reset removes every `conference_*` key from both `localStorage` and `sessionStorage`, restores only the selected language, and reloads the page. The profile, reference catalogue and site examples are then seeded again by the normal Demo bootstrap. Tenant Admin adapters are newly constructed by the application composition root.
-
-Changing the Demo role also reloads the page. Tenant Admin adapters are currently in memory, so an ordinary role change recreates their fixtures. The recreated Organization fixture remains Conference Manager with the PAVUREL product-default presentation. Do not use a role switch as evidence that Tenant Admin configuration persists across perspectives.
+Reset is a backend operation protected by Demo-only composition, authorization, CSRF when exposed through HTTP, and a database-level exclusive reset lease. It atomically clears mutable Demo state, reseeds canonical rows and projections, records the reset audit event, advances session invalidation state and returns the deterministic seed version/checksum. Production artifacts and route registries do not contain the reset implementation.
 
 ## Current usable baseline scenarios
 
-- Employee: create and submit an example conference request, inspect room and catering illustrations, and clear the browser-local result with the reset control.
-- Conference Manager: inspect submitted requests, make the currently supported decisions, review room planning and reports, and edit the legacy browser-local reference examples.
-- Tenant Admin: inspect and edit the normal in-memory fixtures for organization, locations, catalogue, booking policies and cost allocation; exercise the currently exposed Microsoft 365 connect, verify, room import and FreeBusy sequence; inspect example users, audit entries and readiness.
-- Tenant Admin bulk transfer: in Locations, Catalogue or Cost Allocation, download a template or minimized export; edit only rows of the selected type; select the JSON document; run validation; then apply the receipt-backed change. Reapplying the same receipt returns the same result without advancing the revision again. Reset restores revision `1` and clears all receipts.
+- Employee: create and submit an example conference request from the selected Tenant's persisted catalogue and Site/Room configuration.
+- Conference Manager: inspect the same persisted Request, execute supported server-authorized workflow decisions, and review planning and reporting projections.
+- Tenant Admin: inspect and edit the selected Tenant's server-backed Organization, Locations, Catalogue, Booking Policies and Cost Allocation; exercise the deterministic integration simulation; inspect Users, audit and readiness.
+- Tenant Admin bulk transfer: download a template or minimized export, validate the selected document, apply the receipt-backed change, and verify that replay is idempotent. Reset restores the canonical seed revision and clears mutable receipts.
 - Confirmed request print view: open the visitor information view. The baseline route link is external but is contacted only after deliberate navigation; its QR image is served by the Demo origin.
 
-There is no supported end-user scenario selector for empty, conflict, history, recovery, degraded or revoked provider fixtures. Private adapter fixtures and test-only module construction are not a documented customer scenario.
+Changing Tenant or persona calls `PUT /api/v1/demo/session/context`, rotates the effective server-owned context and reloads the presentation. A reload, fresh browser profile or second browser observes the same persisted business state after establishing its own session.
 
-## Representative SaaS 2 story
+The context change selects a deterministic server-owned fixture Principal; it does not recreate browser fixtures. The seeded Tenant presentation remains the PAVUREL product-default presentation unless an authorized Tenant setting changes it.
 
-1. Reset the Demo and create an Employee request using the seeded Site, room, services, catering and optional cost allocation.
-2. Switch to Conference Manager, review the request, inspect planning/reporting, and complete a supported workflow or confirmed-booking change.
-3. Switch to Tenant Admin, update a settings aggregate, inspect its history, and exercise one deterministic conflict/recovery case in the focused scenario harness.
-4. Complete the simulated Microsoft connection, room import/mapping and FreeBusy sequence; inspect readiness and audit evidence. Calendar Write remains visibly independent.
-5. Export one supported master-data type, validate a changed document, apply it once, replay it, then reset and verify the baseline revision and data.
+## Representative shared-Demo story
 
-Focused `empty`, `conflict`, `history`, `recovery`, degraded and revoked fixtures are deterministic test and demonstration harnesses. They do not claim production identity, provider or tenant evidence.
+1. Reset/reseed and record the seed version/checksum.
+2. In the Platform Demo, prepare or activate a seeded Tenant through the Platform API.
+3. In the Customer Demo, select that exact Tenant and the Tenant Admin persona; update its supported settings and integration simulation.
+4. Switch to Employee, create and submit a Request using the persisted Tenant configuration.
+5. Switch to Conference Manager, review the same Request and complete the supported decision.
+6. Switch back to Employee and verify the persisted result and history.
+7. Return to the Platform Demo and verify the privacy-minimized projection for the same Tenant ID.
+8. Repeat a bounded negative attempt against the second seeded Tenant to demonstrate that shared persistence does not weaken Tenant isolation.
+
+Deterministic provider scenarios do not claim real identity, Microsoft 365 or Production evidence.
 
 ## Network and data-safety verification
 
-The application CSP limits `img-src` to `'self'` and `data:` and sets `connect-src 'none'`. A route hyperlink may point to an external HTTPS site, but the Demo does not fetch it until the user deliberately follows the link.
+The Customer Demo CSP limits connections to `'self'`; expected requests are same-origin `/api/*` calls. No cross-origin API, real identity-provider, Microsoft Graph, external image or QR service is contacted automatically. API/session/schema failure must render an unavailable or error state and must never activate browser persistence or fixtures as fallback.
 
 Run the focused checks with:
 
 ```bash
-node --test tests/demo-network-isolation.test.js
-node --test tests/tenant-bulk-settings.test.js
-npx playwright test tests/e2e/demo-network-isolation.spec.js
+npm run check:architecture
+npm run check:persistence
+node --test tests/customer-demo-session.test.js tests/customer-demo-boundaries.test.js
+npx playwright test tests/e2e/demo-role-switch.spec.js
 npm run check:static
 ```
 

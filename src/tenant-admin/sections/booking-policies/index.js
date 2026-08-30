@@ -4,8 +4,6 @@ import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../..
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
 
-export { createDemoBookingPolicySettings } from './demo-adapter.js';
-
 const TITLE = 'tenantAdmin.bookingPolicies.title';
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 

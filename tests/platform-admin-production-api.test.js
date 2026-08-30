@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createPlatformAdminApi, PlatformAdminApiError } from '../src/platform-admin/production/platform-api.js';
+import { createPlatformAdminApi, PlatformAdminApiError } from '../src/platform-admin/platform-api.js';
 import {
   createPlatformOperatorSessionApi,
   PlatformOperatorSessionError,

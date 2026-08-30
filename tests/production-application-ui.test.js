@@ -6,6 +6,7 @@ import {
   isProductionTimeZone,
   productionUtcInstant,
 } from '../src/employee/production-time.js';
+import { repeatRequestProjection } from '../src/employee/server-request-projection.js';
 
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
 const MANAGER_SOURCE = new URL('../src/manager/production-application.js', import.meta.url);
@@ -47,6 +48,21 @@ test('production request times are displayed with an explicit locale and site ti
   assert.equal(formatProductionDateTime(value, { locale: 'de-DE', timeZone: null }), '');
 });
 
+test('server-backed repeat preserves request content while moving an elapsed slot by whole weeks', () => {
+  const source = Object.freeze({
+    id: 'REQ-1',
+    version: 4,
+    startsAt: '2026-08-03T08:00:00.000Z',
+    endsAt: '2026-08-03T09:30:00.000Z',
+    details: Object.freeze({ title: 'Architecture review', serviceIds: Object.freeze(['svc-1']) }),
+  });
+  const repeated = repeatRequestProjection(source, Date.parse('2026-08-30T10:00:00.000Z'));
+  assert.equal(repeated.startsAt, '2026-08-31T08:00:00.000Z');
+  assert.equal(repeated.endsAt, '2026-08-31T09:30:00.000Z');
+  assert.equal(repeated.details, source.details);
+  assert.equal(source.startsAt, '2026-08-03T08:00:00.000Z');
+});
+
 test('production Employee and Manager applications cannot depend on browser persistence authority', async () => {
   const employee = await source(EMPLOYEE_SOURCE);
   const manager = await source(MANAGER_SOURCE);
@@ -58,7 +74,13 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(employee, /persistence\.checkRoomAvailability/);
   assert.match(employee, /site\?\.timeZone/);
   assert.match(employee, /persistence\.transitionRequest/);
+  assert.match(employee, /persistence\.resubmitRequest/);
+  assert.match(employee, /persistence\.loadRequestHistory/);
+  assert.match(employee, /repeatRequestProjection/);
+  assert.match(employee, /printWindow\.print/);
   assert.match(manager, /persistence\.transitionRequest/);
+  assert.match(manager, /manager\.roomPlan/);
+  assert.match(manager, /persistence\.loadRequestReport/);
   assert.match(employee, /isProductionTimeZone\(timeZone\)/);
   assert.match(employee, /Date\.parse\(startsAt\) <= Date\.now\(\)/);
   assert.match(employee, /totalParticipants > MAX_PARTICIPANTS/);
@@ -69,13 +91,19 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(manager, /bookingChange\.status === 'pending'/);
 });
 
-test('Platform owns production persistence and Composition Root preserves demo applications', async () => {
+test('Platform owns shared server persistence and Composition Root uses only server applications', async () => {
   const [app, context] = await Promise.all([source(APP_SOURCE), source(CONTEXT_SOURCE)]);
   assert.match(context, /createProductionPersistence\(\{ apiClient: authenticationRuntime\.apiClient \}\)/);
-  assert.match(app, /context\.productionPersistence\(\)/);
-  assert.match(app, /context\.isDemoRuntime\(\)[\s\S]*createEmployeeApplication/);
-  assert.match(app, /context\.isDemoRuntime\(\)[\s\S]*createManagerApplication/);
+  assert.match(app, /context\.serverPersistence\(\)/);
+  assert.match(app, /createServerEmployeeApplication/);
+  assert.match(app, /createServerManagerApplication/);
+  assert.doesNotMatch(app, /createDemo|demo-adapter|demo-store|fixtures/);
   assert.doesNotMatch(app, /production-persistence\.js|localStorage|sessionStorage/);
+  assert.match(context, /Promise\.allSettled/);
+  assert.match(context, /persistence\.loadProfile\(\)/);
+  assert.match(context, /persistence\.loadCatalog\(\)/);
+  assert.match(context, /persistence\.listRequests\(\)/);
+  assert.match(context, /persistence\.listNotifications\(\)/);
 });
 
 test('production navigation keeps Tenant Admin and Conference Manager capabilities independent', async () => {
@@ -89,7 +117,7 @@ test('production navigation keeps Tenant Admin and Conference Manager capabiliti
 test('localized loading is rendered before the production session bootstrap await', async () => {
   const [app, shell] = await Promise.all([source(APP_SOURCE), source(SHELL_SOURCE)]);
   const loadingCall = app.indexOf('renderAppBootstrapLoading();');
-  const contextAwait = app.indexOf('const context = await createApplicationContext();');
+  const contextAwait = app.indexOf('const context = await createApplicationContext({');
   assert.equal(loadingCall >= 0, true);
   assert.equal(contextAwait > loadingCall, true);
   assert.match(shell, /auth\.production\.loadingTitle/);

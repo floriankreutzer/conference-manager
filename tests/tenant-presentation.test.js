@@ -71,9 +71,9 @@ const {
 } = await import('../src/shared/tenant-branding.js');
 const {
   TENANT_PRESENTATION_FALLBACK,
-  createDemoTenantPresentationApi,
   createTenantPresentationApi,
 } = await import('../src/platform/tenant-presentation-api.js');
+const { createDemoTenantPresentationApi } = await import('../src/platform/demo-tenant-presentation-api.js');
 const {
   applyTenantPresentationToDocument,
   createPresentationRefreshingOrganizationSettings,

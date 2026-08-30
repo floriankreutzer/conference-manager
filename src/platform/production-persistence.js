@@ -221,6 +221,12 @@ function requestCollection(value) {
   return normalizedCollection(value, 'PRODUCTION_REQUESTS_INVALID', requestPayload);
 }
 
+function profilePayload(value) {
+  const code = 'PRODUCTION_PROFILE_INVALID';
+  const profile = assertExactObject(value, ['displayName'], code);
+  return Object.freeze({ displayName: assertText(profile.displayName, code) });
+}
+
 function bookingChangePayload(value, code = 'PRODUCTION_BOOKING_CHANGE_INVALID') {
   if (value === null) return null;
   const change = assertExactObject(value, [
@@ -280,6 +286,11 @@ function assertExactVersionedEnvelope(payload, field, code) {
     throw new ProductionPersistenceError('PRODUCTION_SCHEMA_VERSION_UNSUPPORTED');
   }
   assertExactObject(envelope, ['schemaVersion', field], code);
+  return envelope[field];
+}
+
+function assertExactEnvelope(payload, field, code) {
+  const envelope = assertExactObject(payload, [field], code);
   return envelope[field];
 }
 
@@ -411,12 +422,11 @@ export function createProductionPersistence({ apiClient } = {}) {
 
   return Object.freeze({
     async loadProfile() {
-      return Object.freeze({
-        ...assertPlainObject(assertVersionedEnvelope(
-          await call(apiClient, DOMAIN_ENDPOINTS.profile),
-          'profile',
-        )),
-      });
+      return profilePayload(assertExactEnvelope(
+        await call(apiClient, DOMAIN_ENDPOINTS.profile),
+        'profile',
+        'PRODUCTION_PROFILE_INVALID',
+      ));
     },
 
     async loadCatalog() {
@@ -586,15 +596,14 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async updateProfile(profile) {
-      return Object.freeze({
-        ...assertPlainObject(assertVersionedEnvelope(
-          await call(apiClient, DOMAIN_ENDPOINTS.profile, {
-            method: 'PUT',
-            body: assertPlainObject(profile, 'PRODUCTION_PROFILE_INVALID'),
-          }),
-          'profile',
-        )),
-      });
+      return profilePayload(assertExactEnvelope(
+        await call(apiClient, DOMAIN_ENDPOINTS.profile, {
+          method: 'PUT',
+          body: profilePayload(profile),
+        }),
+        'profile',
+        'PRODUCTION_PROFILE_INVALID',
+      ));
     },
 
     async markNotificationRead(notificationId) {

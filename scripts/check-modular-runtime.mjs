@@ -46,35 +46,38 @@ const coreRoot = normalize('src/core');
 const employeeIndex = normalize('src/employee/index.js');
 const managerIndex = normalize('src/manager/index.js');
 const tenantAdminIndex = normalize('src/tenant-admin/index.js');
+const employeeServer = normalize('src/employee/server.js');
+const managerServer = normalize('src/manager/server.js');
+const tenantAdminServer = normalize('src/tenant-admin/server.js');
 const managerAdminParity = normalize('src/manager/admin-parity.js');
 const featureFlagPath = normalize('src/platform/feature-flags.js');
 const appPath = normalize('src/app.js');
 
 const app = readFileSync(appPath, 'utf8');
 const allowedAppImports = new Set([
-  './employee/index.js',
-  './manager/index.js',
-  './tenant-admin/index.js',
+  './employee/server.js',
+  './manager/server.js',
+  './tenant-admin/server.js',
   './platform/application-context.js',
   './platform/app-shell.js',
   './platform/tenant-admin-operations-api.js',
-  './platform/tenant-settings-api.js',
+  './platform/server-tenant-settings-api.js',
   './platform/tenant-user-administration-api.js',
   './platform/microsoft365-connection-api.js',
 ]);
 
 for (const required of [
-  "from './employee/index.js'",
-  "from './manager/index.js'",
-  "from './tenant-admin/index.js'",
+  "from './employee/server.js'",
+  "from './manager/server.js'",
+  "from './tenant-admin/server.js'",
   "from './platform/application-context.js'",
   "from './platform/app-shell.js'",
   "from './platform/tenant-admin-operations-api.js'",
-  "from './platform/tenant-settings-api.js'",
+  "from './platform/server-tenant-settings-api.js'",
   "from './platform/tenant-user-administration-api.js'",
   "from './platform/microsoft365-connection-api.js'",
-  'createEmployeeApplication',
-  'createManagerApplication',
+  'createServerEmployeeApplication',
+  'createServerManagerApplication',
   'createTenantAdminApplication',
   'createApplicationContext',
   'createAppShell',
@@ -120,6 +123,15 @@ const tenantAdminFacade = readFileSync(tenantAdminIndex, 'utf8');
 if (!tenantAdminFacade.includes('createTenantAdminApplication')) {
   fail('src/tenant-admin/index.js: Tenant Admin public API must expose createTenantAdminApplication.');
 }
+if (!readFileSync(employeeServer, 'utf8').includes('createServerEmployeeApplication')) {
+  fail('src/employee/server.js: server-authoritative Employee public API is missing.');
+}
+if (!readFileSync(managerServer, 'utf8').includes('createServerManagerApplication')) {
+  fail('src/manager/server.js: server-authoritative Manager public API is missing.');
+}
+if (!readFileSync(tenantAdminServer, 'utf8').includes('createTenantAdminApplication')) {
+  fail('src/tenant-admin/server.js: server-authoritative Tenant Admin public API is missing.');
+}
 
 for (const file of sourceFiles) {
   const source = readFileSync(file, 'utf8');
@@ -127,13 +139,16 @@ for (const file of sourceFiles) {
     const dependency = resolvedDependency(file, declaration.specifier);
     if (!dependency) continue;
 
-    if (!isInside(file, employeeRoot) && isInside(dependency, employeeRoot) && dependency !== employeeIndex) {
+    if (!isInside(file, employeeRoot) && isInside(dependency, employeeRoot)
+      && dependency !== employeeIndex && dependency !== employeeServer) {
       fail(`${file}: Employee internals are private; external consumers must use src/employee/index.js.`);
     }
-    if (!isInside(file, managerRoot) && isInside(dependency, managerRoot) && dependency !== managerIndex) {
+    if (!isInside(file, managerRoot) && isInside(dependency, managerRoot)
+      && dependency !== managerIndex && dependency !== managerServer) {
       fail(`${file}: Manager internals are private; external consumers must use src/manager/index.js.`);
     }
-    if (!isInside(file, tenantAdminRoot) && isInside(dependency, tenantAdminRoot) && dependency !== tenantAdminIndex) {
+    if (!isInside(file, tenantAdminRoot) && isInside(dependency, tenantAdminRoot)
+      && dependency !== tenantAdminIndex && dependency !== tenantAdminServer) {
       fail(`${file}: Tenant Admin internals are private; external consumers must use src/tenant-admin/index.js.`);
     }
 

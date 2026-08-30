@@ -22,8 +22,7 @@
     "src/core/i18n-tenant-admin-settings-messages.js",
     "src/core/i18n-tenant-settings-domain-messages.js",
     "src/core/i18n.js",
-    "src/core/security-policy.js",
-    "src/core/storage.js",
+    "src/core/preferences.js",
     "src/core/ui.js",
     "src/platform-admin/application.js",
     "src/platform-admin/contracts.js",
@@ -31,7 +30,7 @@
     "src/platform-admin/index.js",
     "src/platform-admin/production/bootstrap.js",
     "src/platform-admin/production/operator-session.js",
-    "src/platform-admin/production/platform-api.js",
+    "src/platform-admin/platform-api.js",
     "src/platform-admin/resource-contracts.js",
     "src/platform-admin/route.js",
     "src/platform-admin/tenant-sections.js"

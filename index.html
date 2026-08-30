@@ -7,19 +7,20 @@
   <meta name="theme-color" content="#7A1F3D">
   <meta name="referrer" content="no-referrer">
   <meta name="conference-runtime" content="demo">
+  <meta name="conference-demo-data" content="synthetic-server-backed">
   <meta name="conference-end-user-readiness" content="ready">
   <meta name="conference-manager-readiness" content="ready">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'sha256-IwFkyCVIyurW9bJF80THrt85tGm07bI5WVzgH12f8GE=' 'sha256-/ZJyhxwkFy8aRB7cj/3aOjLSm85p3cPyLmPldxKhD3s='; style-src-attr 'none'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'sha256-IwFkyCVIyurW9bJF80THrt85tGm07bI5WVzgH12f8GE=' 'sha256-/ZJyhxwkFy8aRB7cj/3aOjLSm85p3cPyLmPldxKhD3s='; style-src-attr 'none'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
   <title></title>
   <link rel="icon" href="./assets/brand/pavurel-app-icon.svg" type="image/svg+xml">
   <link rel="preload" href="./assets/fonts/Manrope%5Bwght%5D.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="stylesheet" href="./assets/tokens.css?v=20260825-01">
   <link rel="stylesheet" href="./assets/styles.css?v=20260827-74">
   <link rel="stylesheet" href="./assets/feature-parity.css?v=20260825-01">
-  <link rel="stylesheet" href="./assets/app-layout.css?v=20260827-76">
+  <link rel="stylesheet" href="./assets/app-layout.css?v=20260830-77">
   <link rel="stylesheet" href="./assets/manager-layout.css?v=20260825-01">
   <link rel="stylesheet" href="./assets/employee-ux.css?v=20260823-71">
-  <link rel="stylesheet" href="./assets/demo-security.css?v=20260823-55">
+  <link rel="stylesheet" href="./assets/demo-security.css?v=20260830-77">
 </head>
 <body>
   <a id="skipLink" class="skip-link" href="#mainContent"></a>
@@ -53,10 +54,6 @@
   <div id="alertRegion" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <script type="module" src="./src/platform/identity-bootstrap.js?v=20260824-01"></script>
-  <script type="module" src="./src/platform/demo-security.js?v=20260824-62"></script>
-  <script type="module" src="./src/platform/requester-attribution.js?v=20260823-70"></script>
-  <script type="module" src="./src/app.js?v=20260827-76"></script>
-  <script type="module" src="./src/platform/feature-parity.js?v=20260824-02"></script>
+  <script type="module" src="./src/platform/demo-bootstrap.js?v=20260830-77"></script>
 </body>
 </html>

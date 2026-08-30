@@ -10,8 +10,10 @@ const CUSTOMER_CAPABILITY_ROOTS = Object.freeze([
   'src/platform',
   'src/shared',
 ]);
-const NETWORK_AUTHORITY = /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|createApiClient)\b/;
+const DIRECT_NETWORK_AUTHORITY = /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon)\b/;
+const API_CLIENT_FACTORY = /\bcreateApiClient\b/;
 const BROWSER_STORAGE = /\b(?:localStorage|sessionStorage)\b/;
+const RETIRED_DEMO_AUTHORITY = /\b(?:platform_admin_demo_v1|createPlatformAdminDemoStore|createPlatformAdminDemoAdapter)\b/;
 
 function violation(file, message) {
   return `${file}: ${message}`;
@@ -35,16 +37,24 @@ export function platformAdminBoundaryViolations(sourceEntries) {
 
   for (const [file, sourceValue] of sources) {
     const source = String(sourceValue);
-    if (isInside(file, DEMO_ROOT) && NETWORK_AUTHORITY.test(source)) {
-      violations.push(violation(file, 'Demo modules must not create network or Production API authority.'));
+    if (isInside(file, DEMO_ROOT) && DIRECT_NETWORK_AUTHORITY.test(source)) {
+      violations.push(violation(file, 'Demo modules must use the approved same-origin API client, never direct network authority.'));
+    }
+    if (
+      isInside(file, DEMO_ROOT)
+      && file !== `${DEMO_ROOT}/bootstrap.js`
+      && API_CLIENT_FACTORY.test(source)
+    ) {
+      violations.push(violation(file, 'Only the Demo Composition Root may construct the approved API client.'));
     }
     if (isInside(file, PRODUCTION_ROOT) && BROWSER_STORAGE.test(source)) {
       violations.push(violation(file, 'Production Platform Admin modules must not use browser storage as authority.'));
     }
-    if (isInside(file, PLATFORM_ADMIN_ROOT)
-      && file !== `${DEMO_ROOT}/demo-store.js`
-      && BROWSER_STORAGE.test(source)) {
-      violations.push(violation(file, 'Only the isolated Demo store may access browser storage.'));
+    if (isInside(file, PLATFORM_ADMIN_ROOT) && BROWSER_STORAGE.test(source)) {
+      violations.push(violation(file, 'Platform Admin modules must not use browser storage as business or session authority.'));
+    }
+    if (isInside(file, PLATFORM_ADMIN_ROOT) && RETIRED_DEMO_AUTHORITY.test(source)) {
+      violations.push(violation(file, 'Retired browser-owned Platform Demo authority is forbidden.'));
     }
   }
 

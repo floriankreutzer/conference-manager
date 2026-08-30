@@ -15,7 +15,7 @@ test('Demo automatic image and QR paths cannot use a cross-origin network source
   assert.ok(csp, 'The static Demo must declare a CSP.');
   const imageDirective = csp.match(/(?:^|;)\s*img-src\s+([^;]+)/)?.[1].trim().split(/\s+/);
   assert.deepEqual(imageDirective, ["'self'", 'data:']);
-  assert.match(csp, /(?:^|;)\s*connect-src 'none'(?:;|$)/);
+  assert.match(csp, /(?:^|;)\s*connect-src 'self'(?:;|$)/);
 
   assert.doesNotMatch(runtimeSources, /images\.unsplash\.com/i);
   assert.doesNotMatch(runtimeSources, /api\.qrserver\.com/i);
