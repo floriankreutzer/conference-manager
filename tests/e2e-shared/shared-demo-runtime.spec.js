@@ -367,6 +367,8 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const invalidatedPlatform = await platformContext.request.get(`${PLATFORM_ORIGIN}/api/v1/platform/tenants?limit=100`);
   expect((await expectStatus(invalidatedPlatform, 401)).error.code).toBe('PLATFORM_UNAUTHENTICATED');
 
+  await customerContext.clearCookies();
+  await platformContext.clearCookies();
   customerSession = await establishCustomer(customerContext);
   platformSession = await establishPlatform(platformContext);
   platformSession = await switchPlatform(platformContext, platformSession, 'security_auditor');
