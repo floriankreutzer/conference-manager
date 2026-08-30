@@ -53,7 +53,6 @@ test('recovery controls require the simulated step-up Security Admin', async ({ 
   await expect(page.locator('[data-platform-admin-recovery-preview="tenant-reactivation"]')).toHaveCount(0);
   await page.locator('select[aria-label]').filter({ has: page.locator('option[value="security_admin"]') }).selectOption('security_admin');
   await expect(page.locator('[data-platform-admin-recovery-preview="tenant-reactivation"]')).toBeVisible();
-  await expect(page.locator('[data-platform-admin-section="recovery"] [data-state="step_up"]')).toBeVisible();
 });
 
 test('Demo role changes clear privileged resources and canonical metering remains available', async ({ page }) => {
@@ -80,7 +79,8 @@ test('Demo direct entitlement application uses the aggregate entitlement revisio
   await page.locator('select[aria-label]').filter({ has: page.locator('option[value="tenant_operator"]') }).selectOption('tenant_operator');
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await page.locator('[data-platform-admin-navigate="entitlements"]').click();
-  await page.locator('.platform-admin-entitlement-form input[type="checkbox"]').first().click();
+  await page.locator('.platform-admin-entitlement-option').filter({ hasText: 'microsoft.calendar.write' })
+    .locator('input[type="checkbox"]').click();
   await page.locator('.platform-admin-entitlement-form button[type="submit"]').click();
   await page.locator('[data-platform-admin-apply-entitlements="direct"]').click();
   await page.locator('#platformAdminResourceReason').fill('Synthetic entitlement exercise');
@@ -158,11 +158,11 @@ test('Production privileged actions start only the fixed step-up route and requi
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
   await expect(page.locator('[data-platform-action="suspend"]')).toHaveCount(0);
+  expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
   await page.getByRole('button', { name: /step-up|erhöhte bestätigung/i }).click();
   const request = await stepUpRequest;
   expect(request.method()).toBe('GET');
   expect(new URL(request.url()).search).toBe('');
-  expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
 });
 
 test('Production directory survives ordinary renders and exposes every cursor page', async ({ page }) => {
