@@ -161,10 +161,9 @@ jobs:
         run: npm run test:e2e:shared-demo
       - name: Stop Demo API processes
         if: always()
-        working-directory: api
         run: |
-          if [[ -f customer-demo-api.pid ]]; then kill "$(cat customer-demo-api.pid)" || true; fi
-          if [[ -f platform-demo-api.pid ]]; then kill "$(cat platform-demo-api.pid)" || true; fi
+          if [[ -f api/customer-demo-api.pid ]]; then kill "$(cat api/customer-demo-api.pid)" || true; fi
+          if [[ -f api/platform-demo-api.pid ]]; then kill "$(cat api/platform-demo-api.pid)" || true; fi
       - name: Upload shared Demo browser report on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

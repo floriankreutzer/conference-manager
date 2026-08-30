@@ -41,4 +41,6 @@ test('shared Demo CI pins the private API and fails closed without checkout auth
   assert.ok(apiCheckout, 'expected an immutable authenticated API checkout');
   assert.doesNotMatch(apiCheckout[1], /^(?:0{40}|f{40})$/);
   assert.match(workflow, /if \[\[ -z "\$SHARED_DEMO_API_READ_TOKEN" \]\]; then/);
+  assert.match(workflow, /if \[\[ -f api\/customer-demo-api\.pid \]\]/);
+  assert.doesNotMatch(workflow, /name: Stop Demo API processes\s+if: always\(\)\s+working-directory:/);
 });
