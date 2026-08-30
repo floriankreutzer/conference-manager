@@ -66,15 +66,30 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
 }
 
 async function expectUiResponseStatus(page, method, pathname, action, expectedStatus) {
+  const pageOrigin = new URL(page.url()).origin;
   const responsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.request().method() === method
-      && url.origin === CUSTOMER_ORIGIN
+      && url.origin === pageOrigin
       && url.pathname === pathname;
   });
   await action();
   const response = await responsePromise;
   expect(response.status()).toBe(expectedStatus);
+}
+
+async function switchPlatformThroughUi(page, persona) {
+  const select = page.getByLabel('Simulierte Operator-Rolle');
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'PUT'
+      && url.origin === PLATFORM_ORIGIN
+      && url.pathname === '/api/v1/platform/demo/session/persona';
+  });
+  await select.selectOption(persona);
+  expect((await responsePromise).status()).toBe(200);
+  await expect(select).toHaveValue(persona);
+  return establishPlatform(page.context());
 }
 
 async function establishPlatform(context) {
@@ -215,23 +230,20 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   expect((await expectStatus(unauthorizedTransition, 403)).error.code)
     .toBe('PLATFORM_AUTHORIZATION_DENIED');
 
-  platformSession = await switchPlatform(platformContext, platformSession, 'tenant_operator');
-  const activated = await platformContext.request.post(
-    `${PLATFORM_ORIGIN}/api/v1/platform/tenants/${TENANT_B}/lifecycle/transitions`,
-    {
-      headers: unsafeHeaders(PLATFORM_ORIGIN, platformSession.csrfToken, {
-        idempotencyKey: '41000000-0000-4000-8000-000000000002',
-      }),
-      data: {
-        targetStatus: 'active',
-        expectedRevision: 1,
-        reason: 'Activate the second shared Demo Tenant',
-        confirmation: { action: 'tenant.lifecycle.transition', tenantId: TENANT_B },
-      },
-    },
+  platformSession = await switchPlatformThroughUi(platformPage, 'tenant_operator');
+  await platformPage.locator(`[data-platform-admin-tenant="${TENANT_B}"]`).click();
+  await platformPage.locator('[data-platform-admin-navigate="lifecycle"]').click();
+  await platformPage.locator('[data-platform-action="activate"]').click();
+  await platformPage.locator('#platformAdminActionReason').fill('Activate the second shared Demo Tenant');
+  await expectUiResponseStatus(
+    platformPage,
+    'POST',
+    `/api/v1/platform/tenants/${TENANT_B}/lifecycle/transitions`,
+    () => platformPage.locator('[data-platform-admin-confirm-action="activate"]').click(),
+    200,
   );
-  const activation = await expectStatus(activated, 200);
-  expect(activation.lifecycle).toMatchObject({ tenantId: TENANT_B, status: 'active', revision: 2 });
+  await expect(platformPage.locator('[data-platform-admin-section="lifecycle"] [data-state="active"]'))
+    .toBeVisible();
 
   const staleActivation = await platformContext.request.post(
     `${PLATFORM_ORIGIN}/api/v1/platform/tenants/${TENANT_B}/lifecycle/transitions`,
@@ -249,30 +261,21 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect((await expectStatus(staleActivation, 409)).error.code).toBe('PLATFORM_LIFECYCLE_STALE');
 
-  customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'tenant_admin');
+  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'tenant_admin');
   expect(customerSession.tenant).toEqual({ id: TENANT_B, status: 'active' });
-  const currentOrganization = await expectStatus(
-    await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/tenant/settings/organization`),
+  await customerPage.locator('[data-view="tenantAdmin"]').click();
+  await customerPage.locator('[data-tenant-admin-section="organization"]').click();
+  const organizationForm = customerPage.locator('[data-tenant-settings-form="organization"]');
+  await expect(organizationForm.locator('#tenant-organization-display-name')).toHaveValue(BASELINE_NAME_B);
+  await organizationForm.locator('#tenant-organization-display-name').fill(MUTATED_NAME_B);
+  await expectUiResponseStatus(
+    customerPage,
+    'PUT',
+    '/api/v1/tenant/settings/organization',
+    () => organizationForm.getByRole('button', { name: /speichern/i }).click(),
     200,
   );
-  expect(currentOrganization.organization.displayName).toBe(BASELINE_NAME_B);
-  const organizationUpdate = await customerContext.request.put(
-    `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/organization`,
-    {
-      headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
-      data: {
-        schemaVersion: currentOrganization.schemaVersion,
-        expectedRevision: currentOrganization.revision,
-        organization: { ...currentOrganization.organization, displayName: MUTATED_NAME_B },
-      },
-    },
-  );
-  const updatedOrganization = await expectStatus(organizationUpdate, 200);
-  expect(updatedOrganization.organization.displayName).toBe(MUTATED_NAME_B);
-
-  await customerPage.reload();
-  await expect(customerPage.getByLabel('Demo-Tenant')).toHaveValue(TENANT_B);
-  await expect(customerPage.getByLabel('Demo-Persona')).toHaveValue('tenant_admin');
+  await expect(customerPage.locator('#brandTitle')).toHaveText(MUTATED_NAME_B);
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
   expect(customerSession.tenant).toEqual({ id: TENANT_B, status: 'active' });
 

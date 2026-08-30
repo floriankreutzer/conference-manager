@@ -1,7 +1,5 @@
 import { isProductionTimeZone, productionUtcInstant } from '../core/production-time.js';
 
-const WEEK_MILLISECONDS = 7 * 24 * 60 * 60 * 1_000;
-
 function wallValues(timestamp, timeZone) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -28,6 +26,11 @@ function addDays(dateValue, days) {
     .join('-');
 }
 
+function calendarDayNumber(dateValue) {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
 export function repeatRequestProjection(request, now = Date.now(), timeZone = null) {
   if (!request || !Number.isFinite(Date.parse(request.startsAt)) || !Number.isFinite(Date.parse(request.endsAt))) {
     throw new TypeError('PRODUCTION_REPEAT_REQUEST_INVALID');
@@ -39,7 +42,11 @@ export function repeatRequestProjection(request, now = Date.now(), timeZone = nu
   }
   const sourceStart = wallValues(Date.parse(request.startsAt), timeZone);
   const sourceEnd = wallValues(Date.parse(request.endsAt), timeZone);
-  let weeks = Math.max(1, Math.floor((now - Date.parse(request.startsAt)) / WEEK_MILLISECONDS) + 1);
+  const current = wallValues(now, timeZone);
+  let weeks = Math.max(
+    1,
+    Math.floor((calendarDayNumber(current.date) - calendarDayNumber(sourceStart.date)) / 7),
+  );
   let startsAt = null;
   let endsAt = null;
   do {

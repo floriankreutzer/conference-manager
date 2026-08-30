@@ -182,7 +182,7 @@ for (const file of [
 const employeeProduction = await readFile('src/employee/production-application.js', 'utf8');
 for (const required of [
   'persistence.loadCatalog()',
-  'persistence.checkRoomAvailability(window)',
+  'persistence.checkRoomAvailability(window, isResubmission ? sourceRequest.id : null)',
   'site?.timeZone',
   'productionUtcInstant(date.value, start.value, timeZone)',
   'persistence.createRequest(compositionDraft(',

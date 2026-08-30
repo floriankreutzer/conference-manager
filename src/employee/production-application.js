@@ -112,11 +112,18 @@ function requestCard(request, catalog, openChange, {
   }
   const history = button(t('production.manager.historyTab'));
   history.addEventListener('click', () => onHistory(request, history));
-  const print = button(t('guest.print'));
-  print.addEventListener('click', () => onPrint(request));
-  const repeat = button(t(request.status === 'Rejected' ? 'requests.repeatRejected' : 'requests.repeat'));
-  repeat.addEventListener('click', () => onRepeat(request));
-  article.appendChild(el('div', { className: 'button-row' }, [history, print, repeat]));
+  const secondaryActions = [history];
+  if (request.status === 'Confirmed') {
+    const print = button(t('guest.print'));
+    print.addEventListener('click', () => onPrint(request));
+    secondaryActions.push(print);
+  }
+  if (['Rejected', 'Cancelled'].includes(request.status)) {
+    const repeat = button(t(request.status === 'Rejected' ? 'requests.repeatRejected' : 'requests.repeat'));
+    repeat.addEventListener('click', () => onRepeat(request));
+    secondaryActions.push(repeat);
+  }
+  article.appendChild(el('div', { className: 'button-row' }, secondaryActions));
   if (request.status === 'Change Requested') {
     const resubmit = button(t('requests.editChange'), { className: 'primary' });
     resubmit.addEventListener('click', () => onResubmit(request));
@@ -557,7 +564,7 @@ export function createProductionEmployeeApplication({
       status.className = 'muted';
       status.textContent = t('production.employee.checkingAvailability');
       try {
-        const result = await persistence.checkRoomAvailability(window);
+        const result = await persistence.checkRoomAvailability(window, isResubmission ? sourceRequest.id : null);
         if (generation !== availabilityGeneration || key !== availabilityKey(currentAvailabilityWindow())) return;
         if (!result.available) {
           status.className = 'error-box';

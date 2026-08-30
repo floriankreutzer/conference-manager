@@ -305,7 +305,7 @@ function assertUtcInstant(value) {
   return assertCanonicalUtc(value, 'AVAILABILITY_WINDOW_INVALID');
 }
 
-function availabilityRequest(value) {
+function availabilityRequest(value, resubmissionRequestId = null) {
   const request = assertPlainObject(value, 'AVAILABILITY_WINDOW_INVALID');
   const roomId = assertRequestId(request.roomId);
   const startsAt = assertUtcInstant(request.startsAt);
@@ -313,7 +313,13 @@ function availabilityRequest(value) {
   if (Date.parse(endsAt) <= Date.parse(startsAt)) {
     throw new ProductionPersistenceError('AVAILABILITY_WINDOW_INVALID');
   }
-  return Object.freeze({ roomId, startsAt, endsAt });
+  const excluded = resubmissionRequestId === null ? null : assertRequestId(resubmissionRequestId);
+  return Object.freeze({
+    roomId,
+    startsAt,
+    endsAt,
+    ...(excluded === null ? {} : { resubmissionRequestId: excluded }),
+  });
 }
 
 function availabilityPayload(value) {
@@ -459,8 +465,8 @@ export function createProductionPersistence({ apiClient } = {}) {
       );
     },
 
-    async checkRoomAvailability(window) {
-      const payload = availabilityRequest(window);
+    async checkRoomAvailability(window, resubmissionRequestId = null) {
+      const payload = availabilityRequest(window, resubmissionRequestId);
       return availabilityEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.roomAvailability, {
         method: 'POST',
         body: payload,

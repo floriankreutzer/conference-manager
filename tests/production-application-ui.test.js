@@ -91,6 +91,19 @@ test('server-backed repeat preserves site-local wall-clock times across DST', ()
   assert.equal(repeated.endsAt, '2026-03-30T08:30:00.000Z');
 });
 
+test('server-backed repeat selects a same-day future occurrence across the autumn fallback', () => {
+  const repeated = repeatRequestProjection(
+    {
+      startsAt: '2026-10-19T08:00:00.000Z',
+      endsAt: '2026-10-19T09:00:00.000Z',
+    },
+    Date.parse('2026-10-26T08:30:00.000Z'),
+    'Europe/Berlin',
+  );
+  assert.equal(repeated.startsAt, '2026-10-26T09:00:00.000Z');
+  assert.equal(repeated.endsAt, '2026-10-26T10:00:00.000Z');
+});
+
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
   const request = {
     roomId: 'room-1',
