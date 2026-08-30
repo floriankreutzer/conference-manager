@@ -422,7 +422,7 @@ export function createProductionPersistence({ apiClient } = {}) {
 
   return Object.freeze({
     async loadProfile() {
-      return profilePayload(assertExactEnvelope(
+      return profilePayload(assertExactVersionedEnvelope(
         await call(apiClient, DOMAIN_ENDPOINTS.profile),
         'profile',
         'PRODUCTION_PROFILE_INVALID',

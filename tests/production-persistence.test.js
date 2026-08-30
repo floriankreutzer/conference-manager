@@ -49,17 +49,23 @@ function requestPage(overrides = {}) {
 }
 
 test('profile hydration accepts only the exact server profile projection', async () => {
-  const harness = api(() => ({ profile: { displayName: 'Demo Employee' } }));
+  const harness = api(() => ({ schemaVersion: 1, profile: { displayName: 'Demo Employee' } }));
   assert.deepEqual(
     await createProductionPersistence({ apiClient: harness.client }).loadProfile(),
     { displayName: 'Demo Employee' },
   );
   assert.deepEqual(harness.calls, [{ path: 'v1/application/profile', options: {} }]);
 
+  await assert.rejects(
+    createProductionPersistence({
+      apiClient: api(() => ({ profile: { displayName: 'Demo Employee' } })).client,
+    }).loadProfile(),
+    (error) => error.code === 'PRODUCTION_SCHEMA_VERSION_UNSUPPORTED',
+  );
   for (const payload of [
-    { schemaVersion: 1, profile: { displayName: 'Demo Employee' } },
-    { profile: { displayName: 'Demo Employee', tenantId: 'attacker' } },
-    { profile: { displayName: ' Demo Employee ' } },
+    { schemaVersion: 1, profile: { displayName: 'Demo Employee' }, tenantId: 'attacker' },
+    { schemaVersion: 1, profile: { displayName: 'Demo Employee', tenantId: 'attacker' } },
+    { schemaVersion: 1, profile: { displayName: ' Demo Employee ' } },
   ]) {
     await assert.rejects(
       createProductionPersistence({ apiClient: api(() => payload).client }).loadProfile(),
