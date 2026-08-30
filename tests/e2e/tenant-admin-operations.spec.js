@@ -14,7 +14,7 @@ test('audit history filters are keyboard operable, localized, redacted, and resp
   await startAsTenantAdmin(page);
   const navigation = page.locator('[data-tenant-admin-section="audit"]');
   await navigation.focus();
-  await page.keyboard.press('Enter');
+  await navigation.press('Enter');
 
   const section = page.locator('[data-tenant-admin-section-content="audit"]');
   await expect(section.getByRole('heading', { name: 'Audit & Änderungshistorie' })).toBeFocused();
