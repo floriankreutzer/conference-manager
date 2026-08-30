@@ -9,7 +9,7 @@ test('isolated Platform Admin Demo discloses synthetic local-only data and makes
   page.on('request', (request) => {
     const url = new URL(request.url());
     if (url.pathname.startsWith('/api/')) apiRequests.push(request.url());
-    if (url.origin !== 'http://127.0.0.1:4173') externalRequests.push(request.url());
+    if (url.origin !== 'https://127.0.0.1:4173') externalRequests.push(request.url());
   });
 
   await page.goto('/platform-admin-demo/');
@@ -50,9 +50,9 @@ test('Demo role permissions, confirmation, persistence, and isolated reset are r
 test('recovery controls require the simulated step-up Security Admin', async ({ page }) => {
   await page.goto(`/platform-admin-demo/#tenant=${RECOVERY_TENANT_ID}&section=recovery`);
   await page.locator('select[aria-label]').filter({ has: page.locator('option[value="tenant_operator"]') }).selectOption('tenant_operator');
-  await expect(page.locator('[data-platform-action="recover_projection"]')).toHaveCount(0);
+  await expect(page.locator('[data-platform-admin-recovery-preview="tenant-reactivation"]')).toHaveCount(0);
   await page.locator('select[aria-label]').filter({ has: page.locator('option[value="security_admin"]') }).selectOption('security_admin');
-  await expect(page.locator('[data-platform-action="recover_projection"]')).toBeVisible();
+  await expect(page.locator('[data-platform-admin-recovery-preview="tenant-reactivation"]')).toBeVisible();
   await expect(page.locator('[data-platform-admin-section="recovery"] [data-state="step_up"]')).toBeVisible();
 });
 
@@ -68,7 +68,7 @@ test('Production entry fails closed on an insecure or unavailable operator sessi
   await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(0);
   await expect(page.locator('[data-platform-admin-demo-reset]')).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem('platform_admin_demo_v1'))).toBeNull();
-  expect(apiRequests).toEqual(['http://127.0.0.1:4173/api/v1/platform/session']);
+  expect(apiRequests).toEqual(['https://127.0.0.1:4173/api/v1/platform/session']);
 });
 
 test('Production privileged actions start only the fixed step-up route and require fresh confirmation', async ({ page }) => {
@@ -94,7 +94,7 @@ test('Production privileged actions start only the fixed step-up route and requi
       assurance: { level: 'mfa', authenticatedAt: '2099-01-01T00:00:00.000Z' },
       expiresAt: '2099-01-01T01:00:00.000Z',
       stepUpExpiresAt: null,
-      csrfToken: 'session-bound-csrf-token',
+      csrfToken: 'c'.repeat(43),
     }),
   }));
   await page.route('**/api/v1/platform/tenants?*', (route) => route.fulfill({
