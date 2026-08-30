@@ -17,7 +17,7 @@ import {
   serviceEditorOptions,
 } from './server-request-editor.js';
 
-const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested']);
+const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed']);
 const MAX_PARTICIPANTS = 500;
 
 function safeParticipantCount(value) {
@@ -159,7 +159,10 @@ export function createProductionEmployeeApplication({
       queuedRequest = request;
     } else {
       const room = catalog.rooms.find((entry) => entry.id === request.roomId);
-      queuedRequest = repeatRequestProjection(request, Date.now(), roomTimeZone(room, catalog));
+      const timeZone = roomTimeZone(room, catalog);
+      queuedRequest = isProductionTimeZone(timeZone)
+        ? repeatRequestProjection(request, Date.now(), timeZone)
+        : Object.freeze({ ...request, roomId: '', startsAt: '', endsAt: '' });
     }
     queuedResubmission = resubmit;
     if (typeof onNavigate === 'function') onNavigate('employee');

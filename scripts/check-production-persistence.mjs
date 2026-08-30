@@ -187,7 +187,7 @@ for (const required of [
   'productionUtcInstant(date.value, start.value, timeZone)',
   'persistence.createRequest(compositionDraft(',
   "persistence.transitionRequest(requestId, { transition: 'cancel' })",
-  "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested'])",
+  "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed'])",
 ]) {
   if (!employeeProduction.includes(required)) {
     throw new Error(`Production Employee boundary is missing ${required}.`);

@@ -242,7 +242,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     () => platformPage.locator('[data-platform-admin-confirm-action="activate"]').click(),
     200,
   );
-  await expect(platformPage.locator('[data-platform-admin-section="lifecycle"] [data-state="active"]'))
+  await expect(platformPage.locator('[data-platform-admin-section="lifecycle"] [data-state="active"]').first())
     .toBeVisible();
 
   const staleActivation = await platformContext.request.post(
@@ -358,14 +358,42 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await expect(historyDialog).toBeVisible();
   await expect(historyDialog.locator('p')).toHaveCount(3);
   await historyDialog.getByRole('button', { name: 'Schließen' }).click();
+
+  await followUpCard.getByRole('button', { name: 'Änderung bearbeiten' }).click();
+  await expect(customerPage.locator('#productionTitle')).toHaveValue(REQUEST_TITLE);
+  await customerPage.locator('#productionInternal').fill('3');
+  const [resubmissionAvailabilityRequest] = await Promise.all([
+    customerPage.waitForRequest((request) => request.method() === 'POST'
+      && new URL(request.url()).pathname === '/api/v1/application/room-availability'),
+    expectUiResponseStatus(
+      customerPage,
+      'POST',
+      '/api/v1/application/room-availability',
+      () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
+      200,
+    ),
+  ]);
+  expect(resubmissionAvailabilityRequest.postDataJSON()).toMatchObject({
+    resubmissionRequestId: createdRequestId,
+  });
+  await expectUiResponseStatus(
+    customerPage,
+    'POST',
+    `/api/v1/requests/${createdRequestId}/resubmissions`,
+    () => customerPage.getByRole('button', { name: 'Änderung erneut einreichen' }).click(),
+    200,
+  );
+  const resubmittedCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
+  await expect(resubmittedCard).toContainText('Zur Prüfung');
+  await expect(resubmittedCard).toContainText('3');
   await expectUiResponseStatus(
     customerPage,
     'POST',
     transitionPath,
-    () => followUpCard.getByRole('button', { name: 'Anfrage stornieren' }).click(),
+    () => resubmittedCard.getByRole('button', { name: 'Anfrage stornieren' }).click(),
     200,
   );
-  await expect(followUpCard).toContainText('Storniert');
+  await expect(resubmittedCard).toContainText('Storniert');
   const employeeHistory = await expectStatus(
     await customerContext.request.get(
       `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}/history?limit=10`,
@@ -374,6 +402,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect(employeeHistory.history.map(({ request }) => request.status)).toEqual([
     'Cancelled',
+    'Submitted',
     'Change Requested',
     'In Review',
     'Submitted',

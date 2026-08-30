@@ -104,6 +104,12 @@ test('server-backed repeat selects a same-day future occurrence across the autum
   assert.equal(repeated.endsAt, '2026-10-26T10:00:00.000Z');
 });
 
+test('server-backed Employee actions preserve confirmed cancellation and safely clear unavailable repeat scheduling', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  assert.match(employee, /CANCELLABLE_STATUSES = new Set\(\[[^\]]*'Confirmed'/);
+  assert.match(employee, /isProductionTimeZone\(timeZone\)[\s\S]*roomId: '', startsAt: '', endsAt: ''/);
+});
+
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
   const request = {
     roomId: 'room-1',
