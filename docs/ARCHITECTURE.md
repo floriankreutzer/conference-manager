@@ -57,6 +57,7 @@ src/
 ├── employee/
 │   ├── index.js                   # public Employee API
 │   ├── application.js             # Employee UI/use-case orchestration
+│   ├── server-draft-store.js      # scoped, untrusted session draft only
 │   ├── request-session.js         # request-session model/mapping rules
 │   ├── request-lifecycle.js       # submit/resubmit/cancel/filter rules
 │   └── Employee experience enhancements
@@ -292,11 +293,11 @@ Runtime modules outside `src/platform/feature-flags.js` may consume the exported
 
 The active Customer and Platform Demo runtimes use one isolated PostgreSQL database through separate server processes and least-privilege database roles. Customer and Platform sessions, cookies, CSRF state, audit domains, API namespaces and origins remain separate. A shared database is not a shared authorization boundary.
 
-`src/core/preferences.js` owns the bounded browser-local language preference. An explicitly reviewed navigation marker or unsaved draft may remain local only when it cannot establish identity, Tenant, permission, workflow, price, entitlement, provider, audit or other business authority. `src/core/storage.js` contains historical/static-MVP persistence contracts but is unreachable as authoritative persistence from the active Demo and Production roots.
+`src/core/preferences.js` owns the bounded browser-local language preference. An explicitly reviewed navigation marker or unsaved draft may remain local only when it cannot establish identity, Tenant, permission, workflow, price, entitlement, provider, audit or other business authority. `src/employee/server-draft-store.js` is the sole active request-draft exception: it uses one versioned `sessionStorage` envelope scoped to the exact server-issued Tenant and User identifiers, accepts only a bounded allowlisted shape, and is discarded on scope mismatch or malformed data. Restored values remain untrusted editor input: the current server catalogue, booking-policy allowlists, time-zone conversion, availability endpoint, request validation and authorization are reapplied before submission. It never restores a server Request identifier, version, status, price, permission or workflow transition. `src/core/storage.js` contains historical/static-MVP persistence contracts but is unreachable as authoritative persistence from the active Demo and Production roots.
 
 Capability runtimes must not invent direct browser-storage conventions. New storage keys, serialization formats, restore/cache behavior or persistence abstractions require explicit architectural justification.
 
-One historical compatibility exception is explicitly approved for the existing baseline: `src/manager/admin-parity.js` writes `PARITY_RETURN_KEY` directly to `sessionStorage` immediately before a controlled page reload so the Manager administration view can restore its return position. This is a narrow session-scoped navigation marker, not a general persistence convention. The architecture gate permits only that exact `sessionStorage.setItem(PARITY_RETURN_KEY, ...)` call in that file and rejects any additional direct Employee/Manager browser-storage access. Do not expand this exception; removing it should be a separate regression-protected runtime cleanup routed through an approved contract.
+The architecture gate permits only the scoped Employee draft store above, the bounded Core language preference, and one historical navigation exception: `src/manager/admin-parity.js` writes `PARITY_RETURN_KEY` directly to `sessionStorage` immediately before a controlled page reload so the Manager administration view can restore its return position. The Manager exception is a narrow session-scoped navigation marker, not a general persistence convention. No other direct Employee/Manager browser-storage access is allowed.
 
 Historical browser data is never silently uploaded into the shared Demo or a Production Tenant. Server/API schema changes and any deliberately retained local preference migration remain explicit and tested. The repository retains compatibility documentation for:
 

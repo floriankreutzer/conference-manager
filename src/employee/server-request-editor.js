@@ -14,6 +14,21 @@ function appliesToRoom(entry, room) {
     && (!roomIds.length || roomIds.includes(room.id));
 }
 
+function allowedIdentifiers(catalog, rule) {
+  const values = catalog?.bookingPolicy?.rules?.[rule];
+  return new Set(Array.isArray(values) ? values : []);
+}
+
+export function roomEditorOptions(catalog) {
+  const allowedSites = allowedIdentifiers(catalog, 'allowedSiteIds');
+  const allowedRooms = allowedIdentifiers(catalog, 'allowedRoomIds');
+  return Object.freeze((catalog?.rooms || []).filter((room) => (
+    room.active !== false
+      && (!allowedSites.size || allowedSites.has(room.siteId))
+      && (!allowedRooms.size || allowedRooms.has(room.id))
+  )));
+}
+
 export function cateringEditorOptions(catalog, roomId) {
   const room = catalog?.rooms?.find((entry) => entry.id === roomId);
   return Object.freeze({
@@ -24,7 +39,10 @@ export function cateringEditorOptions(catalog, roomId) {
 
 export function serviceEditorOptions(catalog, roomId) {
   const room = catalog?.rooms?.find((entry) => entry.id === roomId);
-  return Object.freeze((catalog?.services || []).filter((entry) => appliesToRoom(entry, room)));
+  const allowedServices = allowedIdentifiers(catalog, 'allowedServiceIds');
+  return Object.freeze((catalog?.services || []).filter((entry) => (
+    appliesToRoom(entry, room) && (!allowedServices.size || allowedServices.has(entry.id))
+  )));
 }
 
 export function normalizeCateringEditorDraft({

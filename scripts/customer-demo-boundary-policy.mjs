@@ -3,6 +3,7 @@ import { buildModuleGraph, isInside } from './module-graph.mjs';
 const PRODUCTION_ENTRY = 'src/platform/production-bootstrap.js';
 const DEMO_ENTRY = 'src/platform/demo-bootstrap.js';
 const PREFERENCE_MODULE = 'src/core/preferences.js';
+const SERVER_DRAFT_MODULE = 'src/employee/server-draft-store.js';
 const DEMO_ONLY = Object.freeze([
   'src/platform/demo-bootstrap.js',
   'src/platform/demo-session.js',
@@ -51,7 +52,7 @@ export function customerDemoBoundaryViolations(sourceEntries) {
 
   for (const file of demoReachable) {
     const source = String(sources.get(file) || '');
-    if (file !== PREFERENCE_MODULE && BROWSER_STORAGE.test(source)) {
+    if (![PREFERENCE_MODULE, SERVER_DRAFT_MODULE].includes(file) && BROWSER_STORAGE.test(source)) {
       violations.push(violation(file, 'Customer Demo runtime must not use browser storage as business, Tenant, persona, permission or session authority.'));
     }
     if (RETIRED_PATHS.includes(file) || RETIRED_BROWSER_AUTHORITY.test(source)) {

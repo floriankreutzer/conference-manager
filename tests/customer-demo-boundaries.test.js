@@ -40,3 +40,17 @@ test('language preference storage remains a bounded non-authoritative exception'
   });
   assert.deepEqual(violations, []);
 });
+
+test('scoped server draft storage is the only Employee browser-storage exception', () => {
+  const approved = customerDemoBoundaryViolations({
+    'src/platform/demo-bootstrap.js': "import '../employee/server-draft-store.js';",
+    'src/employee/server-draft-store.js': 'export const storage = globalThis.sessionStorage;',
+  });
+  assert.deepEqual(approved, []);
+
+  const rejected = customerDemoBoundaryViolations({
+    'src/platform/demo-bootstrap.js': "import '../employee/another-store.js';",
+    'src/employee/another-store.js': 'export const storage = globalThis.sessionStorage;',
+  });
+  assert.ok(rejected.some((item) => item.includes('must not use browser storage')));
+});

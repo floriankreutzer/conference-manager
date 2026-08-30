@@ -48,6 +48,7 @@ const managerIndex = normalize('src/manager/index.js');
 const tenantAdminIndex = normalize('src/tenant-admin/index.js');
 const tenantAdminServer = normalize('src/tenant-admin/server.js');
 const managerAdminParity = normalize('src/manager/admin-parity.js');
+const employeeServerDraftStore = normalize('src/employee/server-draft-store.js');
 const featureFlagPath = normalize('src/platform/feature-flags.js');
 const appPath = normalize('src/app.js');
 
@@ -212,8 +213,11 @@ for (const file of sourceFiles.filter((path) => (
     && storageKinds.length === 1
     && storageKinds[0] === 'sessionStorage'
     && onlyUsesApprovedManagerReturnStorage(source);
+  const approvedScopedServerDraft = file === employeeServerDraftStore
+    && storageKinds.length === 1
+    && storageKinds[0] === 'sessionStorage';
 
-  if (!approvedLegacyReturnMarker) {
+  if (!approvedLegacyReturnMarker && !approvedScopedServerDraft) {
     fail(`${file}: capability modules must use approved persistence contracts; direct browser storage is forbidden.`);
   }
 }

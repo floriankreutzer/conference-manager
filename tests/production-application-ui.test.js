@@ -14,6 +14,7 @@ import {
   cateringEditorOptions,
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
+  roomEditorOptions,
   serviceEditorOptions,
 } from '../src/employee/server-request-editor.js';
 import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
@@ -120,6 +121,8 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   );
   assert.ok(cateringRender.indexOf('if (!room.value)') < cateringRender.indexOf('delete itemQuantities'));
   assert.ok(cateringRender.indexOf('if (!room.value)') < cateringRender.indexOf('packageSelection = null'));
+  assert.match(employee, /productionUtcInstant\(endDate\.value, end\.value, timeZone\)/);
+  assert.match(employee, /value: sourceEnd\?\.date \|\| restoredDraft\?\.endDate/);
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
@@ -218,6 +221,27 @@ test('Employee editor exposes only services applicable to the selected authorita
     ['global', 'site', 'room'],
   );
   assert.deepEqual(serviceEditorOptions(catalog, ''), []);
+});
+
+test('Employee editor applies the authoritative booking-policy allowlists to rooms and services', () => {
+  const catalog = {
+    bookingPolicy: { rules: {
+      allowedSiteIds: ['site-1'],
+      allowedRoomIds: ['room-1'],
+      allowedServiceIds: ['service-1'],
+    } },
+    rooms: [
+      { id: 'room-1', siteId: 'site-1', active: true },
+      { id: 'room-2', siteId: 'site-1', active: true },
+      { id: 'room-3', siteId: 'site-2', active: true },
+    ],
+    services: [
+      { id: 'service-1', active: true, siteIds: [], roomIds: [] },
+      { id: 'service-2', active: true, siteIds: [], roomIds: [] },
+    ],
+  };
+  assert.deepEqual(roomEditorOptions(catalog).map(({ id }) => id), ['room-1']);
+  assert.deepEqual(serviceEditorOptions(catalog, 'room-1').map(({ id }) => id), ['service-1']);
 });
 
 test('Employee editor produces bounded schema-v2 catering and exact cost allocations', () => {
@@ -380,6 +404,7 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   assert.match(app, /context\.serverPersistence\(\)/);
   assert.match(app, /createServerEmployeeApplication/);
   assert.match(app, /createServerManagerApplication/);
+  assert.match(app, /createServerDraftStore\(\{ tenantId: context\.tenantId\(\), userId: context\.userId\(\) \}\)/);
   assert.doesNotMatch(app, /createDemo|demo-adapter|demo-store|fixtures/);
   assert.doesNotMatch(app, /production-persistence\.js|localStorage|sessionStorage/);
   assert.match(context, /Promise\.allSettled/);

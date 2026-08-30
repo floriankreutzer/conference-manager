@@ -1,4 +1,4 @@
-import { createServerEmployeeApplication } from './employee/index.js';
+import { createServerDraftStore, createServerEmployeeApplication } from './employee/index.js';
 import { createServerManagerApplication } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell, renderAppBootstrapLoading } from './platform/app-shell.js';
@@ -72,6 +72,7 @@ export async function bootstrapCustomerApplication({
       persistence: serverPersistence,
       onNavigate: (view) => shell.setView(view),
       siteInfo: context.getSiteInfo(),
+      draftStore: createServerDraftStore({ tenantId: context.tenantId(), userId: context.userId() }),
     })
     : null;
   const manager = serverPersistence && context.isManager()

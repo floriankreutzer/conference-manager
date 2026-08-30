@@ -14,6 +14,7 @@ import {
   cateringEditorOptions,
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
+  roomEditorOptions,
   serviceEditorOptions,
 } from './server-request-editor.js';
 import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
@@ -144,6 +145,7 @@ export function createProductionEmployeeApplication({
   persistence,
   onNavigate = null,
   siteInfo = Object.freeze({}),
+  draftStore = null,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_EMPLOYEE_UI_REQUIRED');
   if (
@@ -320,7 +322,8 @@ export function createProductionEmployeeApplication({
     const isResubmission = queuedResubmission;
     queuedRequest = null;
     queuedResubmission = false;
-    const rooms = catalog.rooms.filter((room) => room.active !== false);
+    const restoredDraft = sourceRequest ? null : draftStore?.load?.() || null;
+    const rooms = roomEditorOptions(catalog);
     if (!rooms.length) {
       root.appendChild(el('p', { className: 'info-box', text: t('production.employee.noRooms') }));
       return;
@@ -330,30 +333,36 @@ export function createProductionEmployeeApplication({
     room.appendChild(el('option', { value: '', text: t('schedule.locationPlaceholder') }));
     rooms.forEach((entry) => room.appendChild(el('option', { value: entry.id, text: roomLabel(entry) })));
     const sourceRoom = rooms.find((entry) => entry.id === sourceRequest?.roomId);
+    const restoredRoom = rooms.find((entry) => entry.id === restoredDraft?.roomId);
     const sourceTimeZone = roomTimeZone(sourceRoom, catalog);
     const sourceStart = sourceRequest && isProductionTimeZone(sourceTimeZone)
       ? wallValues(sourceRequest.startsAt, sourceTimeZone) : null;
     const sourceEnd = sourceRequest && isProductionTimeZone(sourceTimeZone)
       ? wallValues(sourceRequest.endsAt, sourceTimeZone) : null;
     if (sourceRoom) room.value = sourceRoom.id;
-    const date = el('input', { attrs: { type: 'date', value: sourceStart?.date || '' } });
-    const start = el('input', { attrs: { type: 'time', value: sourceStart?.time || '' } });
-    const end = el('input', { attrs: { type: 'time', value: sourceEnd?.time || '' } });
-    const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.internalParticipants ?? 1) } });
-    const external = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.externalParticipants ?? 0) } });
-    const title = el('input', { attrs: { type: 'text', maxlength: '160', value: sourceRequest?.details?.title || '' } });
-    const specialRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.specialRequirements || '' });
-    const dietaryRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.dietaryRequirements || '' });
-    const selectedServices = new Set(sourceRequest?.details?.serviceIds || []);
+    else if (restoredRoom) room.value = restoredRoom.id;
+    const date = el('input', { attrs: { type: 'date', value: sourceStart?.date || restoredDraft?.startDate || '' } });
+    const endDate = el('input', { attrs: { type: 'date', value: sourceEnd?.date || restoredDraft?.endDate || sourceStart?.date || '' } });
+    const start = el('input', { attrs: { type: 'time', value: sourceStart?.time || restoredDraft?.startTime || '' } });
+    const end = el('input', { attrs: { type: 'time', value: sourceEnd?.time || restoredDraft?.endTime || '' } });
+    const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.internalParticipants ?? restoredDraft?.internalParticipants ?? 1) } });
+    const external = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.externalParticipants ?? restoredDraft?.externalParticipants ?? 0) } });
+    const title = el('input', { attrs: { type: 'text', maxlength: '160', value: sourceRequest?.details?.title || restoredDraft?.title || '' } });
+    const specialRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.specialRequirements || restoredDraft?.specialRequirements || '' });
+    const dietaryRequirements = el('textarea', { attrs: { maxlength: '2000' }, value: sourceRequest?.details?.dietaryRequirements || restoredDraft?.dietaryRequirements || '' });
+    const selectedServices = new Set(sourceRequest?.details?.serviceIds || restoredDraft?.serviceIds || []);
     let packageSelection = sourceRequest?.details?.catering?.packageSelection
-      ? { ...sourceRequest.details.catering.packageSelection } : null;
+      ? { ...sourceRequest.details.catering.packageSelection }
+      : (restoredDraft?.packageSelection ? { ...restoredDraft.packageSelection } : null);
     const itemQuantities = Object.fromEntries(
-      (sourceRequest?.details?.catering?.itemQuantities || []).map((entry) => [entry.itemId, entry.quantity]),
+      sourceRequest?.details?.catering?.itemQuantities
+        ? sourceRequest.details.catering.itemQuantities.map((entry) => [entry.itemId, entry.quantity])
+        : Object.entries(restoredDraft?.itemQuantities || {}),
     );
     const cateringParticipants = el('input', {
       attrs: {
         type: 'number', min: '0', max: String(MAX_PARTICIPANTS), step: '1',
-        value: String(sourceRequest?.details?.catering?.participantCount || 0),
+        value: String(sourceRequest?.details?.catering?.participantCount ?? restoredDraft?.cateringParticipants ?? 0),
       },
     });
     const servicePanel = el('section');
@@ -439,10 +448,16 @@ export function createProductionEmployeeApplication({
       });
     };
 
-    const allocationRows = (sourceRequest?.allocations?.entries || []).map((entry) => ({
-      costCenterId: entry.costCenterId,
-      percentage: (entry.percentageBasisPoints / 100).toFixed(2).replace(/\.00$/, ''),
-    }));
+    const activeCostCenterIds = new Set(catalog.costCenters
+      .filter((entry) => entry.active !== false).map((entry) => entry.id));
+    const allocationRows = sourceRequest?.allocations?.entries
+      ? sourceRequest.allocations.entries.map((entry) => ({
+        costCenterId: entry.costCenterId,
+        percentage: (entry.percentageBasisPoints / 100).toFixed(2).replace(/\.00$/, ''),
+      }))
+      : (restoredDraft?.allocations || [])
+        .filter((entry) => activeCostCenterIds.has(entry.costCenterId))
+        .map((entry) => ({ ...entry }));
     if (!allocationRows.length && catalog.costAllocation?.allocationRequired && catalog.costCenters.length) {
       allocationRows.push({ costCenterId: catalog.costCenters[0].id, percentage: '100' });
     }
@@ -516,10 +531,10 @@ export function createProductionEmployeeApplication({
     let availabilityGeneration = 0;
 
     const currentAvailabilityWindow = () => {
-      const selectedRoom = catalog.rooms.find((entry) => entry.id === room.value);
+      const selectedRoom = rooms.find((entry) => entry.id === room.value);
       const timeZone = roomTimeZone(selectedRoom, catalog);
       const startsAt = productionUtcInstant(date.value, start.value, timeZone);
-      const endsAt = productionUtcInstant(date.value, end.value, timeZone);
+      const endsAt = productionUtcInstant(endDate.value, end.value, timeZone);
       if (!selectedRoom || !startsAt || !endsAt || Date.parse(endsAt) <= Date.parse(startsAt)) return null;
       return Object.freeze({ roomId: selectedRoom.id, startsAt, endsAt });
     };
@@ -534,7 +549,12 @@ export function createProductionEmployeeApplication({
       status.className = 'muted';
       status.textContent = t('production.employee.availabilityRequired');
     };
-    [room, date, start, end].forEach((control) => control.addEventListener('input', invalidateAvailability));
+    let previousStartDate = date.value;
+    date.addEventListener('input', () => {
+      if (!endDate.value || endDate.value === previousStartDate) endDate.value = date.value;
+      previousStartDate = date.value;
+    });
+    [room, date, endDate, start, end].forEach((control) => control.addEventListener('input', invalidateAvailability));
     room.addEventListener('change', () => {
       renderServiceControls();
       renderCateringControls();
@@ -550,6 +570,7 @@ export function createProductionEmployeeApplication({
       step(2, t('schedule.date'), [
         field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
         field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
+        field({ id: 'productionEndDate', label: t('production.employee.endDate'), control: endDate, required: true }),
         field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
       ]),
       step(3, t('production.employee.room'), [
@@ -573,8 +594,46 @@ export function createProductionEmployeeApplication({
     );
     invalidateAvailability();
 
+    if (restoredDraft) showToast(t('draft.restored'));
+    if (!sourceRequest && draftStore) {
+      let draftTimer = null;
+      const saveDraft = () => {
+        draftTimer = null;
+        const meaningful = title.value.trim() || room.value || date.value || start.value || end.value
+          || selectedServices.size || packageSelection || Object.values(itemQuantities).some((value) => Number(value) > 0)
+          || dietaryRequirements.value.trim() || specialRequirements.value.trim();
+        if (!meaningful) {
+          draftStore.clear();
+          return;
+        }
+        draftStore.save({
+          roomId: room.value,
+          startDate: date.value,
+          endDate: endDate.value,
+          startTime: start.value,
+          endTime: end.value,
+          title: title.value,
+          internalParticipants: internal.value,
+          externalParticipants: external.value,
+          serviceIds: [...selectedServices].sort(),
+          cateringParticipants: cateringParticipants.value,
+          packageSelection,
+          itemQuantities,
+          allocations: allocationRows,
+          dietaryRequirements: dietaryRequirements.value,
+          specialRequirements: specialRequirements.value,
+        });
+      };
+      const scheduleDraftSave = () => {
+        if (draftTimer) clearTimeout(draftTimer);
+        draftTimer = setTimeout(saveDraft, 400);
+      };
+      root.addEventListener('input', scheduleDraftSave);
+      root.addEventListener('change', scheduleDraftSave);
+    }
+
     checkAvailability.addEventListener('click', async () => {
-      const selectedRoom = catalog.rooms.find((entry) => entry.id === room.value);
+      const selectedRoom = rooms.find((entry) => entry.id === room.value);
       if (selectedRoom && !isProductionTimeZone(roomTimeZone(selectedRoom, catalog))) {
         status.className = 'error-box';
         status.textContent = t('production.employee.timeZoneUnavailable');
@@ -676,6 +735,7 @@ export function createProductionEmployeeApplication({
         }
         status.textContent = t('production.employee.submitted');
         showToast(t('production.employee.submitted'));
+        draftStore?.clear?.();
         verifiedAvailabilityKey = null;
         if (typeof onNavigate === 'function') onNavigate('requests');
       } catch (error) {
@@ -769,7 +829,10 @@ export function createProductionEmployeeApplication({
   return Object.freeze({
     renderRequest,
     renderRequests,
-    hasDraft: () => false,
-    restoreDraft: () => {},
+    hasDraft: () => Boolean(draftStore?.has?.()),
+    restoreDraft: () => {
+      if (typeof onNavigate === 'function') onNavigate('employee');
+      else void renderRequest();
+    },
   });
 }
