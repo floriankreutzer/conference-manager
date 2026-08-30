@@ -213,6 +213,7 @@ test('runtime applies a safe product fallback for transport, partial, invalid, a
 test('stalled Production presentation transport aborts to the safe bootstrap fallback', async () => {
   let aborted = false;
   const runtime = createTenantPresentationRuntime({
+    refreshTimeoutMs: 5,
     adapter: createTenantPresentationApi({
       apiClient: {
         async request(path, options) {
@@ -228,13 +229,7 @@ test('stalled Production presentation transport aborts to the safe bootstrap fal
       },
     }),
   });
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5);
-  try {
-    assert.deepEqual(await runtime.refresh({ signal: controller.signal }), TENANT_PRESENTATION_FALLBACK);
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  assert.deepEqual(await runtime.refresh(), TENANT_PRESENTATION_FALLBACK);
   assert.equal(aborted, true);
 });
 
@@ -282,6 +277,38 @@ test('organization writes refresh the effective presentation before returning su
   assert.deepEqual(calls, ['save', 'refresh']);
   assert.equal(await adapter.reset(), 1);
   assert.deepEqual(calls, ['save', 'refresh', 'reset:start', 'reset:complete', 'refresh']);
+});
+
+test('organization save cannot remain pending on a stalled presentation refresh', async () => {
+  let aborted = false;
+  const presentationRuntime = createTenantPresentationRuntime({
+    refreshTimeoutMs: 5,
+    adapter: createTenantPresentationApi({
+      apiClient: {
+        async request(path, options) {
+          assert.equal(path, 'v1/tenant/presentation');
+          return new Promise((resolve, reject) => {
+            options.signal.addEventListener('abort', () => {
+              aborted = true;
+              reject(new Error('POST_SAVE_PRESENTATION_ABORTED'));
+            }, { once: true });
+          });
+        },
+      },
+    }),
+  });
+  const adapter = createPresentationRefreshingOrganizationSettings({
+    organizationSettings: {
+      async loadOrganization() { return { revision: 1 }; },
+      async listOrganizationHistory() { return { revisions: [] }; },
+      async saveOrganization() { return { revision: 2 }; },
+    },
+    presentationRuntime,
+  });
+
+  assert.deepEqual(await adapter.saveOrganization({}), { revision: 2 });
+  assert.equal(aborted, true);
+  assert.deepEqual(presentationRuntime.current(), TENANT_PRESENTATION_FALLBACK);
 });
 
 test('tenant localization supplies defaults while an explicit User language remains authoritative', () => {

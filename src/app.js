@@ -35,16 +35,6 @@ function normalizedOptionalProjectionTimeout(value) {
     : OPTIONAL_PROJECTION_TIMEOUT_MS;
 }
 
-async function refreshBoundedTenantPresentation(tenantPresentation, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await tenantPresentation.refresh({ signal: controller.signal });
-  } finally {
-    globalThis.clearTimeout(timeoutId);
-  }
-}
-
 export async function bootstrapCustomerApplication({
   runtimeMode,
   authenticationBootstrap,
@@ -74,8 +64,11 @@ export async function bootstrapCustomerApplication({
   const tenantPresentationAdapter = context.isAuthenticated() && authentication
     ? createTenantPresentationApi({ apiClient: authentication.apiClient })
     : null;
-  const tenantPresentation = createTenantPresentationRuntime({ adapter: tenantPresentationAdapter });
-  await refreshBoundedTenantPresentation(tenantPresentation, optionalTimeout);
+  const tenantPresentation = createTenantPresentationRuntime({
+    adapter: tenantPresentationAdapter,
+    refreshTimeoutMs: optionalTimeout,
+  });
+  await tenantPresentation.refresh();
   const effectiveTenantSettingsAdapters = Object.hasOwn(tenantSettingsAdapters, 'organization')
     ? Object.freeze({
       ...tenantSettingsAdapters,
