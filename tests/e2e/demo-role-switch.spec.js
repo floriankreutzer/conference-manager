@@ -33,7 +33,14 @@ const SHARED_REQUEST = Object.freeze({
 function catalogPage(section) {
   const entries = {
     sites: [{ id: 'berlin', name: 'Berlin', active: true, timeZone: 'Europe/Berlin' }],
-    rooms: [{ id: 'room-a', siteId: 'berlin', name: 'Atlas', capacity: 12, active: true }],
+    rooms: [{
+      id: 'room-a',
+      siteId: 'berlin',
+      name: 'Atlas',
+      capacity: 12,
+      active: true,
+      price: { amountMinor: 0, currency: 'EUR' },
+    }],
     services: [],
     cateringPackages: [],
     cateringItems: [],
@@ -54,7 +61,7 @@ function catalogPage(section) {
       evaluatedAt: '2026-08-30T08:00:00.000Z',
       rules: {
         minimumLeadTimeMinutes: 0,
-        maximumAdvanceMinutes: 52_704_000,
+        maximumAdvanceMinutes: 527_040,
         cancellationWindowMinutes: 0,
         changeWindowMinutes: 0,
         maximumParticipants: 500,
