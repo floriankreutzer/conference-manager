@@ -5,6 +5,7 @@ import test from 'node:test';
 const workflowUrl = new URL('../.github/workflows/ci.yml', import.meta.url);
 const packageUrl = new URL('../package.json', import.meta.url);
 const configUrl = new URL('../playwright.shared-demo.config.js', import.meta.url);
+const journeyUrl = new URL('../tests/e2e-shared/shared-demo-runtime.spec.js', import.meta.url);
 
 test('frontend CI runs the dedicated shared Demo suite exactly once', async () => {
   const [workflow, packageText, config] = await Promise.all([
@@ -21,6 +22,14 @@ test('frontend CI runs the dedicated shared Demo suite exactly once', async () =
     'playwright test --config=playwright.shared-demo.config.js',
   );
   assert.match(config, /testDir: '\.\/tests\/e2e-shared'/);
+});
+
+test('shared Demo cookie isolation inspects the cookies on their bounded API paths', async () => {
+  const journey = await readFile(journeyUrl, 'utf8');
+
+  assert.match(journey, /`\$\{CUSTOMER_ORIGIN\}\/api\/v1\/demo\/session`/);
+  assert.match(journey, /`\$\{PLATFORM_ORIGIN\}\/api\/v1\/platform\/demo\/session`/);
+  assert.doesNotMatch(journey, /context\.cookies\(\[CUSTOMER_ORIGIN, PLATFORM_ORIGIN\]\)/);
 });
 
 test('shared Demo CI pins the private API and fails closed without checkout authority', async () => {

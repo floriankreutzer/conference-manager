@@ -116,8 +116,14 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   let customerSession = await establishCustomer(customerContext);
   let platformSession = await establishPlatform(platformContext);
 
-  const customerCookies = await customerContext.cookies([CUSTOMER_ORIGIN, PLATFORM_ORIGIN]);
-  const platformCookies = await platformContext.cookies([CUSTOMER_ORIGIN, PLATFORM_ORIGIN]);
+  const customerCookies = await customerContext.cookies([
+    `${CUSTOMER_ORIGIN}/api/v1/demo/session`,
+    `${PLATFORM_ORIGIN}/api/v1/platform/demo/session`,
+  ]);
+  const platformCookies = await platformContext.cookies([
+    `${CUSTOMER_ORIGIN}/api/v1/demo/session`,
+    `${PLATFORM_ORIGIN}/api/v1/platform/demo/session`,
+  ]);
   expect(customerCookies.some(({ name, domain }) => name === 'cm_session' && domain === 'customer.demo.test')).toBe(true);
   expect(customerCookies.some(({ name }) => name === 'cm_platform_session')).toBe(false);
   expect(platformCookies.some(({ name, domain }) => name === 'cm_platform_session' && domain === 'platform.demo.test')).toBe(true);
