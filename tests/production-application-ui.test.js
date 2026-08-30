@@ -422,6 +422,8 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   ]);
   assert.match(context, /createProductionPersistence\(\{ apiClient: authenticationRuntime\.apiClient \}\)/);
   assert.match(app, /context\.serverPersistence\(\)/);
+  assert.match(app, /refreshBoundedTenantPresentation\(tenantPresentation, optionalTimeout\)/);
+  assert.match(app, /tenantPresentation\.refresh\(\{ signal: controller\.signal \}\)/);
   assert.match(app, /createServerEmployeeApplication/);
   assert.match(app, /createServerManagerApplication/);
   assert.match(app, /createServerDraftStore\(\{ tenantId: context\.tenantId\(\), userId: context\.userId\(\) \}\)/);

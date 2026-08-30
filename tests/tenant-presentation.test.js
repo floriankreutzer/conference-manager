@@ -210,6 +210,34 @@ test('runtime applies a safe product fallback for transport, partial, invalid, a
   assert.deepEqual(revisions, [1, 2, 0]);
 });
 
+test('stalled Production presentation transport aborts to the safe bootstrap fallback', async () => {
+  let aborted = false;
+  const runtime = createTenantPresentationRuntime({
+    adapter: createTenantPresentationApi({
+      apiClient: {
+        async request(path, options) {
+          assert.equal(path, 'v1/tenant/presentation');
+          assert.equal(options.signal instanceof AbortSignal, true);
+          return new Promise((resolve, reject) => {
+            options.signal.addEventListener('abort', () => {
+              aborted = true;
+              reject(new Error('TENANT_PRESENTATION_ABORTED'));
+            }, { once: true });
+          });
+        },
+      },
+    }),
+  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5);
+  try {
+    assert.deepEqual(await runtime.refresh({ signal: controller.signal }), TENANT_PRESENTATION_FALLBACK);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  assert.equal(aborted, true);
+});
+
 test('Demo projection derives from the same organization revision and rejects unapproved references', async () => {
   let reference = MANAGED_BRAND_REFERENCE;
   const organizationSettings = {

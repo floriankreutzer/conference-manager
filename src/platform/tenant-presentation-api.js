@@ -92,9 +92,9 @@ export function createTenantPresentationApi({ apiClient } = {}) {
     throw new TypeError('TENANT_PRESENTATION_API_CLIENT_REQUIRED');
   }
   return Object.freeze({
-    async loadPresentation() {
+    async loadPresentation(options) {
       try {
-        return normalizeTenantPresentation(await apiClient.request(CURRENT_PATH));
+        return normalizeTenantPresentation(await apiClient.request(CURRENT_PATH, options));
       } catch (error) {
         throw adapterError(TenantPresentationApiError, error, 'TENANT_PRESENTATION_UNAVAILABLE');
       }

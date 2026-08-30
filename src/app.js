@@ -26,16 +26,36 @@ import {
 } from './tenant-admin/server.js';
 
 const APP_BUILD = '2026.08.30.77';
+const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const appRoot = document.getElementById('app');
+
+function normalizedOptionalProjectionTimeout(value) {
+  return Number.isSafeInteger(value) && value >= 1 && value <= 30_000
+    ? value
+    : OPTIONAL_PROJECTION_TIMEOUT_MS;
+}
+
+async function refreshBoundedTenantPresentation(tenantPresentation, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await tenantPresentation.refresh({ signal: controller.signal });
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
 
 export async function bootstrapCustomerApplication({
   runtimeMode,
   authenticationBootstrap,
+  optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
+  const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   renderAppBootstrapLoading();
   const context = await createApplicationContext({
     runtimeMode,
     authenticationBootstrap,
+    optionalProjectionTimeoutMs: optionalTimeout,
   });
   let shell;
 
@@ -55,7 +75,7 @@ export async function bootstrapCustomerApplication({
     ? createTenantPresentationApi({ apiClient: authentication.apiClient })
     : null;
   const tenantPresentation = createTenantPresentationRuntime({ adapter: tenantPresentationAdapter });
-  await tenantPresentation.refresh();
+  await refreshBoundedTenantPresentation(tenantPresentation, optionalTimeout);
   const effectiveTenantSettingsAdapters = Object.hasOwn(tenantSettingsAdapters, 'organization')
     ? Object.freeze({
       ...tenantSettingsAdapters,

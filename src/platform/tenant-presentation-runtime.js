@@ -45,11 +45,13 @@ export function createTenantPresentationRuntime({ adapter = null } = {}) {
     current() {
       return current;
     },
-    async refresh() {
+    async refresh(options) {
       const sequence = ++refreshSequence;
       let next;
       try {
-        next = adapter === null ? TENANT_PRESENTATION_FALLBACK : await adapter.loadPresentation();
+        next = adapter === null
+          ? TENANT_PRESENTATION_FALLBACK
+          : await adapter.loadPresentation(options);
         if (next.revision < highestRevision) {
           next = TENANT_PRESENTATION_FALLBACK;
         }
