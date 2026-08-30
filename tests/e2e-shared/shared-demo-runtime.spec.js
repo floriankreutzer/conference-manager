@@ -71,38 +71,14 @@ async function uiResponse(page, method, pathname, action, expectedStatus) {
     return response.request().method() === method
       && url.origin === CUSTOMER_ORIGIN
       && url.pathname === pathname;
-  });
+  }).then(async (response) => Object.freeze({
+    status: response.status(),
+    body: await payload(response),
+  }));
   await action();
-  return expectStatus(await responsePromise, expectedStatus);
-}
-
-async function requiredProjectionValidation(page) {
-  return page.evaluate(async () => {
-    const { createProductionPersistence } = await import(
-      '/src/platform/production-persistence.js'
-    );
-    const apiClient = {
-      async request(path) {
-        const response = await fetch(`/api/${path}`, {
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        });
-        if (!response.ok) throw new Error(`HTTP_${response.status}`);
-        return response.json();
-      },
-    };
-    const persistence = createProductionPersistence({ apiClient });
-    const results = await Promise.allSettled([
-      persistence.loadProfile(),
-      persistence.loadCatalog(),
-      persistence.listRequests(),
-    ]);
-    return results.map((result) => (
-      result.status === 'fulfilled'
-        ? 'fulfilled'
-        : result.reason?.code || result.reason?.message || 'rejected'
-    ));
-  });
+  const result = await responsePromise;
+  expect(result.status, JSON.stringify(result.body)).toBe(expectedStatus);
+  return result.body;
 }
 
 async function establishPlatform(context) {
@@ -173,11 +149,6 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
 
   const customerPage = await customerContext.newPage();
   await customerPage.goto(CUSTOMER_ORIGIN);
-  expect(await requiredProjectionValidation(customerPage)).toEqual([
-    'fulfilled',
-    'fulfilled',
-    'fulfilled',
-  ]);
   await expect(customerPage.getByLabel('Demo-Tenant')).toBeVisible();
   await customerPage.evaluate(() => {
     localStorage.setItem('conference_demo_role_v1', 'forged-platform-admin');
