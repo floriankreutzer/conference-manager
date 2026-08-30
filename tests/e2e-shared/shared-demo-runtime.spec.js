@@ -276,9 +276,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const createdRequestId = created.request.id;
   expect(created.request).toMatchObject({
     id: createdRequestId,
-    title: REQUEST_TITLE,
     status: 'Submitted',
     version: 1,
+    details: { title: REQUEST_TITLE },
   });
 
   customerSession = await switchCustomer(
