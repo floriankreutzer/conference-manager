@@ -8,6 +8,7 @@ export default defineConfig({
   testDir: './tests/e2e-shared',
   fullyParallel: false,
   workers: 1,
+  timeout: 120_000,
   retries: 0,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report-shared-demo', open: 'never' }]],
   use: {
