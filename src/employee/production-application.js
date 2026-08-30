@@ -1,4 +1,4 @@
-import { locale, t } from '../core/i18n.js';
+import { formatNumber, locale, t } from '../core/i18n.js';
 import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import {
@@ -476,7 +476,9 @@ export function createProductionEmployeeApplication({
         allocationStatus.className = Math.abs(sum - 100) < 0.001
           || (!allocationRows.length && !catalog.costAllocation?.allocationRequired)
           ? 'validation-ok' : 'validation-bad';
-        allocationStatus.textContent = t('cost.sum', { sum: sum.toFixed(2).replace(/\.00$/, '') });
+        allocationStatus.textContent = t('cost.sum', {
+          sum: formatNumber(sum, { maximumFractionDigits: 2 }),
+        });
       };
       allocationRows.forEach((allocation, index) => {
         const row = el('article', { className: 'allocation-row' });

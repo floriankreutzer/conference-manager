@@ -123,6 +123,8 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.ok(cateringRender.indexOf('if (!room.value)') < cateringRender.indexOf('packageSelection = null'));
   assert.match(employee, /productionUtcInstant\(endDate\.value, end\.value, timeZone\)/);
   assert.match(employee, /value: sourceEnd\?\.date \|\| restoredDraft\?\.endDate/);
+  assert.match(employee, /sum: formatNumber\(sum, \{ maximumFractionDigits: 2 \}\)/);
+  assert.doesNotMatch(employee, /allocationStatus\.textContent[\s\S]{0,120}toFixed/);
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
