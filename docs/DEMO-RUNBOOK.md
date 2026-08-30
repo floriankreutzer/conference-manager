@@ -89,7 +89,7 @@ configuration owns only `tests/e2e-shared`. This separation prevents duplicate
 browser execution while keeping both suites required for frontend changes.
 
 The shared job checks out the API at immutable commit
-`a728326235155936b2354ba188f577ae9342f661`, provisions an isolated PostgreSQL
+`95fb90622e86228c7bdcb7b7b045248936afc9cb`, provisions an isolated PostgreSQL
 database, runs the canonical and Demo migrations, starts the separate Customer
 and Platform API processes, and then executes the Chromium and WebKit journey.
 Because `conference-manager-api` is private, repository administrators must
