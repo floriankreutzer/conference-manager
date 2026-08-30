@@ -365,6 +365,11 @@ function queryPath(path, values) {
   return `${path}?${query.toString()}`;
 }
 
+function stableBookingPolicy(policy) {
+  const { evaluatedAt: _evaluatedAt, ...stable } = policy;
+  return stable;
+}
+
 async function loadCatalogV2(apiClient) {
   const assembled = Object.fromEntries(PRODUCTION_CATALOG_SECTIONS.map((section) => [section, []]));
   let authority = null;
@@ -383,7 +388,8 @@ async function loadCatalogV2(apiClient) {
       } else if (
         page.context !== authority.context
         || JSON.stringify(page.configurationRevisions) !== JSON.stringify(authority.configurationRevisions)
-        || JSON.stringify(page.bookingPolicy) !== JSON.stringify(authority.bookingPolicy)
+        || JSON.stringify(stableBookingPolicy(page.bookingPolicy))
+          !== JSON.stringify(stableBookingPolicy(authority.bookingPolicy))
         || JSON.stringify(page.organization) !== JSON.stringify(authority.organization)
         || JSON.stringify(page.costAllocation) !== JSON.stringify(authority.costAllocation)
       ) {

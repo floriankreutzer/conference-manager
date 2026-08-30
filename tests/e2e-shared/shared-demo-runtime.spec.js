@@ -79,7 +79,6 @@ async function requiredProjectionValidation(page) {
     const { createProductionPersistence } = await import(
       '/src/platform/production-persistence.js'
     );
-    const calls = [];
     const apiClient = {
       async request(path) {
         const response = await fetch(`/api/${path}`, {
@@ -87,23 +86,7 @@ async function requiredProjectionValidation(page) {
           headers: { Accept: 'application/json' },
         });
         if (!response.ok) throw new Error(`HTTP_${response.status}`);
-        const body = await response.json();
-        calls.push({
-          path,
-          schemaVersion: body.schemaVersion,
-          section: body.section || null,
-          entries: Array.isArray(body.entries) ? body.entries.map((entry) => ({
-            id: entry.id,
-            keys: Object.keys(entry).sort(),
-            siteIds: entry.siteIds || null,
-            roomIds: entry.roomIds || null,
-            itemIds: entry.itemIds || null,
-            variantCount: Array.isArray(entry.variants) ? entry.variants.length : null,
-          })) : null,
-          configurationRevisions: body.configurationRevisions || null,
-          bookingPolicy: body.bookingPolicy || null,
-        });
-        return body;
+        return response.json();
       },
     };
     const persistence = createProductionPersistence({ apiClient });
@@ -115,10 +98,7 @@ async function requiredProjectionValidation(page) {
     return results.map((result) => (
       result.status === 'fulfilled'
         ? 'fulfilled'
-        : {
-          code: result.reason?.code || result.reason?.message || 'rejected',
-          calls,
-        }
+        : result.reason?.code || result.reason?.message || 'rejected'
     ));
   });
 }

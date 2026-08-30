@@ -83,6 +83,35 @@ test('production persistence assembles every bounded catalogue section with one 
   for (const call of harness.calls.slice(1)) assert.match(call.path, /context=catalog_context/);
 });
 
+test('catalogue generation permits observation-time drift but rejects policy drift', async () => {
+  let count = 0;
+  const observed = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    count += 1;
+    return catalogPage(section, {
+      bookingPolicy: { ...policy(), evaluatedAt: `2026-08-27T12:00:0${count}.000Z` },
+    });
+  });
+  await createProductionPersistence({ apiClient: observed.client }).loadCatalog();
+
+  count = 0;
+  const changed = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    count += 1;
+    const current = policy();
+    return catalogPage(section, count === 2 ? {
+      bookingPolicy: {
+        ...current,
+        rules: { ...current.rules, maximumParticipants: 499 },
+      },
+    } : {});
+  });
+  await assert.rejects(
+    createProductionPersistence({ apiClient: changed.client }).loadCatalog(),
+    (error) => error.code === 'PRODUCTION_CATALOG_INVALID',
+  );
+});
+
 test('catalogue assembly rejects cross-page generation drift', async () => {
   let count = 0;
   const harness = api((path) => {
