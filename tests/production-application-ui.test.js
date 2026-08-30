@@ -108,6 +108,17 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   const employee = await source(EMPLOYEE_SOURCE);
   assert.match(employee, /CANCELLABLE_STATUSES = new Set\(\[[^\]]*'Confirmed'/);
   assert.match(employee, /isProductionTimeZone\(timeZone\)[\s\S]*roomId: '', startsAt: '', endsAt: ''/);
+  const serviceRender = employee.slice(
+    employee.indexOf('const renderServiceControls'),
+    employee.indexOf('const renderCateringControls'),
+  );
+  assert.ok(serviceRender.indexOf('if (!room.value)') < serviceRender.indexOf('selectedServices.delete'));
+  const cateringRender = employee.slice(
+    employee.indexOf('const renderCateringControls'),
+    employee.indexOf('const allocationRows'),
+  );
+  assert.ok(cateringRender.indexOf('if (!room.value)') < cateringRender.indexOf('delete itemQuantities'));
+  assert.ok(cateringRender.indexOf('if (!room.value)') < cateringRender.indexOf('packageSelection = null'));
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {

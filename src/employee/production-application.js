@@ -353,6 +353,12 @@ export function createProductionEmployeeApplication({
     const servicePanel = el('section');
     const renderServiceControls = () => {
       clear(servicePanel);
+      if (!room.value) {
+        servicePanel.appendChild(el('p', {
+          className: 'muted', text: t('schedule.locationPlaceholder'),
+        }));
+        return;
+      }
       const services = serviceEditorOptions(catalog, room.value);
       const applicableIds = new Set(services.map((entry) => entry.id));
       [...selectedServices].forEach((serviceId) => {
@@ -374,6 +380,13 @@ export function createProductionEmployeeApplication({
     const cateringPanel = el('section', { attrs: { 'aria-label': t('catering.heading') } });
     const renderCateringControls = () => {
       clear(cateringPanel);
+      if (!room.value) {
+        cateringPanel.append(
+          el('h3', { text: t('catering.heading') }),
+          el('p', { className: 'muted', text: t('schedule.locationPlaceholder') }),
+        );
+        return;
+      }
       const options = cateringEditorOptions(catalog, room.value);
       const applicableItemIds = new Set(options.items.map((entry) => entry.id));
       Object.keys(itemQuantities).forEach((itemId) => {
