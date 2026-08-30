@@ -10,7 +10,7 @@ function walk(path) {
   }
 }
 walk('src');
-sourceFiles.push('index.html');
+sourceFiles.push('index.html', 'platform-admin/index.html', 'platform-admin-demo/index.html');
 
 const forbidden = [
   { pattern: /\beval\s*\(/, message: 'eval is forbidden' },
@@ -80,6 +80,46 @@ if (!/<meta\s+name=["']referrer["']\s+content=["']no-referrer["']/i.test(index))
 if (!/<meta\s+name=["']conference-runtime["']\s+content=["']demo["']/i.test(index)) {
   console.error('index.html: the static GitHub Pages build must declare conference-runtime=demo explicitly');
   failures += 1;
+}
+
+for (const [file, runtime, connectDirective] of [
+  ['platform-admin/index.html', 'production', "connect-src 'self'"],
+  ['platform-admin-demo/index.html', 'demo', "connect-src 'none'"],
+]) {
+  const source = readFileSync(file, 'utf8');
+  if (!/http-equiv=["']Content-Security-Policy["']/i.test(source)) {
+    console.error(`${file}: Content-Security-Policy meta is required`);
+    failures += 1;
+  }
+  for (const directive of [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "style-src-attr 'none'",
+    "img-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "worker-src 'none'",
+    connectDirective,
+  ]) {
+    if (!source.includes(directive)) {
+      console.error(`${file}: CSP directive missing: ${directive}`);
+      failures += 1;
+    }
+  }
+  if (/style-src[^;]*'unsafe-inline'/i.test(source) || /script-src[^;]*'unsafe-(?:inline|eval)'/i.test(source)) {
+    console.error(`${file}: unsafe inline or evaluated code is forbidden by CSP`);
+    failures += 1;
+  }
+  if (!new RegExp(`<meta\\s+name=["']conference-runtime["']\\s+content=["']${runtime}["']`, 'i').test(source)) {
+    console.error(`${file}: conference-runtime=${runtime} declaration is required`);
+    failures += 1;
+  }
+  if (!/<meta\s+name=["']referrer["']\s+content=["']no-referrer["']/i.test(source)) {
+    console.error(`${file}: no-referrer policy is required`);
+    failures += 1;
+  }
 }
 
 if (failures) process.exit(1);

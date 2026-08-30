@@ -82,6 +82,29 @@ test('unsafe API requests use same-origin credentials and defensive fetch option
   assert.equal(captured.options.headers['Content-Type'], 'application/json');
 });
 
+test('unsafe API requests accept only a caller-generated UUID idempotency key', async () => {
+  let captured;
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    csrfTokenProvider: () => '0123456789abcdef0123456789abcdef',
+    fetchImpl: async (_url, options) => {
+      captured = options;
+      return jsonResponse({ ok: true });
+    },
+  });
+  const idempotencyId = '123e4567-e89b-42d3-a456-426614174000';
+  await client.request('platform-operation', { method: 'POST', body: {}, idempotencyKey: idempotencyId });
+  assert.equal(captured.headers['Idempotency-Key'], idempotencyId);
+  await assert.rejects(
+    () => client.request('platform-operation', { method: 'POST', body: {}, idempotencyKey: 'retry-me' }),
+    (error) => assertSecurityCode(error, 'INVALID_IDEMPOTENCY_KEY'),
+  );
+  await assert.rejects(
+    () => client.request('platform-operation', { idempotencyKey: idempotencyId }),
+    (error) => assertSecurityCode(error, 'INVALID_IDEMPOTENCY_KEY'),
+  );
+});
+
 test('API responses must use JSON content types', async () => {
   const client = createApiClient({
     origin: 'https://conference.example',

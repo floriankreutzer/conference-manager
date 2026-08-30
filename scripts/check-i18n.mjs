@@ -3,11 +3,13 @@ import { existsSync, readFileSync } from 'node:fs';
 const PUBLIC_I18N_PATH = 'src/core/i18n.js';
 const BASE_CATALOG_PATH = 'src/core/i18n-base.js';
 const CAPABILITY_CATALOG_PATH = 'src/core/i18n-capability-messages.js';
+const PLATFORM_ADMIN_CATALOG_PATH = 'src/core/i18n-platform-admin-messages.js';
 const TENANT_ADMIN_OPERATIONS_CATALOG_PATH = 'src/core/i18n-tenant-admin-operations-messages.js';
 const TENANT_SETTINGS_DOMAIN_CATALOG_PATH = 'src/core/i18n-tenant-settings-domain-messages.js';
 const CANONICAL_CATALOG_PATHS = [
   BASE_CATALOG_PATH,
   CAPABILITY_CATALOG_PATH,
+  PLATFORM_ADMIN_CATALOG_PATH,
   TENANT_ADMIN_OPERATIONS_CATALOG_PATH,
   TENANT_SETTINGS_DOMAIN_CATALOG_PATH,
 ];
@@ -129,6 +131,7 @@ const publicI18n = readFileSync(PUBLIC_I18N_PATH, 'utf8');
 for (const required of [
   "from './i18n-base.js'",
   "from './i18n-capability-messages.js'",
+  "from './i18n-platform-admin-messages.js'",
   'export function t(key, values = {})',
   'export function tFor(targetLanguage, key, values = {})',
 ]) {
@@ -138,6 +141,7 @@ for (const required of [
 const canonical = mergeCatalogs(
   readBaseCatalog(),
   readFrozenCatalog(CAPABILITY_CATALOG_PATH),
+  readFrozenCatalog(PLATFORM_ADMIN_CATALOG_PATH),
   readNamedFrozenCatalog(TENANT_ADMIN_OPERATIONS_CATALOG_PATH, 'TENANT_ADMIN_OPERATIONS_MESSAGES'),
   readFrozenCatalog(TENANT_SETTINGS_DOMAIN_CATALOG_PATH),
 );

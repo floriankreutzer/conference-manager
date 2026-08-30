@@ -105,18 +105,29 @@ for (const metadataFile of [manropeLicenseFile, manropeFontlogFile]) {
   }
 }
 
-const index = readFileSync('index.html', 'utf8');
-const tokensPosition = index.indexOf('assets/tokens.css');
-const stylesPosition = index.indexOf('assets/styles.css');
-if (tokensPosition < 0 || stylesPosition < 0 || tokensPosition > stylesPosition) {
-  console.error('index.html: tokens.css must load before component styles.');
-  failures += 1;
+const entrypoints = [
+  ['index.html', './'],
+  ['platform-admin/index.html', '../'],
+  ['platform-admin-demo/index.html', '../'],
+];
+for (const [file, prefix] of entrypoints) {
+  const index = readFileSync(file, 'utf8');
+  const tokensPosition = index.indexOf('assets/tokens.css');
+  const stylesPosition = index.indexOf('assets/styles.css');
+  if (tokensPosition < 0 || stylesPosition < 0 || tokensPosition > stylesPosition) {
+    console.error(`${file}: tokens.css must load before component styles.`);
+    failures += 1;
+  }
+  if (!index.includes(`rel="preload" href="${prefix}assets/fonts/Manrope%5Bwght%5D.ttf" as="font" type="font/ttf" crossorigin`)) {
+    console.error(`${file}: the same-origin Manrope asset must be preloaded before component styles.`);
+    failures += 1;
+  }
+  if (/fonts\.(?:googleapis|gstatic)\.com/i.test(index)) {
+    console.error(`${file}: runtime Google Fonts dependencies are not allowed.`);
+    failures += 1;
+  }
 }
-if (!index.includes('rel="preload" href="./assets/fonts/Manrope%5Bwght%5D.ttf" as="font" type="font/ttf" crossorigin')) {
-  console.error('index.html: the same-origin Manrope asset must be preloaded before component styles.');
-  failures += 1;
-}
-if (/fonts\.(?:googleapis|gstatic)\.com/i.test(`${tokens}\n${index}`)) {
+if (/fonts\.(?:googleapis|gstatic)\.com/i.test(tokens)) {
   console.error('Runtime Google Fonts dependencies are not allowed; typography must remain same-origin and privacy-preserving.');
   failures += 1;
 }

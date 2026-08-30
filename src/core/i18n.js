@@ -1,6 +1,7 @@
 import * as base from './i18n-base.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
 import { ONBOARDING_MESSAGES } from './i18n-onboarding-messages.js';
+import { PLATFORM_ADMIN_MESSAGES } from './i18n-platform-admin-messages.js';
 import { PRODUCTION_APPLICATION_MESSAGES } from './i18n-production-application-messages.js';
 import { TENANT_ADMIN_OPERATIONS_MESSAGES } from './i18n-tenant-admin-operations-messages.js';
 import { TENANT_ADMIN_SETTINGS_MESSAGES } from './i18n-tenant-admin-settings-messages.js';
@@ -78,6 +79,8 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const platformAdminMessages = PLATFORM_ADMIN_MESSAGES[targetLanguage] ?? PLATFORM_ADMIN_MESSAGES.de;
+  if (platformAdminMessages?.[key] !== undefined) return platformAdminMessages[key];
   const tenantSettingsDomainMessages = TENANT_SETTINGS_DOMAIN_MESSAGES[targetLanguage]
     ?? TENANT_SETTINGS_DOMAIN_MESSAGES.de;
   if (tenantSettingsDomainMessages?.[key] !== undefined) return tenantSettingsDomainMessages[key];
