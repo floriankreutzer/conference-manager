@@ -56,8 +56,10 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
   });
   const reloadPromise = page.waitForEvent('load');
   await page.locator('[data-demo-security] button').click();
-  const session = await expectStatus(await responsePromise, 200);
+  const response = await responsePromise;
+  expect(response.status()).toBe(200);
   await reloadPromise;
+  const session = await establishCustomer(page.context());
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
   await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
   return session;
