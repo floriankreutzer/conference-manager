@@ -74,6 +74,35 @@ async function uiResponse(page, method, pathname, action, expectedStatus) {
   return expectStatus(await responsePromise, expectedStatus);
 }
 
+async function requiredProjectionValidation(page) {
+  return page.evaluate(async () => {
+    const { createProductionPersistence } = await import(
+      '/src/platform/production-persistence.js'
+    );
+    const apiClient = {
+      async request(path) {
+        const response = await fetch(`/api/${path}`, {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`HTTP_${response.status}`);
+        return response.json();
+      },
+    };
+    const persistence = createProductionPersistence({ apiClient });
+    const results = await Promise.allSettled([
+      persistence.loadProfile(),
+      persistence.loadCatalog(),
+      persistence.listRequests(),
+    ]);
+    return results.map((result) => (
+      result.status === 'fulfilled'
+        ? 'fulfilled'
+        : result.reason?.code || result.reason?.message || 'rejected'
+    ));
+  });
+}
+
 async function establishPlatform(context) {
   const response = await context.request.get(`${PLATFORM_ORIGIN}/api/v1/platform/demo/session`);
   return expectStatus(response, 200);
@@ -142,6 +171,11 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
 
   const customerPage = await customerContext.newPage();
   await customerPage.goto(CUSTOMER_ORIGIN);
+  expect(await requiredProjectionValidation(customerPage)).toEqual([
+    'fulfilled',
+    'fulfilled',
+    'fulfilled',
+  ]);
   await expect(customerPage.getByLabel('Demo-Tenant')).toBeVisible();
   await customerPage.evaluate(() => {
     localStorage.setItem('conference_demo_role_v1', 'forged-platform-admin');
