@@ -78,7 +78,8 @@ export function createApplicationContextFromState({
   const profile = normalizedProfile(serverProfile);
   const catalog = serverCatalog && typeof serverCatalog === 'object' ? serverCatalog : EMPTY_CATALOG;
   const siteInfo = serverSiteInfo && typeof serverSiteInfo === 'object' ? serverSiteInfo : EMPTY_SITE_INFO;
-  const requests = immutableArray(serverRequests, EMPTY_REQUESTS);
+  let requests = immutableArray(serverRequests, EMPTY_REQUESTS);
+  let requestRefreshRevision = 0;
   const notifications = immutableArray(serverNotifications, EMPTY_NOTIFICATIONS);
   const tenants = immutableArray(demoTenants, EMPTY_REQUESTS);
 
@@ -166,6 +167,14 @@ export function createApplicationContextFromState({
     requests() {
       return requests;
     },
+    async refreshRequests() {
+      if (!serverPersistence) return requests;
+      const revision = requestRefreshRevision + 1;
+      requestRefreshRevision = revision;
+      const refreshed = immutableArray(await serverPersistence.listRequests(), EMPTY_REQUESTS);
+      if (revision === requestRefreshRevision) requests = refreshed;
+      return requests;
+    },
     notifications(limit = 4) {
       return notifications.slice(0, Math.max(0, Number(limit) || 0));
     },
@@ -227,21 +236,31 @@ export async function createApplicationContext({
   let siteInfo = EMPTY_SITE_INFO;
   let requests = EMPTY_REQUESTS;
   let notifications = EMPTY_NOTIFICATIONS;
-  if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED && authentication?.runtime?.apiClient) {
+  if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED && !authentication?.runtime?.apiClient) {
+    status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
+    session = null;
+  } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
     const persistence = createProductionPersistence({ apiClient: authentication.runtime.apiClient });
-    const [profileResult, catalogResult, siteResult, requestResult, notificationResult] =
-      await Promise.allSettled([
-        persistence.loadProfile(),
-        persistence.loadCatalog(),
-        persistence.loadSiteInfo(),
-        persistence.listRequests(),
-        persistence.listNotifications(),
+    try {
+      const [required, optional] = await Promise.all([
+        Promise.all([
+          persistence.loadProfile(),
+          persistence.loadCatalog(),
+          persistence.listRequests(),
+        ]),
+        Promise.allSettled([
+          persistence.loadSiteInfo(),
+          persistence.listNotifications(),
+        ]),
       ]);
-    if (profileResult.status === 'fulfilled') profile = profileResult.value;
-    if (catalogResult.status === 'fulfilled') catalog = catalogResult.value;
-    if (siteResult.status === 'fulfilled') siteInfo = siteResult.value;
-    if (requestResult.status === 'fulfilled') requests = requestResult.value;
-    if (notificationResult.status === 'fulfilled') notifications = notificationResult.value;
+      [profile, catalog, requests] = required;
+      const [siteResult, notificationResult] = optional;
+      if (siteResult.status === 'fulfilled') siteInfo = siteResult.value;
+      if (notificationResult.status === 'fulfilled') notifications = notificationResult.value;
+    } catch {
+      status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
+      session = null;
+    }
   }
   return createApplicationContextFromState({
     runtimeMode,

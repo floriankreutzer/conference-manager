@@ -53,8 +53,8 @@ for (const file of [
   'src/platform/production-bootstrap.js',
   'src/platform/demo-session.js',
   'src/platform/demo-security.js',
-  'src/employee/server.js',
-  'src/manager/server.js',
+  'src/employee/index.js',
+  'src/manager/index.js',
   'src/tenant-admin/server.js',
   'src/platform/server-tenant-settings-api.js',
 ]) {
@@ -84,8 +84,8 @@ if (
 
 const app = await readFile('src/app.js', 'utf8');
 for (const required of [
-  "from './employee/server.js'",
-  "from './manager/server.js'",
+  "from './employee/index.js'",
+  "from './manager/index.js'",
   "from './tenant-admin/server.js'",
   'createServerEmployeeApplication',
   'createServerManagerApplication',
@@ -93,7 +93,7 @@ for (const required of [
 ]) {
   if (!app.includes(required)) fail(`src/app.js: shared server composition is missing ${required}.`);
 }
-if (/\bcreateDemo|\.\/employee\/index|\.\/manager\/index|\.\/tenant-admin\/index/.test(app)) {
+if (/\bcreateDemo|\.\/employee\/server|\.\/manager\/server|\.\/tenant-admin\/index/.test(app)) {
   fail('src/app.js: shared server composition must not import browser-owned Demo capabilities.');
 }
 

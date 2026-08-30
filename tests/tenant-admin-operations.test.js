@@ -184,6 +184,14 @@ test('capability recovery delegates internal navigation to the settings shell', 
   assert.match(capabilities, /event\.preventDefault\(\);\s*navigate\('microsoft365'\);/);
 });
 
+test('section navigation focus is consumed before asynchronous section completion', () => {
+  const shell = readFileSync('src/tenant-admin/settings-shell.js', 'utf8');
+  const render = shell.indexOf('const sectionRender = activeSection.render');
+  const focus = shell.indexOf('focusActiveHeading(activeSection.id, currentGeneration)', render);
+  const completion = shell.indexOf('Promise.resolve(sectionRender)', render);
+  assert.ok(render >= 0 && focus > render && completion > focus);
+});
+
 test('production adapters never import Demo and Demo adapters have no external transport', () => {
   const platform = [
     'src/platform/tenant-user-operations-api.js',

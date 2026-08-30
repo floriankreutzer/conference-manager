@@ -14,6 +14,7 @@ import {
   cateringEditorOptions,
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
+  serviceEditorOptions,
 } from './server-request-editor.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested']);
@@ -150,7 +151,8 @@ export function createProductionEmployeeApplication({
     if (resubmit || Date.parse(request.startsAt) > Date.now()) {
       queuedRequest = request;
     } else {
-      queuedRequest = repeatRequestProjection(request);
+      const room = catalog.rooms.find((entry) => entry.id === request.roomId);
+      queuedRequest = repeatRequestProjection(request, Date.now(), roomTimeZone(room, catalog));
     }
     queuedResubmission = resubmit;
     if (typeof onNavigate === 'function') onNavigate('employee');
@@ -338,14 +340,27 @@ export function createProductionEmployeeApplication({
         value: String(sourceRequest?.details?.catering?.participantCount || 0),
       },
     });
-    const serviceControls = catalog.services.map((service) => {
-      const control = el('input', { attrs: { type: 'checkbox', value: service.id } });
-      control.checked = selectedServices.has(service.id);
-      control.addEventListener('change', () => {
-        if (control.checked) selectedServices.add(service.id); else selectedServices.delete(service.id);
+    const servicePanel = el('section');
+    const renderServiceControls = () => {
+      clear(servicePanel);
+      const services = serviceEditorOptions(catalog, room.value);
+      const applicableIds = new Set(services.map((entry) => entry.id));
+      [...selectedServices].forEach((serviceId) => {
+        if (!applicableIds.has(serviceId)) selectedServices.delete(serviceId);
       });
-      return el('label', {}, [control, document.createTextNode(` ${service.name}`)]);
-    });
+      if (!services.length) {
+        servicePanel.appendChild(el('p', { className: 'muted', text: t('production.common.timeUnavailable') }));
+        return;
+      }
+      services.forEach((service) => {
+        const control = el('input', { attrs: { type: 'checkbox', value: service.id } });
+        control.checked = selectedServices.has(service.id);
+        control.addEventListener('change', () => {
+          if (control.checked) selectedServices.add(service.id); else selectedServices.delete(service.id);
+        });
+        servicePanel.appendChild(el('label', {}, [control, document.createTextNode(` ${service.name}`)]));
+      });
+    };
     const cateringPanel = el('section', { attrs: { 'aria-label': t('catering.heading') } });
     const renderCateringControls = () => {
       clear(cateringPanel);
@@ -452,6 +467,7 @@ export function createProductionEmployeeApplication({
       allocationPanel.appendChild(add);
     };
     renderCateringControls();
+    renderServiceControls();
     renderAllocationControls();
     const status = el('p', {
       className: 'muted',
@@ -482,7 +498,10 @@ export function createProductionEmployeeApplication({
       status.textContent = t('production.employee.availabilityRequired');
     };
     [room, date, start, end].forEach((control) => control.addEventListener('input', invalidateAvailability));
-    room.addEventListener('change', renderCateringControls);
+    room.addEventListener('change', () => {
+      renderServiceControls();
+      renderCateringControls();
+    });
 
     const step = (number, label, children) => el('fieldset', { className: 'card' }, [
       el('legend', { text: `${number}/6 · ${label}` }), ...children,
@@ -504,9 +523,7 @@ export function createProductionEmployeeApplication({
         field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
       ]),
       step(5, t('settings.catalogue.title'), [
-        ...(serviceControls.length ? serviceControls : [
-          el('p', { className: 'muted', text: t('production.common.timeUnavailable') }),
-        ]),
+        servicePanel,
         cateringPanel,
       ]),
       step(6, t('production.employee.submit'), [

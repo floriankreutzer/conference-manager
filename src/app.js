@@ -1,5 +1,5 @@
-import { createServerEmployeeApplication } from './employee/server.js';
-import { createServerManagerApplication } from './manager/server.js';
+import { createServerEmployeeApplication } from './employee/index.js';
+import { createServerManagerApplication } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell, renderAppBootstrapLoading } from './platform/app-shell.js';
 import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';

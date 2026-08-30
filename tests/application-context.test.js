@@ -16,7 +16,10 @@ globalThis.localStorage = {
   setItem() {},
   removeItem() {},
 };
-const { createApplicationContextFromState } = await import('../src/platform/application-context.js');
+const {
+  createApplicationContext,
+  createApplicationContextFromState,
+} = await import('../src/platform/application-context.js');
 if (previousDocumentAtImport === undefined) delete globalThis.document;
 else globalThis.document = previousDocumentAtImport;
 if (previousLocalStorageAtImport === undefined) delete globalThis.localStorage;
@@ -189,4 +192,61 @@ test('Customer Demo context derives identity and capabilities only from the vali
     { tenantId: tenants[1].id, persona: 'tenant_admin' },
     { tenantId: demoSession.tenant.id, persona: 'conference_manager' },
   ]);
+});
+
+test('authenticated context refreshes its Request projection from server persistence', async () => {
+  const runtime = Object.freeze({
+    apiClient: Object.freeze({
+      async request(path) {
+        assert.match(path, /^v1\/application\/requests\?/);
+        return {
+          schemaVersion: 2,
+          asOf: '2026-08-30T12:00:00.000Z',
+          requests: [],
+          page: { limit: 10, complete: true, nextCursor: null },
+        };
+      },
+    }),
+    status() { return PRODUCTION_AUTH_STATUS.AUTHENTICATED; },
+  });
+  const context = createApplicationContextFromState({
+    runtimeMode: 'production',
+    productionSession: session({
+      roles: ['employee'],
+      permissions: ['request:read', 'request:cancel'],
+    }),
+    productionAuthenticationStatus: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+    authenticationRuntime: runtime,
+    serverRequests: [{ id: 'stale-request' }],
+  });
+
+  assert.deepEqual(context.requests(), [{ id: 'stale-request' }]);
+  assert.deepEqual(await context.refreshRequests(), []);
+  assert.deepEqual(context.requests(), []);
+});
+
+test('required startup projection failure invalidates the effective authenticated context', async () => {
+  const authenticatedSession = session({
+    roles: ['employee', 'conference_manager'],
+    permissions: ['request:read', 'request:cancel', 'request:manage'],
+  });
+  const context = await createApplicationContext({
+    runtimeMode: 'production',
+    async authenticationBootstrap() {
+      return {
+        status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+        session: authenticatedSession,
+        runtime: Object.freeze({
+          apiClient: Object.freeze({
+            async request() { throw new Error('REQUIRED_PROJECTION_UNAVAILABLE'); },
+          }),
+        }),
+      };
+    },
+  });
+
+  assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+  assert.equal(context.isAuthenticated(), false);
+  assert.equal(context.isManager(), false);
+  assert.deepEqual(context.requests(), []);
 });

@@ -22,6 +22,11 @@ export function cateringEditorOptions(catalog, roomId) {
   });
 }
 
+export function serviceEditorOptions(catalog, roomId) {
+  const room = catalog?.rooms?.find((entry) => entry.id === roomId);
+  return Object.freeze((catalog?.services || []).filter((entry) => appliesToRoom(entry, room)));
+}
+
 export function normalizeCateringEditorDraft({
   participantCount,
   packageSelection,

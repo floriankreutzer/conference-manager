@@ -4,8 +4,9 @@ import { customerDemoBoundaryViolations } from '../scripts/customer-demo-boundar
 
 test('Customer Production and Demo roots share only server-authoritative composition', () => {
   const violations = customerDemoBoundaryViolations({
-    'src/app.js': "import './employee/server.js';",
-    'src/employee/server.js': 'export const employee = true;',
+    'src/app.js': "import './employee/index.js';",
+    'src/employee/index.js': "export { createProductionEmployeeApplication as createEmployeeApplication } from './production-application.js';",
+    'src/employee/production-application.js': 'export function createProductionEmployeeApplication() {}',
     'src/platform/production-bootstrap.js': "import '../app.js';",
     'src/platform/demo-bootstrap.js': "import '../app.js'; import './demo-session.js';",
     'src/platform/demo-session.js': 'export const session = true;',

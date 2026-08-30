@@ -10,7 +10,7 @@ const DEMO_ONLY = Object.freeze([
   'src/platform/demo-tenant-presentation-api.js',
 ]);
 const BROWSER_STORAGE = /\b(?:localStorage|sessionStorage)\b/;
-const RETIRED_BROWSER_AUTHORITY = /\b(?:requestRepository|notificationRepository|createEmployeeApplication|createManagerApplication|createDemoTenant|createDemoOrganization|createDemoLocation|createDemoCatalogue|createDemoBooking|createDemoCost|createDemoOnboarding)\b/;
+const RETIRED_BROWSER_AUTHORITY = /\b(?:requestRepository|notificationRepository|createDemoTenant|createDemoOrganization|createDemoLocation|createDemoCatalogue|createDemoBooking|createDemoCost|createDemoOnboarding)\b/;
 const RETIRED_PATHS = Object.freeze([
   'src/platform/identity-bootstrap.js',
   'src/platform/requester-attribution.js',

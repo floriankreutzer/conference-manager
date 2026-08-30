@@ -45,6 +45,35 @@ async function switchCustomer(context, session, tenantId, persona) {
   return expectStatus(response, 200);
 }
 
+async function switchCustomerThroughUi(page, tenantId, persona) {
+  await page.getByLabel('Demo-Tenant').selectOption(tenantId);
+  await page.getByLabel('Demo-Persona').selectOption(persona);
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'PUT'
+      && url.origin === CUSTOMER_ORIGIN
+      && url.pathname === '/api/v1/demo/session/context';
+  });
+  const reloadPromise = page.waitForEvent('load');
+  await page.locator('[data-demo-security] button').click();
+  const session = await expectStatus(await responsePromise, 200);
+  await reloadPromise;
+  await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
+  await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
+  return session;
+}
+
+async function uiResponse(page, method, pathname, action, expectedStatus) {
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === method
+      && url.origin === CUSTOMER_ORIGIN
+      && url.pathname === pathname;
+  });
+  await action();
+  return expectStatus(await responsePromise, expectedStatus);
+}
+
 async function establishPlatform(context) {
   const response = await context.request.get(`${PLATFORM_ORIGIN}/api/v1/platform/demo/session`);
   return expectStatus(response, 200);
@@ -79,33 +108,10 @@ function futureBusinessWindow() {
   startsAt.setUTCHours(10, 0, 0, 0);
   while ([0, 6].includes(startsAt.getUTCDay())) startsAt.setUTCDate(startsAt.getUTCDate() + 1);
   const endsAt = new Date(startsAt.getTime() + (60 * 60 * 1_000));
-  return Object.freeze({ startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() });
-}
-
-async function employeeRequestDraft(context) {
-  const sitesResponse = await context.request.get(
-    `${CUSTOMER_ORIGIN}/api/v1/application/catalog?section=sites&limit=10`,
-  );
-  const sites = await expectStatus(sitesResponse, 200);
-  expect(sites.context).toMatch(/^[A-Za-z0-9_-]+$/);
-  const roomsResponse = await context.request.get(
-    `${CUSTOMER_ORIGIN}/api/v1/application/catalog?section=rooms&limit=10&context=${encodeURIComponent(sites.context)}`,
-  );
-  const catalog = await expectStatus(roomsResponse, 200);
-  expect(catalog.entries.length).toBeGreaterThan(0);
-  expect(catalog.costAllocation.allocationRequired).toBe(false);
   return Object.freeze({
-    title: REQUEST_TITLE,
-    roomId: catalog.entries[0].id,
-    ...futureBusinessWindow(),
-    internalParticipants: 2,
-    externalParticipants: 0,
-    serviceIds: [],
-    catering: { participantCount: 0, packageSelection: null, itemQuantities: [] },
-    dietaryRequirements: null,
-    specialRequirements: null,
-    allocations: [],
-    configurationRevisions: catalog.configurationRevisions,
+    date: startsAt.toISOString().slice(0, 10),
+    start: startsAt.toISOString().slice(11, 16),
+    end: endsAt.toISOString().slice(11, 16),
   });
 }
 
@@ -261,18 +267,42 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const updatedOrganization = await expectStatus(organizationUpdate, 200);
   expect(updatedOrganization.organization.displayName).toBe(MUTATED_NAME_B);
 
-  customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'employee');
+  await customerPage.reload();
+  await expect(customerPage.getByLabel('Demo-Tenant')).toHaveValue(TENANT_B);
+  await expect(customerPage.getByLabel('Demo-Persona')).toHaveValue('tenant_admin');
+  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
   expect(customerSession.tenant).toEqual({ id: TENANT_B, status: 'active' });
 
-  const draft = await employeeRequestDraft(customerContext);
-  const createResponse = await customerContext.request.post(
-    `${CUSTOMER_ORIGIN}/api/v1/application/requests`,
-    {
-      headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
-      data: { schemaVersion: 2, request: draft },
-    },
+  await customerPage.locator('[data-view="employee"]').click();
+  const businessWindow = futureBusinessWindow();
+  await customerPage.locator('#productionTitle').fill(REQUEST_TITLE);
+  await customerPage.locator('#productionDate').fill(businessWindow.date);
+  await customerPage.locator('#productionStart').fill(businessWindow.start);
+  await customerPage.locator('#productionEnd').fill(businessWindow.end);
+  await customerPage.locator('#productionRoom').selectOption({ index: 1 });
+  await customerPage.locator('#productionInternal').fill('2');
+  await customerPage.locator('#productionExternal').fill('0');
+  const submitRequest = customerPage.getByRole('button', { name: 'Anfrage absenden' });
+  await expect(submitRequest).toBeDisabled();
+  const availability = await uiResponse(
+    customerPage,
+    'POST',
+    '/api/v1/application/room-availability',
+    () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
+    200,
   );
-  const created = await expectStatus(createResponse, 201);
+  expect(availability).toEqual({
+    schemaVersion: 1,
+    availability: { available: true, conflictCount: 0 },
+  });
+  await expect(submitRequest).toBeEnabled();
+  const created = await uiResponse(
+    customerPage,
+    'POST',
+    '/api/v1/application/requests',
+    () => submitRequest.click(),
+    201,
+  );
   const createdRequestId = created.request.id;
   expect(created.request).toMatchObject({
     id: createdRequestId,
@@ -280,33 +310,43 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     version: 1,
     details: { title: REQUEST_TITLE },
   });
+  const employeeCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
+  await expect(employeeCard).toBeVisible();
+  await expect(employeeCard).toContainText('Zur Prüfung');
 
-  customerSession = await switchCustomer(
-    customerContext,
-    customerSession,
-    TENANT_B,
-    'conference_manager',
+  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'conference_manager');
+  await customerPage.locator('[data-view="manager"]').click();
+  const managerCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
+  await expect(managerCard).toBeVisible();
+  const transitionPath = `/api/v1/requests/${createdRequestId}/transitions`;
+  const reviewed = await uiResponse(
+    customerPage,
+    'POST',
+    transitionPath,
+    () => managerCard.getByRole('button', { name: 'Prüfung starten' }).click(),
+    200,
   );
-  const reviewResponse = await customerContext.request.post(
-    `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}/transitions`,
-    {
-      headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
-      data: { transition: 'start_review' },
-    },
-  );
-  const reviewed = await expectStatus(reviewResponse, 200);
   expect(reviewed.request).toMatchObject({ id: createdRequestId, status: 'In Review' });
-  const confirmResponse = await customerContext.request.post(
-    `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}/transitions`,
-    {
-      headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
-      data: { transition: 'confirm' },
-    },
+  await expect(managerCard).toContainText('In Prüfung');
+  await managerCard.getByRole('button', { name: 'Änderung anfordern' }).click();
+  const reasonDialog = customerPage.getByRole('dialog', { name: 'Änderung anfordern' });
+  await expect(reasonDialog).toBeVisible();
+  await reasonDialog.getByLabel('Begründung').fill('Bitte Teilnehmerzahl abschließend prüfen.');
+  const changeRequested = await uiResponse(
+    customerPage,
+    'POST',
+    transitionPath,
+    () => reasonDialog.getByRole('button', { name: 'Änderung anfordern' }).click(),
+    200,
   );
-  const confirmed = await expectStatus(confirmResponse, 200);
-  expect(confirmed.request).toMatchObject({ id: createdRequestId, status: 'Confirmed' });
+  expect(changeRequested.request).toMatchObject({ id: createdRequestId, status: 'Change Requested' });
+  await expect(managerCard).toContainText('Änderung angefordert');
 
-  customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'employee');
+  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
+  await customerPage.locator('[data-view="requests"]').click();
+  const followUpCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
+  await expect(followUpCard).toBeVisible();
+  await expect(followUpCard).toContainText('Änderung angefordert');
   const employeeFollowUp = await expectStatus(
     await customerContext.request.get(
       `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}`,
@@ -315,18 +355,23 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect(employeeFollowUp.request).toMatchObject({
     id: createdRequestId,
-    status: 'Confirmed',
+    status: 'Change Requested',
     details: { title: REQUEST_TITLE },
   });
-  const cancellationResponse = await customerContext.request.post(
-    `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}/transitions`,
-    {
-      headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
-      data: { transition: 'cancel' },
-    },
+  await followUpCard.getByRole('button', { name: 'Verlauf' }).click();
+  const historyDialog = customerPage.getByRole('dialog', { name: 'Verlauf' });
+  await expect(historyDialog).toBeVisible();
+  await expect(historyDialog.locator('p')).toHaveCount(3);
+  await historyDialog.getByRole('button', { name: 'Schließen' }).click();
+  const cancelled = await uiResponse(
+    customerPage,
+    'POST',
+    transitionPath,
+    () => followUpCard.getByRole('button', { name: 'Anfrage stornieren' }).click(),
+    200,
   );
-  const cancelled = await expectStatus(cancellationResponse, 200);
   expect(cancelled.request).toMatchObject({ id: createdRequestId, status: 'Cancelled' });
+  await expect(followUpCard).toContainText('Storniert');
   const employeeHistory = await expectStatus(
     await customerContext.request.get(
       `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}/history?limit=10`,
@@ -335,11 +380,15 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect(employeeHistory.history.map(({ request }) => request.status)).toEqual([
     'Cancelled',
-    'Confirmed',
+    'Change Requested',
     'In Review',
     'Submitted',
   ]);
 
+  await platformPage.reload();
+  await expect(platformPage.getByText(MUTATED_NAME_B, { exact: true }).first()).toBeVisible();
+  await expect(platformPage.getByText(createdRequestId, { exact: false })).toHaveCount(0);
+  await expect(platformPage.getByText(REQUEST_TITLE, { exact: false })).toHaveCount(0);
   const customerChangeVisibleToPlatform = await platformDirectory(platformContext);
   expect(customerChangeVisibleToPlatform.items.find(({ tenantId }) => tenantId === TENANT_B)?.displayName)
     .toBe(MUTATED_NAME_B);

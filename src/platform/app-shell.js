@@ -1,11 +1,12 @@
 import { REQUEST_STATUS } from '../core/domain.js';
-import { formatDateTime, language, setLanguage, t } from '../core/i18n.js';
+import { formatDateTime, language, locale, setLanguage, t } from '../core/i18n.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { kpi } from '../shared/application-presentation.js';
 import { notificationText } from '../shared/notification-presentation.js';
 import { PRODUCTION_AUTH_STATUS } from './production-session.js';
 import { TENANT_PRESENTATION_FALLBACK } from './tenant-presentation-api.js';
 import { applyTenantPresentationToDocument } from './tenant-presentation-runtime.js';
+import { formatRequestDateTime, requestOccursToday } from './welcome-projection.js';
 
 export function renderAppBootstrapLoading() {
   const appRoot = document.getElementById('app');
@@ -48,6 +49,7 @@ export function createAppShell({
   const titleRoot = document.getElementById('viewTitle');
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
+  let renderRevision = 0;
 
   function setPageHeading(title, subtitle) {
     titleRoot.textContent = title;
@@ -163,9 +165,28 @@ export function createAppShell({
     ]));
   }
 
-  function renderWelcome() {
+  function renderProjectionUnavailable() {
+    setPageHeading(t('auth.production.unavailableTitle'), t('auth.production.unavailableText'));
+    const retry = button(t('auth.production.retry'), { className: 'primary' });
+    retry.addEventListener('click', () => globalThis.location.reload());
+    appRoot.appendChild(el('section', { className: 'card' }, [
+      el('p', { text: t('auth.production.unavailableText') }),
+      el('div', { className: 'button-row' }, [retry]),
+    ]));
+  }
+
+  async function renderWelcome(revision) {
     setPageHeading(t('nav.welcome'), t('welcome.subtitle'));
-    const currentRequests = context.requests();
+    let currentRequests;
+    try {
+      currentRequests = await context.refreshRequests();
+    } catch {
+      if (revision !== renderRevision || view !== 'welcome') return;
+      clear(appRoot);
+      renderProjectionUnavailable();
+      return;
+    }
+    if (revision !== renderRevision || view !== 'welcome') return;
     const now = Date.now();
     const openCount = currentRequests.filter((request) => [
       REQUEST_STATUS.SUBMITTED,
@@ -207,20 +228,24 @@ export function createAppShell({
     overview.append(
       kpi(t('welcome.open'), openCount),
       kpi(t('welcome.upcoming'), upcoming.length),
-      kpi(t('welcome.today'), upcoming.filter((request) => {
-        const date = new Date(request.startsAt);
-        const today = new Date(now);
-        return date.getFullYear() === today.getFullYear()
-          && date.getMonth() === today.getMonth()
-          && date.getDate() === today.getDate();
-      }).length),
+      kpi(t('welcome.today'), upcoming.filter((request) => requestOccursToday({
+        catalog: context.getCatalog(),
+        request,
+        now,
+      })).length),
     );
 
     const nextSection = el('section', { className: 'card' }, [el('h3', { text: t('welcome.next') })]);
     if (next) {
+      const startsAt = formatRequestDateTime({
+        catalog: context.getCatalog(),
+        request: next,
+        locale: locale(),
+      });
+      const title = next.details?.title || t('production.common.requestId', { id: next.id });
       nextSection.append(
         el('p', {
-          text: `${next.details?.title || t('production.common.requestId', { id: next.id })} · ${formatDateTime(next.startsAt)}`,
+          text: startsAt ? `${title} · ${startsAt}` : title,
         }),
         el('p', {
           text: context.localized(
@@ -354,6 +379,8 @@ export function createAppShell({
   }
 
   function render() {
+    renderRevision += 1;
+    const revision = renderRevision;
     document.getElementById('mainContent').removeAttribute('aria-busy');
     clear(appRoot);
     renderNavigation();
@@ -362,7 +389,7 @@ export function createAppShell({
       return;
     }
     if (view === 'welcome') {
-      renderWelcome();
+      void renderWelcome(revision);
       return;
     }
     if (view === 'employee' && employee) {
@@ -381,7 +408,7 @@ export function createAppShell({
       tenantAdmin.render();
       return;
     }
-    renderWelcome();
+    void renderWelcome(revision);
   }
 
   return {

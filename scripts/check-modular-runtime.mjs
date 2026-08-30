@@ -46,8 +46,6 @@ const coreRoot = normalize('src/core');
 const employeeIndex = normalize('src/employee/index.js');
 const managerIndex = normalize('src/manager/index.js');
 const tenantAdminIndex = normalize('src/tenant-admin/index.js');
-const employeeServer = normalize('src/employee/server.js');
-const managerServer = normalize('src/manager/server.js');
 const tenantAdminServer = normalize('src/tenant-admin/server.js');
 const managerAdminParity = normalize('src/manager/admin-parity.js');
 const featureFlagPath = normalize('src/platform/feature-flags.js');
@@ -55,8 +53,8 @@ const appPath = normalize('src/app.js');
 
 const app = readFileSync(appPath, 'utf8');
 const allowedAppImports = new Set([
-  './employee/server.js',
-  './manager/server.js',
+  './employee/index.js',
+  './manager/index.js',
   './tenant-admin/server.js',
   './platform/application-context.js',
   './platform/app-shell.js',
@@ -67,8 +65,8 @@ const allowedAppImports = new Set([
 ]);
 
 for (const required of [
-  "from './employee/server.js'",
-  "from './manager/server.js'",
+  "from './employee/index.js'",
+  "from './manager/index.js'",
   "from './tenant-admin/server.js'",
   "from './platform/application-context.js'",
   "from './platform/app-shell.js'",
@@ -112,22 +110,18 @@ for (const forbidden of [
 }
 
 const employeeFacade = readFileSync(employeeIndex, 'utf8');
-if (!employeeFacade.includes('createEmployeeApplication')) {
-  fail('src/employee/index.js: Employee public API must expose createEmployeeApplication.');
+if (!employeeFacade.includes('createEmployeeApplication')
+  || !employeeFacade.includes('createServerEmployeeApplication')) {
+  fail('src/employee/index.js: Employee public API must expose the canonical server application contracts.');
 }
 const managerFacade = readFileSync(managerIndex, 'utf8');
-if (!managerFacade.includes('createManagerApplication')) {
-  fail('src/manager/index.js: Manager public API must expose createManagerApplication.');
+if (!managerFacade.includes('createManagerApplication')
+  || !managerFacade.includes('createServerManagerApplication')) {
+  fail('src/manager/index.js: Manager public API must expose the canonical server application contracts.');
 }
 const tenantAdminFacade = readFileSync(tenantAdminIndex, 'utf8');
 if (!tenantAdminFacade.includes('createTenantAdminApplication')) {
   fail('src/tenant-admin/index.js: Tenant Admin public API must expose createTenantAdminApplication.');
-}
-if (!readFileSync(employeeServer, 'utf8').includes('createServerEmployeeApplication')) {
-  fail('src/employee/server.js: server-authoritative Employee public API is missing.');
-}
-if (!readFileSync(managerServer, 'utf8').includes('createServerManagerApplication')) {
-  fail('src/manager/server.js: server-authoritative Manager public API is missing.');
 }
 if (!readFileSync(tenantAdminServer, 'utf8').includes('createTenantAdminApplication')) {
   fail('src/tenant-admin/server.js: server-authoritative Tenant Admin public API is missing.');
@@ -140,11 +134,11 @@ for (const file of sourceFiles) {
     if (!dependency) continue;
 
     if (!isInside(file, employeeRoot) && isInside(dependency, employeeRoot)
-      && dependency !== employeeIndex && dependency !== employeeServer) {
+      && dependency !== employeeIndex) {
       fail(`${file}: Employee internals are private; external consumers must use src/employee/index.js.`);
     }
     if (!isInside(file, managerRoot) && isInside(dependency, managerRoot)
-      && dependency !== managerIndex && dependency !== managerServer) {
+      && dependency !== managerIndex) {
       fail(`${file}: Manager internals are private; external consumers must use src/manager/index.js.`);
     }
     if (!isInside(file, tenantAdminRoot) && isInside(dependency, tenantAdminRoot)

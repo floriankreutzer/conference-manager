@@ -14,6 +14,7 @@ import {
   cateringEditorOptions,
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
+  serviceEditorOptions,
 } from '../src/employee/server-request-editor.js';
 import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
 
@@ -65,11 +66,29 @@ test('server-backed repeat preserves request content while moving an elapsed slo
     endsAt: '2026-08-03T09:30:00.000Z',
     details: Object.freeze({ title: 'Architecture review', serviceIds: Object.freeze(['svc-1']) }),
   });
-  const repeated = repeatRequestProjection(source, Date.parse('2026-08-30T10:00:00.000Z'));
+  const repeated = repeatRequestProjection(
+    source,
+    Date.parse('2026-08-30T10:00:00.000Z'),
+    'Etc/UTC',
+  );
   assert.equal(repeated.startsAt, '2026-08-31T08:00:00.000Z');
   assert.equal(repeated.endsAt, '2026-08-31T09:30:00.000Z');
   assert.equal(repeated.details, source.details);
   assert.equal(source.startsAt, '2026-08-03T08:00:00.000Z');
+});
+
+test('server-backed repeat preserves site-local wall-clock times across DST', () => {
+  const source = Object.freeze({
+    startsAt: '2026-03-23T08:00:00.000Z',
+    endsAt: '2026-03-23T09:30:00.000Z',
+  });
+  const repeated = repeatRequestProjection(
+    source,
+    Date.parse('2026-03-24T10:00:00.000Z'),
+    'Europe/Berlin',
+  );
+  assert.equal(repeated.startsAt, '2026-03-30T07:00:00.000Z');
+  assert.equal(repeated.endsAt, '2026-03-30T08:30:00.000Z');
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
@@ -131,6 +150,25 @@ test('Employee editor exposes only catering applicable to the selected authorita
   const options = cateringEditorOptions(catalog, 'room-1');
   assert.deepEqual(options.packages.map(({ id }) => id), ['site-package']);
   assert.deepEqual(options.items.map(({ id }) => id), ['room-item']);
+});
+
+test('Employee editor exposes only services applicable to the selected authoritative room and site', () => {
+  const catalog = {
+    rooms: [{ id: 'room-1', siteId: 'site-1' }],
+    services: [
+      { id: 'global', active: true, siteIds: [], roomIds: [] },
+      { id: 'site', active: true, siteIds: ['site-1'], roomIds: [] },
+      { id: 'room', active: true, siteIds: [], roomIds: ['room-1'] },
+      { id: 'other-site', active: true, siteIds: ['site-2'], roomIds: [] },
+      { id: 'other-room', active: true, siteIds: [], roomIds: ['room-2'] },
+      { id: 'inactive', active: false, siteIds: [], roomIds: [] },
+    ],
+  };
+  assert.deepEqual(
+    serviceEditorOptions(catalog, 'room-1').map(({ id }) => id),
+    ['global', 'site', 'room'],
+  );
+  assert.deepEqual(serviceEditorOptions(catalog, ''), []);
 });
 
 test('Employee editor produces bounded schema-v2 catering and exact cost allocations', () => {

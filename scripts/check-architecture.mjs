@@ -85,8 +85,6 @@ for (const required of [
   'src/platform/demo-bootstrap.js',
   'src/platform/production-bootstrap.js',
   'src/platform/demo-session.js',
-  'src/employee/server.js',
-  'src/manager/server.js',
   'src/tenant-admin/server.js',
   'src/shared/parity-data.js',
   'src/shared/booking-change-loader.js',
@@ -177,30 +175,19 @@ if (!identityCalls.some((position) => position > firstUseCalls[0] && position < 
 
 const employeeFacade = readFileSync('src/employee/index.js', 'utf8');
 for (const required of [
-  'decorateEmployeeParity',
-  'enhanceEmployeeUx',
-  'enhanceEmployeeAccessibilityPolish',
-  'enhanceEmployeeFirstUsePersonalization',
-  'captureEmployeeIdentityPresentation',
-  'openRichFloorplan',
-  'requestIdFromCard',
-  'richPrint',
+  'createEmployeeApplication',
+  'createProductionEmployeeApplication',
+  'createServerEmployeeApplication',
+  'productionUtcInstant',
 ]) {
   if (!employeeFacade.includes(required)) fail(`src/employee/index.js: public Employee contract missing ${required}.`);
 }
 
 const managerFacade = readFileSync('src/manager/index.js', 'utf8');
 for (const required of [
-  'PARITY_RETURN_KEY',
-  'enhanceManager',
-  'enhanceManagerResponsive',
-  'enhanceManagerFirstUse',
-  'enhanceManagerUxPolish',
-  'enhanceManagerOperationalUx',
-  'enhanceManagerFinalPolish',
-  'enhanceConferenceManagerReady',
-  'ensureManagerTabIdentity',
-  'managerTabControl',
+  'createManagerApplication',
+  'createProductionManagerApplication',
+  'createServerManagerApplication',
 ]) {
   if (!managerFacade.includes(required)) fail(`src/manager/index.js: public Manager contract missing ${required}.`);
 }
