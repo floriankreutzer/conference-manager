@@ -381,7 +381,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await expectUiResponseStatus(
     customerPage,
     'POST',
-    `/api/v1/requests/${createdRequestId}/resubmissions`,
+    `/api/v1/application/requests/${createdRequestId}/resubmissions`,
     () => customerPage.getByRole('button', { name: 'Änderung erneut einreichen' }).click(),
     200,
   );
