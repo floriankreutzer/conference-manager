@@ -1,4 +1,4 @@
-import { locale, t } from '../core/i18n.js';
+import { formatNumber, locale, t } from '../core/i18n.js';
 import { el } from '../core/ui.js';
 
 function money(amountMinor, currency) {
@@ -28,18 +28,21 @@ export function productionRequestBusinessDetails(request) {
     ? `${selectedPackage.package.name} · ${selectedPackage.variant.name}`
     : t('catering.noPackage');
   const cateringItems = joined(
-    pricing.catering.items.map((entry) => `${entry.item.name} × ${entry.quantity}`),
+    pricing.catering.items.map((entry) => `${entry.item.name} × ${formatNumber(entry.quantity)}`),
     t('catering.noItems'),
   );
   const allocationText = joined(allocations.entries.map((entry) => (
-    `${entry.code} · ${entry.name}: ${(entry.percentageBasisPoints / 100).toFixed(2).replace(/\.00$/, '')}%`
+    `${entry.code} · ${entry.name}: ${formatNumber(entry.percentageBasisPoints / 10_000, {
+      style: 'percent',
+      maximumFractionDigits: 2,
+    })}`
   )), none);
 
   return [
     [t('schedule.title'), details.title],
     [t('review.services'), services],
     [t('catering.package'), cateringPackage],
-    [t('catering.people'), String(details.catering.participantCount)],
+    [t('catering.people'), formatNumber(details.catering.participantCount)],
     [t('catering.items'), cateringItems],
     [t('catering.dietary'), details.dietaryRequirements || t('catering.noDietary')],
     [t('review.special'), details.specialRequirements || none],
