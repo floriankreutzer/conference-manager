@@ -133,7 +133,9 @@ export function showToast(message) {
 export function safeNavigationUrl(value) {
   if (!value) return null;
   try {
-    const url = new URL(value, window.location.href);
+    const raw = String(value).trim();
+    if (/^[\\/]{2}/.test(raw)) return null;
+    const url = new URL(raw, window.location.href);
     if (url.protocol === 'https:') return url.href;
     if (url.origin === window.location.origin && url.protocol === 'http:') return url.href;
     return null;
@@ -145,7 +147,9 @@ export function safeNavigationUrl(value) {
 export function safeHttpsUrl(value) {
   if (!value) return null;
   try {
-    const url = new URL(value, window.location.href);
+    const raw = String(value).trim();
+    if (/^[\\/]{2}/.test(raw)) return null;
+    const url = new URL(raw, window.location.href);
     return url.protocol === 'https:' ? url.href : null;
   } catch {
     return null;

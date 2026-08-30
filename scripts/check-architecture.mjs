@@ -60,6 +60,24 @@ if (JSON.stringify(scriptSources) !== JSON.stringify(expectedScripts)) {
   fail(`index.html: runtime orchestration drifted. Expected ${expectedScripts.join(', ')}; found ${scriptSources.join(', ')}.`);
 }
 
+for (const [file, expectedScript] of [
+  ['platform-admin/index.html', 'src/platform-admin/production/bootstrap.js'],
+  ['platform-admin-demo/index.html', 'src/platform-admin/demo/bootstrap.js'],
+]) {
+  const source = readFileSync(file, 'utf8');
+  const styles = [...source.matchAll(/href=["']\.\.\/([^"']+\.css)(?:\?[^"']*)?["']/g)]
+    .map((match) => match[1]);
+  const expectedStyles = ['assets/tokens.css', 'assets/styles.css', 'assets/platform-admin.css'];
+  if (JSON.stringify(styles) !== JSON.stringify(expectedStyles)) {
+    fail(`${file}: stylesheet responsibilities drifted. Expected ${expectedStyles.join(', ')}; found ${styles.join(', ')}.`);
+  }
+  const scripts = [...source.matchAll(/<script[^>]+src=["']\.\.\/([^"']+\.js)(?:\?[^"']*)?["']/g)]
+    .map((match) => match[1]);
+  if (JSON.stringify(scripts) !== JSON.stringify([expectedScript])) {
+    fail(`${file}: must load only ${expectedScript} as its composition root.`);
+  }
+}
+
 if (existsSync('src/features')) {
   fail('src/features: flat feature directory is forbidden after modularization; use employee, manager, platform or shared boundaries.');
 }
@@ -75,6 +93,12 @@ for (const required of [
   'src/core/i18n.js',
   'src/core/i18n-base.js',
   'src/core/i18n-capability-messages.js',
+  'src/core/i18n-platform-admin-messages.js',
+  'src/platform-admin/index.js',
+  'src/platform-admin/contracts.js',
+  'src/platform-admin/application.js',
+  'src/platform-admin/production/bootstrap.js',
+  'src/platform-admin/demo/bootstrap.js',
 ]) {
   if (!existsSync(required)) fail(`${required}: required modular architecture file is missing.`);
 }

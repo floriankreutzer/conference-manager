@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#7A1F3D">
+  <meta name="referrer" content="no-referrer">
+  <meta name="conference-runtime" content="demo">
+  <meta name="platform-demo-data" content="synthetic-local-only">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'none'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'none'">
+  <title></title>
+  <link rel="icon" href="../assets/brand/pavurel-app-icon.svg" type="image/svg+xml">
+  <link rel="preload" href="../assets/fonts/Manrope%5Bwght%5D.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="../assets/tokens.css?v=20260828-01">
+  <link rel="stylesheet" href="../assets/styles.css?v=20260828-01">
+  <link rel="stylesheet" href="../assets/platform-admin.css?v=20260828-01">
+</head>
+<body>
+  <a id="skipLink" class="skip-link" href="#mainContent"></a>
+  <div class="app-shell platform-admin-shell">
+    <aside id="sidebar" class="sidebar">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <img src="../assets/brand/pavurel-signet-monochrome-white.svg" alt="" decoding="async">
+        </div>
+        <div>
+          <strong id="brandTitle"></strong>
+          <small id="brandSubtitle"></small>
+        </div>
+      </header>
+      <nav id="primaryNavigation"></nav>
+      <footer id="sidebarFooter" class="sidebar-footer"></footer>
+    </aside>
+
+    <div class="content-shell">
+      <div id="runtimeNotice"></div>
+      <header class="topbar">
+        <h1 id="viewTitle" tabindex="-1"></h1>
+        <p id="viewSubtitle"></p>
+      </header>
+      <main id="mainContent">
+        <div id="app"></div>
+      </main>
+    </div>
+  </div>
+
+  <div id="statusRegion" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="alertRegion" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script type="module" src="../src/platform-admin/demo/bootstrap.js?v=20260828-01"></script>
+</body>
+</html>

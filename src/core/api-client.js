@@ -4,6 +4,7 @@ const JSON_CONTENT_TYPE = /^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|$)/i;
 const ABSOLUTE_OR_PROTOCOL_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 const SERVER_ERROR_CODE = /^[A-Z][A-Z0-9_]{1,127}$/;
 const SERVER_REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const IDEMPOTENCY_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TENANT_SETTINGS_REVISION_CONFLICT = 'TENANT_SETTINGS_REVISION_CONFLICT';
 const TENANT_SETTINGS_CONFLICT_KEYS = Object.freeze(['code', 'currentRevision', 'requestId']);
 const MAX_RESPONSE_BYTES = 1_000_000;
@@ -76,6 +77,14 @@ function csrfHeader(method, csrfTokenProvider) {
     throw new ApiSecurityError('CSRF_TOKEN_REQUIRED');
   }
   return { 'X-CSRF-Token': token };
+}
+
+function idempotencyHeader(method, value) {
+  if (value === undefined) return {};
+  if (SAFE_METHODS.has(method) || typeof value !== 'string' || !IDEMPOTENCY_KEY.test(value)) {
+    throw new ApiSecurityError('INVALID_IDEMPOTENCY_KEY');
+  }
+  return { 'Idempotency-Key': value.toLowerCase() };
 }
 
 function serializeBody(body) {
@@ -178,7 +187,7 @@ export function createApiClient({
   const base = normalizeBaseUrl(baseUrl, origin);
 
   return Object.freeze({
-    async request(path, { method = 'GET', body, signal } = {}) {
+    async request(path, { method = 'GET', body, signal, idempotencyKey } = {}) {
       const normalized = normalizedMethod(method);
       const url = endpointUrl(base, path);
       const serialized = serializeBody(body);
@@ -193,6 +202,7 @@ export function createApiClient({
           Accept: 'application/json',
           ...(serialized === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...csrfHeader(normalized, csrfTokenProvider),
+          ...idempotencyHeader(normalized, idempotencyKey),
         },
         ...(abortSignal === undefined ? {} : { signal: abortSignal }),
         ...(serialized === undefined ? {} : { body: serialized }),
