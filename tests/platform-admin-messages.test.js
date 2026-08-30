@@ -20,6 +20,10 @@ const DYNAMIC_PLATFORM_ADMIN_KEYS = Object.freeze([
   'platformAdmin.action.effect.entitlement_apply',
   'platformAdmin.quota.state.configured',
   'platformAdmin.quota.state.not_configured',
+  'platformAdmin.readiness.enabledEntitlementsOne',
+  'platformAdmin.readiness.enabledEntitlementsMany',
+  'platformAdmin.readiness.checkCountOne',
+  'platformAdmin.readiness.checkCountMany',
 ]);
 
 function placeholders(value) {
