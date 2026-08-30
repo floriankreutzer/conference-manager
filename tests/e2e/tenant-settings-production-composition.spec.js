@@ -426,6 +426,17 @@ async function installProductionSettingsFixture(page, { organizationConflict = t
       return;
     }
 
+    if (method === 'GET' && new Set([
+      '/api/v1/application/profile',
+      '/api/v1/application/catalog',
+      '/api/v1/application/site-info',
+      '/api/v1/application/requests',
+      '/api/v1/application/notifications',
+    ]).has(url.pathname)) {
+      await fulfillJson(route, { error: { code: 'NOT_FOUND' } }, 404);
+      return;
+    }
+
     if (url.pathname.startsWith('/api/')) {
       unexpectedApiRequests.push({ path: url.pathname, method });
       await fulfillJson(route, { error: { code: 'NOT_FOUND' } }, 404);

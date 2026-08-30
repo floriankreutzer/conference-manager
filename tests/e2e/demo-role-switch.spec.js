@@ -12,7 +12,7 @@ const TENANTS = Object.freeze([
 const SHARED_REQUEST = Object.freeze({
   schemaVersion: 1,
   version: 1,
-  id: 'REQ-DEMO-HANDOFF',
+  id: REQUEST_ID,
   roomId: 'room-a',
   status: 'Submitted',
   statusReason: null,
@@ -236,7 +236,7 @@ test('Customer Demo API failure is visible and never falls back to browser busin
 
   await page.goto('/');
 
-  await expect(page.locator('#viewTitle')).toHaveText('Anmeldung derzeit nicht verfügbar');
+  await expect(page.locator('#viewTitle')).toHaveText('Sichere Anmeldung nicht verfügbar');
   await expect(page.locator('[data-demo-security]')).toContainText(
     'Der gemeinsame Demo-Server ist nicht verfügbar. Es wird kein lokaler Ersatz verwendet.',
   );

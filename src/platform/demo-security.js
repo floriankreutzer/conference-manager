@@ -76,7 +76,7 @@ export function renderDemoSecurityControl({
   const hint = documentRoot.createElement('small');
   hint.id = 'demoContextHint';
   hint.textContent = msg.roleHint;
-  personaLabel.append(personaLabelText, personaSelect, hint);
+  personaLabel.append(personaLabelText, personaSelect);
 
   const apply = documentRoot.createElement('button');
   apply.type = 'button';
@@ -115,7 +115,7 @@ export function renderDemoSecurityControl({
     }
   });
 
-  panel.append(title, text, tenantLabel, personaLabel, apply, status);
+  panel.append(title, text, tenantLabel, personaLabel, hint, apply, status);
   sidebar.appendChild(panel);
   documentRoot.documentElement.dataset.demoSecurityBuild = DEMO_SECURITY_BUILD;
   return panel;

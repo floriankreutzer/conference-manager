@@ -874,7 +874,7 @@ test('production bootstrap shows localized loading before the session contract r
   await expect(page.locator('#mainContent')).toHaveAttribute('aria-busy', 'true');
 
   fixture.releaseSession();
-  await expect(page.locator('#viewTitle')).toHaveText('Sicher angemeldet');
+  await expect(page.locator('#viewTitle')).toHaveText('Willkommen');
   await expect(page.locator('#mainContent')).not.toHaveAttribute('aria-busy');
 });
 
