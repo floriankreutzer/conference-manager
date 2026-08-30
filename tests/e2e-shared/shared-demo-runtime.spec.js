@@ -305,7 +305,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     () => submitRequest.click(),
     201,
   );
-  const employeeCard = customerPage.locator('[data-production-request-id]').filter({ hasText: REQUEST_TITLE });
+  const employeeCard = customerPage.locator('[data-production-request-id]')
+    .filter({ hasText: 'Zur Prüfung' })
+    .first();
   await expect(employeeCard).toBeVisible();
   const createdRequestId = await employeeCard.getAttribute('data-production-request-id');
   expect(createdRequestId).toMatch(/^[0-9a-f-]{36}$/i);
