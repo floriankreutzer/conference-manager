@@ -89,7 +89,7 @@ configuration owns only `tests/e2e-shared`. This separation prevents duplicate
 browser execution while keeping both suites required for frontend changes.
 
 The shared job checks out the API at immutable commit
-`55c5dc1ab5d39d8eb83cd542aca0d93d490c6f71`, provisions an isolated PostgreSQL
+`1d91aff5126b25f3a0d3586487649c1cf856bd96`, provisions an isolated PostgreSQL
 database, runs the canonical and Demo migrations, starts the separate Customer
 and Platform API processes, and then executes the Chromium and WebKit journey.
 Because `conference-manager-api` is private, repository administrators must
@@ -98,7 +98,7 @@ fails closed before checkout when the credential is absent; no secret value is
 printed or included in artifacts.
 
 The reciprocal API CI pins the functional frontend journey commit
-`c85694ac94a187a7c33a57ce1945aeea8d5bb977`. Its required matrix validates the
+`8bef6173f9a6c660e1d0062c430b01e6b44075fc`. Its required matrix validates the
 API gates, PostgreSQL 18 migrations and persistence, and the same shared journey
 in Chromium and WebKit. The frontend-owned job remains fail-closed until
 repository administrators provide the required read-only secret.
