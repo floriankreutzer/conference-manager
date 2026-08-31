@@ -28,3 +28,28 @@ test('booking-change lookups are bounded, isolated, ordered and fail closed', as
   assert.equal(result[19], null);
   assert.equal(Object.isFrozen(result), true);
 });
+
+test('a stalled confirmed booking-change lookup is aborted and preserves the unavailable fallback', async () => {
+  let aborted = false;
+  const persistence = {
+    async loadBookingChange(id, options) {
+      assert.equal(id, 'CR-stalled');
+      assert.equal(options.signal instanceof AbortSignal, true);
+      return new Promise((resolve, reject) => {
+        options.signal.addEventListener('abort', () => {
+          aborted = true;
+          reject(new DOMException('aborted', 'AbortError'));
+        }, { once: true });
+      });
+    },
+  };
+
+  const result = await loadOpenBookingChanges(
+    [{ id: 'CR-stalled', status: 'Confirmed' }],
+    persistence,
+    { timeoutMs: 5 },
+  );
+
+  assert.equal(aborted, true);
+  assert.equal(result[0], undefined);
+});
