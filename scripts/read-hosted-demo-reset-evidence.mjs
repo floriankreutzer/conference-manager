@@ -6,6 +6,7 @@ const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
 const AUDIT_PATH = '/api/v1/platform/audit/events?limit=100';
+const DIAGNOSTIC_TIMEOUT_MS = 20_000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const REASON_PATTERN = /^[a-z][a-z0-9_]{2,31}$/;
 
@@ -64,19 +65,27 @@ function writeUnavailableEvidence() {
   process.stdout.write('reset_failure_occurred_at=not_available\n');
 }
 
+function boundedRequestOptions(options = {}) {
+  return {
+    ...options,
+    signal: AbortSignal.timeout(DIAGNOSTIC_TIMEOUT_MS),
+  };
+}
+
 const resetRequestId = await expectedResetRequestId();
 if (resetRequestId === null) {
   writeUnavailableEvidence();
   process.exit(0);
 }
 
-const establishedResponse = await fetch(`${PLATFORM_ORIGIN}${SESSION_PATH}`, {
-  redirect: 'error',
-});
+const establishedResponse = await fetch(
+  `${PLATFORM_ORIGIN}${SESSION_PATH}`,
+  boundedRequestOptions({ redirect: 'error' }),
+);
 const established = await jsonResponse(establishedResponse, 200);
 let cookie = sessionCookie(establishedResponse);
 
-const switchedResponse = await fetch(`${PLATFORM_ORIGIN}${PERSONA_PATH}`, {
+const switchedResponse = await fetch(`${PLATFORM_ORIGIN}${PERSONA_PATH}`, boundedRequestOptions({
   method: 'PUT',
   redirect: 'error',
   headers: {
@@ -86,14 +95,14 @@ const switchedResponse = await fetch(`${PLATFORM_ORIGIN}${PERSONA_PATH}`, {
     'X-CSRF-Token': requireCsrf(established.csrfToken),
   },
   body: JSON.stringify({ persona: 'security_admin' }),
-});
+}));
 await jsonResponse(switchedResponse, 200);
 cookie = sessionCookie(switchedResponse);
 
-const auditResponse = await fetch(`${PLATFORM_ORIGIN}${AUDIT_PATH}`, {
+const auditResponse = await fetch(`${PLATFORM_ORIGIN}${AUDIT_PATH}`, boundedRequestOptions({
   redirect: 'error',
   headers: { Cookie: cookie },
-});
+}));
 const audit = await jsonResponse(auditResponse, 200);
 if (!Array.isArray(audit.items) || audit.items.length > 100) {
   throw new Error('HOSTED_DEMO_DIAGNOSTIC_AUDIT_INVALID');
