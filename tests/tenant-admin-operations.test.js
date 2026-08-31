@@ -154,6 +154,7 @@ test('mutating controls expose status, focus recovery, and explicit consequence 
   assert.match(users, /'aria-live': 'polite', 'aria-atomic': 'true'/);
   assert.match(users, /lifecycle\.focus\(\)/);
   assert.match(users, /pendingFocus = updated\.id/);
+  assert.doesNotMatch(users, /requestAnimationFrame\(\(\) => \{\s*if \(focusTarget/);
   assert.match(users, /let mutationPending = false/);
   assert.match(users, /if \(mutationPending\) return/);
   assert.match(users, /lifecycle\.disabled = pending/);
