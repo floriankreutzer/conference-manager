@@ -94,7 +94,10 @@ jobs:
         id: hosted_journey
         continue-on-error: true
         run: npm run test:e2e:hosted-demo
-      - name: Re-verify live deployment identity after journey
+      - name: Restore public Demo baseline after failed journey
+        if: always() && steps.hosted_journey.outcome == 'failure'
+        run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
+      - name: Re-verify live deployment identity after journey and cleanup
         if: always() && steps.pre_identity.outcome == 'success' && steps.hosted_journey.outcome != 'skipped'
         run: |
           node scripts/verify-hosted-demo-deployment.mjs >/dev/null
@@ -102,9 +105,6 @@ jobs:
       - name: Record bounded reset failure audit evidence
         if: always() && steps.hosted_journey.outcome == 'failure'
         run: node scripts/read-hosted-demo-reset-evidence.mjs >> hosted-demo-evidence.txt
-      - name: Restore public Demo baseline after failed journey
-        if: always() && steps.hosted_journey.outcome == 'failure'
-        run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
       - name: Upload hosted Demo evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
