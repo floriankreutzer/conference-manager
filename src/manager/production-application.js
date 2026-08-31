@@ -196,45 +196,30 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
             value: site.id,
             text: site.name,
           })));
-          const dateErrorId = 'productionRoomPlanDateError';
           const date = el('input', {
             attrs: {
               type: 'date',
               value: siteLocalIsoDate(Date.now(), sites[0].timeZone),
               required: 'required',
-              'aria-describedby': dateErrorId,
+              'aria-describedby': 'productionRoomPlanDateError',
             },
           });
           const dateError = el('p', {
-            id: dateErrorId,
+            id: 'productionRoomPlanDateError',
             className: 'field-error',
             attrs: { role: 'alert', 'aria-live': 'assertive' },
           });
           const tableRoot = el('section');
-          const invalidateDate = () => {
-            date.setAttribute('aria-invalid', 'true');
-            dateError.textContent = t('validation.date');
-            tableRoot.replaceChildren();
-          };
           const renderTable = () => {
-            const site = sites.find((entry) => entry.id === siteSelect.value);
-            let projection;
-            try {
-              projection = roomPlanProjection({
-                catalog,
-                requests,
-                siteId: site.id,
-                date: date.value,
-              });
-            } catch (error) {
-              if (error instanceof TypeError && error.message === 'ROOM_PLAN_DATE_INVALID') {
-                invalidateDate();
-                return;
-              }
-              throw error;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(date.value)) {
+              date.setAttribute('aria-invalid', 'true');
+              dateError.textContent = t('production.manager.roomPlanDateRequired');
+              tableRoot.replaceChildren();
+              return;
             }
             date.removeAttribute('aria-invalid');
             dateError.textContent = '';
+            const site = sites.find((entry) => entry.id === siteSelect.value);
             const table = el('table', { className: 'data-table' });
             table.appendChild(el('thead', {}, el('tr', {}, [
               el('th', { text: t('production.employee.room') }),
@@ -243,7 +228,12 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
               el('th', { text: t('production.common.status') }),
             ])));
             const body = el('tbody');
-            projection.forEach(({ room, requests: bookings }) => {
+            roomPlanProjection({
+              catalog,
+              requests,
+              siteId: site.id,
+              date: date.value,
+            }).forEach(({ room, requests: bookings }) => {
               if (!bookings.length) {
                 body.appendChild(el('tr', {}, [
                   el('td', { text: roomLabel(room) }),
