@@ -73,6 +73,16 @@ function normalizedBootstrapTimeout(value) {
   return value;
 }
 
+async function runBoundedSessionOperation(operation, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), normalizedBootstrapTimeout(timeoutMs));
+  try {
+    return await operation(controller.signal);
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
 export async function loadBoundedPlatformDemoSession(
   sessionApi,
   timeoutMs = SESSION_BOOTSTRAP_TIMEOUT_MS,
@@ -80,19 +90,20 @@ export async function loadBoundedPlatformDemoSession(
   if (!sessionApi || typeof sessionApi.loadSession !== 'function') {
     throw new TypeError('PLATFORM_DEMO_SESSION_API_REQUIRED');
   }
-  const controller = new AbortController();
-  const timeoutId = globalThis.setTimeout(() => controller.abort(), normalizedBootstrapTimeout(timeoutMs));
-  try {
-    return await sessionApi.loadSession({ signal: controller.signal });
-  } finally {
-    globalThis.clearTimeout(timeoutId);
-  }
+  return runBoundedSessionOperation(
+    (signal) => sessionApi.loadSession({ signal }),
+    timeoutMs,
+  );
 }
 
-export function createPlatformDemoSessionApi({ apiClient } = {}) {
+export function createPlatformDemoSessionApi({
+  apiClient,
+  mutationTimeoutMs = SESSION_BOOTSTRAP_TIMEOUT_MS,
+} = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') {
     throw new TypeError('PLATFORM_DEMO_SESSION_API_CLIENT_REQUIRED');
   }
+  const mutationTimeout = normalizedBootstrapTimeout(mutationTimeoutMs);
 
   return Object.freeze({
     async loadSession(options) {
@@ -109,10 +120,14 @@ export function createPlatformDemoSessionApi({ apiClient } = {}) {
         throw new PlatformDemoSessionError('PLATFORM_DEMO_PERSONA_INVALID');
       }
       try {
-        const session = normalizeSessionPayload(await apiClient.request('demo/session/persona', {
-          method: 'PUT',
-          body: { persona },
-        }));
+        const session = normalizeSessionPayload(await runBoundedSessionOperation(
+          (signal) => apiClient.request('demo/session/persona', {
+            method: 'PUT',
+            body: { persona },
+            signal,
+          }),
+          mutationTimeout,
+        ));
         if (session.persona !== persona) {
           throw new PlatformDemoSessionError('PLATFORM_DEMO_PERSONA_RESPONSE_MISMATCH');
         }
@@ -125,10 +140,14 @@ export function createPlatformDemoSessionApi({ apiClient } = {}) {
 
     async reset() {
       try {
-        return normalizeResetPayload(await apiClient.request('demo/reset', {
-          method: 'POST',
-          body: { confirm: true },
-        }));
+        return normalizeResetPayload(await runBoundedSessionOperation(
+          (signal) => apiClient.request('demo/reset', {
+            method: 'POST',
+            body: { confirm: true },
+            signal,
+          }),
+          mutationTimeout,
+        ));
       } catch (error) {
         if (error instanceof PlatformDemoSessionError) throw error;
         throw new PlatformDemoSessionError('PLATFORM_DEMO_RESET_FAILED', { cause: error });
