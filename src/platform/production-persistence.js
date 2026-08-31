@@ -567,10 +567,10 @@ export function createProductionPersistence({ apiClient } = {}) {
       );
     },
 
-    async loadBookingChange(requestId) {
+    async loadBookingChange(requestId, options = {}) {
       const id = assertRequestId(requestId);
       return normalizeProductionBookingChangeEnvelope(
-        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`),
+        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, options),
       ).change;
     },
 
