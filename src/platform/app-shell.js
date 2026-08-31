@@ -358,7 +358,7 @@ export function createAppShell({
     ].forEach(([heading, text]) => content.append(el('article', { className: 'help-card' }, [
       el('h3', { text: heading }),
       el('p', { text }),
-    ]));
+    ])));
     const message = el('textarea', { placeholder: t('help.message') });
     content.appendChild(field({ id: 'helpMessage', label: t('help.contact'), control: message }));
     const close = button(t('common.close'));
