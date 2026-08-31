@@ -82,6 +82,7 @@ export function createApplicationContextFromState({
   serverSiteInfo = EMPTY_SITE_INFO,
   serverRequests = EMPTY_REQUESTS,
   serverNotifications = EMPTY_NOTIFICATIONS,
+  requiredProjectionTimeoutMs = REQUIRED_PROJECTION_TIMEOUT_MS,
   optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
   const isDemo = runtimeMode === RUNTIME_MODE.DEMO;
@@ -95,12 +96,14 @@ export function createApplicationContextFromState({
     ? createProductionPersistence({ apiClient: authenticationRuntime.apiClient })
     : null;
   const profile = normalizedProfile(serverProfile);
-  const catalog = serverCatalog && typeof serverCatalog === 'object' ? serverCatalog : EMPTY_CATALOG;
+  let catalog = serverCatalog && typeof serverCatalog === 'object' ? serverCatalog : EMPTY_CATALOG;
   const siteInfo = serverSiteInfo && typeof serverSiteInfo === 'object' ? serverSiteInfo : EMPTY_SITE_INFO;
+  let catalogRefreshRevision = 0;
   let requests = immutableArray(serverRequests, EMPTY_REQUESTS);
   let requestRefreshRevision = 0;
   let notifications = immutableArray(serverNotifications, EMPTY_NOTIFICATIONS);
   let notificationRefreshRevision = 0;
+  const requiredTimeout = normalizedOptionalProjectionTimeout(requiredProjectionTimeoutMs);
   const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   const tenants = immutableArray(demoTenants, EMPTY_REQUESTS);
 
@@ -181,7 +184,17 @@ export function createApplicationContextFromState({
     getSiteInfo() {
       return siteInfo;
     },
-    reloadReferenceData() {},
+    async reloadReferenceData() {
+      if (!serverPersistence) return catalog;
+      const revision = catalogRefreshRevision + 1;
+      catalogRefreshRevision = revision;
+      const refreshed = await loadBoundedProjection(
+        (signal) => serverPersistence.loadCatalog({ signal }),
+        requiredTimeout,
+      );
+      if (revision === catalogRefreshRevision) catalog = refreshed;
+      return catalog;
+    },
     localized(value) {
       return localizedValue(value);
     },
@@ -192,7 +205,10 @@ export function createApplicationContextFromState({
       if (!serverPersistence) return requests;
       const revision = requestRefreshRevision + 1;
       requestRefreshRevision = revision;
-      const refreshed = immutableArray(await serverPersistence.listRequests(), EMPTY_REQUESTS);
+      const refreshed = immutableArray(await loadBoundedProjection(
+        (signal) => serverPersistence.listRequests({ signal }),
+        requiredTimeout,
+      ), EMPTY_REQUESTS);
       if (revision === requestRefreshRevision) requests = refreshed;
       return requests;
     },
@@ -315,6 +331,7 @@ export async function createApplicationContext({
     serverSiteInfo: siteInfo,
     serverRequests: requests,
     serverNotifications: notifications,
+    requiredProjectionTimeoutMs: requiredTimeout,
     optionalProjectionTimeoutMs: optionalTimeout,
   });
 }
