@@ -307,7 +307,7 @@ test('Tenant Admin navigation is server-session scoped and DE/EN copy stays func
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
   await page.locator('[data-tenant-admin-section="users"]').click();
-  await page.getByRole('button', { name: 'Profil' }).click();
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
   await page.locator('#profileLanguage').selectOption('en');
   await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Users & roles');
   await expect(page.getByText('Baseline role: Employee').first()).toBeVisible();
