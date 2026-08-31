@@ -450,7 +450,7 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   assert.match(context, /persistence\.listNotifications\(\{ signal \}\)/);
   assert.match(context, /loadBoundedProjection/);
   assert.match(context, /refreshNotifications/);
-  assert.match(shell, /Promise\.allSettled\(\[\s*context\.refreshRequests\(\),\s*context\.refreshNotifications\(\)/);
+  assert.match(shell, /Promise\.allSettled\(\[\s*context\.refreshRequests\(\),\s*context\.reloadReferenceData\(\),\s*context\.refreshNotifications\(\)/);
 });
 
 test('production navigation keeps Tenant Admin and Conference Manager capabilities independent', async () => {
