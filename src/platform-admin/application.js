@@ -1019,7 +1019,7 @@ export function createPlatformAdminApplication({
       || PLATFORM_ADMIN_SECTION_DEFINITIONS[0];
     ensureTenantResource(tenant, definition.id);
     const resource = tenantResources.get(`${tenant.id}:${definition.id}`);
-    setHeading(tenant.displayName, `${tenant.reference} · ${t(definition.titleKey)}`);
+    setHeading(tenant.displayName, `${tenant.reference || tenant.id} · ${t(definition.titleKey)}`);
     const section = el('section', {
       className: 'platform-admin-tenant-section',
       dataset: { platformAdminSection: definition.id },
