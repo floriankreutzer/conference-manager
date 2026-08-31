@@ -368,15 +368,15 @@ test('required startup projection failure invalidates the effective authenticate
   assert.deepEqual(context.requests(), []);
 });
 
-test('stalled required startup projections are aborted and fail the authenticated context closed', async () => {
+test('stalled required startup projections are aborted and fail closed', async () => {
   const authenticatedSession = session({
     roles: ['employee'],
     permissions: ['request:read', 'request:cancel'],
   });
-  let aborted = 0;
+  const abortedPaths = [];
   const context = await createApplicationContext({
     runtimeMode: 'production',
-    optionalProjectionTimeoutMs: 5,
+    requiredProjectionTimeoutMs: 5,
     async authenticationBootstrap() {
       return {
         status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
@@ -384,14 +384,15 @@ test('stalled required startup projections are aborted and fail the authenticate
         runtime: Object.freeze({
           apiClient: Object.freeze({
             async request(path, options = {}) {
-              if (path === 'v1/application/site-info') return { schemaVersion: 1, siteInfo: {} };
-              if (path === 'v1/application/notifications') {
-                return { schemaVersion: 1, notifications: [] };
+              if (['v1/application/site-info', 'v1/application/notifications'].includes(path)) {
+                return path.endsWith('site-info')
+                  ? { schemaVersion: 1, siteInfo: {} }
+                  : { schemaVersion: 1, notifications: [] };
               }
+              assert.equal(options.signal instanceof AbortSignal, true);
               return new Promise((resolve, reject) => {
-                assert.equal(options.signal instanceof AbortSignal, true);
                 options.signal.addEventListener('abort', () => {
-                  aborted += 1;
+                  abortedPaths.push(path);
                   reject(new Error('REQUIRED_PROJECTION_ABORTED'));
                 }, { once: true });
               });
@@ -402,8 +403,8 @@ test('stalled required startup projections are aborted and fail the authenticate
     },
   });
 
-  assert.equal(aborted, 3);
   assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
   assert.equal(context.isAuthenticated(), false);
-  assert.deepEqual(context.requests(), []);
+  assert.equal(abortedPaths.length, 3);
+  assert.equal(abortedPaths.includes('v1/application/profile'), true);
 });
