@@ -122,9 +122,10 @@ The workflow first waits for both public readiness endpoints within the bounded
 Render Free cold-start window. It then fetches
 `/assets/hosted-demo-deployment.json` from both origins and requires the closed
 schema-v1 deployment identity to match the exact reviewed API and frontend commit
-refs before any destructive browser action starts. Missing metadata, an unexpected
-field, stale/mutable ref, wrong repository/branch, or a service identity that does
-not match its origin fails acceptance closed.
+refs before any destructive browser action starts. Metadata requests have an
+explicit 20-second deadline. Missing metadata, an unexpected field, stale/mutable
+ref, wrong repository/branch, a service identity that does not match its origin, or
+a timeout fails acceptance closed.
 
 Only after deployment identity is verified does the workflow run the existing
 `tests/e2e-shared` critical journey through a fixed-origin local TLS test proxy. The
@@ -132,11 +133,24 @@ proxy can target only the two source-defined Render origins, rewrites the local 
 Host/Origin/Referer values to their matching deployed same-origin values, validates
 upstream TLS normally, and has no general-purpose destination input.
 
-After the journey finishes, the workflow fetches both deployment identity artifacts
-a second time and requires the same exact reviewed refs again. A provider redeploy
-between the preflight and the end of the journey therefore fails acceptance rather
-than allowing evidence from one build to be attached to requests served by another.
-Only a successful post-journey recheck records `deployment_identity_stable=true`.
+If the destructive journey fails, baseline restoration has priority over subsequent
+evidence network calls. The workflow immediately establishes fresh Platform Demo
+`security_admin` authority and performs the deterministic reset/reseed cleanup using
+bounded session/persona requests and a reset request deadline longer than the
+backend's 60-second reset budget. The cleanup then establishes fresh authority a
+second time and performs the reset again. Both successful resets must return the
+same fixed seed version and the exact same well-formed semantic checksum; otherwise
+cleanup fails with a repeatability error. Only a matching pair records
+`cleanup_repeatable=true`.
+
+After a successful journey, or after the failure cleanup attempt, the workflow
+fetches both deployment identity artifacts a second time and requires the same exact
+reviewed refs again. A provider redeploy between preflight and the end of the tested
+operation therefore fails acceptance rather than allowing evidence from one build
+to be attached to requests served by another. Only a successful second check records
+`deployment_identity_stable=true`. Because cleanup already ran first on a failed
+journey, a stalled or failed post-journey metadata check cannot prevent baseline
+restoration.
 
 The hosted acceptance run uses Chromium once to avoid duplicating destructive
 reset/reseed traffic against the shared public Demo. Cross-browser Chromium and
@@ -144,7 +158,7 @@ WebKit coverage remains mandatory in the isolated frontend/API CI matrices. The
 hosted journey itself proves the deployed environment for the exercised controls:
 
 - both public readiness endpoints return HTTP 200;
-- the two public build-identity artifacts match the reviewed API/frontend refs before and after the journey;
+- the two public build-identity artifacts match the reviewed API/frontend refs before and after the journey/cleanup boundary;
 - Customer and Platform sessions/cookies remain separate;
 - browser LocalStorage/sessionStorage clearing does not erase authority;
 - a Platform lifecycle mutation propagates to the Customer surface;
@@ -153,33 +167,33 @@ hosted journey itself proves the deployed environment for the exercised controls
 - cross-Tenant object access remains concealed;
 - missing CSRF and insufficient Platform authority fail closed;
 - deterministic provider degradation remains bounded and server-defined;
-- reset/reseed invalidates both session domains, restores the baseline checksum and
-  can be repeated reproducibly.
+- reset/reseed invalidates both session domains, restores a repeatable baseline checksum and can be repeated reproducibly.
 
 The evidence file initially records only the fixed provider origins, **expected**
 frontend/runtime refs, acceptance source SHA, GitHub run ID, run attempt and start
 time. The preflight verifier adds `verified_frontend_ref` and
 `verified_runtime_ref` only after both public build-identity artifacts satisfy the
 closed contract. Static workflow constants are therefore not mislabeled as deployed
-evidence. The post-journey verifier adds only the bounded stability marker after both
-origins still report the same reviewed release.
+evidence. Successful failure cleanup records only the fixed seed version, the matched
+checksum and `cleanup_repeatable=true`. The post-journey verifier adds only the
+bounded stability marker after both origins still report the same reviewed release.
 
 The fixed test proxy also observes the server-generated `X-Request-ID` only for a
 Platform Demo reset that returns a 5xx response. It writes that UUID to a private,
-run-ID/run-attempt-specific temporary file using create-only semantics. If the
-journey fails, the diagnostic script reads that exact request ID and accepts only a
-server-side reset failure audit event with the same correlation ID and a timestamp
-inside the acceptance window. A journey failure unrelated to reset therefore emits
-`not_available` rather than attributing another user's reset event to this run.
+run-ID/run-attempt-specific temporary file using create-only semantics. When the
+journey fails, the diagnostic script later reads that exact request ID and accepts
+only a server-side reset failure audit event with the same correlation ID and a
+timestamp inside the acceptance window. Diagnostic session/persona/audit requests
+have explicit 20-second deadlines. A journey failure unrelated to reset therefore
+emits `not_available` rather than attributing another user's reset event to this run.
+The exact correlation remains valid even though diagnostics run after failure cleanup.
 
-The journey runs with a captured step outcome so a destructive failure cannot leave
-the shared public Demo in an unknown partial state. On journey failure, the workflow
-reads only the bounded, correlation-matched server-side reset failure audit evidence,
-then creates a fresh Platform Demo session, switches it to `security_admin`, performs
-the authorized deterministic reset/reseed, records only the cleanup seed/checksum,
-uploads evidence, and finally re-raises the original journey failure. Cleanup failure
-is also a failed acceptance and is never ignored. No database URL, session/CSRF
-value, provider token or other credential is written to the evidence artifact.
+The journey uses a captured step outcome. Failure cleanup executes first; subsequent
+post-journey deployment verification and correlation-matched diagnostics use bounded
+network requests; evidence is uploaded under `always()`, and the original journey
+failure is finally re-raised. A cleanup failure is also a failed acceptance and is
+never ignored. No database URL, session/CSRF value, provider token or other
+credential is written to the evidence artifact.
 
 A run that begins while a Render Free service is spun down additionally supplies the
 cold-start eventual-readiness evidence required by #157. A warm run proves hosted
