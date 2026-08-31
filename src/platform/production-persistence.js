@@ -376,7 +376,7 @@ function stableBookingPolicy(policy) {
   return stable;
 }
 
-async function loadCatalogV2(apiClient) {
+async function loadCatalogV2(apiClient, options = {}) {
   const assembled = Object.fromEntries(PRODUCTION_CATALOG_SECTIONS.map((section) => [section, []]));
   let authority = null;
   for (const section of PRODUCTION_CATALOG_SECTIONS) {
@@ -386,7 +386,7 @@ async function loadCatalogV2(apiClient) {
         ? { section, limit: '10', cursor }
         : { section, limit: '10', ...(authority ? { context: authority.context } : {}) };
       const page = normalizeProductionCatalogPage(await call(
-        apiClient, queryPath(DOMAIN_ENDPOINTS.catalog, values),
+        apiClient, queryPath(DOMAIN_ENDPOINTS.catalog, values), options,
       ));
       if (page.section !== section) throw new ProductionPersistenceError('PRODUCTION_CATALOG_INVALID');
       if (authority === null) {
@@ -414,13 +414,13 @@ async function loadCatalogV2(apiClient) {
   });
 }
 
-async function loadAllRequestPages(apiClient, path, normalize) {
+async function loadAllRequestPages(apiClient, path, normalize, options = {}) {
   const requests = [];
   let cursor = null;
   do {
     const page = normalize(await call(apiClient, queryPath(path, {
       limit: '10', ...(cursor ? { cursor } : {}),
-    })));
+    }), options));
     requests.push(...page.requests);
     cursor = page.page.nextCursor;
   } while (cursor !== null);
@@ -433,16 +433,16 @@ export function createProductionPersistence({ apiClient } = {}) {
   }
 
   return Object.freeze({
-    async loadProfile() {
+    async loadProfile(options = {}) {
       return profilePayload(assertExactVersionedEnvelope(
-        await call(apiClient, DOMAIN_ENDPOINTS.profile),
+        await call(apiClient, DOMAIN_ENDPOINTS.profile, options),
         'profile',
         'PRODUCTION_PROFILE_INVALID',
       ));
     },
 
-    async loadCatalog() {
-      return loadCatalogV2(apiClient);
+    async loadCatalog(options = {}) {
+      return loadCatalogV2(apiClient, options);
     },
 
     async loadSiteInfo(options = {}) {
@@ -454,8 +454,13 @@ export function createProductionPersistence({ apiClient } = {}) {
       });
     },
 
-    async listRequests() {
-      return loadAllRequestPages(apiClient, DOMAIN_ENDPOINTS.requests, normalizeProductionRequestListPage);
+    async listRequests(options = {}) {
+      return loadAllRequestPages(
+        apiClient,
+        DOMAIN_ENDPOINTS.requests,
+        normalizeProductionRequestListPage,
+        options,
+      );
     },
 
     async listNotifications(options = {}) {
