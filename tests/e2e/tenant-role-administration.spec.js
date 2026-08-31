@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fulfillApplicationProjection } from './fixtures/application-projections.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -122,6 +123,7 @@ async function installProductionFixture(page, {
       });
       return;
     }
+    if (await fulfillApplicationProjection(route)) return;
 
     if (url.pathname === '/api/v1/tenant/users' && request.method() === 'GET') {
       reads.push(Object.fromEntries(url.searchParams));
