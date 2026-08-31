@@ -7,6 +7,7 @@ on:
       - '.github/workflows/hosted-demo-acceptance.yml'
       - 'playwright.hosted-demo.config.js'
       - 'scripts/serve-hosted-demo-e2e.mjs'
+      - 'scripts/read-hosted-demo-reset-evidence.mjs'
       - 'package.json'
       - '.github/workflows/ci.yml'
       - 'docs/DEMO-RUNBOOK.md'
@@ -65,7 +66,11 @@ jobs:
       - name: Add fixed acceptance hosts
         run: echo "127.0.0.1 customer.demo.test platform.demo.test" | sudo tee -a /etc/hosts >/dev/null
       - name: Record non-secret deployment evidence
+        shell: bash
         run: |
+          set -euo pipefail
+          started_at="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
+          echo "HOSTED_ACCEPTANCE_STARTED_AT=$started_at" >> "$GITHUB_ENV"
           {
             echo "customer_origin=$SHARED_DEMO_CUSTOMER_ORIGIN"
             echo "platform_origin=$SHARED_DEMO_PLATFORM_ORIGIN"
@@ -73,9 +78,13 @@ jobs:
             echo "runtime_ref=$DEPLOYED_RUNTIME_REF"
             echo "acceptance_source_ref=$GITHUB_SHA"
             echo "run_id=$GITHUB_RUN_ID"
+            echo "acceptance_started_at=$started_at"
           } > hosted-demo-evidence.txt
       - name: Run hosted cross-role Demo journey
         run: npm run test:e2e:hosted-demo
+      - name: Record bounded reset failure audit evidence
+        if: failure()
+        run: node scripts/read-hosted-demo-reset-evidence.mjs >> hosted-demo-evidence.txt
       - name: Upload hosted Demo evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
