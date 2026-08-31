@@ -7,6 +7,7 @@
 - Decision issue: [#151](https://github.com/floriankreutzer/conference-manager/issues/151)
 - Parent roadmap: [#149](https://github.com/floriankreutzer/conference-manager/issues/149)
 - Decision date: 2026-08-30
+- Governance evidence refreshed: 2026-08-31
 - Roadmap baseline: approved roadmap version 10, 2026-08-30
 - Supersedes: no previous decision; revalidates the SaaS 3 decision in `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`
 
@@ -93,15 +94,19 @@ KEEP is valid only while the following controls remain enforceable:
 
 ### Current governance gap
 
-At the decision date, `conference-manager` has an active protected-branch ruleset. SaaS 3.5 adds explicit CODEOWNERS coverage for both repositories, including the Platform browser, Platform API, persistence, migration, deployment, security-documentation and release-gate paths. The private `conference-manager-api` repository still reports `main` as unprotected, and repository-ruleset management is unavailable under the current GitHub plan/visibility (the ruleset API returns HTTP 403). The API CODEOWNERS file therefore documents the required reviewer but cannot become an enforceable merge gate until branch protection is available.
+Live repository rules were re-read on 2026-08-31 after the SaaS 3.5 runtime PRs were integrated. The earlier API `HTTP 403`/unprotected-repository description is no longer current, but the required KEEP governance is **still not fully enforceable**:
 
-This is a real release-governance blocker, not a reason to select SPLIT:
+- `conference-manager` has the active `main-devsecops-protection` ruleset. It requires resolved review conversations and named quality/security checks including `quality`, `e2e`, `dependency-review`, `gitleaks` and CodeQL, but its pull-request rule currently reports `required_approving_review_count: 0` and `require_code_owner_review: false`.
+- `conference-manager-api` now has an active repository ruleset, but the current rule set only prohibits branch deletion and non-fast-forward updates. It does not enforce pull-request approval, CODEOWNERS/equivalent privileged review, resolved conversations or named status checks on `main`.
+- CODEOWNERS files can document intended ownership, but ADR-009 requires that privileged review be enforceable rather than advisory.
 
-- a third private repository under the same unsupported plan would inherit the same enforcement gap;
+This remains a real release-governance blocker, not a reason to select SPLIT:
+
+- a source split would not itself create the missing approval/check enforcement;
 - a split would not provide runtime/session/authorization isolation;
-- making a repository public is a separate irreversible product/security decision and is not authorized by this ADR.
+- the implemented four-artifact/two-repository topology continues to satisfy the architecture, transaction and deployment evidence for KEEP.
 
-Before #155 can close, the repository owner must provide a GitHub plan/visibility that supports the required private-repository protection, protect `conference-manager-api/main`, and configure required PR reviews, CODEOWNERS enforcement, checks and conversation resolution. Until that evidence exists, SaaS 3.5 must not claim its protected-PR Definition of Done.
+Before #151 and #155 can close, the repository owner must configure repository rules so both application repositories enforce the ADR-009 controls: pull-request review for protected `main`, at least one eligible approval, CODEOWNERS or an equivalent privileged/security owner requirement for the listed Platform-sensitive paths, resolved review conversations and the mandatory quality/security checks appropriate to each repository. The resulting ruleset state must be re-read and recorded as evidence. Until then SaaS 3.5 must not claim its protected-review Definition of Done.
 
 ## Consequences
 
@@ -120,7 +125,7 @@ Before #155 can close, the repository owner must provide a GitHub plan/visibilit
 - CI must execute boundary checks for every artifact/process affected by a shared change;
 - deployment automation must package and release artifacts independently and must not use repository co-location as permission to share origins, sessions, secrets or database credentials;
 - cross-domain shared primitives require conservative review to prevent `src/shared`, `src/core` or backend application services from becoming dumping grounds;
-- the current backend protected-branch enforcement gap blocks #155 until externally corrected and evidenced.
+- the current cross-repository review/ruleset enforcement gap blocks #151/#155 until externally corrected and evidenced.
 
 ## Alternatives considered
 
