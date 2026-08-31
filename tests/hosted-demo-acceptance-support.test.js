@@ -16,6 +16,13 @@ function jsonResponse(body, { status = 200, cookie = null } = {}) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
+function serviceNameFor(url) {
+  const { origin } = new URL(url);
+  if (origin === CUSTOMER_ORIGIN) return 'conference-manager-demo';
+  if (origin === PLATFORM_ORIGIN) return 'conference-manager-ops-demo';
+  throw new Error('TEST_HOSTED_DEMO_ORIGIN_INVALID');
+}
+
 test('hosted Demo failure cleanup establishes fresh authority and restores the deterministic baseline', async () => {
   const calls = [];
   const responses = [
@@ -95,10 +102,7 @@ test('hosted acceptance verifies build-bound metadata from both public services'
   const urls = [];
   const fetchImpl = async (url) => {
     urls.push(url);
-    const serviceName = url.startsWith(CUSTOMER_ORIGIN)
-      ? 'conference-manager-demo'
-      : 'conference-manager-ops-demo';
-    return jsonResponse(deploymentMetadata(serviceName));
+    return jsonResponse(deploymentMetadata(serviceNameFor(url)));
   };
 
   const result = await verifyHostedDemoDeployment({
