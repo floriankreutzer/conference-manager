@@ -20,25 +20,33 @@ Keep Customer and Platform browser source in `conference-manager` and Customer a
 
 The post-SaaS-3 architecture audit found that the current two-repository/four-runtime topology preserves canonical business-rule ownership, atomic Tenant/Platform audit transactions, provider-neutral SaaS 4 extension boundaries, separate frontend artifact manifests and separate backend composition roots without requiring copied business implementations or a privileged service-to-service split.
 
-Permanent architecture gates reject Customer/Platform private-boundary imports, Production/Demo reachability, session/authority reuse, prohibited persistence/provider leakage, reversed dependencies and cycles. Production artifact composition excludes Demo seed/reset/session/provider authority.
+Permanent architecture gates reject Customer/Platform private-boundary imports, Production/Demo reachability, session/authority reuse, prohibited persistence/provider leakage, reversed dependencies and cycles.
 
 ## Governance controls
 
 The target governance model remains:
 
 1. source changes use branch and pull-request integration rather than intentional direct development on `main`;
-2. configured mandatory quality/security checks and resolved review conversations must pass;
-3. architecture, dependency, secret, PostgreSQL, DAST and E2E gates remain mandatory for their applicable scope;
-4. Platform-sensitive paths use independent privileged/security-owner review when an eligible independent reviewer population exists or live repository rules require it;
-5. Customer and Platform deployment credentials, signing/audit keys, database roles and incident ownership remain separate.
+2. Production artifact manifests and packaging must exclude the other trust domain and all Demo-only seed, reset, session, persona and provider-simulation authority;
+3. configured mandatory quality/security checks and resolved review conversations must pass;
+4. architecture, dependency, secret, PostgreSQL, DAST and E2E gates remain mandatory for their applicable scope;
+5. the Platform-sensitive ownership scope is explicit:
+   - frontend Platform Admin source under `src/platform-admin/`;
+   - Platform Admin Production/Demo entry points and deployment manifests, including `platform-admin/`, `platform-admin-demo/` and `deployment/platform-admin-*.json`;
+   - frontend architecture/security documentation, boundary scripts and tests that govern the Platform trust domain;
+   - backend Platform source under `src/platform/` plus the Platform composition/process roots such as `src/platform-main.js` and `src/platform-composition.js`;
+   - Platform migrations and Platform persistence modules;
+   - backend Platform security/operations documentation, architecture gates and tests that govern the Platform trust domain;
+6. those Platform-sensitive paths use independent privileged/security-owner review when an eligible independent reviewer population exists or live repository rules require it;
+7. Customer and Platform deployment credentials, signing/audit keys, database roles and incident ownership remain separate.
 
 ### Solo-developer amendment
 
 ADR-011 is the later approved decision for the current solo-developer condition. While exactly one human developer owns and develops the application repositories, the target requirements for an independent human approval and a distinct privileged/CODEOWNERS reviewer are suspended as a documented organizational risk acceptance.
 
-ADR-011 does **not** authorize bypassing root `AGENTS.md`, branch protection, any review actually required by live repository rules, required status checks, security gates or test gates. It also does not weaken runtime authorization, Tenant isolation, Customer/Platform separation or Production/Demo boundaries.
+ADR-011 suspends only those two human-review separation requirements. It does **not** suspend the artifact-isolation requirement, the explicit Platform-sensitive ownership scope, architecture/security controls, root `AGENTS.md`, branch protection, any review actually required by live repository rules, required status checks, security gates or test gates. It also does not weaken runtime authorization, Tenant isolation, Customer/Platform separation or Production/Demo boundaries.
 
-The exception expires automatically when a second regular developer or eligible independent maintainer/security reviewer exists, organizational/Production governance requires separation of duties, or live repository rules require independent approval/CODEOWNERS review. At that point the target independent-review controls become mandatory before the next material Platform/security release.
+The exception expires automatically when a second regular developer or eligible independent maintainer/security reviewer exists, organizational/Production governance requires separation of duties, or live repository rules require independent approval/CODEOWNERS review. At that point the target independent-review controls for the explicit Platform-sensitive scope above become mandatory before the next material Platform/security release.
 
 ## Consequences
 
