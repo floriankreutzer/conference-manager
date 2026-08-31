@@ -46,6 +46,34 @@ test('hosted evidence network requests remain bounded before or after cleanup', 
   assert.match(reset, /signal: AbortSignal\.timeout\(timeoutMs\)/);
 });
 
+test('hosted workflow reserves cleanup time before any destructive journey', () => {
+  const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+
+  assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '1800'/);
+  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '900'/);
+  assert.match(workflow, /HOSTED_READINESS_BUDGET_SECONDS: '360'/);
+  assert.match(workflow, /timeout-minutes: 30/);
+  assert.match(
+    workflow,
+    /name: Record hosted job budget start[\s\S]*HOSTED_JOB_STARTED_EPOCH=\$\(date -u \+%s\)/,
+  );
+  assert.match(
+    workflow,
+    /deadline=\$\(\( \$\(date -u \+%s\) \+ HOSTED_READINESS_BUDGET_SECONDS \)\)/,
+  );
+  assert.match(workflow, /--max-time 10/);
+  assert.match(
+    workflow,
+    /latest_start=\$\(\( HOSTED_JOB_BUDGET_SECONDS - HOSTED_DESTRUCTIVE_RESERVE_SECONDS \)\)/,
+  );
+  assert.match(workflow, /if \(\( elapsed > latest_start \)\); then/);
+  assert.match(workflow, /cleanup_reserve_seconds=\$HOSTED_DESTRUCTIVE_RESERVE_SECONDS/);
+
+  const reserveIndex = workflow.indexOf('name: Require destructive cleanup reserve');
+  const journeyIndex = workflow.indexOf('name: Run hosted cross-role Demo journey');
+  assert.ok(reserveIndex >= 0 && journeyIndex > reserveIndex);
+});
+
 test('hosted reset diagnostic correlates exact failed request and never logs session material', () => {
   const source = readFileSync(DIAGNOSTIC_PATH, 'utf8');
   assert.match(source, /const PLATFORM_ORIGIN = 'https:\/\/conference-manager-ops-demo\.onrender\.com';/);
@@ -66,6 +94,7 @@ test('hosted reset diagnostic correlates exact failed request and never logs ses
 test('hosted acceptance captures bounded reset evidence, restores, then performs post-journey checks', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const preIdentityIndex = workflow.indexOf('name: Verify live deployment identity before journey');
+  const reserveIndex = workflow.indexOf('name: Require destructive cleanup reserve');
   const journeyIndex = workflow.indexOf('name: Run hosted cross-role Demo journey');
   const diagnosticIndex = workflow.indexOf('name: Record bounded reset failure audit evidence');
   const cleanupIndex = workflow.indexOf('name: Restore public Demo baseline after failed journey');
@@ -75,7 +104,8 @@ test('hosted acceptance captures bounded reset evidence, restores, then performs
 
   assert.ok(
     preIdentityIndex >= 0
-      && journeyIndex > preIdentityIndex
+      && reserveIndex > preIdentityIndex
+      && journeyIndex > reserveIndex
       && diagnosticIndex > journeyIndex
       && cleanupIndex > diagnosticIndex
       && postIdentityIndex > cleanupIndex
