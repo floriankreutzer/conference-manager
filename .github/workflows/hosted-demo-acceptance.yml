@@ -30,12 +30,18 @@ env:
   SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
   EXPECTED_FRONTEND_REF: 07f2896d56e6f66a9f8daf96457ab12c763adf80
   EXPECTED_RUNTIME_REF: 8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa
+  HOSTED_JOB_BUDGET_SECONDS: '1800'
+  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '900'
+  HOSTED_READINESS_BUDGET_SECONDS: '360'
 
 jobs:
   hosted-demo-acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
+      - name: Record hosted job budget start
+        shell: bash
+        run: echo "HOSTED_JOB_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -53,22 +59,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          wait_ready() {
-            local name="$1"
-            local url="$2"
-            for attempt in {1..48}; do
-              status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 "$url" || true)"
-              if [[ "$status" == '200' ]]; then
-                echo "$name ready after attempt $attempt."
-                return 0
-              fi
-              sleep 5
-            done
-            echo "$name did not become ready within the bounded cold-start window." >&2
-            return 1
-          }
-          wait_ready 'Customer Demo' "$SHARED_DEMO_CUSTOMER_ORIGIN/api/v1/health/ready"
-          wait_ready 'Platform Demo' "$SHARED_DEMO_PLATFORM_ORIGIN/api/v1/platform/health/ready"
+          deadline=$(( $(date -u +%s) + HOSTED_READINESS_BUDGET_SECONDS ))
+          attempt=0
+          while (( $(date -u +%s) < deadline )); do
+            attempt=$((attempt + 1))
+            customer_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "$SHARED_DEMO_CUSTOMER_ORIGIN/api/v1/health/ready" || true)"
+            platform_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "$SHARED_DEMO_PLATFORM_ORIGIN/api/v1/platform/health/ready" || true)"
+            if [[ "$customer_status" == '200' && "$platform_status" == '200' ]]; then
+              echo "Customer and Platform Demo ready after attempt $attempt."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Customer and Platform Demo did not become ready within the bounded cold-start window." >&2
+          exit 1
       - name: Record hosted acceptance context
         shell: bash
         run: |
@@ -88,6 +92,18 @@ jobs:
       - name: Verify live deployment identity before journey
         id: pre_identity
         run: node scripts/verify-hosted-demo-deployment.mjs >> hosted-demo-evidence.txt
+      - name: Require destructive cleanup reserve
+        shell: bash
+        run: |
+          set -euo pipefail
+          now="$(date -u +%s)"
+          elapsed=$(( now - HOSTED_JOB_STARTED_EPOCH ))
+          latest_start=$(( HOSTED_JOB_BUDGET_SECONDS - HOSTED_DESTRUCTIVE_RESERVE_SECONDS ))
+          if (( elapsed > latest_start )); then
+            echo "Insufficient hosted job budget remains for the destructive journey and guaranteed cleanup." >&2
+            exit 1
+          fi
+          echo "cleanup_reserve_seconds=$HOSTED_DESTRUCTIVE_RESERVE_SECONDS" >> hosted-demo-evidence.txt
       - name: Add fixed acceptance hosts
         run: echo "127.0.0.1 customer.demo.test platform.demo.test" | sudo tee -a /etc/hosts >/dev/null
       - name: Run hosted cross-role Demo journey
