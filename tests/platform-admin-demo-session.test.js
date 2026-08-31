@@ -77,7 +77,7 @@ test('Demo Platform session bootstrap aborts a stalled endpoint', async () => {
   assert.equal(aborted, true);
 });
 
-test('Demo Platform persona selection sends intent only and accepts the matching server projection', async () => {
+test('Demo Platform persona selection sends bounded intent and accepts the matching server projection', async () => {
   let request;
   const api = createPlatformDemoSessionApi({
     apiClient: {
@@ -88,15 +88,41 @@ test('Demo Platform persona selection sends intent only and accepts the matching
     },
   });
   await api.selectPersona('tenant_operator');
-  assert.deepEqual(request, {
-    path: 'demo/session/persona',
-    options: { method: 'PUT', body: { persona: 'tenant_operator' } },
-  });
+  assert.equal(request.path, 'demo/session/persona');
+  assert.equal(request.options.method, 'PUT');
+  assert.deepEqual(request.options.body, { persona: 'tenant_operator' });
+  assert.equal(request.options.signal instanceof AbortSignal, true);
   await assert.rejects(
     () => api.selectPersona('platform_security_admin'),
     (error) => error instanceof PlatformDemoSessionError
       && error.code === 'PLATFORM_DEMO_PERSONA_INVALID',
   );
+});
+
+test('Demo Platform persona selection aborts a stalled mutation and restores recoverable failure control', async () => {
+  let aborted = false;
+  const api = createPlatformDemoSessionApi({
+    mutationTimeoutMs: 5,
+    apiClient: {
+      async request(path, options) {
+        assert.equal(path, 'demo/session/persona');
+        assert.equal(options.signal instanceof AbortSignal, true);
+        return new Promise((resolve, reject) => {
+          options.signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(new DOMException('aborted', 'AbortError'));
+          }, { once: true });
+        });
+      },
+    },
+  });
+
+  await assert.rejects(
+    () => api.selectPersona('tenant_operator'),
+    (error) => error instanceof PlatformDemoSessionError
+      && error.code === 'PLATFORM_DEMO_PERSONA_CHANGE_FAILED',
+  );
+  assert.equal(aborted, true);
 });
 
 test('Demo Platform persona selection rejects a different server persona without local authority', async () => {
@@ -114,7 +140,7 @@ test('Demo Platform persona selection rejects a different server persona without
   );
 });
 
-test('Demo reset uses the protected server endpoint and rejects malformed evidence', async () => {
+test('Demo reset uses a bounded protected server endpoint and rejects malformed evidence', async () => {
   const calls = [];
   const api = createPlatformDemoSessionApi({
     apiClient: {
@@ -132,10 +158,10 @@ test('Demo reset uses the protected server endpoint and rejects malformed eviden
     seedVersion: 'saas-3.5-shared-demo-v1',
     checksum: 'b'.repeat(64),
   });
-  assert.deepEqual(calls[0], {
-    path: 'demo/reset',
-    options: { method: 'POST', body: { confirm: true } },
-  });
+  assert.equal(calls[0].path, 'demo/reset');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.deepEqual(calls[0].options.body, { confirm: true });
+  assert.equal(calls[0].options.signal instanceof AbortSignal, true);
 
   const malformed = createPlatformDemoSessionApi({
     apiClient: {
