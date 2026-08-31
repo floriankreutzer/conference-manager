@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 1bd4d66d0a22967e5ff813a4288be4e8e072c3e5
+          ref: cdbab5089f290f6b577112f0d6406f74dbe6696e
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN }}
           persist-credentials: false
           path: api
@@ -141,7 +141,7 @@ jobs:
             -u DEMO_CUSTOMER_CSRF_SECRET \
             npm run start:demo:platform >platform-demo-api.log 2>&1 &
           echo $! >platform-demo-api.pid
-      - name: Wait for both Demo APIs
+      - name: Wait for both Demo APIs to be ready
         working-directory: api
         run: |
           for attempt in {1..60}; do
@@ -149,14 +149,14 @@ jobs:
             platform=0
             curl --fail --silent --show-error \
               -H "Host: customer.demo.test:4443" \
-              http://127.0.0.1:3000/api/v1/health/live >/dev/null && customer=1 || true
+              http://127.0.0.1:3000/api/v1/health/ready >/dev/null && customer=1 || true
             curl --fail --silent --show-error \
               -H "Host: platform.demo.test:4443" \
-              http://127.0.0.1:3100/api/v1/platform/health/live >/dev/null && platform=1 || true
+              http://127.0.0.1:3100/api/v1/platform/health/ready >/dev/null && platform=1 || true
             if [[ "$customer" == 1 && "$platform" == 1 ]]; then exit 0; fi
             sleep 1
           done
-          echo "The separate Demo API processes did not become live." >&2
+          echo "The separate Demo API processes did not become ready." >&2
           exit 1
       - name: Run shared PostgreSQL browser journey once
         working-directory: frontend
