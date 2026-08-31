@@ -89,16 +89,56 @@ configuration owns only `tests/e2e-shared`. This separation prevents duplicate
 browser execution while keeping both suites required for frontend changes.
 
 The shared job checks out the API at immutable commit
-`1bd4d66d0a22967e5ff813a4288be4e8e072c3e5`, provisions an isolated PostgreSQL
+`cdbab5089f290f6b577112f0d6406f74dbe6696e`, provisions an isolated PostgreSQL
 database, runs the canonical and Demo migrations, starts the separate Customer
-and Platform API processes, and then executes the Chromium and WebKit journey.
-Because `conference-manager-api` is private, repository administrators must
-configure `SHARED_DEMO_API_READ_TOKEN` as a read-only Actions secret. The job
-fails closed before checkout when the credential is absent; no secret value is
-printed or included in artifacts.
+and Platform API processes, requires both real readiness endpoints to pass, and
+then executes the Chromium and WebKit journey. Because `conference-manager-api`
+is private, repository administrators must configure `SHARED_DEMO_API_READ_TOKEN`
+as a read-only Actions secret. The job fails closed before checkout when the
+credential is absent; no secret value is printed or included in artifacts.
 
-The reciprocal API CI pins the functional frontend journey commit
-`8bef6173f9a6c660e1d0062c430b01e6b44075fc`. Its required matrix validates the
-API gates, PostgreSQL 18 migrations and persistence, and the same shared journey
-in Chromium and WebKit. The frontend-owned job remains fail-closed until
-repository administrators provide the required read-only secret.
+The reciprocal API CI resolves the functional frontend journey from the immutable
+`DEMO_FRONTEND_REF` in the reviewed Render Blueprint. The currently deployed
+frontend release is `07f2896d56e6f66a9f8daf96457ab12c763adf80`. Its required
+matrix validates API gates, PostgreSQL 18 migrations and persistence, real Demo
+readiness, and the same shared journey in Chromium and WebKit.
+
+## Hosted Render acceptance
+
+The operational SaaS 3.5 Demo is hosted on the provider-managed HTTPS origins:
+
+- Customer: `https://conference-manager-demo.onrender.com`
+- Platform: `https://conference-manager-ops-demo.onrender.com`
+
+`.github/workflows/hosted-demo-acceptance.yml` is the external acceptance gate for
+those public services. It does not start a local API or use a database credential.
+Instead it waits for both public readiness endpoints, allowing the bounded Render
+Free cold-start window, then runs the existing `tests/e2e-shared` critical journey
+against the deployed services through a fixed-origin local test proxy. The proxy
+can target only the two source-defined Render origins, rewrites the local test
+Host/Origin/Referer values to their matching deployed same-origin values, validates
+upstream TLS normally, and has no general-purpose destination input.
+
+The hosted acceptance run uses Chromium once to avoid duplicating destructive
+reset/reseed traffic against the shared public Demo. Cross-browser Chromium and
+WebKit coverage remains mandatory in the isolated frontend/API CI matrices. The
+hosted journey itself proves the deployed environment for the exercised controls:
+
+- both public readiness endpoints return HTTP 200;
+- Customer and Platform sessions/cookies remain separate;
+- browser LocalStorage/sessionStorage clearing does not erase authority;
+- a Platform lifecycle mutation propagates to the Customer surface;
+- Tenant Admin configuration propagates to Employee and later Platform projection;
+- Employee and Conference Manager use the same persisted Request and history;
+- cross-Tenant object access remains concealed;
+- missing CSRF and insufficient Platform authority fail closed;
+- deterministic provider degradation remains bounded and server-defined;
+- reset/reseed invalidates both session domains, restores the baseline checksum and
+  can be repeated reproducibly.
+
+The workflow records only non-secret provider origins, immutable deployed frontend/API
+refs, acceptance source SHA and GitHub run ID. Failure artifacts contain the bounded
+Playwright report; no database URL, session secret or provider credential is required.
+A run that begins while a Render Free service is spun down additionally supplies the
+cold-start eventual-readiness evidence required by #157. A warm run proves hosted
+functional readiness but must not be mislabeled as cold-start evidence.
