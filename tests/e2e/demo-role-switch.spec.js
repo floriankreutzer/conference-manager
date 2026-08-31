@@ -145,7 +145,7 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
     }
     if (path === '/api/v1/application/profile' && request.method() === 'GET') {
       const label = context.persona === 'conference_manager' ? 'Demo Manager' : 'Demo Employee';
-      await route.fulfill({ json: { profile: { displayName: label } } });
+      await route.fulfill({ json: { schemaVersion: 1, profile: { displayName: label } } });
       return;
     }
     if (path === '/api/v1/application/catalog' && request.method() === 'GET') {
