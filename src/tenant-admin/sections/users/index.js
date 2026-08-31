@@ -461,14 +461,12 @@ export function createUsersSection({ context, adapter = null } = {}) {
       const focusTarget = pendingFocus;
       pendingFocus = null;
       if (focusTarget !== null) {
-        requestAnimationFrame(() => {
-          if (focusTarget === 'results') resultStatus.focus();
-          else {
-            const updatedCard = [...surface.querySelectorAll('[data-tenant-user-id]')]
-              .find((card) => card.dataset.tenantUserId === focusTarget);
-            (updatedCard || resultStatus).focus();
-          }
-        });
+        if (focusTarget === 'results') resultStatus.focus();
+        else {
+          const updatedCard = [...surface.querySelectorAll('[data-tenant-user-id]')]
+            .find((card) => card.dataset.tenantUserId === focusTarget);
+          (updatedCard || resultStatus).focus();
+        }
       }
     } catch (error) {
       if (!isCurrent()) return;

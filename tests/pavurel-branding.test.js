@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { createDemoTenantPresentationApi } from '../src/platform/tenant-presentation-api.js';
+import { createDemoTenantPresentationApi } from '../src/platform/demo-tenant-presentation-api.js';
 import { createDemoOrganizationSettings } from '../src/tenant-admin/sections/organization/demo-adapter.js';
 
 const EXPECTED_THEME = '#7A1F3D';
@@ -46,7 +46,7 @@ test('Demo runbook documents the same Conference Manager and PAVUREL baseline as
   const runbook = await source('docs/DEMO-RUNBOOK.md');
 
   assert.match(runbook, /effective presentation is Conference Manager, German, EUR and the code-shipped PAVUREL product-default signet/i);
-  assert.match(runbook, /role change recreates their fixtures[\s\S]*PAVUREL product-default presentation/i);
+  assert.match(runbook, /context change selects a deterministic server-owned fixture Principal[\s\S]*PAVUREL product-default presentation/i);
   assert.doesNotMatch(runbook, /Northstar Events/i);
 });
 

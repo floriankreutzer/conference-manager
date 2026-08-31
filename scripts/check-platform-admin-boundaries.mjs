@@ -30,11 +30,9 @@ const requiredFiles = [
   'src/platform-admin/application.js',
   'src/platform-admin/production/bootstrap.js',
   'src/platform-admin/production/operator-session.js',
-  'src/platform-admin/production/platform-api.js',
+  'src/platform-admin/platform-api.js',
   'src/platform-admin/demo/bootstrap.js',
-  'src/platform-admin/demo/demo-adapter.js',
-  'src/platform-admin/demo/demo-store.js',
-  'src/platform-admin/demo/fixtures.js',
+  'src/platform-admin/demo/operator-session.js',
   'deployment/platform-admin-production.json',
   'deployment/platform-admin-demo.json',
 ];
@@ -158,19 +156,29 @@ if (!productionHtml.includes('../src/platform-admin/production/bootstrap.js') ||
 if (!demoHtml.includes('conference-runtime" content="demo"')) {
   fail('platform-admin-demo/index.html: Demo runtime declaration is required.');
 }
-if (!demoHtml.includes("connect-src 'none'")) {
-  fail("platform-admin-demo/index.html: Demo connect-src must forbid all connections.");
+if (!demoHtml.includes("connect-src 'self'")) {
+  fail("platform-admin-demo/index.html: Demo connect-src must allow only the same-origin Demo Platform API.");
 }
-if (!demoHtml.includes('platform-demo-data" content="synthetic-local-only"')) {
-  fail('platform-admin-demo/index.html: synthetic local-only data disclosure metadata is required.');
+if (!demoHtml.includes('platform-demo-data" content="synthetic-server-backed"')) {
+  fail('platform-admin-demo/index.html: synthetic server-backed data disclosure metadata is required.');
 }
 if (!demoHtml.includes('../src/platform-admin/demo/bootstrap.js') || /\/production\//.test(demoHtml)) {
   fail('platform-admin-demo/index.html: Demo must load only the Demo composition root.');
 }
 
-const demoStore = await readFile('src/platform-admin/demo/demo-store.js', 'utf8');
-if (!demoStore.includes("'platform_admin_demo_v1'") || /conference_/.test(demoStore)) {
-  fail('src/platform-admin/demo/demo-store.js: Demo storage must use its isolated platform_admin_demo namespace.');
+const demoBootstrap = await readFile('src/platform-admin/demo/bootstrap.js', 'utf8');
+for (const required of [
+  'createApiClient',
+  'createPlatformDemoSessionApi',
+  'createPlatformAdminApi',
+  "baseUrl: '/api/v1/platform/'",
+]) {
+  if (!demoBootstrap.includes(required)) {
+    fail(`src/platform-admin/demo/bootstrap.js: server-backed Demo composition is missing ${required}.`);
+  }
+}
+if (/demo-(?:store|adapter)|operator-fixtures|platform_admin_demo_v1|createPlatformAdminDemoStore/.test(demoBootstrap)) {
+  fail('src/platform-admin/demo/bootstrap.js: retired browser Demo authority must not be reachable.');
 }
 
 if (failures) process.exit(1);

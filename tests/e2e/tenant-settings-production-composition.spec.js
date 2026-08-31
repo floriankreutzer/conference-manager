@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fulfillApplicationProjection } from './fixtures/application-projections.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -165,7 +166,10 @@ async function productionHtml() {
       '<meta name="conference-runtime" content="demo">',
       '<meta name="conference-runtime" content="production">',
     )
-    .replace("connect-src 'none'", "connect-src 'self'");
+    .replace(
+      './src/platform/demo-bootstrap.js?v=20260830-77',
+      './src/platform/production-bootstrap.js?v=20260830-77',
+    );
 }
 
 function initialState() {
@@ -422,6 +426,8 @@ async function installProductionSettingsFixture(page, { organizationConflict = t
       } });
       return;
     }
+
+    if (await fulfillApplicationProjection(route)) return;
 
     if (url.pathname.startsWith('/api/')) {
       unexpectedApiRequests.push({ path: url.pathname, method });

@@ -1,11 +1,5 @@
-import {
-  createEmployeeApplication,
-  createProductionEmployeeApplication,
-} from './employee/index.js';
-import {
-  createManagerApplication,
-  createProductionManagerApplication,
-} from './manager/index.js';
+import { createServerDraftStore, createServerEmployeeApplication } from './employee/index.js';
+import { createServerManagerApplication } from './manager/index.js';
 import { createApplicationContext } from './platform/application-context.js';
 import { createAppShell, renderAppBootstrapLoading } from './platform/app-shell.js';
 import { createMicrosoft365ConnectionApi } from './platform/microsoft365-connection-api.js';
@@ -17,63 +11,63 @@ import {
   createTenantBookingPolicySettingsApi,
   createTenantCatalogueSettingsApi,
   createTenantCostAllocationSettingsApi,
-  createDemoTenantPresentationApi,
   createPresentationRefreshingOrganizationSettings,
   createTenantLocationSettingsApi,
   createTenantOrganizationSettingsApi,
   createTenantPresentationApi,
   createTenantPresentationRuntime,
-} from './platform/tenant-settings-api.js';
+} from './platform/server-tenant-settings-api.js';
 import { createTenantUserAdministrationApi } from './platform/tenant-user-administration-api.js';
 import {
   clearTenantAdminRoute,
-  createDemoBookingPolicySettings,
-  createDemoCatalogueSettings,
-  createDemoCostAllocationSettings,
-  createDemoLocationSettings,
-  createDemoOrganizationSettings,
-  createDemoTenantAudit,
-  createDemoTenantCapabilities,
-  createDemoTenantUserAdministration,
+  createServerTenantAdminOnboardingRuntime,
   createTenantAdminApplication,
-  createTenantAdminOnboardingRuntime,
   isTenantAdminRoute,
-} from './tenant-admin/index.js';
+} from './tenant-admin/server.js';
 
-const APP_BUILD = '2026.08.27.76';
+const APP_BUILD = '2026.08.30.77';
+const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const appRoot = document.getElementById('app');
 
-async function bootstrap() {
+function normalizedOptionalProjectionTimeout(value) {
+  return Number.isSafeInteger(value) && value >= 1 && value <= 30_000
+    ? value
+    : OPTIONAL_PROJECTION_TIMEOUT_MS;
+}
+
+export async function bootstrapCustomerApplication({
+  runtimeMode,
+  authenticationBootstrap,
+  optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
+} = {}) {
+  const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   renderAppBootstrapLoading();
-  const context = await createApplicationContext();
+  const context = await createApplicationContext({
+    runtimeMode,
+    authenticationBootstrap,
+    optionalProjectionTimeoutMs: optionalTimeout,
+  });
   let shell;
 
   const setPageHeading = (title, subtitle) => shell.setPageHeading(title, subtitle);
   const authentication = context.authenticationRuntime();
-  const productionPersistence = context.productionPersistence();
-  const tenantSettingsAdapters = context.isDemoRuntime()
+  const serverPersistence = context.serverPersistence();
+  const tenantSettingsAdapters = context.isTenantAdmin() && authentication
     ? Object.freeze({
-      organization: createDemoOrganizationSettings(),
-      locations: createDemoLocationSettings(),
-      catalog: createDemoCatalogueSettings(),
-      bookingPolicies: createDemoBookingPolicySettings(),
-      costAllocation: createDemoCostAllocationSettings(),
+      organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
+      locations: createTenantLocationSettingsApi({ apiClient: authentication.apiClient }),
+      catalog: createTenantCatalogueSettingsApi({ apiClient: authentication.apiClient }),
+      bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
+      costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
     })
-    : (context.isTenantAdmin() && authentication
-      ? Object.freeze({
-        organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
-        locations: createTenantLocationSettingsApi({ apiClient: authentication.apiClient }),
-        catalog: createTenantCatalogueSettingsApi({ apiClient: authentication.apiClient }),
-        bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
-        costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
-      })
-      : Object.freeze({}));
-  const tenantPresentationAdapter = context.isDemoRuntime()
-    ? createDemoTenantPresentationApi({ organizationSettings: tenantSettingsAdapters.organization })
-    : (context.isAuthenticated() && authentication
-      ? createTenantPresentationApi({ apiClient: authentication.apiClient })
-      : null);
-  const tenantPresentation = createTenantPresentationRuntime({ adapter: tenantPresentationAdapter });
+    : Object.freeze({});
+  const tenantPresentationAdapter = context.isAuthenticated() && authentication
+    ? createTenantPresentationApi({ apiClient: authentication.apiClient })
+    : null;
+  const tenantPresentation = createTenantPresentationRuntime({
+    adapter: tenantPresentationAdapter,
+    refreshTimeoutMs: optionalTimeout,
+  });
   await tenantPresentation.refresh();
   const effectiveTenantSettingsAdapters = Object.hasOwn(tenantSettingsAdapters, 'organization')
     ? Object.freeze({
@@ -84,62 +78,38 @@ async function bootstrap() {
       }),
     })
     : tenantSettingsAdapters;
-  const employee = context.isDemoRuntime()
-    ? createEmployeeApplication({
-      context,
+  const employee = serverPersistence
+    ? createServerEmployeeApplication({
       appRoot,
       setPageHeading,
+      persistence: serverPersistence,
       onNavigate: (view) => shell.setView(view),
-      onHelp: () => shell.openHelp(),
+      siteInfo: context.getSiteInfo(),
+      draftStore: createServerDraftStore({ tenantId: context.tenantId(), userId: context.userId() }),
     })
-    : (productionPersistence
-      ? createProductionEmployeeApplication({
-        appRoot,
-        setPageHeading,
-        persistence: productionPersistence,
-      })
-      : null);
-  const manager = context.isDemoRuntime()
-    ? createManagerApplication({
-      context,
-      appRoot,
-      setPageHeading,
-      onNavigationRefresh: () => shell.renderNavigation(),
-    })
-    : (productionPersistence
-      ? createProductionManagerApplication({
-        appRoot,
-        setPageHeading,
-        persistence: productionPersistence,
-      })
-      : null);
-  const tenantUserAdministration = context.isDemoRuntime()
-    ? createDemoTenantUserAdministration({
-      currentUserId: context.userId(),
-      currentDisplayName: context.fullName(),
-    })
-    : (context.isTenantAdmin() && authentication
-      ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
-      : null);
-  const tenantAudit = context.isDemoRuntime()
-    ? createDemoTenantAudit()
-    : (context.isTenantAdmin() && authentication
-      ? createTenantAuditApi({ apiClient: authentication.apiClient })
-      : null);
-  const tenantCapabilities = context.isDemoRuntime()
-    ? createDemoTenantCapabilities()
-    : (context.isTenantAdmin() && authentication
-      ? createTenantCapabilitiesApi({ apiClient: authentication.apiClient })
-      : null);
-  const microsoft365Connection = !context.isDemoRuntime() && context.isTenantAdmin() && authentication
+    : null;
+  const manager = serverPersistence && context.isManager()
+    ? createServerManagerApplication({ appRoot, setPageHeading, persistence: serverPersistence })
+    : null;
+  const tenantUserAdministration = context.isTenantAdmin() && authentication
+    ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
+    : null;
+  const tenantAudit = context.isTenantAdmin() && authentication
+    ? createTenantAuditApi({ apiClient: authentication.apiClient })
+    : null;
+  const tenantCapabilities = context.isTenantAdmin() && authentication
+    ? createTenantCapabilitiesApi({ apiClient: authentication.apiClient })
+    : null;
+  const microsoft365Connection = context.isTenantAdmin() && authentication
     ? createMicrosoft365ConnectionApi({ apiClient: authentication.apiClient })
     : null;
-  const onboardingRuntime = createTenantAdminOnboardingRuntime({
-    demo: context.isDemoRuntime(),
-    apiClient: context.isTenantAdmin() ? authentication?.apiClient : null,
-    connectionApi: microsoft365Connection,
-    persistence: context.isTenantAdmin() ? productionPersistence : null,
-  });
+  const onboardingRuntime = context.isTenantAdmin()
+    ? createServerTenantAdminOnboardingRuntime({
+      apiClient: authentication?.apiClient,
+      connectionApi: microsoft365Connection,
+      persistence: serverPersistence,
+    })
+    : null;
   const tenantAdmin = tenantUserAdministration
     ? createTenantAdminApplication({
       context,
@@ -185,11 +155,6 @@ async function bootstrap() {
   });
 
   window.addEventListener('conference-language-changed', render);
-  window.addEventListener('storage', (event) => {
-    if (!context.shouldReloadForStorageKey(event.key)) return;
-    context.reloadReferenceData();
-    render();
-  });
 
   if (tenantAdmin && context.isTenantAdmin() && isTenantAdminRoute()) {
     shell.setView('tenantAdmin');
@@ -198,6 +163,6 @@ async function bootstrap() {
     if (isTenantAdminRoute()) clearTenantAdminRoute();
     render();
   }
-}
 
-void bootstrap();
+  return Object.freeze({ context, shell, tenantPresentation });
+}

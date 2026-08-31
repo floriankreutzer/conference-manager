@@ -128,15 +128,18 @@ export function createTenantAdminSettingsShell({
       return;
     }
 
-    Promise.resolve(activeSection.render({
+    const sectionRender = activeSection.render({
       root: content,
       generation: currentGeneration,
       isCurrent: () => generation === currentGeneration,
       navigate,
       rerender: render,
-    })).then(() => {
-      focusActiveHeading(activeSection.id, currentGeneration);
-    }).catch(() => {
+    });
+    // Section renderers attach their heading synchronously before loading data.
+    // Consume explicit-navigation focus now so it cannot override a later,
+    // section-owned mutation focus after an asynchronous rerender.
+    focusActiveHeading(activeSection.id, currentGeneration);
+    Promise.resolve(sectionRender).catch(() => {
       if (generation !== currentGeneration) return;
       clear(content);
       content.appendChild(el('section', {
@@ -146,7 +149,9 @@ export function createTenantAdminSettingsShell({
         el('h2', { text: t(activeSection.titleKey), attrs: { tabindex: '-1' } }),
         el('p', { text: t('tenantAdmin.section.errorText') }),
       ]));
-      focusActiveHeading(activeSection.id, currentGeneration);
+      requestAnimationFrame(() => {
+        if (generation === currentGeneration) content.querySelector('h2')?.focus();
+      });
     });
   }
 

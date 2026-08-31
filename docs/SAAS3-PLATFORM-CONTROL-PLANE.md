@@ -12,6 +12,12 @@ Accepted for **SaaS 3 — Platform Control Plane & Operations**.
 
 This decision extends, and does not replace, `docs/SAAS-PRODUCTION-TOPOLOGY.md`. The customer application remains logically same-origin. The Platform Control Plane receives a second, independently deployed same-origin browser/API boundary. Root `AGENTS.md`, `docs/CODING-STANDARDS.md`, `docs/ARCHITECTURE.md`, and mandatory security requirements remain authoritative.
 
+## SaaS 3.5 revalidation and Demo extension
+
+`docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md` revalidates this decision's source placement as **KEEP** for the frontend and backend repositories. It does not weaken the separate artifact, process, origin, session, configuration, database-role or audit boundaries defined here.
+
+`docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` supersedes only the in-browser/in-memory Platform Demo data-authority direction below. The Platform Admin Demo remains a separate non-production browser artifact, but its effective persona/permissions and business mutations move behind a Demo Platform session/API process backed by the same isolated Demo PostgreSQL data model used by Customer Demo. Production remains unable to import, discover or fall back to Demo identity, persistence, providers or reset/seed behavior. The owning SaaS 3.5 issues and #155 must provide merged executable evidence before the new Demo runtime is described as implemented.
+
 ## Context
 
 SaaS 0 and SaaS 1 established a trusted `conference-manager-api` backend, hard Tenant isolation, customer identity and sessions, Tenant RBAC, Tenant audit integrity, entitlements, server-derived readiness, and narrowly bounded process-local operator commands. The operator commands already delegate to the onboarding, readiness, lifecycle, entitlement, and recovery application services; they are deliberately absent from the customer HTTP composition.

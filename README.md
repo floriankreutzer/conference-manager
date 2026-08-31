@@ -23,7 +23,7 @@ The readiness status describes clarity, usability, responsive behavior, and regr
 - List, calendar, request history, guest information, and printable welcome view
 - Manager cockpit with bookings, room planning, reports, and master-data administration
 - German and English through the canonical Core application localization contract
-- LocalStorage persistence for the static MVP
+- Server-backed Demo persistence in one isolated PostgreSQL database, shared by the separately authenticated Customer and Platform Demo processes
 
 ## Repository-wide coding-agent instructions
 
@@ -110,7 +110,9 @@ New user-visible application copy belongs to the canonical Core localization mec
 
 The approved SaaS production topology keeps this repository as the browser application and places the trusted production backend in a dedicated `conference-manager-api` repository while exposing the customer browser and `/api/*` through one HTTPS origin. The accepted SaaS 3 extension adds a separately deployable Platform Operator artifact and operator origin backed by a Platform-only process in the same backend repository; it does not add Platform authority to Tenant Admin or existing customer `src/platform` modules.
 
-See `docs/BASELINE.md`, `docs/ARCHITECTURE.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md`, `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+The accepted SaaS 3.5 architecture keeps Platform Operations source in those two application repositories while preserving the four separate browser/API artifacts and processes. It replaces browser-owned Demo business state with one isolated PostgreSQL-backed Demo model reached through separate Customer and Platform Demo session/API boundaries. Runtime implementation and final release evidence remain tracked by milestone #149 and its delivery issues.
+
+See `docs/BASELINE.md`, `docs/ARCHITECTURE.md`, `docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md`, `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`, `docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md`, `docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
 
 ## Feature flags
 
@@ -160,15 +162,17 @@ The application uses semantic HTML, native form controls, and native `<dialog>` 
 
 The implementation targets WCAG 2.2 Level AA. A formal conformance statement additionally requires a complete manual accessibility audit with representative assistive technologies and target browsers.
 
-## MVP security boundary
+## Runtime security boundary
 
-The default GitHub Pages deployment is an explicit static demo. Its data, demo role, and language preference are stored client-side. The demo role switch is **not authorization** and must not be used as production access control. The repository separately contains production browser clients that consume the same-origin server-authoritative API and never use demo storage as a fallback.
+The active Customer Demo and Platform Admin Demo are server-backed presentation tiers. They obtain separate server-issued Demo sessions from separate same-origin API processes, while canonical Demo business state is persisted in one isolated PostgreSQL database. The visible persona selectors submit only an allowlisted persona request; the appropriate server resolves the effective roles and permissions. Browser code, DOM values and browser storage never establish Demo or Production authority.
+
+Only bounded non-authoritative preferences such as the selected language may remain browser-local. API, session or schema failure is rendered as unavailable and never falls back to LocalStorage, fixtures or browser mutation rules. The Demo uses deterministic non-production identities and provider adapters and is not evidence of real identity-provider, Microsoft 365 or Production acceptance.
 
 Production operation requires at least:
 
 - SSO through Microsoft Entra ID or an equivalent identity platform
 - server-side authentication and role-based authorization
-- backend persistence instead of LocalStorage
+- isolated, least-privilege PostgreSQL persistence and runtime credentials
 - server-side validation for all write operations
 - an audit trail and transactional processing
 - secure calendar integration, for example through Microsoft Graph

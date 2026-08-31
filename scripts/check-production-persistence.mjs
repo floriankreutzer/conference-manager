@@ -93,11 +93,12 @@ for (const required of [
 const applicationContext = await readFile('src/platform/application-context.js', 'utf8');
 for (const required of [
   'createApplicationContextFromState',
-  'bootstrapProductionAuthentication',
+  'authenticationBootstrap',
   'createProductionPersistence',
   'authenticationRuntime?.apiClient?.request',
   'createProductionPersistence({ apiClient: authenticationRuntime.apiClient })',
   'productionPersistence()',
+  'serverPersistence()',
   'const isDemo = runtimeMode === RUNTIME_MODE.DEMO;',
   'authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED',
   'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
@@ -105,47 +106,37 @@ for (const required of [
   'PRODUCTION_TENANT_ROLE.TENANT_ADMIN',
   'PRODUCTION_PERMISSION.TENANT_USERS_MANAGE',
   'authenticationRuntime()',
-  'return isDemo ? requestRepository.all() : EMPTY_REQUESTS;',
-  'return isDemo ? writeString(KEYS.role, value) : false;',
-  'return isDemo && [KEYS.requests, KEYS.catalog, KEYS.siteInfo, KEYS.role].includes(key);',
-  'if (runtimeMode === RUNTIME_MODE.DEMO) return createApplicationContextFromState();',
+  'return notifications.slice(',
+  'return false;',
+  'authentication?.runtime?.apiClient',
 ]) {
   if (!applicationContext.includes(required)) {
     throw new Error(`Application context production boundary is missing ${required}.`);
   }
 }
-
-const identityBootstrap = await readFile('src/platform/identity-bootstrap.js', 'utf8');
-if (!identityBootstrap.includes('if (mode !== RUNTIME_MODE.DEMO) return;')) {
-  throw new Error('Identity bootstrap must not read authoritative browser identity in production.');
+for (const forbidden of ["../core/storage.js", 'requestRepository', 'notificationRepository', 'readString(', 'writeString(']) {
+  if (applicationContext.includes(forbidden)) {
+    throw new Error(`Application context must not retain browser-owned business authority: ${forbidden}.`);
+  }
 }
 
 const demoSecurity = await readFile('src/platform/demo-security.js', 'utf8');
-if (!demoSecurity.includes('if (runtimeMode !== RUNTIME_MODE.DEMO) return;')) {
-  throw new Error('Demo security normalization must not access demo role storage in production.');
-}
-
-const featureParity = await readFile('src/platform/feature-parity.js', 'utf8');
-for (const required of [
-  'if (runtimeMode !== RUNTIME_MODE.DEMO || syncFrame) return;',
-  'if (runtimeMode === RUNTIME_MODE.DEMO) {',
-]) {
-  if (!featureParity.includes(required)) {
-    throw new Error(`Demo enhancement scheduler production guard is missing ${required}.`);
+for (const forbidden of ['localStorage', 'sessionStorage', 'requestRepository', 'writeString(', 'readString(']) {
+  if (demoSecurity.includes(forbidden)) {
+    throw new Error(`Demo session controls must not use browser authority: ${forbidden}.`);
   }
 }
 
 const app = await readFile('src/app.js', 'utf8');
 for (const required of [
   "from './platform/application-context.js'",
-  'async function bootstrap()',
-  'const context = await createApplicationContext();',
+  'async function bootstrapCustomerApplication(',
+  'const context = await createApplicationContext({',
   'const authentication = context.authenticationRuntime()',
-  'const productionPersistence = context.productionPersistence()',
-  'createProductionEmployeeApplication',
-  'createProductionManagerApplication',
+  'const serverPersistence = context.serverPersistence()',
+  'createServerEmployeeApplication',
+  'createServerManagerApplication',
   'authentication,',
-  'void bootstrap();',
 ]) {
   if (!app.includes(required)) {
     throw new Error(`Production application bootstrap is missing ${required}.`);
@@ -155,16 +146,16 @@ for (const forbidden of [
   "from './core/security-policy.js'",
   "from './platform/production-session.js'",
   "from './platform/production-persistence.js'",
+  'createDemo',
   'bootstrapProductionAuthentication()',
-  'const context = await createApplicationContext();\nlet shell;',
 ]) {
   if (app.includes(forbidden)) {
     throw new Error(`Composition Root production bootstrap boundary is invalid: ${forbidden}.`);
   }
 }
-const bootstrapFunctionStart = app.indexOf('async function bootstrap()');
+const bootstrapFunctionStart = app.indexOf('async function bootstrapCustomerApplication(');
 const bootstrapLoading = app.indexOf('renderAppBootstrapLoading();');
-const awaitedContext = app.indexOf('const context = await createApplicationContext();');
+const awaitedContext = app.indexOf('const context = await createApplicationContext({');
 if (
   bootstrapFunctionStart < 0
   || bootstrapLoading < bootstrapFunctionStart
@@ -191,12 +182,12 @@ for (const file of [
 const employeeProduction = await readFile('src/employee/production-application.js', 'utf8');
 for (const required of [
   'persistence.loadCatalog()',
-  'persistence.checkRoomAvailability(window)',
+  'persistence.checkRoomAvailability(window, isResubmission ? sourceRequest.id : null)',
   'site?.timeZone',
   'productionUtcInstant(date.value, start.value, timeZone)',
   'persistence.createRequest(compositionDraft(',
   "persistence.transitionRequest(requestId, { transition: 'cancel' })",
-  "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested'])",
+  "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed'])",
 ]) {
   if (!employeeProduction.includes(required)) {
     throw new Error(`Production Employee boundary is missing ${required}.`);
@@ -220,8 +211,7 @@ for (const required of [
 const appShell = await readFile('src/platform/app-shell.js', 'utf8');
 for (const required of [
   'context.notifications(4)',
-  'context.canSwitchRole()',
-  "context.isDemoRuntime() ? t('app.mvp') : ''",
+  "context.isDemoRuntime() ? t('app.demoShared') : ''",
   "nextView === 'employee' || nextView === 'requests'",
   "nextView === 'manager' && context.isManager() && manager",
   "nextView === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin",

@@ -68,13 +68,14 @@ for (const forbidden of ['platform_admin', 'localStorage', 'sessionStorage', 'fe
 
 const context = await readFile('src/platform/application-context.js', 'utf8');
 for (const required of [
-  "DEMO_CURRENT_USER_ID = 'demo-current-user'",
-  'readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN',
+  'trustedSession?.user?.id',
+  'trustedSession?.tenant?.id',
+  'trustedSession?.demo?.persona',
+  'authenticationRuntime.selectContext({ tenantId, persona })',
   'PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER',
   'PRODUCTION_PERMISSION.REQUEST_MANAGE',
   'PRODUCTION_TENANT_ROLE.TENANT_ADMIN',
   'PRODUCTION_PERMISSION.TENANT_USERS_MANAGE',
-  'trustedProductionSession?.user?.id',
 ]) {
   if (!context.includes(required)) throw new Error(`Application context is missing role separation ${required}.`);
 }
@@ -84,12 +85,10 @@ if (/isTenantAdmin\(\)[\s\S]{0,150}isManager\(\)/.test(context)) {
 
 const shell = await readFile('src/platform/app-shell.js', 'utf8');
 for (const required of [
-  "nextView === 'manager' && !context.isManager()",
-  "nextView === 'tenantAdmin' && (!context.isTenantAdmin() || !tenantAdmin)",
+  "nextView === 'manager' && context.isManager() && manager",
+  "nextView === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin",
   "navButton('nav.tenantAdmin', 'tenantAdmin')",
-  "value: 'tenant_admin'",
   "view === 'tenantAdmin'",
-  "!context.isTenantAdmin() && view === 'tenantAdmin'",
   "t('profile.role.tenantAdmin')",
 ]) {
   if (!shell.includes(required)) throw new Error(`Application shell is missing Tenant Admin separation ${required}.`);
@@ -127,13 +126,9 @@ for (const forbidden of ['innerHTML', 'tenantId', 'platform_admin', 'localStorag
 
 const app = await readFile('src/app.js', 'utf8');
 for (const required of [
-  "from './tenant-admin/index.js'",
+  "from './tenant-admin/server.js'",
   "from './platform/tenant-admin-operations-api.js'",
   "from './platform/tenant-user-administration-api.js'",
-  'context.isDemoRuntime()',
-  'createDemoTenantAudit()',
-  'createDemoTenantCapabilities()',
-  'createDemoTenantUserAdministration({',
   'const authentication = context.authenticationRuntime()',
   'context.isTenantAdmin() && authentication',
   'createTenantAuditApi({ apiClient: authentication.apiClient })',
@@ -143,6 +138,9 @@ for (const required of [
   'audit: tenantAudit',
 ]) {
   if (!app.includes(required)) throw new Error(`Composition Root is missing Tenant Admin wiring ${required}.`);
+}
+if (/\bcreateDemo/.test(app)) {
+  throw new Error('Composition Root must not retain browser-owned Demo Tenant Admin authority.');
 }
 
 const messages = await readFile('src/core/i18n-capability-messages.js', 'utf8');

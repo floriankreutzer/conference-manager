@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fulfillApplicationProjection } from './fixtures/application-projections.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -86,7 +87,10 @@ async function productionHtml() {
       '<meta name="conference-runtime" content="demo">',
       '<meta name="conference-runtime" content="production">',
     )
-    .replace("connect-src 'none'", "connect-src 'self'");
+    .replace(
+      './src/platform/demo-bootstrap.js?v=20260830-77',
+      './src/platform/production-bootstrap.js?v=20260830-77',
+    );
 }
 
 async function installProductionFixture(page, {
@@ -119,6 +123,7 @@ async function installProductionFixture(page, {
       });
       return;
     }
+    if (await fulfillApplicationProjection(route)) return;
 
     if (url.pathname === '/api/v1/tenant/users' && request.method() === 'GET') {
       reads.push(Object.fromEntries(url.searchParams));
@@ -302,7 +307,7 @@ test('Tenant Admin navigation is server-session scoped and DE/EN copy stays func
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
   await page.locator('[data-tenant-admin-section="users"]').click();
-  await page.getByRole('button', { name: 'Profil' }).click();
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
   await page.locator('#profileLanguage').selectOption('en');
   await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toHaveText('Users & roles');
   await expect(page.getByText('Baseline role: Employee').first()).toBeVisible();

@@ -202,29 +202,76 @@ export function createPlatformAdminApplication({
       });
       demoControls.roleIds.forEach((roleId) => roleSelect.append(selectedOption(roleId, 'platformAdmin.demo.role', documentRef)));
       roleSelect.value = demoControls.currentRoleId();
-      roleSelect.addEventListener('change', async () => {
-        currentOperator = demoControls.setRole(roleSelect.value);
-        actionError = false;
-        fleetView = 'directory';
-        fleetResources.clear();
-        tenantResources.clear();
-        await loadFleet();
-        announce(t('platformAdmin.demo.roleChanged'));
-      });
       const reset = button(t('platformAdmin.demo.reset'), {
         className: 'platform-admin-reset',
         dataset: { platformAdminDemoReset: 'true' },
       });
-      reset.addEventListener('click', async () => {
-        currentOperator = demoControls.reset();
-        filters = normalizePlatformDirectoryQuery();
-        fleetView = 'directory';
-        fleetResources.clear();
-        tenantResources.clear();
-        navigate(platformAdminFleetHash(), { replace: true });
-        await loadFleet();
-        announce(t('platformAdmin.demo.resetComplete'));
-        showToast(t('platformAdmin.demo.resetComplete'));
+
+      function disableDemoControls(disabled) {
+        roleSelect.disabled = disabled;
+        reset.disabled = disabled;
+        nodes.sidebarFooter.setAttribute('aria-busy', String(disabled));
+      }
+
+      roleSelect.addEventListener('change', async () => {
+        disableDemoControls(true);
+        try {
+          const nextOperator = await demoControls.setRole(roleSelect.value);
+          if (!nextOperator) throw new TypeError('PLATFORM_ADMIN_DEMO_OPERATOR_REQUIRED');
+          currentOperator = nextOperator;
+          actionError = false;
+          fleetView = 'directory';
+          fleetResources.clear();
+          tenantResources.clear();
+          await loadFleet();
+          announce(t('platformAdmin.demo.roleChanged'));
+        } catch {
+          roleSelect.value = demoControls.currentRoleId();
+          announce(t('platformAdmin.demo.roleChangeFailed'), { assertive: true });
+          showToast(t('platformAdmin.demo.roleChangeFailed'));
+        } finally {
+          disableDemoControls(false);
+        }
+      });
+
+      reset.addEventListener('click', () => {
+        const cancel = button(t('common.cancel'), { className: 'secondary' });
+        const confirm = button(t('platformAdmin.demo.resetConfirm'), { className: 'primary' });
+        const dialog = openDialog({
+          title: t('platformAdmin.demo.resetConfirmTitle'),
+          description: t('platformAdmin.demo.resetConfirmText'),
+          actions: [cancel, confirm],
+          labelledById: 'platformAdminDemoResetDialogTitle',
+        });
+        cancel.addEventListener('click', () => dialog.close());
+        confirm.addEventListener('click', async () => {
+          cancel.disabled = true;
+          confirm.disabled = true;
+          confirm.textContent = t('platformAdmin.demo.resetRunning');
+          disableDemoControls(true);
+          try {
+            const nextOperator = await demoControls.reset();
+            if (!nextOperator) throw new TypeError('PLATFORM_ADMIN_DEMO_OPERATOR_REQUIRED');
+            currentOperator = nextOperator;
+            filters = normalizePlatformDirectoryQuery();
+            fleetView = 'directory';
+            fleetResources.clear();
+            tenantResources.clear();
+            dialog.close();
+            navigate(platformAdminFleetHash(), { replace: true });
+            await loadFleet();
+            announce(t('platformAdmin.demo.resetComplete'));
+            showToast(t('platformAdmin.demo.resetComplete'));
+          } catch {
+            confirm.textContent = t('platformAdmin.demo.resetConfirm');
+            cancel.disabled = false;
+            confirm.disabled = false;
+            announce(t('platformAdmin.demo.resetFailed'), { assertive: true });
+            showToast(t('platformAdmin.demo.resetFailed'));
+          } finally {
+            disableDemoControls(false);
+          }
+        });
       });
       nodes.sidebarFooter.append(el('label', { className: 'platform-admin-sidebar-field' }, [
         el('span', { text: t('platformAdmin.demo.roleLabel') }),
@@ -972,7 +1019,7 @@ export function createPlatformAdminApplication({
       || PLATFORM_ADMIN_SECTION_DEFINITIONS[0];
     ensureTenantResource(tenant, definition.id);
     const resource = tenantResources.get(`${tenant.id}:${definition.id}`);
-    setHeading(tenant.displayName, `${tenant.reference} · ${t(definition.titleKey)}`);
+    setHeading(tenant.displayName, `${tenant.reference || tenant.id} · ${t(definition.titleKey)}`);
     const section = el('section', {
       className: 'platform-admin-tenant-section',
       dataset: { platformAdminSection: definition.id },

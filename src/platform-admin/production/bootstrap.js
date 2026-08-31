@@ -5,7 +5,7 @@ import {
   PLATFORM_ADMIN_SIGN_IN_PATH,
   PLATFORM_ADMIN_STEP_UP_PATH,
 } from './operator-session.js';
-import { createPlatformAdminApi } from './platform-api.js';
+import { createPlatformAdminApi } from '../platform-api.js';
 
 async function bootstrapProductionPlatformAdmin() {
   let csrfToken = null;

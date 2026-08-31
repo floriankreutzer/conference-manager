@@ -5,8 +5,6 @@ import { renderSectionConflict, renderSectionError, renderSectionLoading } from 
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../../bulk-transfer-panel.js';
 
-export { createDemoCostAllocationSettings } from './demo-adapter.js';
-
 const TITLE = 'tenantAdmin.costAllocation.title';
 const COST_CENTER_CODE = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 

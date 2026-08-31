@@ -1,37 +1,30 @@
-import { loadCatalog, loadSiteInfo, localizedValue } from '../core/catalog.js';
 import { language } from '../core/i18n.js';
 import {
   RUNTIME_MODE,
   USER_ROLE,
   runtimeModeFromDocument,
 } from '../core/security-policy.js';
-import {
-  KEYS,
-  notificationRepository,
-  readJson,
-  readString,
-  requestRepository,
-  writeString,
-} from '../core/storage.js';
 import { createProductionPersistence } from './production-persistence.js';
 import {
   PRODUCTION_AUTH_STATUS,
   PRODUCTION_PERMISSION,
   PRODUCTION_TENANT_ROLE,
-  bootstrapProductionAuthentication,
 } from './production-session.js';
 
-const EMPTY_PROFILE = Object.freeze({ firstName: '', lastName: '' });
+const EMPTY_PROFILE = Object.freeze({ displayName: '', firstName: '', lastName: '' });
 const EMPTY_CATALOG = Object.freeze({
+  sites: Object.freeze([]),
   rooms: Object.freeze([]),
   services: Object.freeze([]),
   cateringPackages: Object.freeze([]),
   cateringItems: Object.freeze([]),
+  costCenters: Object.freeze([]),
 });
 const EMPTY_SITE_INFO = Object.freeze({});
 const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
-const DEMO_CURRENT_USER_ID = 'demo-current-user';
+const REQUIRED_PROJECTION_TIMEOUT_MS = 10_000;
+const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const PRODUCTION_AUTH_STATUSES = new Set(Object.values(PRODUCTION_AUTH_STATUS));
 const TENANT_ADMIN_PERMISSIONS = new Set([
   PRODUCTION_PERMISSION.TENANT_CONFIGURE,
@@ -40,45 +33,105 @@ const TENANT_ADMIN_PERMISSIONS = new Set([
   PRODUCTION_PERMISSION.TENANT_AUDIT_READ,
 ]);
 
-function normalizedProductionAuthenticationStatus(value) {
+function normalizedAuthenticationStatus(value) {
   return PRODUCTION_AUTH_STATUSES.has(value) ? value : PRODUCTION_AUTH_STATUS.UNAVAILABLE;
 }
 
+function normalizedProfile(value) {
+  const displayName = typeof value?.displayName === 'string' ? value.displayName.trim() : '';
+  if (!displayName) return EMPTY_PROFILE;
+  const [firstName = '', ...rest] = displayName.split(/\s+/);
+  return Object.freeze({ displayName, firstName, lastName: rest.join(' ') });
+}
+
+function immutableArray(value, fallback) {
+  return Array.isArray(value) ? Object.freeze([...value]) : fallback;
+}
+
+function localizedValue(value) {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  const selected = language();
+  return String(value[selected] || value.de || value.en || '');
+}
+
+function normalizedOptionalProjectionTimeout(value) {
+  return Number.isSafeInteger(value) && value >= 1 && value <= 30_000
+    ? value
+    : OPTIONAL_PROJECTION_TIMEOUT_MS;
+}
+
+async function loadBoundedProjection(load, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await load(controller.signal);
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
 export function createApplicationContextFromState({
+  runtimeMode = runtimeModeFromDocument(document),
   productionSession = null,
   productionAuthenticationStatus = PRODUCTION_AUTH_STATUS.UNAUTHENTICATED,
   authenticationRuntime = null,
+  demoTenants = EMPTY_REQUESTS,
+  serverProfile = EMPTY_PROFILE,
+  serverCatalog = EMPTY_CATALOG,
+  serverSiteInfo = EMPTY_SITE_INFO,
+  serverRequests = EMPTY_REQUESTS,
+  serverNotifications = EMPTY_NOTIFICATIONS,
+  requiredProjectionTimeoutMs = REQUIRED_PROJECTION_TIMEOUT_MS,
+  optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
-  const runtimeMode = runtimeModeFromDocument(document);
   const isDemo = runtimeMode === RUNTIME_MODE.DEMO;
-  const authenticationStatus = normalizedProductionAuthenticationStatus(productionAuthenticationStatus);
-  const trustedProductionSession = !isDemo
-    && authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED
+  const authenticationStatus = normalizedAuthenticationStatus(productionAuthenticationStatus);
+  const trustedSession = authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED
     ? productionSession
     : null;
-  const productionRoles = new Set(
-    Array.isArray(trustedProductionSession?.roles) ? trustedProductionSession.roles : [],
-  );
-  const productionPermissions = new Set(
-    Array.isArray(trustedProductionSession?.permissions) ? trustedProductionSession.permissions : [],
-  );
-  const productionPersistence = !isDemo && authenticationRuntime?.apiClient?.request
+  const roles = new Set(Array.isArray(trustedSession?.roles) ? trustedSession.roles : []);
+  const permissions = new Set(Array.isArray(trustedSession?.permissions) ? trustedSession.permissions : []);
+  const serverPersistence = trustedSession && authenticationRuntime?.apiClient?.request
     ? createProductionPersistence({ apiClient: authenticationRuntime.apiClient })
     : null;
-  const profile = isDemo
-    ? readJson(KEYS.profile, { firstName: 'Florian', lastName: 'Kreutzer' })
-    : EMPTY_PROFILE;
-  let catalog = isDemo ? loadCatalog() : EMPTY_CATALOG;
-  let siteInfo = isDemo ? loadSiteInfo() : EMPTY_SITE_INFO;
+  const profile = normalizedProfile(serverProfile);
+  let catalog = serverCatalog && typeof serverCatalog === 'object' ? serverCatalog : EMPTY_CATALOG;
+  const siteInfo = serverSiteInfo && typeof serverSiteInfo === 'object' ? serverSiteInfo : EMPTY_SITE_INFO;
+  let catalogRefreshRevision = 0;
+  let requests = immutableArray(serverRequests, EMPTY_REQUESTS);
+  let requestRefreshRevision = 0;
+  let notifications = immutableArray(serverNotifications, EMPTY_NOTIFICATIONS);
+  let notificationRefreshRevision = 0;
+  const requiredTimeout = normalizedOptionalProjectionTimeout(requiredProjectionTimeoutMs);
+  const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
+  const tenants = immutableArray(demoTenants, EMPTY_REQUESTS);
 
-  function hasProductionCapability(role, permission) {
-    return Boolean(trustedProductionSession)
-      && productionRoles.has(role)
-      && productionPermissions.has(permission);
+  function hasCapability(role, permission) {
+    return Boolean(trustedSession) && roles.has(role) && permissions.has(permission);
   }
 
-  function isDemoTenantAdmin() {
-    return isDemo && readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.TENANT_ADMIN;
+  function presentationRole() {
+    if (hasCapability(PRODUCTION_TENANT_ROLE.TENANT_ADMIN, PRODUCTION_PERMISSION.TENANT_USERS_MANAGE)) {
+      return USER_ROLE.TENANT_ADMIN;
+    }
+    if (hasCapability(PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER, PRODUCTION_PERMISSION.REQUEST_MANAGE)) {
+      return USER_ROLE.MANAGER;
+    }
+    return USER_ROLE.EMPLOYEE;
+  }
+
+  function canSwitchDemoContext() {
+    return isDemo
+      && Boolean(trustedSession)
+      && typeof authenticationRuntime?.selectContext === 'function'
+      && authenticationRuntime?.status?.() === PRODUCTION_AUTH_STATUS.AUTHENTICATED;
+  }
+
+  async function switchDemoContext({ tenantId, persona } = {}) {
+    if (!canSwitchDemoContext()) return false;
+    await authenticationRuntime.selectContext({ tenantId, persona });
+    return true;
   }
 
   return Object.freeze({
@@ -90,22 +143,40 @@ export function createApplicationContextFromState({
       return isDemo;
     },
     authenticationStatus() {
-      return isDemo ? null : authenticationStatus;
+      return authenticationStatus;
     },
     authenticationRuntime() {
-      return isDemo ? null : authenticationRuntime;
+      return authenticationRuntime;
     },
     productionPersistence() {
-      return isDemo ? null : productionPersistence;
+      return serverPersistence;
+    },
+    serverPersistence() {
+      return serverPersistence;
     },
     isAuthenticated() {
-      return isDemo || Boolean(trustedProductionSession);
+      return Boolean(trustedSession);
     },
     canSwitchRole() {
-      return isDemo;
+      return canSwitchDemoContext();
     },
     userId() {
-      return isDemo ? DEMO_CURRENT_USER_ID : (trustedProductionSession?.user?.id || '');
+      return trustedSession?.user?.id || '';
+    },
+    tenantId() {
+      return trustedSession?.tenant?.id || '';
+    },
+    demoPersona() {
+      return isDemo ? trustedSession?.demo?.persona || null : null;
+    },
+    demoTenants() {
+      return tenants;
+    },
+    switchDemoContext,
+    setRole(value) {
+      if (!isDemo || !trustedSession) return false;
+      const persona = value === USER_ROLE.MANAGER ? 'conference_manager' : value;
+      return switchDemoContext({ tenantId: trustedSession.tenant.id, persona });
     },
     getCatalog() {
       return catalog;
@@ -113,77 +184,154 @@ export function createApplicationContextFromState({
     getSiteInfo() {
       return siteInfo;
     },
-    reloadReferenceData() {
-      if (!isDemo) return;
-      catalog = loadCatalog();
-      siteInfo = loadSiteInfo();
+    async reloadReferenceData() {
+      if (!serverPersistence) return catalog;
+      const revision = catalogRefreshRevision + 1;
+      catalogRefreshRevision = revision;
+      const refreshed = await loadBoundedProjection(
+        (signal) => serverPersistence.loadCatalog({ signal }),
+        requiredTimeout,
+      );
+      if (revision === catalogRefreshRevision) catalog = refreshed;
+      return catalog;
     },
     localized(value) {
-      return localizedValue(value, language());
+      return localizedValue(value);
     },
     requests() {
-      return isDemo ? requestRepository.all() : EMPTY_REQUESTS;
+      return requests;
+    },
+    async refreshRequests() {
+      if (!serverPersistence) return requests;
+      const revision = requestRefreshRevision + 1;
+      requestRefreshRevision = revision;
+      const refreshed = immutableArray(await loadBoundedProjection(
+        (signal) => serverPersistence.listRequests({ signal }),
+        requiredTimeout,
+      ), EMPTY_REQUESTS);
+      if (revision === requestRefreshRevision) requests = refreshed;
+      return requests;
+    },
+    async refreshNotifications() {
+      if (!serverPersistence) return notifications;
+      const revision = notificationRefreshRevision + 1;
+      notificationRefreshRevision = revision;
+      const refreshed = immutableArray(await loadBoundedProjection(
+        (signal) => serverPersistence.listNotifications({ signal }),
+        optionalTimeout,
+      ), EMPTY_NOTIFICATIONS);
+      if (revision === notificationRefreshRevision) notifications = refreshed;
+      return notifications;
     },
     notifications(limit = 4) {
-      if (!isDemo) return EMPTY_NOTIFICATIONS;
-      return notificationRepository.all().slice(0, Math.max(0, Number(limit) || 0));
+      return notifications.slice(0, Math.max(0, Number(limit) || 0));
     },
     role() {
-      if (isDemo) return readString(KEYS.role, USER_ROLE.EMPLOYEE);
-      return hasProductionCapability(
-        PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER,
-        PRODUCTION_PERMISSION.REQUEST_MANAGE,
-      ) ? USER_ROLE.MANAGER : USER_ROLE.EMPLOYEE;
+      return presentationRole();
     },
     isManager() {
-      if (isDemo) return readString(KEYS.role, USER_ROLE.EMPLOYEE) === USER_ROLE.MANAGER;
-      return hasProductionCapability(
+      return hasCapability(
         PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER,
         PRODUCTION_PERMISSION.REQUEST_MANAGE,
       );
     },
     hasTenantAdminPermission(permission) {
-      if (!TENANT_ADMIN_PERMISSIONS.has(permission)) return false;
-      if (isDemo) return isDemoTenantAdmin();
-      return hasProductionCapability(PRODUCTION_TENANT_ROLE.TENANT_ADMIN, permission);
+      return TENANT_ADMIN_PERMISSIONS.has(permission)
+        && hasCapability(PRODUCTION_TENANT_ROLE.TENANT_ADMIN, permission);
     },
     canManageTenantUsers() {
-      if (isDemo) return false;
-      return hasProductionCapability(
+      return hasCapability(
         PRODUCTION_TENANT_ROLE.TENANT_ADMIN,
         PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,
       );
     },
     isTenantAdmin() {
-      if (isDemo) return isDemoTenantAdmin();
-      return hasProductionCapability(
+      return hasCapability(
         PRODUCTION_TENANT_ROLE.TENANT_ADMIN,
         PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,
       );
     },
-    setRole(value) {
-      return isDemo ? writeString(KEYS.role, value) : false;
-    },
     fullName() {
-      return `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+      return profile.displayName;
     },
     initials() {
-      return `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}`.toUpperCase();
+      return profile.displayName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
     },
-    shouldReloadForStorageKey(key) {
-      return isDemo && [KEYS.requests, KEYS.catalog, KEYS.siteInfo, KEYS.role].includes(key);
+    shouldReloadForStorageKey() {
+      return false;
     },
   });
 }
 
-export async function createApplicationContext() {
-  const runtimeMode = runtimeModeFromDocument(document);
-  if (runtimeMode === RUNTIME_MODE.DEMO) return createApplicationContextFromState();
-
-  const productionAuthentication = await bootstrapProductionAuthentication();
+export async function createApplicationContext({
+  runtimeMode = runtimeModeFromDocument(document),
+  authenticationBootstrap,
+  requiredProjectionTimeoutMs = REQUIRED_PROJECTION_TIMEOUT_MS,
+  optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
+} = {}) {
+  const requiredTimeout = normalizedOptionalProjectionTimeout(requiredProjectionTimeoutMs);
+  const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
+  if (typeof authenticationBootstrap !== 'function') {
+    throw new TypeError('AUTHENTICATION_BOOTSTRAP_REQUIRED');
+  }
+  const authentication = await authenticationBootstrap();
+  let status = authentication?.status;
+  let session = authentication?.session || null;
+  let profile = EMPTY_PROFILE;
+  let catalog = EMPTY_CATALOG;
+  let siteInfo = EMPTY_SITE_INFO;
+  let requests = EMPTY_REQUESTS;
+  let notifications = EMPTY_NOTIFICATIONS;
+  if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED && !authentication?.runtime?.apiClient) {
+    status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
+    session = null;
+  } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
+    const persistence = createProductionPersistence({ apiClient: authentication.runtime.apiClient });
+    try {
+      const [required, optional] = await Promise.all([
+        loadBoundedProjection((signal) => Promise.all([
+          persistence.loadProfile({ signal }),
+          persistence.loadCatalog({ signal }),
+          persistence.listRequests({ signal }),
+        ]), requiredTimeout),
+        Promise.allSettled([
+          loadBoundedProjection(
+            (signal) => persistence.loadSiteInfo({ signal }),
+            optionalTimeout,
+          ),
+          loadBoundedProjection(
+            (signal) => persistence.listNotifications({ signal }),
+            optionalTimeout,
+          ),
+        ]),
+      ]);
+      [profile, catalog, requests] = required;
+      const [siteResult, notificationResult] = optional;
+      if (siteResult.status === 'fulfilled') siteInfo = siteResult.value;
+      if (notificationResult.status === 'fulfilled') notifications = notificationResult.value;
+    } catch {
+      status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
+      session = null;
+    }
+  }
   return createApplicationContextFromState({
-    productionSession: productionAuthentication.session,
-    productionAuthenticationStatus: productionAuthentication.status,
-    authenticationRuntime: productionAuthentication.runtime,
+    runtimeMode,
+    productionSession: session,
+    productionAuthenticationStatus: status,
+    authenticationRuntime: authentication?.runtime || null,
+    demoTenants: authentication?.tenants || EMPTY_REQUESTS,
+    serverProfile: profile,
+    serverCatalog: catalog,
+    serverSiteInfo: siteInfo,
+    serverRequests: requests,
+    serverNotifications: notifications,
+    requiredProjectionTimeoutMs: requiredTimeout,
+    optionalProjectionTimeoutMs: optionalTimeout,
   });
 }

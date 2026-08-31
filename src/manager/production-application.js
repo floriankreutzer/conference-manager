@@ -2,6 +2,8 @@ import { locale, t } from '../core/i18n.js';
 import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
+import { roomPlanProjection, siteLocalIsoDate } from './server-room-plan.js';
+import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
 
 const ACTIONS_BY_STATUS = Object.freeze({
   Submitted: Object.freeze(['start_review', 'reject', 'request_change']),
@@ -180,6 +182,115 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
         clear(root);
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', refresh);
+        const roomPlanButton = button(t('manager.roomPlan'));
+        roomPlanButton.addEventListener('click', () => {
+          const sites = catalog.sites.filter((site) => (
+            catalog.rooms.some((room) => room.siteId === site.id) && site.timeZone
+          ));
+          if (!sites.length) {
+            showToast(t('production.employee.timeZoneUnavailable'));
+            return;
+          }
+          const siteSelect = el('select');
+          sites.forEach((site) => siteSelect.appendChild(el('option', {
+            value: site.id,
+            text: site.name,
+          })));
+          const dateErrorId = 'productionRoomPlanDateError';
+          const date = el('input', {
+            attrs: {
+              type: 'date',
+              value: siteLocalIsoDate(Date.now(), sites[0].timeZone),
+              required: 'required',
+              'aria-describedby': dateErrorId,
+            },
+          });
+          const dateError = el('p', {
+            id: dateErrorId,
+            className: 'field-error',
+            attrs: { role: 'alert', 'aria-live': 'assertive' },
+          });
+          const tableRoot = el('section');
+          const renderTable = () => {
+            const site = sites.find((entry) => entry.id === siteSelect.value);
+            let projection;
+            try {
+              projection = roomPlanProjection({
+                catalog,
+                requests,
+                siteId: site.id,
+                date: date.value,
+              });
+            } catch (error) {
+              if (error instanceof Error && error.message === 'ROOM_PLAN_DATE_INVALID') {
+                date.setAttribute('aria-invalid', 'true');
+                dateError.textContent = t('validation.date');
+                tableRoot.replaceChildren();
+                return;
+              }
+              throw error;
+            }
+            date.removeAttribute('aria-invalid');
+            dateError.textContent = '';
+            const table = el('table', { className: 'data-table' });
+            table.appendChild(el('thead', {}, el('tr', {}, [
+              el('th', { text: t('production.employee.room') }),
+              el('th', { text: t('production.employee.start') }),
+              el('th', { text: t('schedule.title') }),
+              el('th', { text: t('production.common.status') }),
+            ])));
+            const body = el('tbody');
+            projection.forEach(({ room, requests: bookings }) => {
+              if (!bookings.length) {
+                body.appendChild(el('tr', {}, [
+                  el('td', { text: roomLabel(room) }),
+                  el('td', { text: '—' }),
+                  el('td', { text: '—' }),
+                  el('td', { text: t('room.available') }),
+                ]));
+                return;
+              }
+              bookings.forEach((request) => body.appendChild(el('tr', {}, [
+                el('td', { text: roomLabel(room) }),
+                el('td', { text: formattedRequestTime(request.startsAt, site.timeZone) }),
+                el('td', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+                el('td', { text: t(`status.${request.status}`) }),
+              ])));
+            });
+            table.appendChild(body);
+            tableRoot.replaceChildren(table);
+          };
+          siteSelect.addEventListener('change', () => {
+            const site = sites.find((entry) => entry.id === siteSelect.value);
+            date.value = siteLocalIsoDate(Date.now(), site.timeZone);
+            renderTable();
+          });
+          date.addEventListener('change', renderTable);
+          renderTable();
+          const close = button(t('common.close'));
+          const dialog = openDialog({
+            title: t('manager.roomPlan'),
+            description: t('manager.roomPlanDesc'),
+            content: el('section', {}, [
+              field({
+                id: 'productionRoomPlanSite',
+                label: t('schedule.location'),
+                control: siteSelect,
+              }),
+              field({
+                id: 'productionRoomPlanDate',
+                label: t('manager.referenceDate'),
+                control: date,
+                required: true,
+              }),
+              dateError,
+              tableRoot,
+            ]),
+            actions: [close],
+            labelledById: 'productionRoomPlan',
+          });
+          close.addEventListener('click', () => dialog.close());
+        });
         const reportButton = button(t('production.manager.reportTab'));
         reportButton.addEventListener('click', async () => {
           reportButton.disabled = true;
@@ -204,7 +315,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
           }
         });
         root.appendChild(el('div', { className: 'button-row', attrs: { role: 'tablist' } }, [
-          refreshButton, reportButton,
+          refreshButton, roomPlanButton, reportButton,
         ]));
         if (!requests.length) {
           root.appendChild(el('p', { className: 'info-box', text: t('production.manager.none') }));
@@ -217,9 +328,14 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
             dataset: { productionRequestId: request.id },
             attrs: { tabindex: '-1' },
           }, [
-            el('h3', { text: t('production.common.requestId', { id: request.id }) }),
+            el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+            request.details?.title
+              ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
+              : null,
             requestSummary(request, catalog),
           ]);
+          const businessDetails = renderProductionRequestBusinessDetails(request);
+          if (businessDetails) article.appendChild(businessDetails);
           if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
           const historyButton = button(t('production.manager.historyTab'));
           historyButton.addEventListener('click', async () => {
@@ -228,7 +344,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
               const history = await persistence.loadRequestHistory(request.id);
               const content = history.length
                 ? history.map((entry) => el('p', {
-                  text: `${entry.version} · ${entry.operation} · ${formattedRequestTime(entry.capturedAt, 'UTC')}`,
+                  text: `${entry.version} · ${t(`timeline.operation.${entry.operation}`)} · ${formattedRequestTime(entry.capturedAt, 'UTC')}`,
                 }))
                 : [el('p', { text: t('production.manager.historyEmpty') })];
               const close = button(t('common.close'));

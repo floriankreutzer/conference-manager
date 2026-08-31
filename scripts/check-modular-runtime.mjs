@@ -46,7 +46,9 @@ const coreRoot = normalize('src/core');
 const employeeIndex = normalize('src/employee/index.js');
 const managerIndex = normalize('src/manager/index.js');
 const tenantAdminIndex = normalize('src/tenant-admin/index.js');
+const tenantAdminServer = normalize('src/tenant-admin/server.js');
 const managerAdminParity = normalize('src/manager/admin-parity.js');
+const employeeServerDraftStore = normalize('src/employee/server-draft-store.js');
 const featureFlagPath = normalize('src/platform/feature-flags.js');
 const appPath = normalize('src/app.js');
 
@@ -54,11 +56,11 @@ const app = readFileSync(appPath, 'utf8');
 const allowedAppImports = new Set([
   './employee/index.js',
   './manager/index.js',
-  './tenant-admin/index.js',
+  './tenant-admin/server.js',
   './platform/application-context.js',
   './platform/app-shell.js',
   './platform/tenant-admin-operations-api.js',
-  './platform/tenant-settings-api.js',
+  './platform/server-tenant-settings-api.js',
   './platform/tenant-user-administration-api.js',
   './platform/microsoft365-connection-api.js',
 ]);
@@ -66,15 +68,15 @@ const allowedAppImports = new Set([
 for (const required of [
   "from './employee/index.js'",
   "from './manager/index.js'",
-  "from './tenant-admin/index.js'",
+  "from './tenant-admin/server.js'",
   "from './platform/application-context.js'",
   "from './platform/app-shell.js'",
   "from './platform/tenant-admin-operations-api.js'",
-  "from './platform/tenant-settings-api.js'",
+  "from './platform/server-tenant-settings-api.js'",
   "from './platform/tenant-user-administration-api.js'",
   "from './platform/microsoft365-connection-api.js'",
-  'createEmployeeApplication',
-  'createManagerApplication',
+  'createServerEmployeeApplication',
+  'createServerManagerApplication',
   'createTenantAdminApplication',
   'createApplicationContext',
   'createAppShell',
@@ -109,16 +111,21 @@ for (const forbidden of [
 }
 
 const employeeFacade = readFileSync(employeeIndex, 'utf8');
-if (!employeeFacade.includes('createEmployeeApplication')) {
-  fail('src/employee/index.js: Employee public API must expose createEmployeeApplication.');
+if (!employeeFacade.includes('createEmployeeApplication')
+  || !employeeFacade.includes('createServerEmployeeApplication')) {
+  fail('src/employee/index.js: Employee public API must expose the canonical server application contracts.');
 }
 const managerFacade = readFileSync(managerIndex, 'utf8');
-if (!managerFacade.includes('createManagerApplication')) {
-  fail('src/manager/index.js: Manager public API must expose createManagerApplication.');
+if (!managerFacade.includes('createManagerApplication')
+  || !managerFacade.includes('createServerManagerApplication')) {
+  fail('src/manager/index.js: Manager public API must expose the canonical server application contracts.');
 }
 const tenantAdminFacade = readFileSync(tenantAdminIndex, 'utf8');
 if (!tenantAdminFacade.includes('createTenantAdminApplication')) {
   fail('src/tenant-admin/index.js: Tenant Admin public API must expose createTenantAdminApplication.');
+}
+if (!readFileSync(tenantAdminServer, 'utf8').includes('createTenantAdminApplication')) {
+  fail('src/tenant-admin/server.js: server-authoritative Tenant Admin public API is missing.');
 }
 
 for (const file of sourceFiles) {
@@ -127,13 +134,16 @@ for (const file of sourceFiles) {
     const dependency = resolvedDependency(file, declaration.specifier);
     if (!dependency) continue;
 
-    if (!isInside(file, employeeRoot) && isInside(dependency, employeeRoot) && dependency !== employeeIndex) {
+    if (!isInside(file, employeeRoot) && isInside(dependency, employeeRoot)
+      && dependency !== employeeIndex) {
       fail(`${file}: Employee internals are private; external consumers must use src/employee/index.js.`);
     }
-    if (!isInside(file, managerRoot) && isInside(dependency, managerRoot) && dependency !== managerIndex) {
+    if (!isInside(file, managerRoot) && isInside(dependency, managerRoot)
+      && dependency !== managerIndex) {
       fail(`${file}: Manager internals are private; external consumers must use src/manager/index.js.`);
     }
-    if (!isInside(file, tenantAdminRoot) && isInside(dependency, tenantAdminRoot) && dependency !== tenantAdminIndex) {
+    if (!isInside(file, tenantAdminRoot) && isInside(dependency, tenantAdminRoot)
+      && dependency !== tenantAdminIndex && dependency !== tenantAdminServer) {
       fail(`${file}: Tenant Admin internals are private; external consumers must use src/tenant-admin/index.js.`);
     }
 
@@ -203,8 +213,11 @@ for (const file of sourceFiles.filter((path) => (
     && storageKinds.length === 1
     && storageKinds[0] === 'sessionStorage'
     && onlyUsesApprovedManagerReturnStorage(source);
+  const approvedScopedServerDraft = file === employeeServerDraftStore
+    && storageKinds.length === 1
+    && storageKinds[0] === 'sessionStorage';
 
-  if (!approvedLegacyReturnMarker) {
+  if (!approvedLegacyReturnMarker && !approvedScopedServerDraft) {
     fail(`${file}: capability modules must use approved persistence contracts; direct browser storage is forbidden.`);
   }
 }

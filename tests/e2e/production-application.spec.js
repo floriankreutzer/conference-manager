@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productionUtcInstant } from '../../src/core/production-time.js';
+import { applicationProjectionPayload } from './fixtures/application-projections.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ORIGIN = 'https://conference.test';
@@ -175,7 +176,10 @@ async function productionHtml() {
       '<meta name="conference-runtime" content="demo">',
       '<meta name="conference-runtime" content="production">',
     )
-    .replace("connect-src 'none'", "connect-src 'self'");
+    .replace(
+      './src/platform/demo-bootstrap.js?v=20260830-77',
+      './src/platform/production-bootstrap.js?v=20260830-77',
+    );
 }
 
 async function installProductionApplicationFixture(page, {
@@ -229,6 +233,19 @@ async function installProductionApplicationFixture(page, {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify(presentationPayload()),
+      });
+      return;
+    }
+
+    if (
+      request.method() === 'GET'
+      && ['/api/v1/application/profile', '/api/v1/application/site-info', '/api/v1/application/notifications']
+        .includes(url.pathname)
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify(applicationProjectionPayload(url, { displayName: 'Demo Employee' })),
       });
       return;
     }
@@ -871,7 +888,7 @@ test('production bootstrap shows localized loading before the session contract r
   await expect(page.locator('#mainContent')).toHaveAttribute('aria-busy', 'true');
 
   fixture.releaseSession();
-  await expect(page.locator('#viewTitle')).toHaveText('Sicher angemeldet');
+  await expect(page.locator('#viewTitle')).toHaveText('Willkommen');
   await expect(page.locator('#mainContent')).not.toHaveAttribute('aria-busy');
 });
 

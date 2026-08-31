@@ -154,6 +154,7 @@ test('mutating controls expose status, focus recovery, and explicit consequence 
   assert.match(users, /'aria-live': 'polite', 'aria-atomic': 'true'/);
   assert.match(users, /lifecycle\.focus\(\)/);
   assert.match(users, /pendingFocus = updated\.id/);
+  assert.doesNotMatch(users, /requestAnimationFrame\(\(\) => \{\s*if \(focusTarget/);
   assert.match(users, /let mutationPending = false/);
   assert.match(users, /if \(mutationPending\) return/);
   assert.match(users, /lifecycle\.disabled = pending/);
@@ -182,6 +183,14 @@ test('capability recovery delegates internal navigation to the settings shell', 
   const capabilities = readFileSync('src/tenant-admin/sections/capabilities/index.js', 'utf8');
   assert.match(shell, /activeSection\.render\(\{[\s\S]*navigate,[\s\S]*rerender: render/);
   assert.match(capabilities, /event\.preventDefault\(\);\s*navigate\('microsoft365'\);/);
+});
+
+test('section navigation focus is consumed before asynchronous section completion', () => {
+  const shell = readFileSync('src/tenant-admin/settings-shell.js', 'utf8');
+  const render = shell.indexOf('const sectionRender = activeSection.render');
+  const focus = shell.indexOf('focusActiveHeading(activeSection.id, currentGeneration)', render);
+  const completion = shell.indexOf('Promise.resolve(sectionRender)', render);
+  assert.ok(render >= 0 && focus > render && completion > focus);
 });
 
 test('production adapters never import Demo and Demo adapters have no external transport', () => {

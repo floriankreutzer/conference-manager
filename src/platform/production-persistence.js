@@ -221,6 +221,12 @@ function requestCollection(value) {
   return normalizedCollection(value, 'PRODUCTION_REQUESTS_INVALID', requestPayload);
 }
 
+function profilePayload(value) {
+  const code = 'PRODUCTION_PROFILE_INVALID';
+  const profile = assertExactObject(value, ['displayName'], code);
+  return Object.freeze({ displayName: assertText(profile.displayName, code) });
+}
+
 function bookingChangePayload(value, code = 'PRODUCTION_BOOKING_CHANGE_INVALID') {
   if (value === null) return null;
   const change = assertExactObject(value, [
@@ -283,6 +289,11 @@ function assertExactVersionedEnvelope(payload, field, code) {
   return envelope[field];
 }
 
+function assertExactEnvelope(payload, field, code) {
+  const envelope = assertExactObject(payload, [field], code);
+  return envelope[field];
+}
+
 function assertRequestId(value) {
   if (typeof value !== 'string' || !SAFE_ID.test(value)) {
     throw new ProductionPersistenceError('REQUEST_ID_INVALID');
@@ -294,7 +305,7 @@ function assertUtcInstant(value) {
   return assertCanonicalUtc(value, 'AVAILABILITY_WINDOW_INVALID');
 }
 
-function availabilityRequest(value) {
+function availabilityRequest(value, resubmissionRequestId = null) {
   const request = assertPlainObject(value, 'AVAILABILITY_WINDOW_INVALID');
   const roomId = assertRequestId(request.roomId);
   const startsAt = assertUtcInstant(request.startsAt);
@@ -302,7 +313,13 @@ function availabilityRequest(value) {
   if (Date.parse(endsAt) <= Date.parse(startsAt)) {
     throw new ProductionPersistenceError('AVAILABILITY_WINDOW_INVALID');
   }
-  return Object.freeze({ roomId, startsAt, endsAt });
+  const excluded = resubmissionRequestId === null ? null : assertRequestId(resubmissionRequestId);
+  return Object.freeze({
+    roomId,
+    startsAt,
+    endsAt,
+    ...(excluded === null ? {} : { resubmissionRequestId: excluded }),
+  });
 }
 
 function availabilityPayload(value) {
@@ -354,7 +371,12 @@ function queryPath(path, values) {
   return `${path}?${query.toString()}`;
 }
 
-async function loadCatalogV2(apiClient) {
+function stableBookingPolicy(policy) {
+  const { evaluatedAt: _evaluatedAt, ...stable } = policy;
+  return stable;
+}
+
+async function loadCatalogV2(apiClient, options = {}) {
   const assembled = Object.fromEntries(PRODUCTION_CATALOG_SECTIONS.map((section) => [section, []]));
   let authority = null;
   for (const section of PRODUCTION_CATALOG_SECTIONS) {
@@ -364,7 +386,7 @@ async function loadCatalogV2(apiClient) {
         ? { section, limit: '10', cursor }
         : { section, limit: '10', ...(authority ? { context: authority.context } : {}) };
       const page = normalizeProductionCatalogPage(await call(
-        apiClient, queryPath(DOMAIN_ENDPOINTS.catalog, values),
+        apiClient, queryPath(DOMAIN_ENDPOINTS.catalog, values), options,
       ));
       if (page.section !== section) throw new ProductionPersistenceError('PRODUCTION_CATALOG_INVALID');
       if (authority === null) {
@@ -372,7 +394,8 @@ async function loadCatalogV2(apiClient) {
       } else if (
         page.context !== authority.context
         || JSON.stringify(page.configurationRevisions) !== JSON.stringify(authority.configurationRevisions)
-        || JSON.stringify(page.bookingPolicy) !== JSON.stringify(authority.bookingPolicy)
+        || JSON.stringify(stableBookingPolicy(page.bookingPolicy))
+          !== JSON.stringify(stableBookingPolicy(authority.bookingPolicy))
         || JSON.stringify(page.organization) !== JSON.stringify(authority.organization)
         || JSON.stringify(page.costAllocation) !== JSON.stringify(authority.costAllocation)
       ) {
@@ -391,13 +414,13 @@ async function loadCatalogV2(apiClient) {
   });
 }
 
-async function loadAllRequestPages(apiClient, path, normalize) {
+async function loadAllRequestPages(apiClient, path, normalize, options = {}) {
   const requests = [];
   let cursor = null;
   do {
     const page = normalize(await call(apiClient, queryPath(path, {
       limit: '10', ...(cursor ? { cursor } : {}),
-    })));
+    }), options));
     requests.push(...page.requests);
     cursor = page.page.nextCursor;
   } while (cursor !== null);
@@ -410,41 +433,48 @@ export function createProductionPersistence({ apiClient } = {}) {
   }
 
   return Object.freeze({
-    async loadProfile() {
-      return Object.freeze({
-        ...assertPlainObject(assertVersionedEnvelope(
-          await call(apiClient, DOMAIN_ENDPOINTS.profile),
-          'profile',
-        )),
-      });
+    async loadProfile(options = {}) {
+      return profilePayload(assertExactVersionedEnvelope(
+        await call(apiClient, DOMAIN_ENDPOINTS.profile, options),
+        'profile',
+        'PRODUCTION_PROFILE_INVALID',
+      ));
     },
 
-    async loadCatalog() {
-      return loadCatalogV2(apiClient);
+    async loadCatalog(options = {}) {
+      return loadCatalogV2(apiClient, options);
     },
 
-    async loadSiteInfo() {
+    async loadSiteInfo(options = {}) {
       return Object.freeze({
         ...assertPlainObject(assertVersionedEnvelope(
-          await call(apiClient, DOMAIN_ENDPOINTS.siteInfo),
+          await call(apiClient, DOMAIN_ENDPOINTS.siteInfo, options),
           'siteInfo',
         )),
       });
     },
 
-    async listRequests() {
-      return loadAllRequestPages(apiClient, DOMAIN_ENDPOINTS.requests, normalizeProductionRequestListPage);
+    async listRequests(options = {}) {
+      return loadAllRequestPages(
+        apiClient,
+        DOMAIN_ENDPOINTS.requests,
+        normalizeProductionRequestListPage,
+        options,
+      );
     },
 
-    async listNotifications() {
+    async listNotifications(options = {}) {
       return assertCollection(
-        assertVersionedEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.notifications), 'notifications'),
+        assertVersionedEnvelope(
+          await call(apiClient, DOMAIN_ENDPOINTS.notifications, options),
+          'notifications',
+        ),
         'PRODUCTION_NOTIFICATIONS_INVALID',
       );
     },
 
-    async checkRoomAvailability(window) {
-      const payload = availabilityRequest(window);
+    async checkRoomAvailability(window, resubmissionRequestId = null) {
+      const payload = availabilityRequest(window, resubmissionRequestId);
       return availabilityEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.roomAvailability, {
         method: 'POST',
         body: payload,
@@ -537,10 +567,10 @@ export function createProductionPersistence({ apiClient } = {}) {
       );
     },
 
-    async loadBookingChange(requestId) {
+    async loadBookingChange(requestId, options = {}) {
       const id = assertRequestId(requestId);
       return normalizeProductionBookingChangeEnvelope(
-        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`),
+        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, options),
       ).change;
     },
 
@@ -586,15 +616,14 @@ export function createProductionPersistence({ apiClient } = {}) {
     },
 
     async updateProfile(profile) {
-      return Object.freeze({
-        ...assertPlainObject(assertVersionedEnvelope(
-          await call(apiClient, DOMAIN_ENDPOINTS.profile, {
-            method: 'PUT',
-            body: assertPlainObject(profile, 'PRODUCTION_PROFILE_INVALID'),
-          }),
-          'profile',
-        )),
-      });
+      return profilePayload(assertExactEnvelope(
+        await call(apiClient, DOMAIN_ENDPOINTS.profile, {
+          method: 'PUT',
+          body: profilePayload(profile),
+        }),
+        'profile',
+        'PRODUCTION_PROFILE_INVALID',
+      ));
     },
 
     async markNotificationRead(notificationId) {

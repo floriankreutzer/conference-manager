@@ -71,15 +71,16 @@ const {
 } = await import('../src/shared/tenant-branding.js');
 const {
   TENANT_PRESENTATION_FALLBACK,
-  createDemoTenantPresentationApi,
   createTenantPresentationApi,
 } = await import('../src/platform/tenant-presentation-api.js');
+const { createDemoTenantPresentationApi } = await import('../src/platform/demo-tenant-presentation-api.js');
 const {
   applyTenantPresentationToDocument,
   createPresentationRefreshingOrganizationSettings,
   createTenantPresentationRuntime,
 } = await import('../src/platform/tenant-presentation-runtime.js');
 const { createTenantOrganizationSettingsApi } = await import('../src/platform/tenant-organization-settings-api.js');
+const { productionRequestBusinessDetails } = await import('../src/shared/production-request-details.js');
 const {
   configureTenantLocalization,
   currency,
@@ -87,6 +88,7 @@ const {
   language,
   locale,
   setLanguage,
+  t,
 } = await import('../src/core/i18n.js');
 
 function payload(overrides = {}) {
@@ -208,6 +210,29 @@ test('runtime applies a safe product fallback for transport, partial, invalid, a
   assert.deepEqual(revisions, [1, 2, 0]);
 });
 
+test('stalled Production presentation transport aborts to the safe bootstrap fallback', async () => {
+  let aborted = false;
+  const runtime = createTenantPresentationRuntime({
+    refreshTimeoutMs: 5,
+    adapter: createTenantPresentationApi({
+      apiClient: {
+        async request(path, options) {
+          assert.equal(path, 'v1/tenant/presentation');
+          assert.equal(options.signal instanceof AbortSignal, true);
+          return new Promise((resolve, reject) => {
+            options.signal.addEventListener('abort', () => {
+              aborted = true;
+              reject(new Error('TENANT_PRESENTATION_ABORTED'));
+            }, { once: true });
+          });
+        },
+      },
+    }),
+  });
+  assert.deepEqual(await runtime.refresh(), TENANT_PRESENTATION_FALLBACK);
+  assert.equal(aborted, true);
+});
+
 test('Demo projection derives from the same organization revision and rejects unapproved references', async () => {
   let reference = MANAGED_BRAND_REFERENCE;
   const organizationSettings = {
@@ -254,6 +279,38 @@ test('organization writes refresh the effective presentation before returning su
   assert.deepEqual(calls, ['save', 'refresh', 'reset:start', 'reset:complete', 'refresh']);
 });
 
+test('organization save cannot remain pending on a stalled presentation refresh', async () => {
+  let aborted = false;
+  const presentationRuntime = createTenantPresentationRuntime({
+    refreshTimeoutMs: 5,
+    adapter: createTenantPresentationApi({
+      apiClient: {
+        async request(path, options) {
+          assert.equal(path, 'v1/tenant/presentation');
+          return new Promise((resolve, reject) => {
+            options.signal.addEventListener('abort', () => {
+              aborted = true;
+              reject(new Error('POST_SAVE_PRESENTATION_ABORTED'));
+            }, { once: true });
+          });
+        },
+      },
+    }),
+  });
+  const adapter = createPresentationRefreshingOrganizationSettings({
+    organizationSettings: {
+      async loadOrganization() { return { revision: 1 }; },
+      async listOrganizationHistory() { return { revisions: [] }; },
+      async saveOrganization() { return { revision: 2 }; },
+    },
+    presentationRuntime,
+  });
+
+  assert.deepEqual(await adapter.saveOrganization({}), { revision: 2 });
+  assert.equal(aborted, true);
+  assert.deepEqual(presentationRuntime.current(), TENANT_PRESENTATION_FALLBACK);
+});
+
 test('tenant localization supplies defaults while an explicit User language remains authoritative', () => {
   configureTenantLocalization({ defaultLocale: 'en-GB', defaultCurrency: 'CHF' });
   assert.equal(language(), 'en');
@@ -268,6 +325,41 @@ test('tenant localization supplies defaults while an explicit User language rema
   assert.equal(currency(), 'GBP');
   assert.equal(storage.getItem('conference_language_v1'), 'de');
   assert.match(formatMoney(1234.5), /£|GBP/);
+});
+
+test('production request business numbers follow the active locale', () => {
+  const request = {
+    details: {
+      title: 'Locale review',
+      catering: { participantCount: 1_234.5 },
+      dietaryRequirements: '',
+      specialRequirements: '',
+    },
+    pricing: {
+      currency: 'EUR',
+      totalMinor: 12_345,
+      services: [],
+      catering: {
+        packageSelection: null,
+        items: [{ item: { name: 'Coffee' }, quantity: 1_234.5 }],
+      },
+    },
+    allocations: {
+      entries: [{ code: 'CC-1', name: 'Events', percentageBasisPoints: 1_250 }],
+    },
+  };
+
+  setLanguage('de');
+  const german = new Map(productionRequestBusinessDetails(request));
+  assert.equal(german.get(t('catering.people')), '1.234,5');
+  assert.match(german.get(t('catering.items')), /1\.234,5/);
+  assert.match(german.get(t('cost.allocations')), /12,5\s%/u);
+
+  setLanguage('en');
+  const english = new Map(productionRequestBusinessDetails(request));
+  assert.equal(english.get(t('catering.people')), '1,234.5');
+  assert.match(english.get(t('catering.items')), /1,234\.5/);
+  assert.match(english.get(t('cost.allocations')), /12\.5%/);
 });
 
 test('shell application preserves its semantic brand container and uses only code-shipped preset assets', () => {

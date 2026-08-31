@@ -2,17 +2,19 @@
 
 ## Authority
 
-Root `AGENTS.md`, `docs/CODING-STANDARDS.md`, `docs/ARCHITECTURE.md` and `docs/PRODUCTION-SECURITY.md` remain authoritative. This document defines the SaaS 0 persistence migration boundary for issue #56.
+Root `AGENTS.md`, `docs/CODING-STANDARDS.md`, `docs/ARCHITECTURE.md` and `docs/PRODUCTION-SECURITY.md` remain authoritative. This document defines the SaaS 0 persistence migration boundary for issue #56 and records how ADR-010 supersedes its former browser-authoritative Demo compatibility path.
 
 ## Runtime modes
 
-Conference Manager has two explicit persistence modes.
+Conference Manager has explicit Production and Demo compositions. Both use server authority; their runtime configuration, credentials and data remain isolated.
 
 ### Demo
 
-`<meta name="conference-runtime" content="demo">` keeps the current GitHub Pages/local-demo behavior. Existing LocalStorage keys, serialization formats and backward compatibility remain supported for the demo runtime.
+`<meta name="conference-runtime" content="demo">` selects the Customer Demo composition. The Customer Demo obtains a server-issued Tenant/User/persona session and calls the Customer Demo API on its own origin. The Platform Admin Demo uses a separate entry point, origin, Platform Demo session and `/api/v1/platform/*` boundary.
 
-Demo LocalStorage is convenience persistence only. It is never a production authorization, identity, tenant, booking or pricing authority.
+Both Demo processes use one isolated PostgreSQL data model with separate least-privilege runtime roles. LocalStorage/sessionStorage is not authoritative for Demo identity, Tenant, persona, permission, Request, catalogue, settings, booking, pricing, fleet, lifecycle, entitlement, provider or audit state. Only explicitly bounded preferences such as language, navigation convenience and an untrusted draft may remain browser-local.
+
+Historical note: issue #56 originally retained a LocalStorage-compatible static MVP in explicit Demo mode. ADR-010 superseded that model for active Customer and Platform Demo business state. Historical browser data is not silently uploaded into the shared Demo database.
 
 ### Production
 
@@ -27,7 +29,7 @@ In production:
 - server responses use explicit versioned envelopes and are validated at the browser API boundary;
 - cookie-authenticated writes continue to require the existing CSRF contract in `src/core/api-client.js`.
 
-Local-only UI preferences may remain in browser storage when they do not establish business authority. The current examples are language selection and an Employee draft. A draft is untrusted convenience data and must be revalidated against current authoritative server state before any production submission.
+Local-only UI preferences may remain in browser storage when they do not establish business authority. The current examples are language selection and an explicitly bounded Employee draft. A draft is untrusted convenience data and must be revalidated against current authoritative server state before any Demo or Production submission.
 
 ## Production repository/API contracts
 
@@ -61,16 +63,16 @@ Production application-domain responses use an envelope with `schemaVersion: 1` 
 
 For catalog and Request list/write responses, the browser adapter additionally enforces the exact minimized shapes emitted by the backend application service. Every required field is type- and range-checked; unknown fields, duplicate collection IDs, invalid catalog references, unsupported Request states and semantically invalid status reasons fail closed. The adapter neither retains nor infers Tenant IDs, requester IDs, ownership or replacement room references. Public price and workflow fields remain presentation data and never become browser authority.
 
-The current demo objects are not declared wire-compatible merely because they contain similarly named fields. Production payload schemas must be evolved deliberately and versioned when a breaking semantic or shape change is required.
+Historical browser Demo objects are not declared wire-compatible merely because they contain similarly named fields. Production and Demo payload schemas must be evolved deliberately and versioned when a breaking semantic or shape change is required.
 
 This avoids two unsafe migrations:
 
 1. uploading arbitrary legacy LocalStorage JSON and treating it as trusted database state;
 2. making PostgreSQL mirror browser-specific presentation/cache structures.
 
-## Migration of existing demo data
+## Migration of existing historical Demo data
 
-There is no automatic browser-to-production upload.
+There is no automatic browser-to-Demo or browser-to-Production upload.
 
 If pilot users require selected demo data to be retained, migration must be a separately reviewed administrative import with:
 
@@ -91,9 +93,7 @@ A production write succeeds only after the same-origin API returns a valid succe
 
 There is no write-through cache and no fallback to `requestRepository`, catalog LocalStorage, notification LocalStorage or profile LocalStorage.
 
-The existing demo capability code still uses synchronous demo repositories. `src/core/storage.js` now blocks those authoritative repositories when the runtime is production. Therefore an accidentally un-migrated capability path fails closed instead of silently mutating browser state and displaying false success.
-
-Capability-by-capability production activation must replace synchronous demo mutation calls with the production repository/use-case commands before that capability is enabled in a production deployment. The secure boundary is established first; unsupported mutation paths fail rather than downgrade authority.
+The Customer and Platform Demo compositions use server-backed session/API adapters and canonical backend application services. `src/core/storage.js` contains historical/static-MVP contracts but is not an authoritative repository in either active Demo graph. Architecture gates reject Demo business-state storage, browser role/persona authority and API-failure fallback.
 
 ## Rollback
 
@@ -101,7 +101,7 @@ Frontend rollback does not copy production server state into LocalStorage.
 
 - Rolling a production deployment back to an earlier production client continues to use server authority only if that client supports the active API schema.
 - API schema-breaking changes require a compatibility window or explicit coordinated deployment.
-- Returning to the explicit `demo` runtime restores the historical demo LocalStorage behavior only for demo data already present in that browser.
+- Returning to explicit `demo` starts the server-backed Customer Demo. It never restores or imports historical browser business state.
 - Production database rollback remains governed by `conference-manager-api` migration policy and must never be emulated by browser storage.
 
 ## Security properties
@@ -119,7 +119,9 @@ The migration boundary directly addresses:
 
 Changes to this boundary require:
 
-- regression tests for existing demo LocalStorage behavior;
+- regression tests for server-backed Customer and Platform Demo behavior;
+- negative architecture tests rejecting LocalStorage business/persona/permission authority and API-failure fallback;
+- reset/seed, cross-session propagation and cross-Tenant isolation tests against the isolated Demo PostgreSQL database;
 - production no-fallback tests;
 - stale/manipulated browser data tests;
 - API response-version/shape negative tests;

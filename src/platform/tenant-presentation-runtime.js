@@ -7,6 +7,13 @@ const PRODUCT_DEFAULT_LOGO_ASSET = new URL(
   import.meta.url,
 ).href;
 const MANAGED_LOGO_ASSET = new URL('../../assets/brand/conference-manager-mark.svg?v=20260827-74', import.meta.url).href;
+const PRESENTATION_REFRESH_TIMEOUT_MS = 5_000;
+
+function normalizedRefreshTimeout(value) {
+  return Number.isSafeInteger(value) && value >= 1 && value <= 30_000
+    ? value
+    : PRESENTATION_REFRESH_TIMEOUT_MS;
+}
 
 function sameSnapshot(left, right) {
   return left.revision === right.revision
@@ -24,13 +31,17 @@ function applyLocalization(snapshot) {
   });
 }
 
-export function createTenantPresentationRuntime({ adapter = null } = {}) {
+export function createTenantPresentationRuntime({
+  adapter = null,
+  refreshTimeoutMs = PRESENTATION_REFRESH_TIMEOUT_MS,
+} = {}) {
   if (adapter !== null && typeof adapter?.loadPresentation !== 'function') {
     throw new TypeError('TENANT_PRESENTATION_ADAPTER_INVALID');
   }
   let current = TENANT_PRESENTATION_FALLBACK;
   let highestRevision = 0;
   let refreshSequence = 0;
+  const refreshTimeout = normalizedRefreshTimeout(refreshTimeoutMs);
   const subscribers = new Set();
 
   function apply(next) {
@@ -45,16 +56,27 @@ export function createTenantPresentationRuntime({ adapter = null } = {}) {
     current() {
       return current;
     },
-    async refresh() {
+    async refresh(options) {
       const sequence = ++refreshSequence;
       let next;
+      let timeoutId = null;
       try {
-        next = adapter === null ? TENANT_PRESENTATION_FALLBACK : await adapter.loadPresentation();
+        if (adapter === null) {
+          next = TENANT_PRESENTATION_FALLBACK;
+        } else if (options?.signal) {
+          next = await adapter.loadPresentation(options);
+        } else {
+          const controller = new AbortController();
+          timeoutId = globalThis.setTimeout(() => controller.abort(), refreshTimeout);
+          next = await adapter.loadPresentation({ ...(options || {}), signal: controller.signal });
+        }
         if (next.revision < highestRevision) {
           next = TENANT_PRESENTATION_FALLBACK;
         }
       } catch {
         next = TENANT_PRESENTATION_FALLBACK;
+      } finally {
+        if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
       }
       if (sequence !== refreshSequence) return current;
       if (next.revision > highestRevision) highestRevision = next.revision;

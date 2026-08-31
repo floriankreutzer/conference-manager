@@ -48,7 +48,7 @@
   outline-offset: 2px;
 }
 
-.demo-security-reset {
+.demo-security-action {
   width: 100%;
   padding: 8px 10px;
   margin-top: 10px;
@@ -62,8 +62,8 @@
   cursor: pointer;
 }
 
-.demo-security-reset:hover,
-.demo-security-reset:focus-visible {
+.demo-security-action:hover,
+.demo-security-action:focus-visible {
   background: rgba(255, 255, 255, 0.12);
 }
 

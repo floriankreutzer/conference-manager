@@ -1,0 +1,11 @@
+# Default application ownership.
+* @floriankreutzer
+
+# Platform Operator trust boundary and its enforceable release gates.
+/src/platform-admin/ @floriankreutzer
+/platform-admin/ @floriankreutzer
+/platform-admin-demo/ @floriankreutzer
+/deployment/platform-admin-*.json @floriankreutzer
+/scripts/*platform-admin* @floriankreutzer
+/docs/SAAS3-PLATFORM-CONTROL-PLANE.md @floriankreutzer
+/docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md @floriankreutzer

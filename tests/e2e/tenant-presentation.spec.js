@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fulfillApplicationProjection } from './fixtures/application-projections.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +27,10 @@ async function productionHtml() {
       '<meta name="conference-runtime" content="demo">',
       '<meta name="conference-runtime" content="production">',
     )
-    .replace("connect-src 'none'", "connect-src 'self'");
+    .replace(
+      './src/platform/demo-bootstrap.js?v=20260830-77',
+      './src/platform/production-bootstrap.js?v=20260830-77',
+    );
 }
 
 function permissionsFor(roles) {
@@ -124,6 +128,9 @@ async function installFixture(page, {
       }
       return;
     }
+    if (await fulfillApplicationProjection(route, {
+      defaultCurrency: presentation.presentation.defaultCurrency,
+    })) return;
     if (organizationSettings && url.pathname === '/api/v1/tenant/settings/organization' && request.method() === 'GET') {
       await fulfillJson(route, { schemaVersion: 1, revision: presentation.revision, organization });
       return;
@@ -225,6 +232,7 @@ test('tenant defaults drive locale and currency while an explicit User language 
     initialPresentation: presentationPayload({ defaultLocale: 'en-GB', defaultCurrency: 'CHF' }),
   });
   await defaultPage.goto(`${ORIGIN}/`);
+  await expect(defaultPage.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '1');
   await expect(defaultPage.locator('html')).toHaveAttribute('lang', 'en');
   const tenantDefault = await defaultPage.evaluate(async () => {
     const i18n = await import('/src/core/i18n.js');
@@ -241,6 +249,7 @@ test('tenant defaults drive locale and currency while an explicit User language 
     initialPresentation: presentationPayload({ defaultLocale: 'en-GB', defaultCurrency: 'GBP' }),
   });
   await preferredPage.goto(`${ORIGIN}/`);
+  await expect(preferredPage.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '1');
   await expect(preferredPage.locator('html')).toHaveAttribute('lang', 'de');
   const preferred = await preferredPage.evaluate(async () => {
     const i18n = await import('/src/core/i18n.js');

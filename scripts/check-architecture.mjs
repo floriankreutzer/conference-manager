@@ -49,13 +49,7 @@ if (JSON.stringify(cssLinks) !== JSON.stringify(expectedCss)) {
 }
 
 const scriptSources = [...index.matchAll(/<script[^>]+src=["']\.\/([^"']+\.js)(?:\?[^"']*)?["']/g)].map((match) => match[1]);
-const expectedScripts = [
-  'src/platform/identity-bootstrap.js',
-  'src/platform/demo-security.js',
-  'src/platform/requester-attribution.js',
-  'src/app.js',
-  'src/platform/feature-parity.js',
-];
+const expectedScripts = ['src/platform/demo-bootstrap.js'];
 if (JSON.stringify(scriptSources) !== JSON.stringify(expectedScripts)) {
   fail(`index.html: runtime orchestration drifted. Expected ${expectedScripts.join(', ')}; found ${scriptSources.join(', ')}.`);
 }
@@ -88,6 +82,10 @@ for (const required of [
   'src/manager/timeline-position.js',
   'src/platform/feature-flags.js',
   'src/platform/feature-parity.js',
+  'src/platform/demo-bootstrap.js',
+  'src/platform/production-bootstrap.js',
+  'src/platform/demo-session.js',
+  'src/tenant-admin/server.js',
   'src/shared/parity-data.js',
   'src/shared/booking-change-loader.js',
   'src/core/i18n.js',
@@ -177,30 +175,19 @@ if (!identityCalls.some((position) => position > firstUseCalls[0] && position < 
 
 const employeeFacade = readFileSync('src/employee/index.js', 'utf8');
 for (const required of [
-  'decorateEmployeeParity',
-  'enhanceEmployeeUx',
-  'enhanceEmployeeAccessibilityPolish',
-  'enhanceEmployeeFirstUsePersonalization',
-  'captureEmployeeIdentityPresentation',
-  'openRichFloorplan',
-  'requestIdFromCard',
-  'richPrint',
+  'createEmployeeApplication',
+  'createProductionEmployeeApplication',
+  'createServerEmployeeApplication',
+  'productionUtcInstant',
 ]) {
   if (!employeeFacade.includes(required)) fail(`src/employee/index.js: public Employee contract missing ${required}.`);
 }
 
 const managerFacade = readFileSync('src/manager/index.js', 'utf8');
 for (const required of [
-  'PARITY_RETURN_KEY',
-  'enhanceManager',
-  'enhanceManagerResponsive',
-  'enhanceManagerFirstUse',
-  'enhanceManagerUxPolish',
-  'enhanceManagerOperationalUx',
-  'enhanceManagerFinalPolish',
-  'enhanceConferenceManagerReady',
-  'ensureManagerTabIdentity',
-  'managerTabControl',
+  'createManagerApplication',
+  'createProductionManagerApplication',
+  'createServerManagerApplication',
 ]) {
   if (!managerFacade.includes(required)) fail(`src/manager/index.js: public Manager contract missing ${required}.`);
 }

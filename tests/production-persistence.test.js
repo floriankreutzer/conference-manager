@@ -48,6 +48,32 @@ function requestPage(overrides = {}) {
   };
 }
 
+test('profile hydration accepts only the exact server profile projection', async () => {
+  const harness = api(() => ({ schemaVersion: 1, profile: { displayName: 'Demo Employee' } }));
+  assert.deepEqual(
+    await createProductionPersistence({ apiClient: harness.client }).loadProfile(),
+    { displayName: 'Demo Employee' },
+  );
+  assert.deepEqual(harness.calls, [{ path: 'v1/application/profile', options: {} }]);
+
+  await assert.rejects(
+    createProductionPersistence({
+      apiClient: api(() => ({ profile: { displayName: 'Demo Employee' } })).client,
+    }).loadProfile(),
+    (error) => error.code === 'PRODUCTION_SCHEMA_VERSION_UNSUPPORTED',
+  );
+  for (const payload of [
+    { schemaVersion: 1, profile: { displayName: 'Demo Employee' }, tenantId: 'attacker' },
+    { schemaVersion: 1, profile: { displayName: 'Demo Employee', tenantId: 'attacker' } },
+    { schemaVersion: 1, profile: { displayName: ' Demo Employee ' } },
+  ]) {
+    await assert.rejects(
+      createProductionPersistence({ apiClient: api(() => payload).client }).loadProfile(),
+      (error) => error.code === 'PRODUCTION_PROFILE_INVALID',
+    );
+  }
+});
+
 test('production persistence assembles every bounded catalogue section with one generation', async () => {
   const harness = api((path) => catalogPage(new URL(`https://example.test/${path}`).searchParams.get('section')));
   const catalog = await createProductionPersistence({ apiClient: harness.client }).loadCatalog();
@@ -55,6 +81,35 @@ test('production persistence assembles every bounded catalogue section with one 
   assert.equal(harness.calls.length, 6);
   assert.match(harness.calls[0].path, /section=sites/);
   for (const call of harness.calls.slice(1)) assert.match(call.path, /context=catalog_context/);
+});
+
+test('catalogue generation permits observation-time drift but rejects policy drift', async () => {
+  let count = 0;
+  const observed = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    count += 1;
+    return catalogPage(section, {
+      bookingPolicy: { ...policy(), evaluatedAt: `2026-08-27T12:00:0${count}.000Z` },
+    });
+  });
+  await createProductionPersistence({ apiClient: observed.client }).loadCatalog();
+
+  count = 0;
+  const changed = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    count += 1;
+    const current = policy();
+    return catalogPage(section, count === 2 ? {
+      bookingPolicy: {
+        ...current,
+        rules: { ...current.rules, maximumParticipants: 499 },
+      },
+    } : {});
+  });
+  await assert.rejects(
+    createProductionPersistence({ apiClient: changed.client }).loadCatalog(),
+    (error) => error.code === 'PRODUCTION_CATALOG_INVALID',
+  );
 });
 
 test('catalogue assembly rejects cross-page generation drift', async () => {

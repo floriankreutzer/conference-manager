@@ -5,8 +5,6 @@ import { renderSectionConflict, renderSectionError, renderSectionLoading } from 
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../../bulk-transfer-panel.js';
 
-export { createDemoCatalogueSettings } from './demo-adapter.js';
-
 const TITLE = 'tenantAdmin.catalog.title';
 const CATEGORIES = Object.freeze(['services', 'equipment', 'cateringItems', 'cateringPackages']);
 const CURRENCIES = Object.freeze(['CHF', 'EUR', 'GBP', 'USD']);

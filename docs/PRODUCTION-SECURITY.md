@@ -2,7 +2,9 @@
 
 ## Status
 
-The GitHub Pages application is an explicit **demo runtime**. It does not provide a trusted authentication, authorization, persistence, calendar, or audit boundary.
+The GitHub Pages URL is a static, fail-closed compatibility surface for repository security scanning. It is not the operational shared Demo: GitHub Pages cannot provide the required same-origin Customer Demo API process or PostgreSQL runtime. When that API is absent, the browser visibly renders the unavailable state and does not activate browser fixtures or LocalStorage business authority.
+
+The operational shared Demo must deploy this browser artifact together with its dedicated Customer Demo API on one HTTPS origin and the isolated PostgreSQL Demo runtime described by ADR-010. Its synthetic sessions, authorization and persistence are Demo controls only; they are not Production identity or acceptance evidence.
 
 `index.html` must therefore declare:
 
@@ -12,7 +14,7 @@ The GitHub Pages application is an explicit **demo runtime**. It does not provid
 
 `src/core/security-policy.js` treats a missing, malformed, or unknown runtime value as `production` so configuration errors fail closed. Demo roles are only valid when the runtime is explicitly `demo`.
 
-The repository now also contains the browser-side production session trust boundary in `src/platform/production-session.js` and dedicated server-authoritative Employee/Conference Manager production clients. That code does **not** turn the GitHub Pages deployment into production. A real production deployment still requires the trusted same-origin backend, HTTPS/security-header configuration, server persistence and operational controls defined below.
+The repository now also contains the browser-side production session trust boundary in `src/platform/production-session.js` and dedicated server-authoritative Employee/Conference Manager production clients. Neither that code nor the static Pages compatibility surface creates a Production deployment. A real production deployment still requires the trusted same-origin backend, HTTPS/security-header configuration, server persistence and operational controls defined below.
 
 ## Mandatory production architecture
 
@@ -138,7 +140,7 @@ CORS should remain disabled when the production UI and API are same-origin. If c
 
 The operator application follows the same-origin principle independently at its own HTTPS origin. The customer origin must not route `/api/v1/platform/*`, and the operator origin must not route customer API paths. This origin split does not justify enabling CORS between the applications.
 
-The current demo HTML intentionally uses `connect-src 'none'`. It must not be copied unchanged as the production CSP because the production browser must reach the same-origin `/api/*` backend. The production deployment must deliver its CSP/security headers at the HTTP layer with the minimum same-origin connectivity required by the accepted topology; deployment evidence belongs to the production hosting/IaC work under #113.
+The current Demo HTML permits only same-origin connections so the operational shared Demo can reach `/api/*`. The static Pages compatibility surface has no API and therefore fails closed visibly. The Production deployment must deliver its CSP/security headers at the HTTP layer with the minimum same-origin connectivity required by the accepted topology; deployment evidence belongs to the production hosting/IaC work under #113.
 
 ## Server-side input validation
 
@@ -210,8 +212,8 @@ The repository currently provides:
 - a production-persistence/session architecture gate that requires dedicated server-authoritative production applications, prevents browser-storage authority, and requires the production shell to return before any business view renders for signed-out/unavailable state;
 - deterministic input-manipulation/fuzz tests;
 - Chromium and WebKit/iPhone Playwright regression tests for the demo runtime;
-- OWASP ZAP baseline scan against the deployed Pages demo.
+- OWASP ZAP baseline scan against the static Pages compatibility surface.
 
-Secure production-session browser E2E still requires an HTTPS production-like harness or deployed pilot environment. That evidence must exist before #115 is closed and must not be inferred from the demo Pages E2E suite.
+Secure shared-Demo and Production-session DAST/browser evidence still requires the applicable HTTPS environment with its same-origin API. That evidence must not be inferred from the static Pages compatibility scan.
 
 These controls reduce client and supply-chain risk but do not replace the production backend trust boundary described above.

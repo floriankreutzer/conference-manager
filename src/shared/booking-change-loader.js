@@ -1,9 +1,32 @@
 const MAX_CONCURRENT_LOOKUPS = 8;
+const LOOKUP_TIMEOUT_MS = 5_000;
 
-export async function loadOpenBookingChanges(requests, persistence) {
+function normalizedLookupTimeout(value) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 30_000) {
+    throw new TypeError('BOOKING_CHANGE_LOOKUP_TIMEOUT_INVALID');
+  }
+  return value;
+}
+
+async function loadBoundedBookingChange(persistence, requestId, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await persistence.loadBookingChange(requestId, { signal: controller.signal });
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
+export async function loadOpenBookingChanges(
+  requests,
+  persistence,
+  { timeoutMs = LOOKUP_TIMEOUT_MS } = {},
+) {
   if (!Array.isArray(requests) || typeof persistence?.loadBookingChange !== 'function') {
     throw new TypeError('BOOKING_CHANGE_LOADER_INPUT_REQUIRED');
   }
+  const lookupTimeout = normalizedLookupTimeout(timeoutMs);
   const results = new Array(requests.length).fill(null);
   const confirmed = [];
   requests.forEach((request, index) => {
@@ -18,7 +41,11 @@ export async function loadOpenBookingChanges(requests, persistence) {
       const index = confirmed[cursor];
       cursor += 1;
       try {
-        results[index] = await persistence.loadBookingChange(requests[index].id);
+        results[index] = await loadBoundedBookingChange(
+          persistence,
+          requests[index].id,
+          lookupTimeout,
+        );
       } catch {
         results[index] = undefined;
       }

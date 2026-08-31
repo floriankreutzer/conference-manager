@@ -4,9 +4,9 @@ export { createTenantCostAllocationSettingsApi } from './tenant-cost-allocation-
 export { createTenantLocationSettingsApi } from './tenant-location-settings-api.js';
 export { createTenantOrganizationSettingsApi } from './tenant-organization-settings-api.js';
 export {
-  createDemoTenantPresentationApi,
   createTenantPresentationApi,
 } from './tenant-presentation-api.js';
+export { createDemoTenantPresentationApi } from './demo-tenant-presentation-api.js';
 export {
   createPresentationRefreshingOrganizationSettings,
   createTenantPresentationRuntime,

@@ -18,11 +18,17 @@ The operator application has its own same-origin contract under a different HTTP
 
 Both backend processes remain in `conference-manager-api` so they can reuse the existing application services and preserve atomic Tenant mutation plus Tenant/Platform audit transactions. Both browser artifacts remain in `conference-manager` but are independently deployed. This is not permission to place operator controls in Tenant Admin or existing customer `src/platform` modules.
 
+## SaaS 3.5 consolidation extension
+
+`docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md` revalidates **KEEP** for both application source repositories after the implemented SaaS 3 audit. The four browser/API artifacts and their separate origins, processes, sessions, secrets, routes and database roles remain mandatory.
+
+`docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` supersedes this document's browser-authoritative Demo persistence direction. Customer Demo and Platform Demo use one isolated PostgreSQL-backed Demo data model through separate Customer and Platform Demo API/session boundaries. This does not change the Production topology or permit Demo configuration, credentials, identity, providers, seed/reset code or fallback in Production composition.
+
 ## Decision summary
 
 The production SaaS backend will be implemented in a dedicated repository named `conference-manager-api`.
 
-The existing `conference-manager` repository remains the browser application and explicit demo runtime. It must not absorb server-side authentication, authorization, tenant isolation, database access, integration credentials, audit persistence, or Microsoft Graph service credentials into `src/platform`, `src/core`, or another browser module.
+The existing `conference-manager` repository remains the browser application and contains the explicit Customer and Platform Demo presentation artifacts. It must not absorb server-side authentication, authorization, tenant isolation, database access, integration credentials, audit persistence, reset authority or Microsoft Graph service credentials into browser modules.
 
 Production deployment is **logically same-origin**:
 
@@ -87,7 +93,7 @@ Trusted Conference Manager API
 
 The browser is untrusted. It may submit identifiers, form values, requested transitions, and presentation state, but none of these values establish authorization, tenant identity, ownership, price, entitlement, availability, or workflow authority.
 
-Production browser storage is not an authority for roles, tenant identity, sessions, requests, catalogs, pricing, entitlements, or integration state. The current LocalStorage/sessionStorage behavior remains an explicit demo compatibility path only until #56 migrates production persistence.
+Browser storage is not an authority for roles, Tenant identity, sessions, Requests, catalogues, pricing, entitlements, integration state or Platform operations in Production or the shared Demo. Bounded non-authoritative preferences may remain local under the approved frontend contract.
 
 ### Edge / routing boundary
 
@@ -136,7 +142,7 @@ Owns:
 - Employee and Manager frontend capability boundaries;
 - canonical frontend i18n/l10n;
 - frontend design system and accessibility behavior;
-- explicit demo runtime and demo persistence compatibility;
+- explicit Customer and Platform Demo presentation/composition roots and their defensive session/API adapters;
 - defensive same-origin API client contract;
 - browser-facing progression/regression/E2E tests;
 - frontend architecture gates and browser security checks.
@@ -180,7 +186,8 @@ The new repository must contain its own root `AGENTS.md` before implementation b
 | Integration metadata/references | Backend persistence | Non-sensitive authorized subset |
 | Session credential | Server-managed secure cookie/session store | Cookie opaque to JavaScript |
 | CSRF token | Backend-issued CSRF mechanism | Only the value required by the client protocol |
-| Demo LocalStorage/sessionStorage | Browser demo runtime only | Demo only; never production authority |
+| Demo business state | Isolated Demo PostgreSQL through separate least-privilege Customer/Platform processes | Authorized minimized projection only |
+| Bounded browser preferences | Browser-local approved preference contract | Non-authoritative language/navigation convenience only |
 
 Integration secrets and refresh/access tokens must not be stored in source control, browser storage, logs, analytics payloads, or tenant-readable configuration. Backend persistence may store only the minimum non-secret metadata and opaque secret references required to locate managed credential material.
 
@@ -188,7 +195,7 @@ Integration secrets and refresh/access tokens must not be stored in source contr
 
 Four environment classes are defined:
 
-1. **Development** — local/developer runtime. The existing static demo remains available. Backend development uses non-production identities, data, credentials, and isolated persistence.
+1. **Development** — local/developer runtime. The server-backed Demo may run with non-production identities, deterministic provider adapters, separate API processes and isolated persistence.
 2. **Test** — automated/integration environment with deterministic fixtures, isolated tenants, ephemeral or resettable data, and no production credentials.
 3. **Pilot** — externally usable production-like environment for the controlled Microsoft enterprise pilot. It uses production-grade security controls, separate data/secrets/identity configuration, monitoring, backup/restore expectations, and tenant-isolation gates.
 4. **Production** — general production environment with independently managed secrets, data, identity registrations/configuration, deployment controls, observability, recovery, and release evidence.
@@ -280,9 +287,9 @@ Immediate frontend impact:
 - `src/core/api-client.js` remains the defensive same-origin browser contract;
 - `src/platform` remains browser/application composition and cannot become a backend service layer;
 - Employee/Manager business presentation remains behind their existing public frontend contracts;
-- the explicit demo runtime remains intact until a separately tested production-persistence migration is implemented under #56.
+- the explicit Customer and Platform Demo roots remain isolated from Production and from one another's session/authority graph.
 
-Future frontend production-mode work must add progression tests and preserve the current demo regression baseline. If a new production/runtime boundary introduces a meaningful enforceable rule, `npm run check:architecture` must be extended rather than relying on documentation alone.
+Frontend runtime work must add progression tests and preserve the server-backed Demo regression baseline. If a new Production/Demo boundary introduces a meaningful enforceable rule, `npm run check:architecture` must be extended rather than relying on documentation alone.
 
 The backend repository requires its own automated architecture/security gates appropriate to its chosen implementation.
 
@@ -295,7 +302,7 @@ The foundation proceeds in this order:
 3. **#49** introduce controlled relational persistence/migrations and **#50** the internal principal/secure-session contract.
 4. **#51** implement server-side RBAC/object ownership and **#52** the tenant-scoped audit model.
 5. **#53** implement tenant entitlements and **#54** provider-neutral booking/calendar contracts.
-6. **#56** migrate production browser persistence to backend repositories/APIs while preserving the explicit demo baseline.
+6. **#56** migrate Production browser persistence to backend repositories/APIs without weakening the explicit Demo boundary. This historical step was later extended by ADR-010, which also moved Demo business authority to the isolated shared Demo backend.
 7. **#55** observability and **#57** threat-model/secure-configuration work progress continuously and must be complete before an external pilot readiness decision.
 
 #47 is therefore the next blocking implementation issue.

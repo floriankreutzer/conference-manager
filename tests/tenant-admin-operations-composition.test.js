@@ -4,19 +4,16 @@ import test from 'node:test';
 
 const APP_PATH = 'src/app.js';
 
-test('Composition Root injects audit and capabilities through explicit fail-closed runtime branches', () => {
+test('Composition Root injects server audit and capabilities through fail-closed authorization branches', () => {
   const source = readFileSync(APP_PATH, 'utf8');
-  for (const factory of [
-    'createDemoTenantAudit',
-    'createDemoTenantCapabilities',
-    'createTenantAuditApi',
-    'createTenantCapabilitiesApi',
-  ]) assert.equal(source.split(factory).length - 1, 2, `${factory} must be imported and composed once`);
+  for (const factory of ['createTenantAuditApi', 'createTenantCapabilitiesApi']) {
+    assert.equal(source.split(factory).length - 1, 2, `${factory} must be imported and composed once`);
+  }
 
-  assert.match(source, /const tenantAudit = context\.isDemoRuntime\(\)\s+\? createDemoTenantAudit\(\)\s+: \(context\.isTenantAdmin\(\) && authentication/s);
-  assert.match(source, /const tenantCapabilities = context\.isDemoRuntime\(\)\s+\? createDemoTenantCapabilities\(\)\s+: \(context\.isTenantAdmin\(\) && authentication/s);
+  assert.match(source, /const tenantAudit = context\.isTenantAdmin\(\) && authentication\s+\? createTenantAuditApi/s);
+  assert.match(source, /const tenantCapabilities = context\.isTenantAdmin\(\) && authentication\s+\? createTenantCapabilitiesApi/s);
   assert.match(source, /capabilities: tenantCapabilities,\s+audit: tenantAudit,/);
-  assert.doesNotMatch(source, /createTenant(?:Audit|Capabilities)Api[\s\S]{0,120}(?:\|\||\?\?)\s*createDemo/);
+  assert.doesNotMatch(source, /createDemo|demo-adapter|demo-store|fixtures/);
 });
 
 test('operations factories are exposed through approved Platform and Tenant Admin facades', () => {
@@ -28,8 +25,8 @@ test('operations factories are exposed through approved Platform and Tenant Admi
   assert.doesNotMatch(app, /from '\.\/tenant-admin\/demo-(?:tenant-audit|tenant-capabilities)\.js';/);
   assert.match(platform, /export \{ createTenantAuditApi \}/);
   assert.match(platform, /export \{ createTenantCapabilitiesApi \}/);
-  assert.match(tenantAdmin, /\bcreateDemoTenantAudit\b/);
-  assert.match(tenantAdmin, /\bcreateDemoTenantCapabilities\b/);
+  assert.doesNotMatch(tenantAdmin, /\bcreateDemoTenantAudit\b/);
+  assert.doesNotMatch(tenantAdmin, /\bcreateDemoTenantCapabilities\b/);
 });
 
 test('operations catalogue and stylesheet are part of canonical shared entry points', () => {
@@ -48,6 +45,6 @@ test('final application and layout cache markers match the combined build', () =
   const build = app.match(/const APP_BUILD = '(\d{4})\.(\d{2})\.(\d{2})\.(\d+)';/);
   assert.ok(build);
   const marker = `${build[1]}${build[2]}${build[3]}-${build[4]}`;
-  assert.match(html, new RegExp(`src/app\\.js\\?v=${marker}`));
+  assert.match(html, new RegExp(`src/platform/demo-bootstrap\\.js\\?v=${marker}`));
   assert.match(html, new RegExp(`assets/app-layout\\.css\\?v=${marker}`));
 });
