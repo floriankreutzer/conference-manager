@@ -133,24 +133,36 @@ proxy can target only the two source-defined Render origins, rewrites the local 
 Host/Origin/Referer values to their matching deployed same-origin values, validates
 upstream TLS normally, and has no general-purpose destination input.
 
-If the destructive journey fails, baseline restoration has priority over subsequent
-evidence network calls. The workflow immediately establishes fresh Platform Demo
+The fixed test proxy observes the server-generated `X-Request-ID` only for a
+Platform Demo reset that returns a 5xx response. It writes that UUID to a private,
+run-ID/run-attempt-specific temporary file using create-only semantics. When the
+journey fails, the diagnostic step reads that exact request ID before cleanup and
+accepts only a server-side reset failure audit event with the same correlation ID
+and a timestamp inside the acceptance window. This ordering is required because a
+successful reset truncates and recreates Platform audit state. Diagnostic
+session/persona/audit requests have explicit 20-second deadlines, so this bounded
+evidence read cannot consume the overall job timeout and prevent cleanup. A journey
+failure unrelated to reset emits `not_available` rather than attributing another
+user's reset event to this run.
+
+After the bounded failure-evidence read, baseline restoration has priority over all
+remaining evidence calls. The workflow establishes fresh Platform Demo
 `security_admin` authority and performs the deterministic reset/reseed cleanup using
-bounded session/persona requests and a reset request deadline longer than the
-backend's 60-second reset budget. The cleanup then establishes fresh authority a
-second time and performs the reset again. Both successful resets must return the
-same fixed seed version and the exact same well-formed semantic checksum; otherwise
-cleanup fails with a repeatability error. Only a matching pair records
-`cleanup_repeatable=true`.
+bounded session/persona requests and a 75-second reset request deadline, which
+remains longer than the backend's bounded 60-second hosted reset budget. The cleanup
+then establishes fresh authority a second time and performs the reset again. Both
+successful resets must return the same fixed seed version and the exact same
+well-formed semantic checksum; otherwise cleanup fails with a repeatability error.
+Only a matching pair records `cleanup_repeatable=true`.
 
 After a successful journey, or after the failure cleanup attempt, the workflow
 fetches both deployment identity artifacts a second time and requires the same exact
 reviewed refs again. A provider redeploy between preflight and the end of the tested
 operation therefore fails acceptance rather than allowing evidence from one build
 to be attached to requests served by another. Only a successful second check records
-`deployment_identity_stable=true`. Because cleanup already ran first on a failed
-journey, a stalled or failed post-journey metadata check cannot prevent baseline
-restoration.
+`deployment_identity_stable=true`. Because failure cleanup runs before this
+post-journey metadata check, a stalled or failed identity request cannot prevent
+baseline restoration; the metadata request itself is also bounded to 20 seconds.
 
 The hosted acceptance run uses Chromium once to avoid duplicating destructive
 reset/reseed traffic against the shared public Demo. Cross-browser Chromium and
@@ -174,26 +186,17 @@ frontend/runtime refs, acceptance source SHA, GitHub run ID, run attempt and sta
 time. The preflight verifier adds `verified_frontend_ref` and
 `verified_runtime_ref` only after both public build-identity artifacts satisfy the
 closed contract. Static workflow constants are therefore not mislabeled as deployed
-evidence. Successful failure cleanup records only the fixed seed version, the matched
-checksum and `cleanup_repeatable=true`. The post-journey verifier adds only the
-bounded stability marker after both origins still report the same reviewed release.
+evidence. Correlation-matched failure diagnostics are captured before reset cleanup;
+successful cleanup records only the fixed seed version, matched checksum and
+`cleanup_repeatable=true`. The post-journey verifier adds only the bounded stability
+marker after both origins still report the same reviewed release.
 
-The fixed test proxy also observes the server-generated `X-Request-ID` only for a
-Platform Demo reset that returns a 5xx response. It writes that UUID to a private,
-run-ID/run-attempt-specific temporary file using create-only semantics. When the
-journey fails, the diagnostic script later reads that exact request ID and accepts
-only a server-side reset failure audit event with the same correlation ID and a
-timestamp inside the acceptance window. Diagnostic session/persona/audit requests
-have explicit 20-second deadlines. A journey failure unrelated to reset therefore
-emits `not_available` rather than attributing another user's reset event to this run.
-The exact correlation remains valid even though diagnostics run after failure cleanup.
-
-The journey uses a captured step outcome. Failure cleanup executes first; subsequent
-post-journey deployment verification and correlation-matched diagnostics use bounded
-network requests; evidence is uploaded under `always()`, and the original journey
-failure is finally re-raised. A cleanup failure is also a failed acceptance and is
-never ignored. No database URL, session/CSRF value, provider token or other
-credential is written to the evidence artifact.
+The journey uses a captured step outcome. On failure the workflow executes bounded,
+correlation-matched diagnostics, then the bounded two-pass repeatability cleanup,
+then post-journey deployment verification. Evidence is uploaded under `always()`,
+and the original journey failure is finally re-raised. A cleanup failure is also a
+failed acceptance and is never ignored. No database URL, session/CSRF value,
+provider token or other credential is written to the evidence artifact.
 
 A run that begins while a Render Free service is spun down additionally supplies the
 cold-start eventual-readiness evidence required by #157. A warm run proves hosted
