@@ -35,12 +35,36 @@ test('hosted reset diagnostic reads only fixed Platform audit evidence and never
   assert.doesNotMatch(source, /console\.(?:log|info|debug|warn|error)/);
 });
 
-test('hosted acceptance records bounded reset audit evidence only after a failed journey', () => {
+test('hosted acceptance diagnoses, cleans up, preserves evidence, and fails after a failed journey', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const journeyIndex = workflow.indexOf('name: Run hosted cross-role Demo journey');
   const diagnosticIndex = workflow.indexOf('name: Record bounded reset failure audit evidence');
+  const cleanupIndex = workflow.indexOf('name: Restore public Demo baseline after failed journey');
   const uploadIndex = workflow.indexOf('name: Upload hosted Demo evidence');
-  assert.ok(journeyIndex >= 0 && diagnosticIndex > journeyIndex && uploadIndex > diagnosticIndex);
-  assert.match(workflow, /name: Record bounded reset failure audit evidence\n\s+if: failure\(\)/);
+  const enforcementIndex = workflow.indexOf('name: Enforce hosted journey result');
+
+  assert.ok(
+    journeyIndex >= 0
+      && diagnosticIndex > journeyIndex
+      && cleanupIndex > diagnosticIndex
+      && uploadIndex > cleanupIndex
+      && enforcementIndex > uploadIndex,
+  );
+  assert.match(
+    workflow,
+    /name: Run hosted cross-role Demo journey\n\s+id: hosted_journey\n\s+continue-on-error: true/,
+  );
+  assert.match(
+    workflow,
+    /name: Record bounded reset failure audit evidence\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'/,
+  );
   assert.match(workflow, /node scripts\/read-hosted-demo-reset-evidence\.mjs >> hosted-demo-evidence\.txt/);
+  assert.match(
+    workflow,
+    /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
+  );
+  assert.match(
+    workflow,
+    /name: Enforce hosted journey result\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: exit 1/,
+  );
 });
