@@ -23,6 +23,7 @@ const EMPTY_CATALOG = Object.freeze({
 const EMPTY_SITE_INFO = Object.freeze({});
 const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
+const REQUIRED_PROJECTION_TIMEOUT_MS = 10_000;
 const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const PRODUCTION_AUTH_STATUSES = new Set(Object.values(PRODUCTION_AUTH_STATUS));
 const TENANT_ADMIN_PERMISSIONS = new Set([
@@ -68,18 +69,6 @@ async function loadBoundedProjection(load, timeoutMs) {
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
-}
-
-function apiClientBoundToSignal(apiClient, signal) {
-  return Object.freeze({
-    request(path, options) {
-      return apiClient.request(path, { ...(options || {}), signal });
-    },
-  });
-}
-
-function persistenceBoundToSignal(apiClient, signal) {
-  return createProductionPersistence({ apiClient: apiClientBoundToSignal(apiClient, signal) });
 }
 
 export function createApplicationContextFromState({
@@ -267,8 +256,10 @@ export function createApplicationContextFromState({
 export async function createApplicationContext({
   runtimeMode = runtimeModeFromDocument(document),
   authenticationBootstrap,
+  requiredProjectionTimeoutMs = REQUIRED_PROJECTION_TIMEOUT_MS,
   optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
+  const requiredTimeout = normalizedOptionalProjectionTimeout(requiredProjectionTimeoutMs);
   const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   if (typeof authenticationBootstrap !== 'function') {
     throw new TypeError('AUTHENTICATION_BOOTSTRAP_REQUIRED');
@@ -285,24 +276,14 @@ export async function createApplicationContext({
     status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
     session = null;
   } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
-    const apiClient = authentication.runtime.apiClient;
-    const persistence = createProductionPersistence({ apiClient });
+    const persistence = createProductionPersistence({ apiClient: authentication.runtime.apiClient });
     try {
       const [required, optional] = await Promise.all([
-        Promise.all([
-          loadBoundedProjection(
-            (signal) => persistenceBoundToSignal(apiClient, signal).loadProfile(),
-            optionalTimeout,
-          ),
-          loadBoundedProjection(
-            (signal) => persistenceBoundToSignal(apiClient, signal).loadCatalog(),
-            optionalTimeout,
-          ),
-          loadBoundedProjection(
-            (signal) => persistenceBoundToSignal(apiClient, signal).listRequests(),
-            optionalTimeout,
-          ),
-        ]),
+        loadBoundedProjection((signal) => Promise.all([
+          persistence.loadProfile({ signal }),
+          persistence.loadCatalog({ signal }),
+          persistence.listRequests({ signal }),
+        ]), requiredTimeout),
         Promise.allSettled([
           loadBoundedProjection(
             (signal) => persistence.loadSiteInfo({ signal }),
