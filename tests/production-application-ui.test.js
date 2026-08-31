@@ -395,6 +395,9 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(employee, /printWindow\.print/);
   assert.match(manager, /persistence\.transitionRequest/);
   assert.match(manager, /manager\.roomPlan/);
+  assert.match(manager, /production\.manager\.roomPlanDateRequired/);
+  assert.match(manager, /date\.setAttribute\('aria-invalid', 'true'\)/);
+  assert.match(manager, /tableRoot\.replaceChildren\(\)/);
   assert.match(manager, /persistence\.loadRequestReport/);
   assert.match(employee, /isProductionTimeZone\(timeZone\)/);
   assert.match(employee, /Date\.parse\(startsAt\) <= Date\.now\(\)/);
