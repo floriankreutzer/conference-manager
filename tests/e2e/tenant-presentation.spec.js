@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fulfillApplicationProjection } from './fixtures/application-projections.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -76,40 +77,6 @@ function presentationPayload({
   };
 }
 
-function applicationCatalogPage(section) {
-  return {
-    schemaVersion: 2,
-    configurationRevisions: {
-      organization: 1,
-      locations: 1,
-      catalogue: 1,
-      bookingPolicies: 1,
-      costAllocation: 1,
-    },
-    bookingPolicy: {
-      policyVersionId: 'policy-1',
-      effectiveFrom: '2026-01-01T00:00:00.000Z',
-      evaluatedAt: '2026-08-30T08:00:00.000Z',
-      rules: {
-        minimumLeadTimeMinutes: 0,
-        maximumAdvanceMinutes: 527040,
-        cancellationWindowMinutes: 0,
-        changeWindowMinutes: 0,
-        maximumParticipants: 500,
-        allowedSiteIds: [],
-        allowedRoomIds: [],
-        allowedServiceIds: [],
-      },
-    },
-    organization: { defaultCurrency: 'EUR' },
-    costAllocation: { allocationRequired: false },
-    context: 'tenant_presentation_e2e',
-    section,
-    entries: [],
-    page: { limit: 10, complete: true, nextCursor: null },
-  };
-}
-
 function organizationFromPresentation(presentation) {
   return {
     displayName: presentation.presentation.displayName,
@@ -152,23 +119,6 @@ async function installFixture(page, {
       await fulfillJson(route, sessionPayload(roles));
       return;
     }
-    if (url.pathname === '/api/v1/application/profile' && request.method() === 'GET') {
-      await fulfillJson(route, { schemaVersion: 1, profile: { displayName: 'Demo User' } });
-      return;
-    }
-    if (url.pathname === '/api/v1/application/catalog' && request.method() === 'GET') {
-      await fulfillJson(route, applicationCatalogPage(url.searchParams.get('section')));
-      return;
-    }
-    if (url.pathname === '/api/v1/application/requests' && request.method() === 'GET') {
-      await fulfillJson(route, {
-        schemaVersion: 2,
-        asOf: '2026-08-30T08:00:00.000Z',
-        requests: [],
-        page: { limit: 10, complete: true, nextCursor: null },
-      });
-      return;
-    }
     if (url.pathname === '/api/v1/tenant/presentation') {
       presentationReads.push(url.pathname);
       if (presentationFailure) {
@@ -178,6 +128,7 @@ async function installFixture(page, {
       }
       return;
     }
+    if (await fulfillApplicationProjection(route)) return;
     if (organizationSettings && url.pathname === '/api/v1/tenant/settings/organization' && request.method() === 'GET') {
       await fulfillJson(route, { schemaVersion: 1, revision: presentation.revision, organization });
       return;
