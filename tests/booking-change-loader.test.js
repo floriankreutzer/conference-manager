@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createProductionPersistence } from '../src/platform/production-persistence.js';
 import { loadOpenBookingChanges } from '../src/shared/booking-change-loader.js';
 
 test('booking-change lookups are bounded, isolated, ordered and fail closed', async () => {
@@ -29,20 +30,22 @@ test('booking-change lookups are bounded, isolated, ordered and fail closed', as
   assert.equal(Object.isFrozen(result), true);
 });
 
-test('a stalled confirmed booking-change lookup is aborted and preserves the unavailable fallback', async () => {
+test('a stalled production booking-change lookup propagates AbortSignal and preserves the unavailable fallback', async () => {
   let aborted = false;
-  const persistence = {
-    async loadBookingChange(id, options) {
-      assert.equal(id, 'CR-stalled');
-      assert.equal(options.signal instanceof AbortSignal, true);
-      return new Promise((resolve, reject) => {
-        options.signal.addEventListener('abort', () => {
-          aborted = true;
-          reject(new DOMException('aborted', 'AbortError'));
-        }, { once: true });
-      });
+  const persistence = createProductionPersistence({
+    apiClient: {
+      async request(path, options) {
+        assert.equal(path, 'v1/requests/CR-stalled/booking-change');
+        assert.equal(options.signal instanceof AbortSignal, true);
+        return new Promise((resolve, reject) => {
+          options.signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(new DOMException('aborted', 'AbortError'));
+          }, { once: true });
+        });
+      },
     },
-  };
+  });
 
   const result = await loadOpenBookingChanges(
     [{ id: 'CR-stalled', status: 'Confirmed' }],
