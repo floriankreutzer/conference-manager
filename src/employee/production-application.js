@@ -810,7 +810,7 @@ export function createProductionEmployeeApplication({
                 const entries = await persistence.loadRequestHistory(target.id);
                 const content = el('section', {}, entries.length
                   ? entries.map((entry) => el('p', {
-                    text: `${entry.version} · ${entry.operation} · ${formatProductionDateTime(entry.capturedAt, { locale: locale(), timeZone: 'UTC' })}`,
+                    text: `${entry.version} · ${t(`timeline.operation.${entry.operation}`)} · ${formatProductionDateTime(entry.capturedAt, { locale: locale(), timeZone: 'UTC' })}`,
                   }))
                   : [el('p', { text: t('production.manager.historyEmpty') })]);
                 const close = button(t('common.close'));
