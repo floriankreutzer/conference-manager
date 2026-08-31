@@ -89,33 +89,41 @@ configuration owns only `tests/e2e-shared`. This separation prevents duplicate
 browser execution while keeping both suites required for frontend changes.
 
 The shared job checks out the API at immutable commit
-`5cf2d8ee3303e8a413caa503792e9e93b678d69b`, provisions an isolated PostgreSQL
+`8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`, provisions an isolated PostgreSQL
 database, runs the canonical and Demo migrations, starts the separate Customer
 and Platform API processes, requires both real readiness endpoints to pass, and
-then executes the Chromium and WebKit journey. Because `conference-manager-api`
-is private, repository administrators must configure `SHARED_DEMO_API_READ_TOKEN`
+then executes the shared browser journey. Because `conference-manager-api` is
+private, repository administrators must configure `SHARED_DEMO_API_READ_TOKEN`
 as a read-only Actions secret. The job fails closed before checkout when the
 credential is absent; no secret value is printed or included in artifacts.
 
 The reciprocal API CI resolves the functional frontend journey from the immutable
-`DEMO_FRONTEND_REF` in the reviewed Render Blueprint. The currently deployed
-frontend release is `07f2896d56e6f66a9f8daf96457ab12c763adf80`. Its required
-matrix validates API gates, PostgreSQL 18 migrations and persistence, real Demo
-readiness, and the same shared journey in Chromium and WebKit.
+`DEMO_FRONTEND_REF` in the reviewed Render Blueprint. The approved frontend release
+is `07f2896d56e6f66a9f8daf96457ab12c763adf80`; the reviewed hosted API evidence
+baseline is `8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`. Required API CI validates
+architecture/security gates, PostgreSQL 18 migrations and persistence, real Demo
+readiness, and the same shared journey in Chromium and WebKit before a provider
+deploy is eligible for hosted acceptance.
 
 ## Hosted Render acceptance
 
-The operational SaaS 3.5 Demo is hosted on the provider-managed HTTPS origins:
+The operational SaaS 3.5 Demo uses the provider-managed HTTPS origins:
 
 - Customer: `https://conference-manager-demo.onrender.com`
 - Platform: `https://conference-manager-ops-demo.onrender.com`
 
 `.github/workflows/hosted-demo-acceptance.yml` is the external acceptance gate for
 those public services. It does not start a local API or use a database credential.
-Instead it waits for both public readiness endpoints, allowing the bounded Render
-Free cold-start window, then runs the existing `tests/e2e-shared` critical journey
-against the deployed services through a fixed-origin local test proxy. The proxy
-can target only the two source-defined Render origins, rewrites the local test
+It first waits for both public readiness endpoints within the bounded Render Free
+cold-start window. It then fetches `/assets/hosted-demo-deployment.json` from both
+origins and requires the closed schema-v1 deployment identity to match the exact
+reviewed API and frontend commit refs before any destructive browser action starts.
+Missing metadata, an unexpected field, stale/mutable ref, wrong repository/branch,
+or a service identity that does not match its origin fails acceptance closed.
+
+Only after deployment identity is verified does the workflow run the existing
+`tests/e2e-shared` critical journey through a fixed-origin local TLS test proxy. The
+proxy can target only the two source-defined Render origins, rewrites the local test
 Host/Origin/Referer values to their matching deployed same-origin values, validates
 upstream TLS normally, and has no general-purpose destination input.
 
@@ -125,6 +133,7 @@ WebKit coverage remains mandatory in the isolated frontend/API CI matrices. The
 hosted journey itself proves the deployed environment for the exercised controls:
 
 - both public readiness endpoints return HTTP 200;
+- the two public build-identity artifacts match the reviewed API/frontend refs;
 - Customer and Platform sessions/cookies remain separate;
 - browser LocalStorage/sessionStorage clearing does not erase authority;
 - a Platform lifecycle mutation propagates to the Customer surface;
@@ -136,9 +145,21 @@ hosted journey itself proves the deployed environment for the exercised controls
 - reset/reseed invalidates both session domains, restores the baseline checksum and
   can be repeated reproducibly.
 
-The workflow records only non-secret provider origins, immutable deployed frontend/runtime
-refs, acceptance source SHA and GitHub run ID. Failure artifacts contain the bounded
-Playwright report; no database URL, session secret or provider credential is required.
+The evidence file initially records only the fixed provider origins, **expected**
+frontend/runtime refs, acceptance source SHA, run ID and start time. The verifier
+adds `verified_frontend_ref` and `verified_runtime_ref` only after both public
+build-identity artifacts satisfy the closed contract. Static workflow constants are
+therefore not mislabeled as deployed evidence.
+
+The journey runs with a captured step outcome so a destructive failure cannot leave
+the shared public Demo in an unknown partial state. On journey failure, the workflow
+first reads only the bounded server-side reset failure audit evidence, then creates a
+fresh Platform Demo session, switches it to `security_admin`, performs the authorized
+deterministic reset/reseed, records only the cleanup seed/checksum, uploads evidence,
+and finally re-raises the original journey failure. Cleanup failure is also a failed
+acceptance and is never ignored. No database URL, session/CSRF value, provider token
+or other credential is written to the evidence artifact.
+
 A run that begins while a Render Free service is spun down additionally supplies the
 cold-start eventual-readiness evidence required by #157. A warm run proves hosted
 functional readiness but must not be mislabeled as cold-start evidence.
