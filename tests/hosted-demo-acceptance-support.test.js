@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { resetHostedDemoBaseline } from '../scripts/reset-hosted-demo-baseline.mjs';
 import { verifyHostedDemoDeployment } from '../scripts/verify-hosted-demo-deployment.mjs';
+import { hostedResetRequestIdPath } from '../scripts/hosted-demo-run-context.mjs';
 
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
@@ -22,6 +23,30 @@ function serviceNameFor(url) {
   if (origin === PLATFORM_ORIGIN) return 'conference-manager-ops-demo';
   throw new Error('TEST_HOSTED_DEMO_ORIGIN_INVALID');
 }
+
+test('hosted reset correlation path is isolated by GitHub run and attempt', () => {
+  const first = hostedResetRequestIdPath({
+    GITHUB_RUN_ID: '33406973636',
+    GITHUB_RUN_ATTEMPT: '1',
+  });
+  const second = hostedResetRequestIdPath({
+    GITHUB_RUN_ID: '33406973636',
+    GITHUB_RUN_ATTEMPT: '2',
+  });
+
+  assert.match(first, /conference-manager-hosted-demo-reset-33406973636-1\.txt$/);
+  assert.match(second, /conference-manager-hosted-demo-reset-33406973636-2\.txt$/);
+  assert.notEqual(first, second);
+  assert.equal(hostedResetRequestIdPath({}), null);
+  assert.throws(
+    () => hostedResetRequestIdPath({ GITHUB_RUN_ID: '../1', GITHUB_RUN_ATTEMPT: '1' }),
+    /HOSTED_DEMO_RUN_CONTEXT_INVALID/,
+  );
+  assert.throws(
+    () => hostedResetRequestIdPath({ GITHUB_RUN_ID: '1', GITHUB_RUN_ATTEMPT: 'x' }),
+    /HOSTED_DEMO_RUN_CONTEXT_INVALID/,
+  );
+});
 
 test('hosted Demo failure cleanup establishes fresh authority and restores the deterministic baseline', async () => {
   const calls = [];
