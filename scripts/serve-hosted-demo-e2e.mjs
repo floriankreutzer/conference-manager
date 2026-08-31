@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 const LOOPBACK = '127.0.0.1';
 const EDGE_PORT = 4443;
+const UPSTREAM_TIMEOUT_MS = 75_000;
 const CUSTOMER_HOST = 'customer.demo.test';
 const PLATFORM_HOST = 'platform.demo.test';
 const CUSTOMER_UPSTREAM = new URL('https://conference-manager-demo.onrender.com');
@@ -106,7 +107,9 @@ function proxyRequest(request, response, host, target) {
     );
     upstreamResponse.pipe(response);
   });
-  upstream.setTimeout(30_000, () => upstream.destroy(new Error('HOSTED_DEMO_UPSTREAM_TIMEOUT')));
+  upstream.setTimeout(UPSTREAM_TIMEOUT_MS, () => {
+    upstream.destroy(new Error('HOSTED_DEMO_UPSTREAM_TIMEOUT'));
+  });
   upstream.on('error', () => {
     if (response.headersSent) response.destroy();
     else response.writeHead(502, { 'Cache-Control': 'no-store' }).end();
