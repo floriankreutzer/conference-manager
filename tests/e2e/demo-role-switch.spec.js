@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { applicationProjectionPayload } from './fixtures/application-projections.js';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const TENANT_B = '20000000-0000-4000-8000-000000000002';
@@ -162,6 +163,14 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
           page: { limit: 10, complete: true, nextCursor: null },
         },
       });
+      return;
+    }
+    const optionalProjection = applicationProjectionPayload(new URL(request.url()));
+    if (
+      optionalProjection !== null
+      && ['/api/v1/application/site-info', '/api/v1/application/notifications'].includes(path)
+    ) {
+      await route.fulfill({ json: optionalProjection });
       return;
     }
     if (path === '/api/v1/tenant/users' && request.method() === 'GET') {
