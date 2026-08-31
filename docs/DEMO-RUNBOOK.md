@@ -114,12 +114,17 @@ The operational SaaS 3.5 Demo uses the provider-managed HTTPS origins:
 
 `.github/workflows/hosted-demo-acceptance.yml` is the external acceptance gate for
 those public services. It does not start a local API or use a database credential.
-It first waits for both public readiness endpoints within the bounded Render Free
-cold-start window. It then fetches `/assets/hosted-demo-deployment.json` from both
-origins and requires the closed schema-v1 deployment identity to match the exact
-reviewed API and frontend commit refs before any destructive browser action starts.
-Missing metadata, an unexpected field, stale/mutable ref, wrong repository/branch,
-or a service identity that does not match its origin fails acceptance closed.
+The workflow is triggered by changes to its acceptance infrastructure and to
+`tests/e2e-shared/**`, because that shared suite is the exact critical journey reused
+against the public deployment.
+
+The workflow first waits for both public readiness endpoints within the bounded
+Render Free cold-start window. It then fetches
+`/assets/hosted-demo-deployment.json` from both origins and requires the closed
+schema-v1 deployment identity to match the exact reviewed API and frontend commit
+refs before any destructive browser action starts. Missing metadata, an unexpected
+field, stale/mutable ref, wrong repository/branch, or a service identity that does
+not match its origin fails acceptance closed.
 
 Only after deployment identity is verified does the workflow run the existing
 `tests/e2e-shared` critical journey through a fixed-origin local TLS test proxy. The
@@ -127,13 +132,19 @@ proxy can target only the two source-defined Render origins, rewrites the local 
 Host/Origin/Referer values to their matching deployed same-origin values, validates
 upstream TLS normally, and has no general-purpose destination input.
 
+After the journey finishes, the workflow fetches both deployment identity artifacts
+a second time and requires the same exact reviewed refs again. A provider redeploy
+between the preflight and the end of the journey therefore fails acceptance rather
+than allowing evidence from one build to be attached to requests served by another.
+Only a successful post-journey recheck records `deployment_identity_stable=true`.
+
 The hosted acceptance run uses Chromium once to avoid duplicating destructive
 reset/reseed traffic against the shared public Demo. Cross-browser Chromium and
 WebKit coverage remains mandatory in the isolated frontend/API CI matrices. The
 hosted journey itself proves the deployed environment for the exercised controls:
 
 - both public readiness endpoints return HTTP 200;
-- the two public build-identity artifacts match the reviewed API/frontend refs;
+- the two public build-identity artifacts match the reviewed API/frontend refs before and after the journey;
 - Customer and Platform sessions/cookies remain separate;
 - browser LocalStorage/sessionStorage clearing does not erase authority;
 - a Platform lifecycle mutation propagates to the Customer surface;
@@ -146,19 +157,29 @@ hosted journey itself proves the deployed environment for the exercised controls
   can be repeated reproducibly.
 
 The evidence file initially records only the fixed provider origins, **expected**
-frontend/runtime refs, acceptance source SHA, run ID and start time. The verifier
-adds `verified_frontend_ref` and `verified_runtime_ref` only after both public
-build-identity artifacts satisfy the closed contract. Static workflow constants are
-therefore not mislabeled as deployed evidence.
+frontend/runtime refs, acceptance source SHA, GitHub run ID, run attempt and start
+time. The preflight verifier adds `verified_frontend_ref` and
+`verified_runtime_ref` only after both public build-identity artifacts satisfy the
+closed contract. Static workflow constants are therefore not mislabeled as deployed
+evidence. The post-journey verifier adds only the bounded stability marker after both
+origins still report the same reviewed release.
+
+The fixed test proxy also observes the server-generated `X-Request-ID` only for a
+Platform Demo reset that returns a 5xx response. It writes that UUID to a private,
+run-ID/run-attempt-specific temporary file using create-only semantics. If the
+journey fails, the diagnostic script reads that exact request ID and accepts only a
+server-side reset failure audit event with the same correlation ID and a timestamp
+inside the acceptance window. A journey failure unrelated to reset therefore emits
+`not_available` rather than attributing another user's reset event to this run.
 
 The journey runs with a captured step outcome so a destructive failure cannot leave
 the shared public Demo in an unknown partial state. On journey failure, the workflow
-first reads only the bounded server-side reset failure audit evidence, then creates a
-fresh Platform Demo session, switches it to `security_admin`, performs the authorized
-deterministic reset/reseed, records only the cleanup seed/checksum, uploads evidence,
-and finally re-raises the original journey failure. Cleanup failure is also a failed
-acceptance and is never ignored. No database URL, session/CSRF value, provider token
-or other credential is written to the evidence artifact.
+reads only the bounded, correlation-matched server-side reset failure audit evidence,
+then creates a fresh Platform Demo session, switches it to `security_admin`, performs
+the authorized deterministic reset/reseed, records only the cleanup seed/checksum,
+uploads evidence, and finally re-raises the original journey failure. Cleanup failure
+is also a failed acceptance and is never ignored. No database URL, session/CSRF
+value, provider token or other credential is written to the evidence artifact.
 
 A run that begins while a Render Free service is spun down additionally supplies the
 cold-start eventual-readiness evidence required by #157. A warm run proves hosted
