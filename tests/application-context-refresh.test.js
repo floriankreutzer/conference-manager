@@ -71,7 +71,7 @@ test('reference-data refresh replaces the cached catalog only after a bounded va
     async request(path, options = {}) {
       signals.push(options.signal);
       const payload = applicationProjectionPayload(
-        new URL(`https://conference.test/${path}`),
+        new URL(`https://conference.test/api/${path}`),
         { defaultCurrency: 'GBP' },
       );
       assert.notEqual(payload, null);
