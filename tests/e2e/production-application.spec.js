@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productionUtcInstant } from '../../src/core/production-time.js';
+import { applicationProjectionPayload } from './fixtures/application-projections.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ORIGIN = 'https://conference.test';
@@ -232,6 +233,19 @@ async function installProductionApplicationFixture(page, {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify(presentationPayload()),
+      });
+      return;
+    }
+
+    if (
+      request.method() === 'GET'
+      && ['/api/v1/application/profile', '/api/v1/application/site-info', '/api/v1/application/notifications']
+        .includes(url.pathname)
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify(applicationProjectionPayload(url, { displayName: 'Demo Employee' })),
       });
       return;
     }
