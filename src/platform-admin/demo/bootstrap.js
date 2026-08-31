@@ -4,6 +4,7 @@ import { createPlatformAdminApi } from '../platform-api.js';
 import {
   PLATFORM_ADMIN_DEMO_PERSONAS,
   createPlatformDemoSessionApi,
+  loadBoundedPlatformDemoSession,
 } from './operator-session.js';
 
 async function bootstrapDemoPlatformAdmin() {
@@ -14,7 +15,7 @@ async function bootstrapDemoPlatformAdmin() {
       csrfTokenProvider: () => csrfToken,
     });
     const sessionApi = createPlatformDemoSessionApi({ apiClient });
-    let session = await sessionApi.loadSession();
+    let session = await loadBoundedPlatformDemoSession(sessionApi);
     csrfToken = session.csrfToken;
 
     const application = createPlatformAdminApplication({
@@ -34,7 +35,7 @@ async function bootstrapDemoPlatformAdmin() {
         async reset() {
           await sessionApi.reset();
           csrfToken = null;
-          const next = await sessionApi.loadSession();
+          const next = await loadBoundedPlatformDemoSession(sessionApi);
           session = next;
           csrfToken = next.csrfToken;
           return next.operator;
