@@ -7,7 +7,7 @@ import { verifyHostedDemoDeployment } from '../scripts/verify-hosted-demo-deploy
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const FRONTEND_REF = '07f2896d56e6f66a9f8daf96457ab12c763adf80';
-const RUNTIME_REF = '5a9818d9e13589f1ec4f79610ac51129513e279a';
+const RUNTIME_REF = '8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa';
 const CHECKSUM = 'a'.repeat(64);
 
 function jsonResponse(body, { status = 200, cookie = null } = {}) {
