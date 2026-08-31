@@ -6,7 +6,7 @@ function catalogEntries(section) {
     : [];
 }
 
-function catalogPage(section) {
+function catalogPage(section, defaultCurrency) {
   return {
     schemaVersion: 2,
     configurationRevisions: {
@@ -31,7 +31,7 @@ function catalogPage(section) {
         allowedServiceIds: [],
       },
     },
-    organization: { defaultCurrency: 'EUR' },
+    organization: { defaultCurrency },
     costAllocation: { allocationRequired: false },
     context: 'e2e_application_projection',
     section,
@@ -40,12 +40,15 @@ function catalogPage(section) {
   };
 }
 
-export function applicationProjectionPayload(url, { displayName = 'Fixture User' } = {}) {
+export function applicationProjectionPayload(url, {
+  displayName = 'Fixture User',
+  defaultCurrency = 'EUR',
+} = {}) {
   switch (url.pathname) {
     case '/api/v1/application/profile':
       return { schemaVersion: 1, profile: { displayName } };
     case '/api/v1/application/catalog':
-      return catalogPage(url.searchParams.get('section'));
+      return catalogPage(url.searchParams.get('section'), defaultCurrency);
     case '/api/v1/application/site-info':
       return { schemaVersion: 1, siteInfo: {} };
     case '/api/v1/application/requests':
