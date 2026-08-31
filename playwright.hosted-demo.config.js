@@ -1,0 +1,22 @@
+import { defineConfig, devices } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests/e2e-shared',
+  fullyParallel: false,
+  workers: 1,
+  timeout: 180_000,
+  retries: 0,
+  expect: { timeout: 15_000 },
+  reporter: [['list'], ['html', { outputFolder: 'playwright-report-hosted-demo', open: 'never' }]],
+  use: {
+    headless: true,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium-hosted-demo',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+});
