@@ -1,3 +1,7 @@
+import { readFile } from 'node:fs/promises';
+
+import { hostedResetRequestIdPath } from './hosted-demo-run-context.mjs';
+
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
@@ -38,6 +42,34 @@ function acceptanceStartedAt() {
   return epoch;
 }
 
+async function expectedResetRequestId() {
+  const path = hostedResetRequestIdPath();
+  if (!path) return null;
+  let value;
+  try {
+    value = (await readFile(path, 'utf8')).trim();
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+  if (!UUID_PATTERN.test(value)) {
+    throw new Error('HOSTED_DEMO_DIAGNOSTIC_REQUEST_ID_INVALID');
+  }
+  return value;
+}
+
+function writeUnavailableEvidence() {
+  process.stdout.write('reset_failure_reason=not_available\n');
+  process.stdout.write('reset_failure_correlation_id=not_available\n');
+  process.stdout.write('reset_failure_occurred_at=not_available\n');
+}
+
+const resetRequestId = await expectedResetRequestId();
+if (resetRequestId === null) {
+  writeUnavailableEvidence();
+  process.exit(0);
+}
+
 const establishedResponse = await fetch(`${PLATFORM_ORIGIN}${SESSION_PATH}`, {
   redirect: 'error',
 });
@@ -72,14 +104,13 @@ const failure = audit.items.find((item) => (
   item?.action === 'platform.recovery.executed'
   && item?.outcome === 'failure'
   && item?.metadata?.operation === 'reset'
+  && item?.correlationId === resetRequestId
   && Number.isFinite(Date.parse(item.occurredAt))
   && Date.parse(item.occurredAt) >= startedAt
 ));
 
 if (!failure) {
-  process.stdout.write('reset_failure_reason=not_available\n');
-  process.stdout.write('reset_failure_correlation_id=not_available\n');
-  process.stdout.write('reset_failure_occurred_at=not_available\n');
+  writeUnavailableEvidence();
   process.exit(0);
 }
 
