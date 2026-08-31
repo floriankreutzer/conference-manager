@@ -118,6 +118,16 @@ The workflow is triggered by changes to its acceptance infrastructure and to
 `tests/e2e-shared/**`, because that shared suite is the exact critical journey reused
 against the public deployment.
 
+The job has an explicit 30-minute ceiling but does not allow the readiness phase to
+consume that entire budget. It records its own start epoch before checkout, limits the
+combined Customer/Platform cold-start polling phase to 360 seconds, and then checks
+the elapsed job time immediately before the destructive journey. The journey may
+start only while at least 900 seconds of the declared job budget remain. If setup,
+readiness or preflight identity verification consumed too much time, the run fails
+before any business mutation. This reserve covers the 180-second browser journey,
+bounded failure diagnostics, two bounded reset passes, the post-journey identity
+check, artifact upload and failure enforcement.
+
 The workflow first waits for both public readiness endpoints within the bounded
 Render Free cold-start window. It then fetches
 `/assets/hosted-demo-deployment.json` from both origins and requires the closed
@@ -127,11 +137,11 @@ explicit 20-second deadline. Missing metadata, an unexpected field, stale/mutabl
 ref, wrong repository/branch, a service identity that does not match its origin, or
 a timeout fails acceptance closed.
 
-Only after deployment identity is verified does the workflow run the existing
-`tests/e2e-shared` critical journey through a fixed-origin local TLS test proxy. The
-proxy can target only the two source-defined Render origins, rewrites the local test
-Host/Origin/Referer values to their matching deployed same-origin values, validates
-upstream TLS normally, and has no general-purpose destination input.
+Only after deployment identity and the cleanup-reserve gate pass does the workflow
+run the existing `tests/e2e-shared` critical journey through a fixed-origin local TLS
+test proxy. The proxy can target only the two source-defined Render origins, rewrites
+the local test Host/Origin/Referer values to their matching deployed same-origin
+values, validates upstream TLS normally, and has no general-purpose destination input.
 
 The fixed test proxy observes the server-generated `X-Request-ID` only for a
 Platform Demo reset that returns a 5xx response. It writes that UUID to a private,
@@ -141,9 +151,9 @@ accepts only a server-side reset failure audit event with the same correlation I
 and a timestamp inside the acceptance window. This ordering is required because a
 successful reset truncates and recreates Platform audit state. Diagnostic
 session/persona/audit requests have explicit 20-second deadlines, so this bounded
-evidence read cannot consume the overall job timeout and prevent cleanup. A journey
-failure unrelated to reset emits `not_available` rather than attributing another
-user's reset event to this run.
+evidence read cannot consume the reserved cleanup window. A journey failure unrelated
+to reset emits `not_available` rather than attributing another user's reset event to
+this run.
 
 After the bounded failure-evidence read, baseline restoration has priority over all
 remaining evidence calls. The workflow establishes fresh Platform Demo
@@ -183,13 +193,15 @@ hosted journey itself proves the deployed environment for the exercised controls
 
 The evidence file initially records only the fixed provider origins, **expected**
 frontend/runtime refs, acceptance source SHA, GitHub run ID, run attempt and start
-time. The preflight verifier adds `verified_frontend_ref` and
-`verified_runtime_ref` only after both public build-identity artifacts satisfy the
-closed contract. Static workflow constants are therefore not mislabeled as deployed
-evidence. Correlation-matched failure diagnostics are captured before reset cleanup;
-successful cleanup records only the fixed seed version, matched checksum and
-`cleanup_repeatable=true`. The post-journey verifier adds only the bounded stability
-marker after both origins still report the same reviewed release.
+time. When the cleanup-reserve gate passes, it additionally records only the number
+of seconds reserved for the destructive phase. The preflight verifier adds
+`verified_frontend_ref` and `verified_runtime_ref` only after both public
+build-identity artifacts satisfy the closed contract. Static workflow constants are
+therefore not mislabeled as deployed evidence. Correlation-matched failure diagnostics
+are captured before reset cleanup; successful cleanup records only the fixed seed
+version, matched checksum and `cleanup_repeatable=true`. The post-journey verifier
+adds only the bounded stability marker after both origins still report the same
+reviewed release.
 
 The journey uses a captured step outcome. On failure the workflow executes bounded,
 correlation-matched diagnostics, then the bounded two-pass repeatability cleanup,
