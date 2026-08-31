@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const PROXY_PATH = 'scripts/serve-hosted-demo-e2e.mjs';
 const DIAGNOSTIC_PATH = 'scripts/read-hosted-demo-reset-evidence.mjs';
+const VERIFY_PATH = 'scripts/verify-hosted-demo-deployment.mjs';
+const RESET_PATH = 'scripts/reset-hosted-demo-baseline.mjs';
 const WORKFLOW_PATH = '.github/workflows/hosted-demo-acceptance.yml';
 
 test('hosted Demo proxy stays fixed-origin, outlives reset, and captures only failed reset correlation', () => {
@@ -30,6 +32,20 @@ test('hosted Demo proxy stays fixed-origin, outlives reset, and captures only fa
   assert.match(source, /flag: 'wx'/);
 });
 
+test('hosted evidence network requests remain bounded before or after cleanup', () => {
+  const diagnostic = readFileSync(DIAGNOSTIC_PATH, 'utf8');
+  const verifier = readFileSync(VERIFY_PATH, 'utf8');
+  const reset = readFileSync(RESET_PATH, 'utf8');
+
+  assert.match(diagnostic, /const DIAGNOSTIC_TIMEOUT_MS = 20_000;/);
+  assert.match(diagnostic, /signal: AbortSignal\.timeout\(DIAGNOSTIC_TIMEOUT_MS\)/);
+  assert.match(verifier, /const METADATA_TIMEOUT_MS = 20_000;/);
+  assert.match(verifier, /signal: AbortSignal\.timeout\(METADATA_TIMEOUT_MS\)/);
+  assert.match(reset, /const SESSION_TIMEOUT_MS = 20_000;/);
+  assert.match(reset, /const RESET_TIMEOUT_MS = 75_000;/);
+  assert.match(reset, /signal: AbortSignal\.timeout\(timeoutMs\)/);
+});
+
 test('hosted reset diagnostic correlates exact failed request and never logs session material', () => {
   const source = readFileSync(DIAGNOSTIC_PATH, 'utf8');
   assert.match(source, /const PLATFORM_ORIGIN = 'https:\/\/conference-manager-ops-demo\.onrender\.com';/);
@@ -47,23 +63,23 @@ test('hosted reset diagnostic correlates exact failed request and never logs ses
   assert.doesNotMatch(source, /console\.(?:log|info|debug|warn|error)/);
 });
 
-test('hosted acceptance gates shared-journey changes and re-verifies identity around destructive execution', () => {
+test('hosted acceptance restores a failed journey before post-journey evidence calls', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const preIdentityIndex = workflow.indexOf('name: Verify live deployment identity before journey');
   const journeyIndex = workflow.indexOf('name: Run hosted cross-role Demo journey');
-  const postIdentityIndex = workflow.indexOf('name: Re-verify live deployment identity after journey');
-  const diagnosticIndex = workflow.indexOf('name: Record bounded reset failure audit evidence');
   const cleanupIndex = workflow.indexOf('name: Restore public Demo baseline after failed journey');
+  const postIdentityIndex = workflow.indexOf('name: Re-verify live deployment identity after journey and cleanup');
+  const diagnosticIndex = workflow.indexOf('name: Record bounded reset failure audit evidence');
   const uploadIndex = workflow.indexOf('name: Upload hosted Demo evidence');
   const enforcementIndex = workflow.indexOf('name: Enforce hosted journey result');
 
   assert.ok(
     preIdentityIndex >= 0
       && journeyIndex > preIdentityIndex
-      && postIdentityIndex > journeyIndex
+      && cleanupIndex > journeyIndex
+      && postIdentityIndex > cleanupIndex
       && diagnosticIndex > postIdentityIndex
-      && cleanupIndex > diagnosticIndex
-      && uploadIndex > cleanupIndex
+      && uploadIndex > diagnosticIndex
       && enforcementIndex > uploadIndex,
   );
   assert.match(workflow, /- 'tests\/e2e-shared\/\*\*'/);
@@ -77,7 +93,11 @@ test('hosted acceptance gates shared-journey changes and re-verifies identity ar
   );
   assert.match(
     workflow,
-    /name: Re-verify live deployment identity after journey\n\s+if: always\(\) && steps\.pre_identity\.outcome == 'success' && steps\.hosted_journey\.outcome != 'skipped'/,
+    /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
+  );
+  assert.match(
+    workflow,
+    /name: Re-verify live deployment identity after journey and cleanup\n\s+if: always\(\) && steps\.pre_identity\.outcome == 'success' && steps\.hosted_journey\.outcome != 'skipped'/,
   );
   assert.match(workflow, /node scripts\/verify-hosted-demo-deployment\.mjs >\/dev\/null/);
   assert.match(workflow, /echo "deployment_identity_stable=true" >> hosted-demo-evidence\.txt/);
@@ -88,10 +108,15 @@ test('hosted acceptance gates shared-journey changes and re-verifies identity ar
   assert.match(workflow, /node scripts\/read-hosted-demo-reset-evidence\.mjs >> hosted-demo-evidence\.txt/);
   assert.match(
     workflow,
-    /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
-  );
-  assert.match(
-    workflow,
     /name: Enforce hosted journey result\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: exit 1/,
   );
+});
+
+test('hosted cleanup requires two matching deterministic reset checksums', () => {
+  const source = readFileSync(RESET_PATH, 'utf8');
+  assert.match(source, /const firstChecksum = await performReset\(fetchImpl, targetOrigin\);/);
+  assert.match(source, /const secondChecksum = await performReset\(fetchImpl, targetOrigin\);/);
+  assert.match(source, /if \(secondChecksum !== firstChecksum\)/);
+  assert.match(source, /HOSTED_DEMO_RESET_REPEATABILITY_INVALID/);
+  assert.match(source, /cleanup_repeatable=true/);
 });
