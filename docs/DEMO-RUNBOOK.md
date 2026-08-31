@@ -37,7 +37,7 @@ The Demo reuses canonical Customer application services and repository contracts
 6. Select Tenant Admin through the Demo context control and verify the seeded settings, Users, integration simulation, audit and readiness state.
 7. Open the Platform Demo separately and verify that it observes the same canonical Tenant identifiers and reset baseline through its own session.
 
-Reset is a backend operation protected by Demo-only composition, authorization, CSRF when exposed through HTTP, and a database-level exclusive reset lease. It atomically clears mutable Demo state, reseeds canonical rows and projections, records the reset audit event, advances session invalidation state and returns the deterministic seed version/checksum. Production artifacts and route registries do not contain the reset implementation.
+Reset is a backend operation protected by Demo-only composition, authorization, CSRF when exposed through HTTP, and a database-level transaction-scoped exclusive advisory lock. It atomically clears mutable Demo state, reseeds canonical rows and projections, records the reset audit event, advances session invalidation state and returns the deterministic seed version/checksum. Production artifacts and route registries do not contain the reset implementation.
 
 ## Current usable baseline scenarios
 
@@ -89,7 +89,7 @@ configuration owns only `tests/e2e-shared`. This separation prevents duplicate
 browser execution while keeping both suites required for frontend changes.
 
 The shared job checks out the API at immutable commit
-`8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`, provisions an isolated PostgreSQL
+`47feb12e10715151ef244c89fac3b81b783ab309`, provisions an isolated PostgreSQL
 database, runs the canonical and Demo migrations, starts the separate Customer
 and Platform API processes, requires both real readiness endpoints to pass, and
 then executes the shared browser journey. Because `conference-manager-api` is
@@ -100,7 +100,7 @@ credential is absent; no secret value is printed or included in artifacts.
 The reciprocal API CI resolves the functional frontend journey from the immutable
 `DEMO_FRONTEND_REF` in the reviewed Render Blueprint. The approved frontend release
 is `07f2896d56e6f66a9f8daf96457ab12c763adf80`; the reviewed hosted API evidence
-baseline is `8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`. Required API CI validates
+baseline is `47feb12e10715151ef244c89fac3b81b783ab309`. Required API CI validates
 architecture/security gates, PostgreSQL 18 migrations and persistence, real Demo
 readiness, and the same shared journey in Chromium and WebKit before a provider
 deploy is eligible for hosted acceptance.
@@ -165,7 +165,7 @@ successful resets must return the fixed seed version and the canonical semantic
 checksum
 `2869d16d01b34eb284a9a84f964a8b83e720b8ea780c65b65ae467a2f4c29b5f`,
 independently derived from pinned API release
-`8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`. The two responses must also match
+`47feb12e10715151ef244c89fac3b81b783ab309`. The two responses must also match
 each other; otherwise cleanup fails closed. Only that canonical matching pair
 records `cleanup_repeatable=true`.
 
