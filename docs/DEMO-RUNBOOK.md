@@ -161,9 +161,13 @@ remaining evidence calls. The workflow establishes fresh Platform Demo
 bounded session/persona requests and a 75-second reset request deadline, which
 remains longer than the backend's bounded 60-second hosted reset budget. The cleanup
 then establishes fresh authority a second time and performs the reset again. Both
-successful resets must return the same fixed seed version and the exact same
-well-formed semantic checksum; otherwise cleanup fails with a repeatability error.
-Only a matching pair records `cleanup_repeatable=true`.
+successful resets must return the fixed seed version and the canonical semantic
+checksum
+`2869d16d01b34eb284a9a84f964a8b83e720b8ea780c65b65ae467a2f4c29b5f`,
+independently derived from pinned API release
+`8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`. The two responses must also match
+each other; otherwise cleanup fails closed. Only that canonical matching pair
+records `cleanup_repeatable=true`.
 
 After a successful journey, or after the failure cleanup attempt, the workflow
 fetches both deployment identity artifacts a second time and requires the same exact
