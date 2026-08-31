@@ -89,16 +89,131 @@ configuration owns only `tests/e2e-shared`. This separation prevents duplicate
 browser execution while keeping both suites required for frontend changes.
 
 The shared job checks out the API at immutable commit
-`1bd4d66d0a22967e5ff813a4288be4e8e072c3e5`, provisions an isolated PostgreSQL
+`8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`, provisions an isolated PostgreSQL
 database, runs the canonical and Demo migrations, starts the separate Customer
-and Platform API processes, and then executes the Chromium and WebKit journey.
-Because `conference-manager-api` is private, repository administrators must
-configure `SHARED_DEMO_API_READ_TOKEN` as a read-only Actions secret. The job
-fails closed before checkout when the credential is absent; no secret value is
-printed or included in artifacts.
+and Platform API processes, requires both real readiness endpoints to pass, and
+then executes the shared browser journey. Because `conference-manager-api` is
+private, repository administrators must configure `SHARED_DEMO_API_READ_TOKEN`
+as a read-only Actions secret. The job fails closed before checkout when the
+credential is absent; no secret value is printed or included in artifacts.
 
-The reciprocal API CI pins the functional frontend journey commit
-`8bef6173f9a6c660e1d0062c430b01e6b44075fc`. Its required matrix validates the
-API gates, PostgreSQL 18 migrations and persistence, and the same shared journey
-in Chromium and WebKit. The frontend-owned job remains fail-closed until
-repository administrators provide the required read-only secret.
+The reciprocal API CI resolves the functional frontend journey from the immutable
+`DEMO_FRONTEND_REF` in the reviewed Render Blueprint. The approved frontend release
+is `07f2896d56e6f66a9f8daf96457ab12c763adf80`; the reviewed hosted API evidence
+baseline is `8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`. Required API CI validates
+architecture/security gates, PostgreSQL 18 migrations and persistence, real Demo
+readiness, and the same shared journey in Chromium and WebKit before a provider
+deploy is eligible for hosted acceptance.
+
+## Hosted Render acceptance
+
+The operational SaaS 3.5 Demo uses the provider-managed HTTPS origins:
+
+- Customer: `https://conference-manager-demo.onrender.com`
+- Platform: `https://conference-manager-ops-demo.onrender.com`
+
+`.github/workflows/hosted-demo-acceptance.yml` is the external acceptance gate for
+those public services. It does not start a local API or use a database credential.
+The workflow is triggered by changes to its acceptance infrastructure and to
+`tests/e2e-shared/**`, because that shared suite is the exact critical journey reused
+against the public deployment.
+
+The job has an explicit 30-minute ceiling but does not allow the readiness phase to
+consume that entire budget. It records its own start epoch before checkout, limits the
+combined Customer/Platform cold-start polling phase to 360 seconds, and then checks
+the elapsed job time immediately before the destructive journey. The journey may
+start only while at least 900 seconds of the declared job budget remain. If setup,
+readiness or preflight identity verification consumed too much time, the run fails
+before any business mutation. This reserve covers the 180-second browser journey,
+bounded failure diagnostics, two bounded reset passes, the post-journey identity
+check, artifact upload and failure enforcement.
+
+The workflow first waits for both public readiness endpoints within the bounded
+Render Free cold-start window. It then fetches
+`/assets/hosted-demo-deployment.json` from both origins and requires the closed
+schema-v1 deployment identity to match the exact reviewed API and frontend commit
+refs before any destructive browser action starts. Metadata requests have an
+explicit 20-second deadline. Missing metadata, an unexpected field, stale/mutable
+ref, wrong repository/branch, a service identity that does not match its origin, or
+a timeout fails acceptance closed.
+
+Only after deployment identity and the cleanup-reserve gate pass does the workflow
+run the existing `tests/e2e-shared` critical journey through a fixed-origin local TLS
+test proxy. The proxy can target only the two source-defined Render origins, rewrites
+the local test Host/Origin/Referer values to their matching deployed same-origin
+values, validates upstream TLS normally, and has no general-purpose destination input.
+
+The fixed test proxy observes the server-generated `X-Request-ID` only for a
+Platform Demo reset that returns a 5xx response. It writes that UUID to a private,
+run-ID/run-attempt-specific temporary file using create-only semantics. When the
+journey fails, the diagnostic step reads that exact request ID before cleanup and
+accepts only a server-side reset failure audit event with the same correlation ID
+and a timestamp inside the acceptance window. This ordering is required because a
+successful reset truncates and recreates Platform audit state. Diagnostic
+session/persona/audit requests have explicit 20-second deadlines, so this bounded
+evidence read cannot consume the reserved cleanup window. A journey failure unrelated
+to reset emits `not_available` rather than attributing another user's reset event to
+this run.
+
+After the bounded failure-evidence read, baseline restoration has priority over all
+remaining evidence calls. The workflow establishes fresh Platform Demo
+`security_admin` authority and performs the deterministic reset/reseed cleanup using
+bounded session/persona requests and a 75-second reset request deadline, which
+remains longer than the backend's bounded 60-second hosted reset budget. The cleanup
+then establishes fresh authority a second time and performs the reset again. Both
+successful resets must return the fixed seed version and the canonical semantic
+checksum
+`2869d16d01b34eb284a9a84f964a8b83e720b8ea780c65b65ae467a2f4c29b5f`,
+independently derived from pinned API release
+`8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa`. The two responses must also match
+each other; otherwise cleanup fails closed. Only that canonical matching pair
+records `cleanup_repeatable=true`.
+
+After a successful journey, or after the failure cleanup attempt, the workflow
+fetches both deployment identity artifacts a second time and requires the same exact
+reviewed refs again. A provider redeploy between preflight and the end of the tested
+operation therefore fails acceptance rather than allowing evidence from one build
+to be attached to requests served by another. Only a successful second check records
+`deployment_identity_stable=true`. Because failure cleanup runs before this
+post-journey metadata check, a stalled or failed identity request cannot prevent
+baseline restoration; the metadata request itself is also bounded to 20 seconds.
+
+The hosted acceptance run uses Chromium once to avoid duplicating destructive
+reset/reseed traffic against the shared public Demo. Cross-browser Chromium and
+WebKit coverage remains mandatory in the isolated frontend/API CI matrices. The
+hosted journey itself proves the deployed environment for the exercised controls:
+
+- both public readiness endpoints return HTTP 200;
+- the two public build-identity artifacts match the reviewed API/frontend refs before and after the journey/cleanup boundary;
+- Customer and Platform sessions/cookies remain separate;
+- browser LocalStorage/sessionStorage clearing does not erase authority;
+- a Platform lifecycle mutation propagates to the Customer surface;
+- Tenant Admin configuration propagates to Employee and later Platform projection;
+- Employee and Conference Manager use the same persisted Request and history;
+- cross-Tenant object access remains concealed;
+- missing CSRF and insufficient Platform authority fail closed;
+- deterministic provider degradation remains bounded and server-defined;
+- reset/reseed invalidates both session domains, restores a repeatable baseline checksum and can be repeated reproducibly.
+
+The evidence file initially records only the fixed provider origins, **expected**
+frontend/runtime refs, acceptance source SHA, GitHub run ID, run attempt and start
+time. When the cleanup-reserve gate passes, it additionally records only the number
+of seconds reserved for the destructive phase. The preflight verifier adds
+`verified_frontend_ref` and `verified_runtime_ref` only after both public
+build-identity artifacts satisfy the closed contract. Static workflow constants are
+therefore not mislabeled as deployed evidence. Correlation-matched failure diagnostics
+are captured before reset cleanup; successful cleanup records only the fixed seed
+version, matched checksum and `cleanup_repeatable=true`. The post-journey verifier
+adds only the bounded stability marker after both origins still report the same
+reviewed release.
+
+The journey uses a captured step outcome. On failure the workflow executes bounded,
+correlation-matched diagnostics, then the bounded two-pass repeatability cleanup,
+then post-journey deployment verification. Evidence is uploaded under `always()`,
+and the original journey failure is finally re-raised. A cleanup failure is also a
+failed acceptance and is never ignored. No database URL, session/CSRF value,
+provider token or other credential is written to the evidence artifact.
+
+A run that begins while a Render Free service is spun down additionally supplies the
+cold-start eventual-readiness evidence required by #157. A warm run proves hosted
+functional readiness but must not be mislabeled as cold-start evidence.

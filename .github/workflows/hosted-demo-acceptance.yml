@@ -1,0 +1,140 @@
+name: Hosted Demo Acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/hosted-demo-acceptance.yml'
+      - 'playwright.hosted-demo.config.js'
+      - 'scripts/serve-hosted-demo-e2e.mjs'
+      - 'scripts/read-hosted-demo-reset-evidence.mjs'
+      - 'scripts/reset-hosted-demo-baseline.mjs'
+      - 'scripts/verify-hosted-demo-deployment.mjs'
+      - 'scripts/hosted-demo-run-context.mjs'
+      - 'tests/e2e-shared/**'
+      - 'tests/hosted-demo-acceptance-support.test.js'
+      - 'tests/hosted-demo-acceptance.test.js'
+      - 'package.json'
+      - '.github/workflows/ci.yml'
+      - 'docs/DEMO-RUNBOOK.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-demo-acceptance
+  cancel-in-progress: false
+
+env:
+  SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
+  SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
+  EXPECTED_FRONTEND_REF: 07f2896d56e6f66a9f8daf96457ab12c763adf80
+  EXPECTED_RUNTIME_REF: 8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa
+  HOSTED_JOB_BUDGET_SECONDS: '1800'
+  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '900'
+  HOSTED_READINESS_BUDGET_SECONDS: '360'
+
+jobs:
+  hosted-demo-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Record hosted job budget start
+        shell: bash
+        run: echo "HOSTED_JOB_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Wait for public Customer and Platform readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          deadline=$(( $(date -u +%s) + HOSTED_READINESS_BUDGET_SECONDS ))
+          attempt=0
+          while (( $(date -u +%s) < deadline )); do
+            attempt=$((attempt + 1))
+            customer_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "$SHARED_DEMO_CUSTOMER_ORIGIN/api/v1/health/ready" || true)"
+            platform_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "$SHARED_DEMO_PLATFORM_ORIGIN/api/v1/platform/health/ready" || true)"
+            if [[ "$customer_status" == '200' && "$platform_status" == '200' ]]; then
+              echo "Customer and Platform Demo ready after attempt $attempt."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Customer and Platform Demo did not become ready within the bounded cold-start window." >&2
+          exit 1
+      - name: Record hosted acceptance context
+        shell: bash
+        run: |
+          set -euo pipefail
+          started_at="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
+          echo "HOSTED_ACCEPTANCE_STARTED_AT=$started_at" >> "$GITHUB_ENV"
+          {
+            echo "customer_origin=$SHARED_DEMO_CUSTOMER_ORIGIN"
+            echo "platform_origin=$SHARED_DEMO_PLATFORM_ORIGIN"
+            echo "expected_frontend_ref=$EXPECTED_FRONTEND_REF"
+            echo "expected_runtime_ref=$EXPECTED_RUNTIME_REF"
+            echo "acceptance_source_ref=$GITHUB_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
+            echo "acceptance_started_at=$started_at"
+          } > hosted-demo-evidence.txt
+      - name: Verify live deployment identity before journey
+        id: pre_identity
+        run: node scripts/verify-hosted-demo-deployment.mjs >> hosted-demo-evidence.txt
+      - name: Require destructive cleanup reserve
+        shell: bash
+        run: |
+          set -euo pipefail
+          now="$(date -u +%s)"
+          elapsed=$(( now - HOSTED_JOB_STARTED_EPOCH ))
+          latest_start=$(( HOSTED_JOB_BUDGET_SECONDS - HOSTED_DESTRUCTIVE_RESERVE_SECONDS ))
+          if (( elapsed > latest_start )); then
+            echo "Insufficient hosted job budget remains for the destructive journey and guaranteed cleanup." >&2
+            exit 1
+          fi
+          echo "cleanup_reserve_seconds=$HOSTED_DESTRUCTIVE_RESERVE_SECONDS" >> hosted-demo-evidence.txt
+      - name: Add fixed acceptance hosts
+        run: echo "127.0.0.1 customer.demo.test platform.demo.test" | sudo tee -a /etc/hosts >/dev/null
+      - name: Run hosted cross-role Demo journey
+        id: hosted_journey
+        continue-on-error: true
+        run: npm run test:e2e:hosted-demo
+      - name: Record bounded reset failure audit evidence
+        if: always() && steps.hosted_journey.outcome == 'failure'
+        run: node scripts/read-hosted-demo-reset-evidence.mjs >> hosted-demo-evidence.txt
+      - name: Restore public Demo baseline after failed journey
+        if: always() && steps.hosted_journey.outcome == 'failure'
+        run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
+      - name: Re-verify live deployment identity after journey and cleanup
+        if: always() && steps.pre_identity.outcome == 'success' && steps.hosted_journey.outcome != 'skipped'
+        run: |
+          node scripts/verify-hosted-demo-deployment.mjs >/dev/null
+          echo "deployment_identity_stable=true" >> hosted-demo-evidence.txt
+      - name: Upload hosted Demo evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-demo-acceptance-evidence
+          path: hosted-demo-evidence.txt
+          if-no-files-found: error
+      - name: Upload hosted Demo browser report on journey failure
+        if: always() && steps.hosted_journey.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-demo-playwright-report
+          path: playwright-report-hosted-demo/
+          if-no-files-found: ignore
+      - name: Enforce hosted journey result
+        if: always() && steps.hosted_journey.outcome == 'failure'
+        run: exit 1
