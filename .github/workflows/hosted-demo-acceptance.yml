@@ -10,7 +10,10 @@ on:
       - 'scripts/read-hosted-demo-reset-evidence.mjs'
       - 'scripts/reset-hosted-demo-baseline.mjs'
       - 'scripts/verify-hosted-demo-deployment.mjs'
+      - 'scripts/hosted-demo-run-context.mjs'
+      - 'tests/e2e-shared/**'
       - 'tests/hosted-demo-acceptance-support.test.js'
+      - 'tests/hosted-demo-acceptance.test.js'
       - 'package.json'
       - '.github/workflows/ci.yml'
       - 'docs/DEMO-RUNBOOK.md'
@@ -79,9 +82,11 @@ jobs:
             echo "expected_runtime_ref=$EXPECTED_RUNTIME_REF"
             echo "acceptance_source_ref=$GITHUB_SHA"
             echo "run_id=$GITHUB_RUN_ID"
+            echo "run_attempt=$GITHUB_RUN_ATTEMPT"
             echo "acceptance_started_at=$started_at"
           } > hosted-demo-evidence.txt
-      - name: Verify live deployment identity
+      - name: Verify live deployment identity before journey
+        id: pre_identity
         run: node scripts/verify-hosted-demo-deployment.mjs >> hosted-demo-evidence.txt
       - name: Add fixed acceptance hosts
         run: echo "127.0.0.1 customer.demo.test platform.demo.test" | sudo tee -a /etc/hosts >/dev/null
@@ -89,6 +94,11 @@ jobs:
         id: hosted_journey
         continue-on-error: true
         run: npm run test:e2e:hosted-demo
+      - name: Re-verify live deployment identity after journey
+        if: always() && steps.pre_identity.outcome == 'success' && steps.hosted_journey.outcome != 'skipped'
+        run: |
+          node scripts/verify-hosted-demo-deployment.mjs >/dev/null
+          echo "deployment_identity_stable=true" >> hosted-demo-evidence.txt
       - name: Record bounded reset failure audit evidence
         if: always() && steps.hosted_journey.outcome == 'failure'
         run: node scripts/read-hosted-demo-reset-evidence.mjs >> hosted-demo-evidence.txt
