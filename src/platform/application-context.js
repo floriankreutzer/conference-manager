@@ -60,7 +60,7 @@ function normalizedOptionalProjectionTimeout(value) {
     : OPTIONAL_PROJECTION_TIMEOUT_MS;
 }
 
-async function loadBoundedOptionalProjection(load, timeoutMs) {
+async function loadBoundedProjection(load, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -68,6 +68,18 @@ async function loadBoundedOptionalProjection(load, timeoutMs) {
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
+}
+
+function apiClientBoundToSignal(apiClient, signal) {
+  return Object.freeze({
+    request(path, options) {
+      return apiClient.request(path, { ...(options || {}), signal });
+    },
+  });
+}
+
+function persistenceBoundToSignal(apiClient, signal) {
+  return createProductionPersistence({ apiClient: apiClientBoundToSignal(apiClient, signal) });
 }
 
 export function createApplicationContextFromState({
@@ -199,7 +211,7 @@ export function createApplicationContextFromState({
       if (!serverPersistence) return notifications;
       const revision = notificationRefreshRevision + 1;
       notificationRefreshRevision = revision;
-      const refreshed = immutableArray(await loadBoundedOptionalProjection(
+      const refreshed = immutableArray(await loadBoundedProjection(
         (signal) => serverPersistence.listNotifications({ signal }),
         optionalTimeout,
       ), EMPTY_NOTIFICATIONS);
@@ -273,20 +285,30 @@ export async function createApplicationContext({
     status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
     session = null;
   } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
-    const persistence = createProductionPersistence({ apiClient: authentication.runtime.apiClient });
+    const apiClient = authentication.runtime.apiClient;
+    const persistence = createProductionPersistence({ apiClient });
     try {
       const [required, optional] = await Promise.all([
         Promise.all([
-          persistence.loadProfile(),
-          persistence.loadCatalog(),
-          persistence.listRequests(),
+          loadBoundedProjection(
+            (signal) => persistenceBoundToSignal(apiClient, signal).loadProfile(),
+            optionalTimeout,
+          ),
+          loadBoundedProjection(
+            (signal) => persistenceBoundToSignal(apiClient, signal).loadCatalog(),
+            optionalTimeout,
+          ),
+          loadBoundedProjection(
+            (signal) => persistenceBoundToSignal(apiClient, signal).listRequests(),
+            optionalTimeout,
+          ),
         ]),
         Promise.allSettled([
-          loadBoundedOptionalProjection(
+          loadBoundedProjection(
             (signal) => persistence.loadSiteInfo({ signal }),
             optionalTimeout,
           ),
-          loadBoundedOptionalProjection(
+          loadBoundedProjection(
             (signal) => persistence.listNotifications({ signal }),
             optionalTimeout,
           ),
