@@ -317,7 +317,7 @@ export function createProductionManagerApplication({ appRoot, setPageHeading, pe
               const history = await persistence.loadRequestHistory(request.id);
               const content = history.length
                 ? history.map((entry) => el('p', {
-                  text: `${entry.version} · ${entry.operation} · ${formattedRequestTime(entry.capturedAt, 'UTC')}`,
+                  text: `${entry.version} · ${t(`timeline.operation.${entry.operation}`)} · ${formattedRequestTime(entry.capturedAt, 'UTC')}`,
                 }))
                 : [el('p', { text: t('production.manager.historyEmpty') })];
               const close = button(t('common.close'));
