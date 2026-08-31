@@ -245,6 +245,7 @@ export function createProductionEmployeeApplication({
     });
     room.value = request.roomId;
     const date = el('input', { attrs: { type: 'date', value: startValue.date } });
+    const endDate = el('input', { attrs: { type: 'date', value: endValue.date } });
     const start = el('input', { attrs: { type: 'time', value: startValue.time } });
     const end = el('input', { attrs: { type: 'time', value: endValue.time } });
     const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(request.internalParticipants) } });
@@ -254,6 +255,7 @@ export function createProductionEmployeeApplication({
       field({ id: `changeRoom-${request.id}`, label: t('production.employee.room'), control: room, required: true }),
       field({ id: `changeDate-${request.id}`, label: t('schedule.date'), control: date, required: true }),
       field({ id: `changeStart-${request.id}`, label: t('production.employee.start'), control: start, required: true }),
+      field({ id: `changeEndDate-${request.id}`, label: t('production.employee.endDate'), control: endDate, required: true }),
       field({ id: `changeEnd-${request.id}`, label: t('production.employee.end'), control: end, required: true }),
       field({ id: `changeInternal-${request.id}`, label: t('production.employee.internal'), control: internal, required: true }),
       field({ id: `changeExternal-${request.id}`, label: t('production.employee.external'), control: external, required: true }),
@@ -269,11 +271,16 @@ export function createProductionEmployeeApplication({
       labelledById: `bookingChangeTitle-${request.id}`,
     });
     cancel.addEventListener('click', () => dialog.close());
+    let previousStartDate = date.value;
+    date.addEventListener('input', () => {
+      if (!endDate.value || endDate.value === previousStartDate) endDate.value = date.value;
+      previousStartDate = date.value;
+    });
     submit.addEventListener('click', async () => {
       const targetRoom = catalog.rooms.find((entry) => entry.id === room.value);
       const targetTimeZone = roomTimeZone(targetRoom, catalog);
       const startsAt = productionUtcInstant(date.value, start.value, targetTimeZone);
-      const endsAt = productionUtcInstant(date.value, end.value, targetTimeZone);
+      const endsAt = productionUtcInstant(endDate.value, end.value, targetTimeZone);
       const internalParticipants = safeParticipantCount(internal.value);
       const externalParticipants = safeParticipantCount(external.value);
       const totalParticipants = Number(internalParticipants) + Number(externalParticipants);
