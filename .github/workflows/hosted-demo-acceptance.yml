@@ -1,0 +1,92 @@
+name: Hosted Demo Acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/hosted-demo-acceptance.yml'
+      - 'playwright.hosted-demo.config.js'
+      - 'scripts/serve-hosted-demo-e2e.mjs'
+      - 'package.json'
+      - '.github/workflows/ci.yml'
+      - 'docs/DEMO-RUNBOOK.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-demo-acceptance
+  cancel-in-progress: false
+
+env:
+  SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
+  SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
+  DEPLOYED_FRONTEND_REF: 07f2896d56e6f66a9f8daf96457ab12c763adf80
+  DEPLOYED_RUNTIME_REF: 5cf2d8ee3303e8a413caa503792e9e93b678d69b
+
+jobs:
+  hosted-demo-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Wait for public Customer and Platform readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          wait_ready() {
+            local name="$1"
+            local url="$2"
+            for attempt in {1..48}; do
+              status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 20 "$url" || true)"
+              if [[ "$status" == '200' ]]; then
+                echo "$name ready after attempt $attempt."
+                return 0
+              fi
+              sleep 5
+            done
+            echo "$name did not become ready within the bounded cold-start window." >&2
+            return 1
+          }
+          wait_ready 'Customer Demo' "$SHARED_DEMO_CUSTOMER_ORIGIN/api/v1/health/ready"
+          wait_ready 'Platform Demo' "$SHARED_DEMO_PLATFORM_ORIGIN/api/v1/platform/health/ready"
+      - name: Add fixed acceptance hosts
+        run: echo "127.0.0.1 customer.demo.test platform.demo.test" | sudo tee -a /etc/hosts >/dev/null
+      - name: Record non-secret deployment evidence
+        run: |
+          {
+            echo "customer_origin=$SHARED_DEMO_CUSTOMER_ORIGIN"
+            echo "platform_origin=$SHARED_DEMO_PLATFORM_ORIGIN"
+            echo "frontend_ref=$DEPLOYED_FRONTEND_REF"
+            echo "runtime_ref=$DEPLOYED_RUNTIME_REF"
+            echo "acceptance_source_ref=$GITHUB_SHA"
+            echo "run_id=$GITHUB_RUN_ID"
+          } > hosted-demo-evidence.txt
+      - name: Run hosted cross-role Demo journey
+        run: npm run test:e2e:hosted-demo
+      - name: Upload hosted Demo evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-demo-acceptance-evidence
+          path: hosted-demo-evidence.txt
+          if-no-files-found: error
+      - name: Upload hosted Demo browser report on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-demo-playwright-report
+          path: playwright-report-hosted-demo/
+          if-no-files-found: ignore
