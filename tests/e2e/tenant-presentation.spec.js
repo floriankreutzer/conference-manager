@@ -232,6 +232,7 @@ test('tenant defaults drive locale and currency while an explicit User language 
     initialPresentation: presentationPayload({ defaultLocale: 'en-GB', defaultCurrency: 'CHF' }),
   });
   await defaultPage.goto(`${ORIGIN}/`);
+  await expect(defaultPage.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '1');
   await expect(defaultPage.locator('html')).toHaveAttribute('lang', 'en');
   const tenantDefault = await defaultPage.evaluate(async () => {
     const i18n = await import('/src/core/i18n.js');
@@ -248,6 +249,7 @@ test('tenant defaults drive locale and currency while an explicit User language 
     initialPresentation: presentationPayload({ defaultLocale: 'en-GB', defaultCurrency: 'GBP' }),
   });
   await preferredPage.goto(`${ORIGIN}/`);
+  await expect(preferredPage.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '1');
   await expect(preferredPage.locator('html')).toHaveAttribute('lang', 'de');
   const preferred = await preferredPage.evaluate(async () => {
     const i18n = await import('/src/core/i18n.js');
