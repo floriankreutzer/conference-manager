@@ -61,6 +61,15 @@ test('production request times are displayed with an explicit locale and site ti
   assert.equal(formatProductionDateTime(value, { locale: 'de-DE', timeZone: null }), '');
 });
 
+test('server history operation codes are localized on Employee and Manager surfaces', async () => {
+  const [employee, manager] = await Promise.all([source(EMPLOYEE_SOURCE), source(MANAGER_SOURCE)]);
+
+  assert.match(employee, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
+  assert.match(manager, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
+  assert.doesNotMatch(employee, /\$\{entry\.operation\} ·/);
+  assert.doesNotMatch(manager, /\$\{entry\.operation\} ·/);
+});
+
 test('server-backed repeat preserves request content while moving an elapsed slot by whole weeks', () => {
   const source = Object.freeze({
     id: 'REQ-1',
@@ -431,11 +440,11 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   assert.doesNotMatch(app, /createDemo|demo-adapter|demo-store|fixtures/);
   assert.doesNotMatch(app, /production-persistence\.js|localStorage|sessionStorage/);
   assert.match(context, /Promise\.allSettled/);
-  assert.match(context, /persistence\.loadProfile\(\)/);
-  assert.match(context, /persistence\.loadCatalog\(\)/);
-  assert.match(context, /persistence\.listRequests\(\)/);
+  assert.match(context, /persistence\.loadProfile\(\{ signal \}\)/);
+  assert.match(context, /persistence\.loadCatalog\(\{ signal \}\)/);
+  assert.match(context, /persistence\.listRequests\(\{ signal \}\)/);
   assert.match(context, /persistence\.listNotifications\(\{ signal \}\)/);
-  assert.match(context, /loadBoundedOptionalProjection/);
+  assert.match(context, /loadBoundedProjection/);
   assert.match(context, /refreshNotifications/);
   assert.match(shell, /Promise\.allSettled\(\[\s*context\.refreshRequests\(\),\s*context\.refreshNotifications\(\)/);
 });
