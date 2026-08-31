@@ -63,23 +63,23 @@ test('hosted reset diagnostic correlates exact failed request and never logs ses
   assert.doesNotMatch(source, /console\.(?:log|info|debug|warn|error)/);
 });
 
-test('hosted acceptance restores a failed journey before post-journey evidence calls', () => {
+test('hosted acceptance captures bounded reset evidence, restores, then performs post-journey checks', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const preIdentityIndex = workflow.indexOf('name: Verify live deployment identity before journey');
   const journeyIndex = workflow.indexOf('name: Run hosted cross-role Demo journey');
+  const diagnosticIndex = workflow.indexOf('name: Record bounded reset failure audit evidence');
   const cleanupIndex = workflow.indexOf('name: Restore public Demo baseline after failed journey');
   const postIdentityIndex = workflow.indexOf('name: Re-verify live deployment identity after journey and cleanup');
-  const diagnosticIndex = workflow.indexOf('name: Record bounded reset failure audit evidence');
   const uploadIndex = workflow.indexOf('name: Upload hosted Demo evidence');
   const enforcementIndex = workflow.indexOf('name: Enforce hosted journey result');
 
   assert.ok(
     preIdentityIndex >= 0
       && journeyIndex > preIdentityIndex
-      && cleanupIndex > journeyIndex
+      && diagnosticIndex > journeyIndex
+      && cleanupIndex > diagnosticIndex
       && postIdentityIndex > cleanupIndex
-      && diagnosticIndex > postIdentityIndex
-      && uploadIndex > diagnosticIndex
+      && uploadIndex > postIdentityIndex
       && enforcementIndex > uploadIndex,
   );
   assert.match(workflow, /- 'tests\/e2e-shared\/\*\*'/);
@@ -93,6 +93,11 @@ test('hosted acceptance restores a failed journey before post-journey evidence c
   );
   assert.match(
     workflow,
+    /name: Record bounded reset failure audit evidence\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'/,
+  );
+  assert.match(workflow, /node scripts\/read-hosted-demo-reset-evidence\.mjs >> hosted-demo-evidence\.txt/);
+  assert.match(
+    workflow,
     /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
   );
   assert.match(
@@ -101,11 +106,6 @@ test('hosted acceptance restores a failed journey before post-journey evidence c
   );
   assert.match(workflow, /node scripts\/verify-hosted-demo-deployment\.mjs >\/dev\/null/);
   assert.match(workflow, /echo "deployment_identity_stable=true" >> hosted-demo-evidence\.txt/);
-  assert.match(
-    workflow,
-    /name: Record bounded reset failure audit evidence\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'/,
-  );
-  assert.match(workflow, /node scripts\/read-hosted-demo-reset-evidence\.mjs >> hosted-demo-evidence\.txt/);
   assert.match(
     workflow,
     /name: Enforce hosted journey result\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: exit 1/,
