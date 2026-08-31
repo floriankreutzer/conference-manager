@@ -367,3 +367,43 @@ test('required startup projection failure invalidates the effective authenticate
   assert.equal(context.isManager(), false);
   assert.deepEqual(context.requests(), []);
 });
+
+test('stalled required startup projections are aborted and fail the authenticated context closed', async () => {
+  const authenticatedSession = session({
+    roles: ['employee'],
+    permissions: ['request:read', 'request:cancel'],
+  });
+  let aborted = 0;
+  const context = await createApplicationContext({
+    runtimeMode: 'production',
+    optionalProjectionTimeoutMs: 5,
+    async authenticationBootstrap() {
+      return {
+        status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+        session: authenticatedSession,
+        runtime: Object.freeze({
+          apiClient: Object.freeze({
+            async request(path, options = {}) {
+              if (path === 'v1/application/site-info') return { schemaVersion: 1, siteInfo: {} };
+              if (path === 'v1/application/notifications') {
+                return { schemaVersion: 1, notifications: [] };
+              }
+              return new Promise((resolve, reject) => {
+                assert.equal(options.signal instanceof AbortSignal, true);
+                options.signal.addEventListener('abort', () => {
+                  aborted += 1;
+                  reject(new Error('REQUIRED_PROJECTION_ABORTED'));
+                }, { once: true });
+              });
+            },
+          }),
+        }),
+      };
+    },
+  });
+
+  assert.equal(aborted, 3);
+  assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+  assert.equal(context.isAuthenticated(), false);
+  assert.deepEqual(context.requests(), []);
+});
