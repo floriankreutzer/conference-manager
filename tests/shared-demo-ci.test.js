@@ -44,3 +44,18 @@ test('shared Demo CI pins the private API and fails closed without checkout auth
   assert.match(workflow, /if \[\[ -f api\/customer-demo-api\.pid \]\]/);
   assert.doesNotMatch(workflow, /name: Stop Demo API processes\s+if: always\(\)\s+working-directory:/);
 });
+
+test('shared Demo CI uses bounded request capacity only for the complete cross-browser journey', async () => {
+  const workflow = await readFile(workflowUrl, 'utf8');
+  const capacityDeclarations = workflow.match(/DEMO_RATE_LIMIT_MAX: '1000'/g) ?? [];
+
+  assert.equal(capacityDeclarations.length, 1);
+  assert.match(
+    workflow,
+    /shared-demo-e2e:[\s\S]*?timeout-minutes: 30\s+env:\s+DEMO_RATE_LIMIT_MAX: '1000'\s+services:/,
+  );
+  assert.doesNotMatch(
+    workflow,
+    /jobs:\s+env:\s+DEMO_RATE_LIMIT_MAX: '1000'/,
+  );
+});
