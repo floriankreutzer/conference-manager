@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const METADATA_PATH = '/assets/hosted-demo-deployment.json';
+const METADATA_TIMEOUT_MS = 20_000;
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const EXPECTED_REPOSITORY = 'floriankreutzer/conference-manager-api';
 const EXPECTED_BRANCH = 'main';
@@ -35,6 +36,7 @@ async function readMetadata(fetchImpl, service) {
   const response = await fetchImpl(`${service.origin}${METADATA_PATH}`, {
     redirect: 'error',
     headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
   });
   const contentType = response.headers.get('content-type') || '';
   if (response.status !== 200 || !contentType.startsWith('application/json')) {
