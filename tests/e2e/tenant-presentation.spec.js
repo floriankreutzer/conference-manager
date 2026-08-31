@@ -128,7 +128,9 @@ async function installFixture(page, {
       }
       return;
     }
-    if (await fulfillApplicationProjection(route)) return;
+    if (await fulfillApplicationProjection(route, {
+      defaultCurrency: presentation.presentation.defaultCurrency,
+    })) return;
     if (organizationSettings && url.pathname === '/api/v1/tenant/settings/organization' && request.method() === 'GET') {
       await fulfillJson(route, { schemaVersion: 1, revision: presentation.revision, organization });
       return;
