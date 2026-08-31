@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resetHostedDemoBaseline } from '../scripts/reset-hosted-demo-baseline.mjs';
+import {
+  CANONICAL_DEMO_CHECKSUM,
+  resetHostedDemoBaseline,
+} from '../scripts/reset-hosted-demo-baseline.mjs';
 import { verifyHostedDemoDeployment } from '../scripts/verify-hosted-demo-deployment.mjs';
 import { hostedResetRequestIdPath } from '../scripts/hosted-demo-run-context.mjs';
 
@@ -9,7 +12,7 @@ const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const FRONTEND_REF = '07f2896d56e6f66a9f8daf96457ab12c763adf80';
 const RUNTIME_REF = '8cdfc4468a8cfb421ceb42b0393e700c17c6bfaa';
-const CHECKSUM = 'a'.repeat(64);
+const CHECKSUM = CANONICAL_DEMO_CHECKSUM;
 
 function jsonResponse(body, { status = 200, cookie = null } = {}) {
   const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });
@@ -24,7 +27,7 @@ function serviceNameFor(url) {
   throw new Error('TEST_HOSTED_DEMO_ORIGIN_INVALID');
 }
 
-function successfulCleanupResponses(secondChecksum = CHECKSUM) {
+function successfulCleanupResponses(firstChecksum = CHECKSUM, secondChecksum = firstChecksum) {
   return [
     jsonResponse(
       { csrfToken: 'a'.repeat(32) },
@@ -34,7 +37,7 @@ function successfulCleanupResponses(secondChecksum = CHECKSUM) {
       { csrfToken: 'b'.repeat(32) },
       { cookie: 'cm_platform_session=security_admin_session_1234' },
     ),
-    jsonResponse({ seedVersion: 'saas-3.5-shared-demo-v1', checksum: CHECKSUM }),
+    jsonResponse({ seedVersion: 'saas-3.5-shared-demo-v1', checksum: firstChecksum }),
     jsonResponse(
       { csrfToken: 'c'.repeat(32) },
       { cookie: 'cm_platform_session=bootstrap_session_0987654321' },
@@ -106,11 +109,45 @@ test('hosted Demo failure cleanup proves a repeatable deterministic baseline wit
 });
 
 test('hosted Demo cleanup rejects a non-repeatable baseline checksum', async () => {
-  const responses = successfulCleanupResponses('b'.repeat(64));
+  const responses = successfulCleanupResponses(CHECKSUM, 'b'.repeat(64));
   await assert.rejects(
     resetHostedDemoBaseline({ fetchImpl: async () => responses.shift(), origin: PLATFORM_ORIGIN }),
     /HOSTED_DEMO_RESET_REPEATABILITY_INVALID/,
   );
+});
+
+test('hosted Demo cleanup rejects a repeatable but non-canonical checksum', async () => {
+  const responses = successfulCleanupResponses('a'.repeat(64));
+  await assert.rejects(
+    resetHostedDemoBaseline({ fetchImpl: async () => responses.shift(), origin: PLATFORM_ORIGIN }),
+    /HOSTED_DEMO_RESET_CANONICAL_CHECKSUM_INVALID/,
+  );
+});
+
+test('hosted Demo cleanup rejects unregistered runtime refs before network access', async () => {
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    throw new Error('UNEXPECTED_FETCH');
+  };
+
+  await assert.rejects(
+    resetHostedDemoBaseline({
+      fetchImpl,
+      origin: PLATFORM_ORIGIN,
+      expectedRuntimeRef: 'main',
+    }),
+    /HOSTED_DEMO_RESET_RUNTIME_REF_INVALID/,
+  );
+  await assert.rejects(
+    resetHostedDemoBaseline({
+      fetchImpl,
+      origin: PLATFORM_ORIGIN,
+      expectedRuntimeRef: 'b'.repeat(40),
+    }),
+    /HOSTED_DEMO_RESET_RUNTIME_REF_UNSUPPORTED/,
+  );
+  assert.equal(calls, 0);
 });
 
 test('hosted Demo failure cleanup fails closed when reset cannot be proven', async () => {
