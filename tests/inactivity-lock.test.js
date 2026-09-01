@@ -6,7 +6,7 @@ import {
   PRODUCTION_INACTIVITY_TIMEOUT_MS,
   createInactivityPolicyController,
   inactivityTimeoutForRuntime,
-} from '../src/platform/inactivity-lock.js';
+} from '../src/platform/inactivity-policy.js';
 
 function timerHarness() {
   let now = 0;
