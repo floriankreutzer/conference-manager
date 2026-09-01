@@ -26,6 +26,11 @@ const EMPTY_NOTIFICATIONS = Object.freeze([]);
 const REQUIRED_PROJECTION_TIMEOUT_MS = 10_000;
 const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const PRODUCTION_AUTH_STATUSES = new Set(Object.values(PRODUCTION_AUTH_STATUS));
+const CONFERENCE_MANAGER_PERMISSIONS = new Set([
+  PRODUCTION_PERMISSION.REQUEST_MANAGE,
+  PRODUCTION_PERMISSION.TENANT_ROOMS_BUSINESS_MANAGE,
+  PRODUCTION_PERMISSION.TENANT_CATALOGUE_MANAGE,
+]);
 const TENANT_ADMIN_PERMISSIONS = new Set([
   PRODUCTION_PERMISSION.TENANT_CONFIGURE,
   PRODUCTION_PERMISSION.TENANT_USERS_MANAGE,
@@ -111,11 +116,16 @@ export function createApplicationContextFromState({
     return Boolean(trustedSession) && roles.has(role) && permissions.has(permission);
   }
 
+  function hasConferenceManagerPermission(permission) {
+    return CONFERENCE_MANAGER_PERMISSIONS.has(permission)
+      && hasCapability(PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER, permission);
+  }
+
   function presentationRole() {
     if (hasCapability(PRODUCTION_TENANT_ROLE.TENANT_ADMIN, PRODUCTION_PERMISSION.TENANT_USERS_MANAGE)) {
       return USER_ROLE.TENANT_ADMIN;
     }
-    if (hasCapability(PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER, PRODUCTION_PERMISSION.REQUEST_MANAGE)) {
+    if (hasConferenceManagerPermission(PRODUCTION_PERMISSION.REQUEST_MANAGE)) {
       return USER_ROLE.MANAGER;
     }
     return USER_ROLE.EMPLOYEE;
@@ -230,10 +240,14 @@ export function createApplicationContextFromState({
       return presentationRole();
     },
     isManager() {
-      return hasCapability(
-        PRODUCTION_TENANT_ROLE.CONFERENCE_MANAGER,
-        PRODUCTION_PERMISSION.REQUEST_MANAGE,
-      );
+      return hasConferenceManagerPermission(PRODUCTION_PERMISSION.REQUEST_MANAGE);
+    },
+    hasConferenceManagerPermission,
+    canManageRoomBusiness() {
+      return hasConferenceManagerPermission(PRODUCTION_PERMISSION.TENANT_ROOMS_BUSINESS_MANAGE);
+    },
+    canManageTenantCatalogue() {
+      return hasConferenceManagerPermission(PRODUCTION_PERMISSION.TENANT_CATALOGUE_MANAGE);
     },
     hasTenantAdminPermission(permission) {
       return TENANT_ADMIN_PERMISSIONS.has(permission)
