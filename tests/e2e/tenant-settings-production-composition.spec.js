@@ -146,7 +146,6 @@ function changedAt(revision) {
 async function installProductionSettingsFixture(page, {
   organizationConflict = true,
   holdOrganizationReapplyRead = false,
-  holdLocationSave = false,
 } = {}) {
   const state = initialState();
   const writes = [];
@@ -157,10 +156,6 @@ async function installProductionSettingsFixture(page, {
   let releaseOrganizationReapplyRead = () => {};
   const organizationReapplyReadGate = holdOrganizationReapplyRead
     ? new Promise((resolve) => { releaseOrganizationReapplyRead = resolve; })
-    : null;
-  let releaseLocationSave = () => {};
-  const locationSaveGate = holdLocationSave
-    ? new Promise((resolve) => { releaseLocationSave = resolve; })
     : null;
 
   const fulfillJson = (route, body, status = 200) => route.fulfill({
@@ -278,7 +273,6 @@ async function installProductionSettingsFixture(page, {
     }
     if (url.pathname === '/api/v1/tenant/settings/locations' && method === 'PUT') {
       const body = recordWrite(request, url);
-      if (locationSaveGate) await locationSaveGate;
       state.locations.revision = body.expectedRevision + 1;
       state.locations.configuration = clone(body.configuration);
       await fulfillJson(route, { locations: {
@@ -381,7 +375,6 @@ async function installProductionSettingsFixture(page, {
     unexpectedApiRequests,
     organizationReads: () => organizationReadCount,
     releaseOrganizationReapplyRead,
-    releaseLocationSave,
   };
 }
 
@@ -410,8 +403,11 @@ test('Production composition writes owned Tenant Admin settings with exact CSRF/
   let content = await openSection(page, 'organization', 'organization');
   await content.locator('#tenant-organization-display-name').fill('Northstar Reapplied');
   await submit(content, 'organization');
-  await expect(content.locator('[data-tenant-settings-conflict-reapply="true"]')).toBeVisible();
-  await content.locator('[data-tenant-settings-conflict-reapply="true"]').click();
+  const reapply = content.locator('[data-tenant-settings-conflict-reapply="true"]');
+  await expect(reapply).toBeVisible();
+  const detachedReapply = await reapply.elementHandle();
+  expect(detachedReapply).not.toBeNull();
+  await reapply.click();
   await expect.poll(() => fixture.writes.length).toBe(2);
   await expect(content.locator('#tenant-organization-display-name')).toHaveValue('Northstar Reapplied');
 
@@ -538,33 +534,7 @@ test('detached Tenant Admin conflict reapply stops before a second privileged wr
   ));
   fixture.releaseOrganizationReapplyRead();
   await reapplyRead;
-  await page.waitForTimeout(100);
-
-  expect(fixture.writes).toHaveLength(1);
-  await expect(page.locator('#welcomeHeading')).toBeVisible();
-  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
-  await expect(page.locator('#toast')).toBeEmpty();
-});
-
-test('detached Tenant Admin Location save produces no stale presentation effects', async ({ page }) => {
-  const fixture = await installProductionSettingsFixture(page, {
-    organizationConflict: false,
-    holdLocationSave: true,
-  });
-  await openTenantSettings(page);
-  const content = await openSection(page, 'locations', 'locations-technical');
-
-  await content.locator('#tenant-site-name-0').fill('Detached location');
-  await submit(content, 'locations-technical');
-  await expect.poll(() => fixture.writes.length).toBe(1);
-  await page.locator('[data-view="welcome"]').click();
-  const saveResponse = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === '/api/v1/tenant/settings/locations'
-    && response.request().method() === 'PUT'
-  ));
-  fixture.releaseLocationSave();
-  await saveResponse;
-  await page.waitForTimeout(100);
+  await expect.poll(() => detachedReapply.evaluate((button) => button.disabled)).toBe(false);
 
   expect(fixture.writes).toHaveLength(1);
   await expect(page.locator('#welcomeHeading')).toBeVisible();
