@@ -15,6 +15,16 @@ function createBroadcastChannel(factory) {
   return new globalThis.BroadcastChannel(CHANNEL_NAME);
 }
 
+function closeOpenDialogs(documentRoot) {
+  documentRoot.querySelectorAll('dialog[open]').forEach((dialog) => {
+    try {
+      dialog.close?.();
+    } finally {
+      if (dialog.isConnected) dialog.remove();
+    }
+  });
+}
+
 export function installCustomerInactivityLock({
   context,
   documentRoot = document,
@@ -35,15 +45,17 @@ export function installCustomerInactivityLock({
   const navigationRoot = documentRoot.getElementById('primaryNavigation');
   const titleRoot = documentRoot.getElementById('viewTitle');
   const subtitleRoot = documentRoot.getElementById('viewSubtitle');
-  if (!appRoot || !navigationRoot || !titleRoot || !subtitleRoot) {
+  if (!appRoot || !navigationRoot || !titleRoot || !subtitleRoot || !documentRoot.body) {
     throw new TypeError('INACTIVITY_LOCK_SURFACE_REQUIRED');
   }
   const channel = createBroadcastChannel(broadcastChannelFactory);
   let unlockPending = false;
+  let lockDialog = null;
 
   function renderLocked() {
     documentRoot.documentElement.dataset.sessionLocked = 'true';
     documentRoot.querySelector('[data-demo-security]')?.remove();
+    closeOpenDialogs(documentRoot);
     clear(navigationRoot);
     clear(appRoot);
     titleRoot.textContent = t('inactivityLock.title');
@@ -74,15 +86,21 @@ export function installCustomerInactivityLock({
       status.textContent = t('inactivityLock.unavailable');
       unlock.focus();
     });
-    appRoot.appendChild(el('section', {
-      className: 'card',
-      attrs: { role: 'region', 'aria-labelledby': 'inactivityLockHeading' },
+    lockDialog = el('dialog', {
+      className: 'modal-dialog inactivity-lock-dialog',
+      dataset: { inactivityLock: 'true' },
+      attrs: { 'aria-labelledby': 'inactivityLockHeading' },
     }, [
-      el('h2', { id: 'inactivityLockHeading', text: t('inactivityLock.title') }),
-      el('p', { text: t('inactivityLock.description') }),
-      el('div', { className: 'button-row' }, [unlock]),
-      status,
-    ]));
+      el('header', { className: 'modal-header' }, [
+        el('h2', { id: 'inactivityLockHeading', text: t('inactivityLock.title') }),
+        el('p', { text: t('inactivityLock.description') }),
+      ]),
+      el('section', { className: 'modal-body' }, [status]),
+      el('footer', { className: 'modal-actions' }, [unlock]),
+    ]);
+    lockDialog.addEventListener('cancel', (event) => event.preventDefault());
+    documentRoot.body.appendChild(lockDialog);
+    lockDialog.showModal();
     windowRoot.requestAnimationFrame?.(() => unlock.focus());
   }
 
@@ -118,6 +136,8 @@ export function installCustomerInactivityLock({
       windowRoot.removeEventListener?.('pageshow', pageshow);
       channel?.close?.();
       controller.stop();
+      lockDialog?.remove();
+      lockDialog = null;
     },
   });
 }
