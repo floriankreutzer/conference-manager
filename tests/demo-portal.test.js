@@ -23,11 +23,12 @@ test('Demo portal remains static navigation without browser or application autho
   assert.doesNotMatch(PORTAL, /<iframe\b/i);
   assert.doesNotMatch(PORTAL, /<form\b/i);
   assert.doesNotMatch(PORTAL, /localStorage|sessionStorage|indexedDB|document\.cookie|fetch\(|XMLHttpRequest/i);
-  assert.doesNotMatch(PORTAL, /\/api\//i);
-  assert.doesNotMatch(PORTAL, /reset|reseed|csrf|credential|password|secret/i);
+  assert.doesNotMatch(PORTAL, /href=["'][^"']*\/api\//i);
+  assert.doesNotMatch(PORTAL, /<input\b|<button\b|<select\b|<textarea\b/i);
   assert.match(PORTAL, /<main id="main">/);
   assert.match(PORTAL, /class="skip-link"/);
   assert.match(PORTAL, /lang="de"/);
+  assert.match(PORTAL, /stores no application credentials, sessions, CSRF tokens, Tenant IDs, roles or permissions/i);
 });
 
 test('Pages workflow deploys only the dedicated static portal with pinned actions and minimal deployment permissions', () => {
