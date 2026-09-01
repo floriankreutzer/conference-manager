@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Conference Manager Demo</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content · Zum Inhalt</a>
+  <header class="site-header">
+    <p class="eyebrow">PAVUREL · Conference Manager</p>
+    <h1>Conference Manager Demo</h1>
+    <p class="demo-badge" role="status">Demo only · Keine Produktionsumgebung</p>
+  </header>
+
+  <main id="main">
+    <section aria-labelledby="intro-en">
+      <h2 id="intro-en">Choose the Demo experience</h2>
+      <p>This page is a static launchpad. Authentication, sessions, tenant isolation, permissions and application data are established only by the separately hosted Render Demo services after you leave this page.</p>
+      <p class="notice"><strong>Render Free cold start:</strong> a sleeping Demo service may need additional time to wake up on the first request.</p>
+    </section>
+
+    <section class="launch-grid" aria-label="Demo applications">
+      <article class="launch-card">
+        <p class="card-kicker">Customer security domain</p>
+        <h2>Customer Demo</h2>
+        <p>Demonstrates Employee, Conference Manager, Tenant Admin and the approved dual-role union with synthetic Demo data.</p>
+        <a class="launch-action" href="https://conference-manager-demo.onrender.com">Launch Customer Demo</a>
+        <p class="destination">conference-manager-demo.onrender.com</p>
+      </article>
+
+      <article class="launch-card">
+        <p class="card-kicker">Platform security domain</p>
+        <h2>Platform Demo</h2>
+        <p>Demonstrates the separate Platform Operator experience. Customer roles and Platform authority remain isolated.</p>
+        <a class="launch-action" href="https://conference-manager-ops-demo.onrender.com">Launch Platform Demo</a>
+        <p class="destination">conference-manager-ops-demo.onrender.com</p>
+      </article>
+    </section>
+
+    <section lang="de" aria-labelledby="intro-de">
+      <h2 id="intro-de">Demo-Umgebung auswählen</h2>
+      <p>Diese Seite ist ausschließlich ein statischer Absprungpunkt. Anmeldung, Sessions, Tenant-Trennung, Berechtigungen und Anwendungsdaten werden erst nach Verlassen dieser Seite durch die getrennt betriebenen Render-Demo-Services hergestellt.</p>
+      <p><strong>Hinweis zum Render-Free-Kaltstart:</strong> Ein ruhender Demo-Service kann beim ersten Aufruf zusätzliche Zeit zum Starten benötigen.</p>
+      <p>Die Customer Demo zeigt Mitarbeiter, Conference Manager, Tenant Admin und die freigegebene Kombination aus Conference Manager und Tenant Admin. Die Platform Demo bleibt eine getrennte Platform-Operator-Sicherheitsdomäne.</p>
+    </section>
+
+    <section class="boundary" aria-labelledby="boundary-title">
+      <h2 id="boundary-title">Security boundary · Sicherheitsgrenze</h2>
+      <ul>
+        <li>This portal stores no application credentials, sessions, CSRF tokens, Tenant IDs, roles or permissions.</li>
+        <li>It does not proxy APIs, embed the applications, expose reset endpoints or select a local role.</li>
+        <li>Both actions navigate directly to the canonical HTTPS Render origins shown above.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Technical Demo entry point · Source: public conference-manager repository</p>
+  </footer>
+</body>
+</html>
