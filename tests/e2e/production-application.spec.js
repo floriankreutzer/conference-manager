@@ -249,6 +249,7 @@ async function installProductionApplicationFixture(page, {
   timeZone = 'Europe/Berlin',
   catalog = catalogPayload(timeZone),
   catalogLocationsRevision = 1,
+  catalogueSettings: initialCatalogueSettings = null,
   bookingChange: initialBookingChange = null,
   bookingChangeProposalError = null,
   availabilityResponses = [{ available: true, conflictCount: 0 }],
@@ -280,7 +281,10 @@ async function installProductionApplicationFixture(page, {
   const requestHistoryReads = [];
   const roomContextReads = [];
   const catalogReads = [];
-  let catalogueSettings = catalogueSettingsPayload().catalogue;
+  let catalogueSettings = structuredClone(
+    initialCatalogueSettings ?? catalogueSettingsPayload().catalogue,
+  );
+  let catalogueSettingsRevision = 1;
   let locationSettings = locationSettingsPayload().locations;
   let applicationCatalog = structuredClone(catalog);
   let applicationCatalogLocationsRevision = catalogLocationsRevision;
@@ -511,7 +515,10 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify(catalogueSettingsPayload(catalogueSettings)),
+        body: JSON.stringify({
+          ...catalogueSettingsPayload(catalogueSettings),
+          revision: catalogueSettingsRevision,
+        }),
       });
       return;
     }
@@ -520,13 +527,28 @@ async function installProductionApplicationFixture(page, {
       const body = request.postDataJSON();
       catalogueWrites.push({ csrf: request.headers()['x-csrf-token'], body });
       if (catalogueSaveGate) await catalogueSaveGate;
+      if (body.expectedRevision !== catalogueSettingsRevision) {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({
+            error: {
+              code: 'TENANT_SETTINGS_REVISION_CONFLICT',
+              currentRevision: catalogueSettingsRevision,
+              requestId: API_REQUEST_ID,
+            },
+          }),
+        });
+        return;
+      }
       catalogueSettings = body.catalogue;
+      catalogueSettingsRevision += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify({
           ...catalogueSettingsPayload(catalogueSettings),
-          revision: body.expectedRevision + 1,
+          revision: catalogueSettingsRevision,
         }),
       });
       return;
@@ -1945,6 +1967,87 @@ test('Conference Manager creates every owned catalogue entry type and package va
   expect(fixture.catalogueWrites[0].body).not.toHaveProperty('tenantId');
 });
 
+test('Conference Manager preserves an absent Room price and receives accessible trimmed-name validation', async ({ page }) => {
+  const initialCatalogue = structuredClone(catalogueSettingsPayload().catalogue);
+  initialCatalogue.roomPrices = [];
+  const fixture = await installProductionApplicationFixture(page, {
+    roles: ['employee', 'conference_manager'],
+    catalogueSettings: initialCatalogue,
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
+
+  const amount = page.locator('#manager-room-price-amount-0');
+  const currency = page.locator('#manager-room-price-currency-0');
+  await expect(amount).toHaveValue('');
+  await expect(amount).not.toHaveAttribute('required');
+  await expect(amount).toHaveAttribute(
+    'aria-describedby',
+    'manager-room-price-not-configured-0',
+  );
+  await expect(currency).toBeDisabled();
+  await expect(currency).toHaveAttribute(
+    'aria-describedby',
+    'manager-room-price-not-configured-0',
+  );
+  await expect(page.locator('#manager-room-price-not-configured-0')).toHaveText(
+    'Noch nicht konfiguriert. Ein leeres Feld bewahrt den Raum ohne Preis.',
+  );
+
+  const catalogueName = page.locator('#manager-catalogue-cateringItems-item-coffee-name');
+  const catalogueNameError = page.locator(
+    '#manager-catalogue-cateringItems-item-coffee-name-error',
+  );
+  await catalogueName.fill('   ');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  expect(fixture.catalogueWrites).toHaveLength(0);
+  await expect(catalogueName).toBeFocused();
+  await expect(catalogueName).toHaveAttribute('aria-invalid', 'true');
+  await expect(catalogueName).toHaveAttribute(
+    'aria-describedby',
+    'manager-catalogue-cateringItems-item-coffee-name-error',
+  );
+  await expect(catalogueNameError).toHaveText('Bitte geben Sie einen Namen ein.');
+
+  await catalogueName.fill('    ');
+  await expect(catalogueName).toHaveAttribute('aria-invalid', 'true');
+  await expect(catalogueNameError).toHaveText('Bitte geben Sie einen Namen ein.');
+  await catalogueName.fill('Espresso');
+  await expect(catalogueName).not.toHaveAttribute('aria-invalid');
+  await expect(catalogueNameError).toBeEmpty();
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+  await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  expect(fixture.catalogueWrites[0].body.expectedRevision).toBe(1);
+  expect(fixture.catalogueWrites[0].body.catalogue).toMatchObject({
+    cateringItems: [{ id: 'item-coffee', name: 'Espresso' }],
+    roomPrices: [],
+  });
+
+  const explicitAmount = page.locator('#manager-room-price-amount-0');
+  const explicitCurrency = page.locator('#manager-room-price-currency-0');
+  await explicitAmount.fill('0');
+  await expect(explicitCurrency).toBeEnabled();
+  const explicitSaveResponse = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === '/api/v1/tenant/settings/catalogue'
+    && response.request().method() === 'PUT'
+  ));
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  await explicitSaveResponse;
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  await expect(page.locator('#manager-room-price-amount-0')).toHaveValue('0');
+  await expect(page.locator('#manager-room-price-amount-0')).toHaveAttribute('required', 'required');
+  expect(fixture.catalogueWrites[1].body.expectedRevision).toBe(2);
+  expect(fixture.catalogueWrites[1].body.catalogue.roomPrices).toEqual([{
+    roomId: 'room-a',
+    price: { amountMinor: 0, currency: 'EUR' },
+  }]);
+});
+
 test('Conference Manager updates complete Room business snapshots and surfaces revision conflicts', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
@@ -1959,7 +2062,19 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   expect(await page.locator('[data-tenant-bulk-transfer] option').evaluateAll((options) => (
     options.map(({ value }) => value)
   ))).toEqual(['rooms']);
-  await room.locator('#manager-room-name-0').fill('Executive Room');
+  const roomName = room.locator('#manager-room-name-0');
+  const roomNameError = room.locator('#manager-room-name-0-error');
+  await roomName.fill('   ');
+  await page.getByRole('button', { name: 'Speichern' }).click();
+  expect(fixture.locationWrites).toHaveLength(0);
+  await expect(roomName).toBeFocused();
+  await expect(roomName).toHaveAttribute('aria-invalid', 'true');
+  await expect(roomName).toHaveAttribute('aria-describedby', 'manager-room-name-0-error');
+  await expect(roomNameError).toHaveText('Bitte geben Sie einen Raumnamen ein.');
+
+  await roomName.fill('Executive Room');
+  await expect(roomName).not.toHaveAttribute('aria-invalid');
+  await expect(roomNameError).toBeEmpty();
   await room.locator('#manager-room-capacity-0').fill('16');
   await page.getByRole('button', { name: 'Speichern' }).click();
   await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');

@@ -5,10 +5,28 @@ globalThis.document = { documentElement: { lang: 'de' } };
 
 const {
   catalogueDefaultCurrency,
+  catalogueRoomPriceValue,
   createCatalogueEntryDraft,
   createCatalogueVariantDraft,
   nextStableCatalogueId,
 } = await import('../src/manager/business-settings-application.js');
+
+test('Room price projection preserves absence and distinguishes an explicit zero', () => {
+  assert.equal(catalogueRoomPriceValue('room-a', '', 'EUR'), null);
+  assert.equal(catalogueRoomPriceValue('room-a', '   ', 'EUR'), null);
+  assert.deepEqual(catalogueRoomPriceValue('room-a', '0', 'EUR'), {
+    roomId: 'room-a',
+    price: { amountMinor: 0, currency: 'EUR' },
+  });
+  assert.deepEqual(catalogueRoomPriceValue('room-a', '2500', 'CHF'), {
+    roomId: 'room-a',
+    price: { amountMinor: 2500, currency: 'CHF' },
+  });
+  assert.throws(
+    () => catalogueRoomPriceValue('room-a', '-1', 'EUR'),
+    /MANAGER_ROOM_PRICE_INVALID/,
+  );
+});
 
 test('Conference Manager catalogue drafts use safe collision-free stable identifiers', () => {
   assert.equal(

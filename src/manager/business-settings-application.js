@@ -28,11 +28,13 @@ function textInput(value, attrs = {}) {
   return el('input', { type: 'text', value: value ?? '', attrs });
 }
 
-function numberInput(value, { min = 0, max = 1_000_000_000 } = {}) {
+function numberInput(value, { min = 0, max = 1_000_000_000, required = true } = {}) {
+  const attrs = { min: String(min), max: String(max), step: '1' };
+  if (required) attrs.required = 'required';
   return el('input', {
     type: 'number',
     value,
-    attrs: { min: String(min), max: String(max), step: '1', required: 'required' },
+    attrs,
   });
 }
 
@@ -121,8 +123,59 @@ export function createCatalogueVariantDraft({ packageEntry, existingVariants }) 
   };
 }
 
-function priceControls(price) {
-  const amountMinor = numberInput(price.amountMinor);
+function requiredTrimmedTextField({ id, label, value, message }) {
+  const control = textInput(value, { required: 'required', maxlength: '160' });
+  const errorId = `${id}-error`;
+  control.setAttribute('aria-describedby', errorId);
+  const error = el('small', {
+    id: errorId,
+    className: 'field-error',
+    attrs: { role: 'alert', 'aria-live': 'assertive' },
+  });
+  const node = field({ id, label, control, required: true });
+  node.appendChild(error);
+  let validationActive = false;
+  function presentValidity(valid) {
+    control.setCustomValidity(valid ? '' : message);
+    if (valid) {
+      control.removeAttribute('aria-invalid');
+      error.textContent = '';
+    } else {
+      control.setAttribute('aria-invalid', 'true');
+      error.textContent = message;
+    }
+  }
+  control.addEventListener('input', () => {
+    if (!validationActive) return;
+    const valid = Boolean(control.value.trim());
+    presentValidity(valid);
+    if (valid) validationActive = false;
+  });
+  return {
+    control,
+    node,
+    validate() {
+      const valid = Boolean(control.value.trim());
+      validationActive = !valid;
+      presentValidity(valid);
+      return valid;
+    },
+  };
+}
+
+function validateRequiredTrimmedText(fields) {
+  let firstInvalid = null;
+  fields.forEach((entry) => {
+    if (!entry.validate() && !firstInvalid) firstInvalid = entry;
+  });
+  if (!firstInvalid) return true;
+  firstInvalid.control.focus();
+  firstInvalid.control.reportValidity();
+  return false;
+}
+
+function priceControls(price, { amountRequired = true } = {}) {
+  const amountMinor = numberInput(price.amountMinor, { required: amountRequired });
   const currency = el('select', {}, CURRENCIES.map((value) => el('option', { value, text: value })));
   currency.value = price.currency;
   return { amountMinor, currency };
@@ -135,9 +188,33 @@ function priceFromControls(controls) {
   };
 }
 
+export function catalogueRoomPriceValue(roomId, amountMinor, currency) {
+  const rawAmount = String(amountMinor ?? '').trim();
+  if (!rawAmount) return null;
+  const normalizedAmount = Number(rawAmount);
+  if (
+    !Number.isSafeInteger(normalizedAmount)
+    || normalizedAmount < 0
+    || normalizedAmount > 1_000_000_000
+    || !CURRENCIES.includes(currency)
+  ) {
+    throw new TypeError('MANAGER_ROOM_PRICE_INVALID');
+  }
+  return {
+    roomId,
+    price: { amountMinor: normalizedAmount, currency },
+  };
+}
+
 function commonEntryEditor(entry, prefix) {
+  const nameField = requiredTrimmedTextField({
+    id: `${prefix}-${entry.id}-name`,
+    label: t('managerSettings.catalogue.name'),
+    value: entry.name,
+    message: t('managerSettings.validation.catalogueNameRequired'),
+  });
   const controls = {
-    name: textInput(entry.name, { required: 'required', maxlength: '160' }),
+    name: nameField.control,
     description: el('textarea', { attrs: { maxlength: '1000' } }),
     price: priceControls(entry.price),
     active: checkbox(entry.active),
@@ -150,7 +227,7 @@ function commonEntryEditor(entry, prefix) {
     el('legend', { text: entry.name }),
     el('p', { className: 'muted', text: entry.id }),
     el('div', { className: 'form-grid' }, [
-      field({ id: `${prefix}-${entry.id}-name`, label: t('managerSettings.catalogue.name'), control: controls.name, required: true }),
+      nameField.node,
       field({ id: `${prefix}-${entry.id}-description`, label: t('managerSettings.catalogue.descriptionField'), control: controls.description, optional: true }),
       field({ id: `${prefix}-${entry.id}-amount`, label: t('managerSettings.catalogue.amountMinor'), control: controls.price.amountMinor, required: true }),
       field({ id: `${prefix}-${entry.id}-currency`, label: t('managerSettings.catalogue.currency'), control: controls.price.currency, required: true }),
@@ -160,7 +237,7 @@ function commonEntryEditor(entry, prefix) {
       field({ id: `${prefix}-${entry.id}-active`, label: t('managerSettings.catalogue.active'), control: controls.active }),
     ]),
   ]);
-  return { entry, controls, node };
+  return { entry, controls, nameField, node };
 }
 
 function commonEntryValue(editor) {
@@ -177,8 +254,14 @@ function commonEntryValue(editor) {
 }
 
 function variantEditor(variant, prefix) {
+  const nameField = requiredTrimmedTextField({
+    id: `${prefix}-${variant.id}-name`,
+    label: t('managerSettings.catalogue.name'),
+    value: variant.name,
+    message: t('managerSettings.validation.catalogueNameRequired'),
+  });
   const controls = {
-    name: textInput(variant.name, { required: 'required', maxlength: '160' }),
+    name: nameField.control,
     description: el('textarea', { attrs: { maxlength: '1000' } }),
     price: priceControls(variant.price),
     active: checkbox(variant.active),
@@ -189,7 +272,7 @@ function variantEditor(variant, prefix) {
     el('legend', { text: variant.name }),
     el('p', { className: 'muted', text: variant.id }),
     el('div', { className: 'form-grid' }, [
-      field({ id: `${prefix}-${variant.id}-name`, label: t('managerSettings.catalogue.name'), control: controls.name, required: true }),
+      nameField.node,
       field({ id: `${prefix}-${variant.id}-description`, label: t('managerSettings.catalogue.descriptionField'), control: controls.description, optional: true }),
       field({ id: `${prefix}-${variant.id}-amount`, label: t('managerSettings.catalogue.amountMinor'), control: controls.price.amountMinor, required: true }),
       field({ id: `${prefix}-${variant.id}-currency`, label: t('managerSettings.catalogue.currency'), control: controls.price.currency, required: true }),
@@ -197,7 +280,7 @@ function variantEditor(variant, prefix) {
       field({ id: `${prefix}-${variant.id}-active`, label: t('managerSettings.catalogue.active'), control: controls.active }),
     ]),
   ]);
-  return { variant, controls, node };
+  return { variant, controls, nameField, node };
 }
 
 function variantValue(editor) {
@@ -376,8 +459,14 @@ export function createManagerBusinessSettingsApplication({
     renderRoot.appendChild(sectionNavigation());
     const siteById = new Map(snapshot.configuration.sites.map((site) => [site.id, site]));
     const editors = snapshot.configuration.rooms.map((room, index) => {
+      const nameField = requiredTrimmedTextField({
+        id: `manager-room-name-${index}`,
+        label: t('managerSettings.room.name'),
+        value: room.name,
+        message: t('managerSettings.validation.roomNameRequired'),
+      });
       const controls = {
-        name: textInput(room.name, { required: 'required', maxlength: '160' }),
+        name: nameField.control,
         capacity: numberInput(room.capacity, { min: 1, max: 100_000 }),
         active: checkbox(room.active),
         floor: textInput(room.floor, { maxlength: '80' }),
@@ -399,7 +488,7 @@ export function createManagerBusinessSettingsApplication({
           el('dd', { text: room.siteId }),
         ]),
         el('div', { className: 'form-grid' }, [
-          field({ id: `manager-room-name-${index}`, label: t('managerSettings.room.name'), control: controls.name, required: true }),
+          nameField.node,
           field({ id: `manager-room-capacity-${index}`, label: t('managerSettings.room.capacity'), control: controls.capacity, required: true }),
           field({ id: `manager-room-floor-${index}`, label: t('managerSettings.room.floor'), control: controls.floor, optional: true }),
           field({ id: `manager-room-equipment-${index}`, label: t('managerSettings.room.equipment'), control: controls.equipment, optional: true, hint: t('managerSettings.commaSeparated') }),
@@ -411,7 +500,7 @@ export function createManagerBusinessSettingsApplication({
           field({ id: `manager-room-active-${index}`, label: t('managerSettings.room.active'), control: controls.active }),
         ]),
       ]);
-      return { room, controls, node };
+      return { room, controls, nameField, node };
     });
     const form = el('form');
     editors.forEach((editor) => form.appendChild(editor.node));
@@ -419,6 +508,7 @@ export function createManagerBusinessSettingsApplication({
     form.appendChild(el('div', { className: 'button-row' }, [save]));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (!validateRequiredTrimmedText(editors.map(({ nameField }) => nameField))) return;
       if (!form.reportValidity()) return;
       save.disabled = true;
       try {
@@ -553,12 +643,46 @@ export function createManagerBusinessSettingsApplication({
     form.appendChild(el('h3', { text: t('managerSettings.catalogue.roomPrices') }));
     const priceByRoom = new Map(snapshot.catalogue.roomPrices.map((entry) => [entry.roomId, entry.price]));
     const roomPriceEditors = locationSnapshot.configuration.rooms.map((room, index) => {
-      const controls = priceControls(priceByRoom.get(room.id) || { amountMinor: 0, currency: defaultCurrency });
+      const configured = priceByRoom.has(room.id);
+      const controls = priceControls(
+        priceByRoom.get(room.id) || { amountMinor: '', currency: defaultCurrency },
+        { amountRequired: configured },
+      );
+      if (!configured) {
+        controls.currency.disabled = true;
+        controls.amountMinor.addEventListener('input', () => {
+          controls.currency.disabled = !controls.amountMinor.value.trim();
+        });
+      }
+      const unconfiguredHintId = `manager-room-price-not-configured-${index}`;
+      const unconfiguredHint = configured ? null : el('small', {
+        id: unconfiguredHintId,
+        className: 'field-hint',
+        text: t('managerSettings.catalogue.roomPriceNotConfigured'),
+      });
+      if (unconfiguredHint) {
+        controls.amountMinor.setAttribute('aria-describedby', unconfiguredHintId);
+        controls.currency.setAttribute('aria-describedby', unconfiguredHintId);
+      }
+      const amountField = field({
+        id: `manager-room-price-amount-${index}`,
+        label: t('managerSettings.catalogue.amountMinor'),
+        control: controls.amountMinor,
+        required: configured,
+        optional: !configured,
+      });
+      if (unconfiguredHint) amountField.appendChild(unconfiguredHint);
       const node = el('fieldset', { className: 'card', dataset: { roomPriceId: room.id } }, [
         el('legend', { text: room.name || room.id }),
         el('div', { className: 'form-grid' }, [
-          field({ id: `manager-room-price-amount-${index}`, label: t('managerSettings.catalogue.amountMinor'), control: controls.amountMinor, required: true }),
-          field({ id: `manager-room-price-currency-${index}`, label: t('managerSettings.catalogue.currency'), control: controls.currency, required: true }),
+          amountField,
+          field({
+            id: `manager-room-price-currency-${index}`,
+            label: t('managerSettings.catalogue.currency'),
+            control: controls.currency,
+            required: configured,
+            optional: !configured,
+          }),
         ]),
       ]);
       return { room, controls, node };
@@ -570,6 +694,16 @@ export function createManagerBusinessSettingsApplication({
     form.appendChild(el('div', { className: 'button-row' }, [save]));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      const catalogueNameFields = [
+        ...Object.values(editorsByCollection).flatMap((editors) => (
+          editors.map(({ nameField }) => nameField)
+        )),
+        ...packageEditors.flatMap((editor) => [
+          editor.nameField,
+          ...editor.variantEditors.map(({ nameField }) => nameField),
+        ]),
+      ];
+      if (!validateRequiredTrimmedText(catalogueNameFields)) return;
       if (!form.reportValidity()) return;
       save.disabled = true;
       try {
@@ -578,10 +712,15 @@ export function createManagerBusinessSettingsApplication({
           equipment: editorsByCollection.equipment.map(commonEntryValue),
           cateringItems: editorsByCollection.cateringItems.map(commonEntryValue),
           cateringPackages: packageEditors.map(packageValue),
-          roomPrices: roomPriceEditors.map(({ room, controls }) => ({
-            roomId: room.id,
-            price: priceFromControls(controls),
-          })),
+          roomPrices: roomPriceEditors
+            .map(({ room, controls }) => (
+              catalogueRoomPriceValue(
+                room.id,
+                controls.amountMinor.value,
+                controls.currency.value,
+              )
+            ))
+            .filter(Boolean),
         };
         await catalogue.saveCatalogue({ expectedRevision: snapshot.revision, catalogue: next });
         if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;

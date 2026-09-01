@@ -30,14 +30,16 @@ Evidence and reachability:
 
 - The API Catalogue contract contains authoritative `roomPrices`.
 - The frontend exact-object validator previously omitted `roomPrices`, so a correct Production response could be rejected or Room-price state could be omitted from the write projection.
+- PR #174 review subsequently proved that the administration form also materialized an absent sparse Room price as explicit zero on any unrelated Catalogue save. That changes authoritative business data and can make an unpriced Room appear free/bookable.
 - The path is Production-reachable; this is not Demo-specific.
 
 Correction and regression:
 
 - Added `roomPrices` to the exact Catalogue read/write contract.
 - Added exact Room-price validation, bounded collection size, duplicate `roomId` rejection and unknown-field rejection.
+- Missing Room prices remain blank and omitted until the Conference Manager explicitly supplies an amount; explicit zero remains a distinct supported value and configured prices cannot be cleared accidentally.
 - Progression tests verify all five Catalogue collections round-trip.
-- Negative tests reject duplicate prices and injected provider/unknown fields.
+- Negative tests reject duplicate prices and injected provider/unknown fields; projection and browser regressions distinguish absent, explicit-zero and unchanged sparse prices.
 
 Residual limitation: none in the client contract. Server-side Catalogue validation remains authoritative.
 
@@ -610,6 +612,36 @@ Correction and regression:
 Residual limitation: the correction is currently worktree state; it requires commit-scoped
 repository and Chromium/WebKit evidence plus merge before completion can be claimed.
 
+### D-021 — Whitespace-only Manager settings names bypassed field validation
+
+Classification: `production-defect`
+
+Hardening reference: H-027.
+
+Affected modules:
+
+- Conference Manager Room business settings
+- Conference Manager Catalogue entry and package-variant settings
+
+Evidence and reachability:
+
+- Native HTML `required` considers whitespace a value, while the exact outgoing projection trims
+  names. A whitespace-only Room name therefore reached the adapter as empty and produced generic
+  failure feedback with no associated field or corrective focus.
+- Catalogue entry and package-variant names used the same required-then-trim pattern.
+- These forms are Production-reachable Conference Manager administration surfaces.
+
+Correction and regression:
+
+- A shared bounded validator rejects empty-after-trim names before any mutation, associates a
+  localized live error with the exact input, marks it invalid and focuses the first invalid field.
+- Input clears stale validation state; native constraints and authoritative API validation remain
+  intact.
+- Chromium/WebKit regressions cover the Room and Catalogue paths; package variants use the same
+  editor helper.
+
+Residual limitation: final-head browser CI and merge evidence remain required.
+
 ## Hardening traceability
 
 The hardening register owns mutable status and exact CI/merge evidence. This document owns the
@@ -617,6 +649,7 @@ Production-reachability classification and stable correction boundary.
 
 | Security-regression finding | Hardening finding | Relationship |
 | --- | --- | --- |
+| D-001 | H-026 | Sparse Room-price absence and explicit-zero data integrity. |
 | D-005 | H-001 | Inactivity-lock dialog/render race and authoritative unlock boundary. |
 | D-007 | H-007 | Production-fixture composition and canonical-permission evidence integrity. |
 | D-008 | H-016 | Organization mutation/presentation revision ordering. |
@@ -632,6 +665,7 @@ Production-reachability classification and stable correction boundary.
 | D-018 | H-023 | Per-Request proposal reservation across rerenders. |
 | D-019 | H-024 | Exact booking-change decision transport intent. |
 | D-020 | H-025 | Tenant-settings post-save render/focus lifecycle. |
+| D-021 | H-027 | Field-associated trimmed-name validation and focus recovery. |
 
 Hardening findings not listed here either predate this Demo/shared-runtime classification set or are
 scanner, governance, documentation, test-evidence or release-operation items whose scope/status is
