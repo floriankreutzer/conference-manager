@@ -76,23 +76,47 @@ test('Conference Manager projection rejects technical-field injection and scope 
   );
 });
 
-test('Tenant Admin technical projection preserves all Room business fields exactly', () => {
+test('Tenant Admin technical projection preserves all Room business fields and permits additive Sites', () => {
   const current = configuration();
   const projected = projectTechnicalLocationConfiguration(current, {
-    sites: [{
-      ...current.sites[0],
-      name: 'Berlin HQ',
-      timeZone: 'Europe/Berlin',
-    }],
-    roomSites: [{ id: 'room-a', siteId: 'site-a' }],
+    sites: [
+      {
+        ...current.sites[0],
+        name: 'Berlin HQ',
+        timeZone: 'Europe/Berlin',
+      },
+      {
+        id: 'site-b',
+        name: 'Munich',
+        active: true,
+        timeZone: 'Europe/Berlin',
+        address: null,
+      },
+    ],
+    roomSites: [{ id: 'room-a', siteId: 'site-b' }],
   });
 
   assert.equal(projected.sites[0].name, 'Berlin HQ');
-  assert.deepEqual(projected.rooms[0], current.rooms[0]);
+  assert.equal(projected.sites[1].id, 'site-b');
+  assert.deepEqual(projected.rooms[0], { ...current.rooms[0], siteId: 'site-b' });
 });
 
-test('Tenant Admin technical projection rejects Room business-field injection and scope changes', () => {
+test('Tenant Admin technical projection rejects Site removal, duplicates, Room business injection and Room scope changes', () => {
   const current = configuration();
+  assert.throws(
+    () => projectTechnicalLocationConfiguration(current, {
+      sites: [],
+      roomSites: [{ id: 'room-a', siteId: 'site-a' }],
+    }),
+    /TENANT_SITE_TECHNICAL_EDIT_SCOPE_INVALID/,
+  );
+  assert.throws(
+    () => projectTechnicalLocationConfiguration(current, {
+      sites: [current.sites[0], current.sites[0]],
+      roomSites: [{ id: 'room-a', siteId: 'site-a' }],
+    }),
+    /TENANT_SITE_TECHNICAL_EDIT_SCOPE_INVALID/,
+  );
   assert.throws(
     () => projectTechnicalLocationConfiguration(current, {
       sites: current.sites,
