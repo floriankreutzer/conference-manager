@@ -39,6 +39,7 @@ misrepresented as Demo discoveries.
 | H-010 | Medium / security evidence | DAST coverage | security-relevant evidence | Current `.github/workflows/dast.yml` runs OWASP ZAP Baseline only against the static GitHub Pages launchpad. It does not itself constitute Customer Render, Platform Render or Production application/API DAST evidence. | Keep static-portal DAST. Add/execute appropriate Customer/Platform application DAST where repository/deployed infrastructure permits; keep real Production/deployed acceptance explicitly separate when external infrastructure is required. | OPEN — final-gate evidence |
 | H-011 | Medium / security evidence | Code scanning/SAST | Repository-wide | Repository workflows currently expose custom syntax/static/SAST/architecture checks, dependency review/audit and secret scan. No standalone CodeQL workflow is visible in the checked branch workflow tree; repository-level default CodeQL configuration has not yet been evidenced through the available connector. | Do not claim CodeQL clean/absent. Verify the repository security configuration for #170. If CodeQL is not configured and is required/available, add it through the reviewed protected workflow; otherwise document the exact configured SAST evidence and external limitation. | OPEN — evidence verification |
 | H-012 | Informational | Source maintenance debt | Repository-wide | Default-branch code search on 2026-09-01 returned no `TODO`, `FIXME`, `HACK`, `TEMP`, `temporary compatibility`, `deprecated` or `legacy` findings matching the hardening sweep query in either repository. | No issue created from this sweep. Continue to classify concrete compatibility/dead-code findings discovered by review/tests rather than using marker counts as a quality metric. | Closed / no finding |
+| H-013 | High / P1 architecture-failure-path debt | Backend Shared Demo PostgreSQL gate | demo-only reachability; current hardening debt | The still-open review thread on already-merged API PR #58 was revalidated against current `main`: `demo-runtime-gate.js` still owned a second hand-written BEGIN/UTC/COMMIT/ROLLBACK/release lifecycle instead of the canonical `withPostgresTransaction`, so future transaction cleanup/nesting/instrumentation fixes could diverge. Import search shows this gate is used only by Demo Customer/Platform composition and tests, not Production composition. | SaaS 3.6 API PR #61 now extends the canonical transaction helper with an opt-in infrastructure-error mapper for `connect`/`setup`/`commit`, preserving work errors unchanged, and makes the Demo gate delegate the full transaction lifecycle to it. Generic and Demo-gate regression tests prohibit lifecycle duplication. Merge/CI evidence is still required before closure. | **FIXED ON BRANCH — pending CI/merge** |
 
 ## Current scanner and CI evidence
 
@@ -56,14 +57,15 @@ previous head.
 - full browser E2E was still running when this register snapshot was created and must be re-evaluated
   on the final post-fix head.
 
-### Backend code head `4f92cc122feb08a6092fc064bdc9a7cdca7a7e81`
+### Backend head `aa266ad87ec41dfb418822a34420521b8df1409c`
 
-The session-security-epoch implementation and its regression test were included in this head. Its
-`quality`, PostgreSQL integration and shared-Demo Chromium/WebKit jobs passed; Secret Scan and
-Dependency Policy also passed. A later documentation-only branch head exists and must receive its
-own final green gate before merge.
+This head includes the Customer-session security epoch, Catalogue/Bulk authorization documentation,
+and the H-013 canonical transaction-helper correction. Dependency Policy and Secret Scan passed on
+this exact head; the complete CI workflow was still running when this register snapshot was updated.
+Earlier code head `4f92cc122feb08a6092fc064bdc9a7cdca7a7e81` passed `quality`, PostgreSQL integration
+and shared-Demo Chromium/WebKit, but that earlier evidence is not treated as final-head validation.
 
-Passing these configured jobs does not substitute for the unresolved DAST/CodeQL evidence questions
+Passing configured jobs does not substitute for the unresolved DAST/CodeQL evidence questions
 listed above and does not close open review findings.
 
 ## Issue/review inventory rules
@@ -75,6 +77,8 @@ listed above and does not close open review findings.
   tense ownership must receive a clear superseded/current-baseline note under #169.
 - Backend issue #17 was the only open backend issue in the 2026-09-01 issue sweep and is now closed
   because its stated documentation gap is already satisfied by current main.
+- Historical merged PR review threads are part of the inventory. A merged PR summary does not
+  override an unresolved review finding: H-013 was rediscovered this way and reproduced on `main`.
 - PR review findings are first-class hardening findings and are resolved only after fix + appropriate
   regression/progression/negative evidence.
 
@@ -83,13 +87,15 @@ listed above and does not close open review findings.
 1. Close H-001/H-003/H-004/H-007 with code and browser/regression evidence on PR #173.
 2. Close H-006 by reconciling all normative backend authorization/ownership contracts and obtaining a
    fresh PR #61 review.
-3. Re-run final frontend/backend repository-required checks on the actual final heads.
-4. Execute a fresh security-focused PR review on both repositories and add any new finding to this
+3. Close H-013 only after the canonical transaction correction passes the complete API gate and is
+   integrated to `main`; then resolve the historical PR #58 thread with the merge evidence.
+4. Re-run final frontend/backend repository-required checks on the actual final heads.
+5. Execute a fresh security-focused PR review on both repositories and add any new finding to this
    register before disposition.
-5. Complete the #168 Demo-defect classification sweep, including Production-path inspection and
+6. Complete the #168 Demo-defect classification sweep, including Production-path inspection and
    adversarial evidence for every `security-relevant` item.
-6. Resolve H-009 through #169 GitHub/Confluence current-state reconciliation.
-7. Resolve or explicitly govern the H-010/H-011 security-evidence gaps without weakening scanners or
+7. Resolve H-009 through #169 GitHub/Confluence current-state reconciliation.
+8. Resolve or explicitly govern the H-010/H-011 security-evidence gaps without weakening scanners or
    overstating Production readiness.
-8. #170 remains blocked until this register has no unresolved blocking finding and all required gates
+9. #170 remains blocked until this register has no unresolved blocking finding and all required gates
    apply to the exact release-candidate refs.
