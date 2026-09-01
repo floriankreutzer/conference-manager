@@ -2,5 +2,8 @@ export { createManagerBusinessSettingsApplication } from './business-settings-ap
 export {
   createProductionManagerApplication,
   createProductionManagerApplication as createManagerApplication,
-  createProductionManagerApplication as createServerManagerApplication,
 } from './production-application.js';
+export {
+  createManagerWorkspaceApplication,
+  createManagerWorkspaceApplication as createServerManagerApplication,
+} from './workspace-application.js';
