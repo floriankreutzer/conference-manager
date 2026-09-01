@@ -97,25 +97,38 @@ function packageEntry(value) {
   });
 }
 
-function unique(entries) {
-  return new Set(entries.map((entry) => entry.id)).size === entries.length;
+function roomPrice(value) {
+  exactObject(value, ['roomId', 'price'], 'TENANT_CATALOGUE_RESPONSE_INVALID');
+  return Object.freeze({
+    roomId: safeId(value.roomId, 'TENANT_CATALOGUE_RESPONSE_INVALID'),
+    price: price(value.price),
+  });
+}
+
+function unique(entries, key = 'id') {
+  return new Set(entries.map((entry) => entry[key])).size === entries.length;
 }
 
 function catalogue(value) {
-  exactObject(value, ['services', 'equipment', 'cateringPackages', 'cateringItems'], 'TENANT_CATALOGUE_RESPONSE_INVALID');
+  exactObject(value, [
+    'services', 'equipment', 'cateringPackages', 'cateringItems', 'roomPrices',
+  ], 'TENANT_CATALOGUE_RESPONSE_INVALID');
   if (!Array.isArray(value.services) || value.services.length > 200
     || !Array.isArray(value.equipment) || value.equipment.length > 200
     || !Array.isArray(value.cateringPackages) || value.cateringPackages.length > 100
-    || !Array.isArray(value.cateringItems) || value.cateringItems.length > 300) invalid();
+    || !Array.isArray(value.cateringItems) || value.cateringItems.length > 300
+    || !Array.isArray(value.roomPrices) || value.roomPrices.length > 1_000) invalid();
   const services = value.services.map(commonEntry);
   const equipment = value.equipment.map(commonEntry);
   const cateringItems = value.cateringItems.map(commonEntry);
   const cateringPackages = value.cateringPackages.map(packageEntry);
-  if (![services, equipment, cateringItems, cateringPackages].every(unique)) invalid();
+  const roomPrices = value.roomPrices.map(roomPrice);
+  if (![services, equipment, cateringItems, cateringPackages].every((entries) => unique(entries))) invalid();
+  if (!unique(roomPrices, 'roomId')) invalid();
   const itemById = new Map(cateringItems.map((entry) => [entry.id, entry]));
   if (cateringPackages.some((entry) => entry.itemIds.some((id) => !itemById.has(id)))) invalid();
   if (cateringPackages.some((entry) => entry.active && entry.itemIds.some((id) => !itemById.get(id).active))) invalid();
-  return immutable({ services, equipment, cateringPackages, cateringItems });
+  return immutable({ services, equipment, cateringPackages, cateringItems, roomPrices });
 }
 
 function current(value) {

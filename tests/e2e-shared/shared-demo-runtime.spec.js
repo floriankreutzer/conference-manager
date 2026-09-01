@@ -54,11 +54,16 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
       && url.origin === CUSTOMER_ORIGIN
       && url.pathname === '/api/v1/demo/session/context';
   });
-  const reloadPromise = page.waitForEvent('load');
+  const rebootstrapPromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === 'GET'
+      && url.origin === CUSTOMER_ORIGIN
+      && url.pathname === '/api/v1/demo/session';
+  });
   await page.locator('[data-demo-security] button').click();
   const response = await responsePromise;
   expect(response.status()).toBe(200);
-  await reloadPromise;
+  expect((await rebootstrapPromise).status()).toBe(200);
   const session = await establishCustomer(page.context());
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
   await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
@@ -278,6 +283,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await expect(customerPage.locator('#brandTitle')).toHaveText(MUTATED_NAME_B);
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
   expect(customerSession.tenant).toEqual({ id: TENANT_B, status: 'active' });
+  const requestOwnerUserId = customerSession.user.id;
 
   await customerPage.locator('[data-view="employee"]').click();
   const businessWindow = futureBusinessWindow();
@@ -314,6 +320,8 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await expect(employeeCard).toContainText('Zur Prüfung');
 
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'conference_manager');
+  const managerUserId = customerSession.user.id;
+  expect(managerUserId).not.toBe(requestOwnerUserId);
   await customerPage.locator('[data-view="manager"]').click();
   const managerCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
   await expect(managerCard).toBeVisible();
@@ -338,6 +346,54 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     200,
   );
   await expect(managerCard).toContainText('Änderung angefordert');
+
+  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'dual_role');
+  expect(customerSession.roles).toEqual(['employee', 'conference_manager', 'tenant_admin']);
+  expect(customerSession.permissions).toEqual([
+    'request:read',
+    'request:cancel',
+    'request:manage',
+    'tenant:rooms:business:manage',
+    'tenant:catalogue:manage',
+    'tenant:configure',
+    'tenant:users:manage',
+    'tenant:integrations:manage',
+    'tenant:audit:read',
+  ]);
+  await expect(customerPage.locator('[data-view="manager"]')).toHaveCount(1);
+  await expect(customerPage.locator('[data-view="tenantAdmin"]')).toHaveCount(1);
+  await customerPage.locator('[data-view="manager"]').click();
+  await expect(customerPage.locator(`[data-production-request-id="${createdRequestId}"]`)).toBeVisible();
+  await customerPage.locator('[data-view="tenantAdmin"]').click();
+  await expect(customerPage.locator('[data-tenant-admin-shell]')).toBeVisible();
+  await customerPage.locator('[data-tenant-admin-section="users"]').click();
+  await expect(customerPage).toHaveURL(/#tenant-admin\/users$/);
+
+  await customerPage.evaluate(async () => {
+    const channel = new BroadcastChannel('conference-manager-customer-session-lock-v1');
+    channel.postMessage({ type: 'lock' });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    channel.close();
+  });
+  const dualRoleLock = customerPage.locator('dialog[data-inactivity-lock="true"]');
+  await expect(customerPage.locator('html')).toHaveAttribute('data-session-locked', 'true');
+  await expect(dualRoleLock).toBeVisible();
+  await expect(dualRoleLock.getByRole('button', { name: 'Sitzung prüfen und entsperren' })).toBeFocused();
+  await expect(customerPage.locator('#primaryNavigation')).toBeEmpty();
+  await expect(customerPage.locator('#app')).toBeEmpty();
+  await customerPage.evaluate(() => {
+    window.location.hash = '#tenant-admin/users';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  });
+  await expect(customerPage.locator('#app')).toBeEmpty();
+  const unlocked = customerPage.waitForEvent('load');
+  await dualRoleLock.getByRole('button', { name: 'Sitzung prüfen und entsperren' }).click();
+  await unlocked;
+  customerSession = await establishCustomer(customerContext);
+  expect(customerSession.demo.persona).toBe('dual_role');
+  await expect(customerPage.locator('[data-view="manager"]')).toHaveCount(1);
+  await expect(customerPage.locator('[data-view="tenantAdmin"]')).toHaveCount(1);
+  await expect(customerPage.locator('[data-tenant-admin-shell]')).toBeVisible();
 
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
   await customerPage.locator('[data-view="requests"]').click();
@@ -388,14 +444,27 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const resubmittedCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
   await expect(resubmittedCard).toContainText('Zur Prüfung');
   await expect(resubmittedCard).toContainText('3');
+
+  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'conference_manager');
+  expect(customerSession.user.id).toBe(managerUserId);
+  await customerPage.locator('[data-view="manager"]').click();
+  const managerCancelCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
+  await managerCancelCard.getByRole('button', { name: 'Anfrage stornieren' }).click();
+  const managerCancelDialog = customerPage.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
+  await expect(managerCancelDialog).toContainText('Die Anfragedaten werden nicht gelöscht.');
   await expectUiResponseStatus(
     customerPage,
     'POST',
     transitionPath,
-    () => resubmittedCard.getByRole('button', { name: 'Anfrage stornieren' }).click(),
+    () => managerCancelDialog.getByRole('button', { name: 'Anfrage stornieren' }).click(),
     200,
   );
-  await expect(resubmittedCard).toContainText('Storniert');
+  await expect(managerCancelCard).toContainText('Storniert');
+
+  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
+  await customerPage.locator('[data-view="requests"]').click();
+  await expect(customerPage.locator(`[data-production-request-id="${createdRequestId}"]`))
+    .toContainText('Storniert');
   const employeeHistory = await expectStatus(
     await customerContext.request.get(
       `${CUSTOMER_ORIGIN}/api/v1/requests/${encodeURIComponent(createdRequestId)}/history?limit=10`,

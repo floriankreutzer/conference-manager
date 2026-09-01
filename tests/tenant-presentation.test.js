@@ -256,7 +256,7 @@ test('Demo projection derives from the same organization revision and rejects un
   await assert.rejects(api.loadPresentation(), (error) => error.code === 'TENANT_PRESENTATION_RESPONSE_INVALID');
 });
 
-test('organization writes refresh the effective presentation before returning success', async () => {
+test('organization writes project success immediately and schedule an authoritative presentation reread', async () => {
   const calls = [];
   const organizationSettings = {
     async loadOrganization() { calls.push('load'); return { revision: 1 }; },
@@ -271,15 +271,18 @@ test('organization writes refresh the effective presentation before returning su
   };
   const adapter = createPresentationRefreshingOrganizationSettings({
     organizationSettings,
-    presentationRuntime: { async refresh() { calls.push('refresh'); } },
+    presentationRuntime: {
+      applyOrganizationResult() { calls.push('apply'); },
+      async refresh() { calls.push('refresh'); },
+    },
   });
   assert.deepEqual(await adapter.saveOrganization({}), { revision: 2 });
-  assert.deepEqual(calls, ['save', 'refresh']);
+  assert.deepEqual(calls, ['save', 'apply', 'refresh']);
   assert.equal(await adapter.reset(), 1);
-  assert.deepEqual(calls, ['save', 'refresh', 'reset:start', 'reset:complete', 'refresh']);
+  assert.deepEqual(calls, ['save', 'apply', 'refresh', 'reset:start', 'reset:complete', 'refresh']);
 });
 
-test('organization save cannot remain pending on a stalled presentation refresh', async () => {
+test('organization save cannot remain pending on a stalled presentation verification reread', async () => {
   let aborted = false;
   const presentationRuntime = createTenantPresentationRuntime({
     refreshTimeoutMs: 5,
@@ -301,14 +304,34 @@ test('organization save cannot remain pending on a stalled presentation refresh'
     organizationSettings: {
       async loadOrganization() { return { revision: 1 }; },
       async listOrganizationHistory() { return { revisions: [] }; },
-      async saveOrganization() { return { revision: 2 }; },
+      async saveOrganization() {
+        return {
+          schemaVersion: 1,
+          revision: 2,
+          organization: {
+            displayName: 'Saved organization',
+            businessMetadata: { legalName: null, registrationNumber: null, countryCode: 'DE' },
+            presentation: { defaultLocale: 'en-GB', defaultCurrency: 'GBP' },
+            branding: { logoAssetRef: MANAGED_BRAND_REFERENCE, accentToken: 'default' },
+          },
+        };
+      },
     },
     presentationRuntime,
   });
 
-  assert.deepEqual(await adapter.saveOrganization({}), { revision: 2 });
+  assert.equal((await adapter.saveOrganization({})).revision, 2);
+  await new Promise((resolve) => { setTimeout(resolve, 10); });
   assert.equal(aborted, true);
-  assert.deepEqual(presentationRuntime.current(), TENANT_PRESENTATION_FALLBACK);
+  assert.deepEqual(presentationRuntime.current(), payload({
+    revision: 2,
+    presentation: {
+      displayName: 'Saved organization',
+      defaultLocale: 'en-GB',
+      defaultCurrency: 'GBP',
+      branding: { logoPreset: MANAGED_BRAND_LOGO_PRESET, accentToken: 'default' },
+    },
+  }));
 });
 
 test('tenant localization supplies defaults while an explicit User language remains authoritative', () => {

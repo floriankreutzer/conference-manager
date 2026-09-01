@@ -26,10 +26,13 @@ export function createTenantAdminSettingsShell({
   let generation = 0;
   let focusSectionId = null;
 
-  function focusActiveHeading(sectionId, currentGeneration) {
-    if (generation !== currentGeneration || focusSectionId !== sectionId) return;
+  function focusActiveHeading(sectionId, currentGeneration, shell) {
+    const isCurrent = () => generation === currentGeneration
+      && shell.parentNode === appRoot
+      && document.documentElement?.dataset?.sessionLocked !== 'true';
+    if (!isCurrent() || focusSectionId !== sectionId) return;
     requestAnimationFrame(() => {
-      if (generation !== currentGeneration || focusSectionId !== sectionId) return;
+      if (!isCurrent() || focusSectionId !== sectionId) return;
       appRoot.querySelector('[data-tenant-admin-section-content] h2')?.focus();
       focusSectionId = null;
     });
@@ -121,26 +124,31 @@ export function createTenantAdminSettingsShell({
     });
     shell.append(navigation(activeId, availableSections), content);
     appRoot.appendChild(shell);
+    const isCurrent = () => generation === currentGeneration
+      && shell.parentNode === appRoot
+      && document.documentElement?.dataset?.sessionLocked !== 'true';
+    const guardedNavigate = (sectionId) => { if (isCurrent()) navigate(sectionId); };
+    const rerender = () => { if (isCurrent()) render(); };
 
     if (!activeSection) {
       content.appendChild(overview(availableSections));
-      focusActiveHeading(OVERVIEW_ID, currentGeneration);
+      focusActiveHeading(OVERVIEW_ID, currentGeneration, shell);
       return;
     }
 
     const sectionRender = activeSection.render({
       root: content,
       generation: currentGeneration,
-      isCurrent: () => generation === currentGeneration,
-      navigate,
-      rerender: render,
+      isCurrent,
+      navigate: guardedNavigate,
+      rerender,
     });
     // Section renderers attach their heading synchronously before loading data.
     // Consume explicit-navigation focus now so it cannot override a later,
     // section-owned mutation focus after an asynchronous rerender.
-    focusActiveHeading(activeSection.id, currentGeneration);
+    focusActiveHeading(activeSection.id, currentGeneration, shell);
     Promise.resolve(sectionRender).catch(() => {
-      if (generation !== currentGeneration) return;
+      if (!isCurrent()) return;
       clear(content);
       content.appendChild(el('section', {
         className: 'card tenant-admin-status',
@@ -150,7 +158,7 @@ export function createTenantAdminSettingsShell({
         el('p', { text: t('tenantAdmin.section.errorText') }),
       ]));
       requestAnimationFrame(() => {
-        if (generation === currentGeneration) content.querySelector('h2')?.focus();
+        if (isCurrent()) content.querySelector('h2')?.focus();
       });
     });
   }

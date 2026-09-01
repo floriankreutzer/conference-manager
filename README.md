@@ -1,6 +1,6 @@
 # Conference Manager
 
-Frontend MVP for internal conference requests with employee and conference-management views.
+Frontend application for Tenant-scoped conference requests with Employee, Conference Manager and Tenant Admin capabilities plus a separately deployed Platform Operator surface.
 
 ## Readiness status
 
@@ -21,9 +21,21 @@ The readiness status describes clarity, usability, responsive behavior, and regr
 - Catering packages, individual options, separate catering participant count, and dietary requirements
 - Cost-center allocation with 0–100% validation and total validation
 - List, calendar, request history, guest information, and printable welcome view
-- Manager cockpit with bookings, room planning, reports, and master-data administration
+- Conference Manager cockpit with Tenant-wide Request operations, room planning, operational reports, Room business-data administration, Tenant Catalogue administration, and authoritative Room prices
+- Tenant Admin administration for organization, booking policy, cost allocation, Users and elevated roles, provider integrations and technical Room/provider mapping
+- Independent, additive Conference Manager and Tenant Admin roles, including an exact dual-role permission union on top of the implicit Employee baseline
 - German and English through the canonical Core application localization contract
 - Server-backed Demo persistence in one isolated PostgreSQL database, shared by the separately authenticated Customer and Platform Demo processes
+
+## SaaS 3.6 role and ownership baseline
+
+Every active customer User receives the implicit Employee baseline. `conference_manager` and `tenant_admin` are independent elevated roles: neither inherits the other, and a User assigned both receives the exact permission union. Browser navigation reflects the validated server session but never establishes authorization.
+
+Conference Manager owns same-Tenant operational Request management, Room business fields, the Service/Equipment/Catering Catalogue, and authoritative Room prices. An eligible Conference Manager may decide a self-initiated operational change only with distinct server-derived initiator/decider audit evidence. Tenant Admin owns organization, booking policy, cost allocation, Users/elevated roles, Tenant audit, provider integration, Site configuration, stable Room identity, technical Room-to-Site assignment, and provider mapping. Provider-controlled identifiers remain immutable through normal business editing. A mixed Room mutation requires both elevated roles, and customer workflows cancel or archive referenced records instead of physically deleting historical Requests or provider-backed Rooms. SaaS 3.6 does not assign cost or cost-center reporting to a customer role.
+
+The complete canonical matrix, field split and security invariants are documented in `docs/ROLE-MODEL.md`. Server-side authorization in `conference-manager-api` remains authoritative; frontend visibility is not an access control.
+
+This section records the approved SaaS 3.6 contract. GitHub issues, protected pull requests, final-head checks, merged commits and deployment evidence remain authoritative for delivery status; this README does not claim milestone, live-deployment or external-acceptance completion.
 
 ## Repository-wide coding-agent instructions
 
@@ -62,9 +74,13 @@ Current repository entry points:
 │   ├── BASELINE.md
 │   ├── CODING-STANDARDS.md
 │   ├── DEMO-SECURITY.md
+│   ├── DEMO-URLS.md
 │   ├── DESIGN-SYSTEM.md
 │   ├── PHASE-2-PLAN.md
 │   ├── PRODUCTION-SECURITY.md
+│   ├── ROLE-MODEL.md
+│   ├── SAAS-3.6-HARDENING-REGISTER.md
+│   ├── SAAS-3.6-SECURITY-REGRESSION.md
 │   ├── SAAS3-PLATFORM-CONTROL-PLANE.md
 │   └── SAAS-PRODUCTION-TOPOLOGY.md
 ├── scripts/
@@ -82,7 +98,9 @@ Current repository entry points:
 │   ├── employee/
 │   ├── manager/
 │   ├── platform/
-│   └── shared/
+│   ├── platform-admin/
+│   ├── shared/
+│   └── tenant-admin/
 ├── tests/
 │   ├── e2e/
 │   └── *.test.js
@@ -96,9 +114,9 @@ Current repository entry points:
 
 ## Architecture and design system
 
-The runtime is organized around explicit capability boundaries. `src/employee/index.js` and `src/manager/index.js` are the public module APIs. `src/platform` owns application context, shell/bootstrap, cross-cutting orchestration and the feature-flag foundation. `src/shared` contains genuinely cross-capability presentation/contracts, while `src/core` contains stable domain and infrastructure primitives including the canonical application localization architecture.
+The runtime is organized around explicit capability boundaries. `src/employee/index.js`, `src/manager/index.js` and `src/tenant-admin/index.js` are the customer capability public APIs. `src/platform` owns application context, shell/bootstrap, cross-cutting orchestration and the feature-flag foundation. `src/shared` contains genuinely cross-capability presentation/contracts, while `src/core` contains stable domain and infrastructure primitives including the canonical application localization architecture.
 
-`src/app.js` is the composition/bootstrap root only. The Employee request workflow, draft/request lifecycle, request rendering and Employee event handling live behind the Employee public API. Manager booking, room-planning, reporting and administration behavior live behind the Manager public API. Testable request/booking lifecycle rules are separated from browser rendering where practical.
+`src/app.js` is the composition/bootstrap root only. The Employee request workflow, draft/request lifecycle, request rendering and Employee event handling live behind the Employee public API. Conference Manager booking, room-planning, reporting and business-settings behavior live behind the Manager public API. Tenant organization/policy/cost/User/provider administration remains behind the Tenant Admin public API. Testable request/booking and ownership rules are separated from browser rendering where practical.
 
 The operational application uses a restrained consulting/business visual language with Bordeaux as the primary accent and Camel as an intentional surface color. Global design decisions are maintained exclusively in `assets/tokens.css`.
 
@@ -110,9 +128,11 @@ New user-visible application copy belongs to the canonical Core localization mec
 
 The approved SaaS production topology keeps this repository as the browser application and places the trusted production backend in a dedicated `conference-manager-api` repository while exposing the customer browser and `/api/*` through one HTTPS origin. The accepted SaaS 3 extension adds a separately deployable Platform Operator artifact and operator origin backed by a Platform-only process in the same backend repository; it does not add Platform authority to Tenant Admin or existing customer `src/platform` modules.
 
-The accepted SaaS 3.5 architecture keeps Platform Operations source in those two application repositories while preserving the four separate browser/API artifacts and processes. It replaces browser-owned Demo business state with one isolated PostgreSQL-backed Demo model reached through separate Customer and Platform Demo session/API boundaries. Runtime implementation and final release evidence remain tracked by milestone #149 and its delivery issues.
+The accepted SaaS 3.5 architecture keeps Platform Operations source in those two application repositories while preserving the four separate browser/API artifacts and processes. It replaces browser-owned Demo business state with one isolated PostgreSQL-backed Demo model reached through separate Customer and Platform Demo session/API boundaries. SaaS 3.5 remains the topology and persistence baseline; its historical descriptions of Tenant Admin editing all Locations/Rooms/Catalogue data do not define current authorization. The approved SaaS 3.6 role model in `docs/ROLE-MODEL.md` and the current ownership matrix supersede only that earlier role allocation while preserving the accepted topology.
 
-See `docs/BASELINE.md`, `docs/ARCHITECTURE.md`, `docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md`, `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`, `docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md`, `docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+SaaS 3.6 also bounds GitHub Pages to a static human Demo launchpad for the separate Render Customer and Platform application origins. It is not an application, identity, session, API, proxy, persistence or authorization layer. `docs/DEMO-URLS.md` records the canonical topology and must contain the exact Pages URL only after deployment evidence exists.
+
+See `docs/BASELINE.md`, `docs/ROLE-MODEL.md`, `docs/ARCHITECTURE.md`, `docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md`, `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`, `docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md`, `docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
 
 ## Feature flags
 
@@ -164,7 +184,7 @@ The implementation targets WCAG 2.2 Level AA. A formal conformance statement add
 
 ## Runtime security boundary
 
-The active Customer Demo and Platform Admin Demo are server-backed presentation tiers. They obtain separate server-issued Demo sessions from separate same-origin API processes, while canonical Demo business state is persisted in one isolated PostgreSQL database. The visible persona selectors submit only an allowlisted persona request; the appropriate server resolves the effective roles and permissions. Browser code, DOM values and browser storage never establish Demo or Production authority.
+The active Customer Demo and Platform Admin Demo are server-backed presentation tiers. They obtain separate server-issued Demo sessions from separate same-origin API processes, while canonical Demo business state is persisted in one isolated PostgreSQL database. The visible persona selectors submit only an allowlisted persona request; the appropriate server resolves the effective roles and permissions. Customer Demo personas use the same implicit Employee baseline, independent elevated roles and dual-role union as Production. Browser code, DOM values and browser storage never establish Demo or Production authority.
 
 Only bounded non-authoritative preferences such as the selected language may remain browser-local. API, session or schema failure is rendered as unavailable and never falls back to LocalStorage, fixtures or browser mutation rules. The Demo uses deterministic non-production identities and provider adapters and is not evidence of real identity-provider, Microsoft 365 or Production acceptance.
 

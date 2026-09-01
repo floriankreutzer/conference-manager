@@ -181,14 +181,15 @@ test('operations stylesheet uses canonical tokens and includes bounded responsiv
 test('capability recovery delegates internal navigation to the settings shell', () => {
   const shell = readFileSync('src/tenant-admin/settings-shell.js', 'utf8');
   const capabilities = readFileSync('src/tenant-admin/sections/capabilities/index.js', 'utf8');
-  assert.match(shell, /activeSection\.render\(\{[\s\S]*navigate,[\s\S]*rerender: render/);
+  assert.match(shell, /const isCurrent = \(\) => generation === currentGeneration[\s\S]*shell\.parentNode === appRoot[\s\S]*sessionLocked/);
+  assert.match(shell, /activeSection\.render\(\{[\s\S]*navigate: guardedNavigate,[\s\S]*rerender,/);
   assert.match(capabilities, /event\.preventDefault\(\);\s*navigate\('microsoft365'\);/);
 });
 
 test('section navigation focus is consumed before asynchronous section completion', () => {
   const shell = readFileSync('src/tenant-admin/settings-shell.js', 'utf8');
   const render = shell.indexOf('const sectionRender = activeSection.render');
-  const focus = shell.indexOf('focusActiveHeading(activeSection.id, currentGeneration)', render);
+  const focus = shell.indexOf('focusActiveHeading(activeSection.id, currentGeneration, shell)', render);
   const completion = shell.indexOf('Promise.resolve(sectionRender)', render);
   assert.ok(render >= 0 && focus > render && completion > focus);
 });

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { customerDemoBoundaryViolations } from './customer-demo-boundary-policy.mjs';
+import { asProductionHtml } from '../tests/e2e/fixtures/production-html.js';
 
 const RETIRED_CUSTOMER_DEMO_E2E = Object.freeze([
   'app-responsive.spec.js',
@@ -141,15 +142,33 @@ for (const required of [
 }
 
 for (const file of [
+  'demo-role-switch.spec.js',
   'production-application.spec.js',
   'tenant-presentation.spec.js',
   'tenant-role-administration.spec.js',
   'tenant-settings-production-composition.spec.js',
 ]) {
   const source = await readFile(`tests/e2e/${file}`, 'utf8');
-  if (!source.includes('./src/platform/production-bootstrap.js?v=20260830-77')) {
-    fail(`tests/e2e/${file}: Production route fixture must load the explicit Production composition root.`);
+  if (!source.includes('asProductionHtml')) {
+    fail(`tests/e2e/${file}: Production route fixture must use the cache-marker-safe Production HTML contract.`);
   }
+}
+
+try {
+  const transformed = asProductionHtml(html);
+  const demoMarker = html.match(/src\/platform\/demo-bootstrap\.js(\?v=[A-Za-z0-9._-]+)?/)?.[1] || '';
+  const productionMarker = transformed.match(
+    /src\/platform\/production-bootstrap\.js(\?v=[A-Za-z0-9._-]+)?/,
+  )?.[1] || '';
+  if (
+    transformed.includes('src/platform/demo-bootstrap.js')
+    || !transformed.includes('conference-runtime" content="production"')
+    || demoMarker !== productionMarker
+  ) {
+    fail('Production route fixture must replace only the runtime composition root and retain its immutable cache marker.');
+  }
+} catch (error) {
+  fail(`Production route fixture rejected the canonical index: ${error?.message || 'unknown error'}.`);
 }
 
 if (failures) process.exit(1);

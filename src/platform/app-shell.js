@@ -51,7 +51,16 @@ export function createAppShell({
   let view = 'welcome';
   let renderRevision = 0;
 
+  function sessionLocked() {
+    return document.documentElement.dataset.sessionLocked === 'true';
+  }
+
+  function invalidatePendingRender() {
+    renderRevision += 1;
+  }
+
   function setPageHeading(title, subtitle) {
+    if (sessionLocked()) return;
     titleRoot.textContent = title;
     subtitleRoot.textContent = subtitle;
   }
@@ -66,6 +75,10 @@ export function createAppShell({
   }
 
   function setView(nextView) {
+    if (sessionLocked()) {
+      invalidatePendingRender();
+      return;
+    }
     if (!serverViewAllowed(nextView)) nextView = 'welcome';
     onViewChange?.(nextView);
     view = nextView;
@@ -105,6 +118,7 @@ export function createAppShell({
   }
 
   function renderNavigation() {
+    if (sessionLocked()) return;
     applyTenantPresentationToDocument(
       document,
       tenantPresentation?.current?.() || TENANT_PRESENTATION_FALLBACK,
@@ -298,6 +312,7 @@ export function createAppShell({
   }
 
   function openProfile() {
+    if (sessionLocked()) return;
     const content = el('section', { className: 'profile-content' });
     const dl = el('dl', { className: 'details-list' });
     const profileDetails = context.fullName()
@@ -349,6 +364,7 @@ export function createAppShell({
   }
 
   function openHelp() {
+    if (sessionLocked()) return;
     const content = el('section', { className: 'help-grid' });
     [
       [t('help.noRoom'), t('help.noRoomText')],
@@ -383,8 +399,9 @@ export function createAppShell({
   }
 
   function render() {
-    renderRevision += 1;
+    invalidatePendingRender();
     const revision = renderRevision;
+    if (sessionLocked()) return;
     document.getElementById('mainContent').removeAttribute('aria-busy');
     clear(appRoot);
     renderNavigation();
@@ -421,5 +438,6 @@ export function createAppShell({
     setPageHeading,
     setView,
     openHelp,
+    invalidatePendingRender,
   };
 }

@@ -22,11 +22,15 @@ function sessionPayload({
 } = {}) {
   const roles = ['employee'];
   const permissions = ['request:read', 'request:cancel'];
-  if (persona === 'conference_manager') {
+  if (persona === 'conference_manager' || persona === 'dual_role') {
     roles.push('conference_manager');
-    permissions.push('request:manage');
+    permissions.push(
+      'request:manage',
+      'tenant:rooms:business:manage',
+      'tenant:catalogue:manage',
+    );
   }
-  if (persona === 'tenant_admin') {
+  if (persona === 'tenant_admin' || persona === 'dual_role') {
     roles.push('tenant_admin');
     permissions.push(
       'tenant:configure',
@@ -74,6 +78,21 @@ test('Customer Demo session accepts only a canonical server-owned persona projec
   assert.deepEqual(session.roles, ['employee', 'tenant_admin']);
   assert.equal(Object.hasOwn(session, 'requestId'), false);
 
+  const dualRole = normalizeDemoCustomerSession(sessionPayload({ persona: 'dual_role' }), { clock: () => NOW });
+  assert.equal(dualRole.demo.persona, 'dual_role');
+  assert.deepEqual(dualRole.roles, ['employee', 'conference_manager', 'tenant_admin']);
+  assert.deepEqual(dualRole.permissions, [
+    'request:read',
+    'request:cancel',
+    'request:manage',
+    'tenant:rooms:business:manage',
+    'tenant:catalogue:manage',
+    'tenant:configure',
+    'tenant:users:manage',
+    'tenant:integrations:manage',
+    'tenant:audit:read',
+  ]);
+
   assert.throws(
     () => normalizeDemoCustomerSession({ ...sessionPayload(), browserRole: 'tenant_admin' }, { clock: () => NOW }),
     (error) => error instanceof DemoCustomerSessionError && error.code === 'DEMO_SESSION_INVALID',
@@ -82,7 +101,13 @@ test('Customer Demo session accepts only a canonical server-owned persona projec
     () => normalizeDemoCustomerSession({
       ...sessionPayload({ persona: 'employee' }),
       roles: ['employee', 'conference_manager'],
-      permissions: ['request:read', 'request:cancel', 'request:manage'],
+      permissions: [
+        'request:read',
+        'request:cancel',
+        'request:manage',
+        'tenant:rooms:business:manage',
+        'tenant:catalogue:manage',
+      ],
     }, { clock: () => NOW }),
     (error) => error instanceof DemoCustomerSessionError
       && error.code === 'DEMO_SESSION_PERSONA_MISMATCH',
@@ -151,7 +176,7 @@ test('Customer Demo context switch sends intent only with in-memory CSRF and tru
         return jsonResponse(sessionPayload({
           tenantId: TENANT_B,
           userId: USER_B,
-          persona: 'conference_manager',
+          persona: 'dual_role',
         }));
       }
       throw new Error('UNEXPECTED_REQUEST');
@@ -163,14 +188,15 @@ test('Customer Demo context switch sends intent only with in-memory CSRF and tru
   assert.equal(bootstrapped.tenants.length, 2);
   const selected = await runtime.selectContext({
     tenantId: TENANT_B,
-    persona: 'conference_manager',
+    persona: 'dual_role',
   });
   assert.equal(selected.tenant.id, TENANT_B);
-  assert.equal(selected.demo.persona, 'conference_manager');
+  assert.equal(selected.demo.persona, 'dual_role');
+  assert.deepEqual(selected.roles, ['employee', 'conference_manager', 'tenant_admin']);
   assert.equal(calls[2].options.headers['X-CSRF-Token'], CSRF_TOKEN);
   assert.deepEqual(JSON.parse(calls[2].options.body), {
     tenantId: TENANT_B,
-    persona: 'conference_manager',
+    persona: 'dual_role',
   });
   assert.equal(calls.every((call) => call.options.credentials === 'same-origin'), true);
 });

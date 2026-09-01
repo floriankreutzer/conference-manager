@@ -1,8 +1,21 @@
 # SaaS 2 tenant settings domain integration manifest
 
+## Status and Roadmap Version 11 amendment
+
+This document is the historical integration manifest for the SaaS 2 domain package. Roadmap Approved Version 11 (2026-09-01), roadmap issue #164 and role-model issue #166 supersede its original assumption that all five domains are composed into Tenant Admin. The current normative ownership contract is `docs/ROLE-MODEL.md`.
+
+The current composition applies these boundaries:
+
+- Organization, Booking Policies and Cost Allocation are Tenant Admin capabilities requiring their exact server-issued Tenant Admin permissions;
+- the Location adapter is shared at the Composition Root, but Tenant Admin receives only Site/technical Room/provider presentation while Conference Manager receives Room-business presentation;
+- Catalogue, including authoritative Room prices, is composed only for Conference Manager with `tenant:catalogue:manage`; Tenant Admin alone must neither read nor mutate it; and
+- a dual-role User receives both independently authorized surfaces as the exact permission union.
+
+The historical snippets below are retained to explain the SaaS 2 delivery and must not be applied as current composition instructions. Their adapter, Production/Demo separation, bounded-wire-contract and private-section rules remain useful only where they do not conflict with the Version 11 ownership amendment.
+
 The domain package was developed without touching shared composition files, then integrated on the exact SaaS 2 settings-revision foundation commit `7db3c83df53ac128d8dcab82f0603c8bbb95b9b6`. That foundation includes the asynchronous settings-focus regression and both final conflict-heading corrections.
 
-## Delivered public contracts
+## Historically delivered public contracts
 
 | Section adapter key | Demo factory exported by section `index.js` | Production factory | Confirmed wire path (the shared API client adds `/api/`) |
 | --- | --- | --- | --- |
@@ -14,9 +27,9 @@ The domain package was developed without touching shared composition files, then
 
 All writes pass `method` and a bounded body to the existing authenticated API client. That client remains the single owner of credentials, same-origin enforcement, CSRF headers, and normalized HTTP errors. No Production adapter falls back to Demo data or browser persistence.
 
-## Applied root integration
+## Historical root integration
 
-The integration branch applies the following bounded root changes. They remain the reference when reconciling later Tenant Admin operations work.
+The SaaS 2 integration branch applied the following bounded root changes. They are historical delivery evidence, not the current role-aware Composition Root recipe.
 
 1. In `src/core/i18n.js`, import the new domain catalogue:
 
@@ -91,7 +104,7 @@ The integration branch applies the following bounded root changes. They remain t
 ## Backend contract reconciliation
 
 - Organization and catalogue match backend package `80d073000ac3c182dfe637967c419e4f4451bde5`: direct `{schemaVersion, revision, organization|catalogue}` envelopes, `expectedRevision` writes, and paged history. Catalogue uses British spelling in paths and payloads.
-- Locations match backend PR 40: `{locations:{schemaVersion,revision,configuration,providerContext}}`, metadata-only history, revision reads, and rollback. `providerContext` contains no provider object ID, email address, or provider address. It is never included in a write body.
+- At the SaaS 2 integration point, Locations matched backend PR 40: `{locations:{schemaVersion,revision,configuration,providerContext}}`, metadata-only history, revision reads, and rollback. `providerContext` contained no provider object ID, email address, or provider address and was never included in a write body. Under Version 11, the single-role Tenant Admin surface treats mixed-ownership history as metadata and does not expose rollback; a mixed technical/business mutation requires the exact dual-role permission union and backend field classification.
 - Booking policies match backend package `ba44e84f979bf2ab5832a7042a1419310e5ac4aa`: `{bookingPolicies:{schemaVersion,revision,configuration}}`, versioned effective dates, metadata history, and revision reads. Already-effective versions are disabled in the UI and retained unchanged.
 - Cost allocation matches backend package `ba44e84f979bf2ab5832a7042a1419310e5ac4aa`: route `v1/tenant/settings/cost-allocation`, wrapper key `costAllocation`, `{allocationRequired,costCenters}` configuration, metadata history, and revision reads.
 - The cost allocation helper and Demo fixture use only `percentage_basis_points`. Non-empty allocations must contain unique active cost centers and total exactly 10,000 basis points (100%). No fixed-amount or browser-authoritative allocation model is present.
@@ -100,11 +113,11 @@ The integration branch applies the following bounded root changes. They remain t
 
 ## Demo contract
 
-Each domain owns a separate in-memory adapter and fixture. `reset({scenario})` supports `normal`, `empty`, `conflict`, `history`, and `recovery`, always restores the authoritative revision to `1`, and returns `1`. Conflict scenarios advance the authoritative revision before returning the exact shared `HTTP_409` / `TENANT_SETTINGS_REVISION_CONFLICT` contract. Recovery fails exactly once, then succeeds. History uses fixed timestamps and actors. Demo modules contain no network, storage, real tenant data, provider address, or Production import.
+At the SaaS 2 integration point, each domain owned a separate in-memory adapter and fixture. `reset({scenario})` supported `normal`, `empty`, `conflict`, `history`, and `recovery`, restored the authoritative revision to `1`, and returned `1`. Conflict scenarios advanced the authoritative revision before returning the exact shared `HTTP_409` / `TENANT_SETTINGS_REVISION_CONFLICT` contract. Recovery failed exactly once, then succeeded. History used fixed timestamps and actors. Those historical adapters contained no network, storage, real Tenant data, provider address or Production import. ADR-010 and its completed shared-Demo migration supersede any implication that an in-memory adapter is active authoritative Demo business state.
 
-## Final integration validation
+## Historical integration validation and current re-proof
 
-Run from the repository root on the integrated branch:
+The repository commands remain applicable to any integrated branch:
 
 ```bash
 npm run check
@@ -112,4 +125,4 @@ npm run audit
 npm run test:e2e
 ```
 
-Additionally verify a Production tenant-admin session against each merged backend route, including malformed response rejection, stale-revision conflict and deliberate reapply, cross-tenant denial, same-tenant managed-brand authorization, provider-context redaction, past-policy immutability, archived cost-center rejection, and exact-100-percent allocation validation.
+Current Version 11 verification must use separate Production sessions: Tenant Admin must cover Organization, technical Locations, Booking Policies and Cost Allocation without reading or writing Catalogue or Room-business fields; Conference Manager must cover Room business and Catalogue without receiving technical/provider authority; and dual role must prove only the exact union. Across the applicable merged backend routes, also verify malformed-response rejection, stale-revision conflict and deliberate reapply, cross-Tenant denial, same-Tenant managed-brand authorization, provider-context redaction, past-policy immutability, archived-cost-center rejection and exact-100-percent allocation validation. Historical mixed Location revisions must remain non-actionable in each single-role surface.
