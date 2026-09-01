@@ -54,6 +54,8 @@ misrepresented as Demo discoveries.
 | H-025 | High / privileged async lifecycle and focus integrity | Tenant Admin settings mutations | production-defect / security-relevant | Conflict reapply callbacks loaded a fresh revision and then could issue a second privileged PUT after navigation or session lock. Locations save completion could also emit stale global feedback after its owning section detached. The first post-save focus render consumed its shared intent before a presentation-driven replacement render, losing required focus. | Organization, Booking Policies and Cost Allocation capture the exact submitted draft in the initiating handler, re-check the owning generation before every reapply PUT and suppress detached completion effects. Locations serializes mutation intent and suppresses detached success/failure presentation. Focus intent remains pending until the newest current, connected heading consumes it. Static lifecycle assertions plus a deterministic held-revision-read Chromium/WebKit regression protect the boundary. | **FIXED ON FRONTEND BRANCH — local full quality 400/400 green; pending final-head browser CI and merge** |
 | H-026 | High / P1 data integrity | Conference Manager Room-price administration | production-defect | PR #174 review: the Manager Catalogue UI materialized a missing sparse `roomPrices` entry as zero and serialized it on an unrelated save, which could convert an unpriced Room into an explicitly free/bookable Room. | Missing prices now render as an optional blank amount with a dormant default currency and remain omitted from the exact write projection. Explicit user input, including zero, creates the price intentionally; configured prices remain required. Pure projection and Chromium/WebKit browser regressions distinguish absence, explicit zero and unrelated Catalogue edits. | **FIXED ON FRONTEND BRANCH — focused model/i18n/syntax checks green; final-head quality/browser CI and merge pending** |
 | H-027 | Medium / P2 accessible validation | Conference Manager Room/Catalogue names | production-defect | PR #174 review: native `required` accepted whitespace-only names; trimming then delegated an empty value to the adapter and surfaced only a generic toast without field association or focus. The same pattern existed for Catalogue entries and package variants. | One bounded Manager-settings validator now rejects empty-after-trim values before transport, associates localized live errors through `aria-describedby`, sets `aria-invalid`, focuses the first invalid control and clears feedback on input. Browser regressions cover Room and Catalogue names; variants share the same helper. | **FIXED ON FRONTEND BRANCH — focused i18n/syntax checks green; final-head quality/accessibility/browser CI and merge pending** |
+| H-028 | Medium / security logging | Shared-Demo CI generated credentials | security-relevant CI evidence | Final API review found that generated session, CSRF and audit-HMAC secrets were written to `GITHUB_ENV` without first being registered as GitHub Actions masks. Later Shared-Demo step environment blocks therefore displayed those ephemeral runner-only values in clear text. No persistent or externally authorized credential was involved, but the output violated the mandatory repository secret-logging policy. | API PR #62 now centralizes GitHub command-file serialization, registers four complete database URLs, five generated application secrets and four raw database-role passwords before database access or environment propagation, escapes GitHub workflow-command data and rejects environment-command injection. Three adversarial unit tests cover mask ordering, deduplication, encoding and fail-closed environment serialization. On final security candidate `4cbb660`, every one of the nine propagated environment names appeared 5/5 times masked and 0 times unmasked in each browser job; complete-log inspection found no raw URL prefix, generated-secret shape or partial assignment. | **FIXED ON API INTEGRATION CANDIDATE `4cbb660` — CI `33537857311`, Dependency Policy `33537857101` and Secret Scan `33537857180` green; final deployment-pin-only successor and merge pending** |
+| H-029 | Medium / governance, supply chain and integration | API target-branch dependency guard | repository integration defect | While PR #62 was under final review, API `main` merged Dependabot PR #49 and advanced `@azure/msal-node` from 5.4.3 to 5.6.0, but the repository architecture allowlist remained pinned to 5.4.3. The first masking-fix head therefore exposed a deterministic current-`main` architecture-gate failure; it was not an infrastructure failure and could not be bypassed. | API PR #62 was forward-integrated with exact current `main` `c811b7e`, retaining its package and lockfile while synchronizing the explicit architecture allowlist to the approved installed version 5.6.0. Independent review found no new package, license, engine, lifecycle-script or known-vulnerability blocker. Candidate `4cbb660` passed architecture, unit/API, HTTP-security/DAST, PostgreSQL, both-browser Shared-Demo, dependency and secret gates. | **FIXED ON API INTEGRATION CANDIDATE `4cbb660` — exact current-main CI green; final deployment-pin-only successor and merge pending** |
 
 ### Final repository-controlled disposition
 
@@ -67,20 +69,26 @@ authoritative for the final integration candidates:
   `550cc0f1264085631c67f8a6465ac276e0af2ae0`; H-009, H-015 and H-019 are corrected across that API
   implementation and the frontend candidate. Final deployment-pin/test-document evidence is
   maintained in integration PR #62.
+- H-028 and H-029 are corrected and validated on current API integration candidate
+  `4cbb6600398e1db56bd9dd2de130502844cec258`. Rollback-negative coverage and its contract
+  reconciliation were completed on `7fa72d03cb78a9ad9e7d1ebb94d59f72b15a4afd` and are preserved by
+  `4cbb660`. The remaining API successor is restricted to pinning this register's final frontend
+  documentation head and must repeat the applicable exact-head gates.
 - H-011 passes on the final frontend executable candidate through repository checks and GitHub
   default-setup CodeQL for JavaScript/TypeScript and Actions.
 - H-010 repository automation is complete. Public deployment identity, live journeys and live DAST
   remain planned external evidence under #172/#170 and are not represented as repository-controlled
   defects or self-approved acceptance.
 
-No unresolved repository-controlled implementation defect remains. Final API rollback-negative
-coverage and document reconciliation, integration into `main`, current-state documentation and the
-explicitly external acceptance chain remain delivery gates rather than hidden residual defects.
+No unresolved repository-controlled implementation defect remains. A final deployment-pin-only API
+successor must pin the final frontend documentation candidate and repeat the exact-head gates.
+Integration into `main`, current-state documentation and the explicitly external acceptance chain
+remain delivery gates rather than hidden residual defects.
 
 ## Current scanner and CI evidence
 
-Executable evidence is recorded by exact executable head. A later documentation-only candidate must
-preserve that executable tree, pass its own applicable gates and be identified by its exact head in
+Executable evidence is recorded by exact executable head. Documentation-only successors must
+preserve that executable tree, pass their own applicable gates and be identified by exact head in
 PR #174.
 
 ### Final frontend executable candidate `de3dd11404ee5ebab5252b3b98e957b091827651`
@@ -100,6 +108,20 @@ PR #174.
 - Optional AI run `33534089780` failed before analysis because the configured model is unsupported;
   it reported no code finding and is not a required repository gate.
 
+### Frontend documentation candidate `e76a3d95aee249083511db82aab651e4edfc44c3`
+
+- This candidate preserves executable tree `05dcb6c9754d8dc5026cc85f2ba8e109fc26b25e` from the final
+  executable candidate and changes only milestone evidence documentation.
+- CI run `33535519839` passed with 401/401 Node tests, 146/146 Chromium/WebKit tests and 2/2
+  Shared-Demo journeys. Dependency Review `33535519934`, Secret Scan `33535519859` and default-setup
+  CodeQL `33535515092` also passed.
+- Hosted run `33535519864` again exercised the intentionally unchanged live deployment refs and
+  failed only because the old live Customer Demo lacks `dual_role`; cleanup and identity validation
+  succeeded. Evidence artifacts are `9811582791` and `9811583506`. This remains rollout diagnostics,
+  not external acceptance evidence.
+- The current documentation-only successor adds H-028/H-029 disposition and must repeat applicable
+  exact-head gates before integration.
+
 ### Current API implementation evidence
 
 - API implementation `550cc0f1264085631c67f8a6465ac276e0af2ae0` contains the locked
@@ -108,8 +130,26 @@ PR #174.
   86/86 PostgreSQL checks and shared-Demo Chromium/WebKit), Dependency Policy `33531678648` and
   Secret Scan `33531678675`.
 - Integration PR #62 is the integration surface for the final rollback-negative coverage,
-  documentation correction and exact deployment pin. Only its green final exact-head evidence may
-  supersede the paired candidate without changing the approved authorization architecture.
+  documentation correction, CI-secret redaction, target-branch dependency reconciliation and exact
+  deployment pin.
+- Rollback-negative unit/PostgreSQL coverage and contract-sequence reconciliation were completed on
+  `7fa72d03cb78a9ad9e7d1ebb94d59f72b15a4afd`; its CI run `33535706698` passed 721/721 unit/API,
+  16/16 Platform HTTP-security/DAST and 86/86 PostgreSQL checks plus both browser journeys.
+  Candidate `4cbb660` preserves those changes.
+- Current security/current-main candidate `4cbb6600398e1db56bd9dd2de130502844cec258`
+  passed CI run `33537857311`: 724/724 unit/API tests, 16/16 Platform HTTP-security/DAST checks,
+  86/86 PostgreSQL checks and one complete Shared-Demo journey in each of Chromium and WebKit.
+  Dependency Policy `33537857101` and Secret Scan `33537857180` also passed. In each browser log,
+  all five generated session/CSRF/HMAC variables and all four propagated database-URL variables were
+  masked in every one of five later environment displays, with zero unmasked or partially masked
+  assignments and no raw Demo database URL prefix or generated-credential-shaped value elsewhere.
+- The first redaction head `4ac6e9e1b684c6d8ee43dc641a1b79183ca84864` exposed a deterministic
+  current-`main` mismatch after Dependabot PR #49 upgraded `@azure/msal-node` to 5.6.0 without
+  updating the explicit architecture allowlist. Candidate `4cbb660` forward-integrates exact API
+  `main` `c811b7e6064e56b2a634a758b191ad8c26b121a1` and synchronizes that guard; the full exact-head
+  gate above proves the correction. The final deployment-pin-only successor must pin this register's
+  final frontend documentation head and repeat its exact-head validation. Only that final green
+  evidence may supersede `4cbb660` without changing the approved authorization architecture.
 
 ### Historical intermediate evidence (superseded)
 
@@ -132,8 +172,9 @@ this exact head; the complete CI workflow was still running when this register s
 Earlier code head `4f92cc122feb08a6092fc064bdc9a7cdca7a7e81` passed `quality`, PostgreSQL integration
 and shared-Demo Chromium/WebKit, but that earlier evidence is not treated as final-head validation.
 
-Passing configured jobs does not substitute for the unresolved DAST/CodeQL evidence questions
-listed above and does not close open review findings.
+At that historical stage, passing configured jobs did not substitute for the then-unresolved
+DAST/CodeQL evidence questions or open review findings. The later exact-head evidence above
+supersedes that intermediate state.
 
 ### Backend head `9221ada40b8a65dcf243d664c2e87241dce7083d`
 
@@ -169,11 +210,11 @@ The current local environment has no usable Playwright browser binaries, so it c
 cross-browser cases; the attempted local execution failed only because the managed Chromium binary
 is absent and is not recorded as product evidence.
 
-Before closure, the final committed frontend head must pass the repository quality/audit gates and
-the required browser CI. The shared-Demo CI checkout is pinned to API code head
-`9221ada40b8a65dcf243d664c2e87241dce7083d`, whose complete API gate is green; H-019 additionally
-requires final backend integration. Earlier green jobs, local discovery or local non-browser tests
-do not substitute for exact-head GitHub and hosted evidence.
+This historical snapshot established the browser and exact-head gates required before closure. The
+later immutable frontend executable and documentation-candidate evidence above supersedes its local
+counts and former API pin. H-019 additionally requires final backend integration; earlier green
+jobs, local discovery or local non-browser tests do not substitute for final exact-head GitHub and
+hosted evidence.
 
 ## Issue/review inventory rules
 
