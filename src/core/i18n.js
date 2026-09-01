@@ -1,5 +1,6 @@
 import * as base from './i18n-base.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
+import { MANAGER_SETTINGS_MESSAGES } from './i18n-manager-settings-messages.js';
 import { ONBOARDING_MESSAGES } from './i18n-onboarding-messages.js';
 import { PLATFORM_ADMIN_MESSAGES } from './i18n-platform-admin-messages.js';
 import { PRODUCTION_APPLICATION_MESSAGES } from './i18n-production-application-messages.js';
@@ -90,6 +91,9 @@ function capabilityTemplate(targetLanguage, key) {
   const tenantAdminMessages = TENANT_ADMIN_SETTINGS_MESSAGES[targetLanguage]
     ?? TENANT_ADMIN_SETTINGS_MESSAGES.de;
   if (tenantAdminMessages?.[key] !== undefined) return tenantAdminMessages[key];
+  const managerSettingsMessages = MANAGER_SETTINGS_MESSAGES[targetLanguage]
+    ?? MANAGER_SETTINGS_MESSAGES.de;
+  if (managerSettingsMessages?.[key] !== undefined) return managerSettingsMessages[key];
   const onboardingMessages = ONBOARDING_MESSAGES[targetLanguage] ?? ONBOARDING_MESSAGES.de;
   if (onboardingMessages?.[key] !== undefined) return onboardingMessages[key];
   const productionMessages = PRODUCTION_APPLICATION_MESSAGES[targetLanguage]
