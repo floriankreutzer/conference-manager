@@ -19,6 +19,13 @@ function checkbox(checked) {
   return el('input', { type: 'checkbox', checked: Boolean(checked) });
 }
 
+function nextSiteId(editors) {
+  const ids = new Set(editors.map((editor) => editor.site.id));
+  let index = ids.size + 1;
+  while (ids.has(`site-${index}`)) index += 1;
+  return `site-${index}`;
+}
+
 function siteOption(site) {
   return el('option', {
     value: site.id,
@@ -168,9 +175,29 @@ export function createLocationsSection({ adapter = null } = {}) {
       snapshot.configuration.sites,
     ));
     const form = el('form', { dataset: { tenantSettingsForm: 'locations-technical' } });
-    form.appendChild(el('h3', { text: t('tenantSettings.locations.sites') }));
-    siteEditors.forEach((editor) => form.appendChild(editor.node));
-    form.appendChild(el('h3', { text: t('tenantSettings.locations.rooms') }));
+    const sitesRoot = el('div');
+    siteEditors.forEach((editor) => sitesRoot.appendChild(editor.node));
+    const addSite = button(t('tenantSettings.locations.addSite'));
+    addSite.addEventListener('click', () => {
+      const site = {
+        id: nextSiteId(siteEditors),
+        name: t('tenantSettings.locations.newSite'),
+        active: true,
+        timeZone: 'Europe/Berlin',
+        address: null,
+      };
+      const editor = siteEditor(site, siteEditors.length);
+      siteEditors.push(editor);
+      sitesRoot.appendChild(editor.node);
+      roomEditors.forEach(({ controls }) => controls.siteId.appendChild(siteOption(site)));
+      editor.controls.name.focus();
+    });
+    form.append(
+      el('h3', { text: t('tenantSettings.locations.sites') }),
+      sitesRoot,
+      el('div', { className: 'button-row' }, [addSite]),
+      el('h3', { text: t('tenantSettings.locations.rooms') }),
+    );
     roomEditors.forEach((editor) => form.appendChild(editor.node));
 
     const save = button(t('tenantSettings.action.save'), {
@@ -183,6 +210,7 @@ export function createLocationsSection({ adapter = null } = {}) {
       event.preventDefault();
       if (!form.reportValidity()) return;
       save.disabled = true;
+      addSite.disabled = true;
       status.textContent = t('tenantSettings.status.saving');
       try {
         const sites = siteEditors.map(siteValue);
@@ -207,6 +235,7 @@ export function createLocationsSection({ adapter = null } = {}) {
         rerender();
       } catch {
         save.disabled = false;
+        addSite.disabled = false;
         status.textContent = t('tenantSettings.status.saveFailed');
         showToast(t('tenantSettings.status.saveFailed'));
       }
