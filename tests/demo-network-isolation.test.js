@@ -31,7 +31,7 @@ test('GitHub Pages is a static Demo launchpad and ZAP target, never an applicati
   const dast = read('.github/workflows/dast.yml');
   for (const document of [demoSecurity, productionSecurity]) {
     assert.match(document, /GitHub Pages/i);
-    assert.match(document, /static (?:Demo )?launchpad/i);
+    assert.match(document, /static (?:GitHub Pages )?(?:Demo )?launchpad/i);
     assert.match(document, /Render/i);
   }
   assert.doesNotMatch(portal, /<script\b|<iframe\b|localStorage|sessionStorage|fetch\(/i);
