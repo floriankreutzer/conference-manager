@@ -405,8 +405,6 @@ test('Production composition writes owned Tenant Admin settings with exact CSRF/
   await submit(content, 'organization');
   const reapply = content.locator('[data-tenant-settings-conflict-reapply="true"]');
   await expect(reapply).toBeVisible();
-  const detachedReapply = await reapply.elementHandle();
-  expect(detachedReapply).not.toBeNull();
   await reapply.click();
   await expect.poll(() => fixture.writes.length).toBe(2);
   await expect(content.locator('#tenant-organization-display-name')).toHaveValue('Northstar Reapplied');
@@ -523,8 +521,11 @@ test('detached Tenant Admin conflict reapply stops before a second privileged wr
   await content.locator('#tenant-organization-display-name').fill('Detached reapply');
   await submit(content, 'organization');
   await expect.poll(() => fixture.writes.length).toBe(1);
-  await expect(content.locator('[data-tenant-settings-conflict-reapply="true"]')).toBeVisible();
-  await content.locator('[data-tenant-settings-conflict-reapply="true"]').click();
+  const reapply = content.locator('[data-tenant-settings-conflict-reapply="true"]');
+  await expect(reapply).toBeVisible();
+  const detachedReapply = await reapply.elementHandle();
+  expect(detachedReapply).not.toBeNull();
+  await reapply.click();
   await expect.poll(() => fixture.organizationReads()).toBe(2);
 
   await page.locator('[data-view="welcome"]').click();
