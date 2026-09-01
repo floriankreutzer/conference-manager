@@ -3,8 +3,8 @@ import { securityMessages } from '../core/security-i18n.js';
 import { announce } from '../core/ui.js';
 import { RUNTIME_MODE } from '../core/security-policy.js';
 
-const DEMO_SECURITY_BUILD = '2026.08.30.77';
-const PERSONAS = Object.freeze(['employee', 'conference_manager', 'tenant_admin']);
+const DEMO_SECURITY_BUILD = '2026.09.01.78';
+const PERSONAS = Object.freeze(['employee', 'conference_manager', 'tenant_admin', 'dual_role']);
 
 function messages() {
   return securityMessages(language());
@@ -71,6 +71,7 @@ export function renderDemoSecurityControl({
     personaOption(documentRoot, PERSONAS[0], msg.roleEmployee),
     personaOption(documentRoot, PERSONAS[1], msg.roleManager),
     personaOption(documentRoot, PERSONAS[2], msg.roleTenantAdmin),
+    personaOption(documentRoot, PERSONAS[3], msg.roleDual),
   );
   personaSelect.value = context.demoPersona() || PERSONAS[0];
   const hint = documentRoot.createElement('small');
