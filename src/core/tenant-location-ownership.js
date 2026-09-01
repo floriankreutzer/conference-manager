@@ -33,6 +33,19 @@ function sameIdentifiers(current, edits, code) {
   if (new Set(edits.map((entry) => entry.id)).size !== edits.length) throw new TypeError(code);
 }
 
+function additiveSites(current, edits) {
+  if (!Array.isArray(edits)) throw new TypeError('TENANT_SITE_TECHNICAL_EDIT_SCOPE_INVALID');
+  const currentIds = new Set(current.map((entry) => entry.id));
+  const editIds = edits.map((entry) => entry?.id);
+  if (
+    currentIds.size !== current.length
+    || new Set(editIds).size !== edits.length
+    || [...currentIds].some((id) => !editIds.includes(id))
+  ) {
+    throw new TypeError('TENANT_SITE_TECHNICAL_EDIT_SCOPE_INVALID');
+  }
+}
+
 function businessFields(value) {
   const input = record(value, 'TENANT_ROOM_BUSINESS_EDIT_INVALID');
   const allowed = new Set(['id', ...ROOM_BUSINESS_FIELDS]);
@@ -62,7 +75,7 @@ export function projectRoomBusinessConfiguration(currentValue, roomEdits) {
 
 export function projectTechnicalLocationConfiguration(currentValue, { sites, roomSites } = {}) {
   const current = locationConfiguration(currentValue);
-  sameIdentifiers(current.sites, sites, 'TENANT_SITE_TECHNICAL_EDIT_SCOPE_INVALID');
+  additiveSites(current.sites, sites);
   sameIdentifiers(current.rooms, roomSites, 'TENANT_ROOM_TECHNICAL_EDIT_SCOPE_INVALID');
   const roomSiteById = new Map(roomSites.map((entry) => {
     const input = record(entry, 'TENANT_ROOM_TECHNICAL_EDIT_INVALID');
