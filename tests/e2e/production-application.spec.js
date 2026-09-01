@@ -1463,7 +1463,8 @@ test('confirmed-booking dialog presents an inactive current Room but accepts onl
 
   await expect(dialog.locator('select')).toHaveValue('room-a');
   await expect(dialog.locator('option[value="room-a"]')).toHaveCount(1);
-  await expect(dialog.locator('option[value="room-a"]')).toBeDisabled();
+  await expect(dialog.locator('option[value="room-a"]')).toHaveAttribute('disabled', 'disabled');
+  await expect(dialog.locator('option[value="room-a"]')).toHaveJSProperty('disabled', true);
   await expect(dialog.locator('option[value="room-b"]')).toBeEnabled();
   await expect(dialog).toContainText('Wählen Sie für die Änderung einen aktiven Raum');
   await dialog.getByRole('button', { name: 'Änderung einreichen' }).click();
@@ -1634,7 +1635,7 @@ test('Conference Manager capability is independent and transitions server-owned 
   ).first();
   await expect(operationalActions).toBeVisible();
   expect(await operationalActions.getByRole('button').allTextContents()).toEqual([
-    'Aktualisieren', 'Raumplan', 'Bericht',
+    'Aktualisieren', 'Raumplanung', 'Bericht',
   ]);
   await expect(operationalActions).not.toHaveAttribute('role', 'tablist');
   await page.getByRole('button', { name: 'Prüfung starten' }).click();
@@ -2056,7 +2057,7 @@ test('Employee request refresh keeps the newest response when an older response 
   fixture.requests().push(original);
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="requests"]').click();
-  await expect(page.getByText('Status: Eingereicht')).toBeVisible();
+  await expect(page.getByText('Status: Zur Prüfung')).toBeVisible();
 
   const releaseOlderRead = fixture.holdNextRequestRead();
   fixture.replaceRequests([{
@@ -2081,7 +2082,7 @@ test('Employee request refresh keeps the newest response when an older response 
   await olderResponse;
   await expect(page.getByText('Status: Änderung angefordert')).toBeVisible();
   await expect(page.getByText('Newest response')).toBeVisible();
-  await expect(page.getByText('Status: Eingereicht')).toHaveCount(0);
+  await expect(page.getByText('Status: Zur Prüfung')).toHaveCount(0);
 });
 
 test('Employee held Room context preparation cannot open a stale dialog after refresh', async ({ page }) => {

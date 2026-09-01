@@ -2,7 +2,9 @@
 
 ## Purpose
 
-This register records Demo/shared-runtime findings discovered while reconciling the SaaS 3.5 shared Demo baseline with the Production authorization and persistence contract for SaaS 3.6.
+This register records Demo/shared-runtime and Production-reachable findings discovered while reconciling the SaaS 3.5 shared Demo baseline with, and hardening, the Production authorization and persistence contract for SaaS 3.6.
+
+Roadmap Approved Version 11 (2026-09-01) and `docs/ROLE-MODEL.md` are the current authority for customer roles and configuration ownership. Earlier SaaS 2/3 actor examples remain historical evidence only where this register explicitly classifies the resulting correction.
 
 Every finding is classified as exactly one of:
 
@@ -199,7 +201,9 @@ Correction and regression:
   cache marker while replacing only the composition root.
 - The architecture gate executes that transformation against canonical `index.html`, requires the
   Production entry and forbids the Demo entry.
-- Unit coverage fails closed when either canonical marker is missing or duplicated.
+- The transformation fails closed unless exactly one canonical runtime marker and exactly one
+  bootstrap marker exist. Focused unit coverage proves the current canonical and missing-marker
+  cases; the exact-count implementation also rejects duplicates.
 - Final Chromium/WebKit CI evidence is required on the corrected head.
 
 Residual limitation: none after exact-head browser CI passes.
@@ -285,7 +289,7 @@ Correction and regression:
   infrastructure-error mapping without rewriting work errors.
 - Regression tests prohibit lifecycle duplication and cover connect/setup/commit/work failures.
 
-Residual limitation: API merge and exact-head CI evidence remain required.
+Residual limitation: the correction is present on API implementation head `9221ada40b8a65dcf243d664c2e87241dce7083d`, but that reference is not merged `main` evidence. The current paired release candidate must be revalidated against compatible immutable frontend/API refs and merged through the required gates; exact run state remains in `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-011 — Role-policy session epoch was reversible on binary rollback
 
@@ -309,13 +313,14 @@ Evidence and reachability:
 
 Correction and regression:
 
-- Deployment must perform a persistent, one-way revocation/deletion or an equivalent server-enforced
-  control before the new role policy becomes authoritative.
-- Tests must prove both forward rejection and rollback-time non-resurrection of legacy sessions.
-- Operations documentation must state the forced reauthentication/CSRF reissue impact and the exact
+- API migration 034 performs persistent, one-way revocation of active Customer sessions before the
+  new role policy becomes authoritative; its rollback does not recreate revoked session rows.
+- The security epoch remains part of authority-hash derivation, and focused database tests cover
+  forward rejection, rollback-time non-resurrection and re-forward deployment.
+- Operations documentation states the forced reauthentication/CSRF reissue impact and the exact
   forward, rollback and emergency procedure.
 
-Residual limitation: open until the API control, migration/operation and exact tests are integrated.
+Residual limitation: the implementation and focused evidence are present on API implementation head `9221ada40b8a65dcf243d664c2e87241dce7083d`, but the control is not integrated into `main`. The current paired release candidate still requires compatible-ref validation, required review and merge; this document does not treat branch evidence as deployment evidence.
 
 ### D-012 — Booking-change denials lacked direct audit and BOLA evidence
 
@@ -341,13 +346,297 @@ Evidence and reachability:
 
 Correction and regression:
 
-- Preserve the existing concealed response and least-privilege policy while recording only bounded
-  actor/Tenant/operation denial evidence; do not disclose whether a probed Request/change exists.
-- Add policy/service negatives for propose, decision and change-ID access across every independent
-  role and Tenant boundary.
+- The API correction preserves the concealed response and least-privilege policy while recording
+  only bounded actor/Tenant/operation denial evidence; it does not disclose whether a probed
+  Request/change exists.
+- Direct policy/service negatives cover propose, decision and change-ID access across Employee
+  non-owner, Tenant Admin other-user, Conference Manager cross-Tenant and wrong-change-ID boundaries.
 
-Residual limitation: open until the API correction and exact-head database/unit/CI evidence are
-integrated.
+Residual limitation: the correction and focused evidence are present on API implementation head `9221ada40b8a65dcf243d664c2e87241dce7083d`, but the API change is not integrated into `main`. Compatible paired-candidate validation, required review and merge remain mandatory.
+
+### D-013 — Tenant bulk-transfer downloads used the navigation URL trust path
+
+Classification: `production-defect`
+
+Hardening reference: H-018.
+
+Affected modules:
+
+- shared Tenant bulk-transfer presentation
+- Tenant Admin and Conference Manager Production settings surfaces
+
+Evidence and reachability:
+
+- The generic navigation sanitizer correctly rejects the `blob:` scheme.
+- The bulk-transfer panel passed its internally created Object URL through that sanitizer, so the
+  temporary template/export anchor received no usable `href` and silently downloaded nothing.
+- Broadening the generic navigation allowlist would weaken a shared trust boundary for a local
+  presentation defect.
+
+Correction and regression:
+
+- The panel assigns only an Object URL it created from its already serialized in-memory JSON to a
+  temporary download anchor, activates/removes the anchor and revokes the URL.
+- The generic navigation sanitizer remains unchanged and fail closed for arbitrary `blob:` URLs.
+- Contract coverage verifies exact template/export content, filenames, revocation, failure recovery
+  and suppression when the owning view is no longer current.
+
+Residual limitation: final exact-head repository/browser evidence and merge remain required.
+
+### D-014 — Historical current-Room presentation lacked an exact object boundary
+
+Classification: `security-relevant`
+
+CWE/OWASP relevance: CWE-639 (Authorization Bypass Through User-Controlled Key), object-property
+authorization and OWASP A01.
+
+Hardening reference: H-019.
+
+Affected modules:
+
+- API Request current-Room-context endpoint
+- Employee and Conference Manager confirmed-booking presentation
+- `src/shared/request-room-context-loader.js`
+
+Evidence and reachability:
+
+- The active application catalogue intentionally excludes inactive Rooms/Sites, while a confirmed
+  Request may still reference one. Expanding that catalogue would make historical configuration
+  appear selectable and expose data outside the booking-change need.
+- The initial browser fallback could compare two absent Site identifiers as equal and then
+  dereference absent context when the current Room was missing. This made the fail-closed path crash
+  instead of returning unavailable time-zone authority.
+- The path is Production-reachable and combines same-object authorization, Tenant isolation,
+  configuration-revision coherence and property-minimization requirements.
+
+Correction and regression:
+
+- `GET /api/v1/requests/{requestId}/room-context` uses the same Principal-derived Tenant/object read
+  boundary as Request detail and returns only the exact Request reference, Locations revision and
+  current Room/Site presentation fields.
+- The client accepts context only when Request ID/schema/version/status, current Room ID and
+  `locationsRevision` match its validated Request/catalogue. One bounded refresh is allowed for a
+  revision race; unresolved mismatch, timeout or malformed data fails closed.
+- An inactive current Room/Site is display-only and disabled. Only active Rooms under active Sites
+  from the active catalogue are selectable.
+- Historical context grants no price, provider, technical mapping, permission, policy, selectable
+  flag or mutation-payload authority.
+- Time-zone lookup requires an actual current Room. It uses historical Site context only when that
+  Room's `siteId` exactly matches; missing Room/context or mismatch returns no authority without
+  browser-time or implicit-UTC fallback.
+
+Residual limitation: API and frontend changes require compatible exact-candidate validation,
+required review and merge. Repository tests cannot self-approve hosted or Production acceptance.
+
+### D-015 — Booking-change optimistic concurrency used a newer unread draft token
+
+Classification: `production-defect`
+
+Hardening reference: H-020.
+
+Affected modules:
+
+- Production booking-change API adapter
+- shared confirmed-booking change editor
+
+Evidence and reachability:
+
+- The browser re-read the Request immediately before proposal submission and used that newer version
+  as `expectedVersion`, although the User's proposal draft was composed from the older displayed
+  Request.
+- A concurrent mutation could therefore advance the browser token without updating every displayed
+  input, defeating the intended lost-update conflict for stale presentation.
+
+Correction and regression:
+
+- The editor passes the version of the validated Request actually displayed to the User.
+- The adapter requires that explicit version, performs one exact proposal POST without a preflight
+  Request read and rejects an invalid token before transport.
+- The backend remains authoritative and must reject a stale `expectedVersion`.
+
+Residual limitation: final exact-head contract/browser evidence and merge remain required.
+
+### D-016 — Bulk validation receipts could cross aggregate and lifecycle boundaries
+
+Classification: `production-defect`
+
+Hardening reference: H-021.
+
+Affected modules:
+
+- `src/shared/tenant-bulk-transfer-panel.js`
+- Conference Manager Room/Catalogue settings
+- Tenant Admin technical Locations/Cost Allocation settings
+
+Evidence and reachability:
+
+- After Version 11 ownership reassignment, the UI exposed bulk transfer only through Tenant Admin
+  Cost Allocation, leaving owned Conference Manager and technical Locations aggregates unreachable.
+- An older validation completion could replace a newer receipt and pair captured content with the
+  currently selected type. Detached or locked views could also download, announce or rerender after
+  their authority-bearing surface had been replaced.
+
+Correction and regression:
+
+- The capability-neutral panel receives an explicit aggregate allowlist and adapter from its owning
+  capability: Conference Manager receives `rooms`, `services`, `catering-items` and
+  `catering-packages`; Tenant Admin receives `sites`, technical `rooms` and `cost-centers`.
+- A monotonically invalidated generation and captured type, file, parsed document and receipt bind
+  Apply to the exact latest successful validation. Changing type/file invalidates old validation,
+  and validation cannot overlap a pending Apply.
+- Current-view, DOM-connection and inactivity-lock checks suppress stale downloads, announcements,
+  rerenders and receipt installation.
+- The server still derives Principal/Tenant, enforces aggregate permission and revision, classifies
+  Room properties and verifies the receipt; browser lifecycle guards do not authorize Apply.
+
+Residual limitation: final exact-head Chromium/WebKit evidence and merge remain required.
+
+### D-017 — Superseded Employee editor renders could mutate current state
+
+Classification: `production-defect`
+
+Hardening reference: H-022.
+
+Affected modules:
+
+- Production Employee create/repeat/resubmit editor
+- request draft, catalogue and availability continuations
+
+Evidence and reachability:
+
+- Overlapping renders shared mutable catalogue state and consumed queued repeat/resubmit intent only
+  after an unguarded catalogue await.
+- A detached older render could consume the current intent, replace the newer catalogue snapshot,
+  save a stale draft, navigate or announce success after navigation or inactivity lock.
+
+Correction and regression:
+
+- Each editor invocation owns a monotonic generation, current-root/lock guard and immutable catalogue
+  snapshot.
+- Only the current successful render may publish its catalogue or consume queued intent; draft,
+  availability and submit continuations suppress every effect after detachment/supersession.
+
+Residual limitation: final exact-head browser evidence and merge remain required.
+
+### D-018 — Booking-change proposal reservation did not survive a list refresh
+
+Classification: `production-defect`
+
+Hardening reference: H-023.
+
+Affected modules:
+
+- Production Employee confirmed-booking proposal orchestration
+- Request list/card rerender lifecycle
+
+Evidence and reachability:
+
+- Proposal pending state lived only inside the current dialog. A Request-list refresh during a held
+  POST produced a replacement card whose Change action could start a second proposal for the same
+  Request.
+- The duplicate wire mutation created avoidable concurrency conflicts and incoherent recovery state.
+
+Correction and regression:
+
+- An application-level per-Request coordinator reserves the Request through context preparation,
+  dialog lifetime and POST settlement.
+- Replacement projections disable competing mutations; cancellation, success and stale preparation
+  release only the reservation instance they own and reconcile through the current Request surface.
+
+Residual limitation: final exact-head browser evidence and merge remain required.
+
+### D-019 — Booking-change decision transport admitted expanded intent
+
+Classification: `production-defect`
+
+Hardening reference: H-024.
+
+Affected modules:
+
+- Production booking-change decision adapter
+
+Evidence and reachability:
+
+- The exported adapter accepted reject without a reason and approve with an arbitrary reason even
+  though the current UI happened to call it with the intended shapes.
+- Relying only on backend validation left a Production-reachable client contract broader than the
+  supported workflow and made future callers more likely to send invalid intent.
+
+Correction and regression:
+
+- Approve accepts no reason; reject requires a trimmed 1..1000-character reason.
+- Unsupported or expanded intent fails before transport, and contract coverage verifies both exact
+  request bodies and no-transport negatives.
+
+Residual limitation: merge and final exact-head repository evidence remain required.
+
+### D-020 — Tenant-settings save completion crossed detached render roots
+
+Classification: `production-defect`
+
+Hardening reference: H-025.
+
+Affected modules:
+
+- Tenant Admin Organization section
+- Tenant Admin Booking Policies section
+- Tenant Admin Cost Allocation section
+- Tenant Admin technical Locations section
+
+Evidence and reachability:
+
+- Successful save presentation queued focus against a section root that the shell rerender then
+  detached. The focus request was consumed before the animation-frame callback proved a current,
+  connected heading.
+- Save and conflict-reapply continuations also needed the same current-render boundary so a response
+  from a section the User left could not announce, show a toast, render conflict recovery or replace
+  a later surface.
+- Conflict reapply loaded a fresh revision before its second privileged PUT but did not re-check that
+  the initiating section was still current between those operations. Locations likewise presented
+  save success/failure globally after a held PUT settled against a detached section.
+- Shared mutable pending-draft fields allowed separate asynchronous attempts to overwrite the data
+  captured by an earlier attempt.
+
+Correction and regression:
+
+- Each submit captures its own exact handler-local draft, and every post-await
+  success/error/reapply effect checks the section's current-render contract. Conflict reapply checks
+  again after the revision read and before the second PUT; a stale generation cannot issue it.
+- The focus request remains pending across the owned rerender and is consumed only after the current
+  connected section heading is focused.
+- Locations serializes its save intent and suppresses detached success/failure presentation.
+- Detached/superseded continuations produce no presentation effect.
+
+Residual limitation: the correction is currently worktree state; it requires commit-scoped
+repository and Chromium/WebKit evidence plus merge before completion can be claimed.
+
+## Hardening traceability
+
+The hardening register owns mutable status and exact CI/merge evidence. This document owns the
+Production-reachability classification and stable correction boundary.
+
+| Security-regression finding | Hardening finding | Relationship |
+| --- | --- | --- |
+| D-005 | H-001 | Inactivity-lock dialog/render race and authoritative unlock boundary. |
+| D-007 | H-007 | Production-fixture composition and canonical-permission evidence integrity. |
+| D-008 | H-016 | Organization mutation/presentation revision ordering. |
+| D-009 | H-015 | Tenant-wide Conference Manager cancellation/change authorization. |
+| D-010 | H-013 | Canonical shared-Demo PostgreSQL transaction lifecycle. |
+| D-011 | H-005 | Irreversible role-policy session invalidation. |
+| D-012 | H-017 | Booking-change authorization-denial/BOLA evidence. |
+| D-013 | H-018 | Locally created bulk-download Object URL boundary. |
+| D-014 | H-019 | Same-object current-Room context and selection/time-zone fail-close boundary. |
+| D-015 | H-020 | Displayed-Request optimistic-concurrency token. |
+| D-016 | H-021 | Aggregate-scoped receipt binding and async lifecycle. |
+| D-017 | H-022 | Employee editor render-generation boundary. |
+| D-018 | H-023 | Per-Request proposal reservation across rerenders. |
+| D-019 | H-024 | Exact booking-change decision transport intent. |
+| D-020 | H-025 | Tenant-settings post-save render/focus lifecycle. |
+
+Hardening findings not listed here either predate this Demo/shared-runtime classification set or are
+scanner, governance, documentation, test-evidence or release-operation items whose scope/status is
+defined directly in `docs/SAAS-3.6-HARDENING-REGISTER.md`. Absence from this mapping must not be read
+as closure or as a lower severity.
 
 ## Security re-proof matrix
 
@@ -369,6 +658,12 @@ integrated.
 | Demo reset | Reset operations are Demo-only, bounded, audited/evidenced by hosted acceptance and never a Production data path. |
 | Demo outage | No browser-local fallback establishes customer authority when the shared Demo server is unavailable. |
 | Provider identity | Provider Room identity/resource mapping remains server-controlled and Tenant Admin-authorized. |
+| Current Room context | Same-object and cross-Tenant negatives conceal unauthorized Requests; exact Request/version/status/Room/Locations-revision correlation is enforced; missing/malformed context and absent Room fail closed without browser-time/UTC fallback. |
+| Active Room selection | Historical inactive Room/Site context is disabled presentation only; selectable Rooms come solely from the active catalogue and remain server-revalidated. |
+| Optimistic concurrency | Booking-change proposal sends the displayed validated Request version without a token-advancing preflight read; stale version is rejected by the backend. |
+| Bulk receipt and aggregate scope | Each role receives only injected owned aggregate types; Apply binds exact type/file/document/latest receipt; backend permission, revision, field classification and receipt validation remain authoritative. |
+| Async render lifecycle | Superseded, detached or inactivity-locked editors/settings/bulk surfaces cannot publish state, announce, download, navigate, consume focus or issue a second mutation. |
+| Decision transport | Approve/reject requests use exact bounded intent and invalid reason shapes fail before transport while backend validation remains authoritative. |
 
 ## Validation gates
 

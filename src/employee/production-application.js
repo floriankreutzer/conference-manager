@@ -4,6 +4,7 @@ import { openProductionBookingChangeDialog } from '../shared/production-booking-
 import {
   loadCoherentRequestRoomContext,
   loadMissingRequestRoomContexts,
+  productionRequestRoomTimeZone,
 } from '../shared/request-room-context-loader.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import {
@@ -46,13 +47,6 @@ function roomLabel(room) {
   return capacity ? `${room.name} · ${capacity}` : String(room.name || room.id);
 }
 
-function roomTimeZone(room, catalog, currentRoomContext = null) {
-  const site = catalog.sites?.find((entry) => entry.id === room?.siteId);
-  return site?.timeZone || (
-    currentRoomContext?.site?.id === room?.siteId ? currentRoomContext.site.timeZone : null
-  );
-}
-
 function compositionDraft(request, catalog, overrides = {}) {
   return composeServerRequestDraft({
     request,
@@ -84,7 +78,7 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
 }) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId)
     || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
-  const timeZone = roomTimeZone(room, catalog, currentRoomContext);
+  const timeZone = productionRequestRoomTimeZone(room, catalog, currentRoomContext);
   const startsAt = formatProductionDateTime(request.startsAt, { locale: locale(), timeZone });
   const endsAt = formatProductionDateTime(request.endsAt, { locale: locale(), timeZone });
   const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
@@ -219,7 +213,7 @@ export function createProductionEmployeeApplication({
       queuedRequest = request;
     } else {
       const room = catalog.rooms.find((entry) => entry.id === request.roomId);
-      const timeZone = roomTimeZone(room, catalog);
+      const timeZone = productionRequestRoomTimeZone(room, catalog);
       queuedRequest = isProductionTimeZone(timeZone)
         ? repeatRequestProjection(request, Date.now(), timeZone)
         : Object.freeze({ ...request, roomId: '', startsAt: '', endsAt: '' });
@@ -273,7 +267,7 @@ export function createProductionEmployeeApplication({
   function formattedRequestValue(value, room, requestCatalog, currentRoomContext = null) {
     return formatProductionDateTime(value, {
       locale: locale(),
-      timeZone: roomTimeZone(room, requestCatalog, currentRoomContext),
+      timeZone: productionRequestRoomTimeZone(room, requestCatalog, currentRoomContext),
     }) || t('production.common.timeUnavailable');
   }
 
@@ -329,7 +323,7 @@ export function createProductionEmployeeApplication({
     rooms.forEach((entry) => room.appendChild(el('option', { value: entry.id, text: roomLabel(entry) })));
     const sourceRoom = rooms.find((entry) => entry.id === sourceRequest?.roomId);
     const restoredRoom = rooms.find((entry) => entry.id === restoredDraft?.roomId);
-    const sourceTimeZone = roomTimeZone(sourceRoom, requestCatalog);
+    const sourceTimeZone = productionRequestRoomTimeZone(sourceRoom, requestCatalog);
     const sourceStart = sourceRequest && isProductionTimeZone(sourceTimeZone)
       ? wallValues(sourceRequest.startsAt, sourceTimeZone) : null;
     const sourceEnd = sourceRequest && isProductionTimeZone(sourceTimeZone)
@@ -539,7 +533,7 @@ export function createProductionEmployeeApplication({
       const externalParticipants = safeParticipantCount(external.value);
       const totalParticipants = internalParticipants === null || externalParticipants === null
         ? null : internalParticipants + externalParticipants;
-      const timeZone = roomTimeZone(selectedRoom, requestCatalog);
+      const timeZone = productionRequestRoomTimeZone(selectedRoom, requestCatalog);
       const startsAt = productionUtcInstant(date.value, start.value, timeZone);
       const endsAt = productionUtcInstant(endDate.value, end.value, timeZone);
       if (!roomSupportsParticipants(
@@ -644,7 +638,7 @@ export function createProductionEmployeeApplication({
     checkAvailability.addEventListener('click', async () => {
       if (!isCurrentEditor()) return;
       const selectedRoom = rooms.find((entry) => entry.id === room.value);
-      if (selectedRoom && !isProductionTimeZone(roomTimeZone(selectedRoom, requestCatalog))) {
+      if (selectedRoom && !isProductionTimeZone(productionRequestRoomTimeZone(selectedRoom, requestCatalog))) {
         status.className = 'error-box';
         status.textContent = t('production.employee.timeZoneUnavailable');
         return;

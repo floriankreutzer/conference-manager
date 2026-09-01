@@ -1,6 +1,15 @@
 const MAX_CONCURRENT_LOOKUPS = 8;
 const LOOKUP_TIMEOUT_MS = 5_000;
 
+export function productionRequestRoomTimeZone(room, catalog, currentRoomContext = null) {
+  const site = catalog?.sites?.find((entry) => entry.id === room?.siteId);
+  return site?.timeZone || (
+    room && currentRoomContext?.site?.id === room.siteId
+      ? currentRoomContext.site.timeZone
+      : null
+  );
+}
+
 function normalizedLookupTimeout(value) {
   if (!Number.isSafeInteger(value) || value < 1 || value > 30_000) {
     throw new TypeError('REQUEST_ROOM_CONTEXT_LOOKUP_TIMEOUT_INVALID');

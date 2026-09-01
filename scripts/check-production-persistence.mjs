@@ -183,7 +183,7 @@ const employeeProduction = await readFile('src/employee/production-application.j
 for (const required of [
   'persistence.loadCatalog()',
   'persistence.checkRoomAvailability(window, isResubmission ? sourceRequest.id : null)',
-  'site?.timeZone',
+  'productionRequestRoomTimeZone(',
   'productionUtcInstant(date.value, start.value, timeZone)',
   'persistence.createRequest(compositionDraft(',
   "persistence.transitionRequest(requestId, { transition: 'cancel' })",
@@ -191,6 +191,16 @@ for (const required of [
 ]) {
   if (!employeeProduction.includes(required)) {
     throw new Error(`Production Employee boundary is missing ${required}.`);
+  }
+}
+
+const requestRoomContextLoader = await readFile('src/shared/request-room-context-loader.js', 'utf8');
+for (const required of [
+  'site?.timeZone',
+  'room && currentRoomContext?.site?.id === room.siteId',
+]) {
+  if (!requestRoomContextLoader.includes(required)) {
+    throw new Error(`Production Room-context boundary is missing ${required}.`);
   }
 }
 

@@ -55,3 +55,32 @@ test('remaining Tenant Admin Demo domain adapters are in-memory only and cannot 
     assert.match(source, /reset/);
   }
 });
+
+test('Tenant settings mutations suppress detached continuations and conflict reapply writes', () => {
+  const sources = Object.fromEntries(['organization', 'locations', 'booking-policies', 'cost-allocation']
+    .map((section) => [section, readFileSync(`src/tenant-admin/sections/${section}/index.js`, 'utf8')]));
+
+  for (const section of ['organization', 'booking-policies', 'cost-allocation']) {
+    assert.match(sources[section], /let submittedDraft;/);
+    assert.doesNotMatch(sources[section], /let (?:pendingDraft|draft) = null;/);
+    assert.match(
+      sources[section],
+      /const current = await adapter\.load[A-Za-z]+\(\);\s*if \(!isCurrent\(\)\) return;\s*await adapter\.save[A-Za-z]+\(/s,
+    );
+  }
+
+  for (const [section, saveMethod] of [
+    ['organization', 'saveOrganization'],
+    ['locations', 'saveLocations'],
+    ['booking-policies', 'saveBookingPolicies'],
+    ['cost-allocation', 'saveCostAllocation'],
+  ]) {
+    assert.match(
+      sources[section],
+      new RegExp(`await adapter\\.${saveMethod}\\([\\s\\S]*?\\);\\s*if \\(!isCurrent\\(\\)\\) return;`),
+    );
+  }
+  assert.match(sources.locations, /let mutationPending = false;/);
+  assert.match(sources.locations, /if \(mutationPending\) return;/);
+  assert.match(sources.locations, /catch \{\s*if \(!isCurrent\(\)\) return;/);
+});

@@ -206,12 +206,15 @@ export function createLocationsSection({ adapter = null } = {}) {
       attrs: { type: 'submit' },
     });
     const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
+    let mutationPending = false;
     form.append(el('div', { className: 'button-row' }, [save]), status);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (mutationPending) return;
       if (!form.reportValidity()) return;
       save.disabled = true;
       addSite.disabled = true;
+      mutationPending = true;
       status.textContent = t('tenantSettings.status.saving');
       try {
         const sites = siteEditors.map(siteValue);
@@ -231,12 +234,15 @@ export function createLocationsSection({ adapter = null } = {}) {
           expectedRevision: snapshot.revision,
           configuration,
         });
+        if (!isCurrent()) return;
         status.textContent = t('tenantSettings.status.saved');
         showToast(t('tenantSettings.status.saved'));
         rerender();
       } catch {
+        if (!isCurrent()) return;
         save.disabled = false;
         addSite.disabled = false;
+        mutationPending = false;
         status.textContent = t('tenantSettings.status.saveFailed');
         showToast(t('tenantSettings.status.saveFailed'));
       }

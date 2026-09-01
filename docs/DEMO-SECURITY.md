@@ -20,9 +20,10 @@ The Pages surface:
 - carries a fail-closed meta CSP for resources, forms, objects and base-URL changes;
 - carries no Tenant/User/role/permission/CSRF/provider authority;
 - warns about Render Free cold-start behavior;
-- is the scheduled ZAP baseline target only for the static launchpad itself.
+- is the target of the static-launchpad entry in the scheduled three-surface ZAP baseline matrix;
+  the Customer and Platform Render origins are separate entries with separate results.
 
-Functional Demo acceptance and runtime security validation belong to the separately deployed Render origins and the PostgreSQL-backed shared-Demo browser journey. A clean ZAP scan of the Pages launchpad is not evidence for Customer or Platform application authorization.
+Functional Demo acceptance and runtime security validation belong to the separately deployed Render origins and the PostgreSQL-backed shared-Demo browser journey. A clean ZAP scan of the Pages launchpad is not evidence for Customer or Platform application authorization, and a clean passive scan of either Render origin is not authenticated authorization/API or Production penetration evidence.
 
 GitHub Pages does not expose repository-controlled response-header configuration. The launchpad
 therefore delivers its resource/form/base restrictions through an HTML meta CSP. CSP

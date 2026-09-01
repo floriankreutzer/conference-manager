@@ -9,6 +9,7 @@ import {
 import {
   repeatRequestProjection,
 } from '../src/employee/server-request-projection.js';
+import { productionRequestRoomTimeZone } from '../src/shared/request-room-context-loader.js';
 import { composeServerRequestDraft } from '../src/shared/production-request-draft.js';
 import {
   cateringEditorOptions,
@@ -28,6 +29,7 @@ const SHELL_SOURCE = new URL('../src/platform/app-shell.js', import.meta.url);
 const PRODUCTION_DETAILS_SOURCE = new URL('../src/shared/production-request-details.js', import.meta.url);
 const BOOKING_CHANGE_EDITOR_SOURCE = new URL('../src/shared/production-booking-change-editor.js', import.meta.url);
 const BOOKING_CHANGE_MODEL_SOURCE = new URL('../src/shared/production-booking-change.js', import.meta.url);
+const REQUEST_ROOM_CONTEXT_LOADER_SOURCE = new URL('../src/shared/request-room-context-loader.js', import.meta.url);
 
 async function source(url) {
   return readFile(url, 'utf8');
@@ -61,6 +63,25 @@ test('production request times are displayed with an explicit locale and site ti
   assert.match(english, /09:30/);
   assert.notEqual(german, english);
   assert.equal(formatProductionDateTime(value, { locale: 'de-DE', timeZone: null }), '');
+});
+
+test('Employee request timezone lookup safely handles an unresolved Room context', () => {
+  const catalog = Object.freeze({ sites: Object.freeze([]) });
+  assert.equal(productionRequestRoomTimeZone(undefined, catalog, null), null);
+  const room = Object.freeze({ id: 'room-a', siteId: 'site-a' });
+  const historicalContext = Object.freeze({
+    room,
+    site: Object.freeze({ id: 'site-a', timeZone: 'Europe/Zurich' }),
+  });
+  assert.equal(productionRequestRoomTimeZone(room, catalog, historicalContext), 'Europe/Zurich');
+  assert.equal(productionRequestRoomTimeZone(room, {
+    sites: [{ id: 'site-a', timeZone: 'Europe/Berlin' }],
+  }, historicalContext), 'Europe/Berlin');
+  assert.equal(productionRequestRoomTimeZone(
+    Object.freeze({ id: 'room-b', siteId: 'site-b' }),
+    catalog,
+    historicalContext,
+  ), null);
 });
 
 test('server history operation codes are localized on Employee and Manager surfaces', async () => {
@@ -403,13 +424,16 @@ test('production Employee and Manager applications cannot depend on browser pers
   const manager = await source(MANAGER_SOURCE);
   const bookingChangeEditor = await source(BOOKING_CHANGE_EDITOR_SOURCE);
   const bookingChangeModel = await source(BOOKING_CHANGE_MODEL_SOURCE);
+  const roomContextLoader = await source(REQUEST_ROOM_CONTEXT_LOADER_SOURCE);
   for (const moduleSource of [employee, manager]) {
     assert.doesNotMatch(moduleSource, /core\/storage|localStorage|sessionStorage/);
     assert.doesNotMatch(moduleSource, /tenantId|tenant_id|requesterUserId|requester_user_id/);
   }
   assert.match(employee, /persistence\.createRequest/);
   assert.match(employee, /persistence\.checkRoomAvailability/);
-  assert.match(employee, /site\?\.timeZone/);
+  assert.match(employee, /productionRequestRoomTimeZone/);
+  assert.match(roomContextLoader, /site\?\.timeZone/);
+  assert.match(roomContextLoader, /room && currentRoomContext\?\.site\?\.id === room\.siteId/);
   assert.match(employee, /persistence\.transitionRequest/);
   assert.match(employee, /persistence\.resubmitRequest/);
   assert.match(employee, /persistence\.loadRequestHistory/);

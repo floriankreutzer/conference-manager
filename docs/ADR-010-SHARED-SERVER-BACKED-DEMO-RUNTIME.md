@@ -7,9 +7,12 @@
 - Parent roadmap: [#149](https://github.com/floriankreutzer/conference-manager/issues/149)
 - Decision date: 2026-08-30
 - Roadmap baseline: approved roadmap version 10, 2026-08-30
+- Current ownership amendment: Roadmap Approved Version 11, 2026-09-01; roadmap #164 and role model #166
 - Depends on: the ownership baseline in `docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md`
 
 This decision changes the Demo persistence and composition model. It does not make Demo a Production security or external-provider acceptance environment.
+
+Roadmap Version 11 supersedes only this ADR's historical customer-role allocation. Conference Manager now owns Tenant-wide Request operations, Room-business fields, Catalogue and Room prices; Tenant Admin owns Organization, Booking Policies, Cost Allocation, Sites, technical Room/provider mapping, Users, integrations and Tenant audit. Neither role inherits the other, and dual role is their exact server-issued union. The shared PostgreSQL authority, process/session separation, Tenant isolation, reset and fail-closed decisions in this ADR remain unchanged.
 
 ## Context
 
@@ -127,14 +130,15 @@ Language preference, non-authoritative navigation state and an explicitly bounde
 
 ## Shared-state behavior
 
-The accepted runtime must demonstrate real propagation over one canonical Tenant ID:
+The accepted runtime must demonstrate real propagation over one canonical Tenant ID. The Version 10 sequence originally grouped Sites, Rooms and Catalogue under Tenant Admin; Version 11 replaces that actor allocation with the current split below while preserving the same cross-session propagation proof:
 
 1. Platform Operator creates/prepares or activates a Demo Tenant using the Demo Platform API.
-2. Tenant Admin opens that same Tenant through a separate Customer Demo session and updates Organization, Sites/Rooms, Catalogue, Booking Policies, Cost Allocation, Users and integration simulation as supported.
-3. Employee creates a Request from the persisted Tenant configuration.
-4. Conference Manager reviews and applies a supported transition to that same Request.
-5. Employee reloads the server-derived status/history.
-6. Platform Operator reloads the privacy-minimized readiness, health, diagnostic and audit projections for the same Tenant.
+2. Tenant Admin opens that same Tenant through a separate Customer Demo session and updates Organization, Sites, technical Room/provider assignment, Booking Policies, Cost Allocation, Users and integration simulation as supported.
+3. Conference Manager opens the same Tenant through an independently established Customer Demo session and updates Room-business fields and Catalogue as supported.
+4. Employee creates a Request from the persisted Tenant configuration.
+5. Conference Manager reviews and applies a supported transition to that same Request.
+6. Employee reloads the server-derived status/history.
+7. Platform Operator reloads the privacy-minimized readiness, health, diagnostic and audit projections for the same Tenant.
 
 No fixture copy, browser-storage transfer, export/import step or background synchronization between independently mutable Tenant models is permitted. A second Tenant and negative cross-Tenant attempts prove that sharing the database does not weaken Tenant isolation.
 

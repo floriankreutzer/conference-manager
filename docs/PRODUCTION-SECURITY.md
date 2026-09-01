@@ -60,6 +60,8 @@ A malformed, expired or unavailable Production session fails to `unavailable` or
 
 ## Canonical customer role model
 
+Roadmap Approved Version 11 (2026-09-01) is the current SaaS 3.6 customer-role and configuration-ownership baseline. It supersedes earlier SaaS 2/3 examples that grouped Catalogue or Room-business administration under Tenant Admin without changing their still-applicable topology and module-boundary decisions.
+
 Every active Customer User has the implicit Employee baseline. Elevated roles are independent and additive:
 
 - `conference_manager`;
@@ -132,7 +134,7 @@ The response has exactly these outer fields and bounded nested projections:
 }
 ```
 
-`currentRoomContext` is `null` when the Request has no current Room. The Room must reference the returned Site, and the Site time zone is either a validated IANA time zone or `null`. Unknown fields and malformed relationships fail closed in the browser response validator.
+`currentRoomContext` is `null` when the Request has no current Room. The Room must reference the returned Site, and the Site time zone is either a validated IANA time zone or `null`. Unknown fields and malformed relationships fail closed in the browser response validator. The client may use the context Site time zone only when an actual current Room exists and that Room's `siteId` exactly matches the context Site. A missing Room, missing context or relationship mismatch yields no time-zone authority; it must not be treated as an equality between absent identifiers and must not dereference absent context.
 
 This projection is display context only. It contains no price, provider identity, technical mapping, selectable flag, permission, policy or mutation payload authority. Employee and Conference Manager clients accept it only when the exact Request reference (`id`, schema version, version and status), Room ID and `locationsRevision` remain coherent with their already validated Request and active catalogue. A revision mismatch causes one bounded catalogue/context refresh; an unresolved mismatch, timeout, malformed response or missing authoritative IANA time zone leaves the change action unavailable rather than using browser time or stale data.
 
@@ -256,7 +258,7 @@ Production responses configure security headers at the HTTP edge, not only HTML 
 
 ## Current repository controls
 
-The repository currently provides:
+The repository currently provides the following controls and executable workflows; their presence is not evidence that a particular commit, deployment or external environment passed them:
 
 - dependency review and npm audit;
 - full-history/repository secret scanning;
@@ -268,15 +270,19 @@ The repository currently provides:
 - malformed input and unknown-field negative tests;
 - deterministic inactivity-policy tests;
 - Chromium and WebKit/iPhone browser suites;
-- PostgreSQL-backed shared-Demo cross-surface E2E against reviewed immutable frontend/API refs;
-- hosted Render Demo acceptance with deployment identity and cleanup/reset evidence;
-- independent OWASP ZAP passive baselines for the static GitHub Pages launchpad, Customer Render
-  Demo origin and Platform Render Demo origin.
+- PostgreSQL-backed shared-Demo cross-surface E2E designed to run against explicit immutable frontend/API refs;
+- a hosted Render Demo acceptance workflow that requires deployment identity, destructive-journey and cleanup/reset evidence;
+- an independent OWASP ZAP passive-baseline workflow matrix for the static GitHub Pages launchpad,
+  Customer Render Demo origin and Platform Render Demo origin.
 
 Each clean scan is evidence only for its exact unauthenticated public Demo surface. The three-target
 matrix is not authenticated API/authorization DAST, Production penetration evidence or permission
 to infer one origin's posture from another. Production acceptance must target the applicable
 Production application/API origin and identity context independently.
+
+Exact-head CI, hosted acceptance and DAST results are recorded separately in the hardening register
+and GitHub checks. A historical successful run cannot be carried forward to a changed frontend/API
+pair, and repository maintainers must not infer external acceptance from a workflow definition.
 
 These controls reduce client/supply-chain/regression risk but do not replace the Production trust boundary or external provider/penetration acceptance.
 

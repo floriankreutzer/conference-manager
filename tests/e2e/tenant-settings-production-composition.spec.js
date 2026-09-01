@@ -60,23 +60,6 @@ function currentLocations(siteName = 'Berlin Current') {
   };
 }
 
-function sourceLocations() {
-  return {
-    sites: [{ id: 'berlin', name: 'Berlin Legacy', active: true, timeZone: 'Europe/Berlin', address: null }],
-    rooms: [room({ id: 'atlas', name: 'Atlas Legacy', capacity: 12, floor: '1' })],
-  };
-}
-
-function rolledBackLocations() {
-  return {
-    ...sourceLocations(),
-    rooms: [
-      ...sourceLocations().rooms,
-      room({ id: 'room-new', name: 'Later Room', capacity: 8, active: false }),
-    ],
-  };
-}
-
 function providerContext() {
   return [{
     roomId: 'atlas',
@@ -86,24 +69,6 @@ function providerContext() {
     capacity: 999,
     lastSeenAt: '2026-08-27T10:00:00.000Z',
   }];
-}
-
-function catalogue(serviceName = 'AV Service') {
-  return {
-    services: [{
-      id: 'service-av',
-      name: serviceName,
-      description: 'Production AV support',
-      price: { amountMinor: 2500, currency: 'EUR' },
-      active: true,
-      order: 1,
-      siteIds: ['berlin'],
-      roomIds: ['atlas'],
-    }],
-    equipment: [],
-    cateringPackages: [],
-    cateringItems: [],
-  };
 }
 
 function bookingPolicies(maximumParticipants = 500) {
@@ -169,7 +134,6 @@ function initialState() {
   return {
     organization: { revision: 3, value: organization() },
     locations: { revision: 2, configuration: currentLocations(), providerContext: providerContext() },
-    catalogue: { revision: 4, value: catalogue() },
     bookingPolicies: { revision: 5, configuration: bookingPolicies() },
     costAllocation: { revision: 6, configuration: costAllocation() },
   };
@@ -179,12 +143,25 @@ function changedAt(revision) {
   return `2026-08-27T10:${String(revision).padStart(2, '0')}:00.000Z`;
 }
 
-async function installProductionSettingsFixture(page, { organizationConflict = true } = {}) {
+async function installProductionSettingsFixture(page, {
+  organizationConflict = true,
+  holdOrganizationReapplyRead = false,
+  holdLocationSave = false,
+} = {}) {
   const state = initialState();
   const writes = [];
   const reads = [];
   const unexpectedApiRequests = [];
   let organizationConflictPending = organizationConflict;
+  let organizationReadCount = 0;
+  let releaseOrganizationReapplyRead = () => {};
+  const organizationReapplyReadGate = holdOrganizationReapplyRead
+    ? new Promise((resolve) => { releaseOrganizationReapplyRead = resolve; })
+    : null;
+  let releaseLocationSave = () => {};
+  const locationSaveGate = holdLocationSave
+    ? new Promise((resolve) => { releaseLocationSave = resolve; })
+    : null;
 
   const fulfillJson = (route, body, status = 200) => route.fulfill({
     status,
@@ -240,6 +217,10 @@ async function installProductionSettingsFixture(page, { organizationConflict = t
     }
 
     if (url.pathname === '/api/v1/tenant/settings/organization' && method === 'GET') {
+      organizationReadCount += 1;
+      if (organizationReapplyReadGate && organizationReadCount === 2) {
+        await organizationReapplyReadGate;
+      }
       await fulfillJson(route, {
         schemaVersion: 1,
         revision: state.organization.revision,
@@ -295,17 +276,9 @@ async function installProductionSettingsFixture(page, { organizationConflict = t
       ] });
       return;
     }
-    if (url.pathname === '/api/v1/tenant/settings/locations/history/1' && method === 'GET') {
-      await fulfillJson(route, { revision: {
-        revision: 1,
-        configuration: sourceLocations(),
-        changedAt: changedAt(1),
-        actorUserId: ADMIN_ID,
-      } });
-      return;
-    }
     if (url.pathname === '/api/v1/tenant/settings/locations' && method === 'PUT') {
       const body = recordWrite(request, url);
+      if (locationSaveGate) await locationSaveGate;
       state.locations.revision = body.expectedRevision + 1;
       state.locations.configuration = clone(body.configuration);
       await fulfillJson(route, { locations: {
@@ -316,50 +289,6 @@ async function installProductionSettingsFixture(page, { organizationConflict = t
       } });
       return;
     }
-    if (url.pathname === '/api/v1/tenant/settings/locations/rollback' && method === 'POST') {
-      const body = recordWrite(request, url);
-      state.locations.revision = body.expectedRevision + 1;
-      state.locations.configuration = rolledBackLocations();
-      await fulfillJson(route, { locations: {
-        schemaVersion: 1,
-        revision: state.locations.revision,
-        configuration: state.locations.configuration,
-        providerContext: state.locations.providerContext,
-      } });
-      return;
-    }
-
-    if (url.pathname === '/api/v1/tenant/settings/catalogue' && method === 'GET') {
-      await fulfillJson(route, {
-        schemaVersion: 1,
-        revision: state.catalogue.revision,
-        catalogue: state.catalogue.value,
-      });
-      return;
-    }
-    if (url.pathname === '/api/v1/tenant/settings/catalogue/history' && method === 'GET') {
-      await fulfillJson(route, {
-        schemaVersion: 1,
-        revisions: [{
-          revision: state.catalogue.revision,
-          effectiveAt: changedAt(state.catalogue.revision),
-          catalogue: state.catalogue.value,
-        }],
-        nextBeforeRevision: null,
-      });
-      return;
-    }
-    if (url.pathname === '/api/v1/tenant/settings/catalogue' && method === 'PUT') {
-      const body = recordWrite(request, url);
-      state.catalogue = { revision: body.expectedRevision + 1, value: clone(body.catalogue) };
-      await fulfillJson(route, {
-        schemaVersion: 1,
-        revision: state.catalogue.revision,
-        catalogue: state.catalogue.value,
-      });
-      return;
-    }
-
     if (url.pathname === '/api/v1/tenant/settings/booking-policies' && method === 'GET') {
       await fulfillJson(route, { bookingPolicies: {
         schemaVersion: 1,
@@ -445,7 +374,15 @@ async function installProductionSettingsFixture(page, { organizationConflict = t
     }
   });
 
-  return { state, writes, reads, unexpectedApiRequests };
+  return {
+    state,
+    writes,
+    reads,
+    unexpectedApiRequests,
+    organizationReads: () => organizationReadCount,
+    releaseOrganizationReapplyRead,
+    releaseLocationSave,
+  };
 }
 
 async function openTenantSettings(page) {
@@ -466,7 +403,7 @@ async function submit(content, formId) {
   await content.locator(`[data-tenant-settings-form="${formId}"] button[type="submit"]`).click();
 }
 
-test('Production composition writes all settings with exact CSRF/revisions and reapplies one conflict', async ({ page }) => {
+test('Production composition writes owned Tenant Admin settings with exact CSRF/revisions', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page);
   await openTenantSettings(page);
 
@@ -478,7 +415,7 @@ test('Production composition writes all settings with exact CSRF/revisions and r
   await expect.poll(() => fixture.writes.length).toBe(2);
   await expect(content.locator('#tenant-organization-display-name')).toHaveValue('Northstar Reapplied');
 
-  content = await openSection(page, 'locations', 'locations');
+  content = await openSection(page, 'locations', 'locations-technical');
   const providerDetails = content.locator('[data-tenant-room-id="atlas"] dl');
   await expect(providerDetails).toContainText('Provider Atlas Authority');
   await expect(providerDetails).toContainText('999');
@@ -489,29 +426,31 @@ test('Production composition writes all settings with exact CSRF/revisions and r
   expect(editableLocationValues).not.toContain('Provider Atlas Authority');
   expect(editableLocationValues).not.toContain('999');
   expect(editableLocationValues).not.toContain('2026-08-27T10:00:00.000Z');
-  await expect(content.locator('#tenant-room-name-0')).toHaveValue('Atlas Local');
-  await expect(content.locator('#tenant-room-capacity-0')).toHaveValue('20');
+  const atlas = content.locator('[data-tenant-room-id="atlas"]');
+  await expect(atlas.locator('legend')).toHaveText('Atlas Local');
+  await expect(providerDetails.locator('dd').nth(0)).toHaveText('Atlas Local');
+  await expect(providerDetails.locator('dd').nth(1)).toHaveText('20');
+  await expect(atlas.locator('#tenant-room-name-0, #tenant-room-capacity-0')).toHaveCount(0);
+  await expect(atlas.locator('#tenant-room-site-0')).toHaveValue('berlin');
   await content.locator('#tenant-site-name-0').fill('Berlin Production');
-  await submit(content, 'locations');
+  await submit(content, 'locations-technical');
   await expect.poll(() => fixture.writes.length).toBe(3);
   await expect(content.locator('#tenant-site-name-0')).toHaveValue('Berlin Production');
 
-  content = await openSection(page, 'catalog', 'catalogue');
-  await content.locator('#tenant-catalogue-services-0-name').fill('Production AV');
-  await submit(content, 'catalogue');
-  await expect.poll(() => fixture.writes.length).toBe(4);
-  await expect(content.locator('#tenant-catalogue-services-0-name')).toHaveValue('Production AV');
+  await expect(page.locator(
+    '[data-tenant-admin-section="catalog"], [data-tenant-admin-section="catalogue"]',
+  )).toHaveCount(0);
 
   content = await openSection(page, 'booking-policies', 'booking-policies');
   await content.locator('#tenant-policy-0-participants').fill('450');
   await submit(content, 'booking-policies');
-  await expect.poll(() => fixture.writes.length).toBe(5);
+  await expect.poll(() => fixture.writes.length).toBe(4);
   await expect(content.locator('#tenant-policy-0-participants')).toHaveValue('450');
 
   content = await openSection(page, 'cost-allocation', 'cost-allocation');
   await content.locator('#tenant-cost-center-0-name').fill('Production Events');
   await submit(content, 'cost-allocation');
-  await expect.poll(() => fixture.writes.length).toBe(6);
+  await expect.poll(() => fixture.writes.length).toBe(5);
   await expect(content.locator('#tenant-cost-center-0-name')).toHaveValue('Production Events');
 
   const expectedOrganization = organization('Northstar Reapplied');
@@ -527,10 +466,6 @@ test('Production composition writes all settings with exact CSRF/revisions and r
     {
       path: '/api/v1/tenant/settings/locations', method: 'PUT', csrf: CSRF_TOKEN,
       body: { schemaVersion: 1, expectedRevision: 2, configuration: currentLocations('Berlin Production') },
-    },
-    {
-      path: '/api/v1/tenant/settings/catalogue', method: 'PUT', csrf: CSRF_TOKEN,
-      body: { schemaVersion: 1, expectedRevision: 4, catalogue: catalogue('Production AV') },
     },
     {
       path: '/api/v1/tenant/settings/booking-policies', method: 'PUT', csrf: CSRF_TOKEN,
@@ -553,54 +488,86 @@ test('Production composition writes all settings with exact CSRF/revisions and r
     '/api/v1/tenant/settings/organization/history?limit=10',
     '/api/v1/tenant/settings/locations',
     '/api/v1/tenant/settings/locations/history?limit=20',
-    '/api/v1/tenant/settings/catalogue',
-    '/api/v1/tenant/settings/catalogue/history?limit=10',
     '/api/v1/tenant/settings/booking-policies',
     '/api/v1/tenant/settings/booking-policies/history?limit=20',
     '/api/v1/tenant/settings/cost-allocation',
     '/api/v1/tenant/settings/cost-allocation/history?limit=20',
   ]) expect(readPaths.has(expectedPath), expectedPath).toBe(true);
+  expect(fixture.reads.some(({ path: value }) => (
+    value.startsWith('/api/v1/tenant/settings/catalogue')
+  ))).toBe(false);
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });
 
-test('Production Locations rollback requires revision preview and explicit confirmation', async ({ page }) => {
+test('Tenant Admin sees Location history without a mixed-ownership rollback action', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
   await openTenantSettings(page);
-  const content = await openSection(page, 'locations', 'locations');
+  const content = await openSection(page, 'locations', 'locations-technical');
 
-  await content.locator('[data-source-revision="1"]').click();
-  const dialog = page.locator('dialog[open]');
-  await expect(dialog.locator('[data-tenant-location-rollback-preview="true"]')).toBeVisible();
-  await expect(dialog.locator('[data-tenant-location-rollback-changed-sites]')).toHaveAttribute(
-    'data-tenant-location-rollback-changed-sites', '1',
-  );
-  await expect(dialog.locator('[data-tenant-location-rollback-changed-rooms]')).toHaveAttribute(
-    'data-tenant-location-rollback-changed-rooms', '2',
-  );
-  await expect(dialog.locator('[data-tenant-location-rollback-retained-rooms]')).toHaveAttribute(
-    'data-tenant-location-rollback-retained-rooms', '1',
-  );
-  await expect(dialog.locator('[data-tenant-location-rollback-consequence="true"]')).toBeVisible();
-  const confirm = dialog.locator('[data-tenant-location-rollback-confirm="true"]');
-  await expect(confirm).toHaveAttribute('data-expected-revision', '2');
-  await expect(confirm).toHaveAttribute('data-source-revision', '1');
-  expect(fixture.writes).toEqual([]);
-
-  await confirm.click();
-  await expect.poll(() => fixture.writes.length).toBe(1);
-  expect(fixture.writes[0]).toEqual({
-    path: '/api/v1/tenant/settings/locations/rollback',
-    method: 'POST',
-    csrf: CSRF_TOKEN,
-    body: { schemaVersion: 1, expectedRevision: 2, sourceRevision: 1 },
-  });
-  await expect(dialog).toHaveCount(0);
-  await expect(content.locator('#tenant-site-name-0')).toHaveValue('Berlin Legacy');
-  await expect(content.locator('[data-tenant-room-id="room-new"] input[type="checkbox"]')).not.toBeChecked();
+  await expect(content.getByText(/Stand 1/)).toBeVisible();
   await expect(content.locator('[data-tenant-room-id="atlas"] dl')).toContainText('Provider Atlas Authority');
-  expect(fixture.reads).toContainEqual({
-    path: '/api/v1/tenant/settings/locations/history/1',
-    method: 'GET',
-  });
+  await expect(content.locator(
+    '[data-source-revision], [data-tenant-location-rollback-preview], [data-tenant-location-rollback-confirm]',
+  )).toHaveCount(0);
+  expect(fixture.writes).toEqual([]);
+  expect(fixture.reads.some(({ path: value }) => (
+    value.startsWith('/api/v1/tenant/settings/locations/history/1')
+    || value === '/api/v1/tenant/settings/locations/rollback'
+  ))).toBe(false);
   expect(fixture.unexpectedApiRequests).toEqual([]);
+});
+
+test('detached Tenant Admin conflict reapply stops before a second privileged write', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, {
+    holdOrganizationReapplyRead: true,
+  });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'organization', 'organization');
+
+  await content.locator('#tenant-organization-display-name').fill('Detached reapply');
+  await submit(content, 'organization');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  await expect(content.locator('[data-tenant-settings-conflict-reapply="true"]')).toBeVisible();
+  await content.locator('[data-tenant-settings-conflict-reapply="true"]').click();
+  await expect.poll(() => fixture.organizationReads()).toBe(2);
+
+  await page.locator('[data-view="welcome"]').click();
+  const reapplyRead = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === '/api/v1/tenant/settings/organization'
+    && response.request().method() === 'GET'
+  ));
+  fixture.releaseOrganizationReapplyRead();
+  await reapplyRead;
+  await page.waitForTimeout(100);
+
+  expect(fixture.writes).toHaveLength(1);
+  await expect(page.locator('#welcomeHeading')).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
+  await expect(page.locator('#toast')).toBeEmpty();
+});
+
+test('detached Tenant Admin Location save produces no stale presentation effects', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, {
+    organizationConflict: false,
+    holdLocationSave: true,
+  });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'locations', 'locations-technical');
+
+  await content.locator('#tenant-site-name-0').fill('Detached location');
+  await submit(content, 'locations-technical');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  await page.locator('[data-view="welcome"]').click();
+  const saveResponse = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === '/api/v1/tenant/settings/locations'
+    && response.request().method() === 'PUT'
+  ));
+  fixture.releaseLocationSave();
+  await saveResponse;
+  await page.waitForTimeout(100);
+
+  expect(fixture.writes).toHaveLength(1);
+  await expect(page.locator('#welcomeHeading')).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
+  await expect(page.locator('#toast')).toBeEmpty();
 });
