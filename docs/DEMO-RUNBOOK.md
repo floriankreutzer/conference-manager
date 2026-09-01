@@ -11,6 +11,8 @@ The canonical human entry point is the GitHub Pages launchpad published from `de
 
 See `docs/DEMO-URLS.md` for the complete URL and trust-boundary contract.
 
+The effective presentation is Conference Manager, German, EUR and the code-shipped PAVUREL product-default signet unless an authoritative Tenant presentation setting supplies an allowed customization. No external Brand asset or browser-local presentation value establishes Tenant or authorization authority.
+
 ## Security domains
 
 Customer and Platform Demo remain separate security domains even though their synthetic business state is persisted in one isolated shared Demo PostgreSQL model.
@@ -39,6 +41,8 @@ See `docs/ROLE-MODEL.md` for the canonical matrix.
 ## Deterministic baseline
 
 After the documented backend reset/reseed operation, the shared Demo baseline recreates stable synthetic Tenants, Users, roles, configuration, Requests and provider simulation.
+
+A context change selects a deterministic server-owned fixture Principal and reloads the corresponding PAVUREL product-default presentation from server-owned Tenant data. The browser selector submits only context intent and cannot synthesize Brand, role or permission authority.
 
 | Surface | Baseline | Lifetime |
 | --- | --- | --- |
