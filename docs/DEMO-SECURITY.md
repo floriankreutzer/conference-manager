@@ -17,11 +17,19 @@ The Pages surface:
 - links directly to the Customer Render origin `https://conference-manager-demo.onrender.com`;
 - links directly to the Platform Render origin `https://conference-manager-ops-demo.onrender.com`;
 - contains no application JavaScript, session handling, API proxy, role selector, reset function or browser persistence;
+- carries a fail-closed meta CSP for resources, forms, objects and base-URL changes;
 - carries no Tenant/User/role/permission/CSRF/provider authority;
 - warns about Render Free cold-start behavior;
 - is the scheduled ZAP baseline target only for the static launchpad itself.
 
 Functional Demo acceptance and runtime security validation belong to the separately deployed Render origins and the PostgreSQL-backed shared-Demo browser journey. A clean ZAP scan of the Pages launchpad is not evidence for Customer or Platform application authorization.
+
+GitHub Pages does not expose repository-controlled response-header configuration. The launchpad
+therefore delivers its resource/form/base restrictions through an HTML meta CSP. CSP
+`frame-ancestors` is not valid in a meta-delivered policy, so this repository does not claim that the
+launchpad has response-header clickjacking protection. That provider-controlled response-header
+posture must be verified separately in deployed acceptance and must not be inferred from the meta
+policy.
 
 The Demo must not be presented as an authenticated Production application and must not be used for real confidential, personal or regulated data.
 

@@ -1,5 +1,5 @@
 import { t } from '../core/i18n.js';
-import { button, clear, el } from '../core/ui.js';
+import { button, clear, clearTransientFeedback, el } from '../core/ui.js';
 import {
   createInactivityPolicyController,
   inactivityTimeoutForRuntime,
@@ -15,8 +15,9 @@ function createBroadcastChannel(factory) {
   return new globalThis.BroadcastChannel(CHANNEL_NAME);
 }
 
-function closeOpenDialogs(documentRoot) {
+function closeOpenDialogs(documentRoot, retainedDialog = null) {
   documentRoot.querySelectorAll('dialog[open]').forEach((dialog) => {
+    if (dialog === retainedDialog) return;
     try {
       dialog.close?.();
     } finally {
@@ -35,12 +36,18 @@ export function installCustomerInactivityLock({
   clearTimer,
   reload = () => globalThis.location.reload(),
   broadcastChannelFactory = null,
+  mutationObserverFactory = null,
+  invalidateApplicationRenders = null,
 } = {}) {
   if (!context?.isAuthenticated?.()) return null;
   const authentication = context.authenticationRuntime?.();
   if (!authentication || typeof authentication.bootstrap !== 'function') {
     throw new TypeError('INACTIVITY_AUTHENTICATION_RUNTIME_REQUIRED');
   }
+  if (
+    invalidateApplicationRenders !== null
+    && typeof invalidateApplicationRenders !== 'function'
+  ) throw new TypeError('INACTIVITY_RENDER_INVALIDATOR_INVALID');
   const appRoot = documentRoot.getElementById('app');
   const navigationRoot = documentRoot.getElementById('primaryNavigation');
   const titleRoot = documentRoot.getElementById('viewTitle');
@@ -51,9 +58,54 @@ export function installCustomerInactivityLock({
   const channel = createBroadcastChannel(broadcastChannelFactory);
   let unlockPending = false;
   let lockDialog = null;
+  let lockObserver = null;
+  let locked = false;
+
+  function lockedText(root, value) {
+    if (root.textContent !== value) root.textContent = value;
+  }
+
+  function enforceLockedSurface() {
+    if (!locked) return;
+    if (documentRoot.documentElement.dataset.sessionLocked !== 'true') {
+      documentRoot.documentElement.dataset.sessionLocked = 'true';
+    }
+    clearTransientFeedback(documentRoot, windowRoot);
+    documentRoot.querySelector('[data-demo-security]')?.remove();
+    closeOpenDialogs(documentRoot, lockDialog);
+    if (navigationRoot.childNodes.length) clear(navigationRoot);
+    if (appRoot.childNodes.length) clear(appRoot);
+    lockedText(titleRoot, t('inactivityLock.title'));
+    lockedText(subtitleRoot, t('inactivityLock.subtitle'));
+    if (lockDialog && !lockDialog.isConnected) {
+      lockDialog.removeAttribute('open');
+      documentRoot.body.appendChild(lockDialog);
+    }
+    if (lockDialog && !lockDialog.open) lockDialog.showModal();
+  }
+
+  function observeLockedSurface() {
+    if (lockObserver) return;
+    const callback = () => enforceLockedSurface();
+    if (typeof mutationObserverFactory === 'function') {
+      lockObserver = mutationObserverFactory(callback);
+    } else {
+      const Observer = windowRoot.MutationObserver || globalThis.MutationObserver;
+      lockObserver = typeof Observer === 'function' ? new Observer(callback) : null;
+    }
+    lockObserver?.observe?.(documentRoot.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['open', 'data-session-locked'],
+    });
+  }
 
   function renderLocked() {
+    locked = true;
     documentRoot.documentElement.dataset.sessionLocked = 'true';
+    clearTransientFeedback(documentRoot, windowRoot);
+    invalidateApplicationRenders?.();
     documentRoot.querySelector('[data-demo-security]')?.remove();
     closeOpenDialogs(documentRoot);
     clear(navigationRoot);
@@ -101,6 +153,7 @@ export function installCustomerInactivityLock({
     lockDialog.addEventListener('cancel', (event) => event.preventDefault());
     documentRoot.body.appendChild(lockDialog);
     lockDialog.showModal();
+    observeLockedSurface();
     windowRoot.requestAnimationFrame?.(() => unlock.focus());
   }
 
@@ -136,6 +189,9 @@ export function installCustomerInactivityLock({
       windowRoot.removeEventListener?.('pageshow', pageshow);
       channel?.close?.();
       controller.stop();
+      lockObserver?.disconnect?.();
+      lockObserver = null;
+      locked = false;
       lockDialog?.remove();
       lockDialog = null;
     },

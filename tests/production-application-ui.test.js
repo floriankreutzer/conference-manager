@@ -7,9 +7,9 @@ import {
   productionUtcInstant,
 } from '../src/employee/production-time.js';
 import {
-  composeServerRequestDraft,
   repeatRequestProjection,
 } from '../src/employee/server-request-projection.js';
+import { composeServerRequestDraft } from '../src/shared/production-request-draft.js';
 import {
   cateringEditorOptions,
   normalizeAllocationEditorDraft,
@@ -26,6 +26,8 @@ const APP_SOURCE = new URL('../src/app.js', import.meta.url);
 const CONTEXT_SOURCE = new URL('../src/platform/application-context.js', import.meta.url);
 const SHELL_SOURCE = new URL('../src/platform/app-shell.js', import.meta.url);
 const PRODUCTION_DETAILS_SOURCE = new URL('../src/shared/production-request-details.js', import.meta.url);
+const BOOKING_CHANGE_EDITOR_SOURCE = new URL('../src/shared/production-booking-change-editor.js', import.meta.url);
+const BOOKING_CHANGE_MODEL_SOURCE = new URL('../src/shared/production-booking-change.js', import.meta.url);
 
 async function source(url) {
   return readFile(url, 'utf8');
@@ -139,7 +141,7 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /if \(draftTimer\) clearTimeout\(draftTimer\);\s*draftTimer = null;\s*draftStore\.clear\(\);/);
   assert.match(employee, /allocationRows\.splice\(index, 1\);\s*scheduleDraftSave\(\);/);
   assert.match(employee, /allocationRows\.push\([^;]+;\s*scheduleDraftSave\(\);/);
-  assert.match(employee, /roomSupportsParticipants\([\s\S]*catalog\.bookingPolicy\?\.rules\?\.maximumParticipants/);
+  assert.match(employee, /roomSupportsParticipants\([\s\S]*requestCatalog\.bookingPolicy\?\.rules\?\.maximumParticipants/);
   assert.match(employee, /if \(!sourceRequest && !restoredDraft && !allocationRows\.length/);
 });
 
@@ -203,6 +205,24 @@ test('server-backed cards expose the complete immutable business projection', as
   const manager = await source(MANAGER_SOURCE);
   assert.match(employee, /renderProductionRequestBusinessDetails\(request\)/);
   assert.match(manager, /renderProductionRequestBusinessDetails\(request\)/);
+});
+
+test('Employee and Manager share one capability-independent booking-change editor', async () => {
+  const [employee, manager, editor] = await Promise.all([
+    source(EMPLOYEE_SOURCE),
+    source(MANAGER_SOURCE),
+    source(BOOKING_CHANGE_EDITOR_SOURCE),
+  ]);
+  for (const application of [employee, manager]) {
+    assert.match(application, /from '\.\.\/shared\/production-booking-change-editor\.js'/);
+    assert.match(application, /openProductionBookingChangeDialog/);
+  }
+  assert.doesNotMatch(editor, /\.\.\/(?:employee|manager|tenant-admin|platform)\//);
+  assert.match(editor, /persistence\.proposeBookingChange/);
+  assert.match(editor, /composeServerRequestDraft/);
+  assert.doesNotMatch(manager, /\.\.\/employee\//);
+  assert.match(manager, /transitionRequest\(request\.id, \{ transition: 'cancel' \}\)/);
+  assert.doesNotMatch(manager, /deleteRequest|method:\s*['"]DELETE['"]/);
 });
 
 test('Employee editor exposes only catering applicable to the selected authoritative room', () => {
@@ -381,6 +401,8 @@ test('Manager room planning includes bookings on every overlapping site-local da
 test('production Employee and Manager applications cannot depend on browser persistence authority', async () => {
   const employee = await source(EMPLOYEE_SOURCE);
   const manager = await source(MANAGER_SOURCE);
+  const bookingChangeEditor = await source(BOOKING_CHANGE_EDITOR_SOURCE);
+  const bookingChangeModel = await source(BOOKING_CHANGE_MODEL_SOURCE);
   for (const moduleSource of [employee, manager]) {
     assert.doesNotMatch(moduleSource, /core\/storage|localStorage|sessionStorage/);
     assert.doesNotMatch(moduleSource, /tenantId|tenant_id|requesterUserId|requester_user_id/);
@@ -401,12 +423,17 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(manager, /tableRoot\.replaceChildren\(\)/);
   assert.match(manager, /persistence\.loadRequestReport/);
   assert.match(employee, /isProductionTimeZone\(timeZone\)/);
-  assert.match(employee, /Date\.parse\(startsAt\) <= Date\.now\(\)/);
-  assert.match(employee, /totalParticipants > MAX_PARTICIPANTS/);
-  assert.match(employee, /entry\.active \|\| entry\.id === request\.roomId/);
+  assert.match(bookingChangeModel, /Date\.parse\(startsAt\) <= now/);
+  assert.match(bookingChangeModel, /total > PRODUCTION_BOOKING_CHANGE_MAX_PARTICIPANTS/);
+  assert.match(bookingChangeEditor, /catalog\.rooms\.filter\(\(entry\) => \(\s*entry\.active/);
+  assert.match(
+    bookingChangeEditor,
+    /value: currentRoomContext\.room\.id,[\s\S]*attrs: \{ disabled: 'disabled' \}/,
+  );
+  assert.doesNotMatch(bookingChangeEditor, /entry\.active \|\| entry\.id === request\.roomId/);
   assert.match(employee, /loadOpenBookingChanges/);
   assert.match(manager, /loadOpenBookingChanges/);
-  assert.match(manager, /bookingChangeDecisions/);
+  assert.match(manager, /requestMutations/);
   assert.match(manager, /bookingChange\.status === 'pending'/);
 });
 
@@ -474,8 +501,30 @@ test('localized loading is rendered before the production session bootstrap awai
 
 test('production workflow refreshes restore focus to the mutated request card', async () => {
   const [employee, manager] = await Promise.all([source(EMPLOYEE_SOURCE), source(MANAGER_SOURCE)]);
-  assert.match(employee, /await refresh\(requestId\)/);
+  assert.match(employee, /await refresh\(request\.id\)/);
+  assert.match(employee, /const requestMutations = new Map\(\)/);
   assert.match(employee, /productionRequestId[\s\S]*\.focus\(\)/);
   assert.match(manager, /await refresh\(request\.id\)/);
   assert.match(manager, /productionRequestId[\s\S]*\.focus\(\)/);
+});
+
+test('Employee editor and proposal lifecycles reject detached or duplicate async work', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  const editor = employee.slice(
+    employee.indexOf('async function renderRequest()'),
+    employee.indexOf('async function renderRequests()'),
+  );
+  const requests = employee.slice(employee.indexOf('async function renderRequests()'));
+
+  assert.match(employee, /let editorRenderGeneration = 0;/);
+  assert.match(editor, /const generation = \+\+editorRenderGeneration;/);
+  assert.match(editor, /generation === editorRenderGeneration[\s\S]*root\.parentNode === appRoot/);
+  assert.match(editor, /requestCatalog = await persistence\.loadCatalog\(\);\s*if \(!isCurrentEditor\(\)\) return;\s*catalog = requestCatalog;/);
+  assert.match(editor, /if \(!draftDirty \|\| !isCurrentEditor\(\)\) return;/);
+  assert.match(editor, /await persistence\.createRequest\([\s\S]*if \(!isCurrentEditor\(\)\) return;/);
+  assert.match(editor, /compositionDraft\(sourceRequest, requestCatalog, overrides\)/);
+  assert.match(requests, /reserveRequestMutation\(target\.id, 'proposal'\)/);
+  assert.match(requests, /mutationInFlight: \(\) => requestMutations\.has\(request\.id\)/);
+  assert.match(requests, /activeMutation\?\.kind === 'cancel'/);
+  assert.match(requests, /dialog\.addEventListener\('close',[\s\S]*releaseProposal\(\)/);
 });

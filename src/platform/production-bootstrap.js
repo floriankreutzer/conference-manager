@@ -8,7 +8,10 @@ async function bootstrapProductionCustomerApplication() {
     runtimeMode: RUNTIME_MODE.PRODUCTION,
     authenticationBootstrap: bootstrapProductionAuthentication,
   });
-  installCustomerInactivityLock({ context: application.context });
+  installCustomerInactivityLock({
+    context: application.context,
+    invalidateApplicationRenders: application.shell.invalidatePendingRender,
+  });
 }
 
 void bootstrapProductionCustomerApplication();

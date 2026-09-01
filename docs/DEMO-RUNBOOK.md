@@ -168,6 +168,11 @@ The Pages workflow publishes only `demo-portal/` after a `main` change to that d
 
 Pages acceptance verifies only the launchpad contract. Customer/Platform runtime security remains evidenced by the Render/shared-Demo gates.
 
+The launchpad's HTML meta CSP restricts resources, forms, objects and base-URL changes. GitHub Pages
+does not provide repository-controlled response headers, and CSP `frame-ancestors` is ignored when
+delivered in a meta element. Acceptance must therefore record the deployed provider headers
+separately and must not represent the meta policy as clickjacking protection.
+
 ## Security regression register
 
 Demo-found defects are not assumed to be Demo-only. `docs/SAAS-3.6-SECURITY-REGRESSION.md` records each discovered finding as `demo-only`, `shared-business-domain`, `production-defect` or `security-relevant`, including Production reachability, correction and regression evidence.

@@ -8,6 +8,8 @@ The repository is a build-free native ES-module application. The current `main` 
 
 Architectural changes must preserve observable behavior, persisted data, DOM/test contracts, localization, accessibility behavior and security boundaries unless an explicit approved requirement changes them.
 
+The approved SaaS 3.6 customer role contract is normative for capability composition and configuration ownership. Every active customer User has the implicit Employee baseline. `conference_manager` and `tenant_admin` are independent elevated roles that may coexist; neither inherits the other, and a dual-role session is their exact permission union. Conference Manager owns Tenant-wide operational Request work, Room business fields, the Tenant Catalogue and Room prices; an eligible self-decision retains distinct server-derived initiator/decider evidence. Tenant Admin owns organization, booking policy, cost allocation, Users/roles, audit, integrations, Site configuration and technical Room/provider mapping. Cost/cost-center reporting remains unassigned in SaaS 3.6. Frontend presentation follows the validated server projection and never replaces backend authorization.
+
 The runtime dependency direction is:
 
 ```text
@@ -15,9 +17,9 @@ Browser / index.html
   -> Customer Production or Demo bootstrap
   -> src/app.js composition
      -> Platform application shell/context
-     -> Employee public module API
-     -> Manager public module API
-     -> Tenant Admin public module API
+     -> Employee public module API (implicit baseline)
+     -> Manager public module API (Conference Manager permission set)
+     -> Tenant Admin public module API (independent Tenant Admin permission set)
         -> shared cross-capability presentation/contracts
            -> core domain and infrastructure primitives
 ```
@@ -34,8 +36,11 @@ Accepted topology decisions are cumulative:
 - `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` owns the separate Platform Operator artifact/process/session/audit boundary;
 - `docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md` revalidates **KEEP** for Platform frontend and backend source ownership while retaining separate deployable artifacts and processes;
 - `docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` owns the isolated PostgreSQL-backed shared Demo topology, separate Customer/Platform Demo sessions and deterministic reset/seed requirements.
+- `docs/ROLE-MODEL.md` owns the SaaS 3.6 customer role, permission, Room-field and Catalogue ownership contract applied inside those established topologies.
 
 The accepted decisions define boundaries and implementation constraints. A decision document does not by itself prove that its runtime, deployment or governance work has been completed; the owning milestone issue and merged executable evidence remain required.
+
+ADR-010 remains authoritative for shared-Demo topology and persistence. Its historical shared-state example assigned all Sites/Rooms/Catalogue editing to Tenant Admin because it described the pre-SaaS-3.6 role allocation. That example is not an authorization contract: `docs/ROLE-MODEL.md` and the current ownership matrix supersede the actor allocation while preserving ADR-010's server-backed state, process, session and Tenant-isolation decisions.
 
 ## Runtime structure
 
@@ -51,6 +56,7 @@ src/
 │   ├── i18n-capability-messages.js# consolidated capability messages
 │   ├── security-i18n.js
 │   ├── security-policy.js
+│   ├── tenant-location-ownership.js # Room field projection/ownership contract
 │   ├── preferences.js             # bounded non-authoritative preferences only
 │   ├── storage.js
 │   └── ui.js
@@ -64,6 +70,8 @@ src/
 ├── manager/
 │   ├── index.js                   # public Manager API
 │   ├── application.js             # Manager UI/use-case orchestration
+│   ├── workspace-application.js   # operational and business-settings composition
+│   ├── business-settings-application.js # Room business/Catalogue presentation
 │   ├── booking-lifecycle.js       # confirm/change/reject rules
 │   ├── reporting.js               # reporting domain calculations
 │   ├── parity-i18n.js             # temporary Manager-only Core delegation bridge
@@ -85,7 +93,6 @@ src/
 │   └── sections/
 │       ├── organization/index.js
 │       ├── locations/index.js
-│       ├── catalog/index.js
 │       ├── booking-policies/index.js
 │       ├── cost-allocation/index.js
 │       ├── users/index.js
@@ -99,8 +106,11 @@ src/
 │   ├── demo-session.js            # Customer Demo session/context API boundary
 │   ├── production-session.js      # validated production session/CSRF runtime
 │   ├── production-bootstrap.js    # Customer Production-only composition root
+│   ├── inactivity-lock.js         # additive browser inactivity overlay/controller
+│   ├── inactivity-policy.js       # bounded activity/timeout policy
 │   ├── tenant-admin-operations-api.js # public Tenant operations adapter facade
 │   ├── tenant-settings-api.js     # public Tenant settings adapter facade
+│   ├── tenant-catalogue-settings-api.js # Conference Manager Catalogue adapter
 │   ├── server-tenant-settings-api.js # shared server-backed settings facade
 │   ├── tenant-presentation-api.js # minimized effective Tenant presentation projection
 │   ├── tenant-presentation-runtime.js # in-memory revision/localization/shell integration
@@ -119,8 +129,13 @@ src/
 └── shared/
     ├── application-presentation.js
     ├── booking-change-loader.js       # bounded cross-capability proposal lookup contract
+    ├── production-booking-change.js   # capability-independent confirmed-change input model
+    ├── production-booking-change-editor.js # Employee/Manager confirmed-change presentation
+    ├── production-request-draft.js    # server Request draft composition without authority
     ├── notifications.js
     ├── request-card.js
+    ├── request-room-context-loader.js # bounded historical current-Room presentation lookup
+    ├── tenant-bulk-transfer-panel.js  # capability-neutral receipt-bound bulk presentation
     └── parity-data.js
 ```
 
@@ -134,7 +149,7 @@ The former flat `src/features` directory is not part of the modular architecture
 
 - application bootstrap;
 - top-level dependency composition;
-- Employee, Manager and Tenant Admin capability initialization through their public APIs;
+- Employee baseline plus independent Conference Manager and Tenant Admin capability initialization through their public APIs and the validated server role/permission projection;
 - injection of the already selected Production or Demo server/session adapters;
 - application-shell initialization;
 - global application event registration;
@@ -183,6 +198,8 @@ Manager owns the complete baseline Conference Manager application behavior behin
 
 `application.js` owns Booking Cockpit filtering/actions, room planning, baseline reporting presentation and administration rendering/persistence orchestration.
 
+`workspace-application.js` composes the operational Manager application with the bounded business-settings application. `business-settings-application.js` presents Room business-field and Tenant Catalogue mutation intent only. Its Location updates project Conference Manager-owned fields onto the current complete snapshot and preserve Site, Room identity and provider-controlled technical fields. Its Catalogue path includes Services, equipment, catering packages/items/variants and authoritative Room prices. The trusted API independently reclassifies the mutation and enforces Tenant scope, revisions and authorization; the browser contract is not permission evidence.
+
 `booking-lifecycle.js` owns testable confirm/change/reject status and calendar transitions. `reporting.js` remains the testable Manager reporting calculation model used by the enhanced reporting experience.
 
 `parity-i18n.js` is a temporary Manager-only compatibility bridge for two baseline enhancement modules that still call the historical `pt()` function name. It owns no messages, fallback behavior, storage or interpolation logic and delegates directly to `src/core/i18n.js`. It must not receive new consumers or translation content and should be removed when those remaining call sites are migrated in a separately regression-protected cleanup.
@@ -191,9 +208,9 @@ Manager internals are private. Manager-to-Employee collaboration is permitted on
 
 ### `src/tenant-admin`
 
-Tenant Admin owns the Tenant self-service settings capability behind `src/tenant-admin/index.js`. The SaaS 2 implementation is a bounded settings shell rather than a combined User/Microsoft administration surface. Detailed permanent section-boundary rules are documented in `docs/SAAS2-MODULAR-BOUNDARIES.md`.
+Tenant Admin owns the technical/Tenant administration capability behind `src/tenant-admin/index.js`. The bounded settings shell composes organization, technical Locations/provider mapping, booking policy, cost allocation, Users/elevated roles, Microsoft integration, readiness/capability and audit sections. Tenant Admin does not inherit Conference Manager Request, Room-business or Catalogue authority, and the shell has no Catalogue section. Detailed permanent section-boundary rules remain in `docs/SAAS2-MODULAR-BOUNDARIES.md`, subject to the SaaS 3.6 ownership supersession in `docs/ROLE-MODEL.md`.
 
-`application.js` composes the Tenant Admin section registry and settings shell. The registry owns section registration and authorized visibility; the shell owns navigation, shared headings, explicit-navigation focus, and the fallback for an unexpectedly rejected section render. Each section owns its normal loading, empty, and error presentation and orchestration. The shell and registry must not contain organization, catalogue, booking-policy, cost-allocation, Microsoft lifecycle, audit or User lifecycle business decisions.
+`application.js` composes the Tenant Admin section registry and settings shell. The registry owns section registration and authorized visibility; the shell owns navigation, shared headings, explicit-navigation focus, and the fallback for an unexpectedly rejected section render. Each section owns its normal loading, empty, and error presentation and orchestration. The shell and registry must not contain organization, Room-business, Catalogue, booking-policy, cost-allocation, Microsoft lifecycle, audit or User lifecycle business decisions. A Catalogue section or Manager-business mutation path under `src/tenant-admin/` would violate the current ownership model.
 
 Each settings domain is owned below `src/tenant-admin/sections/<section-id>/` and exposes its section through that directory's `index.js`. Section internals must not import one another. Cross-section collaboration must use explicit injected contracts rather than private implementation access.
 
@@ -207,7 +224,7 @@ Tenant Admin uses bounded hash routes in the form `#tenant-admin/<section>`. Aut
 
 Explicit Tenant Admin section navigation moves focus to the target section heading. A successful Users role save explicitly restores focus to the updated User card after rerender. Other section-internal rerenders have no repository-wide focus-restoration guarantee unless the owning section implements and regression-protects that behavior.
 
-The Production Tenant Admin capability is composed only when the validated server session grants the `tenant_admin` role and the capability-wide `tenant:users:manage` permission; an individual section is then exposed only when the same trusted session also grants that section's registered permission. Tenant Admin capability does not imply Conference Manager capability or Platform Operator authority. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
+The Production Tenant Admin capability is composed only when the validated server session grants the `tenant_admin` role and the capability-wide `tenant:users:manage` permission; an individual section is then exposed only when the same trusted session also grants that section's registered permission. Conference Manager composition separately requires the `conference_manager` role plus its exact permission, including `tenant:rooms:business:manage` or `tenant:catalogue:manage` for business settings. Tenant Admin capability does not imply Conference Manager capability or Platform Operator authority, and Conference Manager capability does not imply Tenant Admin authority. Tenant selectors, Platform Admin and arbitrary role values remain outside the browser contract.
 
 ### `src/platform`
 
@@ -216,10 +233,11 @@ Platform contains application-wide composition and infrastructure-facing concern
 - `application-context.js` owns access to the validated server session, injected profile/catalog/site/Request repositories and the bounded Demo context-switch contract.
 - `demo-bootstrap.js` and `demo-session.js` own Customer Demo bootstrap, same-origin `/api/v1/demo/*` session/context calls and strict reuse of the Production session projection validator. Persona or Tenant choices are browser request input only; the server returns effective authority.
 - `production-bootstrap.js` owns the mutually exclusive Customer Production bootstrap.
+- `inactivity-policy.js` and `inactivity-lock.js` own the additive browser inactivity policy and lock overlay. Unlock always re-runs the server session bootstrap; it never extends, rotates or reconstructs server authority from browser state, and server expiry/revocation/security-version/CSRF controls remain authoritative.
 - `app-shell.js` owns shell navigation, welcome view, profile/help dialogs and top-level view orchestration. It receives Employee/Manager/Tenant Admin application contracts from `src/app.js` rather than importing capability internals. Its optional view-change callback is generic and must not encode Tenant Admin routing rules.
 - `production-session.js` owns the bounded, fail-closed production session bootstrap and in-memory CSRF runtime.
 - `tenant-admin-operations-api.js` is the explicit Composition Root facade for the Tenant audit-history and effective-capability Production adapters. User lifecycle operations remain behind the established Tenant User facade, while Microsoft operations decorate the existing Microsoft 365 connection port.
-- `tenant-settings-api.js` is the explicit Composition Root facade for the bounded Organization, Location, Catalogue, Booking Policy and Cost Allocation Production adapters. The domain adapters retain their individual response-validation and wire-contract ownership behind that facade.
+- `tenant-settings-api.js` and `server-tenant-settings-api.js` expose bounded server adapters at the Composition Root without assigning role ownership. Organization, Booking Policy and Cost Allocation adapters are Tenant Admin capabilities; the Location adapter is shared only because the API classifies technical and business fields; the Catalogue adapter is composed only for Conference Manager authority. The domain adapters retain their individual response-validation and wire-contract ownership behind those facades.
 - `tenant-presentation-api.js` owns the exact minimized presentation projection used by every authenticated Tenant role. `tenant-presentation-runtime.js` owns only its fail-safe in-memory revision lifecycle, Core localization configuration, reviewed same-origin mark rendering, and Organization-save refresh integration. Neither accepts remote assets, custom styles, Demo fallback, or browser-side authority. The complete contract is documented in `docs/SAAS2-TENANT-PRESENTATION.md`.
 - `tenant-user-administration-api.js` owns validated, cursor-paginated Tenant User reads and allowlisted elevated-role writes through the shared same-origin API client.
 - Demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
@@ -235,6 +253,9 @@ Shared contains code genuinely reused across capabilities with stable cross-capa
 - `request-card.js` owns the common request-card/timeline DOM contract and receives capability-specific actions as callbacks.
 - `application-presentation.js` owns the small cross-capability form/section/KPI presentation primitives extracted from the former composition root.
 - `booking-change-loader.js` owns the bounded, failure-isolated proposal lookup contract used by the Employee and Manager production capabilities. Its explicit Shared ownership prevents feature workflow orchestration from leaking into capability-independent Core.
+- `production-booking-change.js`, `production-booking-change-editor.js` and `production-request-draft.js` own the capability-independent confirmed-booking change input model, accessible Employee/Conference Manager editor and lossless Request-draft composition reused by both production capabilities. They translate validated presentation state into mutation intent only. They do not decide eligibility, object scope, workflow outcome, authoritative prices, policy, configuration, availability or authorization. The editor submits the version of the validated Request being displayed as the optimistic-concurrency token; the trusted API revalidates that version and every business/authorization boundary.
+- `request-room-context-loader.js` owns bounded, timeout-limited loading of the exact current Room/Site presentation context for a Request whose historical Room is absent from the active catalogue. It accepts a context only when its Request reference (`id`, schema version, version and status), current Room ID and Locations revision match the already validated Request/catalogue, and performs one bounded catalogue/context refresh when revisions drift. It neither merges inactive entities into the active catalogue nor grants selection, mutation or workflow authority; same-object authorization and Tenant scoping remain backend responsibilities.
+- `tenant-bulk-transfer-panel.js` owns the capability-neutral JSON template/export/validate/apply presentation reused by Conference Manager business settings and Tenant Admin technical settings. The owning capability injects the explicit aggregate types and server adapter. Validation generations and the captured type/file/document/receipt bind Apply to the exact successful validation, while lifecycle checks suppress downloads, announcements and rerenders after navigation, detachment or inactivity lock. The narrowly scoped Blob download path is not a general URL-trust exception. The panel cannot expose an un-injected aggregate, grant endpoint access or replace aggregate-specific backend authorization, revision checks and receipt verification.
 - `notifications.js` owns the common notification persistence/presentation contract.
 - `parity-data.js` centralizes the existing enhanced catalog/site/request presentation data helpers and uses the canonical Core localization contract where localized defaults are required.
 
@@ -247,14 +268,14 @@ Do not move code into Shared merely because two files currently use it. Keep cod
 Public module APIs are explicit:
 
 - Employee: `src/employee/index.js`, including `createEmployeeApplication` plus the existing Employee enhancement exports.
-- Manager: `src/manager/index.js`, including `createManagerApplication` plus the existing Manager enhancement exports.
+- Manager: `src/manager/index.js`, including the operational Manager application, `createManagerWorkspaceApplication`, the bounded business-settings application and existing Manager enhancement exports.
 - Tenant Admin: `src/tenant-admin/index.js`, exposing `createTenantAdminApplication`, the server-backed `createTenantAdminOnboardingRuntime`, and the bounded route helpers `clearTenantAdminRoute`, `isTenantAdminRoute`, `tenantAdminHashForSection` and `tenantAdminSectionFromHash`.
 
 The application factories return capability contracts consumed by Platform composition:
 
 - Employee runtime contract: request rendering, request-list rendering, draft restore/query/save behavior.
-- Manager runtime contract: Manager application rendering.
-- Tenant Admin runtime contract: modular settings-shell rendering through injected section adapters; Microsoft onboarding/runtime and route helpers remain explicit public contracts rather than Platform-owned behavior.
+- Manager runtime contract: Tenant-wide operational rendering plus injected Room-business and Catalogue settings adapters when the validated session grants their exact permissions.
+- Tenant Admin runtime contract: modular technical/Tenant settings-shell rendering through injected section adapters; Microsoft onboarding/runtime and route helpers remain explicit public contracts rather than Platform-owned behavior. It exposes no Catalogue section.
 
 Cross-capability rendering is handled by Shared presentation contracts. A consumer outside a capability must not import a private capability implementation file.
 
@@ -269,7 +290,7 @@ Composition
         -> approved Core / Platform infrastructure contracts
 ```
 
-`request-session.js`, `request-lifecycle.js`, `booking-lifecycle.js`, `reporting.js` and Tenant Admin's independently testable role/route rules must remain independent of unrelated browser rendering responsibilities. Rendering/application modules may consume those rules, not the reverse.
+`request-session.js`, `request-lifecycle.js`, `booking-lifecycle.js`, `reporting.js`, `tenant-location-ownership.js`, the inactivity policy and Tenant Admin's independently testable role/route rules must remain independent of unrelated browser rendering responsibilities. Rendering/application modules may consume those rules, not the reverse.
 
 Significant business rules should be independently testable where practical and must not be buried unnecessarily inside DOM event callbacks, large rendering functions, browser-storage handlers or the Composition Root.
 
@@ -352,6 +373,8 @@ Parallel active business implementations are prohibited. Temporary compatibility
 
 The active Customer Demo and Platform Demo are explicitly selected, server-backed browser artifacts. Neither modularity nor client-side presentation checks are authorization: Demo and Production authority stays in the appropriate backend process, and the browser must never fall back to storage, fixtures or browser mutation rules. Production authentication/authorization requirements remain defined in `docs/DEMO-SECURITY.md` and `docs/PRODUCTION-SECURITY.md`; the Demo-specific topology is defined by ADR-010.
 
+Customer session validation accepts only the canonical implicit-Employee role order and exact permission union for the independent elevated roles. Unknown roles/permissions, a missing Employee baseline, a partial or excessive permission set, or client-selected authority fails closed. Room and Catalogue controls are capability presentation only; the API must still enforce the Principal-derived Tenant, exact role/permission pair, object scope and persisted field classification. A dual-role User may access both capability families without collapsing them into one role.
+
 The accepted SaaS 3 control-plane decision in `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` adds a separately deployable Platform Operator browser artifact and operator origin. It does not change the current customer runtime graph. Existing `src/platform` remains customer application-wide composition; operator presentation belongs to the independent `src/platform-admin` boundary and must not import Employee, Manager, Tenant Admin, customer Platform, or customer session internals. Its Production entry point is `platform-admin/index.html` with `src/platform-admin/production/bootstrap.js`; the isolated Demo entry point is `platform-admin-demo/index.html` with `src/platform-admin/demo/bootstrap.js`.
 
 The Customer and operator artifacts use separate backend processes, sessions, API routing and deployment manifests. Customer `src/app.js` never composes the operator artifact. A failed Customer or Platform session/API renders unavailable and never selects the other trust domain, a Production/Demo alternative, LocalStorage, fixtures or browser mutation logic.
@@ -370,7 +393,10 @@ Together they enforce, among other controls:
 - absence of the former `src/features` directory;
 - `src/app.js` Composition Root dependency restrictions;
 - Employee and Manager public facades;
+- canonical Customer role order, implicit Employee baseline, exact independent-role permission union and dual-role composition;
 - Tenant Admin section identities, section `index.js` entry-point usage and private section boundaries;
+- absence of a Tenant Admin Catalogue section and separation of Manager Room-business/Catalogue presentation from Tenant Admin technical/Tenant administration;
+- projection of Conference Manager Room business edits without changing technical/provider-owned fields;
 - rejection of cross-section Tenant Admin imports and direct Tenant Admin section dependencies on Platform, Employee or Conference Manager internals;
 - rejection of Demo imports from Production-named modules covered by the SaaS 2 static boundary policy;
 - separate Customer Demo and Platform Demo entry points, sessions and same-origin API namespaces;
@@ -394,7 +420,7 @@ Together they enforce, among other controls:
 
 Static import checks cannot prove runtime authorization, Tenant scoping, session rotation, reset atomicity or shared-state propagation; those remain database, integration, E2E and security-review responsibilities.
 
-The detailed SaaS 2 Tenant Admin constraints, including the approved section set and section-isolation expectations, are maintained in `docs/SAAS2-MODULAR-BOUNDARIES.md` and their corresponding architecture fixtures/checks. Architecture rules and their regression fixtures must change together.
+The detailed SaaS 2 Tenant Admin constraints, including section isolation and public-contract expectations, are maintained in `docs/SAAS2-MODULAR-BOUNDARIES.md` and their corresponding architecture fixtures/checks. Any historical statement in those documents that assigns Room business fields or Catalogue administration to Tenant Admin is superseded by `docs/ROLE-MODEL.md` and the current ownership matrix; section-boundary rules remain in force. Architecture rules and their regression fixtures must change together.
 
 The SaaS 3 Platform Operator artifact and Customer/operator deployment isolation are governed by `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`. The Platform boundary gate rejects cross-entry-point authority imports, customer capability internals in the operator artifact, Customer/operator session reuse, Production-to-Demo fallback, browser-owned Platform authority, and a Production manifest that serves both entry points on one origin. The Customer Demo gate rejects LocalStorage business authority, browser role authority and API-failure fallback.
 

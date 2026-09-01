@@ -395,6 +395,15 @@ const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
 if (!/fail_action:\s*true\b/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
 }
+for (const target of [
+  'https://floriankreutzer.github.io/conference-manager/',
+  'https://conference-manager-demo.onrender.com/',
+  'https://conference-manager-ops-demo.onrender.com/',
+]) {
+  if (!dast.includes(target)) {
+    fail(`.github/workflows/dast.yml: public Demo DAST target is missing ${target}.`);
+  }
+}
 
 const designSystem = readFileSync('docs/DESIGN-SYSTEM.md', 'utf8');
 for (const required of ['assets/manager-layout.css', 'assets/employee-ux.css']) {

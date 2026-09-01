@@ -31,6 +31,26 @@ test('Demo portal remains static navigation without browser or application autho
   assert.match(PORTAL, /stores no application credentials, sessions, CSRF tokens, Tenant IDs, roles or permissions/i);
 });
 
+test('Demo portal meta policy fails closed for resources, forms and base URL changes', () => {
+  const policy = PORTAL.match(
+    /<meta http-equiv="Content-Security-Policy" content="([^"]+)">/i,
+  )?.[1];
+
+  assert.ok(policy, 'Expected a Content-Security-Policy meta element');
+  for (const directive of [
+    "default-src 'none'",
+    "style-src 'self'",
+    "img-src 'self'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "object-src 'none'",
+  ]) assert.match(policy, new RegExp(`(?:^|; )${directive.replaceAll("'", "\\'")}(?:;|$)`));
+
+  // CSP does not honor frame-ancestors in a meta-delivered policy. The hosting-provider
+  // response-header limitation is documented instead of claiming clickjacking protection.
+  assert.doesNotMatch(policy, /frame-ancestors/i);
+});
+
 test('Pages workflow deploys only the dedicated static portal with pinned actions and minimal deployment permissions', () => {
   assert.match(WORKFLOW, /path: demo-portal/);
   assert.doesNotMatch(WORKFLOW, /path: (?:\.|docs|src|dist)\s*$/m);

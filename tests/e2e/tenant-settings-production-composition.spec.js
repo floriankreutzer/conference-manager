@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { asProductionHtml } from './fixtures/production-html.js';
 import { fulfillApplicationProjection } from './fixtures/application-projections.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -161,15 +162,7 @@ function contentType(filePath) {
 
 async function productionHtml() {
   const source = await readFile(path.join(ROOT, 'index.html'), 'utf8');
-  return source
-    .replace(
-      '<meta name="conference-runtime" content="demo">',
-      '<meta name="conference-runtime" content="production">',
-    )
-    .replace(
-      './src/platform/demo-bootstrap.js?v=20260830-77',
-      './src/platform/production-bootstrap.js?v=20260830-77',
-    );
+  return asProductionHtml(source);
 }
 
 function initialState() {

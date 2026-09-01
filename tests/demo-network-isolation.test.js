@@ -24,7 +24,7 @@ test('Demo automatic image and QR paths cannot use a cross-origin network source
   assert.match(routeCode, /<svg[^>]+viewBox="0 0 33 33"/);
 });
 
-test('GitHub Pages is a static Demo launchpad and ZAP target, never an application authority', () => {
+test('GitHub Pages remains static while DAST covers every public Demo surface independently', () => {
   const demoSecurity = read('docs/DEMO-SECURITY.md');
   const productionSecurity = read('docs/PRODUCTION-SECURITY.md');
   const portal = read('demo-portal/index.html');
@@ -37,6 +37,11 @@ test('GitHub Pages is a static Demo launchpad and ZAP target, never an applicati
   assert.doesNotMatch(portal, /<script\b|<iframe\b|localStorage|sessionStorage|fetch\(/i);
   assert.match(portal, /https:\/\/conference-manager-demo\.onrender\.com/);
   assert.match(portal, /https:\/\/conference-manager-ops-demo\.onrender\.com/);
-  assert.match(dast, /static GitHub Pages Demo launchpad/);
+  assert.match(dast, /surface: static-launchpad/);
+  assert.match(dast, /surface: customer-demo/);
+  assert.match(dast, /surface: platform-demo/);
   assert.match(dast, /https:\/\/floriankreutzer\.github\.io\/conference-manager\//);
+  assert.match(dast, /https:\/\/conference-manager-demo\.onrender\.com\//);
+  assert.match(dast, /https:\/\/conference-manager-ops-demo\.onrender\.com\//);
+  assert.match(dast, /fail_action:\s*true/);
 });

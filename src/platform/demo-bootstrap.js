@@ -15,7 +15,10 @@ async function bootstrapDemoCustomerApplication() {
     renderDemoSecurityControl({ context: application.context });
   };
   renderSecurityControl();
-  installCustomerInactivityLock({ context: application.context });
+  installCustomerInactivityLock({
+    context: application.context,
+    invalidateApplicationRenders: application.shell.invalidatePendingRender,
+  });
   window.addEventListener('conference-language-changed', renderSecurityControl);
 }
 

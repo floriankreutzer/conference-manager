@@ -115,19 +115,39 @@ export function field({ id, label, control, hint, required = false, optional = f
 }
 
 export function announce(message, { assertive = false } = {}) {
+  if (document.documentElement?.dataset?.sessionLocked === 'true') return;
   const region = document.getElementById(assertive ? 'alertRegion' : 'statusRegion');
   if (!region) return;
   region.textContent = '';
-  requestAnimationFrame(() => { region.textContent = message; });
+  requestAnimationFrame(() => {
+    if (document.documentElement?.dataset?.sessionLocked !== 'true') region.textContent = message;
+  });
 }
 
 export function showToast(message) {
+  if (document.documentElement?.dataset?.sessionLocked === 'true') return;
   const toast = document.getElementById('toast');
   if (!toast) return;
   toast.textContent = message;
   toast.classList.add('show');
   clearTimeout(window.__cmToastTimer);
   window.__cmToastTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+}
+
+export function clearTransientFeedback(documentRoot = document, windowRoot = globalThis) {
+  const toast = documentRoot.getElementById('toast');
+  if (toast) {
+    toast.textContent = '';
+    toast.classList.remove('show');
+  }
+  ['statusRegion', 'alertRegion'].forEach((id) => {
+    const region = documentRoot.getElementById(id);
+    if (region) region.textContent = '';
+  });
+  if (windowRoot.__cmToastTimer !== undefined) {
+    windowRoot.clearTimeout?.(windowRoot.__cmToastTimer);
+    windowRoot.__cmToastTimer = null;
+  }
 }
 
 export function safeNavigationUrl(value) {

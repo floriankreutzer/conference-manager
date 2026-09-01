@@ -1,6 +1,7 @@
 import { projectTechnicalLocationConfiguration } from '../../../core/tenant-location-ownership.js';
 import { formatDateTime, formatNumber, t } from '../../../core/i18n.js';
 import { button, clear, el, field, showToast } from '../../../core/ui.js';
+import { createBulkTransferPanel, supportsBulkTransfer } from '../../../shared/tenant-bulk-transfer-panel.js';
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 
@@ -242,6 +243,14 @@ export function createLocationsSection({ adapter = null } = {}) {
     });
 
     root.append(form, renderHistory(history));
+    if (supportsBulkTransfer(adapter)) {
+      root.appendChild(createBulkTransferPanel({
+        adapter,
+        types: ['sites', 'rooms'],
+        rerender,
+        isCurrent,
+      }));
+    }
   }
 
   return defineTenantAdminSection({

@@ -97,6 +97,49 @@ Tenant Admin owns Site configuration, Room stable/technical assignment and provi
 
 The frontend uses defensive ownership projections so each single-role UI preserves the other domain's fields. The backend independently classifies the submitted Location mutation against the persisted authoritative current snapshot. A mixed technical/business mutation requires both elevated capability sets. Browser classification is never trusted.
 
+## Request-scoped current Room context
+
+`GET /api/v1/requests/{requestId}/room-context` is a minimized, same-object-authorized presentation endpoint for a Request whose current historical Room or Site is no longer present in the active application catalogue. It applies the same Principal-derived Tenant/object read boundary as the Request detail endpoint; a browser-supplied identifier cannot expand scope, and a cross-Tenant or otherwise concealed Request does not yield context.
+
+The response has exactly these outer fields and bounded nested projections:
+
+```json
+{
+  "schemaVersion": 1,
+  "requestRef": {
+    "id": "REQ-42",
+    "schemaVersion": 2,
+    "version": 7,
+    "status": "Confirmed"
+  },
+  "currentRoomContext": {
+    "locationsRevision": 12,
+    "room": {
+      "id": "room-a",
+      "siteId": "site-a",
+      "name": "Room A",
+      "capacity": 20,
+      "active": false
+    },
+    "site": {
+      "id": "site-a",
+      "name": "Berlin",
+      "active": false,
+      "timeZone": "Europe/Berlin"
+    }
+  },
+  "requestId": "<server-correlation-uuid>"
+}
+```
+
+`currentRoomContext` is `null` when the Request has no current Room. The Room must reference the returned Site, and the Site time zone is either a validated IANA time zone or `null`. Unknown fields and malformed relationships fail closed in the browser response validator.
+
+This projection is display context only. It contains no price, provider identity, technical mapping, selectable flag, permission, policy or mutation payload authority. Employee and Conference Manager clients accept it only when the exact Request reference (`id`, schema version, version and status), Room ID and `locationsRevision` remain coherent with their already validated Request and active catalogue. A revision mismatch causes one bounded catalogue/context refresh; an unresolved mismatch, timeout, malformed response or missing authoritative IANA time zone leaves the change action unavailable rather than using browser time or stale data.
+
+Only active Rooms under active Sites from the active application catalogue are selectable for a confirmed-booking change. An inactive current Room/Site may be rendered as the disabled historical selection, but it is never merged into the active catalogue and cannot be retained even for an otherwise participant-only change. The User must choose a currently active Room, and the backend revalidates configuration and availability independently.
+
+The change submission uses the version of the validated Request actually displayed to the User as `expectedVersion`. A preflight read must not silently replace that token while the proposed draft is still based on older displayed state. The backend rejects stale versions and remains authoritative for concurrency, authorization, workflow, price, policy and audit outcomes.
+
 ## Production activation boundary
 
 A valid Production session never activates Demo business views. The server-authoritative application API contract from issue #114 is complete. Production composition uses dedicated Employee and Conference Manager implementations backed only by `src/platform/production-persistence.js`; the demo implementations and LocalStorage path remain isolated to explicit Demo runtime composition.
@@ -181,6 +224,14 @@ Every field is validated again on the backend using positive exact schemas and e
 
 Parameterized persistence is mandatory. User input must not construct SQL or arbitrary server outbound URLs.
 
+## Receipt-bound Tenant bulk transfer
+
+Bulk transfer is aggregate-specific and does not create a generic Tenant configuration permission. Conference Manager presentation exposes only the injected Room-business (`rooms`) and Catalogue (`services`, `catering-items`, `catering-packages`) aggregates. Tenant Admin presentation exposes only the injected technical Locations (`sites`, `rooms`) and Cost Allocation (`cost-centers`) aggregates. The trusted API still derives the Principal/Tenant, classifies Room properties, enforces each aggregate's exact permission and revision, and verifies the validation receipt on Apply.
+
+The shared browser panel is presentation, not authorization. Apply is bound to the exact type, selected file, parsed document and server receipt returned by the latest successful validation. A type/file change or newer validation invalidates earlier results; validation is disabled while Apply is pending. Downloads, announcements and rerenders are suppressed after navigation, DOM detachment or inactivity lock so a stale asynchronous completion cannot restore or export data in a later view.
+
+Template/export JSON uses a narrowly scoped Object URL created only from the already serialized in-memory document. That URL is assigned directly to a temporary download anchor and revoked after activation. This does not weaken the generic navigation sanitizer or authorize arbitrary `blob:` navigation.
+
 ## Transactional Room/calendar booking
 
 The final Room availability check is performed by the trusted backend in the same logical transaction/authority flow as reservation/confirmation. Browser checks remain advisory.
@@ -219,9 +270,13 @@ The repository currently provides:
 - Chromium and WebKit/iPhone browser suites;
 - PostgreSQL-backed shared-Demo cross-surface E2E against reviewed immutable frontend/API refs;
 - hosted Render Demo acceptance with deployment identity and cleanup/reset evidence;
-- OWASP ZAP baseline scanning of the static GitHub Pages Demo launchpad.
+- independent OWASP ZAP passive baselines for the static GitHub Pages launchpad, Customer Render
+  Demo origin and Platform Render Demo origin.
 
-A clean static Pages ZAP scan is evidence only for that launchpad. Customer/Platform runtime DAST/security acceptance must target the applicable deployed Render/Production origin and must not be inferred from Pages.
+Each clean scan is evidence only for its exact unauthenticated public Demo surface. The three-target
+matrix is not authenticated API/authorization DAST, Production penetration evidence or permission
+to infer one origin's posture from another. Production acceptance must target the applicable
+Production application/API origin and identity context independently.
 
 These controls reduce client/supply-chain/regression risk but do not replace the Production trust boundary or external provider/penetration acceptance.
 

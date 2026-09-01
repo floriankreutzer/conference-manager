@@ -141,6 +141,8 @@ Correction and regression:
 
 - Production locks after 15 minutes of inactivity; Demo locks after 5 minutes.
 - Lock clears primary navigation and application content and removes the Demo context selector.
+- Lock closes/removes every pre-existing body-level dialog, invalidates pending application renders
+  and observes the locked document so later shell/subscription/async mutations are cleared again.
 - Unlock calls the authoritative session runtime `bootstrap()` before any content can return.
 - Expired/revoked/stale-security-version sessions therefore cannot restore old UI authority.
 - BroadcastChannel propagates lock only; unlock is never propagated as authority.
@@ -172,12 +174,188 @@ Correction and regression:
 
 Residual limitation: hosted Render acceptance additionally verifies the public deployment identity before and after the destructive Demo journey.
 
+### D-007 — Production browser fixtures silently booted the Demo composition root
+
+Classification: `security-relevant`
+
+Affected modules:
+
+- Production E2E HTML fixtures
+- Customer Production/Demo architecture gate
+
+Evidence and reachability:
+
+- `index.html` advanced its immutable Demo bootstrap cache marker while five Production fixtures
+  continued replacing the previous marker literally.
+- The replacement became a silent no-op, so nominal Production tests booted Demo controls and
+  produced 54 Chromium/WebKit failures. The architecture gate checked only for the same stale
+  literal and therefore did not prove the generated document.
+- Production runtime code was unchanged, but the defect invalidated security evidence for the
+  Production composition boundary and could conceal future Demo-to-Production regressions.
+
+Correction and regression:
+
+- All Production fixtures use one exact runtime transformation that retains the current immutable
+  cache marker while replacing only the composition root.
+- The architecture gate executes that transformation against canonical `index.html`, requires the
+  Production entry and forbids the Demo entry.
+- Unit coverage fails closed when either canonical marker is missing or duplicated.
+- Final Chromium/WebKit CI evidence is required on the corrected head.
+
+Residual limitation: none after exact-head browser CI passes.
+
+### D-008 — Successful Organization save could retain stale Tenant presentation
+
+Classification: `production-defect`
+
+Affected modules:
+
+- `src/platform/tenant-presentation-runtime.js`
+- Tenant Admin Organization save and shared-Demo acceptance
+
+Evidence and reachability:
+
+- API PR #61 shared-Demo WebKit received HTTP 200 from the Organization write but retained the old
+  brand title until the assertion timed out; Chromium happened to pass.
+- The Production-reachable wrapper waited for a follow-up presentation read, but a bounded timeout
+  was converted to the global fallback and the already validated server mutation response was not
+  applied. The save could therefore be reported as successful while the shell stayed stale.
+
+Correction and regression:
+
+- The normalized Organization mutation result is projected immediately into the minimized Tenant
+  presentation contract, invalidating any older in-flight refresh.
+- The canonical presentation endpoint is still re-read, but a transient post-save read failure
+  preserves the newer server mutation projection instead of reverting the shell.
+- Unit tests cover abort/timeout, revision ordering, branding, locale and currency; shared-Demo
+  Chromium/WebKit must pass on the exact integrated refs.
+
+Residual limitation: initial bootstrap and ordinary refresh failures still fail closed to the
+product-default presentation. Preservation applies only after a validated server mutation result.
+
+### D-009 — Conference Manager could not cancel another User's Request
+
+Classification: `security-relevant`
+
+CWE/OWASP relevance: authorization-policy completeness / OWASP A01.
+
+Affected modules:
+
+- API Request transition authorization
+- Conference Manager Production UI
+
+Evidence and reachability:
+
+- The accepted role contract permits Tenant-wide Conference Manager change/cancel operations, but
+  the public `cancel` transition always used the Employee owner-only rule.
+- Tenant Admin-only must not inherit this authority, and broadening Employee cancellation would
+  create a privilege escalation; the correction therefore belongs in the server policy rather
+  than a client visibility rule.
+
+Correction and regression:
+
+- API policy grants `cancel` to Conference Manager + `request:manage` for a same-Tenant eligible
+  Request while retaining owner-only Employee cancellation, Tenant Admin separation, CSRF, audit,
+  state/reconciliation and no-physical-delete rules.
+- Frontend Manager workflow exposes an accessible confirmed destructive action and the existing
+  confirmed-booking proposal/decision flow, including supported same-Manager self-approval.
+- Negative API tests cover cross-Tenant concealment, Tenant Admin-only, rejected state, missing CSRF
+  and absent DELETE route; progression and both-browser evidence remain exact-head gates.
+
+Residual limitation: none after API/frontend integration and final CI.
+
+### D-010 — Shared Demo gate duplicated the PostgreSQL transaction lifecycle
+
+Classification: `demo-only`
+
+Affected modules:
+
+- API shared-Demo runtime gate
+- canonical PostgreSQL transaction helper
+
+Evidence and reachability:
+
+- The Demo readiness gate owned a second hand-written connect/BEGIN/UTC/COMMIT/ROLLBACK/release
+  lifecycle. Production composition did not import the gate, but failure-path maintenance could
+  diverge and invalidate shared-Demo evidence.
+
+Correction and regression:
+
+- API PR #61 delegates the full lifecycle to the canonical transaction helper and adds explicit
+  infrastructure-error mapping without rewriting work errors.
+- Regression tests prohibit lifecycle duplication and cover connect/setup/commit/work failures.
+
+Residual limitation: API merge and exact-head CI evidence remain required.
+
+### D-011 — Role-policy session epoch was reversible on binary rollback
+
+Classification: `security-relevant`
+
+CWE/OWASP relevance: CWE-613 (Insufficient Session Expiration), OWASP A07/A01.
+
+Affected modules:
+
+- API Customer session persistence and lookup
+- SaaS 3.6 deployment/rollback procedure
+
+Evidence and reachability:
+
+- Namespacing token hashes with the SaaS 3.6 policy epoch prevents the new binary from resolving old
+  rows, but it does not remove or persistently revoke those rows.
+- A rollback to the pre-epoch binary could hash an unchanged unexpired cookie under the legacy
+  scheme and resurrect a permission snapshot from the superseded role model.
+- The risk is Production-reachable during rollback and cannot be closed by frontend re-login copy or
+  documentation alone.
+
+Correction and regression:
+
+- Deployment must perform a persistent, one-way revocation/deletion or an equivalent server-enforced
+  control before the new role policy becomes authoritative.
+- Tests must prove both forward rejection and rollback-time non-resurrection of legacy sessions.
+- Operations documentation must state the forced reauthentication/CSRF reissue impact and the exact
+  forward, rollback and emergency procedure.
+
+Residual limitation: open until the API control, migration/operation and exact tests are integrated.
+
+### D-012 — Booking-change denials lacked direct audit and BOLA evidence
+
+Classification: `security-relevant`
+
+CWE/OWASP relevance: CWE-862 (Missing Authorization evidence), CWE-639 (Authorization Bypass
+Through User-Controlled Key), OWASP A01.
+
+Affected modules:
+
+- API booking-change application service
+- Request authorization-denial audit evidence
+
+Evidence and reachability:
+
+- Booking-change propose/read/decision paths called the authorization policy directly and correctly
+  denied unauthorized actors, but did not record the minimized `authorization.denied` event emitted
+  by the surrounding Request and Tenant-settings services.
+- Concealed cross-Tenant/not-found probes intentionally do not become public 403 responses, so HTTP
+  status metrics alone cannot establish the negative authorization evidence.
+- Direct service negatives for Employee non-owner, Tenant Admin other-user, Conference Manager
+  cross-Tenant and mismatched change identifiers were missing.
+
+Correction and regression:
+
+- Preserve the existing concealed response and least-privilege policy while recording only bounded
+  actor/Tenant/operation denial evidence; do not disclose whether a probed Request/change exists.
+- Add policy/service negatives for propose, decision and change-ID access across every independent
+  role and Tenant boundary.
+
+Residual limitation: open until the API correction and exact-head database/unit/CI evidence are
+integrated.
+
 ## Security re-proof matrix
 
 | Control | Required evidence |
 | --- | --- |
 | Principal authority | Server-issued session roles/permissions; frontend rejects non-canonical role/permission projection. |
 | Tenant scope / BOLA | Cross-Tenant request, Catalogue, Location and administration negative tests deny access. |
+| Booking-change IDOR/audit | Non-owner, Tenant Admin-only, cross-Tenant and mismatched change-ID propose/decision probes stay denied/concealed and emit minimized denial evidence. |
 | Employee baseline | Effective customer principal includes Employee for active users; elevated roles remain additive. |
 | Independent elevated roles | Conference Manager and Tenant Admin capabilities are separately tested; neither inherits the other. |
 | Dual role | Exact union tested in API, Production-session validation and Demo persona/session flow. |

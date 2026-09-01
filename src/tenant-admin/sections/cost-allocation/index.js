@@ -3,7 +3,7 @@ import { announce, button, clear, el, field, showToast, validationSummary } from
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
-import { createBulkTransferPanel, supportsBulkTransfer } from '../../bulk-transfer-panel.js';
+import { createBulkTransferPanel, supportsBulkTransfer } from '../../../shared/tenant-bulk-transfer-panel.js';
 
 const TITLE = 'tenantAdmin.costAllocation.title';
 const COST_CENTER_CODE = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
@@ -154,7 +154,7 @@ export function createCostAllocationSection({ adapter = null } = {}) {
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
     );
     if (supportsBulkTransfer(adapter)) root.appendChild(createBulkTransferPanel({
-      adapter, types: ['cost-centers'], rerender,
+      adapter, types: ['cost-centers'], rerender, isCurrent,
     }));
     if (focusAfterSave) { focusAfterSave = false; requestAnimationFrame(() => root.querySelector('h2')?.focus()); }
   }
