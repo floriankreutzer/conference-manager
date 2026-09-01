@@ -85,7 +85,6 @@ function readVersion(editor) {
 
 export function createBookingPoliciesSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('BOOKING_POLICIES_SECTION_ADAPTER_INVALID');
-  let pendingDraft = null;
   let focusAfterSave = false;
 
   async function render({ root, isCurrent, rerender }) {
@@ -127,10 +126,11 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
       event.preventDefault();
       if (mutationPending) return;
       if (!form.reportValidity()) return;
+      let submittedDraft;
       try {
         const versions = editors.map(readVersion).sort((left, right) => left.effectiveFrom.localeCompare(right.effectiveFrom));
         if (new Set(versions.map((entry) => entry.effectiveFrom)).size !== versions.length) throw new TypeError('BOOKING_POLICY_EFFECTIVE_DUPLICATE');
-        pendingDraft = { versions };
+        submittedDraft = { versions };
       } catch {
         validationSummary(form, t('tenantSettings.validation.checkFields'));
         form.querySelector('input:not([disabled])')?.focus();
@@ -140,19 +140,23 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
       mutationPending = true;
       status.textContent = t('tenantSettings.status.saving');
       try {
-        await adapter.saveBookingPolicies({ expectedRevision: snapshot.revision, configuration: pendingDraft });
+        await adapter.saveBookingPolicies({ expectedRevision: snapshot.revision, configuration: submittedDraft });
+        if (!isCurrent()) return;
         focusAfterSave = true;
         showToast(t('tenantSettings.status.saved'));
         announce(t('tenantSettings.status.saved'));
         rerender();
       } catch (error) {
+        if (!isCurrent()) return;
         const currentRevision = tenantSettingsConflictRevision(error);
         if (currentRevision !== null) {
           renderSectionConflict(root, TITLE, {
             currentRevision, onReload: rerender,
             onReapply: async () => {
               const current = await adapter.loadBookingPolicies();
-              await adapter.saveBookingPolicies({ expectedRevision: current.revision, configuration: pendingDraft });
+              if (!isCurrent()) return;
+              await adapter.saveBookingPolicies({ expectedRevision: current.revision, configuration: submittedDraft });
+              if (!isCurrent()) return;
               focusAfterSave = true;
               rerender();
             },
@@ -177,7 +181,15 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
       ]),
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
     );
-    if (focusAfterSave) { focusAfterSave = false; requestAnimationFrame(() => root.querySelector('h2')?.focus()); }
+    if (focusAfterSave) {
+      requestAnimationFrame(() => {
+        if (!focusAfterSave || !isCurrent()) return;
+        const heading = root.querySelector('h2');
+        if (!heading?.isConnected) return;
+        heading.focus();
+        focusAfterSave = false;
+      });
+    }
   }
 
   return defineTenantAdminSection({

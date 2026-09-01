@@ -17,6 +17,7 @@ export const DEMO_CUSTOMER_PERSONA = Object.freeze({
   EMPLOYEE: 'employee',
   CONFERENCE_MANAGER: 'conference_manager',
   TENANT_ADMIN: 'tenant_admin',
+  DUAL_ROLE: 'dual_role',
 });
 
 const PERSONAS = new Set(Object.values(DEMO_CUSTOMER_PERSONA));
@@ -24,6 +25,7 @@ const PERSONA_ROLES = Object.freeze({
   [DEMO_CUSTOMER_PERSONA.EMPLOYEE]: Object.freeze(['employee']),
   [DEMO_CUSTOMER_PERSONA.CONFERENCE_MANAGER]: Object.freeze(['employee', 'conference_manager']),
   [DEMO_CUSTOMER_PERSONA.TENANT_ADMIN]: Object.freeze(['employee', 'tenant_admin']),
+  [DEMO_CUSTOMER_PERSONA.DUAL_ROLE]: Object.freeze(['employee', 'conference_manager', 'tenant_admin']),
 });
 
 export class DemoCustomerSessionError extends Error {

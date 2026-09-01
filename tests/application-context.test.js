@@ -25,6 +25,29 @@ else globalThis.document = previousDocumentAtImport;
 if (previousLocalStorageAtImport === undefined) delete globalThis.localStorage;
 else globalThis.localStorage = previousLocalStorageAtImport;
 
+const MANAGER_PERMISSIONS = Object.freeze([
+  'request:read',
+  'request:cancel',
+  'request:manage',
+  'tenant:rooms:business:manage',
+  'tenant:catalogue:manage',
+]);
+const TENANT_ADMIN_PERMISSIONS = Object.freeze([
+  'request:read',
+  'request:cancel',
+  'tenant:configure',
+  'tenant:users:manage',
+  'tenant:integrations:manage',
+  'tenant:audit:read',
+]);
+const DUAL_PERMISSIONS = Object.freeze([
+  ...MANAGER_PERMISSIONS,
+  'tenant:configure',
+  'tenant:users:manage',
+  'tenant:integrations:manage',
+  'tenant:audit:read',
+]);
+
 function withProductionDocument(run) {
   const previousDocument = globalThis.document;
   globalThis.document = {
@@ -96,63 +119,53 @@ test('production capability checks preserve independent Employee, Conference Man
   }));
   assert.equal(employee.isAuthenticated(), true);
   assert.equal(employee.isManager(), false);
+  assert.equal(employee.canManageRoomBusiness(), false);
+  assert.equal(employee.canManageTenantCatalogue(), false);
   assert.equal(employee.canManageTenantUsers(), false);
 
   const manager = productionContext(session({
     roles: ['employee', 'conference_manager'],
-    permissions: ['request:read', 'request:cancel', 'request:manage'],
+    permissions: MANAGER_PERMISSIONS,
   }));
   assert.equal(manager.isManager(), true);
+  assert.equal(manager.canManageRoomBusiness(), true);
+  assert.equal(manager.canManageTenantCatalogue(), true);
   assert.equal(manager.canManageTenantUsers(), false);
+  assert.equal(manager.hasTenantAdminPermission('tenant:configure'), false);
 
   const tenantAdmin = productionContext(session({
     roles: ['employee', 'tenant_admin'],
-    permissions: [
-      'request:read',
-      'request:cancel',
-      'tenant:configure',
-      'tenant:users:manage',
-      'tenant:integrations:manage',
-      'tenant:audit:read',
-    ],
+    permissions: TENANT_ADMIN_PERMISSIONS,
   }));
   assert.equal(tenantAdmin.isManager(), false);
+  assert.equal(tenantAdmin.canManageRoomBusiness(), false);
+  assert.equal(tenantAdmin.canManageTenantCatalogue(), false);
   assert.equal(tenantAdmin.canManageTenantUsers(), true);
+  assert.equal(tenantAdmin.hasTenantAdminPermission('tenant:configure'), true);
 
   const combined = productionContext(session({
     roles: ['employee', 'conference_manager', 'tenant_admin'],
-    permissions: [
-      'request:read',
-      'request:cancel',
-      'request:manage',
-      'tenant:configure',
-      'tenant:users:manage',
-      'tenant:integrations:manage',
-      'tenant:audit:read',
-    ],
+    permissions: DUAL_PERMISSIONS,
   }));
   assert.equal(combined.isManager(), true);
+  assert.equal(combined.canManageRoomBusiness(), true);
+  assert.equal(combined.canManageTenantCatalogue(), true);
   assert.equal(combined.canManageTenantUsers(), true);
+  assert.equal(combined.hasTenantAdminPermission('tenant:configure'), true);
 });
 
 test('production context requires authenticated session status before exposing any privileged presentation capability', () => {
   const elevated = session({
     roles: ['employee', 'conference_manager', 'tenant_admin'],
-    permissions: [
-      'request:read',
-      'request:cancel',
-      'request:manage',
-      'tenant:configure',
-      'tenant:users:manage',
-      'tenant:integrations:manage',
-      'tenant:audit:read',
-    ],
+    permissions: DUAL_PERMISSIONS,
   });
 
   for (const status of [PRODUCTION_AUTH_STATUS.UNAUTHENTICATED, PRODUCTION_AUTH_STATUS.UNAVAILABLE, 'browser-forged']) {
     const context = productionContext(elevated, status);
     assert.equal(context.isAuthenticated(), false);
     assert.equal(context.isManager(), false);
+    assert.equal(context.canManageRoomBusiness(), false);
+    assert.equal(context.canManageTenantCatalogue(), false);
     assert.equal(context.canManageTenantUsers(), false);
     assert.equal(context.role(), 'employee');
     assert.equal(context.authenticationRuntime(), null);
@@ -170,6 +183,8 @@ test('production context never reads browser demo role state to establish author
     const context = productionContext(null, PRODUCTION_AUTH_STATUS.UNAUTHENTICATED);
     assert.equal(context.isAuthenticated(), false);
     assert.equal(context.isManager(), false);
+    assert.equal(context.canManageRoomBusiness(), false);
+    assert.equal(context.canManageTenantCatalogue(), false);
     assert.equal(context.canManageTenantUsers(), false);
     assert.equal(context.canSwitchRole(), false);
     assert.equal(context.setRole('manager'), false);
@@ -184,7 +199,7 @@ test('Customer Demo context derives identity and capabilities only from the vali
   const demoSession = Object.freeze({
     ...session({
       roles: ['employee', 'conference_manager'],
-      permissions: ['request:read', 'request:cancel', 'request:manage'],
+      permissions: MANAGER_PERMISSIONS,
     }),
     demo: Object.freeze({ persona: 'conference_manager' }),
   });
@@ -209,6 +224,8 @@ test('Customer Demo context derives identity and capabilities only from the vali
   assert.equal(context.isDemoRuntime(), true);
   assert.equal(context.isAuthenticated(), true);
   assert.equal(context.isManager(), true);
+  assert.equal(context.canManageRoomBusiness(), true);
+  assert.equal(context.canManageTenantCatalogue(), true);
   assert.equal(context.canManageTenantUsers(), false);
   assert.equal(context.userId(), demoSession.user.id);
   assert.equal(context.tenantId(), demoSession.tenant.id);
@@ -216,10 +233,10 @@ test('Customer Demo context derives identity and capabilities only from the vali
   assert.equal(context.fullName(), 'Demo Manager');
   assert.equal(context.serverPersistence(), context.productionPersistence());
   assert.deepEqual(context.demoTenants(), tenants);
-  await context.switchDemoContext({ tenantId: tenants[1].id, persona: 'tenant_admin' });
+  await context.switchDemoContext({ tenantId: tenants[1].id, persona: 'dual_role' });
   await context.setRole('manager');
   assert.deepEqual(calls, [
-    { tenantId: tenants[1].id, persona: 'tenant_admin' },
+    { tenantId: tenants[1].id, persona: 'dual_role' },
     { tenantId: demoSession.tenant.id, persona: 'conference_manager' },
   ]);
 });
@@ -345,7 +362,7 @@ test('stalled optional startup projections are aborted without blocking authenti
 test('required startup projection failure invalidates the effective authenticated context', async () => {
   const authenticatedSession = session({
     roles: ['employee', 'conference_manager'],
-    permissions: ['request:read', 'request:cancel', 'request:manage'],
+    permissions: MANAGER_PERMISSIONS,
   });
   const context = await createApplicationContext({
     runtimeMode: 'production',

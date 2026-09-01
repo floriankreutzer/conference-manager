@@ -47,6 +47,35 @@ function requestPage(overrides = {}) {
     page: { limit: 10, complete: true, nextCursor: null }, ...overrides,
   };
 }
+function requestRoomContextEnvelope(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    requestRef: {
+      id: REQUEST_ID,
+      schemaVersion: 2,
+      version: 7,
+      status: 'Confirmed',
+    },
+    currentRoomContext: {
+      locationsRevision: 12,
+      room: {
+        id: 'room-retired',
+        siteId: 'site-retired',
+        name: 'Retired Room',
+        capacity: 20,
+        active: false,
+      },
+      site: {
+        id: 'site-retired',
+        name: 'Retired Site',
+        active: false,
+        timeZone: 'Europe/Berlin',
+      },
+    },
+    requestId: CORRELATION_ID,
+    ...overrides,
+  };
+}
 
 test('profile hydration accepts only the exact server profile projection', async () => {
   const harness = api(() => ({ schemaVersion: 1, profile: { displayName: 'Demo Employee' } }));
@@ -157,6 +186,132 @@ test('detail, transition and history use exact schema-v2 envelopes', async () =>
   assert.equal((await persistence.loadRequestHistory(REQUEST_ID))[0].operation, 'migrated_legacy');
 });
 
+test('Request Room context uses the exact GET boundary and accepts inactive or null context', async () => {
+  const signal = new AbortController().signal;
+  const harness = api(() => requestRoomContextEnvelope());
+  const persistence = createProductionPersistence({ apiClient: harness.client });
+
+  assert.deepEqual(await persistence.loadRequestRoomContext(REQUEST_ID, { signal }), {
+    requestRef: {
+      id: REQUEST_ID,
+      schemaVersion: 2,
+      version: 7,
+      status: 'Confirmed',
+    },
+    currentRoomContext: {
+      locationsRevision: 12,
+      room: {
+        id: 'room-retired',
+        siteId: 'site-retired',
+        name: 'Retired Room',
+        capacity: 20,
+        active: false,
+      },
+      site: {
+        id: 'site-retired',
+        name: 'Retired Site',
+        active: false,
+        timeZone: 'Europe/Berlin',
+      },
+    },
+  });
+  assert.deepEqual(harness.calls, [{
+    path: `v1/requests/${REQUEST_ID}/room-context`,
+    options: { signal },
+  }]);
+
+  const empty = api(() => requestRoomContextEnvelope({ currentRoomContext: null }));
+  assert.deepEqual(
+    await createProductionPersistence({ apiClient: empty.client })
+      .loadRequestRoomContext(REQUEST_ID),
+    {
+      requestRef: {
+        id: REQUEST_ID,
+        schemaVersion: 2,
+        version: 7,
+        status: 'Confirmed',
+      },
+      currentRoomContext: null,
+    },
+  );
+  assert.deepEqual(empty.calls, [{
+    path: `v1/requests/${REQUEST_ID}/room-context`,
+    options: {},
+  }]);
+});
+
+test('Request Room context rejects authority expansion and malformed projections', async () => {
+  const invalidPayloads = [
+    requestRoomContextEnvelope({ tenantId: 'attacker' }),
+    requestRoomContextEnvelope({
+      requestRef: { ...requestRoomContextEnvelope().requestRef, id: 'request-2' },
+    }),
+    requestRoomContextEnvelope({
+      requestRef: {
+        ...requestRoomContextEnvelope().requestRef,
+        tenantId: 'attacker',
+      },
+    }),
+    requestRoomContextEnvelope({
+      requestRef: {
+        ...requestRoomContextEnvelope().requestRef,
+        schemaVersion: 3,
+      },
+    }),
+    requestRoomContextEnvelope({
+      currentRoomContext: {
+        ...requestRoomContextEnvelope().currentRoomContext,
+        selectable: true,
+      },
+    }),
+    requestRoomContextEnvelope({
+      currentRoomContext: {
+        ...requestRoomContextEnvelope().currentRoomContext,
+        room: {
+          ...requestRoomContextEnvelope().currentRoomContext.room,
+          priceMinor: 10_000,
+        },
+      },
+    }),
+    requestRoomContextEnvelope({
+      currentRoomContext: {
+        ...requestRoomContextEnvelope().currentRoomContext,
+        room: {
+          ...requestRoomContextEnvelope().currentRoomContext.room,
+          siteId: 'different-site',
+        },
+      },
+    }),
+    requestRoomContextEnvelope({
+      currentRoomContext: {
+        ...requestRoomContextEnvelope().currentRoomContext,
+        site: {
+          ...requestRoomContextEnvelope().currentRoomContext.site,
+          timeZone: 'UTC+02:00',
+        },
+      },
+    }),
+    requestRoomContextEnvelope({
+      currentRoomContext: {
+        ...requestRoomContextEnvelope().currentRoomContext,
+        room: {
+          ...requestRoomContextEnvelope().currentRoomContext.room,
+          active: 'false',
+        },
+      },
+    }),
+    requestRoomContextEnvelope({ requestId: '../correlation' }),
+  ];
+
+  for (const payload of invalidPayloads) {
+    await assert.rejects(
+      createProductionPersistence({ apiClient: api(() => payload).client })
+        .loadRequestRoomContext(REQUEST_ID),
+      (error) => error.code === 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID',
+    );
+  }
+});
+
 test('booking changes accept only the common schema-v2 result family', async () => {
   const ref = { id: REQUEST_ID, schemaVersion: 1, version: 1, status: 'Confirmed' };
   const harness = api(() => ({
@@ -166,6 +321,188 @@ test('booking changes accept only the common schema-v2 result family', async () 
     .decideBookingChange(REQUEST_ID, CORRELATION_ID, 'approve');
   assert.deepEqual(result.alternatives, ['room-2']);
   assert.equal(result.requestRef.version, 1);
+});
+
+test('booking-change decisions send only the exact normalized approve or reject intent', async () => {
+  const requestRef = {
+    id: REQUEST_ID, schemaVersion: 1, version: 1, status: 'Confirmed',
+  };
+  const rejectedChange = {
+    id: CORRELATION_ID,
+    status: 'rejected',
+    roomId: 'room-1',
+    startsAt: '2026-09-01T10:00:00.000Z',
+    endsAt: '2026-09-01T11:00:00.000Z',
+    internalParticipants: 1,
+    externalParticipants: 0,
+    rejectionReason: 'Not approved',
+    createdAt: NOW,
+    updatedAt: NOW,
+    requestSchemaVersion: 1,
+    baseRequestVersion: 1,
+    request: null,
+    proposedRequest: null,
+  };
+  const harness = api((_path, options) => ({
+    schemaVersion: 2,
+    result: options.body.decision === 'approve'
+      ? { status: 'blocked', alternatives: [], change: null, requestRef }
+      : { change: rejectedChange, requestRef },
+  }));
+  const persistence = createProductionPersistence({ apiClient: harness.client });
+
+  await persistence.decideBookingChange(REQUEST_ID, CORRELATION_ID, 'approve');
+  await persistence.decideBookingChange(
+    REQUEST_ID,
+    CORRELATION_ID,
+    'reject',
+    '  Not approved  ',
+  );
+
+  assert.deepEqual(harness.calls, [
+    {
+      path: `v1/requests/${REQUEST_ID}/booking-change/${CORRELATION_ID}/decision`,
+      options: { method: 'POST', body: { decision: 'approve' } },
+    },
+    {
+      path: `v1/requests/${REQUEST_ID}/booking-change/${CORRELATION_ID}/decision`,
+      options: {
+        method: 'POST',
+        body: { decision: 'reject', reason: 'Not approved' },
+      },
+    },
+  ]);
+});
+
+test('invalid booking-change decision intent fails before transport', async () => {
+  const harness = api(() => { throw new Error('transport must not run'); });
+  const persistence = createProductionPersistence({ apiClient: harness.client });
+  for (const [decision, reason] of [
+    ['hold', undefined],
+    ['approve', 'Unexpected reason'],
+    ['approve', null],
+    ['reject', undefined],
+    ['reject', null],
+    ['reject', '   '],
+    ['reject', ` ${'x'.repeat(1_001)} `],
+  ]) {
+    await assert.rejects(
+      persistence.decideBookingChange(REQUEST_ID, CORRELATION_ID, decision, reason),
+      (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+    );
+  }
+  assert.equal(harness.calls.length, 0);
+});
+
+test('booking-change proposals bind the edited Request version without a preflight reload', async () => {
+  const draft = {
+    title: 'Updated conference',
+    roomId: 'room-1',
+    startsAt: '2026-09-01T10:00:00.000Z',
+    endsAt: '2026-09-01T11:00:00.000Z',
+    internalParticipants: 2,
+    externalParticipants: 0,
+    serviceIds: [],
+    catering: { participantCount: 0, packageSelection: null, itemQuantities: [] },
+    dietaryRequirements: null,
+    specialRequirements: null,
+    allocations: [],
+    configurationRevisions: revisions(),
+  };
+  const proposedRequest = {
+    schemaVersion: 2,
+    version: 8,
+    id: REQUEST_ID,
+    roomId: draft.roomId,
+    status: 'Confirmed',
+    statusReason: null,
+    startsAt: draft.startsAt,
+    endsAt: draft.endsAt,
+    internalParticipants: draft.internalParticipants,
+    externalParticipants: draft.externalParticipants,
+    statusChangedAt: NOW,
+    createdAt: NOW,
+    updatedAt: NOW,
+    details: {
+      title: draft.title,
+      specialRequirements: null,
+      dietaryRequirements: null,
+      serviceIds: [],
+      catering: draft.catering,
+    },
+    pricing: {
+      currency: 'EUR',
+      totalMinor: 0,
+      breakdown: {
+        roomMinor: 0,
+        servicesMinor: 0,
+        cateringPackageMinor: 0,
+        cateringItemsMinor: 0,
+      },
+      room: {
+        id: draft.roomId,
+        siteId: 'site-1',
+        name: 'Room 1',
+        price: { amountMinor: 0, currency: 'EUR' },
+      },
+      services: [],
+      catering: { participantCount: 0, packageSelection: null, items: [] },
+    },
+    configurationRevisions: revisions(),
+    policy: policy(),
+    allocations: {
+      schemaVersion: 1,
+      configurationRevision: 1,
+      snapshottedAt: NOW,
+      model: 'percentage_basis_points',
+      totalBasisPoints: 0,
+      totalMinor: 0,
+      allocatedMinor: 0,
+      unallocatedMinor: 0,
+      currency: 'EUR',
+      entries: [],
+    },
+  };
+  const harness = api(() => ({
+    schemaVersion: 2,
+    result: {
+      change: {
+        id: CORRELATION_ID,
+        status: 'pending',
+        roomId: draft.roomId,
+        startsAt: draft.startsAt,
+        endsAt: draft.endsAt,
+        internalParticipants: draft.internalParticipants,
+        externalParticipants: draft.externalParticipants,
+        rejectionReason: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+        requestSchemaVersion: 2,
+        baseRequestVersion: 7,
+        request: draft,
+        proposedRequest,
+      },
+      requestRef: { id: REQUEST_ID, schemaVersion: 1, version: 7, status: 'Confirmed' },
+    },
+  }));
+
+  await createProductionPersistence({ apiClient: harness.client })
+    .proposeBookingChange(REQUEST_ID, 7, draft);
+
+  assert.deepEqual(harness.calls, [{
+    path: `v1/requests/${REQUEST_ID}/booking-change`,
+    options: {
+      method: 'POST',
+      body: { schemaVersion: 2, expectedVersion: 7, request: draft },
+    },
+  }]);
+  const rejected = api(() => { throw new Error('transport must not run'); });
+  await assert.rejects(
+    createProductionPersistence({ apiClient: rejected.client })
+      .proposeBookingChange(REQUEST_ID, 0, draft),
+    (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
+  assert.equal(rejected.calls.length, 0);
 });
 
 test('booking changes reject duplicate alternatives and authority expansion', async () => {
@@ -179,6 +516,67 @@ test('booking changes reject duplicate alternatives and authority expansion', as
       createProductionPersistence({ apiClient: harness.client }).decideBookingChange(REQUEST_ID, CORRELATION_ID, 'approve'),
       (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID');
   }
+});
+
+test('booking-change adapters bind responses to the requested path and concurrency token', async () => {
+  const foreignRef = {
+    id: 'request-2', schemaVersion: 1, version: 1, status: 'Confirmed',
+  };
+  await assert.rejects(
+    createProductionPersistence({
+      apiClient: api(() => ({
+        schemaVersion: 2, result: { change: null, requestRef: foreignRef },
+      })).client,
+    }).loadBookingChange(REQUEST_ID),
+    (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
+  await assert.rejects(
+    createProductionPersistence({
+      apiClient: api(() => ({
+        schemaVersion: 2,
+        result: {
+          change: {
+            id: 'different-change', status: 'rejected', roomId: 'room-1',
+            startsAt: '2026-09-01T10:00:00.000Z', endsAt: '2026-09-01T11:00:00.000Z',
+            internalParticipants: 1, externalParticipants: 0, rejectionReason: 'Not approved',
+            createdAt: NOW, updatedAt: NOW, requestSchemaVersion: 1, baseRequestVersion: 1,
+            request: null, proposedRequest: null,
+          },
+          requestRef: { id: REQUEST_ID, schemaVersion: 1, version: 1, status: 'Confirmed' },
+        },
+      })).client,
+    }).decideBookingChange(REQUEST_ID, CORRELATION_ID, 'reject', 'Not approved'),
+    (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
+
+  const draft = {
+    title: 'Updated conference', roomId: 'room-1',
+    startsAt: '2026-09-01T10:00:00.000Z', endsAt: '2026-09-01T11:00:00.000Z',
+    internalParticipants: 1, externalParticipants: 0, serviceIds: [],
+    catering: { participantCount: 0, packageSelection: null, itemQuantities: [] },
+    dietaryRequirements: null, specialRequirements: null, allocations: [],
+    configurationRevisions: revisions(),
+  };
+  await assert.rejects(
+    createProductionPersistence({
+      apiClient: api(() => ({
+        schemaVersion: 2,
+        result: {
+          change: {
+            id: CORRELATION_ID, status: 'pending', roomId: draft.roomId,
+            startsAt: draft.startsAt, endsAt: draft.endsAt,
+            internalParticipants: draft.internalParticipants,
+            externalParticipants: draft.externalParticipants,
+            rejectionReason: null, createdAt: NOW, updatedAt: NOW,
+            requestSchemaVersion: 1, baseRequestVersion: 6,
+            request: null, proposedRequest: null,
+          },
+          requestRef: { id: REQUEST_ID, schemaVersion: 1, version: 6, status: 'Confirmed' },
+        },
+      })).client,
+    }).proposeBookingChange(REQUEST_ID, 7, draft),
+    (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
 });
 
 test('transport failures never become browser-local success', async () => {

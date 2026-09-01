@@ -41,7 +41,10 @@ This document records baseline behavior and compatibility contracts. The mandato
 - Confirmation, change request and rejection decisions.
 - Room-planning timeline and responsive list representation.
 - Reporting for bookings, participants, room use, services and catering.
-- Master-data administration for rooms, sites, services, catering packages and individual items.
+- Tenant-wide Request operations, Room business fields and prices, and Catalogue administration for
+  services, equipment, catering packages and individual items. Site/provider/technical Room
+  administration remains an independent Tenant Admin responsibility; mixed Room mutations require
+  the exact additive permission union.
 - Desktop and mobile behavior including responsive table/card representations.
 
 ## Architectural baseline

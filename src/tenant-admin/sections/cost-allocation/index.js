@@ -3,7 +3,7 @@ import { announce, button, clear, el, field, showToast, validationSummary } from
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
 import { renderSectionConflict, renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
-import { createBulkTransferPanel, supportsBulkTransfer } from '../../bulk-transfer-panel.js';
+import { createBulkTransferPanel, supportsBulkTransfer } from '../../../shared/tenant-bulk-transfer-panel.js';
 
 const TITLE = 'tenantAdmin.costAllocation.title';
 const COST_CENTER_CODE = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
@@ -56,7 +56,6 @@ function readCenters(editors) {
 
 export function createCostAllocationSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('COST_ALLOCATION_SECTION_ADAPTER_INVALID');
-  let pendingDraft = null;
   let focusAfterSave = false;
 
   async function render({ root, isCurrent, rerender }) {
@@ -100,12 +99,13 @@ export function createCostAllocationSection({ adapter = null } = {}) {
       event.preventDefault();
       if (mutationPending) return;
       if (!form.reportValidity()) return;
+      let submittedDraft;
       try {
         const costCenters = readCenters(editors);
         if (allocationRequired.checked && !costCenters.some((entry) => entry.active)) {
           throw new TypeError('COST_ALLOCATION_ACTIVE_CENTER_REQUIRED');
         }
-        pendingDraft = { allocationRequired: allocationRequired.checked, costCenters };
+        submittedDraft = { allocationRequired: allocationRequired.checked, costCenters };
       }
       catch {
         validationSummary(form, t('tenantSettings.validation.checkFields'));
@@ -116,19 +116,23 @@ export function createCostAllocationSection({ adapter = null } = {}) {
       mutationPending = true;
       status.textContent = t('tenantSettings.status.saving');
       try {
-        await adapter.saveCostAllocation({ expectedRevision: snapshot.revision, configuration: pendingDraft });
+        await adapter.saveCostAllocation({ expectedRevision: snapshot.revision, configuration: submittedDraft });
+        if (!isCurrent()) return;
         focusAfterSave = true;
         showToast(t('tenantSettings.status.saved'));
         announce(t('tenantSettings.status.saved'));
         rerender();
       } catch (error) {
+        if (!isCurrent()) return;
         const currentRevision = tenantSettingsConflictRevision(error);
         if (currentRevision !== null) {
           renderSectionConflict(root, TITLE, {
             currentRevision, onReload: rerender,
             onReapply: async () => {
               const current = await adapter.loadCostAllocation();
-              await adapter.saveCostAllocation({ expectedRevision: current.revision, configuration: pendingDraft });
+              if (!isCurrent()) return;
+              await adapter.saveCostAllocation({ expectedRevision: current.revision, configuration: submittedDraft });
+              if (!isCurrent()) return;
               focusAfterSave = true;
               rerender();
             },
@@ -154,9 +158,17 @@ export function createCostAllocationSection({ adapter = null } = {}) {
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
     );
     if (supportsBulkTransfer(adapter)) root.appendChild(createBulkTransferPanel({
-      adapter, types: ['cost-centers'], rerender,
+      adapter, types: ['cost-centers'], rerender, isCurrent,
     }));
-    if (focusAfterSave) { focusAfterSave = false; requestAnimationFrame(() => root.querySelector('h2')?.focus()); }
+    if (focusAfterSave) {
+      requestAnimationFrame(() => {
+        if (!focusAfterSave || !isCurrent()) return;
+        const heading = root.querySelector('h2');
+        if (!heading?.isConnected) return;
+        heading.focus();
+        focusAfterSave = false;
+      });
+    }
   }
 
   return defineTenantAdminSection({

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { asProductionHtml } from './fixtures/production-html.js';
 import { fulfillApplicationProjection } from './fixtures/application-projections.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -23,7 +24,9 @@ function contentType(filePath) {
 
 function sessionPayload(roles = ['employee', 'tenant_admin']) {
   const permissions = ['request:read', 'request:cancel'];
-  if (roles.includes('conference_manager')) permissions.push('request:manage');
+  if (roles.includes('conference_manager')) {
+    permissions.push('request:manage', 'tenant:rooms:business:manage', 'tenant:catalogue:manage');
+  }
   if (roles.includes('tenant_admin')) {
     permissions.push(
       'tenant:configure',
@@ -37,7 +40,7 @@ function sessionPayload(roles = ['employee', 'tenant_admin']) {
     tenant: { id: TENANT_ID, status: 'active' },
     roles,
     permissions,
-    session: { expiresAt: '2026-09-24T12:00:00.000Z' },
+    session: { expiresAt: '2099-09-24T12:00:00.000Z' },
     csrfToken: CSRF_TOKEN,
   };
 }
@@ -82,15 +85,7 @@ function initialUsers() {
 
 async function productionHtml() {
   const source = await readFile(path.join(ROOT, 'index.html'), 'utf8');
-  return source
-    .replace(
-      '<meta name="conference-runtime" content="demo">',
-      '<meta name="conference-runtime" content="production">',
-    )
-    .replace(
-      './src/platform/demo-bootstrap.js?v=20260830-77',
-      './src/platform/production-bootstrap.js?v=20260830-77',
-    );
+  return asProductionHtml(source);
 }
 
 async function installProductionFixture(page, {

@@ -4,7 +4,13 @@
 
 Implemented and merged to `main` with PR #136 (`Add modular Tenant Admin settings shell`) on 2026-08-27. The resulting delivery commit is `6a56ce4f355765d21176c496740afd318a559b47`.
 
-This document defines the permanent frontend architecture constraints introduced for SaaS 2. It extends the existing capability boundaries; it does not replace the repository architecture or coding standards.
+This document preserves the SaaS 2 delivery record and defines the permanent frontend architecture constraints introduced by that work. It extends the existing capability boundaries; it does not replace the repository architecture or coding standards.
+
+### Roadmap Version 11 amendment
+
+Roadmap Approved Version 11 (2026-09-01), roadmap issue #164 and role-model issue #166 supersede the SaaS 2 actor allocation wherever this historical document assigns Catalogue or Room-business administration to Tenant Admin. The section-isolation, explicit-adapter, composition-root, Production/Demo-separation and public-contract rules remain mandatory. The current normative ownership contract is `docs/ROLE-MODEL.md`.
+
+This amendment changes authority and current composition, not the historical fact of what PR #136 delivered. Historical lists and code references below are retained as delivery evidence and must not be copied as current authorization or registry instructions.
 
 The implementation preserves the SaaS 1 production trust model: browser presentation is not an authorization boundary, Production authority continues to come from the validated server session and backend APIs, and no Production path falls back to Demo authority or browser-stored Tenant roles.
 
@@ -35,9 +41,9 @@ The GitHub Advanced Security AI finding workflow reported a separate model/confi
 
 ## Tenant Admin ownership
 
-`src/tenant-admin` owns Tenant self-service presentation and application orchestration. Employee, Conference Manager, Shared, Core and Platform must not own Tenant settings business rules.
+`src/tenant-admin` owns Tenant Admin self-service presentation and application orchestration. Its Organization, technical Locations, Booking Policies, Cost Allocation, Users, integrations, readiness and audit business rules must not leak into Employee, Conference Manager, Shared, Core or Platform. Conversely, Conference Manager Room-business and Catalogue rules remain outside `src/tenant-admin`; Shared and Platform may expose only the bounded cross-capability contracts described by the current architecture.
 
-The SaaS 2 settings information architecture uses these bounded sections:
+As delivered by SaaS 2 PR #136, the settings information architecture used these bounded sections:
 
 - `organization`
 - `locations`
@@ -49,7 +55,17 @@ The SaaS 2 settings information architecture uses these bounded sections:
 - `capabilities`
 - `audit`
 
-Each section lives below `src/tenant-admin/sections/<section-id>/` and exposes an `index.js` public contract. Section internals are private. A section must not import another section; collaboration is expressed through an injected public contract owned at the appropriate boundary.
+Each section delivered in that registry lived below `src/tenant-admin/sections/<section-id>/` and exposed an `index.js` public contract. The current sections retain the same rule: section internals are private, a section must not import another section, and collaboration is expressed through an injected public contract owned at the appropriate boundary.
+
+Under the current Version 11 contract:
+
+- `organization`, `booking-policies`, `cost-allocation`, `users`, `microsoft365`, `capabilities` and `audit` remain bounded Tenant Admin sections behind their exact permissions;
+- `locations` is a Tenant Admin technical surface for Sites, stable Room assignment and provider mapping only; it preserves Conference Manager-owned Room business fields;
+- `catalog` is no longer a Tenant Admin section or adapter. Catalogue, Room prices and Room-business presentation are composed under Conference Manager through its independent permissions;
+- a dual-role session composes both capability families as the exact server-issued union rather than creating a new role or weakening either boundary; and
+- historical mixed-ownership Location snapshots are metadata only in a single-role Tenant Admin surface and do not expose a rollback mutation.
+
+Successful Organization, Booking Policies and Cost Allocation saves now restore focus to the current section heading. Their section-owned asynchronous continuations must verify the current connected render before announcing, rerendering, presenting conflict recovery or consuming the focus request. This extends the original explicit-navigation and Users-save focus contracts without moving section lifecycle ownership into the shell.
 
 ## Shell and adapter rules
 
@@ -76,7 +92,7 @@ Top-level view changes are reported through a generic application-shell callback
 - rejects direct section dependencies on Platform, Employee or Conference Manager;
 - rejects Demo imports from Production-named modules covered by the static boundary policy;
 - rejects generic `utils`, `helpers` or `common` dumping-ground modules and directories;
-- restricts section identities to the approved information architecture.
+- restricts section identities to the current approved information architecture, including the absence of a Tenant Admin Catalogue section.
 
 Composition Root Production/Demo runtime selection cannot be proven completely by this static gate; it remains covered by regression tests, security review and runtime validation.
 
@@ -89,3 +105,4 @@ Composition Root Production/Demo runtime selection cannot be proven completely b
 - Implementation PR: #136
 - Merge commit: `6a56ce4f355765d21176c496740afd318a559b47`
 - Application build delivered by the implementation: `2026.08.27.70`
+- Current ownership supersession: Roadmap Approved Version 11 (2026-09-01), #164 and #166
