@@ -208,7 +208,8 @@ Correction and regression:
   cases; the exact-count implementation also rejects duplicates.
 - Final Chromium/WebKit CI evidence is required on the corrected head.
 
-Residual limitation: none after exact-head browser CI passes.
+Residual limitation: none in the correction boundary. Exact candidate, integration and external
+acceptance status is owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-008 — Successful Organization save could retain stale Tenant presentation
 
@@ -268,7 +269,8 @@ Correction and regression:
 - Negative API tests cover cross-Tenant concealment, Tenant Admin-only, rejected state, missing CSRF
   and absent DELETE route; progression and both-browser evidence remain exact-head gates.
 
-Residual limitation: none after API/frontend integration and final CI.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-010 — Shared Demo gate duplicated the PostgreSQL transaction lifecycle
 
@@ -291,7 +293,8 @@ Correction and regression:
   infrastructure-error mapping without rewriting work errors.
 - Regression tests prohibit lifecycle duplication and cover connect/setup/commit/work failures.
 
-Residual limitation: the correction is present on API implementation head `9221ada40b8a65dcf243d664c2e87241dce7083d`, but that reference is not merged `main` evidence. The current paired release candidate must be revalidated against compatible immutable frontend/API refs and merged through the required gates; exact run state remains in `docs/SAAS-3.6-HARDENING-REGISTER.md`.
+Residual limitation: none in the correction boundary. Exact paired-candidate and integration state
+remains in `docs/SAAS-3.6-HARDENING-REGISTER.md`; branch evidence is not deployment evidence.
 
 ### D-011 — Role-policy session epoch was reversible on binary rollback
 
@@ -322,7 +325,9 @@ Correction and regression:
 - Operations documentation states the forced reauthentication/CSRF reissue impact and the exact
   forward, rollback and emergency procedure.
 
-Residual limitation: the implementation and focused evidence are present on API implementation head `9221ada40b8a65dcf243d664c2e87241dce7083d`, but the control is not integrated into `main`. The current paired release candidate still requires compatible-ref validation, required review and merge; this document does not treat branch evidence as deployment evidence.
+Residual limitation: none in the correction boundary. Exact paired-candidate and integration state
+remains in `docs/SAAS-3.6-HARDENING-REGISTER.md`; this document does not treat branch evidence as
+deployment evidence.
 
 ### D-012 — Booking-change denials lacked direct audit and BOLA evidence
 
@@ -354,7 +359,8 @@ Correction and regression:
 - Direct policy/service negatives cover propose, decision and change-ID access across Employee
   non-owner, Tenant Admin other-user, Conference Manager cross-Tenant and wrong-change-ID boundaries.
 
-Residual limitation: the correction and focused evidence are present on API implementation head `9221ada40b8a65dcf243d664c2e87241dce7083d`, but the API change is not integrated into `main`. Compatible paired-candidate validation, required review and merge remain mandatory.
+Residual limitation: none in the correction boundary. Exact paired-candidate and integration state
+is owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-013 — Tenant bulk-transfer downloads used the navigation URL trust path
 
@@ -383,7 +389,8 @@ Correction and regression:
 - Contract coverage verifies exact template/export content, filenames, revocation, failure recovery
   and suppression when the owning view is no longer current.
 
-Residual limitation: final exact-head repository/browser evidence and merge remain required.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-014 — Historical current-Room presentation lacked an exact object boundary
 
@@ -427,8 +434,9 @@ Correction and regression:
   Room's `siteId` exactly matches; missing Room/context or mismatch returns no authority without
   browser-time or implicit-UTC fallback.
 
-Residual limitation: API and frontend changes require compatible exact-candidate validation,
-required review and merge. Repository tests cannot self-approve hosted or Production acceptance.
+Residual limitation: repository tests cannot self-approve hosted or Production acceptance. Exact
+paired-candidate, integration and external-acceptance status is owned by
+`docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-015 — Booking-change optimistic concurrency used a newer unread draft token
 
@@ -456,7 +464,8 @@ Correction and regression:
   Request read and rejects an invalid token before transport.
 - The backend remains authoritative and must reject a stale `expectedVersion`.
 
-Residual limitation: final exact-head contract/browser evidence and merge remain required.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-016 — Bulk validation receipts could cross aggregate and lifecycle boundaries
 
@@ -491,7 +500,8 @@ Correction and regression:
 - The server still derives Principal/Tenant, enforces aggregate permission and revision, classifies
   Room properties and verifies the receipt; browser lifecycle guards do not authorize Apply.
 
-Residual limitation: final exact-head Chromium/WebKit evidence and merge remain required.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-017 — Superseded Employee editor renders could mutate current state
 
@@ -518,7 +528,8 @@ Correction and regression:
 - Only the current successful render may publish its catalogue or consume queued intent; draft,
   availability and submit continuations suppress every effect after detachment/supersession.
 
-Residual limitation: final exact-head browser evidence and merge remain required.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-018 — Booking-change proposal reservation did not survive a list refresh
 
@@ -545,7 +556,8 @@ Correction and regression:
 - Replacement projections disable competing mutations; cancellation, success and stale preparation
   release only the reservation instance they own and reconcile through the current Request surface.
 
-Residual limitation: final exact-head browser evidence and merge remain required.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-019 — Booking-change decision transport admitted expanded intent
 
@@ -570,7 +582,8 @@ Correction and regression:
 - Unsupported or expanded intent fails before transport, and contract coverage verifies both exact
   request bodies and no-transport negatives.
 
-Residual limitation: merge and final exact-head repository evidence remain required.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-020 — Tenant-settings save completion crossed detached render roots
 
@@ -609,8 +622,8 @@ Correction and regression:
 - Locations serializes its save intent and suppresses detached success/failure presentation.
 - Detached/superseded continuations produce no presentation effect.
 
-Residual limitation: the correction is currently worktree state; it requires commit-scoped
-repository and Chromium/WebKit evidence plus merge before completion can be claimed.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ### D-021 — Whitespace-only Manager settings names bypassed field validation
 
@@ -640,7 +653,8 @@ Correction and regression:
 - Chromium/WebKit regressions cover the Room and Catalogue paths; package variants use the same
   editor helper.
 
-Residual limitation: final-head browser CI and merge evidence remain required.
+Residual limitation: none in the correction boundary. Exact candidate and integration status is
+owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
 ## Hardening traceability
 

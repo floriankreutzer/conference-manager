@@ -55,10 +55,63 @@ misrepresented as Demo discoveries.
 | H-026 | High / P1 data integrity | Conference Manager Room-price administration | production-defect | PR #174 review: the Manager Catalogue UI materialized a missing sparse `roomPrices` entry as zero and serialized it on an unrelated save, which could convert an unpriced Room into an explicitly free/bookable Room. | Missing prices now render as an optional blank amount with a dormant default currency and remain omitted from the exact write projection. Explicit user input, including zero, creates the price intentionally; configured prices remain required. Pure projection and Chromium/WebKit browser regressions distinguish absence, explicit zero and unrelated Catalogue edits. | **FIXED ON FRONTEND BRANCH — focused model/i18n/syntax checks green; final-head quality/browser CI and merge pending** |
 | H-027 | Medium / P2 accessible validation | Conference Manager Room/Catalogue names | production-defect | PR #174 review: native `required` accepted whitespace-only names; trimming then delegated an empty value to the adapter and surfaced only a generic toast without field association or focus. The same pattern existed for Catalogue entries and package variants. | One bounded Manager-settings validator now rejects empty-after-trim values before transport, associates localized live errors through `aria-describedby`, sets `aria-invalid`, focuses the first invalid control and clears feedback on input. Browser regressions cover Room and Catalogue names; variants share the same helper. | **FIXED ON FRONTEND BRANCH — focused i18n/syntax checks green; final-head quality/accessibility/browser CI and merge pending** |
 
+### Final repository-controlled disposition
+
+The branch-progress wording in individual status cells records discovery history. This disposition is
+authoritative for the final integration candidates:
+
+- H-002, H-008 and H-012 remain closed as recorded.
+- H-001, H-003, H-004, H-007, H-014, H-016, H-018 and H-020 through H-027 are corrected and
+  validated on frontend executable candidate `de3dd11404ee5ebab5252b3b98e957b091827651`.
+- H-005, H-006, H-013 and H-017 are corrected on API implementation
+  `550cc0f1264085631c67f8a6465ac276e0af2ae0`; H-009, H-015 and H-019 are corrected across that API
+  implementation and the frontend candidate. Final deployment-pin/test-document evidence is
+  maintained in integration PR #62.
+- H-011 passes on the final frontend executable candidate through repository checks and GitHub
+  default-setup CodeQL for JavaScript/TypeScript and Actions.
+- H-010 repository automation is complete. Public deployment identity, live journeys and live DAST
+  remain planned external evidence under #172/#170 and are not represented as repository-controlled
+  defects or self-approved acceptance.
+
+No unresolved repository-controlled implementation defect remains. Final API rollback-negative
+coverage and document reconciliation, integration into `main`, current-state documentation and the
+explicitly external acceptance chain remain delivery gates rather than hidden residual defects.
+
 ## Current scanner and CI evidence
 
-Evidence is recorded by exact head because a later branch commit invalidates assumptions about a
-previous head.
+Executable evidence is recorded by exact executable head. A later documentation-only candidate must
+preserve that executable tree, pass its own applicable gates and be identified by its exact head in
+PR #174.
+
+### Final frontend executable candidate `de3dd11404ee5ebab5252b3b98e957b091827651`
+
+- CI run `33534092470`: `quality` passed with 401/401 Node tests and zero high-severity dependency
+  vulnerabilities; Chromium desktop and WebKit mobile passed 146/146 browser tests; shared-Demo
+  Chromium/WebKit passed 2/2 against API implementation `550cc0f`.
+- Dependency Review run `33534092513` and Secret Scan run `33534092502`: success.
+- CodeQL run `33534086466`: Actions and JavaScript/TypeScript analyses succeeded.
+- Two independent reviews of the executable diff found no remaining concrete implementation,
+  accessibility, security, data-integrity, i18n or regression defect.
+- Hosted run `33534092495` exercised the intentionally unchanged live deployment refs
+  (`07f2896` / `3e42124`) and failed because that old Customer Demo lacks `dual_role`. Bounded reset,
+  cleanup and deployment-identity stability completed; evidence artifacts are `9811041885` and
+  `9811043081`. This is diagnostic evidence for the pending external rollout, not external
+  acceptance evidence or a failure of the immutable candidate.
+- Optional AI run `33534089780` failed before analysis because the configured model is unsupported;
+  it reported no code finding and is not a required repository gate.
+
+### Current API implementation evidence
+
+- API implementation `550cc0f1264085631c67f8a6465ac276e0af2ae0` contains the locked
+  revision/authorization correction. Paired candidate `613a740b7f5e02f6517e26d3c97fe4f060c91fe3`
+  passed CI run `33531678664` (718/718 quality tests, 16/16 platform HTTP-security/DAST checks,
+  86/86 PostgreSQL checks and shared-Demo Chromium/WebKit), Dependency Policy `33531678648` and
+  Secret Scan `33531678675`.
+- Integration PR #62 is the integration surface for the final rollback-negative coverage,
+  documentation correction and exact deployment pin. Only its green final exact-head evidence may
+  supersede the paired candidate without changing the approved authorization architecture.
+
+### Historical intermediate evidence (superseded)
 
 ### Frontend head `1ca39e5bc93893a6e73ed5385248a5e9a0c16fef`
 
@@ -136,17 +189,15 @@ do not substitute for exact-head GitHub and hosted evidence.
 - PR review findings are first-class hardening findings and are resolved only after fix + appropriate
   regression/progression/negative evidence.
 
-## Remaining mandatory hardening work before #170
+## Remaining delivery gates before #170
 
-1. Commit and integrate API PR #61 and frontend PR #173 without bypassing required review, branch
-   protection, CodeQL, dependency, secret, quality, browser, shared-Demo, hosted or DAST gates.
-2. Record exact-head CI evidence for H-001/H-003/H-004/H-005/H-007/H-010/H-011/H-013 through H-027;
-   earlier branch or local evidence cannot close a final-head gate.
-3. After API integration, resolve the historical PR #58 transaction-duplication thread with the
-   replacing merge evidence and verify migration 034/session revocation on `main`.
-4. Reconcile #169 GitHub and Confluence current-state documentation to the actual merged frontend/API
+1. Integrate API PR #62 and frontend PR #174 without bypassing required review, branch protection,
+   CodeQL, dependency, secret, quality, browser, shared-Demo or architecture/security gates.
+2. Verify both merged `main` heads and the session-revocation migration through their post-merge
+   checks; resolve historical review provenance only with the replacing merge evidence.
+3. Reconcile #169 GitHub and Confluence current-state documentation to the actual merged frontend/API
    refs while preserving historical roadmap evidence.
-5. Execute and record the external hosted launchpad/Render/DAST acceptance required by #172 and #170.
-   Repository implementation must not self-approve that evidence.
-6. #170 remains open until the register has no unresolved blocking finding and every required gate
-   applies to the exact release-candidate refs; #164 and SaaS 4 remain blocked until that gate passes.
+4. Execute and record the external hosted launchpad/Render/live-DAST acceptance required by
+   #172/#170. Repository implementation must not self-approve that evidence.
+5. #170 remains open until the external evidence chain is complete; #164 and SaaS 4 remain blocked
+   until that final gate passes.
