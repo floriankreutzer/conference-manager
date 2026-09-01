@@ -1291,7 +1291,7 @@ test('Employee keeps the current resubmission editor when a detached create load
   await page.locator('[data-view="employee"]').click();
   await page.locator('#productionTitle').fill('Detached draft');
   await expect.poll(() => page.evaluate(() => (
-    Object.values(localStorage).some((value) => value.includes('Detached draft'))
+    Object.values(sessionStorage).some((value) => value.includes('Detached draft'))
   ))).toBe(true);
   await page.locator('[data-view="requests"]').click();
   await expect(page.getByRole('button', { name: 'Änderung bearbeiten' })).toBeVisible();
