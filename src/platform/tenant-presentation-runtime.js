@@ -1,6 +1,13 @@
 import { configureTenantLocalization } from '../core/i18n.js';
-import { MANAGED_BRAND_LOGO_PRESET } from '../shared/tenant-branding.js';
-import { TENANT_PRESENTATION_FALLBACK } from './tenant-presentation-api.js';
+import {
+  MANAGED_BRAND_LOGO_PRESET,
+  MANAGED_BRAND_REFERENCE,
+  PRODUCT_DEFAULT_LOGO_PRESET,
+} from '../shared/tenant-branding.js';
+import {
+  normalizeTenantPresentation,
+  TENANT_PRESENTATION_FALLBACK,
+} from './tenant-presentation-api.js';
 
 const PRODUCT_DEFAULT_LOGO_ASSET = new URL(
   '../../assets/brand/pavurel-signet-monochrome-white.svg?v=20260827-75',
@@ -31,6 +38,25 @@ function applyLocalization(snapshot) {
   });
 }
 
+function presentationFromOrganizationResult(result) {
+  const organization = result?.organization;
+  return normalizeTenantPresentation({
+    schemaVersion: 1,
+    revision: result?.revision,
+    presentation: {
+      displayName: organization?.displayName,
+      defaultLocale: organization?.presentation?.defaultLocale,
+      defaultCurrency: organization?.presentation?.defaultCurrency,
+      branding: {
+        logoPreset: organization?.branding?.logoAssetRef === MANAGED_BRAND_REFERENCE
+          ? MANAGED_BRAND_LOGO_PRESET
+          : PRODUCT_DEFAULT_LOGO_PRESET,
+        accentToken: organization?.branding?.accentToken,
+      },
+    },
+  });
+}
+
 export function createTenantPresentationRuntime({
   adapter = null,
   refreshTimeoutMs = PRESENTATION_REFRESH_TIMEOUT_MS,
@@ -56,30 +82,38 @@ export function createTenantPresentationRuntime({
     current() {
       return current;
     },
-    async refresh(options) {
+    async refresh(options = {}) {
       const sequence = ++refreshSequence;
+      const { preserveCurrentOnFailure = false, ...adapterOptions } = options;
       let next;
       let timeoutId = null;
       try {
         if (adapter === null) {
           next = TENANT_PRESENTATION_FALLBACK;
-        } else if (options?.signal) {
-          next = await adapter.loadPresentation(options);
+        } else if (adapterOptions.signal) {
+          next = await adapter.loadPresentation(adapterOptions);
         } else {
           const controller = new AbortController();
           timeoutId = globalThis.setTimeout(() => controller.abort(), refreshTimeout);
-          next = await adapter.loadPresentation({ ...(options || {}), signal: controller.signal });
+          next = await adapter.loadPresentation({ ...adapterOptions, signal: controller.signal });
         }
         if (next.revision < highestRevision) {
-          next = TENANT_PRESENTATION_FALLBACK;
+          next = preserveCurrentOnFailure ? current : TENANT_PRESENTATION_FALLBACK;
         }
       } catch {
-        next = TENANT_PRESENTATION_FALLBACK;
+        next = preserveCurrentOnFailure ? current : TENANT_PRESENTATION_FALLBACK;
       } finally {
         if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
       }
       if (sequence !== refreshSequence) return current;
       if (next.revision > highestRevision) highestRevision = next.revision;
+      return apply(next);
+    },
+    applyOrganizationResult(result) {
+      const next = presentationFromOrganizationResult(result);
+      if (next.revision < highestRevision) throw new TypeError('TENANT_PRESENTATION_MUTATION_STALE');
+      refreshSequence += 1;
+      highestRevision = next.revision;
       return apply(next);
     },
     subscribe(subscriber) {
@@ -98,7 +132,11 @@ export function createPresentationRefreshingOrganizationSettings({
     .every((method) => typeof organizationSettings?.[method] === 'function')) {
     throw new TypeError('TENANT_ORGANIZATION_SETTINGS_INVALID');
   }
-  if (!presentationRuntime || typeof presentationRuntime.refresh !== 'function') {
+  if (
+    !presentationRuntime
+    || typeof presentationRuntime.refresh !== 'function'
+    || typeof presentationRuntime.applyOrganizationResult !== 'function'
+  ) {
     throw new TypeError('TENANT_PRESENTATION_RUNTIME_REQUIRED');
   }
   const adapter = {
@@ -106,7 +144,10 @@ export function createPresentationRefreshingOrganizationSettings({
     listOrganizationHistory: (...args) => organizationSettings.listOrganizationHistory(...args),
     async saveOrganization(...args) {
       const result = await organizationSettings.saveOrganization(...args);
-      await presentationRuntime.refresh();
+      presentationRuntime.applyOrganizationResult(result);
+      void Promise.resolve(
+        presentationRuntime.refresh({ preserveCurrentOnFailure: true }),
+      ).catch(() => {});
       return result;
     },
   };

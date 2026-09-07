@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { fulfillApplicationProjection } from './fixtures/application-projections.js';
+import { asProductionHtml } from './fixtures/production-html.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,20 +23,14 @@ function contentType(filePath) {
 
 async function productionHtml() {
   const source = await readFile(path.join(ROOT, 'index.html'), 'utf8');
-  return source
-    .replace(
-      '<meta name="conference-runtime" content="demo">',
-      '<meta name="conference-runtime" content="production">',
-    )
-    .replace(
-      './src/platform/demo-bootstrap.js?v=20260830-77',
-      './src/platform/production-bootstrap.js?v=20260830-77',
-    );
+  return asProductionHtml(source);
 }
 
 function permissionsFor(roles) {
   const permissions = ['request:read', 'request:cancel'];
-  if (roles.includes('conference_manager')) permissions.push('request:manage');
+  if (roles.includes('conference_manager')) {
+    permissions.push('request:manage', 'tenant:rooms:business:manage', 'tenant:catalogue:manage');
+  }
   if (roles.includes('tenant_admin')) {
     permissions.push(
       'tenant:configure',
@@ -53,7 +48,7 @@ function sessionPayload(roles) {
     tenant: { id: TENANT_ID, status: 'active' },
     roles,
     permissions: permissionsFor(roles),
-    session: { expiresAt: '2026-09-24T12:00:00.000Z' },
+    session: { expiresAt: '2099-09-24T12:00:00.000Z' },
     csrfToken: CSRF_TOKEN,
   };
 }
@@ -100,11 +95,21 @@ async function installFixture(page, {
   presentationFailure = false,
   productDefaultAssetFailure = false,
   organizationSettings = false,
+  holdOrganizationSave = false,
+  holdPostSavePresentation = false,
 } = {}) {
   let presentation = structuredClone(initialPresentation);
   let organization = organizationFromPresentation(presentation);
   const presentationReads = [];
   const writes = [];
+  let releaseOrganizationSave = () => {};
+  const organizationSaveGate = holdOrganizationSave
+    ? new Promise((resolve) => { releaseOrganizationSave = resolve; })
+    : null;
+  let releasePostSavePresentation = () => {};
+  const postSavePresentationGate = holdPostSavePresentation
+    ? new Promise((resolve) => { releasePostSavePresentation = resolve; })
+    : null;
 
   const fulfillJson = (route, body, status = 200) => route.fulfill({
     status,
@@ -121,6 +126,9 @@ async function installFixture(page, {
     }
     if (url.pathname === '/api/v1/tenant/presentation') {
       presentationReads.push(url.pathname);
+      if (postSavePresentationGate && presentationReads.length > 1) {
+        await postSavePresentationGate;
+      }
       if (presentationFailure) {
         await fulfillJson(route, { error: { code: 'SERVICE_UNAVAILABLE' } }, 503);
       } else {
@@ -150,6 +158,7 @@ async function installFixture(page, {
     if (organizationSettings && url.pathname === '/api/v1/tenant/settings/organization' && request.method() === 'PUT') {
       const body = request.postDataJSON();
       writes.push(body);
+      if (organizationSaveGate) await organizationSaveGate;
       organization = structuredClone(body.organization);
       presentation = presentationPayload({
         revision: body.expectedRevision + 1,
@@ -198,6 +207,8 @@ async function installFixture(page, {
 
   return {
     presentationReads,
+    releaseOrganizationSave,
+    releasePostSavePresentation,
     writes,
   };
 }
@@ -264,6 +275,7 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   const fixture = await installFixture(page, {
     roles: ['employee', 'tenant_admin'],
     organizationSettings: true,
+    holdPostSavePresentation: true,
     initialPresentation: presentationPayload({
       displayName: 'Before save',
       logoPreset: 'product-default',
@@ -284,12 +296,44 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   await expect(page.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '2');
   await expect.poll(async () => page.evaluate(async () => (await import('/src/core/i18n.js')).currency()))
     .toBe('USD');
+  await expect.poll(() => fixture.presentationReads.length).toBe(2);
+  await expect(page.locator('[data-tenant-admin-section-content] h2')).toBeFocused();
+  const presentationResponse = page.waitForResponse((value) => (
+    new URL(value.url()).pathname === '/api/v1/tenant/presentation'
+  ));
+  fixture.releasePostSavePresentation();
+  await presentationResponse;
   expect(fixture.presentationReads).toEqual([
     '/api/v1/tenant/presentation',
     '/api/v1/tenant/presentation',
   ]);
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0].organization.branding.logoAssetRef).toBe(MANAGED_BRAND_REFERENCE);
+});
+
+test('stale Tenant Admin save cannot restore its detached settings shell', async ({ page }) => {
+  const fixture = await installFixture(page, {
+    roles: ['employee', 'tenant_admin'],
+    organizationSettings: true,
+    holdOrganizationSave: true,
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="tenantAdmin"]').click();
+  await page.locator('[data-tenant-admin-section="organization"]').click();
+  const form = page.locator('[data-tenant-settings-form="organization"]');
+  await form.locator('#tenant-organization-display-name').fill('Detached save');
+  await form.getByRole('button', { name: /speichern/i }).click();
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  await page.locator('[data-view="welcome"]').click();
+
+  const response = page.waitForResponse((value) => (
+    new URL(value.url()).pathname === '/api/v1/tenant/settings/organization'
+    && value.request().method() === 'PUT'
+  ));
+  fixture.releaseOrganizationSave();
+  await response;
+  await expect(page.locator('#welcomeHeading')).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
 });
 
 test('transient presentation failure stays in the PAVUREL Production shell fallback', async ({ page }) => {

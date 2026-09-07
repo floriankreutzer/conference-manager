@@ -1,7 +1,6 @@
 import { createAuditSection } from './sections/audit/index.js';
 import { createBookingPoliciesSection } from './sections/booking-policies/index.js';
 import { createCapabilitiesSection } from './sections/capabilities/index.js';
-import { createCatalogSection } from './sections/catalog/index.js';
 import { createCostAllocationSection } from './sections/cost-allocation/index.js';
 import { createLocationsSection } from './sections/locations/index.js';
 import { createMicrosoft365Section } from './sections/microsoft365/index.js';
@@ -18,7 +17,6 @@ export function createTenantAdminSectionRegistry({
   const sectionFactories = [
     [createOrganizationSection, adapters.organization],
     [createLocationsSection, adapters.locations],
-    [createCatalogSection, adapters.catalog],
     [createBookingPoliciesSection, adapters.bookingPolicies],
     [createCostAllocationSection, adapters.costAllocation],
     [createUsersSection, adapters.users],

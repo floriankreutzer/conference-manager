@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { asProductionHtml } from './fixtures/production-html.js';
 import { applicationProjectionPayload } from './fixtures/application-projections.js';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
@@ -83,11 +84,15 @@ function catalogPage(section) {
 function authority({ tenantId, persona }) {
   const roles = ['employee'];
   const permissions = ['request:read', 'request:cancel'];
-  if (persona === 'conference_manager') {
+  if (persona === 'conference_manager' || persona === 'dual_role') {
     roles.push('conference_manager');
-    permissions.push('request:manage');
+    permissions.push(
+      'request:manage',
+      'tenant:rooms:business:manage',
+      'tenant:catalogue:manage',
+    );
   }
-  if (persona === 'tenant_admin') {
+  if (persona === 'tenant_admin' || persona === 'dual_role') {
     roles.push('tenant_admin');
     permissions.push(
       'tenant:configure',
@@ -145,7 +150,9 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
       return;
     }
     if (path === '/api/v1/application/profile' && request.method() === 'GET') {
-      const label = context.persona === 'conference_manager' ? 'Demo Manager' : 'Demo Employee';
+      const label = ['conference_manager', 'dual_role'].includes(context.persona)
+        ? 'Demo Manager'
+        : 'Demo Employee';
       await route.fulfill({ json: { schemaVersion: 1, profile: { displayName: label } } });
       return;
     }
@@ -299,7 +306,6 @@ test('Tenant Admin Demo navigation is authorized, keyboard operable and responsi
   for (const sectionId of [
     'organization',
     'locations',
-    'catalog',
     'booking-policies',
     'cost-allocation',
     'users',
@@ -323,6 +329,29 @@ test('Tenant Admin Demo navigation is authorized, keyboard operable and responsi
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
+});
+
+test('Customer Demo dual role exposes both independent workspaces and localized role identity', async ({ page }) => {
+  await installCustomerDemoControlPlane(page, { persona: 'dual_role' });
+  await page.goto('/');
+
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(1);
+  await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(1);
+  await expect(page.locator('#primaryNavigation button[data-view="employee"]')).toHaveCount(1);
+
+  await page.locator('#primaryNavigation button[data-view="manager"]').click();
+  await expect(page.locator('[data-manager-workspace-root]')).toBeVisible();
+  await page.locator('#primaryNavigation button[data-view="tenantAdmin"]').click();
+  await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
+
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+  const profile = page.getByRole('dialog');
+  await expect(profile.getByText('Conference Manager & Tenant-Administration', { exact: true })).toBeVisible();
+  await profile.locator('#profileLanguage').selectOption('en');
+  await expect(profile).toHaveCount(0);
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+  await expect(page.getByRole('dialog')
+    .getByText('Conference Manager & tenant administration', { exact: true })).toBeVisible();
 });
 
 test('Customer Demo context failure invalidates controls and exposes an accessible error', async ({ page }) => {
@@ -391,15 +420,7 @@ test('Production composition loads no Customer Demo controls or endpoints', asyn
     const body = await response.text();
     await route.fulfill({
       response,
-      body: body
-        .replace(
-          '<meta name="conference-runtime" content="demo">',
-          '<meta name="conference-runtime" content="production">',
-        )
-        .replace(
-          './src/platform/demo-bootstrap.js?v=20260830-77',
-          './src/platform/production-bootstrap.js?v=20260830-77',
-        ),
+      body: asProductionHtml(body),
     });
   });
 

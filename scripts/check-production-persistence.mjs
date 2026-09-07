@@ -183,7 +183,7 @@ const employeeProduction = await readFile('src/employee/production-application.j
 for (const required of [
   'persistence.loadCatalog()',
   'persistence.checkRoomAvailability(window, isResubmission ? sourceRequest.id : null)',
-  'site?.timeZone',
+  'productionRequestRoomTimeZone(',
   'productionUtcInstant(date.value, start.value, timeZone)',
   'persistence.createRequest(compositionDraft(',
   "persistence.transitionRequest(requestId, { transition: 'cancel' })",
@@ -194,10 +194,21 @@ for (const required of [
   }
 }
 
+const requestRoomContextLoader = await readFile('src/shared/request-room-context-loader.js', 'utf8');
+for (const required of [
+  'site?.timeZone',
+  'room && currentRoomContext?.site?.id === room.siteId',
+]) {
+  if (!requestRoomContextLoader.includes(required)) {
+    throw new Error(`Production Room-context boundary is missing ${required}.`);
+  }
+}
+
 const managerProduction = await readFile('src/manager/production-application.js', 'utf8');
 for (const required of [
-  "Submitted: Object.freeze(['start_review', 'reject', 'request_change'])",
-  "'In Review': Object.freeze(['confirm', 'reject', 'request_change'])",
+  "from '../shared/production-booking-change-editor.js'",
+  "persistence.transitionRequest(request.id, { transition: 'cancel' })",
+  'managerRequestActions(request.status)',
   'persistence.listRequests()',
   'persistence.transitionRequest(request.id, { transition })',
   'persistence.loadRequestHistory(request.id)',
@@ -206,6 +217,44 @@ for (const required of [
   if (!managerProduction.includes(required)) {
     throw new Error(`Production Conference Manager boundary is missing ${required}.`);
   }
+}
+
+const managerRequestActions = await readFile('src/manager/production-request-actions.js', 'utf8');
+for (const required of [
+  "Submitted: Object.freeze(['start_review', 'reject', 'request_change', 'cancel'])",
+  "'In Review': Object.freeze(['confirm', 'reject', 'request_change', 'cancel'])",
+  "Confirmed: Object.freeze(['cancel'])",
+  "'Change Requested': Object.freeze(['cancel'])",
+  "status === 'Confirmed' && bookingChange === null",
+]) {
+  if (!managerRequestActions.includes(required)) {
+    throw new Error(`Production Conference Manager action model is missing ${required}.`);
+  }
+}
+
+const bookingChangeEditor = await readFile('src/shared/production-booking-change-editor.js', 'utf8');
+for (const required of [
+  'persistence.proposeBookingChange(',
+  'request.id,',
+  'request.version,',
+  "from './production-booking-change.js'",
+  "from './production-request-draft.js'",
+]) {
+  if (!bookingChangeEditor.includes(required)) {
+    throw new Error(`Shared Production booking-change editor is missing ${required}.`);
+  }
+}
+if (!/persistence\.proposeBookingChange\(\s*request\.id,\s*request\.version,/m.test(bookingChangeEditor)) {
+  throw new Error('Shared Production booking-change editor must bind the edited Request version.');
+}
+const proposeStart = production.indexOf('async proposeBookingChange(');
+const proposeEnd = production.indexOf('\n    async decideBookingChange(', proposeStart);
+if (
+  proposeStart < 0
+  || proposeEnd < 0
+  || production.slice(proposeStart, proposeEnd).includes('loadRequest(')
+) {
+  throw new Error('Booking-change persistence must not pair a stale draft with a preflight-refreshed version.');
 }
 
 const appShell = await readFile('src/platform/app-shell.js', 'utf8');

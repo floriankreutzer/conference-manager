@@ -25,7 +25,7 @@ import {
   isTenantAdminRoute,
 } from './tenant-admin/server.js';
 
-const APP_BUILD = '2026.08.30.77';
+const APP_BUILD = '2026.09.01.78';
 const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const appRoot = document.getElementById('app');
 
@@ -52,11 +52,18 @@ export async function bootstrapCustomerApplication({
   const setPageHeading = (title, subtitle) => shell.setPageHeading(title, subtitle);
   const authentication = context.authenticationRuntime();
   const serverPersistence = context.serverPersistence();
+  const canReadOrManageLocations = context.canManageRoomBusiness()
+    || context.hasTenantAdminPermission('tenant:configure');
+  const locationSettings = authentication && canReadOrManageLocations
+    ? createTenantLocationSettingsApi({ apiClient: authentication.apiClient })
+    : null;
+  const catalogueSettings = authentication && context.canManageTenantCatalogue()
+    ? createTenantCatalogueSettingsApi({ apiClient: authentication.apiClient })
+    : null;
   const tenantSettingsAdapters = context.isTenantAdmin() && authentication
     ? Object.freeze({
       organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
-      locations: createTenantLocationSettingsApi({ apiClient: authentication.apiClient }),
-      catalog: createTenantCatalogueSettingsApi({ apiClient: authentication.apiClient }),
+      locations: locationSettings,
       bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
       costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
     })
@@ -88,8 +95,14 @@ export async function bootstrapCustomerApplication({
       draftStore: createServerDraftStore({ tenantId: context.tenantId(), userId: context.userId() }),
     })
     : null;
-  const manager = serverPersistence && context.isManager()
-    ? createServerManagerApplication({ appRoot, setPageHeading, persistence: serverPersistence })
+  const manager = serverPersistence && context.isManager() && locationSettings && catalogueSettings
+    ? createServerManagerApplication({
+      appRoot,
+      setPageHeading,
+      persistence: serverPersistence,
+      locations: locationSettings,
+      catalogue: catalogueSettings,
+    })
     : null;
   const tenantUserAdministration = context.isTenantAdmin() && authentication
     ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })

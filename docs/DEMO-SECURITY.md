@@ -2,62 +2,109 @@
 
 ## Scope
 
-This repository owns the Customer browser artifact for the shared server-backed Demo. The operational Demo uses a dedicated Customer Demo API process and one isolated PostgreSQL Demo database shared with the separately authenticated Platform Demo. It has no real identity provider and is not a Production authorization boundary. The Tenant and persona selectors submit allowlisted intent only; the Demo server issues the effective synthetic Principal, roles and permissions. Selecting Tenant Admin does not grant Conference Manager capabilities.
+This repository owns the Customer browser artifact for the shared server-backed Demo and the separate static GitHub Pages Demo launchpad. The operational Demo uses a dedicated Customer Demo API process and one isolated PostgreSQL Demo model shared with the separately authenticated Platform Demo. It has no real identity provider and is not Production authorization evidence.
 
-Requests, profile information, catalogue changes, notifications, Tenant settings and role changes are server-backed Demo state. LocalStorage and sessionStorage are not business authorities. A missing or invalid API/session/schema renders the Demo unavailable and never activates browser fixtures or historical browser repositories.
+The Customer Tenant/persona selector submits allowlisted context intent only. The Demo server issues the effective synthetic Principal, roles and permissions. Every active Customer persona includes the Employee baseline. Conference Manager and Tenant Admin are independent elevated roles; `dual_role` is the exact derived union and is not an additional persisted authorization role.
 
-The GitHub Pages URL remains a static fail-closed compatibility surface for the scheduled ZAP baseline. Because Pages cannot host the same-origin API process, it displays the explicit unavailable state rather than pretending to be the operational shared Demo. Functional Demo acceptance and DAST require the separately deployed shared Demo origin.
+Requests, profile information, Room business data, Catalogue/Room prices, notifications, Tenant settings and role changes are server-backed Demo state. LocalStorage and sessionStorage are not business authorities. A missing or invalid API/session/schema renders the Demo unavailable and never activates browser fixtures or historical browser repositories.
 
-The demo must therefore not be presented as an authenticated production application and must not be used for real confidential, personal or regulated data.
+## GitHub Pages launchpad
 
-## Security controls implemented for the demo
+`https://floriankreutzer.github.io/conference-manager/` is the static Demo launchpad published from `demo-portal/`.
 
-- Content Security Policy (CSP) restricts scripts, images and API connections to the application origin, permits deterministic inline image data, blocks plugins/objects and cross-origin API access, and prevents base-URL manipulation.
+The Pages surface:
+
+- links directly to the Customer Render origin `https://conference-manager-demo.onrender.com`;
+- links directly to the Platform Render origin `https://conference-manager-ops-demo.onrender.com`;
+- contains no application JavaScript, session handling, API proxy, role selector, reset function or browser persistence;
+- carries a fail-closed meta CSP for resources, forms, objects and base-URL changes;
+- carries no Tenant/User/role/permission/CSRF/provider authority;
+- warns about Render Free cold-start behavior;
+- is the target of the static-launchpad entry in the scheduled three-surface ZAP baseline matrix;
+  the Customer and Platform Render origins are separate entries with separate results.
+
+Functional Demo acceptance and runtime security validation belong to the separately deployed Render origins and the PostgreSQL-backed shared-Demo browser journey. A clean ZAP scan of the Pages launchpad is not evidence for Customer or Platform application authorization, and a clean passive scan of either Render origin is not authenticated authorization/API or Production penetration evidence.
+
+GitHub Pages does not expose repository-controlled response-header configuration. The launchpad
+therefore delivers its resource/form/base restrictions through an HTML meta CSP. CSP
+`frame-ancestors` is not valid in a meta-delivered policy, so this repository does not claim that the
+launchpad has response-header clickjacking protection. That provider-controlled response-header
+posture must be verified separately in deployed acceptance and must not be inferred from the meta
+policy.
+
+The Demo must not be presented as an authenticated Production application and must not be used for real confidential, personal or regulated data.
+
+## Role and ownership boundary
+
+The server-enforced Demo role contract mirrors the Production Tenant policy:
+
+- Employee: own Request read/cancel; no physical Request deletion.
+- Conference Manager: Tenant-wide Request operations, including supported self-approval; Room business data; Tenant Catalogue; authoritative Room prices.
+- Tenant Admin: Organization, Booking Policy, Cost Allocation, Sites/technical Room assignment, Tenant Users/elevated roles, provider integrations/mappings and Tenant audit administration.
+- Dual role: exact union of all three capability sets.
+
+Provider Room identity/resource mapping remains Tenant Admin-owned. Room business fields and Catalogue/Room prices remain Conference Manager-owned. A mixed technical/business Location mutation requires both elevated capability sets and is reclassified by the API against the persisted authoritative snapshot.
+
+## Security controls implemented for Demo
+
+- Customer and Platform Demo use separate origins, processes, session cookies, CSRF state and least-privilege database roles.
+- Tenant scope and effective roles/permissions are server-derived; browser DOM, URL and storage values cannot establish authority.
+- Content Security Policy restricts the Customer Demo artifact to same-origin scripts/API, deterministic inline image data and no plugin/object/base manipulation.
 - Referrer policy is `no-referrer`.
-- Application rendering uses DOM APIs and `textContent`; direct `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `eval`, `document.write` and Function constructors are blocked by the static quality gate.
-- DOM helper code rejects inline event-handler attributes and `srcdoc`.
-- External navigation helpers accept HTTPS URLs only; same-origin HTTP is allowed only for local development/test navigation.
-- Only the selected language may remain as a bounded, non-authoritative browser preference.
-- Demo Tenant and persona values are allowlisted by the browser contract and independently resolved and authorized by the Demo server.
-- Customer Demo sessions, cookies, CSRF state, routes and database role remain separate from the Platform Demo boundary.
-- External route links require deliberate user navigation. Their target is not fetched to render the Demo or its print view.
-- Text inputs and free-text areas receive bounded lengths; participant fields are constrained to realistic demo values.
-- A visible Demo notice identifies synthetic server-backed data and never presents the session as Production identity.
-- CI includes syntax tests, SAST-style defensive checks, secret scanning, dependency audit, domain/unit regression tests and Playwright E2E tests on Chromium desktop and WebKit/iPhone profile.
-- GitHub Actions are pinned to commit SHAs and Dependabot checks npm and Actions dependencies weekly.
+- Application rendering uses safe DOM APIs; executable HTML sinks and dynamic-code primitives are blocked by repository gates.
+- Only bounded non-authoritative preferences such as language may remain browser-local.
+- Customer context changes rotate/re-establish a server-issued Demo session; persona/role/permission mismatch fails closed in the frontend contract.
+- Production-style `security_version` semantics invalidate stale privileges after role changes.
+- Customer inactivity lock is additive defense in depth: Demo locks after five minutes, clears sensitive UI and revalidates the authoritative server session before unlock.
+- Cross-tab communication can propagate only a lock event, never an unlock or permission grant.
+- External/provider behavior is deterministic and synthetic; no real Microsoft Graph/IdP call is required for the shared Demo baseline.
+- CI includes syntax/architecture/SAST-style checks, secret scanning, dependency audit/review, Node regression tests and Chromium/WebKit browser tests.
+- Shared-Demo CI provisions isolated PostgreSQL roles and starts separate Customer/Platform API processes against one deterministic synthetic database.
+- GitHub Actions used for deployment/security gates are pinned according to repository policy.
 
-## Controls intentionally not simulated
+## Controls intentionally not claimed as Production evidence
 
-The following controls require a real backend or identity platform and are therefore out of scope for this demo:
+The shared Demo does not establish:
 
-- SSO / MFA / identity lifecycle
-- real Production authentication, Conditional Access and authorization evidence
-- Production session, token and logout-invalidation evidence
-- Production CSRF and edge-security evidence
-- Production database grant and injection-test evidence
-- SSRF controls for server-side outbound requests
-- rate limiting and abuse protection
-- centralized audit logging and tamper-resistant evidence
-- server-side encryption, retention and deletion controls
-- productive e-mail, Teams or calendar integrations
+- real workforce/customer SSO, MFA or identity lifecycle evidence;
+- Production Conditional Access or identity-provider acceptance;
+- Production edge/TLS/header deployment evidence;
+- Production database grants/backup/retention/deletion evidence;
+- real Microsoft 365/Graph acceptance;
+- penetration-test evidence;
+- productive e-mail/Teams/calendar operations.
 
-The shared Demo implements these concerns only for deterministic synthetic scenarios. Treating its controls as Production evidence would create security theatre. Production authorization, audit, session invalidation, infrastructure and provider acceptance remain separate requirements.
+The Demo may implement analogous server controls for synthetic scenarios, but those controls must not be relabeled as Production/provider/penetration acceptance.
 
-## Production security delta
+## Reset/reseed boundary
 
-Before a production rollout, introduce a backend/BFF and identity integration. Enforce authorization on every protected operation server-side, validate all input at the trust boundary, use secure session/token handling, configure HTTP security headers at the hosting layer, remove demo role switching, replace browser-only storage with controlled persistence, add centralized audit logging, implement real notification/calendar adapters and run SAST/SCA/DAST plus penetration testing against the deployed system.
+Reset/reseed is a Demo-only server operation protected by Demo composition, authorization/CSRF for HTTP access and database locking. It restores only canonical synthetic Demo state, invalidates affected Demo sessions and returns deterministic seed evidence.
+
+The GitHub Pages launchpad cannot call or expose reset/reseed. Production artifacts do not contain the Demo reset route/runtime.
+
+## Outage behavior
+
+If a Render Demo service is sleeping, the Pages launchpad remains static and only navigates to that origin. It does not manufacture a local application fallback.
+
+If the Customer Demo API/session/schema becomes unavailable, the Customer browser fails unavailable. It does not restore previously rendered role authority from LocalStorage, fixtures or the Pages site.
 
 ## Verification
 
-The security regression suite covers at least:
+The SaaS 3.6 security regression baseline covers at least:
 
-1. malformed and oversized local storage;
-2. prototype-pollution keys in stored JSON;
-3. XSS payloads stored in request text;
-4. CSP/referrer-policy presence;
-5. explicit Demo Mode disclosure and the isolated Employee / Conference Manager / Tenant Admin role switch;
-6. Tenant Admin self-change, inactive-user and unknown-role rejection in demo data;
-7. demo-data deletion;
-8. input bounds;
-9. dependency and secret scanning;
-10. existing happy/negative workflows on Chromium and WebKit.
+1. canonical Employee/Conference Manager/Tenant Admin/dual-role session projection;
+2. unknown role/permission and persona mismatch fail-close behavior;
+3. cross-Tenant Request, Location, Catalogue and Tenant-administration denial/concealment;
+4. Conference Manager versus Tenant Admin field/domain ownership;
+5. Catalogue and authoritative Room-price ownership;
+6. CSRF on state-changing cookie-authenticated routes;
+7. role-change session invalidation through `security_version`;
+8. inactivity timeout, background/BFCache elapsed-time and cross-tab lock behavior;
+9. malformed/unknown-field exact-contract rejection;
+10. Demo outage/no-local-fallback behavior;
+11. deterministic reset/reseed and separate Customer/Platform session domains;
+12. dependency, secret and static security gates;
+13. Chromium and WebKit shared-Demo journeys against compatible immutable frontend/API refs;
+14. static Pages launchpad checks proving no browser/application authority.
+
+See `docs/ROLE-MODEL.md`, `docs/SAAS-3.6-SECURITY-REGRESSION.md`, `docs/DEMO-RUNBOOK.md`, `docs/DEMO-URLS.md` and `docs/PRODUCTION-SECURITY.md` for the coordinated baseline.

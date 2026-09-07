@@ -1,0 +1,126 @@
+:root {
+  font-family: Manrope, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #191919;
+  background: #f5f3f1;
+  line-height: 1.55;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -5rem;
+  padding: 0.75rem 1rem;
+  background: #ffffff;
+  color: #191919;
+  border: 2px solid currentColor;
+  z-index: 10;
+}
+
+.skip-link:focus { top: 1rem; }
+
+.site-header,
+main,
+footer {
+  width: min(70rem, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.site-header { padding: 4rem 0 2rem; }
+main { padding-bottom: 3rem; }
+footer { padding: 1.5rem 0 3rem; border-top: 1px solid #cec8c3; }
+
+h1,
+h2,
+p { max-width: 70ch; }
+
+h1 {
+  margin: 0.25rem 0 0.75rem;
+  font-size: clamp(2rem, 7vw, 4.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+h2 { line-height: 1.2; }
+.eyebrow,
+.card-kicker {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.demo-badge {
+  display: inline-block;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid #7a1f3d;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.notice,
+.boundary {
+  padding: 1rem 1.25rem;
+  border-left: 0.25rem solid #7a1f3d;
+  background: #ffffff;
+}
+
+.launch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 3rem;
+}
+
+.launch-card {
+  min-width: 0;
+  padding: clamp(1.25rem, 4vw, 2rem);
+  background: #ffffff;
+  border: 1px solid #d7d1cc;
+  border-radius: 0.75rem;
+}
+
+.launch-action {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.8rem 1rem;
+  background: #1d1d1f;
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: 0.4rem;
+}
+
+.launch-action:hover { text-decoration: underline; }
+.launch-action:focus-visible,
+.skip-link:focus-visible {
+  outline: 3px solid #7a1f3d;
+  outline-offset: 3px;
+}
+
+.destination {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  color: #5d5752;
+}
+
+section + section { margin-top: 2rem; }
+li + li { margin-top: 0.5rem; }
+
+@media (max-width: 46rem) {
+  .site-header { padding-top: 2.5rem; }
+  .launch-grid { grid-template-columns: 1fr; }
+}
+
+@media (forced-colors: active) {
+  .launch-card,
+  .notice,
+  .boundary,
+  .demo-badge { border: 1px solid CanvasText; }
+}

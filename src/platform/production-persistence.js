@@ -9,6 +9,7 @@ import {
   normalizeProductionRequestHistoryPage,
   normalizeProductionRequestListPage,
   normalizeProductionRequestMutationEnvelope,
+  normalizeProductionRequestRoomContextEnvelope,
   normalizeProductionRequestReportPage,
 } from './production-request-wire.js';
 
@@ -505,18 +506,33 @@ export function createProductionPersistence({ apiClient } = {}) {
         throw new ProductionPersistenceError('PRODUCTION_REQUEST_INVALID');
       }
       const request = normalizeProductionRequestDraft(requestDraft);
-      return normalizeProductionRequestMutationEnvelope(await call(
+      const result = normalizeProductionRequestMutationEnvelope(await call(
         apiClient,
         `${DOMAIN_ENDPOINTS.requests}/${encodeURIComponent(id)}/resubmissions`,
         { method: 'POST', body: { schemaVersion: 2, expectedVersion, request } },
       ));
+      if (result.id !== id) throw new ProductionPersistenceError('PRODUCTION_REQUEST_MUTATION_INVALID');
+      return result;
     },
 
     async loadRequest(requestId) {
       const id = assertRequestId(requestId);
-      return normalizeProductionRequestDetailEnvelope(await call(
+      const request = normalizeProductionRequestDetailEnvelope(await call(
         apiClient, `v1/requests/${encodeURIComponent(id)}`,
       ));
+      if (request.id !== id) throw new ProductionPersistenceError('PRODUCTION_REQUEST_DETAIL_INVALID');
+      return request;
+    },
+
+    async loadRequestRoomContext(requestId, options = {}) {
+      const id = assertRequestId(requestId);
+      const result = normalizeProductionRequestRoomContextEnvelope(await call(
+        apiClient, `v1/requests/${encodeURIComponent(id)}/room-context`, options,
+      ));
+      if (result.requestRef.id !== id) {
+        throw new ProductionPersistenceError('PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
+      }
+      return result;
     },
 
     async loadRequestHistory(requestId) {
@@ -533,6 +549,9 @@ export function createProductionPersistence({ apiClient } = {}) {
         history.push(...page.history);
         cursor = page.page.nextCursor;
       } while (cursor !== null);
+      if (history.some((entry) => entry.request.id !== id)) {
+        throw new ProductionPersistenceError('PRODUCTION_REQUEST_HISTORY_INVALID');
+      }
       return Object.freeze(history);
     },
 
@@ -559,32 +578,45 @@ export function createProductionPersistence({ apiClient } = {}) {
 
     async transitionRequest(requestId, transition) {
       const id = assertRequestId(requestId);
-      return normalizeProductionRequestDetailEnvelope(
+      const request = normalizeProductionRequestDetailEnvelope(
         await call(apiClient, `v1/requests/${encodeURIComponent(id)}/transitions`, {
           method: 'POST',
           body: assertPlainObject(transition, 'PRODUCTION_TRANSITION_INVALID'),
         }),
       );
+      if (request.id !== id) throw new ProductionPersistenceError('PRODUCTION_REQUEST_DETAIL_INVALID');
+      return request;
     },
 
     async loadBookingChange(requestId, options = {}) {
       const id = assertRequestId(requestId);
-      return normalizeProductionBookingChangeEnvelope(
+      const result = normalizeProductionBookingChangeEnvelope(
         await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, options),
-      ).change;
+      );
+      if (result.requestRef.id !== id) {
+        throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+      }
+      return result.change;
     },
 
-    async proposeBookingChange(requestId, proposed) {
+    async proposeBookingChange(requestId, expectedVersion, proposed) {
       const id = assertRequestId(requestId);
-      const current = await this.loadRequest(id);
+      if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+        throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+      }
       const request = normalizeProductionRequestDraft(proposed);
       const result = normalizeProductionBookingChangeEnvelope(
         await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, {
           method: 'POST',
-          body: { schemaVersion: 2, expectedVersion: current.version, request },
+          body: { schemaVersion: 2, expectedVersion, request },
         }),
       );
-      if (!result.change || !['pending', 'applied'].includes(result.change.status)) {
+      if (
+        result.requestRef.id !== id
+        || !result.change
+        || result.change.baseRequestVersion !== expectedVersion
+        || !['pending', 'applied'].includes(result.change.status)
+      ) {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
       return result;
@@ -593,15 +625,33 @@ export function createProductionPersistence({ apiClient } = {}) {
     async decideBookingChange(requestId, changeId, decision, reason = undefined) {
       const id = assertRequestId(requestId);
       const change = assertRequestId(changeId);
-      if (decision !== 'approve' && decision !== 'reject') {
+      let body;
+      if (decision === 'approve') {
+        if (reason !== undefined) {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        body = { decision: 'approve' };
+      } else if (decision === 'reject') {
+        if (typeof reason !== 'string') {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        const normalizedReason = reason.trim();
+        if (normalizedReason.length < 1 || normalizedReason.length > 1_000) {
+          throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+        }
+        body = { decision: 'reject', reason: normalizedReason };
+      } else {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
-      const body = reason === undefined ? { decision } : { decision, reason };
       const result = normalizeProductionBookingChangeEnvelope(await call(
         apiClient,
         `v1/requests/${encodeURIComponent(id)}/booking-change/${encodeURIComponent(change)}/decision`,
         { method: 'POST', body },
       ));
+      if (
+        result.requestRef.id !== id
+        || (result.change !== null && result.change.id !== change)
+      ) throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       if (decision === 'reject') {
         if (result.change?.status !== 'rejected') {
           throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');

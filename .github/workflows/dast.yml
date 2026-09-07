@@ -16,12 +16,22 @@ jobs:
   baseline:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - surface: static-launchpad
+            target: https://floriankreutzer.github.io/conference-manager/
+          - surface: customer-demo
+            target: https://conference-manager-demo.onrender.com/
+          - surface: platform-demo
+            target: https://conference-manager-ops-demo.onrender.com/
     steps:
-      - name: ZAP baseline scan of static Pages compatibility surface
+      - name: ZAP baseline scan (${{ matrix.surface }})
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
-          target: 'https://floriankreutzer.github.io/conference-manager/'
+          target: ${{ matrix.target }}
           allow_issue_writing: false
           fail_action: true
-          artifact_name: zap-baseline-report
+          artifact_name: zap-baseline-${{ matrix.surface }}
           cmd_options: '-a'

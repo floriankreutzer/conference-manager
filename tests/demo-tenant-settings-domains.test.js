@@ -2,13 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createTenantBookingPolicySettingsApi } from '../src/platform/tenant-booking-policy-settings-api.js';
-import { createTenantCatalogueSettingsApi } from '../src/platform/tenant-catalogue-settings-api.js';
 import { createTenantCostAllocationSettingsApi } from '../src/platform/tenant-cost-allocation-settings-api.js';
 import { createTenantLocationSettingsApi } from '../src/platform/tenant-location-settings-api.js';
 import { createTenantOrganizationSettingsApi } from '../src/platform/tenant-organization-settings-api.js';
 import { TENANT_SETTINGS_REVISION_CONFLICT } from '../src/tenant-admin/settings-revision.js';
 import { createDemoBookingPolicySettings } from '../src/tenant-admin/sections/booking-policies/demo-adapter.js';
-import { createDemoCatalogueSettings } from '../src/tenant-admin/sections/catalog/demo-adapter.js';
 import { createDemoCostAllocationSettings } from '../src/tenant-admin/sections/cost-allocation/demo-adapter.js';
 import { createDemoLocationSettings } from '../src/tenant-admin/sections/locations/demo-adapter.js';
 import { createDemoOrganizationSettings } from '../src/tenant-admin/sections/organization/demo-adapter.js';
@@ -21,10 +19,6 @@ const domains = [
   {
     name: 'locations', factory: createDemoLocationSettings, load: 'loadLocations', save: 'saveLocations',
     value(snapshot) { return snapshot.configuration; }, body(value) { return { configuration: value }; },
-  },
-  {
-    name: 'catalogue', factory: createDemoCatalogueSettings, load: 'loadCatalogue', save: 'saveCatalogue',
-    value(snapshot) { return snapshot.catalogue; }, body(value) { return { catalogue: value }; },
   },
   {
     name: 'booking policies', factory: createDemoBookingPolicySettings, load: 'loadBookingPolicies', save: 'saveBookingPolicies',
@@ -82,7 +76,7 @@ test('Demo percentage allocations are deterministic and exactly 100 percent', as
   assert.equal(allocation.entries.reduce((total, entry) => total + entry.percentageBasisPoints, 0), 10_000);
 });
 
-test('Demo current and history values satisfy the exact Production response validators', async () => {
+test('remaining Tenant Admin Demo settings satisfy the exact Production response validators', async () => {
   const organizationDemo = createDemoOrganizationSettings();
   const organizationResponses = [
     await organizationDemo.loadOrganization(),
@@ -104,17 +98,6 @@ test('Demo current and history values satisfy the exact Production response vali
   });
   await locationApi.loadLocations();
   await locationApi.listLocationsHistory();
-
-  const catalogueDemo = createDemoCatalogueSettings();
-  const catalogueResponses = [
-    await catalogueDemo.loadCatalogue(),
-    await catalogueDemo.listCatalogueHistory(),
-  ];
-  const catalogueApi = createTenantCatalogueSettingsApi({
-    apiClient: { async request() { return catalogueResponses.shift(); } },
-  });
-  await catalogueApi.loadCatalogue();
-  await catalogueApi.listCatalogueHistory();
 
   const policyDemo = createDemoBookingPolicySettings();
   const policyResponses = [

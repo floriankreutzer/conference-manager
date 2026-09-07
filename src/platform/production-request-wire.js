@@ -913,6 +913,52 @@ function requestRef(value, code) {
   });
 }
 
+export function normalizeProductionRequestRoomContextEnvelope(value) {
+  const code = 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID';
+  const envelope = exactObject(value, [
+    'schemaVersion', 'requestRef', 'currentRoomContext', 'requestId',
+  ], code);
+  if (envelope.schemaVersion !== 1) invalid(code);
+  const ref = requestRef(envelope.requestRef, code);
+  identifier(envelope.requestId, code);
+  if (envelope.currentRoomContext === null) {
+    return immutable({ requestRef: ref, currentRoomContext: null });
+  }
+  const context = exactObject(envelope.currentRoomContext, [
+    'locationsRevision', 'room', 'site',
+  ], code);
+  const room = exactObject(context.room, [
+    'id', 'siteId', 'name', 'capacity', 'active',
+  ], code);
+  const site = exactObject(context.site, [
+    'id', 'name', 'active', 'timeZone',
+  ], code);
+  if (typeof room.active !== 'boolean' || typeof site.active !== 'boolean') invalid(code);
+  if (site.timeZone !== null && !isProductionTimeZone(site.timeZone)) invalid(code);
+  const normalizedRoom = {
+    id: identifier(room.id, code),
+    siteId: identifier(room.siteId, code),
+    name: responseText(room.name, { maximum: 160, code }),
+    capacity: safeInteger(room.capacity, 1, 100_000, code),
+    active: room.active,
+  };
+  const normalizedSite = {
+    id: identifier(site.id, code),
+    name: responseText(site.name, { maximum: 160, code }),
+    active: site.active,
+    timeZone: site.timeZone,
+  };
+  if (normalizedRoom.siteId !== normalizedSite.id) invalid(code);
+  return immutable({
+    requestRef: ref,
+    currentRoomContext: {
+      locationsRevision: positiveVersion(context.locationsRevision, code),
+      room: normalizedRoom,
+      site: normalizedSite,
+    },
+  });
+}
+
 function bookingChange(value, ref, code) {
   if (value === null) return null;
   const input = exactObject(value, [

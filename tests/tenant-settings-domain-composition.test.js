@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const APP_PATH = 'src/app.js';
 
-test('Composition Root injects all five server settings domains through one authorization branch', () => {
+test('Composition Root injects server settings through independent business and technical authorization branches', () => {
   const source = readFileSync(APP_PATH, 'utf8');
   assert.match(source, /from '\.\/platform\/server-tenant-settings-api\.js';/);
   assert.doesNotMatch(source, /from '\.\/platform\/tenant-(?:organization|location|catalogue|booking-policy|cost-allocation)-settings-api\.js';/);
@@ -21,7 +21,12 @@ test('Composition Root injects all five server settings domains through one auth
     assert.equal(source.split(factory).length - 1, 2, `${factory} must be imported and composed once`);
   }
 
-  assert.match(source, /const tenantSettingsAdapters = context\.isTenantAdmin\(\) && authentication\s+\? Object\.freeze\(/);
+  assert.match(source, /const canReadOrManageLocations = context\.canManageRoomBusiness\(\)\s+\|\| context\.hasTenantAdminPermission\('tenant:configure'\);/s);
+  assert.match(source, /const locationSettings = authentication && canReadOrManageLocations\s+\? createTenantLocationSettingsApi/s);
+  assert.match(source, /const catalogueSettings = authentication && context\.canManageTenantCatalogue\(\)\s+\? createTenantCatalogueSettingsApi/s);
+  assert.match(source, /const tenantSettingsAdapters = context\.isTenantAdmin\(\) && authentication\s+\? Object\.freeze\(\{\s+organization:[\s\S]*locations: locationSettings,[\s\S]*bookingPolicies:[\s\S]*costAllocation:/);
+  assert.doesNotMatch(source, /tenantSettingsAdapters[\s\S]{0,300}catalogue:/);
+  assert.match(source, /createServerManagerApplication\(\{\s+appRoot,\s+setPageHeading,\s+persistence: serverPersistence,\s+locations: locationSettings,\s+catalogue: catalogueSettings,/s);
   assert.match(source, /: Object\.freeze\(\{\}\);/);
   assert.match(source, /sectionAdapters: Object\.freeze\(\{\s+\.\.\.effectiveTenantSettingsAdapters,\s+users:/);
   assert.doesNotMatch(source, /createDemo|demo-adapter|demo-store|fixtures/);

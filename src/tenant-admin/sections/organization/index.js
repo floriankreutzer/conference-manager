@@ -57,7 +57,6 @@ function formValue(controls) {
 
 export function createOrganizationSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('ORGANIZATION_SECTION_ADAPTER_INVALID');
-  let draft = null;
   let focusAfterSave = false;
 
   async function render({ root, isCurrent, rerender }) {
@@ -104,7 +103,8 @@ export function createOrganizationSection({ adapter = null } = {}) {
       event.preventDefault();
       if (mutationPending) return;
       if (!form.reportValidity()) return;
-      try { draft = formValue(controls); }
+      let submittedDraft;
+      try { submittedDraft = formValue(controls); }
       catch {
         validationSummary(form, t('tenantSettings.validation.checkFields'));
         controls.countryCode.focus();
@@ -114,12 +114,14 @@ export function createOrganizationSection({ adapter = null } = {}) {
       mutationPending = true;
       status.textContent = t('tenantSettings.status.saving');
       try {
-        await adapter.saveOrganization({ expectedRevision: snapshot.revision, organization: draft });
+        await adapter.saveOrganization({ expectedRevision: snapshot.revision, organization: submittedDraft });
+        if (!isCurrent()) return;
         focusAfterSave = true;
         showToast(t('tenantSettings.status.saved'));
         announce(t('tenantSettings.status.saved'));
         rerender();
       } catch (error) {
+        if (!isCurrent()) return;
         const currentRevision = tenantSettingsConflictRevision(error);
         if (currentRevision !== null) {
           renderSectionConflict(root, TITLE, {
@@ -127,7 +129,9 @@ export function createOrganizationSection({ adapter = null } = {}) {
             onReload: rerender,
             onReapply: async () => {
               const current = await adapter.loadOrganization();
-              await adapter.saveOrganization({ expectedRevision: current.revision, organization: draft });
+              if (!isCurrent()) return;
+              await adapter.saveOrganization({ expectedRevision: current.revision, organization: submittedDraft });
+              if (!isCurrent()) return;
               focusAfterSave = true;
               rerender();
             },
@@ -158,8 +162,13 @@ export function createOrganizationSection({ adapter = null } = {}) {
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
     );
     if (focusAfterSave) {
-      focusAfterSave = false;
-      requestAnimationFrame(() => root.querySelector('h2')?.focus());
+      requestAnimationFrame(() => {
+        if (!focusAfterSave || !isCurrent()) return;
+        const heading = root.querySelector('h2');
+        if (!heading?.isConnected) return;
+        heading.focus();
+        focusAfterSave = false;
+      });
     }
   }
 

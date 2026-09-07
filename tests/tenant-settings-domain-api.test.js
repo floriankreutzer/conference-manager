@@ -36,6 +36,7 @@ const catalogue = () => ({
   services: [common('service-av')], equipment: [common('equipment-display')],
   cateringItems: [common('item-coffee')],
   cateringPackages: [{ ...common('package-coffee'), itemIds: ['item-coffee'], variants: [] }],
+  roomPrices: [{ roomId: 'atlas', price: { amountMinor: 2_500, currency: 'EUR' } }],
 });
 
 const policyConfiguration = () => ({
@@ -134,15 +135,40 @@ test('location response accepts the bounded provider name and rejects non-string
   }
 });
 
-test('catalogue settings preserve all four bounded collections and British wire spelling', async () => {
+test('catalogue settings preserve every bounded collection including authoritative Room prices', async () => {
   const response = { schemaVersion: 1, revision: 3, catalogue: catalogue() };
   const apiClient = client([response]);
   const api = createTenantCatalogueSettingsApi({ apiClient });
   await api.saveCatalogue({ expectedRevision: 2, catalogue: catalogue() });
   assert.equal(apiClient.calls[0].path, 'v1/tenant/settings/catalogue');
   assert.deepEqual(Object.keys(apiClient.calls[0].options.body.catalogue).sort(), [
-    'cateringItems', 'cateringPackages', 'equipment', 'services',
+    'cateringItems', 'cateringPackages', 'equipment', 'roomPrices', 'services',
   ]);
+  assert.deepEqual(apiClient.calls[0].options.body.catalogue.roomPrices, [{
+    roomId: 'atlas', price: { amountMinor: 2_500, currency: 'EUR' },
+  }]);
+});
+
+test('catalogue settings fail closed on duplicate Room prices and unknown Room price fields', async () => {
+  const duplicate = catalogue();
+  duplicate.roomPrices.push({ ...duplicate.roomPrices[0] });
+  const apiClient = client([]);
+  const api = createTenantCatalogueSettingsApi({ apiClient });
+  await assert.rejects(
+    api.saveCatalogue({ expectedRevision: 1, catalogue: duplicate }),
+    (error) => error.code === 'TENANT_CATALOGUE_UPDATE_FAILED'
+      || error.code === 'TENANT_CATALOGUE_RESPONSE_INVALID',
+  );
+  assert.equal(apiClient.calls.length, 0);
+
+  const injected = catalogue();
+  injected.roomPrices[0] = { ...injected.roomPrices[0], providerPriceId: 'provider-secret' };
+  await assert.rejects(
+    api.saveCatalogue({ expectedRevision: 1, catalogue: injected }),
+    (error) => error.code === 'TENANT_CATALOGUE_UPDATE_FAILED'
+      || error.code === 'TENANT_CATALOGUE_RESPONSE_INVALID',
+  );
+  assert.equal(apiClient.calls.length, 0);
 });
 
 test('booking policy and cost allocation writes use bounded versioned envelopes', async () => {
