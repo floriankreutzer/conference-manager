@@ -1312,7 +1312,7 @@ test('Employee keeps the current resubmission editor when a detached create load
   fixture.requests().push(resubmission);
   await page.goto(`${ORIGIN}/`);
 
-  await page.locator('#mainContent').getByRole('button', { name: 'Neue Anfrage' }).click();
+  await page.locator('#mainContent').getByRole('button', { name: 'Neue Konferenz anfragen' }).click();
   const title = page.locator('#productionTitle');
   await title.fill(detachedDraftTitle);
   await expect(title).toHaveValue(detachedDraftTitle);
