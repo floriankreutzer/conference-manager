@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productionUtcInstant } from '../../src/core/production-time.js';
+import { SERVER_DRAFT_KEY } from '../../src/employee/server-draft-store.js';
 import { applicationProjectionPayload } from './fixtures/application-projections.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1302,6 +1303,7 @@ test('Employee keeps one booking-change proposal in flight across a Requests ref
 
 test('Employee keeps the current resubmission editor when a detached create load settles last', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page);
+  const detachedDraftTitle = 'Detached draft';
   const resubmission = {
     ...confirmedV2RequestFixture(),
     status: 'Change Requested',
@@ -1310,11 +1312,17 @@ test('Employee keeps the current resubmission editor when a detached create load
   fixture.requests().push(resubmission);
   await page.goto(`${ORIGIN}/`);
 
-  await page.locator('[data-view="employee"]').click();
-  await page.locator('#productionTitle').fill('Detached draft');
-  await expect.poll(() => page.evaluate(() => (
-    Object.values(sessionStorage).some((value) => value.includes('Detached draft'))
-  ))).toBe(true);
+  await page.locator('#mainContent').getByRole('button', { name: 'Neue Anfrage' }).click();
+  const title = page.locator('#productionTitle');
+  await title.fill(detachedDraftTitle);
+  await expect(title).toHaveValue(detachedDraftTitle);
+  await expect.poll(() => page.evaluate((key) => {
+    try {
+      return JSON.parse(sessionStorage.getItem(key))?.draft?.title || null;
+    } catch {
+      return null;
+    }
+  }, SERVER_DRAFT_KEY)).toBe(detachedDraftTitle);
   await page.locator('[data-view="requests"]').click();
   await expect(page.getByRole('button', { name: 'Änderung bearbeiten' })).toBeVisible();
 
