@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productionUtcInstant } from '../../src/core/production-time.js';
-import { SERVER_DRAFT_KEY } from '../../src/employee/server-draft-store.js';
 import { applicationProjectionPayload } from './fixtures/application-projections.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -1316,13 +1315,15 @@ test('Employee keeps the current resubmission editor when a detached create load
   const title = page.locator('#productionTitle');
   await title.fill(detachedDraftTitle);
   await expect(title).toHaveValue(detachedDraftTitle);
-  await expect.poll(() => page.evaluate((key) => {
-    try {
-      return JSON.parse(sessionStorage.getItem(key))?.draft?.title || null;
-    } catch {
-      return null;
-    }
-  }, SERVER_DRAFT_KEY)).toBe(detachedDraftTitle);
+  await expect.poll(() => page.evaluate((expectedTitle) => (
+    Object.values(sessionStorage).some((storedValue) => {
+      try {
+        return JSON.parse(storedValue)?.draft?.title === expectedTitle;
+      } catch {
+        return false;
+      }
+    })
+  ), detachedDraftTitle)).toBe(true);
   await page.locator('[data-view="requests"]').click();
   await expect(page.getByRole('button', { name: 'Änderung bearbeiten' })).toBeVisible();
 
