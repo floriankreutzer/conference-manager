@@ -1,5 +1,5 @@
 # Plugin-ID compatibility projection for zap-baseline.py's exit summary.
 10015	INFO	^https://conference-manager-ops-demo[.]onrender[.]com/$
-10049	INFO	^https://conference-manager-ops-demo[.]onrender[.]com/(?:|assets/(?:brand/pavurel-app-icon[.]svg|platform-admin[.]css[?]v=20260828-01|tokens[.]css[?]v=20260828-01)|robots[.]txt|sitemap[.]xml|src/platform-admin/demo/bootstrap[.]js[?]v=20260828-01)$
+10049	INFO	^https://conference-manager-ops-demo[.]onrender[.]com/(?:|assets/(?:brand/pavurel-(?:app-icon[.]svg|signet-monochrome-white[.]svg)|platform-admin[.]css[?]v=20260828-01|tokens[.]css[?]v=20260828-01)|robots[.]txt|sitemap[.]xml|src/platform-admin/demo/bootstrap[.]js[?]v=20260828-01)$
 10055	INFO	^https://conference-manager-ops-demo[.]onrender[.]com/$
 90005	INFO	^https://conference-manager-ops-demo[.]onrender[.]com/(?:|assets/(?:brand/pavurel-app-icon[.]svg|platform-admin[.]css[?]v=20260828-01|tokens[.]css[?]v=20260828-01)|robots[.]txt|sitemap[.]xml)$

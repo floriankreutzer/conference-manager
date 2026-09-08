@@ -8,7 +8,7 @@
 10050-2	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/|/styles[.]css))$
 10055-6	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt)$
 10055-12	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt)$
-10055-13	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt)$
+10055-13	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
 10063-1	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager/)$
 10094-3	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
 10098	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/conference-manager/(?:|styles[.]css)$

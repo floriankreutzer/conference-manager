@@ -5,7 +5,7 @@
 10035	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
 10049	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/|/styles[.]css))$
 10050	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/|/styles[.]css))$
-10055	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt)$
+10055	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
 10063	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager/)$
 10094	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
 10098	INFO	^https://floriankreutzer[.]github[.]io/conference-manager/(?:|styles[.]css)$
