@@ -16,7 +16,7 @@
 90004-3	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/conference-manager/$
 
 # ZAP's crawler is not a browser and therefore does not send Fetch Metadata request headers.
-90005-1	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|conference-manager/)$
-90005-2	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|conference-manager/)$
-90005-3	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|conference-manager/)$
-90005-4	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|conference-manager/)$
+90005-1	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/))$
+90005-2	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/))$
+90005-3	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/))$
+90005-4	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/))$

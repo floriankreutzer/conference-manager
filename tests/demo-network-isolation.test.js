@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
   readPolicyRows,
+  readSummaryPolicyRows,
   runZapReportValidation,
   validateZapReport,
 } from '../scripts/validate-zap-report.mjs';
@@ -45,6 +46,9 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   const staticRules = read('.zap/static-launchpad.tsv');
   const customerRules = read('.zap/customer-demo.tsv');
   const platformRules = read('.zap/platform-demo.tsv');
+  const staticSummaryRules = read('.zap/static-launchpad-summary.tsv');
+  const customerSummaryRules = read('.zap/customer-demo-summary.tsv');
+  const platformSummaryRules = read('.zap/platform-demo-summary.tsv');
   for (const document of [demoSecurity, productionSecurity]) {
     assert.match(document, /GitHub Pages/i);
     assert.match(document, /static (?:GitHub Pages )?(?:Demo )?launchpad/i);
@@ -73,8 +77,9 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.doesNotMatch(dast, /rules_file_name:/);
   assert.doesNotMatch(dast, /continue-on-error:/);
   assert.match(dast, /fail_action:\s*true/);
-  assert.match(dast, /group: zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref \}\}/);
-  assert.match(dast, /cmd_options: '-a --auto -c \$\{\{ matrix\.rules \}\}'/);
+  assert.match(dast, /cmd_options: '-a --auto -c \$\{\{ matrix\.summary_rules \}\}'/);
+  assert.match(dast, /ZAP_POLICY_PATH: \$\{\{ matrix\.exact_policy \}\}/);
+  assert.match(dast, /ZAP_SUMMARY_POLICY_PATH: \$\{\{ matrix\.summary_rules \}\}/);
   assert.match(dast, /rm -f report_json[.]json zap[.]yaml/);
   assert.match(dast, /if: always\(\)[\s\S]*node scripts\/validate-zap-report[.]mjs/);
 
@@ -119,10 +124,34 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   ]);
   assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10049|10055|90004|90005)\t/m);
   assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10003|10010|10011|10017|10019|10038|10054|10062|10105|10202)\t/m);
+
+  const summaryPolicies = [
+    ['floriankreutzer[.]github[.]io', readSummaryPolicyRows(staticSummaryRules)],
+    ['conference-manager-demo[.]onrender[.]com', readSummaryPolicyRows(customerSummaryRules)],
+    ['conference-manager-ops-demo[.]onrender[.]com', readSummaryPolicyRows(platformSummaryRules)],
+  ];
+  for (const [host, rows] of summaryPolicies) {
+    for (const { pluginId, pattern } of rows) {
+      assert.match(pluginId, /^\d+$/);
+      assert.ok(pattern.includes(host));
+      assert.doesNotMatch(pattern, /\.\*/);
+    }
+  }
+  assert.deepEqual(readSummaryPolicyRows(customerSummaryRules).map(({ pluginId }) => pluginId), [
+    '10015', '10049', '10055', '90005',
+  ]);
+  assert.deepEqual(readSummaryPolicyRows(platformSummaryRules).map(({ pluginId }) => pluginId), [
+    '10015', '10049', '10055', '90005',
+  ]);
+  assert.deepEqual(readSummaryPolicyRows(staticSummaryRules).map(({ pluginId }) => pluginId), [
+    '10015', '10020', '10021', '10035', '10049', '10050',
+    '10055', '10063', '10094', '10098', '90004', '90005',
+  ]);
 });
 
 const exactPolicyFixture = () => ({
   rows: readPolicyRows('10049-2\tOUTOFSCOPE\t^https://example[.]test/$'),
+  summaryRows: readSummaryPolicyRows('10049\tINFO\t^https://example[.]test/$'),
   riskPolicy: {
     schemaVersion: 1,
     surfaces: {
@@ -132,23 +161,14 @@ const exactPolicyFixture = () => ({
       },
     },
   },
-  plan: [
-    'jobs:',
-    '- alertFilters:',
-    '  - newRisk: False Positive',
-    '    ruleId: 10049-2',
-    '    url: ^https://example[.]test/$',
-    '    urlRegex: true',
-    '  type: alertFilter',
-    '',
-  ].join('\n'),
+  plan: 'jobs:\n- type: spider\n',
 });
 
 const reportFixture = ({
   alertRef = '10049-2',
   pluginid = '10049',
   riskcode = '0',
-  confidence = '0',
+  confidence = '2',
   uri = 'https://example.test/',
   method = 'GET',
   instances,
@@ -173,6 +193,7 @@ const validateFixture = (report, overrides = {}) => {
   return validateZapReport({
     report,
     policyRows: fixture.rows,
+    summaryPolicyRows: fixture.summaryRows,
     riskPolicy: fixture.riskPolicy,
     surface: 'example',
     target: 'https://example.test/',
@@ -183,41 +204,32 @@ const validateFixture = (report, overrides = {}) => {
 
 test('exact ZAP policy accepts only the reviewed alert reference, URL and risk', () => {
   assert.deepEqual(validateFixture(reportFixture()), { instanceCount: 1, surface: 'example' });
-  const cleanReport = reportFixture();
-  cleanReport.site[0].alerts = [];
-  assert.deepEqual(validateFixture(cleanReport), { instanceCount: 0, surface: 'example' });
   assert.throws(() => validateFixture(reportFixture({ alertRef: '10049-3' })), /Unreviewed/);
   assert.throws(() => validateFixture(reportFixture({ alertRef: '90005-5', pluginid: '90005' })), /Unreviewed/);
   assert.throws(() => validateFixture(reportFixture({ uri: 'https://example.test/new' })), /matched 0/);
-  assert.throws(() => validateFixture(reportFixture({ confidence: '2' })), /not classified/);
+  assert.throws(() => validateFixture(reportFixture({ confidence: '0' })), /unfiltered raw/);
+  assert.throws(() => validateFixture(reportFixture({ confidence: 2 })), /unfiltered raw/);
   assert.throws(() => validateFixture(reportFixture({ riskcode: '1' })), /exceeds/);
-  assert.throws(() => validateFixture(reportFixture({ riskcode: null })), /invalid risk code/);
-  assert.throws(() => validateFixture(reportFixture({ riskcode: '' })), /invalid risk code/);
-  assert.throws(() => validateFixture(reportFixture({ riskcode: 0 })), /invalid risk code/);
-  assert.throws(() => validateFixture(reportFixture({ confidence: 0 })), /not classified/);
+  assert.throws(() => validateFixture(reportFixture({ riskcode: null })), /canonical risk/);
+  assert.throws(() => validateFixture(reportFixture({ riskcode: '' })), /canonical risk/);
+  assert.throws(() => validateFixture(reportFixture({ riskcode: '-1' })), /canonical risk/);
+  assert.throws(() => validateFixture(reportFixture({ riskcode: '4' })), /canonical risk/);
   assert.throws(() => validateFixture(reportFixture({ uri: 'https://other.test/' })), /escaped/);
-  assert.deepEqual(validateFixture(reportFixture({ instances: [] })), { instanceCount: 0, surface: 'example' });
+  assert.throws(() => validateFixture(reportFixture({ uri: 'https://example.test/?changed=1' })), /matched 0/);
+  assert.throws(() => validateFixture(reportFixture({ instances: [] })), /no reviewable instances/);
 
-  const unclassifiedEmpty = reportFixture({ confidence: '2', instances: [] });
-  assert.throws(() => validateFixture(unclassifiedEmpty), /not classified/);
+  const cleanReport = reportFixture();
+  cleanReport.site[0].alerts = [];
+  assert.deepEqual(validateFixture(cleanReport), { instanceCount: 0, surface: 'example' });
 
-  const wrongSite = reportFixture();
-  wrongSite.site[0]['@name'] = 'https://other.test';
-  wrongSite.site[0]['@host'] = 'other.test';
-  assert.throws(() => validateFixture(wrongSite), /site identity/);
-
-  const wrongPlanUrl = exactPolicyFixture().plan.replace('example[.]test', 'other[.]test');
-  assert.throws(() => validateFixture(reportFixture(), { automationPlan: wrongPlanUrl }), /one exact filter/);
-
-  const extraPlanFilter = exactPolicyFixture().plan.replace(
-    '  type: alertFilter',
-    '  - newRisk: False Positive\n    ruleId: 10049-3\n    url: ^https://example[.]test/$\n    urlRegex: true\n  type: alertFilter',
-  );
-  assert.throws(() => validateFixture(reportFixture(), { automationPlan: extraPlanFilter }), /filter counts/);
-
-  const invalidRiskPolicy = structuredClone(exactPolicyFixture().riskPolicy);
-  invalidRiskPolicy.surfaces.example.maxRiskByAlertRef['10049-2'] = '0';
-  assert.throws(() => validateFixture(reportFixture(), { riskPolicy: invalidRiskPolicy }), /risk policy/);
+  const wrongSite = structuredClone(cleanReport);
+  wrongSite.site[0]['@name'] = 'https://wrong.example';
+  wrongSite.site[0]['@host'] = 'wrong.example';
+  assert.throws(() => validateFixture(wrongSite), /site metadata/);
+  assert.throws(() => validateFixture({ site: [...cleanReport.site, ...cleanReport.site] }), /exactly one/);
+  assert.throws(() => validateFixture(reportFixture(), {
+    automationPlan: 'jobs:\n- type: alertFilter\n',
+  }), /must not filter/);
 
   const bareRows = readPolicyRows('10049\tOUTOFSCOPE\t^https://example[.]test/$');
   assert.throws(() => validateFixture(reportFixture(), { policyRows: bareRows }), /differ/);
@@ -225,9 +237,22 @@ test('exact ZAP policy accepts only the reviewed alert reference, URL and risk',
   const duplicateRows = [...exactPolicyFixture().rows, ...exactPolicyFixture().rows];
   assert.throws(() => validateFixture(reportFixture(), { policyRows: duplicateRows }), /duplicate/);
 
-  const duplicateSite = reportFixture();
-  duplicateSite.site.push(structuredClone(duplicateSite.site[0]));
-  assert.throws(() => validateFixture(duplicateSite), /exactly one scanned site/);
+  const badMaximum = exactPolicyFixture().riskPolicy;
+  badMaximum.surfaces.example.maxRiskByAlertRef['10049-2'] = null;
+  assert.throws(() => validateFixture(reportFixture(), { riskPolicy: badMaximum }), /maximum risk/);
+
+  const driftedSummary = readSummaryPolicyRows('10055\tINFO\t^https://example[.]test/$');
+  assert.throws(() => validateFixture(reportFixture(), { summaryPolicyRows: driftedSummary }), /exact projection/);
+  const changedPatternSummary = readSummaryPolicyRows('10049\tINFO\t^https://example[.]test/path$');
+  assert.throws(() => validateFixture(reportFixture(), { summaryPolicyRows: changedPatternSummary }), /preserve/);
+  assert.throws(
+    () => readSummaryPolicyRows('10049-2\tINFO\t^https://example[.]test/$'),
+    /unsuffixed/,
+  );
+  assert.throws(
+    () => readSummaryPolicyRows('10049\tIGNORE\t^https://example[.]test/$'),
+    /must use INFO/,
+  );
 });
 
 test('ZAP report validation fails closed for missing, malformed and stale generated evidence', () => {
@@ -237,15 +262,18 @@ test('ZAP report validation fails closed for missing, malformed and stale genera
     const paths = {
       report: join(directory, 'report.json'),
       rules: join(directory, 'rules.tsv'),
+      summaryRules: join(directory, 'summary-rules.tsv'),
       risks: join(directory, 'risks.json'),
       plan: join(directory, 'zap.yaml'),
     };
     writeFileSync(paths.rules, '10049-2\tOUTOFSCOPE\t^https://example[.]test/$');
+    writeFileSync(paths.summaryRules, '10049\tINFO\t^https://example[.]test/$');
     writeFileSync(paths.risks, JSON.stringify(fixture.riskPolicy));
     writeFileSync(paths.plan, fixture.plan);
     const env = {
       ZAP_REPORT_PATH: paths.report,
       ZAP_POLICY_PATH: paths.rules,
+      ZAP_SUMMARY_POLICY_PATH: paths.summaryRules,
       ZAP_RISK_POLICY_PATH: paths.risks,
       ZAP_AUTOMATION_PLAN_PATH: paths.plan,
       ZAP_SURFACE: 'example',

@@ -404,8 +404,9 @@ if (!/persist-credentials:\s*false/.test(dast)) {
 if (/--location|(?:^|\s)-I(?:\s|$)/m.test(dast)) {
   fail('.github/workflows/dast.yml: readiness redirects and warning-tolerant ZAP execution are forbidden.');
 }
-if (/rules_file_name:/.test(dast) || !/cmd_options:\s*'-a --auto -c \$\{\{ matrix\.rules \}\}'/.test(dast)) {
-  fail('.github/workflows/dast.yml: ZAP must pass the reviewed target policy explicitly through the Automation Framework with alpha rules.');
+if (/rules_file_name:/.test(dast)
+    || !/cmd_options:\s*'-a --auto -c \$\{\{ matrix\.summary_rules \}\}'/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must pass the reviewed plugin-summary projection explicitly with alpha rules.');
 }
 if (/continue-on-error:/.test(dast)) {
   fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');
@@ -417,6 +418,8 @@ for (const proof of [
   'scripts/validate-zap-report.mjs',
   'rm -f report_json.json zap.yaml',
   'if: always()',
+  'ZAP_POLICY_PATH: ${{ matrix.exact_policy }}',
+  'ZAP_SUMMARY_POLICY_PATH: ${{ matrix.summary_rules }}',
   'node scripts/validate-zap-report.mjs',
 ]) {
   if (!dast.includes(proof)) fail(`.github/workflows/dast.yml: missing exact-alert proof ${proof}.`);
@@ -472,18 +475,47 @@ for (const [policyPath, host] of [
 }
 
 const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
-for (const [surface, policyPath] of [
-  ['static-launchpad', '.zap/static-launchpad.tsv'],
-  ['customer-demo', '.zap/customer-demo.tsv'],
-  ['platform-demo', '.zap/platform-demo.tsv'],
+for (const [surface, policyPath, summaryPath] of [
+  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv'],
+  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv'],
+  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv'],
 ]) {
-  const policyRefs = readFileSync(policyPath, 'utf8')
+  const exactRows = readFileSync(policyPath, 'utf8')
     .split('\n')
     .filter((line) => line && !line.startsWith('#'))
-    .map((line) => line.split('\t')[0]);
+    .map((line) => line.split('\t'));
+  const policyRefs = exactRows.map(([alertRef]) => alertRef);
   const riskRefs = Object.keys(reviewedAlertRisks.surfaces?.[surface]?.maxRiskByAlertRef ?? {});
   if (policyRefs.length !== riskRefs.length || policyRefs.some((alertRef) => !riskRefs.includes(alertRef))) {
     fail(`${policyPath}: alert references must exactly match .zap/reviewed-alert-risks.json.`);
+  }
+  const exactPatternsByPlugin = new Map();
+  for (const [alertRef, , pattern] of exactRows) {
+    const pluginId = alertRef.split('-', 1)[0];
+    const patterns = exactPatternsByPlugin.get(pluginId) ?? new Set();
+    patterns.add(pattern);
+    exactPatternsByPlugin.set(pluginId, patterns);
+  }
+  const summaryRows = readFileSync(summaryPath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('\t'));
+  const summaryIds = new Set();
+  for (const [pluginId, action, pattern, ...extra] of summaryRows) {
+    if (!/^\d+$/.test(pluginId) || action !== 'INFO' || !pattern || extra.length) {
+      fail(`${summaryPath}: rows must use one unsuffixed numeric plugin ID, INFO and one URL pattern.`);
+      continue;
+    }
+    if (summaryIds.has(pluginId)) fail(`${summaryPath}: duplicate plugin ID ${pluginId}.`);
+    summaryIds.add(pluginId);
+    const exactPatterns = exactPatternsByPlugin.get(pluginId);
+    if (!exactPatterns || exactPatterns.size !== 1 || !exactPatterns.has(pattern)) {
+      fail(`${summaryPath}: plugin ${pluginId} must preserve its one exact reviewed URL pattern.`);
+    }
+  }
+  if (summaryIds.size !== exactPatternsByPlugin.size
+      || [...exactPatternsByPlugin.keys()].some((pluginId) => !summaryIds.has(pluginId))) {
+    fail(`${summaryPath}: plugin IDs must be an exact projection of ${policyPath}.`);
   }
 }
 

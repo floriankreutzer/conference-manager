@@ -34,15 +34,24 @@ policy.
 
 The scheduled/manual ZAP workflow first requires a direct HTTP `200` from the Pages launchpad or the
 surface-specific Customer/Platform readiness endpoint, so a Render Free cold start cannot be
-mistaken for a scan result. It then applies separate reviewed policies while retaining `-a`,
-explicitly requiring ZAP's Automation Framework with `--auto`, and retaining `fail_action: true`;
-every new or unclassified alert still fails the workflow. URL-anchored `OUTOFSCOPE` rows classify
-only the exact alert reference and exact provider-controlled or intentionally configured response
-observed in the recorded scan. The four exact `90005-*` alert references are URL-scoped because
-ZAP's crawler, unlike a browser, does not send the `Sec-Fetch-Dest`, `Sec-Fetch-Mode`,
-`Sec-Fetch-Site` or `Sec-Fetch-User` request headers that the rules inspect. A sibling alert
-reference from the same plugin remains blocking. Broad plugin-level dispositions, `IGNORE`,
-wildcard exclusions and `-I` are prohibited.
+mistaken for a scan result. It retains `-a`, explicitly requires ZAP's Automation Framework with
+`--auto`, and retains `fail_action: true`. Because `zap-baseline.py` evaluates exit-summary rules by
+unsuffixed plugin ID, it receives an `INFO` compatibility map containing exactly the plugin IDs
+derived from each surface's exact policy. The map's third-column URL expression is repository-
+validated projection metadata; ZAP's plugin summary does not use it to filter findings. The
+compatibility map therefore does not filter or rewrite the report.
+An always-run repository validator independently requires the fresh raw report, exact HTTPS target
+metadata and an unfiltered instance for every finding, then binds each instance to one reviewed
+alert reference, URL, method and maximum risk. The projection's plugin set and URL patterns must be
+an exact derivation of the alert-reference policy.
+
+This two-layer gate means an unknown plugin remains action-blocking, while a new sibling alert
+reference, changed URL, risk escalation, filtered finding or wrong-origin report remains
+validator-blocking even when its base plugin appears in the compatibility projection. The four
+exact `90005-*` alert references are URL-scoped because ZAP's crawler, unlike a browser, does not
+send the `Sec-Fetch-Dest`, `Sec-Fetch-Mode`, `Sec-Fetch-Site` or `Sec-Fetch-User` request headers
+that the rules inspect. Broad plugin dispositions in the exact policy, `IGNORE`, `OUTOFSCOPE` in the
+action compatibility file, wildcard exclusions and `-I` are prohibited.
 
 The Pages policy is limited to cache behavior, response-header controls that GitHub Pages cannot
 configure, public-static CORS and GitHub account-root `404`/base64 observations. Its exact

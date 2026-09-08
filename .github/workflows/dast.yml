@@ -35,15 +35,18 @@ jobs:
           - surface: static-launchpad
             target: https://floriankreutzer.github.io/conference-manager/
             readiness: https://floriankreutzer.github.io/conference-manager/
-            rules: .zap/static-launchpad.tsv
+            exact_policy: .zap/static-launchpad.tsv
+            summary_rules: .zap/static-launchpad-summary.tsv
           - surface: customer-demo
             target: https://conference-manager-demo.onrender.com/
             readiness: https://conference-manager-demo.onrender.com/api/v1/health/ready
-            rules: .zap/customer-demo.tsv
+            exact_policy: .zap/customer-demo.tsv
+            summary_rules: .zap/customer-demo-summary.tsv
           - surface: platform-demo
             target: https://conference-manager-ops-demo.onrender.com/
             readiness: https://conference-manager-ops-demo.onrender.com/api/v1/platform/health/ready
-            rules: .zap/platform-demo.tsv
+            exact_policy: .zap/platform-demo.tsv
+            summary_rules: .zap/platform-demo-summary.tsv
     steps:
       - name: Checkout reviewed DAST policy
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -100,13 +103,14 @@ jobs:
           allow_issue_writing: false
           fail_action: true
           artifact_name: zap-baseline-${{ matrix.surface }}
-          cmd_options: '-a --auto -c ${{ matrix.rules }}'
+          cmd_options: '-a --auto -c ${{ matrix.summary_rules }}'
 
       - name: Verify exact alert references and reviewed risk
         if: always()
         env:
           ZAP_REPORT_PATH: report_json.json
-          ZAP_POLICY_PATH: ${{ matrix.rules }}
+          ZAP_POLICY_PATH: ${{ matrix.exact_policy }}
+          ZAP_SUMMARY_POLICY_PATH: ${{ matrix.summary_rules }}
           ZAP_RISK_POLICY_PATH: .zap/reviewed-alert-risks.json
           ZAP_AUTOMATION_PLAN_PATH: zap.yaml
           ZAP_SURFACE: ${{ matrix.surface }}
