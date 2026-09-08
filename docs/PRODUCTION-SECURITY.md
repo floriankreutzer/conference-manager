@@ -287,7 +287,9 @@ documented provider-controlled or intentional responses. The ZAP crawler's missi
 request headers are classified only for the four exact `90005-*` references at reviewed URLs, and
 every sibling reference, changed URL, other alert or readiness failure remains a failed control.
 Broad plugin-level dispositions, ignores, wildcard exclusions and warning-tolerant execution are
-prohibited. Those Demo classifications do not transfer to a Production scan.
+prohibited. GitHub Pages cache evidence is split between exact `10050-1` (`X-Cache: HIT`) and
+`10050-2` (valid `Age` header) references at enumerated public-static URLs. Those Demo
+classifications do not transfer to a Production scan.
 
 Exact-head CI, hosted acceptance and DAST results are recorded separately in the hardening register
 and GitHub checks. A historical successful run cannot be carried forward to a changed frontend/API

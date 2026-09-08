@@ -45,7 +45,9 @@ reference from the same plugin remains blocking. Broad plugin-level dispositions
 wildcard exclusions and `-I` are prohibited.
 
 The Pages policy is limited to cache behavior, response-header controls that GitHub Pages cannot
-configure, public-static CORS and GitHub account-root `404`/base64 observations. The Render policies
+configure, public-static CORS and GitHub account-root `404`/base64 observations. Its exact
+`10050-1` and `10050-2` entries distinguish an observed `X-Cache: HIT` from an observed valid
+`Age` header; both remain restricted to the enumerated public-static URLs. The Render policies
 classify the public shell/static `no-cache` behavior and the equivalent header-plus-meta CSP only at
 the exact observed URLs. API responses retain `no-store`; both Render shells require the tested
 cross-origin isolation headers. Cookie, anti-CSRF, CSP-absence, mixed-content, vulnerable-library,

@@ -42,6 +42,71 @@ export const readPolicyRows = (source) => source
     return { alertRef, pattern, urlPattern };
   });
 
+const yamlScalar = (source) => {
+  const value = source.trim();
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replaceAll("''", "'");
+  }
+  if (value.startsWith('"') && value.endsWith('"')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      throw new Error('The generated ZAP plan contains an invalid quoted value.');
+    }
+  }
+  return value;
+};
+
+export const readAutomationAlertFilters = (source) => {
+  const lines = source.split(/\r?\n/);
+  const headers = lines
+    .map((line, index) => (/^(\s*)(?:-\s+)?alertFilters:\s*$/.test(line) ? index : -1))
+    .filter((index) => index >= 0);
+  if (headers.length !== 1) {
+    throw new Error('The generated ZAP plan must contain exactly one alertFilters collection.');
+  }
+
+  const headerIndex = headers[0];
+  const headerIndent = lines[headerIndex].match(/^\s*/)[0].length;
+  const supportedFields = new Set(['newRisk', 'ruleId', 'url', 'urlRegex']);
+  const filters = [];
+  let current = null;
+  let entryIndent = -1;
+
+  const setField = (key, value) => {
+    if (Object.hasOwn(current, key)) {
+      throw new Error(`The generated ZAP plan repeats ${key} in an alert filter.`);
+    }
+    current[key] = yamlScalar(value);
+  };
+
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.trim() || line.trimStart().startsWith('#')) continue;
+    const indent = line.match(/^\s*/)[0].length;
+    const firstField = line.match(/^\s*-\s+([A-Za-z][A-Za-z0-9]*):\s*(.*)$/);
+    if (firstField && indent >= headerIndent && supportedFields.has(firstField[1])) {
+      if (current) filters.push(current);
+      current = {};
+      entryIndent = indent;
+      setField(firstField[1], firstField[2]);
+      continue;
+    }
+
+    const nextField = line.match(/^\s+([A-Za-z][A-Za-z0-9]*):\s*(.*)$/);
+    if (current && indent > entryIndent && nextField && supportedFields.has(nextField[1])) {
+      setField(nextField[1], nextField[2]);
+      continue;
+    }
+
+    if (current) filters.push(current);
+    current = null;
+    break;
+  }
+  if (current) filters.push(current);
+  return filters;
+};
+
 const readFreshText = (path, label, startedAtMs) => {
   let metadata;
   let source;
@@ -70,13 +135,22 @@ export const validateZapReport = ({
   if (riskPolicy?.schemaVersion !== 1 || !surfacePolicy) {
     throw new Error(`No reviewed risk policy exists for ${surface}.`);
   }
-  const targetOrigin = new URL(target).origin;
+  const targetUrl = new URL(target);
+  const targetOrigin = targetUrl.origin;
   if (surfacePolicy.origin !== targetOrigin) {
     throw new Error(`The reviewed origin for ${surface} does not match the scan target.`);
   }
   const maxRiskByAlertRef = surfacePolicy.maxRiskByAlertRef;
   if (!maxRiskByAlertRef || Array.isArray(maxRiskByAlertRef) || typeof maxRiskByAlertRef !== 'object') {
     throw new Error(`The reviewed risk policy for ${surface} is invalid.`);
+  }
+  for (const [alertRef, maxRisk] of Object.entries(maxRiskByAlertRef)) {
+    if (!/^\d+(?:-\d+)?$/.test(alertRef)
+        || !Number.isInteger(maxRisk)
+        || maxRisk < 0
+        || maxRisk > 3) {
+      throw new Error(`The reviewed risk policy for ${alertRef} is invalid.`);
+    }
   }
 
   const configuredRefs = policyRows.map(({ alertRef }) => alertRef);
@@ -91,37 +165,56 @@ export const validateZapReport = ({
   if (!/\btype:\s*alertFilter\b/.test(automationPlan)) {
     throw new Error('The generated ZAP plan does not prove Automation Framework alert filtering.');
   }
-  for (const { alertRef } of policyRows) {
-    const escaped = alertRef.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (!new RegExp(`\\bruleId:\\s*['\"]?${escaped}['\"]?\\s*$`, 'm').test(automationPlan)) {
-      throw new Error(`The generated ZAP plan is missing exact alertRef ${alertRef}.`);
+  const automationFilters = readAutomationAlertFilters(automationPlan);
+  if (automationFilters.length !== policyRows.length) {
+    throw new Error('The generated ZAP plan and reviewed policy contain different alert-filter counts.');
+  }
+  for (const { alertRef, pattern } of policyRows) {
+    const matches = automationFilters.filter((filter) => filter.ruleId === alertRef
+      && filter.newRisk === 'False Positive'
+      && filter.url === pattern
+      && filter.urlRegex === 'true');
+    if (matches.length !== 1) {
+      throw new Error(`The generated ZAP plan does not contain one exact filter for ${alertRef}.`);
     }
   }
-
-  if (!Array.isArray(report?.site) || report.site.length === 0) {
-    throw new Error('The ZAP report does not contain a scanned site.');
+  if (!Array.isArray(report?.site) || report.site.length !== 1) {
+    throw new Error('The ZAP report must contain exactly one scanned site.');
   }
+  const expectedPort = targetUrl.port || (targetUrl.protocol === 'https:' ? '443' : '80');
   let instanceCount = 0;
   for (const site of report.site) {
+    if (site?.['@name'] !== targetOrigin
+        || site?.['@host'] !== targetUrl.hostname
+        || site?.['@port'] !== expectedPort
+        || site?.['@ssl'] !== (targetUrl.protocol === 'https:' ? 'true' : 'false')) {
+      throw new Error('The ZAP report site identity does not match the scan target.');
+    }
     if (!Array.isArray(site?.alerts)) throw new Error('The ZAP report has an invalid alerts collection.');
     for (const alert of site.alerts) {
       const { alertRef } = alert ?? {};
       if (typeof alertRef !== 'string' || !Object.hasOwn(maxRiskByAlertRef, alertRef)) {
         throw new Error(`Unreviewed ZAP alert reference: ${String(alertRef)}.`);
       }
-      const pluginId = String(alert.pluginid ?? '');
+      const pluginId = alert.pluginid;
+      if (typeof pluginId !== 'string' || !/^\d+$/.test(pluginId)) {
+        throw new Error(`Alert ${alertRef} has an invalid plugin ID.`);
+      }
       if (!alertRef.startsWith(`${pluginId}-`) && alertRef !== pluginId) {
         throw new Error(`Alert ${alertRef} has an inconsistent plugin ID.`);
       }
+      if (typeof alert.riskcode !== 'string' || !/^[0-3]$/.test(alert.riskcode)) {
+        throw new Error(`Alert ${alertRef} has an invalid risk code.`);
+      }
       const riskCode = Number(alert.riskcode);
-      if (!Number.isInteger(riskCode) || riskCode > maxRiskByAlertRef[alertRef]) {
+      if (riskCode > maxRiskByAlertRef[alertRef]) {
         throw new Error(`Alert ${alertRef} exceeds its reviewed risk.`);
       }
-      if (String(alert.confidence) !== '0') {
+      if (alert.confidence !== '0') {
         throw new Error(`Alert ${alertRef} was not classified by the exact Automation Framework filter.`);
       }
-      if (!Array.isArray(alert.instances) || alert.instances.length === 0) {
-        throw new Error(`Alert ${alertRef} has no reviewable instances.`);
+      if (!Array.isArray(alert.instances)) {
+        throw new Error(`Alert ${alertRef} has an invalid instances collection.`);
       }
       for (const instance of alert.instances) {
         instanceCount += 1;

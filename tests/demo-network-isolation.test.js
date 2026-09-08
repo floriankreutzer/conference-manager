@@ -73,6 +73,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.doesNotMatch(dast, /rules_file_name:/);
   assert.doesNotMatch(dast, /continue-on-error:/);
   assert.match(dast, /fail_action:\s*true/);
+  assert.match(dast, /group: zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref \}\}/);
   assert.match(dast, /cmd_options: '-a --auto -c \$\{\{ matrix\.rules \}\}'/);
   assert.match(dast, /rm -f report_json[.]json zap[.]yaml/);
   assert.match(dast, /if: always\(\)[\s\S]*node scripts\/validate-zap-report[.]mjs/);
@@ -112,7 +113,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
     '10015', '10049-2', '10055-12', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.deepEqual(policyRows(staticRules).map(([id]) => id), [
-    '10015', '10020-1', '10021', '10035-1', '10049-3', '10050-1',
+    '10015', '10020-1', '10021', '10035-1', '10049-3', '10050-1', '10050-2',
     '10055-6', '10055-12', '10055-13', '10063-1', '10094-3', '10098',
     '90004-2', '90004-3', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
@@ -131,7 +132,16 @@ const exactPolicyFixture = () => ({
       },
     },
   },
-  plan: 'jobs:\n- type: alertFilter\n  alertFilters:\n  - ruleId: 10049-2\n',
+  plan: [
+    'jobs:',
+    '- alertFilters:',
+    '  - newRisk: False Positive',
+    '    ruleId: 10049-2',
+    '    url: ^https://example[.]test/$',
+    '    urlRegex: true',
+    '  type: alertFilter',
+    '',
+  ].join('\n'),
 });
 
 const reportFixture = ({
@@ -144,6 +154,10 @@ const reportFixture = ({
   instances,
 } = {}) => ({
   site: [{
+    '@name': 'https://example.test',
+    '@host': 'example.test',
+    '@port': '443',
+    '@ssl': 'true',
     alerts: [{
       pluginid,
       alertRef,
@@ -169,19 +183,51 @@ const validateFixture = (report, overrides = {}) => {
 
 test('exact ZAP policy accepts only the reviewed alert reference, URL and risk', () => {
   assert.deepEqual(validateFixture(reportFixture()), { instanceCount: 1, surface: 'example' });
+  const cleanReport = reportFixture();
+  cleanReport.site[0].alerts = [];
+  assert.deepEqual(validateFixture(cleanReport), { instanceCount: 0, surface: 'example' });
   assert.throws(() => validateFixture(reportFixture({ alertRef: '10049-3' })), /Unreviewed/);
   assert.throws(() => validateFixture(reportFixture({ alertRef: '90005-5', pluginid: '90005' })), /Unreviewed/);
   assert.throws(() => validateFixture(reportFixture({ uri: 'https://example.test/new' })), /matched 0/);
   assert.throws(() => validateFixture(reportFixture({ confidence: '2' })), /not classified/);
   assert.throws(() => validateFixture(reportFixture({ riskcode: '1' })), /exceeds/);
+  assert.throws(() => validateFixture(reportFixture({ riskcode: null })), /invalid risk code/);
+  assert.throws(() => validateFixture(reportFixture({ riskcode: '' })), /invalid risk code/);
+  assert.throws(() => validateFixture(reportFixture({ riskcode: 0 })), /invalid risk code/);
+  assert.throws(() => validateFixture(reportFixture({ confidence: 0 })), /not classified/);
   assert.throws(() => validateFixture(reportFixture({ uri: 'https://other.test/' })), /escaped/);
-  assert.throws(() => validateFixture(reportFixture({ instances: [] })), /no reviewable instances/);
+  assert.deepEqual(validateFixture(reportFixture({ instances: [] })), { instanceCount: 0, surface: 'example' });
+
+  const unclassifiedEmpty = reportFixture({ confidence: '2', instances: [] });
+  assert.throws(() => validateFixture(unclassifiedEmpty), /not classified/);
+
+  const wrongSite = reportFixture();
+  wrongSite.site[0]['@name'] = 'https://other.test';
+  wrongSite.site[0]['@host'] = 'other.test';
+  assert.throws(() => validateFixture(wrongSite), /site identity/);
+
+  const wrongPlanUrl = exactPolicyFixture().plan.replace('example[.]test', 'other[.]test');
+  assert.throws(() => validateFixture(reportFixture(), { automationPlan: wrongPlanUrl }), /one exact filter/);
+
+  const extraPlanFilter = exactPolicyFixture().plan.replace(
+    '  type: alertFilter',
+    '  - newRisk: False Positive\n    ruleId: 10049-3\n    url: ^https://example[.]test/$\n    urlRegex: true\n  type: alertFilter',
+  );
+  assert.throws(() => validateFixture(reportFixture(), { automationPlan: extraPlanFilter }), /filter counts/);
+
+  const invalidRiskPolicy = structuredClone(exactPolicyFixture().riskPolicy);
+  invalidRiskPolicy.surfaces.example.maxRiskByAlertRef['10049-2'] = '0';
+  assert.throws(() => validateFixture(reportFixture(), { riskPolicy: invalidRiskPolicy }), /risk policy/);
 
   const bareRows = readPolicyRows('10049\tOUTOFSCOPE\t^https://example[.]test/$');
   assert.throws(() => validateFixture(reportFixture(), { policyRows: bareRows }), /differ/);
 
   const duplicateRows = [...exactPolicyFixture().rows, ...exactPolicyFixture().rows];
   assert.throws(() => validateFixture(reportFixture(), { policyRows: duplicateRows }), /duplicate/);
+
+  const duplicateSite = reportFixture();
+  duplicateSite.site.push(structuredClone(duplicateSite.site[0]));
+  assert.throws(() => validateFixture(duplicateSite), /exactly one scanned site/);
 });
 
 test('ZAP report validation fails closed for missing, malformed and stale generated evidence', () => {

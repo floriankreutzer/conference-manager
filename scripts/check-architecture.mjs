@@ -410,6 +410,9 @@ if (/rules_file_name:/.test(dast) || !/cmd_options:\s*'-a --auto -c \$\{\{ matri
 if (/continue-on-error:/.test(dast)) {
   fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');
 }
+if (!/group:\s*zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref \}\}/.test(dast)) {
+  fail('.github/workflows/dast.yml: PR scans must not cancel trusted main, scheduled or manual DAST evidence.');
+}
 for (const proof of [
   'scripts/validate-zap-report.mjs',
   'rm -f report_json.json zap.yaml',
