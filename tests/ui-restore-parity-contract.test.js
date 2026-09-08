@@ -26,6 +26,10 @@ test('SaaS 3.6 UI restore contract inventories every approved capability surface
     assert.match(contract, new RegExp(`REG-${String(index).padStart(2, '0')}`));
   }
 
+  assert.equal((contract.match(/^\| `EMP-\d{2}` \|/gm) || []).length, 15);
+  assert.equal((contract.match(/^\| `MGR-\d{2}` \|/gm) || []).length, 14);
+  assert.equal((contract.match(/^\| `REG-\d{2}` \|/gm) || []).length, 5);
+
   for (const disposition of [
     'RESTORE_REQUIRED',
     'RETAIN_AND_ENHANCE',
