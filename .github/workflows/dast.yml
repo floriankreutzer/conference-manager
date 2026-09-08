@@ -2,6 +2,11 @@ name: OWASP ZAP Baseline
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/dast.yml
+      - .zap/**
+      - scripts/validate-zap-report.mjs
   push:
     branches:
       - main
