@@ -166,6 +166,19 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /if \(!sourceRequest && !restoredDraft && !allocationRows\.length/);
 });
 
+test('server-backed Employee editor restores the six-step presentation without changing authority', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+
+  assert.match(employee, /const stepLabels = \[[\s\S]*'request\.step\.review'/);
+  assert.match(employee, /dataset: \{ stepPanel: '6' \}/);
+  assert.match(employee, /className: 'ux-mobile-progress'/);
+  assert.match(employee, /className: 'participant-total'/);
+  assert.match(employee, /className: 'selection-grid'/);
+  assert.match(employee, /const renderReview = \(\) =>/);
+  assert.match(employee, /availabilityKey\(currentAvailabilityWindow\(\)\) !== verifiedAvailabilityKey/);
+  assert.doesNotMatch(employee, /t\('settings\.catalogue\.title'\)/);
+});
+
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
   const request = {
     roomId: 'room-1',

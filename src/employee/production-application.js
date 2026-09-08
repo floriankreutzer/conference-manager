@@ -1,4 +1,4 @@
-import { formatNumber, locale, t } from '../core/i18n.js';
+import { formatMoney, formatNumber, locale, t } from '../core/i18n.js';
 import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { openProductionBookingChangeDialog } from '../shared/production-booking-change-editor.js';
 import {
@@ -381,6 +381,70 @@ export function createProductionEmployeeApplication({
         servicePanel.appendChild(el('label', {}, [control, document.createTextNode(` ${service.name}`)]));
       });
     };
+    const roomSelectionPanel = el('section', {
+      className: 'selection-grid',
+      attrs: { 'aria-label': t('a11y.availableRooms') },
+    });
+    const renderRoomControls = () => {
+      clear(roomSelectionPanel);
+      const participants = (safeParticipantCount(internal.value) || 0)
+        + (safeParticipantCount(external.value) || 0);
+      const selectedRoom = rooms.find((entry) => entry.id === room.value);
+      if (selectedRoom && !roomSupportsParticipants(
+        selectedRoom,
+        participants,
+        requestCatalog.bookingPolicy?.rules?.maximumParticipants,
+      )) room.value = '';
+      rooms.forEach((entry) => {
+        const supported = roomSupportsParticipants(
+          entry,
+          participants,
+          requestCatalog.bookingPolicy?.rules?.maximumParticipants,
+        );
+        const selected = room.value === entry.id;
+        const card = el('article', {
+          className: `option-card${selected ? ' selected' : ''}${supported ? '' : ' disabled'}`,
+          dataset: { roomId: entry.id },
+        }, [
+          el('span', {
+            className: `badge ${supported ? 'success' : 'danger'}`,
+            text: supported ? t('room.available') : t('a11y.unavailable'),
+          }),
+          el('h3', { text: entry.name }),
+          el('p', { text: t('room.capacity', { capacity: entry.capacity, needed: participants }) }),
+        ]);
+        if (entry.price) {
+          card.appendChild(el('strong', {
+            className: 'price',
+            text: `${formatMoney(Number(entry.price.amountMinor || 0) / 100)} · ${t('room.cost')}`,
+          }));
+        }
+        const select = button(selected ? t('a11y.selected') : t('a11y.roomSelect'), {
+          className: selected ? 'primary' : 'secondary',
+          disabled: !supported,
+          attrs: { 'aria-pressed': String(selected) },
+          dataset: { roomAction: 'select' },
+        });
+        select.addEventListener('click', () => {
+          room.value = entry.id;
+          room.dispatchEvent(new Event('input', { bubbles: true }));
+          room.dispatchEvent(new Event('change', { bubbles: true }));
+          renderRoomControls();
+        });
+        card.appendChild(el('div', { className: 'button-row' }, [select]));
+        roomSelectionPanel.appendChild(card);
+      });
+    };
+    const refreshRoomsForParticipants = () => {
+      const previousRoomId = room.value;
+      renderRoomControls();
+      if (previousRoomId && !room.value) {
+        renderServiceControls();
+        renderCateringControls();
+      }
+    };
+    internal.addEventListener('input', refreshRoomsForParticipants);
+    external.addEventListener('input', refreshRoomsForParticipants);
     const cateringPanel = el('section', { attrs: { 'aria-label': t('catering.heading') } });
     const renderCateringControls = () => {
       clear(cateringPanel);
@@ -554,6 +618,7 @@ export function createProductionEmployeeApplication({
       submit.disabled = true;
       status.className = 'muted';
       status.textContent = t('production.employee.availabilityRequired');
+      if (actions?.isConnected) renderActiveStep();
     };
     let previousStartDate = date.value;
     date.addEventListener('input', () => {
@@ -565,40 +630,250 @@ export function createProductionEmployeeApplication({
     room.addEventListener('change', () => {
       renderServiceControls();
       renderCateringControls();
+      renderRoomControls();
     });
 
-    const step = (number, label, children) => el('fieldset', { className: 'card' }, [
-      el('legend', { text: `${number}/6 · ${label}` }), ...children,
+    const stepLabels = [
+      'request.step.schedule',
+      'request.step.room',
+      'request.step.services',
+      'request.step.catering',
+      'request.step.costs',
+      'request.step.review',
+    ];
+    const participantTotal = el('section', {
+      className: 'participant-total',
+      attrs: { 'aria-live': 'polite' },
+    });
+    const updateParticipantTotal = () => {
+      const count = (safeParticipantCount(internal.value) || 0)
+        + (safeParticipantCount(external.value) || 0);
+      clear(participantTotal);
+      participantTotal.append(
+        el('span', { text: t('schedule.total') }),
+        el('strong', { text: String(count) }),
+        el('small', { text: t('schedule.totalHint') }),
+      );
+    };
+    internal.addEventListener('input', updateParticipantTotal);
+    external.addEventListener('input', updateParticipantTotal);
+    updateParticipantTotal();
+
+    const scheduleGrid = el('div', { className: 'form-grid two' }, [
+      field({ id: 'productionTitle', label: t('schedule.title'), control: title, required: true }),
+      field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
+      field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
+      field({ id: 'productionEndDate', label: t('production.employee.endDate'), control: endDate, required: true }),
+      field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
+      field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
+      field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
+      participantTotal,
     ]);
-    root.append(
-      step(1, t('production.employee.title'), [
-        field({ id: 'productionTitle', label: t('production.employee.title'), control: title, required: true }),
+    const panels = [
+      el('section', { className: 'card wizard-card', dataset: { stepPanel: '1' } }, [
+        el('div', { className: 'section-heading' }, [
+          el('div', {}, [el('h2', { text: t('schedule.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('schedule.desc') })]),
+        ]),
+        scheduleGrid,
+        field({
+          id: 'productionSpecial', label: t('schedule.special'), control: specialRequirements,
+          hint: t('schedule.specialHint'), optional: true,
+        }),
       ]),
-      step(2, t('schedule.date'), [
-        field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
-        field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
-        field({ id: 'productionEndDate', label: t('production.employee.endDate'), control: endDate, required: true }),
-        field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
-      ]),
-      step(3, t('production.employee.room'), [
+      el('section', { className: 'card wizard-card', dataset: { stepPanel: '2' } }, [
+        el('div', { className: 'section-heading' }, [
+          el('div', {}, [el('h2', { text: t('room.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('room.desc') })]),
+        ]),
         field({ id: 'productionRoom', label: t('production.employee.room'), control: room, required: true }),
+        roomSelectionPanel,
+        el('aside', { className: 'info-box', attrs: { role: 'note' }, text: t('room.refreshHint') }),
       ]),
-      step(4, t('production.common.participants', { count: 0 }), [
-        field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
-        field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
-      ]),
-      step(5, t('settings.catalogue.title'), [
+      el('section', { className: 'card wizard-card', dataset: { stepPanel: '3' } }, [
+        el('div', { className: 'section-heading' }, [
+          el('div', {}, [el('h2', { text: t('services.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('services.desc') })]),
+        ]),
         servicePanel,
+      ]),
+      el('section', { className: 'card wizard-card', dataset: { stepPanel: '4' } }, [
         cateringPanel,
-      ]),
-      step(6, t('production.employee.submit'), [
-        allocationPanel,
         field({ id: 'productionDietary', label: t('catering.dietary'), control: dietaryRequirements }),
-        field({ id: 'productionSpecial', label: t('production.manager.reason'), control: specialRequirements }),
       ]),
+      el('section', { className: 'card wizard-card', dataset: { stepPanel: '5' } }, [
+        el('div', { className: 'section-heading' }, [
+          el('div', {}, [el('h2', { text: t('cost.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('cost.desc') })]),
+        ]),
+        allocationPanel,
+      ]),
+      el('section', { className: 'card wizard-card', dataset: { stepPanel: '6' } }),
+    ];
+    const stepper = el('nav', { className: 'stepper', attrs: { 'aria-label': t('a11y.steps') } });
+    const stepperList = el('ol');
+    const stepControls = stepLabels.map((key, index) => {
+      const number = index + 1;
+      const control = button(`${number}. ${t(key)}`, {
+        className: 'step',
+        attrs: { 'aria-label': t('a11y.step', { step: number, label: t(key) }) },
+      });
+      stepperList.appendChild(el('li', {}, [control]));
+      return control;
+    });
+    stepper.appendChild(stepperList);
+    const mobileProgress = el('section', {
+      className: 'ux-mobile-progress',
+      dataset: { uxMobileProgress: 'true' },
+      attrs: { role: 'group' },
+    });
+    const actionStatus = el('div', {}, [
       status,
-      el('div', { className: 'button-row' }, [checkAvailability, submit]),
-    );
+      el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
+    ]);
+    const actions = el('footer', { className: 'wizard-actions' });
+    let activeStep = 1;
+
+    const renderReview = () => {
+      const review = panels[5];
+      clear(review);
+      const selectedRoom = rooms.find((entry) => entry.id === room.value);
+      const selectedServiceNames = serviceEditorOptions(requestCatalog, room.value)
+        .filter((entry) => selectedServices.has(entry.id)).map((entry) => entry.name);
+      const selectedPackage = packageSelection
+        ? cateringEditorOptions(requestCatalog, room.value).packages.find(
+          (entry) => entry.id === packageSelection.packageId,
+        ) : null;
+      const reviewGrid = el('div', { className: 'review-grid' });
+      const reviewCard = (heading, value, targetStep) => {
+        const edit = button(t('review.edit'), { className: 'ux-review-edit' });
+        edit.setAttribute('aria-label', t('review.editAria', { section: heading }));
+        edit.addEventListener('click', () => moveToStep(targetStep));
+        return el('article', { className: 'review-card' }, [
+          el('div', { className: 'ux-review-card-header' }, [el('h3', { text: heading }), edit]),
+          el('p', { text: value || t('common.none') }),
+        ]);
+      };
+      reviewGrid.append(
+        reviewCard(t('review.schedule'), `${date.value} · ${start.value}–${end.value}`, 1),
+        reviewCard(t('review.room'), roomLabel(selectedRoom || {}), 2),
+        reviewCard(t('review.services'), selectedServiceNames.join(' · '), 3),
+        reviewCard(t('review.catering'), selectedPackage?.name || t('common.none'), 4),
+        reviewCard(t('review.costs'), allocationRows.map((entry) => {
+          const center = requestCatalog.costCenters.find((candidate) => candidate.id === entry.costCenterId);
+          return center ? `${center.code} · ${entry.percentage} %` : '';
+        }).filter(Boolean).join(' · '), 5),
+      );
+      review.append(
+        el('div', { className: 'section-heading' }, [
+          el('div', {}, [el('h2', { text: t('review.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('review.desc') })]),
+        ]),
+        reviewGrid,
+        el('aside', { className: 'tentative-box', attrs: { role: 'note' } }, [
+          el('strong', { text: t('review.provisional') }),
+          el('p', { text: t('review.provisionalText') }),
+        ]),
+      );
+    };
+
+    const renderActiveStep = () => {
+      panels.forEach((panel, index) => { panel.hidden = index + 1 !== activeStep; });
+      stepControls.forEach((control, index) => {
+        const number = index + 1;
+        control.className = `step${number === activeStep ? ' active' : ''}${number < activeStep ? ' done' : ''}`;
+        control.disabled = number > activeStep;
+        if (number === activeStep) control.setAttribute('aria-current', 'step');
+        else control.removeAttribute('aria-current');
+      });
+      clear(mobileProgress);
+      const progressLabel = t('a11y.step', { step: activeStep, label: t(stepLabels[activeStep - 1]) });
+      mobileProgress.setAttribute('aria-label', progressLabel);
+      mobileProgress.append(
+        el('strong', { text: progressLabel }),
+        el('span', { className: 'ux-progress-dots' }, stepLabels.map((_, index) => el('span', {
+          className: `ux-progress-dot${index + 1 === activeStep ? ' active' : ''}${index + 1 < activeStep ? ' done' : ''}`,
+        }))),
+      );
+      if (activeStep === 6) renderReview();
+      clear(actions);
+      if (activeStep > 1) {
+        const back = button(t('common.back'));
+        back.addEventListener('click', () => moveToStep(activeStep - 1));
+        actions.appendChild(back);
+      }
+      actions.appendChild(el('span', { className: 'spacer' }));
+      if (activeStep === 2) actions.appendChild(checkAvailability);
+      if (activeStep < 6) {
+        const next = button(t('common.next'), { className: 'primary' });
+        next.disabled = activeStep === 2 && availabilityKey(currentAvailabilityWindow()) !== verifiedAvailabilityKey;
+        next.addEventListener('click', () => moveToStep(activeStep + 1));
+        actions.appendChild(next);
+      } else actions.appendChild(submit);
+    };
+
+    const focusStep = () => requestAnimationFrame(() => {
+      panels[activeStep - 1].querySelector('h2, input, select, textarea, button')?.focus();
+    });
+    const validateStep = (stepNumber) => {
+      if (stepNumber === 1) {
+        const participants = (safeParticipantCount(internal.value) || 0)
+          + (safeParticipantCount(external.value) || 0);
+        const invalidControl = [title, date, start, endDate, end]
+          .find((control) => !control.value)
+          || (participants < 1 ? internal : null);
+        if (invalidControl) {
+          status.className = 'error-box';
+          status.textContent = t('production.employee.validation');
+          invalidControl.focus();
+          return false;
+        }
+      }
+      if (stepNumber === 2 && availabilityKey(currentAvailabilityWindow()) !== verifiedAvailabilityKey) {
+        status.className = 'error-box';
+        status.textContent = t('production.employee.availabilityRequired');
+        checkAvailability.focus();
+        return false;
+      }
+      if (stepNumber === 4) {
+        try {
+          normalizeCateringEditorDraft({
+            participantCount: cateringParticipants.value,
+            packageSelection,
+            itemQuantities,
+            totalParticipants: (safeParticipantCount(internal.value) || 0)
+              + (safeParticipantCount(external.value) || 0),
+            catalog: requestCatalog,
+            roomId: room.value,
+          });
+        } catch {
+          status.className = 'error-box';
+          status.textContent = t('production.employee.validation');
+          cateringParticipants.focus();
+          return false;
+        }
+      }
+      if (stepNumber === 5) {
+        try {
+          normalizeAllocationEditorDraft({ allocations: allocationRows, catalog: requestCatalog });
+        } catch {
+          status.className = 'error-box';
+          status.textContent = t('production.employee.validation');
+          allocationPanel.querySelector('select, input, button')?.focus();
+          return false;
+        }
+      }
+      return true;
+    };
+    function moveToStep(targetStep) {
+      if (targetStep > activeStep && !validateStep(activeStep)) return;
+      activeStep = Math.max(1, Math.min(6, targetStep));
+      status.className = 'muted';
+      if (activeStep !== 2) status.textContent = '';
+      renderActiveStep();
+      focusStep();
+    }
+    stepControls.forEach((control, index) => {
+      control.addEventListener('click', () => moveToStep(index + 1));
+    });
+    root.append(mobileProgress, stepper, ...panels, actionStatus, actions);
+    renderRoomControls();
+    renderActiveStep();
     invalidateAvailability();
 
     if (restoredDraft) showToast(t('draft.restored'));
@@ -670,6 +945,7 @@ export function createProductionEmployeeApplication({
         submit.disabled = false;
         status.className = 'info-box';
         status.textContent = t('production.employee.availabilityAvailable');
+        renderActiveStep();
       } catch {
         if (!isCurrentEditor() || availabilityRequestGeneration !== availabilityGeneration) return;
         status.className = 'error-box';
@@ -761,6 +1037,9 @@ export function createProductionEmployeeApplication({
         verifiedAvailabilityKey = null;
         status.className = 'error-box';
         status.textContent = errorMessage(error);
+        activeStep = 2;
+        renderActiveStep();
+        focusStep();
       } finally {
         if (isCurrentEditor()) {
           submit.disabled = availabilityKey(currentAvailabilityWindow()) !== verifiedAvailabilityKey;

@@ -291,11 +291,11 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('#productionDate').fill(businessWindow.date);
   await customerPage.locator('#productionStart').fill(businessWindow.start);
   await customerPage.locator('#productionEnd').fill(businessWindow.end);
-  await customerPage.locator('#productionRoom').selectOption({ index: 1 });
   await customerPage.locator('#productionInternal').fill('2');
   await customerPage.locator('#productionExternal').fill('0');
-  const submitRequest = customerPage.getByRole('button', { name: 'Anfrage absenden' });
-  await expect(submitRequest).toBeDisabled();
+  await customerPage.getByRole('button', { name: 'Weiter' }).click();
+  await customerPage.locator('#productionRoom').selectOption({ index: 1 });
+  await expect(customerPage.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await expectUiResponseStatus(
     customerPage,
     'POST',
@@ -303,6 +303,11 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
     200,
   );
+  await expect(customerPage.getByRole('button', { name: 'Weiter' })).toBeEnabled();
+  for (let step = 3; step <= 6; step += 1) {
+    await customerPage.getByRole('button', { name: 'Weiter' }).click();
+  }
+  const submitRequest = customerPage.getByRole('button', { name: 'Anfrage absenden' });
   await expect(submitRequest).toBeEnabled();
   await expectUiResponseStatus(
     customerPage,
@@ -420,6 +425,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await followUpCard.getByRole('button', { name: 'Änderung bearbeiten' }).click();
   await expect(customerPage.locator('#productionTitle')).toHaveValue(REQUEST_TITLE);
   await customerPage.locator('#productionInternal').fill('3');
+  await customerPage.getByRole('button', { name: 'Weiter' }).click();
   const [resubmissionAvailabilityRequest] = await Promise.all([
     customerPage.waitForRequest((request) => request.method() === 'POST'
       && new URL(request.url()).pathname === '/api/v1/application/room-availability'),
@@ -434,6 +440,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   expect(resubmissionAvailabilityRequest.postDataJSON()).toMatchObject({
     resubmissionRequestId: createdRequestId,
   });
+  for (let step = 3; step <= 6; step += 1) {
+    await customerPage.getByRole('button', { name: 'Weiter' }).click();
+  }
   await expectUiResponseStatus(
     customerPage,
     'POST',

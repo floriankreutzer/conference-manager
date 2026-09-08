@@ -1104,6 +1104,33 @@ function futureDate(days = 14) {
   return value.toISOString().slice(0, 10);
 }
 
+async function fillEmployeeSchedule(page, {
+  title = 'Customer workshop',
+  date = futureDate(),
+  start = '09:00',
+  end = '10:00',
+  internal = '1',
+  external = '0',
+} = {}) {
+  await page.locator('#productionTitle').fill(title);
+  await page.locator('#productionDate').fill(date);
+  await page.locator('#productionStart').fill(start);
+  await page.locator('#productionEnd').fill(end);
+  await page.locator('#productionInternal').fill(internal);
+  await page.locator('#productionExternal').fill(external);
+}
+
+async function openEmployeeRoomStep(page, schedule = {}) {
+  await fillEmployeeSchedule(page, schedule);
+  await page.getByRole('button', { name: 'Weiter' }).click();
+}
+
+async function advanceEmployeeToReview(page) {
+  for (let step = 3; step <= 6; step += 1) {
+    await page.getByRole('button', { name: 'Weiter' }).click();
+  }
+}
+
 function confirmedRequestFixture() {
   const date = futureDate();
   return {
@@ -1169,23 +1196,30 @@ test('Employee production flow uses server catalog and CSRF-protected request pe
   await expect(page.locator('[data-view="tenantAdmin"]')).toHaveCount(0);
   await page.locator('[data-view="employee"]').click();
   await expect(page.locator('#viewTitle')).toBeFocused();
+  await expect(page.locator('[data-step-panel]')).toHaveCount(6);
+  await expect(page.locator('[data-step-panel]:visible')).toHaveCount(1);
+  await expect(page.locator('.participant-total strong')).toHaveText('1');
+  await expect(page.getByText('settings.catalogue.title')).toHaveCount(0);
+  await openEmployeeRoomStep(page, {
+    date: requestDate, internal: '2', external: '1',
+  });
   await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionTitle').fill('Customer workshop');
-  await page.locator('#productionDate').fill(requestDate);
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
-  await page.locator('#productionInternal').fill('2');
-  await page.locator('#productionExternal').fill('1');
-  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
-  await expect(submit).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await expect(page.getByText('Der Raum ist im gewählten Zeitraum verfügbar.')).toBeVisible();
-  await expect(submit).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
 
+  await page.getByRole('button', { name: /Schritt 1 von 6/ }).click();
   await page.locator('#productionEnd').fill('10:30');
-  await expect(submit).toBeDisabled();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await expect(page.getByText('Prüfen Sie die Verfügbarkeit für den aktuell gewählten Raum und Zeitraum.')).toBeVisible();
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
+  await advanceEmployeeToReview(page);
+  await expect(page.getByRole('heading', { name: 'Anfrage prüfen' })).toBeVisible();
+  await expect(page.locator('[data-step-panel="6"] .review-card')).toHaveCount(5);
+  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect(page.locator('#toast')).toContainText('Anfrage wurde abgesendet.');
@@ -1338,6 +1372,7 @@ test('Employee keeps the current resubmission editor when a detached create load
   await expect(page.locator('#productionRoom')).toHaveValue('room-a');
   await expect(page.locator('#productionRoom option:checked')).toHaveText('Current Room · 24');
   await expect(page.locator('#productionInternal')).toHaveValue('2');
+  await page.getByRole('button', { name: 'Weiter' }).click();
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await expect(page.getByText('Der Raum ist im gewählten Zeitraum verfügbar.')).toBeVisible();
   expect(fixture.availabilityChecks).toEqual([{
@@ -1386,22 +1421,19 @@ test('Employee production flow invalidates availability after request creation f
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
   await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionTitle').fill('Customer workshop');
-  await page.locator('#productionDate').fill(futureDate());
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
-  await page.locator('#productionInternal').fill('1');
 
   const availability = page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' });
-  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
   await availability.click();
+  await advanceEmployeeToReview(page);
+  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
   await expect(submit).toBeEnabled();
   await submit.click();
-  await expect(submit).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' })).toBeVisible();
 
-  await availability.click();
-  await expect(submit).toBeEnabled();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
   expect(fixture.availabilityChecks).toHaveLength(2);
   expect(fixture.writes).toHaveLength(1);
 });
@@ -1417,25 +1449,22 @@ test('Employee production flow exposes occupied, transport-error, and available 
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
   await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionDate').fill(futureDate());
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
   const check = page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' });
-  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
 
   await check.click();
   await expect(page.getByText('Raumverfügbarkeit wird serverseitig geprüft …')).toBeVisible();
   await expect(check).toBeDisabled();
   fixture.releaseAvailability();
   await expect(page.getByText(/Der Raum ist im gewählten Zeitraum belegt/)).toBeVisible();
-  await expect(submit).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await check.click();
   await expect(page.getByText(/konnte nicht sicher geprüft werden/)).toBeVisible();
   await expect(submit).toBeDisabled();
   await check.click();
   await expect(page.getByText('Der Raum ist im gewählten Zeitraum verfügbar.')).toBeVisible();
-  await expect(submit).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
   expect(fixture.availabilityChecks).toHaveLength(3);
   expect(fixture.writes).toHaveLength(0);
 });
@@ -1444,15 +1473,13 @@ test('Employee production flow blocks availability checks without an authoritati
   const fixture = await installProductionApplicationFixture(page, { timeZone: null });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
   await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionDate').fill(futureDate());
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
 
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
 
   await expect(page.getByText(/keine gültige Zeitzone konfiguriert/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Anfrage absenden' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   expect(fixture.availabilityChecks).toHaveLength(0);
   expect(fixture.writes).toHaveLength(0);
 });
