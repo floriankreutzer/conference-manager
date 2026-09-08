@@ -81,6 +81,7 @@ export function createApplicationContextFromState({
   productionSession = null,
   productionAuthenticationStatus = PRODUCTION_AUTH_STATUS.UNAUTHENTICATED,
   authenticationRuntime = null,
+  demoControlSession = null,
   demoTenants = EMPTY_REQUESTS,
   serverProfile = EMPTY_PROFILE,
   serverCatalog = EMPTY_CATALOG,
@@ -94,6 +95,10 @@ export function createApplicationContextFromState({
   const authenticationStatus = normalizedAuthenticationStatus(productionAuthenticationStatus);
   const trustedSession = authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED
     ? productionSession
+    : null;
+  const recoverableDemoSession = isDemo
+    && authenticationRuntime?.status?.() === PRODUCTION_AUTH_STATUS.AUTHENTICATED
+    ? (trustedSession || demoControlSession)
     : null;
   const roles = new Set(Array.isArray(trustedSession?.roles) ? trustedSession.roles : []);
   const permissions = new Set(Array.isArray(trustedSession?.permissions) ? trustedSession.permissions : []);
@@ -133,7 +138,7 @@ export function createApplicationContextFromState({
 
   function canSwitchDemoContext() {
     return isDemo
-      && Boolean(trustedSession)
+      && Boolean(recoverableDemoSession)
       && typeof authenticationRuntime?.selectContext === 'function'
       && authenticationRuntime?.status?.() === PRODUCTION_AUTH_STATUS.AUTHENTICATED;
   }
@@ -174,19 +179,20 @@ export function createApplicationContextFromState({
       return trustedSession?.user?.id || '';
     },
     tenantId() {
-      return trustedSession?.tenant?.id || '';
+      return trustedSession?.tenant?.id || recoverableDemoSession?.tenant?.id || '';
     },
     demoPersona() {
-      return isDemo ? trustedSession?.demo?.persona || null : null;
+      if (!isDemo) return null;
+      return trustedSession?.demo?.persona || recoverableDemoSession?.demo?.persona || null;
     },
     demoTenants() {
       return tenants;
     },
     switchDemoContext,
     setRole(value) {
-      if (!isDemo || !trustedSession) return false;
+      if (!isDemo || !recoverableDemoSession) return false;
       const persona = value === USER_ROLE.MANAGER ? 'conference_manager' : value;
-      return switchDemoContext({ tenantId: trustedSession.tenant.id, persona });
+      return switchDemoContext({ tenantId: recoverableDemoSession.tenant.id, persona });
     },
     getCatalog() {
       return catalog;
@@ -297,6 +303,7 @@ export async function createApplicationContext({
   const authentication = await authenticationBootstrap();
   let status = authentication?.status;
   let session = authentication?.session || null;
+  const demoControlSession = runtimeMode === RUNTIME_MODE.DEMO ? session : null;
   let profile = EMPTY_PROFILE;
   let catalog = EMPTY_CATALOG;
   let siteInfo = EMPTY_SITE_INFO;
@@ -339,6 +346,7 @@ export async function createApplicationContext({
     productionSession: session,
     productionAuthenticationStatus: status,
     authenticationRuntime: authentication?.runtime || null,
+    demoControlSession,
     demoTenants: authentication?.tenants || EMPTY_REQUESTS,
     serverProfile: profile,
     serverCatalog: catalog,

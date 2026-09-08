@@ -385,6 +385,67 @@ test('required startup projection failure invalidates the effective authenticate
   assert.deepEqual(context.requests(), []);
 });
 
+test('Customer Demo keeps its validated context switch available after an inactive Tenant projection denial', async () => {
+  const calls = [];
+  const authenticatedSession = Object.freeze({
+    ...session({
+      roles: ['employee'],
+      permissions: ['request:read', 'request:cancel'],
+    }),
+    tenant: Object.freeze({
+      id: '33333333-3333-4333-8333-333333333333',
+      status: 'ready',
+    }),
+    demo: Object.freeze({ persona: 'employee' }),
+  });
+  const tenants = Object.freeze([
+    Object.freeze({ id: '22222222-2222-4222-8222-222222222222', displayName: 'Northwind' }),
+    Object.freeze({ id: authenticatedSession.tenant.id, displayName: 'Contoso' }),
+  ]);
+  const runtime = Object.freeze({
+    apiClient: Object.freeze({
+      async request(path) {
+        if (path.startsWith('v1/application/requests?')) {
+          throw new Error('HTTP_403');
+        }
+        if (path === 'v1/application/profile') {
+          return { schemaVersion: 1, profile: { displayName: 'Demo Employee' } };
+        }
+        if (path === 'v1/application/site-info') {
+          return { schemaVersion: 1, siteInfo: {} };
+        }
+        if (path === 'v1/application/notifications') {
+          return { schemaVersion: 1, notifications: [] };
+        }
+        return startupCatalogPage(new URLSearchParams(path.split('?')[1]).get('section'));
+      },
+    }),
+    status() { return PRODUCTION_AUTH_STATUS.AUTHENTICATED; },
+    async selectContext(value) { calls.push(value); },
+  });
+  const context = await createApplicationContext({
+    runtimeMode: 'demo',
+    async authenticationBootstrap() {
+      return {
+        status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+        session: authenticatedSession,
+        tenants,
+        runtime,
+      };
+    },
+  });
+
+  assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
+  assert.equal(context.isAuthenticated(), false);
+  assert.equal(context.isManager(), false);
+  assert.equal(context.canSwitchRole(), true);
+  assert.equal(context.tenantId(), authenticatedSession.tenant.id);
+  assert.equal(context.demoPersona(), 'employee');
+  assert.deepEqual(context.demoTenants(), tenants);
+  await context.switchDemoContext({ tenantId: tenants[0].id, persona: 'employee' });
+  assert.deepEqual(calls, [{ tenantId: tenants[0].id, persona: 'employee' }]);
+});
+
 test('stalled required startup projections are aborted and fail closed', async () => {
   const authenticatedSession = session({
     roles: ['employee'],

@@ -162,6 +162,10 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
       return;
     }
     if (path === '/api/v1/application/requests' && request.method() === 'GET') {
+      if (context.tenantId === TENANT_B && initial.denyReadyTenantRequests) {
+        await route.fulfill({ status: 403, json: { error: { code: 'FORBIDDEN' } } });
+        return;
+      }
       await route.fulfill({
         json: {
           schemaVersion: 2,
@@ -268,6 +272,30 @@ test('Customer Demo API failure is visible and never falls back to browser busin
   await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
   await expect(page.getByText('Forged Browser Manager')).toHaveCount(0);
   await expect(page.getByText('Forged Browser Request')).toHaveCount(0);
+});
+
+test('Customer Demo can leave a ready Tenant after its business projections fail closed', async ({ page }) => {
+  await installCustomerDemoControlPlane(page, { denyReadyTenantRequests: true });
+  await page.goto('/');
+
+  await page.getByLabel('Demo-Tenant').selectOption(TENANT_B);
+  const unavailableReload = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+  await unavailableReload;
+
+  await expect(page.locator('#viewTitle')).toHaveText('Sichere Anmeldung nicht verfügbar');
+  await expect(page.getByLabel('Demo-Tenant')).toHaveValue(TENANT_B);
+  await expect(page.getByLabel('Demo-Tenant')).toBeEnabled();
+  await expect(page.getByLabel('Demo-Persona')).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Demo-Kontext anwenden' })).toBeEnabled();
+
+  await page.getByLabel('Demo-Tenant').selectOption(TENANT_A);
+  const recoveredReload = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+  await recoveredReload;
+
+  await expect(page.locator('#viewTitle')).not.toHaveText('Sichere Anmeldung nicht verfügbar');
+  await expect(page.getByLabel('Demo-Tenant')).toHaveValue(TENANT_A);
 });
 
 test('server-owned request remains visible across Employee and Conference Manager personas', async ({ page }) => {
