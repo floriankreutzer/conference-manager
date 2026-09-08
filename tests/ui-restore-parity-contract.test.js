@@ -16,19 +16,37 @@ test('SaaS 3.6 UI restore contract inventories every approved capability surface
   assert.match(contract, /server-issued Principal/);
   assert.match(contract, /never reconnect historical LocalStorage business authority/);
 
-  for (let index = 1; index <= 15; index += 1) {
-    assert.match(contract, new RegExp(`EMP-${String(index).padStart(2, '0')}`));
-  }
-  for (let index = 1; index <= 14; index += 1) {
-    assert.match(contract, new RegExp(`MGR-${String(index).padStart(2, '0')}`));
-  }
-  for (let index = 1; index <= 5; index += 1) {
-    assert.match(contract, new RegExp(`REG-${String(index).padStart(2, '0')}`));
-  }
+  const expectedDispositions = {
+    EMP: [
+      'RESTORE_REQUIRED', 'RETAIN_AND_ENHANCE', 'RESTORE_REQUIRED', 'RETAIN_AND_ENHANCE',
+      'RETAIN_AND_ENHANCE', 'RETAIN_AND_ENHANCE', 'RESTORE_REQUIRED', 'RETAIN_AND_ENHANCE',
+      'RETAIN_AND_ENHANCE', 'RETAIN_AND_ENHANCE', 'RESTORE_REQUIRED', 'RETAIN_AND_ENHANCE',
+      'RETAIN_CURRENT', 'RETAIN_AND_ENHANCE', 'RETAIN_AND_ENHANCE',
+    ],
+    MGR: [
+      'RESTORE_REQUIRED', 'RESTORE_REQUIRED', 'RESTORE_REQUIRED', 'RETAIN_AND_ENHANCE',
+      'RETAIN_CURRENT', 'RETAIN_CURRENT', 'RETAIN_CURRENT', 'RETAIN_AND_ENHANCE',
+      'RETAIN_AND_ENHANCE', 'RESTORE_REQUIRED', 'RETAIN_AND_ENHANCE', 'RETAIN_AND_ENHANCE',
+      'SUPERSEDED_BY_SECURITY', 'SUPERSEDED_BY_SECURITY',
+    ],
+    REG: Array(5).fill('REGRESSION_ONLY'),
+  };
 
-  assert.equal((contract.match(/^\| `EMP-\d{2}` \|/gm) || []).length, 15);
-  assert.equal((contract.match(/^\| `MGR-\d{2}` \|/gm) || []).length, 14);
-  assert.equal((contract.match(/^\| `REG-\d{2}` \|/gm) || []).length, 5);
+  for (const [prefix, dispositions] of Object.entries(expectedDispositions)) {
+    const rows = contract.split('\n').filter((line) => line.startsWith(`| \`${prefix}-`));
+    assert.equal(rows.length, dispositions.length, `${prefix} matrix row count`);
+    rows.forEach((row, index) => {
+      const id = `${prefix}-${String(index + 1).padStart(2, '0')}`;
+      const cells = row.split('|').slice(1, -1).map((cell) => cell.trim());
+      const dispositionIndex = prefix === 'REG' ? 3 : 4;
+      const evidenceIndex = prefix === 'REG' ? 4 : 5;
+      assert.equal(cells.length, prefix === 'REG' ? 5 : 6, `${id} column count`);
+      assert.equal(cells[0], `\`${id}\``);
+      assert.equal(cells.every(Boolean), true, `${id} contains no empty contract cell`);
+      assert.match(cells[dispositionIndex], new RegExp(`\\b${dispositions[index]}\\b`));
+      assert.notEqual(cells[evidenceIndex], '', `${id} requires evidence`);
+    });
+  }
 
   for (const disposition of [
     'RESTORE_REQUIRED',
