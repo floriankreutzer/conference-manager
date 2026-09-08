@@ -166,7 +166,7 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /if \(!sourceRequest && !restoredDraft && !allocationRows\.length/);
 });
 
-test('server-backed Employee editor restores the six-step presentation without changing authority', async () => {
+test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: server-backed Employee editor restores the six-step presentation without changing authority', async () => {
   const employee = await source(EMPLOYEE_SOURCE);
 
   assert.match(employee, /const stepLabels = \[[\s\S]*'request\.step\.review'/);
@@ -175,7 +175,11 @@ test('server-backed Employee editor restores the six-step presentation without c
   assert.match(employee, /className: 'participant-total'/);
   assert.match(employee, /className: 'selection-grid'/);
   assert.match(employee, /const renderReview = \(\) =>/);
-  assert.match(employee, /availabilityKey\(currentAvailabilityWindow\(\)\) !== verifiedAvailabilityKey/);
+  assert.match(employee, /key !== null && key === verifiedAvailabilityKey/);
+  assert.match(employee, /String\(value\)\.trim\(\) === ''/);
+  assert.match(employee, /next\.disabled = activeStep === 2 && !isAvailabilityVerified\(\)/);
+  assert.match(employee, /type: 'radio',[\s\S]*name: 'productionRoomChoice'/);
+  assert.doesNotMatch(employee, /const room = el\('select'\)/);
   assert.doesNotMatch(employee, /t\('settings\.catalogue\.title'\)/);
 });
 

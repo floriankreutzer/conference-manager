@@ -164,6 +164,13 @@ main {
   gap: var(--app-section-gap);
 }
 
+.room-option-fieldset {
+  min-inline-size: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
 .option-card,
 .review-card,
 .detail-card,

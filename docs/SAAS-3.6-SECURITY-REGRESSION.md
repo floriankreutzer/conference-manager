@@ -656,6 +656,44 @@ Correction and regression:
 Residual limitation: none in the correction boundary. Exact candidate and integration status is
 owned by `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
+### D-022 — Demo context recovery depended on the failed business session
+
+Classification: `demo-only`
+
+Hardening reference: H-031.
+
+Affected modules:
+
+- `src/platform/application-context.js`
+- Customer Demo Tenant/persona selector and session runtime
+
+Evidence and reachability:
+
+- A server-authenticated Demo session for a Tenant in lifecycle state `ready` can correctly receive
+  HTTP 403 from active-only business projections.
+- Required-projection failure correctly marks application authentication unavailable and removes
+  the effective business session, roles, permissions and repositories. The Demo selector previously
+  depended on that removed session as well, so it could not submit a switch back to an active Tenant.
+- The control exists only in the synthetic Customer Demo. Production has no Tenant/persona selector,
+  so the defect is not Production-reachable.
+
+Correction and regression:
+
+- The initially validated Demo session is retained separately as an immutable control-session
+  snapshot only while the server-backed Demo runtime still reports `authenticated` and exposes its
+  existing context-selection operation.
+- The snapshot may preserve the selected Tenant/persona and submit bounded switch intent through the
+  existing server session and in-memory CSRF path. It never restores User, role, permission,
+  application-authentication or business-persistence authority after projection failure.
+- Unit coverage proves the exact HTTP-403 failure state remains unauthenticated and capability-free
+  while context recovery stays available. Chromium and WebKit coverage enters the denied Tenant,
+  verifies the unavailable state, and switches back to the active Tenant.
+
+Residual limitation: none in the correction boundary. Production behavior is unchanged, and the
+server remains authoritative for Tenant lifecycle, session validity, CSRF and the newly issued
+context session. Exact merge, deployment and CI evidence is owned by
+`docs/SAAS-3.6-HARDENING-REGISTER.md`.
+
 ## Hardening traceability
 
 The hardening register owns mutable status and exact CI/merge evidence. This document owns the
@@ -680,6 +718,7 @@ Production-reachability classification and stable correction boundary.
 | D-019 | H-024 | Exact booking-change decision transport intent. |
 | D-020 | H-025 | Tenant-settings post-save render/focus lifecycle. |
 | D-021 | H-027 | Field-associated trimmed-name validation and focus recovery. |
+| D-022 | H-031 | Demo-only context recovery without restoring failed business authority. |
 
 Hardening findings not listed here either predate this Demo/shared-runtime classification set or are
 scanner, governance, documentation, test-evidence or release-operation items whose scope/status is
@@ -705,6 +744,7 @@ as closure or as a lower severity.
 | Shared Demo persistence | Shared PostgreSQL state is tenant-scoped and contains synthetic Demo identities/data only. |
 | Demo reset | Reset operations are Demo-only, bounded, audited/evidenced by hosted acceptance and never a Production data path. |
 | Demo outage | No browser-local fallback establishes customer authority when the shared Demo server is unavailable. |
+| Demo context recovery | A denied business projection keeps roles, permissions, application authentication and business repositories unavailable while the still-authenticated server control session can issue only bounded Tenant/persona switch intent. |
 | Provider identity | Provider Room identity/resource mapping remains server-controlled and Tenant Admin-authorized. |
 | Current Room context | Same-object and cross-Tenant negatives conceal unauthorized Requests; exact Request/version/status/Room/Locations-revision correlation is enforced; missing/malformed context and absent Room fail closed without browser-time/UTC fallback. |
 | Active Room selection | Historical inactive Room/Site context is disabled presentation only; selectable Rooms come solely from the active catalogue and remain server-revalidated. |

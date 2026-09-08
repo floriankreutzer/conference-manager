@@ -294,7 +294,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('#productionInternal').fill('2');
   await customerPage.locator('#productionExternal').fill('0');
   await customerPage.getByRole('button', { name: 'Weiter' }).click();
-  await customerPage.locator('#productionRoom').selectOption({ index: 1 });
+  await customerPage.locator('input[name="productionRoomChoice"]:enabled').first().check();
   await expect(customerPage.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await expectUiResponseStatus(
     customerPage,
