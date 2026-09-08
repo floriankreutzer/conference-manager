@@ -1,0 +1,10 @@
+# Exact alert references for reviewed public shell/static responses.
+10015	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/$
+10049-2	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/(?:|assets/(?:app-layout[.]css[?]v=20260901-78|brand/pavurel-app-icon[.]svg|feature-parity[.]css[?]v=20260825-01|manager-layout[.]css[?]v=20260825-01|tokens[.]css[?]v=20260825-01)|robots[.]txt|sitemap[.]xml)$
+10055-12	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/$
+
+# ZAP's crawler is not a browser and therefore does not send Fetch Metadata request headers.
+90005-1	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/(?:|assets/(?:brand/pavurel-app-icon[.]svg|feature-parity[.]css[?]v=20260825-01|tokens[.]css[?]v=20260825-01)|robots[.]txt|sitemap[.]xml)$
+90005-2	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/(?:|assets/(?:brand/pavurel-app-icon[.]svg|feature-parity[.]css[?]v=20260825-01|tokens[.]css[?]v=20260825-01)|robots[.]txt|sitemap[.]xml)$
+90005-3	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/(?:|assets/(?:brand/pavurel-app-icon[.]svg|feature-parity[.]css[?]v=20260825-01|tokens[.]css[?]v=20260825-01)|robots[.]txt|sitemap[.]xml)$
+90005-4	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/(?:|assets/(?:brand/pavurel-app-icon[.]svg|feature-parity[.]css[?]v=20260825-01|tokens[.]css[?]v=20260825-01)|robots[.]txt|sitemap[.]xml)$

@@ -1,0 +1,13 @@
+# Plugin-ID compatibility projection for zap-baseline.py's exit summary.
+10015	INFO	^https://floriankreutzer[.]github[.]io/conference-manager/$
+10020	INFO	^https://floriankreutzer[.]github[.]io/conference-manager/$
+10021	INFO	^https://floriankreutzer[.]github[.]io/conference-manager/(?:|styles[.]css)$
+10035	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
+10049	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/|/styles[.]css))$
+10050	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/|/styles[.]css))$
+10055	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
+10063	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager/)$
+10094	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
+10098	INFO	^https://floriankreutzer[.]github[.]io/conference-manager/(?:|styles[.]css)$
+90004	INFO	^https://floriankreutzer[.]github[.]io/conference-manager/$
+90005	INFO	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager(?:|/))$
