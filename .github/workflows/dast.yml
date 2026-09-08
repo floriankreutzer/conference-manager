@@ -103,6 +103,8 @@ jobs:
           allow_issue_writing: false
           fail_action: true
           artifact_name: zap-baseline-${{ matrix.surface }}
+          # This only maps reviewed plugin/URL unions into zap-baseline.py's exit summary.
+          # The always-run step below remains authoritative over the unfiltered raw report.
           cmd_options: '-a --auto -c ${{ matrix.summary_rules }}'
 
       - name: Verify exact alert references and reviewed risk

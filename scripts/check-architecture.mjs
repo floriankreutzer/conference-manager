@@ -1,5 +1,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
+import {
+  exactUrlUnionPattern,
+  readPolicyRows,
+  readSummaryPolicyRows,
+} from './validate-zap-report.mjs';
 
 let failures = 0;
 function fail(message) {
@@ -441,81 +446,58 @@ for (const readiness of [
     fail(`.github/workflows/dast.yml: surface-specific readiness URL is missing ${readiness}.`);
   }
 }
-for (const [policyPath, host] of [
-  ['.zap/static-launchpad.tsv', 'floriankreutzer[.]github[.]io'],
-  ['.zap/customer-demo.tsv', 'conference-manager-demo[.]onrender[.]com'],
-  ['.zap/platform-demo.tsv', 'conference-manager-ops-demo[.]onrender[.]com'],
+const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
+for (const [surface, policyPath, summaryPath, reviewedOrigin] of [
+  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv', 'https://floriankreutzer.github.io'],
+  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv', 'https://conference-manager-demo.onrender.com'],
+  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv', 'https://conference-manager-ops-demo.onrender.com'],
 ]) {
-  const rows = readFileSync(policyPath, 'utf8')
-    .split('\n')
-    .filter((line) => line && !line.startsWith('#'));
-  for (const row of rows) {
-    const [ruleId, action, value, ...extra] = row.split('\t');
-    if (!ruleId || !action || !value || extra.length) {
-      fail(`${policyPath}: every policy row must have exactly three tab-separated columns.`);
-      continue;
+  let exactRows;
+  let summaryRows;
+  try {
+    exactRows = readPolicyRows(readFileSync(policyPath, 'utf8'));
+    summaryRows = readSummaryPolicyRows(readFileSync(summaryPath, 'utf8'));
+  } catch (error) {
+    fail(`${policyPath}: ${error.message}`);
+    continue;
+  }
+  const rowKeys = exactRows.map(({ alertRef, url }) => `${alertRef}\u0000${url}`);
+  if (new Set(rowKeys).size !== rowKeys.length) {
+    fail(`${policyPath}: duplicate alert-reference and URL pairs are forbidden.`);
+  }
+  for (const { alertRef, url } of exactRows) {
+    if (['10049', '10055', '90004', '90005'].includes(alertRef)) {
+      fail(`${policyPath}: multiplexed rule ${alertRef} must use an exact suffixed alert reference.`);
     }
-    if (!/^\d+(?:-\d+)?$/.test(ruleId)) {
-      fail(`${policyPath}: ${ruleId} is not an exact ZAP alert reference.`);
-    } else if (['10049', '10055', '90004', '90005'].includes(ruleId)) {
-      fail(`${policyPath}: multiplexed rule ${ruleId} must use an exact suffixed alert reference.`);
-    } else if (action === 'OUTOFSCOPE') {
-      if (!value.startsWith('^https://') || !value.endsWith('$') || value.includes('.*') || !value.includes(host)) {
-        fail(`${policyPath}: OUTOFSCOPE policy must be URL-anchored to its exact reviewed surface without a wildcard.`);
-      }
-      try {
-        new RegExp(value);
-      } catch {
-        fail(`${policyPath}: invalid OUTOFSCOPE URL regular expression for rule ${ruleId}.`);
-      }
-    } else {
-      fail(`${policyPath}: only exact URL-scoped OUTOFSCOPE dispositions are supported, received ${action}.`);
+    if (new URL(url).origin !== reviewedOrigin) {
+      fail(`${policyPath}: ${url} escaped the exact reviewed origin ${reviewedOrigin}.`);
     }
   }
-}
-
-const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
-for (const [surface, policyPath, summaryPath] of [
-  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv'],
-  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv'],
-  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv'],
-]) {
-  const exactRows = readFileSync(policyPath, 'utf8')
-    .split('\n')
-    .filter((line) => line && !line.startsWith('#'))
-    .map((line) => line.split('\t'));
-  const policyRefs = exactRows.map(([alertRef]) => alertRef);
+  const policyRefs = [...new Set(exactRows.map(({ alertRef }) => alertRef))];
   const riskRefs = Object.keys(reviewedAlertRisks.surfaces?.[surface]?.maxRiskByAlertRef ?? {});
   if (policyRefs.length !== riskRefs.length || policyRefs.some((alertRef) => !riskRefs.includes(alertRef))) {
     fail(`${policyPath}: alert references must exactly match .zap/reviewed-alert-risks.json.`);
   }
-  const exactPatternsByPlugin = new Map();
-  for (const [alertRef, , pattern] of exactRows) {
-    const pluginId = alertRef.split('-', 1)[0];
-    const patterns = exactPatternsByPlugin.get(pluginId) ?? new Set();
-    patterns.add(pattern);
-    exactPatternsByPlugin.set(pluginId, patterns);
+  const summaryIds = summaryRows.map(({ pluginId }) => pluginId);
+  if (new Set(summaryIds).size !== summaryIds.length) {
+    fail(`${summaryPath}: duplicate plugin IDs are forbidden.`);
   }
-  const summaryRows = readFileSync(summaryPath, 'utf8')
-    .split('\n')
-    .filter((line) => line && !line.startsWith('#'))
-    .map((line) => line.split('\t'));
-  const summaryIds = new Set();
-  for (const [pluginId, action, pattern, ...extra] of summaryRows) {
-    if (!/^\d+$/.test(pluginId) || action !== 'INFO' || !pattern || extra.length) {
-      fail(`${summaryPath}: rows must use one unsuffixed numeric plugin ID, INFO and one URL pattern.`);
+  const exactPluginIds = [...new Set(policyRefs.map((alertRef) => alertRef.split('-', 1)[0]))];
+  if (summaryIds.length !== exactPluginIds.length
+      || exactPluginIds.some((pluginId) => !summaryIds.includes(pluginId))) {
+    fail(`${summaryPath}: plugin IDs must be an exact projection of ${policyPath}.`);
+  }
+  for (const { pluginId, pattern } of summaryRows) {
+    const exactUrls = exactRows
+      .filter(({ alertRef }) => alertRef.split('-', 1)[0] === pluginId)
+      .map(({ url }) => url);
+    if (exactUrls.length === 0) {
+      fail(`${summaryPath}: plugin ${pluginId} has no reviewed exact URLs.`);
       continue;
     }
-    if (summaryIds.has(pluginId)) fail(`${summaryPath}: duplicate plugin ID ${pluginId}.`);
-    summaryIds.add(pluginId);
-    const exactPatterns = exactPatternsByPlugin.get(pluginId);
-    if (!exactPatterns || exactPatterns.size !== 1 || !exactPatterns.has(pattern)) {
-      fail(`${summaryPath}: plugin ${pluginId} must preserve its one exact reviewed URL pattern.`);
+    if (pattern !== exactUrlUnionPattern(exactUrls)) {
+      fail(`${summaryPath}: plugin ${pluginId} must use the canonical finite union of reviewed URLs.`);
     }
-  }
-  if (summaryIds.size !== exactPatternsByPlugin.size
-      || [...exactPatternsByPlugin.keys()].some((pluginId) => !summaryIds.has(pluginId))) {
-    fail(`${summaryPath}: plugin IDs must be an exact projection of ${policyPath}.`);
   }
 }
 
