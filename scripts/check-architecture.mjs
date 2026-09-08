@@ -395,6 +395,35 @@ const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
 if (!/fail_action:\s*true\b/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
 }
+if (!/Wait for public surface readiness/.test(dast) || !/status.*== '200'/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must wait for an exact HTTP 200 before scanning a cold-startable public surface.');
+}
+if (!/persist-credentials:\s*false/.test(dast)) {
+  fail('.github/workflows/dast.yml: checkout credentials must not be mounted into the third-party ZAP container.');
+}
+if (/--location|(?:^|\s)-I(?:\s|$)/m.test(dast)) {
+  fail('.github/workflows/dast.yml: readiness redirects and warning-tolerant ZAP execution are forbidden.');
+}
+if (/rules_file_name:/.test(dast)
+    || !/cmd_options:\s*'-a --auto -c \$\{\{ matrix\.summary_rules \}\}'/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must pass the reviewed plugin-summary projection explicitly with alpha rules.');
+}
+if (/continue-on-error:/.test(dast)) {
+  fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');
+}
+if (!/group:\s*zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref \}\}/.test(dast)) {
+  fail('.github/workflows/dast.yml: PR scans must not cancel trusted main, scheduled or manual DAST evidence.');
+}
+for (const proof of [
+  'scripts/validate-zap-report.mjs',
+  'rm -f report_json.json zap.yaml',
+  'if: always()',
+  'ZAP_POLICY_PATH: ${{ matrix.exact_policy }}',
+  'ZAP_SUMMARY_POLICY_PATH: ${{ matrix.summary_rules }}',
+  'node scripts/validate-zap-report.mjs',
+]) {
+  if (!dast.includes(proof)) fail(`.github/workflows/dast.yml: missing exact-alert proof ${proof}.`);
+}
 for (const target of [
   'https://floriankreutzer.github.io/conference-manager/',
   'https://conference-manager-demo.onrender.com/',
@@ -402,6 +431,91 @@ for (const target of [
 ]) {
   if (!dast.includes(target)) {
     fail(`.github/workflows/dast.yml: public Demo DAST target is missing ${target}.`);
+  }
+}
+for (const readiness of [
+  'https://conference-manager-demo.onrender.com/api/v1/health/ready',
+  'https://conference-manager-ops-demo.onrender.com/api/v1/platform/health/ready',
+]) {
+  if (!dast.includes(readiness)) {
+    fail(`.github/workflows/dast.yml: surface-specific readiness URL is missing ${readiness}.`);
+  }
+}
+for (const [policyPath, host] of [
+  ['.zap/static-launchpad.tsv', 'floriankreutzer[.]github[.]io'],
+  ['.zap/customer-demo.tsv', 'conference-manager-demo[.]onrender[.]com'],
+  ['.zap/platform-demo.tsv', 'conference-manager-ops-demo[.]onrender[.]com'],
+]) {
+  const rows = readFileSync(policyPath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'));
+  for (const row of rows) {
+    const [ruleId, action, value, ...extra] = row.split('\t');
+    if (!ruleId || !action || !value || extra.length) {
+      fail(`${policyPath}: every policy row must have exactly three tab-separated columns.`);
+      continue;
+    }
+    if (!/^\d+(?:-\d+)?$/.test(ruleId)) {
+      fail(`${policyPath}: ${ruleId} is not an exact ZAP alert reference.`);
+    } else if (['10049', '10055', '90004', '90005'].includes(ruleId)) {
+      fail(`${policyPath}: multiplexed rule ${ruleId} must use an exact suffixed alert reference.`);
+    } else if (action === 'OUTOFSCOPE') {
+      if (!value.startsWith('^https://') || !value.endsWith('$') || value.includes('.*') || !value.includes(host)) {
+        fail(`${policyPath}: OUTOFSCOPE policy must be URL-anchored to its exact reviewed surface without a wildcard.`);
+      }
+      try {
+        new RegExp(value);
+      } catch {
+        fail(`${policyPath}: invalid OUTOFSCOPE URL regular expression for rule ${ruleId}.`);
+      }
+    } else {
+      fail(`${policyPath}: only exact URL-scoped OUTOFSCOPE dispositions are supported, received ${action}.`);
+    }
+  }
+}
+
+const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
+for (const [surface, policyPath, summaryPath] of [
+  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv'],
+  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv'],
+  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv'],
+]) {
+  const exactRows = readFileSync(policyPath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('\t'));
+  const policyRefs = exactRows.map(([alertRef]) => alertRef);
+  const riskRefs = Object.keys(reviewedAlertRisks.surfaces?.[surface]?.maxRiskByAlertRef ?? {});
+  if (policyRefs.length !== riskRefs.length || policyRefs.some((alertRef) => !riskRefs.includes(alertRef))) {
+    fail(`${policyPath}: alert references must exactly match .zap/reviewed-alert-risks.json.`);
+  }
+  const exactPatternsByPlugin = new Map();
+  for (const [alertRef, , pattern] of exactRows) {
+    const pluginId = alertRef.split('-', 1)[0];
+    const patterns = exactPatternsByPlugin.get(pluginId) ?? new Set();
+    patterns.add(pattern);
+    exactPatternsByPlugin.set(pluginId, patterns);
+  }
+  const summaryRows = readFileSync(summaryPath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('\t'));
+  const summaryIds = new Set();
+  for (const [pluginId, action, pattern, ...extra] of summaryRows) {
+    if (!/^\d+$/.test(pluginId) || action !== 'INFO' || !pattern || extra.length) {
+      fail(`${summaryPath}: rows must use one unsuffixed numeric plugin ID, INFO and one URL pattern.`);
+      continue;
+    }
+    if (summaryIds.has(pluginId)) fail(`${summaryPath}: duplicate plugin ID ${pluginId}.`);
+    summaryIds.add(pluginId);
+    const exactPatterns = exactPatternsByPlugin.get(pluginId);
+    if (!exactPatterns || exactPatterns.size !== 1 || !exactPatterns.has(pattern)) {
+      fail(`${summaryPath}: plugin ${pluginId} must preserve its one exact reviewed URL pattern.`);
+    }
+  }
+  if (summaryIds.size !== exactPatternsByPlugin.size
+      || [...exactPatternsByPlugin.keys()].some((pluginId) => !summaryIds.has(pluginId))) {
+    fail(`${summaryPath}: plugin IDs must be an exact projection of ${policyPath}.`);
   }
 }
 

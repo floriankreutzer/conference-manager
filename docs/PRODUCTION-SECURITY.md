@@ -280,6 +280,22 @@ matrix is not authenticated API/authorization DAST, Production penetration evide
 to infer one origin's posture from another. Production acceptance must target the applicable
 Production application/API origin and identity context independently.
 
+The public-Demo matrix is cold-start aware and uses surface-specific reviewed passive-alert
+policies. `fail_action: true`, the explicit Automation Framework path and alpha passive rules remain
+mandatory. A plugin-ID `INFO` compatibility map exists only for `zap-baseline.py` exit-summary
+handling and must contain exactly the plugin IDs derived from the reviewed alert-reference policy.
+Its third-column URL expression is repository-validated projection metadata, not a ZAP filter, and
+the map does not rewrite the generated report. The always-run validator binds the fresh raw report
+and exact HTTPS site metadata to reviewed alert references, URLs, methods and maximum risks. The ZAP
+crawler's missing Fetch Metadata request headers are classified only for the four exact `90005-*`
+references at
+reviewed URLs. A sibling reference, changed URL, risk escalation, filtered/wrong-origin report,
+unknown plugin or readiness failure remains a failed control. Broad exact-policy dispositions,
+ignores, wildcard exclusions and warning-tolerant execution are prohibited. GitHub Pages cache
+evidence is split between exact `10050-1` (`X-Cache: HIT`) and `10050-2` (valid `Age` header)
+references at enumerated public-static URLs. Those Demo classifications do not transfer to a
+Production scan.
+
 Exact-head CI, hosted acceptance and DAST results are recorded separately in the hardening register
 and GitHub checks. A historical successful run cannot be carried forward to a changed frontend/API
 pair, and repository maintainers must not infer external acceptance from a workflow definition.
