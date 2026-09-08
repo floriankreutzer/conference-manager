@@ -404,8 +404,19 @@ if (!/persist-credentials:\s*false/.test(dast)) {
 if (/--location|(?:^|\s)-I(?:\s|$)/m.test(dast)) {
   fail('.github/workflows/dast.yml: readiness redirects and warning-tolerant ZAP execution are forbidden.');
 }
-if (/rules_file_name:/.test(dast) || !/cmd_options:\s*'-a -c \$\{\{ matrix\.rules \}\}'/.test(dast)) {
-  fail('.github/workflows/dast.yml: ZAP must pass the reviewed target policy explicitly with alpha rules; the pinned action does not forward INFO/OUTOFSCOPE-only rules_file_name input.');
+if (/rules_file_name:/.test(dast) || !/cmd_options:\s*'-a --auto -c \$\{\{ matrix\.rules \}\}'/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must pass the reviewed target policy explicitly through the Automation Framework with alpha rules.');
+}
+if (/continue-on-error:/.test(dast)) {
+  fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');
+}
+for (const proof of [
+  'scripts/validate-zap-report.mjs',
+  'rm -f report_json.json zap.yaml',
+  'if: always()',
+  'node scripts/validate-zap-report.mjs',
+]) {
+  if (!dast.includes(proof)) fail(`.github/workflows/dast.yml: missing exact-alert proof ${proof}.`);
 }
 for (const target of [
   'https://floriankreutzer.github.io/conference-manager/',
@@ -438,10 +449,10 @@ for (const [policyPath, host] of [
       fail(`${policyPath}: every policy row must have exactly three tab-separated columns.`);
       continue;
     }
-    if (ruleId === '*' || action === 'IGNORE') {
-      fail(`${policyPath}: wildcard and broad IGNORE dispositions are forbidden.`);
-    } else if (action === 'INFO') {
-      if (ruleId !== '90005') fail(`${policyPath}: only the ZAP Fetch Metadata request artifact may be INFO.`);
+    if (!/^\d+(?:-\d+)?$/.test(ruleId)) {
+      fail(`${policyPath}: ${ruleId} is not an exact ZAP alert reference.`);
+    } else if (['10049', '10055', '90004', '90005'].includes(ruleId)) {
+      fail(`${policyPath}: multiplexed rule ${ruleId} must use an exact suffixed alert reference.`);
     } else if (action === 'OUTOFSCOPE') {
       if (!value.startsWith('^https://') || !value.endsWith('$') || value.includes('.*') || !value.includes(host)) {
         fail(`${policyPath}: OUTOFSCOPE policy must be URL-anchored to its exact reviewed surface without a wildcard.`);
@@ -452,8 +463,24 @@ for (const [policyPath, host] of [
         fail(`${policyPath}: invalid OUTOFSCOPE URL regular expression for rule ${ruleId}.`);
       }
     } else {
-      fail(`${policyPath}: unsupported DAST disposition ${action}.`);
+      fail(`${policyPath}: only exact URL-scoped OUTOFSCOPE dispositions are supported, received ${action}.`);
     }
+  }
+}
+
+const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
+for (const [surface, policyPath] of [
+  ['static-launchpad', '.zap/static-launchpad.tsv'],
+  ['customer-demo', '.zap/customer-demo.tsv'],
+  ['platform-demo', '.zap/platform-demo.tsv'],
+]) {
+  const policyRefs = readFileSync(policyPath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => line.split('\t')[0]);
+  const riskRefs = Object.keys(reviewedAlertRisks.surfaces?.[surface]?.maxRiskByAlertRef ?? {});
+  if (policyRefs.length !== riskRefs.length || policyRefs.some((alertRef) => !riskRefs.includes(alertRef))) {
+    fail(`${policyPath}: alert references must exactly match .zap/reviewed-alert-risks.json.`);
   }
 }
 

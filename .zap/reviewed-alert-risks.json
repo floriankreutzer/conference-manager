@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "surfaces": {
+    "static-launchpad": {
+      "origin": "https://floriankreutzer.github.io",
+      "maxRiskByAlertRef": {
+        "10015": 0,
+        "10020-1": 2,
+        "10021": 1,
+        "10035-1": 1,
+        "10049-3": 0,
+        "10050-1": 0,
+        "10055-6": 2,
+        "10055-12": 0,
+        "10055-13": 2,
+        "10063-1": 1,
+        "10094-3": 0,
+        "10098": 2,
+        "90004-2": 1,
+        "90004-3": 1,
+        "90005-1": 0,
+        "90005-2": 0,
+        "90005-3": 0,
+        "90005-4": 0
+      }
+    },
+    "customer-demo": {
+      "origin": "https://conference-manager-demo.onrender.com",
+      "maxRiskByAlertRef": {
+        "10015": 0,
+        "10049-2": 0,
+        "10055-12": 0,
+        "90005-1": 0,
+        "90005-2": 0,
+        "90005-3": 0,
+        "90005-4": 0
+      }
+    },
+    "platform-demo": {
+      "origin": "https://conference-manager-ops-demo.onrender.com",
+      "maxRiskByAlertRef": {
+        "10015": 0,
+        "10049-2": 0,
+        "10055-12": 0,
+        "90005-1": 0,
+        "90005-2": 0,
+        "90005-3": 0,
+        "90005-4": 0
+      }
+    }
+  }
+}

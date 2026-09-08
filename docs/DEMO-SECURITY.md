@@ -34,12 +34,15 @@ policy.
 
 The scheduled/manual ZAP workflow first requires a direct HTTP `200` from the Pages launchpad or the
 surface-specific Customer/Platform readiness endpoint, so a Render Free cold start cannot be
-mistaken for a scan result. It then applies separate reviewed policies while retaining `-a` and
-`fail_action: true`; every new or unclassified alert still fails the workflow. URL-anchored
-`OUTOFSCOPE` rows classify only the exact provider-controlled or intentionally configured responses
-observed in the recorded scan. `90005` remains visible as `INFO` because ZAP's crawler, unlike a
-browser, does not send the `Sec-Fetch-Dest`, `Sec-Fetch-Mode`, `Sec-Fetch-Site` or `Sec-Fetch-User`
-request headers that the rule inspects. Broad `IGNORE`, wildcard exclusions and `-I` are prohibited.
+mistaken for a scan result. It then applies separate reviewed policies while retaining `-a`,
+explicitly requiring ZAP's Automation Framework with `--auto`, and retaining `fail_action: true`;
+every new or unclassified alert still fails the workflow. URL-anchored `OUTOFSCOPE` rows classify
+only the exact alert reference and exact provider-controlled or intentionally configured response
+observed in the recorded scan. The four exact `90005-*` alert references are URL-scoped because
+ZAP's crawler, unlike a browser, does not send the `Sec-Fetch-Dest`, `Sec-Fetch-Mode`,
+`Sec-Fetch-Site` or `Sec-Fetch-User` request headers that the rules inspect. A sibling alert
+reference from the same plugin remains blocking. Broad plugin-level dispositions, `IGNORE`,
+wildcard exclusions and `-I` are prohibited.
 
 The Pages policy is limited to cache behavior, response-header controls that GitHub Pages cannot
 configure, public-static CORS and GitHub account-root `404`/base64 observations. The Render policies
