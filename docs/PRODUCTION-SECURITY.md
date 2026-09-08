@@ -280,6 +280,13 @@ matrix is not authenticated API/authorization DAST, Production penetration evide
 to infer one origin's posture from another. Production acceptance must target the applicable
 Production application/API origin and identity context independently.
 
+The public-Demo matrix is cold-start aware and uses surface-specific reviewed passive-alert
+policies. `fail_action: true` and alpha passive rules remain mandatory: URL-anchored false-positive
+classifications are limited to documented provider-controlled or intentional responses, the ZAP
+crawler's missing Fetch Metadata request headers remain visible as `INFO`, and every other alert or
+readiness failure remains a failed control. Broad ignores, wildcard exclusions and warning-tolerant
+execution are prohibited. Those Demo classifications do not transfer to a Production scan.
+
 Exact-head CI, hosted acceptance and DAST results are recorded separately in the hardening register
 and GitHub checks. A historical successful run cannot be carried forward to a changed frontend/API
 pair, and repository maintainers must not infer external acceptance from a workflow definition.

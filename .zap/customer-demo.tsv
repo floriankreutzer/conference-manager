@@ -1,0 +1,7 @@
+# Public shell/static responses deliberately use no-cache and an equivalent header-plus-meta CSP.
+10015	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/$
+10049	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/(?:|assets/(?:app-layout[.]css[?]v=20260901-78|brand/pavurel-app-icon[.]svg|feature-parity[.]css[?]v=20260825-01|tokens[.]css[?]v=20260825-01))$
+10055	OUTOFSCOPE	^https://conference-manager-demo[.]onrender[.]com/$
+
+# ZAP's crawler is not a browser and therefore does not send Fetch Metadata request headers.
+90005	INFO	(Fetch Metadata request headers are supplied by browsers, not target responses)

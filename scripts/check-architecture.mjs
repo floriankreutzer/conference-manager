@@ -395,6 +395,18 @@ const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
 if (!/fail_action:\s*true\b/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
 }
+if (!/Wait for public surface readiness/.test(dast) || !/status.*== '200'/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must wait for an exact HTTP 200 before scanning a cold-startable public surface.');
+}
+if (!/persist-credentials:\s*false/.test(dast)) {
+  fail('.github/workflows/dast.yml: checkout credentials must not be mounted into the third-party ZAP container.');
+}
+if (/--location|(?:^|\s)-I(?:\s|$)/m.test(dast)) {
+  fail('.github/workflows/dast.yml: readiness redirects and warning-tolerant ZAP execution are forbidden.');
+}
+if (/rules_file_name:/.test(dast) || !/cmd_options:\s*'-a -c \$\{\{ matrix\.rules \}\}'/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must pass the reviewed target policy explicitly with alpha rules; the pinned action does not forward INFO/OUTOFSCOPE-only rules_file_name input.');
+}
 for (const target of [
   'https://floriankreutzer.github.io/conference-manager/',
   'https://conference-manager-demo.onrender.com/',
@@ -402,6 +414,46 @@ for (const target of [
 ]) {
   if (!dast.includes(target)) {
     fail(`.github/workflows/dast.yml: public Demo DAST target is missing ${target}.`);
+  }
+}
+for (const readiness of [
+  'https://conference-manager-demo.onrender.com/api/v1/health/ready',
+  'https://conference-manager-ops-demo.onrender.com/api/v1/platform/health/ready',
+]) {
+  if (!dast.includes(readiness)) {
+    fail(`.github/workflows/dast.yml: surface-specific readiness URL is missing ${readiness}.`);
+  }
+}
+for (const [policyPath, host] of [
+  ['.zap/static-launchpad.tsv', 'floriankreutzer[.]github[.]io'],
+  ['.zap/customer-demo.tsv', 'conference-manager-demo[.]onrender[.]com'],
+  ['.zap/platform-demo.tsv', 'conference-manager-ops-demo[.]onrender[.]com'],
+]) {
+  const rows = readFileSync(policyPath, 'utf8')
+    .split('\n')
+    .filter((line) => line && !line.startsWith('#'));
+  for (const row of rows) {
+    const [ruleId, action, value, ...extra] = row.split('\t');
+    if (!ruleId || !action || !value || extra.length) {
+      fail(`${policyPath}: every policy row must have exactly three tab-separated columns.`);
+      continue;
+    }
+    if (ruleId === '*' || action === 'IGNORE') {
+      fail(`${policyPath}: wildcard and broad IGNORE dispositions are forbidden.`);
+    } else if (action === 'INFO') {
+      if (ruleId !== '90005') fail(`${policyPath}: only the ZAP Fetch Metadata request artifact may be INFO.`);
+    } else if (action === 'OUTOFSCOPE') {
+      if (!value.startsWith('^https://') || !value.endsWith('$') || value.includes('.*') || !value.includes(host)) {
+        fail(`${policyPath}: OUTOFSCOPE policy must be URL-anchored to its exact reviewed surface without a wildcard.`);
+      }
+      try {
+        new RegExp(value);
+      } catch {
+        fail(`${policyPath}: invalid OUTOFSCOPE URL regular expression for rule ${ruleId}.`);
+      }
+    } else {
+      fail(`${policyPath}: unsupported DAST disposition ${action}.`);
+    }
   }
 }
 

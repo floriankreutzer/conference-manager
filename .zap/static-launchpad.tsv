@@ -1,0 +1,15 @@
+# Provider-controlled cache/header observations on the exact public launchpad paths.
+10015	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/conference-manager/$
+10020	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/conference-manager/$
+10021	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/conference-manager/(?:|styles[.]css)$
+10035	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
+10049	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|conference-manager(?:|/|/styles[.]css))$
+10050	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|conference-manager(?:|/|/styles[.]css))$
+10055	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt)$
+10063	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml|conference-manager/)$
+10094	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/(?:|robots[.]txt|sitemap[.]xml)$
+10098	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/conference-manager/(?:|styles[.]css)$
+90004	OUTOFSCOPE	^https://floriankreutzer[.]github[.]io/conference-manager/$
+
+# ZAP's crawler is not a browser and therefore does not send Fetch Metadata request headers.
+90005	INFO	(Fetch Metadata request headers are supplied by browsers, not target responses)

@@ -2,6 +2,12 @@ name: OWASP ZAP Baseline
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/dast.yml
+      - .zap/**
   schedule:
     - cron: '41 4 * * 2'
 
@@ -22,11 +28,52 @@ jobs:
         include:
           - surface: static-launchpad
             target: https://floriankreutzer.github.io/conference-manager/
+            readiness: https://floriankreutzer.github.io/conference-manager/
+            rules: .zap/static-launchpad.tsv
           - surface: customer-demo
             target: https://conference-manager-demo.onrender.com/
+            readiness: https://conference-manager-demo.onrender.com/api/v1/health/ready
+            rules: .zap/customer-demo.tsv
           - surface: platform-demo
             target: https://conference-manager-ops-demo.onrender.com/
+            readiness: https://conference-manager-ops-demo.onrender.com/api/v1/platform/health/ready
+            rules: .zap/platform-demo.tsv
     steps:
+      - name: Checkout reviewed DAST policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Wait for public surface readiness
+        env:
+          DAST_READINESS_URL: ${{ matrix.readiness }}
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..24}; do
+            status="$({
+              curl \
+                --silent \
+                --show-error \
+                --output /dev/null \
+                --write-out '%{http_code}' \
+                --connect-timeout 10 \
+                --max-time 10 \
+                "$DAST_READINESS_URL"
+            } || true)"
+
+            if [[ "$status" == '200' ]]; then
+              exit 0
+            fi
+
+            if [[ "$attempt" == '24' ]]; then
+              echo "::error::DAST surface did not become ready with a direct HTTP 200."
+              exit 1
+            fi
+
+            sleep 5
+          done
+
       - name: ZAP baseline scan (${{ matrix.surface }})
         uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
@@ -34,4 +81,4 @@ jobs:
           allow_issue_writing: false
           fail_action: true
           artifact_name: zap-baseline-${{ matrix.surface }}
-          cmd_options: '-a'
+          cmd_options: '-a -c ${{ matrix.rules }}'

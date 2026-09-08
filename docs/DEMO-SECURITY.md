@@ -32,6 +32,23 @@ launchpad has response-header clickjacking protection. That provider-controlled 
 posture must be verified separately in deployed acceptance and must not be inferred from the meta
 policy.
 
+The scheduled/manual ZAP workflow first requires a direct HTTP `200` from the Pages launchpad or the
+surface-specific Customer/Platform readiness endpoint, so a Render Free cold start cannot be
+mistaken for a scan result. It then applies separate reviewed policies while retaining `-a` and
+`fail_action: true`; every new or unclassified alert still fails the workflow. URL-anchored
+`OUTOFSCOPE` rows classify only the exact provider-controlled or intentionally configured responses
+observed in the recorded scan. `90005` remains visible as `INFO` because ZAP's crawler, unlike a
+browser, does not send the `Sec-Fetch-Dest`, `Sec-Fetch-Mode`, `Sec-Fetch-Site` or `Sec-Fetch-User`
+request headers that the rule inspects. Broad `IGNORE`, wildcard exclusions and `-I` are prohibited.
+
+The Pages policy is limited to cache behavior, response-header controls that GitHub Pages cannot
+configure, public-static CORS and GitHub account-root `404`/base64 observations. The Render policies
+classify the public shell/static `no-cache` behavior and the equivalent header-plus-meta CSP only at
+the exact observed URLs. API responses retain `no-store`; both Render shells require the tested
+cross-origin isolation headers. Cookie, anti-CSRF, CSP-absence, mixed-content, vulnerable-library,
+information-disclosure and authentication findings remain blocking. These evidence-reviewed
+false-positive classifications are not permission to suppress a changed path or new scanner rule.
+
 The Demo must not be presented as an authenticated Production application and must not be used for real confidential, personal or regulated data.
 
 ## Role and ownership boundary
