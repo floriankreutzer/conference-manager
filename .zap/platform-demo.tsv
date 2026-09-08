@@ -28,6 +28,7 @@
 90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/sitemap\.xml$
 90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/$
 90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$
 90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?v=20260828-01$
 90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/tokens\.css\?v=20260828-01$
 90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/robots\.txt$
