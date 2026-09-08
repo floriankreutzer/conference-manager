@@ -181,7 +181,14 @@ Core remains capability-independent. Feature-specific business logic and capabil
 
 Employee owns the complete baseline Employee application behavior behind `src/employee/index.js`.
 
-`application.js` owns the six-step request UI and Employee use-case orchestration, including draft save/restore, room/service/catering/cost/review rendering, submit/resubmit, request list/calendar, details, cancellation, repeat/change editing, guest information and print behavior.
+The active server-backed Employee entry point currently resolves through `production-application.js`.
+It owns the current Request editor and own-Request presentation over injected server persistence.
+`application.js` and the Employee enhancement modules retain the richer historical six-step,
+calendar, Guest Information and print presentation as migration reference, but they are not in the
+active runtime graph and must not be reconnected to their historical browser-state authority.
+
+`docs/UI-RESTORE-PARITY.md` records the SaaS 3.6 contract for porting that complete presentation to
+the current server-backed capability under #180 and removing the superseded path under #182.
 
 Business/session rules that can be tested without the DOM are separated into:
 
@@ -196,7 +203,14 @@ Employee internals are private. External code must not expose or import internal
 
 Manager owns the complete baseline Conference Manager application behavior behind `src/manager/index.js`.
 
-`application.js` owns Booking Cockpit filtering/actions, room planning, baseline reporting presentation and administration rendering/persistence orchestration.
+The active server-backed Manager entry point currently composes `workspace-application.js`,
+`production-application.js` and `business-settings-application.js`. It provides server-authoritative
+Request operations, a reduced Room-plan/report presentation and the #166 business-settings editor.
+
+`application.js` and the Manager parity/polish modules retain the richer historical four-tab
+cockpit, filtering, planning and reporting presentation as migration reference. They are not in the
+active runtime graph and must not be reconnected to historical browser persistence. The approved
+port to current server contracts is defined in `docs/UI-RESTORE-PARITY.md` and owned by #181/#182.
 
 `workspace-application.js` composes the operational Manager application with the bounded business-settings application. `business-settings-application.js` presents Room business-field and Tenant Catalogue mutation intent only. Its Location updates project Conference Manager-owned fields onto the current complete snapshot and preserve Site, Room identity and provider-controlled technical fields. Its Catalogue path includes Services, equipment, catering packages/items/variants and authoritative Room prices. The trusted API independently reclassifies the mutation and enforces Tenant scope, revisions and authorization; the browser contract is not permission evidence.
 
