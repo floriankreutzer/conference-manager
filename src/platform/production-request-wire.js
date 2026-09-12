@@ -257,11 +257,30 @@ function catalogSite(value, code) {
 }
 
 function catalogRoom(value, code) {
-  const room = exactObject(value, [
-    'id', 'siteId', 'name', 'capacity', 'active', 'price',
-    'equipment', 'floorplanAssetId', 'mediaAssetIds',
-  ], code);
+  const legacyKeys = ['id', 'siteId', 'name', 'capacity', 'active', 'price'];
+  const presentationKeys = [
+    ...legacyKeys, 'equipment', 'floorplanAssetId', 'mediaAssetIds',
+  ];
+  const actualKeys = value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.keys(value).sort()
+    : [];
+  const isLegacy = actualKeys.length === legacyKeys.length
+    && actualKeys.every((key, index) => key === [...legacyKeys].sort()[index]);
+  const room = exactObject(value, isLegacy ? legacyKeys : presentationKeys, code);
   if (room.active !== true || room.price === null) invalid(code);
+  if (isLegacy) {
+    return Object.freeze({
+      id: identifier(room.id, code),
+      siteId: identifier(room.siteId, code),
+      name: responseText(room.name, { maximum: 160, code }),
+      capacity: safeInteger(room.capacity, 1, 100_000, code),
+      active: true,
+      price: money(room.price, code),
+      equipment: Object.freeze([]),
+      floorplanAssetId: null,
+      mediaAssetIds: Object.freeze([]),
+    });
+  }
   if (
     !Array.isArray(room.equipment)
     || room.equipment.length > 100
