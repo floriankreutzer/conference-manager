@@ -589,6 +589,7 @@ test('Employee editor and proposal lifecycles reject detached or duplicate async
   assert.match(editor, /requestCatalog = await persistence\.loadCatalog\(\);\s*if \(!isCurrentEditor\(\)\) return;\s*catalog = requestCatalog;/);
   assert.match(editor, /if \(!draftDirty \|\| !isCurrentEditor\(\)\) return;/);
   assert.match(editor, /await persistence\.createRequest\([\s\S]*if \(!isCurrentEditor\(\)\) return;/);
+  assert.match(editor, /catch \(error\) \{\s*if \(!isCurrentEditor\(\)\) return;\s*invalidateAvailability\(\);/);
   assert.match(editor, /compositionDraft\(sourceRequest, requestCatalog, overrides\)/);
   assert.match(requests, /reserveRequestMutation\(target\.id, 'proposal'\)/);
   assert.match(requests, /mutationInFlight: \(\) => requestMutations\.has\(request\.id\)/);

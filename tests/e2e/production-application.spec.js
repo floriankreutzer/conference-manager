@@ -1550,9 +1550,9 @@ test('Employee keeps the current resubmission editor when a detached create load
   expect(fixture.writes).toHaveLength(0);
 });
 
-test('EMP-01 EMP-07: Employee production flow invalidates availability after request creation fails', async ({ page }) => {
+test('EMP-01 EMP-07: Employee production flow invalidates availability after a non-conflict request creation failure', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
-    requestCreateErrors: [{ status: 409, code: 'REQUEST_CONFLICT' }],
+    requestCreateErrors: [{ status: 503, code: 'SERVICE_UNAVAILABLE' }],
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();

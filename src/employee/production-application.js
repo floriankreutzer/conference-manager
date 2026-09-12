@@ -1156,6 +1156,7 @@ export function createProductionEmployeeApplication({
         if (typeof onNavigate === 'function') onNavigate('requests');
       } catch (error) {
         if (!isCurrentEditor()) return;
+        invalidateAvailability();
         status.className = 'error-box';
         status.textContent = errorMessage(error);
         if (error?.cause?.code === 'HTTP_409') {
@@ -1175,11 +1176,7 @@ export function createProductionEmployeeApplication({
               if (!isCurrentEditor()) return;
             }
           }
-          verifiedAvailabilityKey = null;
-          availabilityState = 'unchecked';
-          availabilityStateKey = null;
           activeStep = 2;
-          renderRoomControls();
           renderActiveStep();
           focusStep();
         }
