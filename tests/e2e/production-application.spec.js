@@ -1565,9 +1565,11 @@ test('EMP-01 EMP-07: Employee production flow invalidates availability after a n
   const submit = page.getByRole('button', { name: 'Anfrage absenden' });
   await expect(submit).toBeEnabled();
   await submit.click();
-  await expect(page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' })).toBeVisible();
+  await expect(submit).toBeDisabled();
+  await page.getByRole('button', { name: 'Raum ändern' }).click();
+  await expect(availability).toBeVisible();
 
-  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await availability.click();
   await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
   expect(fixture.availabilityChecks).toHaveLength(2);
   expect(fixture.writes).toHaveLength(1);
