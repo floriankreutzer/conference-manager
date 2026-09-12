@@ -1464,8 +1464,27 @@ test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-saf
 
   await expect(list).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator(`[data-production-request-id="${sourceRequest.id}"]`)).toBeFocused();
-  const viewportFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-  expect(viewportFits).toBe(true);
+  const reflow = await page.evaluate(() => ({
+    fits: document.documentElement.scrollWidth <= window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth,
+    overflow: [...document.querySelectorAll('body *')]
+      .map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          element: element.tagName.toLowerCase(),
+          className: typeof element.className === 'string' ? element.className : '',
+          id: element.id,
+          left: Math.round(bounds.left),
+          right: Math.round(bounds.right),
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        };
+      })
+      .filter(({ left, right }) => left < 0 || right > window.innerWidth)
+      .slice(0, 12),
+  }));
+  expect(reflow.fits, JSON.stringify(reflow)).toBe(true);
 });
 
 test('EMP-12: Employee history is an accessible localized server timeline with focus return', async ({ page }) => {
