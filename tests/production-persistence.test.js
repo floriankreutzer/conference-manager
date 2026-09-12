@@ -316,7 +316,7 @@ test('Request Room context rejects authority expansion and malformed projections
     requestRoomContextEnvelope({
       requestRef: {
         ...requestRoomContextEnvelope().requestRef,
-        schemaVersion: 3,
+        schemaVersion: 4,
       },
     }),
     requestRoomContextEnvelope({
