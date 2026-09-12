@@ -245,9 +245,8 @@ main {
   align-items: flex-start;
 }
 
-.request-card[tabindex]:focus-visible {
-  outline: 0;
-  box-shadow: inset 0 0 0 var(--focus-width) var(--focus-color);
+.request-card {
+  overflow-wrap: anywhere;
 }
 
 .request-grid div,
