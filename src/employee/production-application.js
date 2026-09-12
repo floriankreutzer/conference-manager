@@ -345,8 +345,7 @@ export function createProductionEmployeeApplication({
   }
 
   function localizedGuest(value) {
-    if (!value) return '';
-    return locale().toLowerCase().startsWith('de') ? value.de : value.en;
+    return value || '';
   }
 
   function formattedRequestValue(value, room, requestCatalog, currentRoomContext = null) {

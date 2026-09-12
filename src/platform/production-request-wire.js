@@ -1008,14 +1008,6 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
       'address', 'publicTransport', 'arrival', 'parking', 'reception', 'building',
       'visitorNotes', 'accessibility', 'wifiPolicy', 'wifiNetworkName', 'contact', 'routeUrl',
     ], code);
-    const localized = (input, maximum = 600) => {
-      if (input === null) return null;
-      const item = exactObject(input, ['de', 'en'], code);
-      return Object.freeze({
-        de: responseText(item.de, { maximum, code }),
-        en: responseText(item.en, { maximum, code }),
-      });
-    };
     let address = null;
     if (guest.address !== null) {
       const input = exactObject(guest.address, ['line1', 'line2', 'postalCode', 'city', 'countryCode'], code);
@@ -1049,13 +1041,13 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
     }
     guestPresentation = Object.freeze({
       address,
-      publicTransport: localized(guest.publicTransport),
-      arrival: localized(guest.arrival),
-      parking: localized(guest.parking),
-      reception: localized(guest.reception),
-      building: localized(guest.building),
-      visitorNotes: localized(guest.visitorNotes, 1_200),
-      accessibility: localized(guest.accessibility),
+      publicTransport: responseText(guest.publicTransport, { maximum: 600, nullable: true, code }),
+      arrival: responseText(guest.arrival, { maximum: 600, nullable: true, code }),
+      parking: responseText(guest.parking, { maximum: 600, nullable: true, code }),
+      reception: responseText(guest.reception, { maximum: 600, nullable: true, code }),
+      building: responseText(guest.building, { maximum: 600, nullable: true, code }),
+      visitorNotes: responseText(guest.visitorNotes, { maximum: 1_200, nullable: true, code }),
+      accessibility: responseText(guest.accessibility, { maximum: 600, nullable: true, code }),
       wifiPolicy,
       wifiNetworkName: responseText(guest.wifiNetworkName, { maximum: 64, nullable: true, code }),
       contact,
