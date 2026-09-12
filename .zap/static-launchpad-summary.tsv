@@ -10,4 +10,4 @@
 10094	INFO	^(?:https://floriankreutzer\.github\.io/|https://floriankreutzer\.github\.io/robots\.txt|https://floriankreutzer\.github\.io/sitemap\.xml)$
 10098	INFO	^(?:https://floriankreutzer\.github\.io/conference-manager/|https://floriankreutzer\.github\.io/conference-manager/styles\.css)$
 90004	INFO	^https://floriankreutzer\.github\.io/conference-manager/$
-90005	INFO	^(?:https://floriankreutzer\.github\.io/|https://floriankreutzer\.github\.io/conference-manager|https://floriankreutzer\.github\.io/conference-manager/|https://floriankreutzer\.github\.io/robots\.txt|https://floriankreutzer\.github\.io/sitemap\.xml)$
+90005	INFO	^(?:https://floriankreutzer\.github\.io/|https://floriankreutzer\.github\.io/conference-manager|https://floriankreutzer\.github\.io/conference-manager/|https://floriankreutzer\.github\.io/conference-manager/styles\.css|https://floriankreutzer\.github\.io/robots\.txt|https://floriankreutzer\.github\.io/sitemap\.xml)$
