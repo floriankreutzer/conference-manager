@@ -252,8 +252,15 @@ main {
 
 .calendar-shell {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   overscroll-behavior-inline: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.calendar-shell > .calendar-table {
+  width: max(100%, 760px);
 }
 
 .request-list[hidden] {

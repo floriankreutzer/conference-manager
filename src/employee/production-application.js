@@ -154,10 +154,14 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   history.addEventListener('click', () => onHistory(request, history));
   const secondaryActions = [history];
   if (request.status === 'Confirmed') {
-    const guest = button(t('guest.title'));
-    guest.addEventListener('click', () => onGuestInfo(request, currentRoomContext));
-    const print = button(t('guest.print'));
-    print.addEventListener('click', () => onPrint(request, currentRoomContext));
+    const guest = registerMutationControl(button(t('guest.title')));
+    guest.addEventListener('click', () => {
+      void runMutation(() => onGuestInfo(request, currentRoomContext));
+    });
+    const print = registerMutationControl(button(t('guest.print')));
+    print.addEventListener('click', () => {
+      void runMutation(() => onPrint(request, currentRoomContext));
+    });
     secondaryActions.push(guest, print);
   }
   if (['Rejected', 'Cancelled'].includes(request.status)) {
@@ -1418,6 +1422,21 @@ export function createProductionEmployeeApplication({
           const isCurrentCard = () => (
             isInteractiveProjection(generation) && card?.isConnected
           );
+          const withGuestRoomContext = async (target, action) => {
+            try {
+              const prepared = await loadCoherentRequestRoomContext(
+                target, nextCatalog, persistence,
+              );
+              if (!isCurrentCard()) return;
+              if (!prepared) {
+                showToast(t('production.error.conflict'));
+                return;
+              }
+              action(target, prepared.currentRoomContext);
+            } catch (caught) {
+              if (isCurrentCard()) showToast(errorMessage(caught));
+            }
+          };
           const reconcileMutation = async (tracked, caught = null) => {
             if (!isActiveSurface() || tracked.reconciled) return;
             tracked.reconciled = true;
@@ -1510,7 +1529,7 @@ export function createProductionEmployeeApplication({
                 if (shouldNotify) showToast(errorMessage(caught));
               }
             },
-            onGuestInfo: openGuestInfo,
+            onGuestInfo: (target) => withGuestRoomContext(target, openGuestInfo),
             onHistory: async (target, control) => {
               const interactionGeneration = refreshGeneration;
               const isCurrentInteraction = () => (
@@ -1536,7 +1555,7 @@ export function createProductionEmployeeApplication({
                 if (isActiveCard() && control.isConnected) control.disabled = false;
               }
             },
-            onPrint: printRequest,
+            onPrint: (target) => withGuestRoomContext(target, printRequest),
             onRepeat: (target) => queueRequest(target),
             onResubmit: (target) => queueRequest(target, { resubmit: true }),
           });
