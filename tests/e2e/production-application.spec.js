@@ -1491,6 +1491,9 @@ test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-saf
       root: [document.body, ...document.body.children].map(describe),
       active: describe(document.activeElement),
       edge: elements.filter(({ right }) => right >= window.innerWidth).slice(0, 20),
+      intrinsicOverflow: elements
+        .filter(({ scrollWidth, clientWidth }) => scrollWidth > clientWidth)
+        .slice(0, 24),
       overflow: elements
       .filter(({ left, right }) => left < 0 || right > window.innerWidth)
       .slice(0, 12),
