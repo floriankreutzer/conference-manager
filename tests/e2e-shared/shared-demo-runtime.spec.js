@@ -10,7 +10,7 @@ const REQUEST_B = '22000000-0000-4000-8000-000000000002';
 const BASELINE_NAME_A = 'Northwind Demo';
 const BASELINE_NAME_B = 'Contoso Demo';
 const MUTATED_NAME_B = 'Contoso Demo E2E';
-const SEED_VERSION = 'saas-3.5-shared-demo-v1';
+const SEED_VERSION = process.env.DEMO_SEED_VERSION || 'saas-3.5-shared-demo-v1';
 const REQUEST_TITLE = 'Shared Demo end-to-end request';
 
 async function payload(response) {
