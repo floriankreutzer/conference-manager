@@ -484,6 +484,23 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(manager, /bookingChange\.status === 'pending'/);
 });
 
+test('MGR-01: Production Manager restores four server-backed cockpit workspaces', async () => {
+  const [manager, workspace] = await Promise.all([
+    source(MANAGER_SOURCE),
+    source(new URL('../src/manager/workspace-application.js', import.meta.url)),
+  ]);
+  assert.match(manager, /role: 'tablist'/);
+  assert.match(manager, /\['BOOKINGS', 'manager\.ready\.bookingsTab'\]/);
+  assert.match(manager, /\['ROOM_PLAN', 'manager\.roomPlan'\]/);
+  assert.match(manager, /\['REPORTS', 'manager\.reports'\]/);
+  assert.match(manager, /\['ADMIN', 'manager\.admin'\]/);
+  assert.match(manager, /className: 'dashboard-grid'/);
+  assert.match(manager, /production\.manager\.utilizationReport/);
+  assert.match(manager, /production\.manager\.serviceReport/);
+  assert.match(manager, /production\.manager\.cateringReport/);
+  assert.match(workspace, /onOpenBusinessSettings:[\s\S]*renderManagerSettings/);
+});
+
 test('production print popup detaches its opener before accessing the new document', async () => {
   const employee = await source(EMPLOYEE_SOURCE);
   const helperStart = employee.indexOf('function openDetachedPrintWindow()');
