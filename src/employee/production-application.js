@@ -315,8 +315,9 @@ export function createProductionEmployeeApplication({
       return;
     }
     clear(root);
-    const sourceRequest = queuedRequest;
+    let sourceRequest = queuedRequest;
     const isResubmission = queuedResubmission;
+    let resubmissionVersionCurrent = true;
     queuedRequest = null;
     queuedResubmission = false;
     const restoredDraft = sourceRequest ? null : draftStore?.load?.() || null;
@@ -483,7 +484,10 @@ export function createProductionEmployeeApplication({
         if (entry.price) {
           card.appendChild(el('strong', {
             className: 'price',
-            text: `${formatMoney(Number(entry.price.amountMinor || 0) / 100)} · ${t('room.cost')}`,
+            text: `${formatMoney(
+              Number(entry.price.amountMinor || 0) / 100,
+              entry.price.currency,
+            )} · ${t('room.cost')}`,
           }));
         }
         roomSelectionGrid.appendChild(card);
@@ -1055,7 +1059,7 @@ export function createProductionEmployeeApplication({
         }
         verifiedAvailabilityKey = key;
         availabilityState = 'available';
-        submit.disabled = false;
+        submit.disabled = !resubmissionVersionCurrent;
         status.className = 'info-box';
         status.textContent = t('production.employee.availabilityAvailable');
         roomSelectionPanel.removeAttribute('aria-invalid');
@@ -1082,7 +1086,7 @@ export function createProductionEmployeeApplication({
       const externalParticipants = safeParticipantCount(external.value);
       const total = Number(internalParticipants) + Number(externalParticipants);
       const normalizedTitle = title.value.trim();
-      const valid = window && isAvailabilityVerified(window)
+      const valid = window && isAvailabilityVerified(window) && resubmissionVersionCurrent
         && Date.parse(window.startsAt) > Date.now() && internalParticipants !== null
         && externalParticipants !== null && total >= 1 && total <= MAX_PARTICIPANTS
         && normalizedTitle.length >= 1 && normalizedTitle.length <= 160;
@@ -1155,6 +1159,22 @@ export function createProductionEmployeeApplication({
         status.className = 'error-box';
         status.textContent = errorMessage(error);
         if (error?.cause?.code === 'HTTP_409') {
+          if (isResubmission) {
+            resubmissionVersionCurrent = false;
+            try {
+              const requests = await persistence.listRequests();
+              if (!isCurrentEditor()) return;
+              const currentRequest = requests.find((entry) => entry.id === sourceRequest.id);
+              if (currentRequest?.status === 'Change Requested'
+                  && Number.isSafeInteger(currentRequest.version)
+                  && currentRequest.version > sourceRequest.version) {
+                sourceRequest = currentRequest;
+                resubmissionVersionCurrent = true;
+              }
+            } catch {
+              if (!isCurrentEditor()) return;
+            }
+          }
           verifiedAvailabilityKey = null;
           availabilityState = 'unchecked';
           availabilityStateKey = null;
@@ -1165,7 +1185,7 @@ export function createProductionEmployeeApplication({
         }
       } finally {
         if (isCurrentEditor()) {
-          submit.disabled = !isAvailabilityVerified();
+          submit.disabled = !isAvailabilityVerified() || !resubmissionVersionCurrent;
         }
       }
     });

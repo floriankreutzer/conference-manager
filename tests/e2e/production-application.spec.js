@@ -831,6 +831,45 @@ async function installProductionApplicationFixture(page, {
       return;
     }
 
+    if (url.pathname === `/api/v1/application/requests/${REQUEST_ID}/resubmissions`
+        && request.method() === 'POST') {
+      const body = request.postDataJSON();
+      writes.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
+      const createError = requestCreateErrors[requestCreateIndex];
+      requestCreateIndex += 1;
+      if (createError) {
+        if (Number.isSafeInteger(createError.latestVersion) && requests[0]) {
+          requests = [{ ...requests[0], version: createError.latestVersion }];
+        }
+        await route.fulfill({
+          status: createError.status,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: createError.code, requestId: API_REQUEST_ID } }),
+        });
+        return;
+      }
+      const current = requests[0];
+      const resubmitted = {
+        ...current,
+        ...body.request,
+        id: REQUEST_ID,
+        version: body.expectedVersion + 1,
+        status: 'Submitted',
+        statusReason: null,
+      };
+      requests = [resubmitted];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({
+          schemaVersion: 2,
+          request: publicRequest(resubmitted),
+          requestId: API_REQUEST_ID,
+        }),
+      });
+      return;
+    }
+
     if (url.pathname === `/api/v1/requests/${REQUEST_ID}` && request.method() === 'GET') {
       await route.fulfill({
         status: 200,
@@ -1520,6 +1559,51 @@ test('EMP-01 EMP-07: Employee production flow invalidates availability after req
   await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
   expect(fixture.availabilityChecks).toHaveLength(2);
   expect(fixture.writes).toHaveLength(1);
+});
+
+test('EMP-03: Employee room cards use each projected price currency', async ({ page }) => {
+  const catalog = catalogPayload();
+  catalog.catalog.rooms[0].price = { amountMinor: 2_500, currency: 'CHF' };
+  await installProductionApplicationFixture(page, { catalog });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+
+  await expect(page.locator('[data-room-id="room-a"] .price')).toContainText('CHF');
+});
+
+test('EMP-07: Employee rebases a conflicted resubmission and preserves the editor draft', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    requestCreateErrors: [{ status: 409, code: 'REQUEST_CONFLICT', latestVersion: 2 }],
+  });
+  fixture.requests().push({
+    ...confirmedV2RequestFixture(),
+    status: 'Change Requested',
+    statusReason: 'Please revise the request.',
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Änderung bearbeiten' }).click();
+
+  await page.locator('#productionTitle').fill('Preserved resubmission draft');
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Änderung erneut einreichen' }).click();
+
+  await expect(page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' })).toBeVisible();
+  await expect(page.locator('#productionTitle')).toHaveValue('Preserved resubmission draft');
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Änderung erneut einreichen' }).click();
+
+  await expect(page.locator('#viewTitle')).toHaveText('Meine Anfragen');
+  expect(fixture.writes).toHaveLength(2);
+  expect(fixture.writes.map(({ body }) => body.expectedVersion)).toEqual([1, 2]);
+  expect(fixture.writes.map(({ body }) => body.request.title)).toEqual([
+    'Preserved resubmission draft',
+    'Preserved resubmission draft',
+  ]);
 });
 
 test('EMP-03: Employee production flow exposes occupied, transport-error, and available states', async ({ page }) => {

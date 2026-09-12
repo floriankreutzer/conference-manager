@@ -457,6 +457,8 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(roomContextLoader, /room && currentRoomContext\?\.site\?\.id === room\.siteId/);
   assert.match(employee, /persistence\.transitionRequest/);
   assert.match(employee, /persistence\.resubmitRequest/);
+  assert.match(employee, /currentRequest\.version > sourceRequest\.version/);
+  assert.match(employee, /entry\.price\.currency/);
   assert.match(employee, /persistence\.loadRequestHistory/);
   assert.match(employee, /repeatRequestProjection/);
   assert.match(employee, /printWindow\.print/);
