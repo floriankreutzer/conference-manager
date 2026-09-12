@@ -1494,6 +1494,7 @@ export function createProductionEmployeeApplication({
         interactiveProjectionGeneration = 0;
         clear(root);
         root.appendChild(el('p', { className: 'error-box', text: t('production.employee.loadError') }));
+        renderSubmissionNotice(generation);
       }
     }
 

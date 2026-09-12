@@ -570,6 +570,7 @@ test('EMP-08: successful Employee submissions expose a persistent accessible com
   assert.match(employee, /dataset: \{ uxSubmissionSuccess: 'true' \}[\s\S]*role: 'status', tabindex: '-1'/);
   assert.match(employee, /submission\.resubmittedTitle[\s\S]*submission\.sentTitle/);
   assert.match(employee, /submissionNotice === currentNotice[\s\S]*productionRequestId === currentNotice\.requestId[\s\S]*\.focus\(\)/);
+  assert.match(employee, /production\.employee\.loadError[\s\S]*renderSubmissionNotice\(generation\)/);
 });
 
 test('Employee Request history uses the localized server-backed timeline renderer', async () => {
