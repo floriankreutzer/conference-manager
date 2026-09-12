@@ -256,6 +256,10 @@ main {
   -webkit-overflow-scrolling: touch;
 }
 
+.request-list[hidden] {
+  display: none;
+}
+
 .calendar-table {
   max-width: none;
 }

@@ -15,6 +15,11 @@ import {
 import {
   repeatRequestProjection,
 } from './server-request-projection.js';
+import {
+  initialServerRequestCalendarMonth,
+  projectServerRequestCalendar,
+  renderServerRequestCalendar,
+} from './server-request-calendar.js';
 import { composeServerRequestDraft } from '../shared/production-request-draft.js';
 import {
   cateringEditorOptions,
@@ -1176,6 +1181,8 @@ export function createProductionEmployeeApplication({
     let hasCommittedProjection = false;
     let committedProjectionGeneration = 0;
     let interactiveProjectionGeneration = 0;
+    let requestDisplay = 'list';
+    let calendarReference = null;
     const isActiveSurface = () => (
       root.isConnected
       && document.documentElement.dataset.sessionLocked !== 'true'
@@ -1217,11 +1224,61 @@ export function createProductionEmployeeApplication({
         interactiveProjectionGeneration = generation;
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', () => { void refresh(); });
-        root.appendChild(el('div', { className: 'button-row' }, [refreshButton]));
         if (!requests.length) {
+          root.appendChild(el('div', { className: 'button-row' }, [refreshButton]));
           root.appendChild(el('p', { className: 'info-box', text: t('requests.none') }));
           return;
         }
+        if (focusRequestId) requestDisplay = 'list';
+        const calendarProjection = projectServerRequestCalendar(
+          requests, nextCatalog, roomContexts,
+        );
+        calendarReference ||= initialServerRequestCalendarMonth(calendarProjection);
+        const listButton = button(t('requests.list'), {
+          attrs: { 'aria-pressed': String(requestDisplay === 'list') },
+        });
+        const calendarButton = button(t('requests.calendar'), {
+          attrs: { 'aria-pressed': String(requestDisplay === 'calendar') },
+        });
+        const displayControls = el('div', {
+          className: 'segmented',
+          attrs: { role: 'group', 'aria-label': t('production.employee.requestDisplay') },
+        }, [listButton, calendarButton]);
+        root.appendChild(el('section', { className: 'toolbar' }, [refreshButton, displayControls]));
+        const listSection = el('section', {
+          className: 'request-list',
+          attrs: { 'aria-label': t('requests.list') },
+        });
+        const calendarHost = el('div');
+        root.append(listSection, calendarHost);
+        const showDisplay = (nextDisplay) => {
+          requestDisplay = nextDisplay;
+          const showCalendar = requestDisplay === 'calendar';
+          listButton.setAttribute('aria-pressed', String(!showCalendar));
+          calendarButton.setAttribute('aria-pressed', String(showCalendar));
+          listSection.hidden = showCalendar;
+          calendarHost.hidden = !showCalendar;
+          if (!showCalendar) return;
+          calendarHost.replaceChildren(renderServerRequestCalendar({
+            projection: calendarProjection,
+            reference: calendarReference,
+            onReferenceChange: (nextReference) => {
+              calendarReference = nextReference;
+              showDisplay('calendar');
+            },
+            onSelect: (target) => {
+              showDisplay('list');
+              requestAnimationFrame(() => {
+                if (!isCurrent(generation)) return;
+                [...listSection.querySelectorAll('[data-production-request-id]')]
+                  .find((candidate) => candidate.dataset.productionRequestId === target.id)
+                  ?.focus();
+              });
+            },
+          }));
+        };
+        listButton.addEventListener('click', () => showDisplay('list'));
+        calendarButton.addEventListener('click', () => showDisplay('calendar'));
         for (const [index, request] of requests.entries()) {
           let card = null;
           const isActiveCard = () => isActiveSurface() && card?.isConnected;
@@ -1350,7 +1407,7 @@ export function createProductionEmployeeApplication({
             onRepeat: (target) => queueRequest(target),
             onResubmit: (target) => queueRequest(target, { resubmit: true }),
           });
-          root.appendChild(card);
+          listSection.appendChild(card);
           const activeMutation = requestMutations.get(request.id);
           if (activeMutation?.kind === 'cancel' && activeMutation.promise) {
             activeMutation.promise.then(
@@ -1359,6 +1416,7 @@ export function createProductionEmployeeApplication({
             );
           }
         }
+        showDisplay(requestDisplay);
         if (focusRequestId) {
           requestAnimationFrame(() => {
             if (!isCurrent(generation)) return;

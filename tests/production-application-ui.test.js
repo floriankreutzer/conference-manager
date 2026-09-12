@@ -549,6 +549,15 @@ test('production workflow refreshes restore focus to the mutated request card', 
   assert.match(manager, /productionRequestId[\s\S]*\.focus\(\)/);
 });
 
+test('Employee Requests restores the server-backed list and calendar presentation contract', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  assert.match(employee, /projectServerRequestCalendar\(\s*requests, nextCatalog, roomContexts/);
+  assert.match(employee, /requests\.list[\s\S]*requests\.calendar/);
+  assert.match(employee, /aria-pressed[\s\S]*requestDisplay === 'calendar'/);
+  assert.match(employee, /renderServerRequestCalendar\(\{/);
+  assert.match(employee, /onSelect:[\s\S]*showDisplay\('list'\)[\s\S]*productionRequestId[\s\S]*\.focus\(\)/);
+});
+
 test('Employee editor and proposal lifecycles reject detached or duplicate async work', async () => {
   const employee = await source(EMPLOYEE_SOURCE);
   const editor = employee.slice(

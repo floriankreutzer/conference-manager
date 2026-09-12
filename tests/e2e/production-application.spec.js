@@ -1281,6 +1281,37 @@ test('EMP-02: Employee schedule keeps both participant counts required', async (
   await expect(externalParticipants).toBeFocused();
 });
 
+test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-safe mobile calendar', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  const sourceRequest = confirmedV2RequestFixture();
+  fixture.requests().push(sourceRequest);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+
+  const list = page.getByRole('button', { name: 'Liste', exact: true });
+  const calendar = page.getByRole('button', { name: 'Kalender', exact: true });
+  await expect(list).toHaveAttribute('aria-pressed', 'true');
+  await calendar.click();
+  await expect(calendar).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.calendar-table')).toBeVisible();
+  await expect(page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`))
+    .toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Nächster Monat' }).click();
+  await expect(page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`))
+    .toHaveCount(0);
+  await page.getByRole('button', { name: 'Vorheriger Monat' }).click();
+  const event = page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`);
+  await event.focus();
+  await event.press('Enter');
+
+  await expect(list).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(`[data-production-request-id="${sourceRequest.id}"]`)).toBeFocused();
+  const viewportFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  expect(viewportFits).toBe(true);
+});
+
 test('Employee reconciles one held cancellation after cross-navigation from pre-cancel state', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, { holdTransition: true });
   fixture.requests().push(confirmedRequestFixture());
