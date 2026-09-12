@@ -1337,6 +1337,26 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   });
 });
 
+test('EMP-08: first post-submit list failure retains completion and restores focus to the error', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  fixture.failNextRequestRead();
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+
+  const completion = page.locator('[data-ux-submission-success]');
+  const loadError = page.getByText('Die Produktionsdaten konnten nicht sicher geladen werden.', { exact: true });
+  await expect(completion).toBeFocused();
+  await expect(loadError).toBeVisible();
+  await completion.getByRole('button', { name: 'Schließen' }).click();
+  await expect(loadError).toBeFocused();
+  expect(fixture.writes).toHaveLength(1);
+});
+
 test('EMP-02: Employee schedule keeps both participant counts required', async ({ page }) => {
   await installProductionApplicationFixture(page);
   await page.goto(`${ORIGIN}/`);

@@ -1239,10 +1239,13 @@ export function createProductionEmployeeApplication({
       close.addEventListener('click', () => {
         if (submissionNotice === currentNotice) submissionNotice = null;
         notice.remove();
-        if (!isInteractiveProjection(generation)) return;
-        [...root.querySelectorAll('[data-production-request-id]')]
-          .find((card) => card.dataset.productionRequestId === currentNotice.requestId)
-          ?.focus();
+        if (isInteractiveProjection(generation)) {
+          [...root.querySelectorAll('[data-production-request-id]')]
+            .find((card) => card.dataset.productionRequestId === currentNotice.requestId)
+            ?.focus();
+        } else if (isCurrent(generation)) {
+          root.querySelector('.error-box')?.focus();
+        }
       });
       notice.append(copy, close);
       root.prepend(notice);
@@ -1493,7 +1496,11 @@ export function createProductionEmployeeApplication({
         committedProjectionGeneration = 0;
         interactiveProjectionGeneration = 0;
         clear(root);
-        root.appendChild(el('p', { className: 'error-box', text: t('production.employee.loadError') }));
+        root.appendChild(el('p', {
+          className: 'error-box',
+          text: t('production.employee.loadError'),
+          attrs: { tabindex: '-1' },
+        }));
         renderSubmissionNotice(generation);
       }
     }
