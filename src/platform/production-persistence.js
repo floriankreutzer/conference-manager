@@ -526,8 +526,16 @@ export function createProductionPersistence({ apiClient } = {}) {
 
     async loadRequestRoomContext(requestId, options = {}) {
       const id = assertRequestId(requestId);
+      const { projection = null, ...requestOptions } = options;
+      if (projection !== null && projection !== 'guest') {
+        throw new ProductionPersistenceError('PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
+      }
       const result = normalizeProductionRequestRoomContextEnvelope(await call(
-        apiClient, `v1/requests/${encodeURIComponent(id)}/room-context`, options,
+        apiClient,
+        projection === 'guest'
+          ? `v1/requests/${encodeURIComponent(id)}/room-context?projection=guest`
+          : `v1/requests/${encodeURIComponent(id)}/room-context`,
+        requestOptions,
       ));
       if (result.requestRef.id !== id) {
         throw new ProductionPersistenceError('PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');

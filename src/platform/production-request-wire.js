@@ -257,8 +257,41 @@ function catalogSite(value, code) {
 }
 
 function catalogRoom(value, code) {
-  const room = exactObject(value, ['id', 'siteId', 'name', 'capacity', 'active', 'price'], code);
+  const legacyKeys = ['id', 'siteId', 'name', 'capacity', 'active', 'price'];
+  const presentationKeys = [
+    ...legacyKeys, 'equipment', 'floorplanAssetId', 'mediaAssetIds',
+  ];
+  const actualKeys = value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.keys(value).sort()
+    : [];
+  const isLegacy = actualKeys.length === legacyKeys.length
+    && actualKeys.every((key, index) => key === [...legacyKeys].sort()[index]);
+  const room = exactObject(value, isLegacy ? legacyKeys : presentationKeys, code);
   if (room.active !== true || room.price === null) invalid(code);
+  if (isLegacy) {
+    return Object.freeze({
+      id: identifier(room.id, code),
+      siteId: identifier(room.siteId, code),
+      name: responseText(room.name, { maximum: 160, code }),
+      capacity: safeInteger(room.capacity, 1, 100_000, code),
+      active: true,
+      price: money(room.price, code),
+      equipment: Object.freeze([]),
+      floorplanAssetId: null,
+      mediaAssetIds: Object.freeze([]),
+    });
+  }
+  if (
+    !Array.isArray(room.equipment)
+    || room.equipment.length > 100
+    || !Array.isArray(room.mediaAssetIds)
+    || room.mediaAssetIds.length > 20
+  ) invalid(code);
+  const equipment = room.equipment.map((entry) => responseText(entry, { maximum: 160, code }));
+  const mediaAssetIds = room.mediaAssetIds.map((entry) => identifier(entry, code));
+  if (new Set(equipment).size !== equipment.length || new Set(mediaAssetIds).size !== mediaAssetIds.length) {
+    invalid(code);
+  }
   return Object.freeze({
     id: identifier(room.id, code),
     siteId: identifier(room.siteId, code),
@@ -266,6 +299,9 @@ function catalogRoom(value, code) {
     capacity: safeInteger(room.capacity, 1, 100_000, code),
     active: true,
     price: money(room.price, code),
+    equipment: Object.freeze(equipment),
+    floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
+    mediaAssetIds: Object.freeze(mediaAssetIds),
   });
 }
 
@@ -918,29 +954,46 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
   const envelope = exactObject(value, [
     'schemaVersion', 'requestRef', 'currentRoomContext', 'requestId',
   ], code);
-  if (envelope.schemaVersion !== 1) invalid(code);
+  if (![1, 2].includes(envelope.schemaVersion)) invalid(code);
   const ref = requestRef(envelope.requestRef, code);
   identifier(envelope.requestId, code);
   if (envelope.currentRoomContext === null) {
     return immutable({ requestRef: ref, currentRoomContext: null });
   }
-  const context = exactObject(envelope.currentRoomContext, [
-    'locationsRevision', 'room', 'site',
-  ], code);
-  const room = exactObject(context.room, [
-    'id', 'siteId', 'name', 'capacity', 'active',
-  ], code);
-  const site = exactObject(context.site, [
-    'id', 'name', 'active', 'timeZone',
-  ], code);
+  const guestProjection = envelope.schemaVersion === 2;
+  const context = exactObject(envelope.currentRoomContext, guestProjection
+    ? ['locationsRevision', 'room', 'site', 'guestPresentation']
+    : ['locationsRevision', 'room', 'site'], code);
+  const room = exactObject(context.room, guestProjection
+    ? ['id', 'siteId', 'name', 'capacity', 'active', 'floor', 'accessibility', 'floorplanAssetId', 'mediaAssetIds']
+    : ['id', 'siteId', 'name', 'capacity', 'active'], code);
+  const site = exactObject(context.site, ['id', 'name', 'active', 'timeZone'], code);
   if (typeof room.active !== 'boolean' || typeof site.active !== 'boolean') invalid(code);
   if (site.timeZone !== null && !isProductionTimeZone(site.timeZone)) invalid(code);
+  let accessibility = Object.freeze([]);
+  let mediaAssetIds = Object.freeze([]);
+  if (guestProjection) {
+    if (!Array.isArray(room.accessibility) || room.accessibility.length > 20) invalid(code);
+    accessibility = Object.freeze(room.accessibility.map((entry) => (
+      responseText(entry, { maximum: 80, code })
+    )));
+    if (new Set(accessibility).size !== accessibility.length) invalid(code);
+    if (!Array.isArray(room.mediaAssetIds) || room.mediaAssetIds.length > 20) invalid(code);
+    mediaAssetIds = Object.freeze(room.mediaAssetIds.map((entry) => identifier(entry, code)));
+    if (new Set(mediaAssetIds).size !== mediaAssetIds.length) invalid(code);
+  }
   const normalizedRoom = {
     id: identifier(room.id, code),
     siteId: identifier(room.siteId, code),
     name: responseText(room.name, { maximum: 160, code }),
     capacity: safeInteger(room.capacity, 1, 100_000, code),
     active: room.active,
+    ...(guestProjection ? {
+      floor: responseText(room.floor, { maximum: 80, nullable: true, code }),
+      floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
+      mediaAssetIds,
+      accessibility,
+    } : {}),
   };
   const normalizedSite = {
     id: identifier(site.id, code),
@@ -949,12 +1002,65 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
     timeZone: site.timeZone,
   };
   if (normalizedRoom.siteId !== normalizedSite.id) invalid(code);
+  let guestPresentation = null;
+  if (guestProjection && context.guestPresentation !== null) {
+    const guest = exactObject(context.guestPresentation, [
+      'address', 'publicTransport', 'arrival', 'parking', 'reception', 'building',
+      'visitorNotes', 'accessibility', 'wifiPolicy', 'wifiNetworkName', 'contact', 'routeUrl',
+    ], code);
+    let address = null;
+    if (guest.address !== null) {
+      const input = exactObject(guest.address, ['line1', 'line2', 'postalCode', 'city', 'countryCode'], code);
+      const countryCode = responseText(input.countryCode, { maximum: 2, code });
+      if (!/^[A-Z]{2}$/.test(countryCode)) invalid(code);
+      address = Object.freeze({
+        line1: responseText(input.line1, { maximum: 160, code }),
+        line2: input.line2 === null ? null : responseText(input.line2, { maximum: 160, code }),
+        postalCode: responseText(input.postalCode, { maximum: 32, code }),
+        city: responseText(input.city, { maximum: 120, code }),
+        countryCode,
+      });
+    }
+    let contact = null;
+    if (guest.contact !== null) {
+      const input = exactObject(guest.contact, ['name', 'email', 'phone'], code);
+      contact = Object.freeze({
+        name: responseText(input.name, { maximum: 160, code }),
+        email: responseText(input.email, { maximum: 254, nullable: true, code }),
+        phone: responseText(input.phone, { maximum: 64, nullable: true, code }),
+      });
+    }
+    const wifiPolicy = responseText(guest.wifiPolicy, { maximum: 32, code });
+    if (!['open', 'credentials_on_arrival', 'contact_organizer', 'not_available'].includes(wifiPolicy)) invalid(code);
+    let routeUrl = null;
+    if (guest.routeUrl !== null) {
+      routeUrl = responseText(guest.routeUrl, { maximum: 2048, code });
+      let parsed;
+      try { parsed = new URL(routeUrl); } catch { invalid(code); }
+      if (parsed.protocol !== 'https:' || parsed.username || parsed.password) invalid(code);
+    }
+    guestPresentation = Object.freeze({
+      address,
+      publicTransport: responseText(guest.publicTransport, { maximum: 600, nullable: true, code }),
+      arrival: responseText(guest.arrival, { maximum: 600, nullable: true, code }),
+      parking: responseText(guest.parking, { maximum: 600, nullable: true, code }),
+      reception: responseText(guest.reception, { maximum: 600, nullable: true, code }),
+      building: responseText(guest.building, { maximum: 600, nullable: true, code }),
+      visitorNotes: responseText(guest.visitorNotes, { maximum: 1_200, nullable: true, code }),
+      accessibility: responseText(guest.accessibility, { maximum: 600, nullable: true, code }),
+      wifiPolicy,
+      wifiNetworkName: responseText(guest.wifiNetworkName, { maximum: 64, nullable: true, code }),
+      contact,
+      routeUrl,
+    });
+  }
   return immutable({
     requestRef: ref,
     currentRoomContext: {
       locationsRevision: positiveVersion(context.locationsRevision, code),
       room: normalizedRoom,
       site: normalizedSite,
+      ...(guestProjection ? { guestPresentation } : {}),
     },
   });
 }

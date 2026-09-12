@@ -100,6 +100,9 @@ function catalogPayload(timeZone = 'Europe/Berlin') {
       rooms: [{
         id: 'room-a', siteId: 'berlin', name: 'Room A', capacity: 12, active: true,
         price: { amountMinor: 0, currency: 'EUR' },
+        equipment: ['Display', 'Whiteboard'],
+        floorplanAssetId: 'floorplan-room-a',
+        mediaAssetIds: ['room-a-front'],
       }],
       services: [],
       cateringPackages: [],
@@ -255,6 +258,7 @@ async function installProductionApplicationFixture(page, {
   availabilityResponses = [{ available: true, conflictCount: 0 }],
   requestCreateErrors = [],
   requestRoomContext = undefined,
+  requestRoomContextSchemaVersion = 1,
   holdAvailability = false,
   holdBookingDecision = false,
   holdBookingProposal = false,
@@ -945,7 +949,7 @@ async function installProductionApplicationFixture(page, {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify({
-          schemaVersion: 1,
+          schemaVersion: requestRoomContextSchemaVersion,
           requestRef: requestRef(current),
           currentRoomContext,
           requestId: API_REQUEST_ID,
@@ -1279,6 +1283,8 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
     date: requestDate, internal: '2', external: '1',
   });
   await expect(page.getByText('Kapazität passend')).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Schematische Raumübersicht für Room A' })).toBeVisible();
+  await expect(page.getByText('Ausstattung: Display, Whiteboard')).toBeVisible();
   await expect(page.getByText('Verfügbar', { exact: true })).toHaveCount(0);
   const roomOption = page.getByRole('radio', { name: /Room A/ });
   await expect(roomOption).toBeVisible();
@@ -1458,8 +1464,42 @@ test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-saf
 
   await expect(list).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator(`[data-production-request-id="${sourceRequest.id}"]`)).toBeFocused();
-  const viewportFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
-  expect(viewportFits).toBe(true);
+  const reflow = await page.evaluate(() => {
+    const describe = (element) => {
+        const bounds = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          element: element.tagName.toLowerCase(),
+          className: typeof element.className === 'string' ? element.className : '',
+          id: element.id,
+          left: Math.round(bounds.left),
+          right: Math.round(bounds.right),
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+          display: style.display,
+          position: style.position,
+          overflowX: style.overflowX,
+          outline: `${style.outlineWidth} ${style.outlineStyle} ${style.outlineOffset}`,
+          boxShadow: style.boxShadow,
+        };
+    };
+    const elements = [...document.querySelectorAll('body *')].map(describe);
+    return {
+      fits: document.documentElement.scrollWidth <= window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      root: [document.body, ...document.body.children].map(describe),
+      active: describe(document.activeElement),
+      edge: elements.filter(({ right }) => right >= window.innerWidth).slice(0, 20),
+      intrinsicOverflow: elements
+        .filter(({ scrollWidth, clientWidth }) => scrollWidth > clientWidth)
+        .slice(0, 24),
+      overflow: elements
+      .filter(({ left, right }) => left < 0 || right > window.innerWidth)
+      .slice(0, 12),
+    };
+  });
+  expect(reflow.fits, JSON.stringify(reflow)).toBe(true);
 });
 
 test('EMP-12: Employee history is an accessible localized server timeline with focus return', async ({ page }) => {
@@ -1940,6 +1980,49 @@ test('confirmed inactive Room print uses the authoritative context label and tim
   }).format(Date.parse(currentRequest.startsAt));
   await expect(popup.locator('body')).toContainText('Retired Room · 12');
   await expect(popup.locator('body')).toContainText(expectedStart);
+});
+
+test('confirmed Request exposes only guest-safe address and accessibility context', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    requestRoomContextSchemaVersion: 2,
+    requestRoomContext: {
+      locationsRevision: 1,
+      room: {
+        id: 'room-a', siteId: 'berlin', name: 'Room A', capacity: 12, active: true,
+        floor: '1', floorplanAssetId: null, mediaAssetIds: [],
+        accessibility: ['Step-free access'],
+      },
+      site: {
+        id: 'berlin', name: 'Berlin', active: true, timeZone: 'Europe/Berlin',
+      },
+      guestPresentation: {
+        address: {
+          line1: 'Main Street 1', line2: null, postalCode: '10115', city: 'Berlin', countryCode: 'DE',
+        },
+        publicTransport: 'S-Bahn',
+        arrival: null,
+        parking: null,
+        reception: null,
+        building: null,
+        visitorNotes: null,
+        accessibility: 'Aufzug vorhanden',
+        wifiPolicy: 'credentials_on_arrival',
+        wifiNetworkName: 'Guest',
+        contact: { name: 'Conference Management', email: null, phone: null },
+        routeUrl: 'https://www.openstreetmap.org/',
+      },
+    },
+  });
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+
+  await page.getByRole('button', { name: 'Gästeinformationen' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Main Street 1, 10115 Berlin, DE');
+  await expect(dialog).toContainText('Step-free access');
+  await expect(dialog).toContainText('Zugangsdaten bei Ankunft');
+  await expect(dialog).not.toContainText(/Passwort|provider/i);
 });
 
 test('Conference Manager capability is independent and transitions server-owned request state', async ({ page }) => {

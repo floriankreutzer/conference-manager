@@ -81,7 +81,7 @@ function openDetachedPrintWindow() {
 
 function requestCard(request, catalog, currentRoomContext, openChange, {
   mutationInFlight = () => false,
-  onCancel, onChange, onHistory, onPrint, onRepeat, onResubmit,
+  onCancel, onChange, onGuestInfo, onHistory, onPrint, onRepeat, onResubmit,
 }) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId)
     || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
@@ -154,9 +154,15 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   history.addEventListener('click', () => onHistory(request, history));
   const secondaryActions = [history];
   if (request.status === 'Confirmed') {
-    const print = button(t('guest.print'));
-    print.addEventListener('click', () => onPrint(request, currentRoomContext));
-    secondaryActions.push(print);
+    const guest = registerMutationControl(button(t('guest.title')));
+    guest.addEventListener('click', () => {
+      void runMutation(() => onGuestInfo(request, currentRoomContext));
+    });
+    const print = registerMutationControl(button(t('guest.print')));
+    print.addEventListener('click', () => {
+      void runMutation(() => onPrint(request, currentRoomContext));
+    });
+    secondaryActions.push(guest, print);
   }
   if (['Rejected', 'Cancelled'].includes(request.status)) {
     const repeat = button(t(request.status === 'Rejected' ? 'requests.repeatRejected' : 'requests.repeat'));
@@ -239,7 +245,12 @@ export function createProductionEmployeeApplication({
       || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
     const site = catalog.sites?.find((entry) => entry.id === room?.siteId)
       || (currentRoomContext?.site?.id === room?.siteId ? currentRoomContext.site : null);
-    const details = siteInfo?.sites?.find?.((entry) => entry.id === site?.id) || {};
+    const guest = currentRoomContext?.guestPresentation;
+    const address = guest?.address;
+    const formattedAddress = address
+      ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
+        .filter(Boolean).join(', ')
+      : t('guest.askOrganizer');
     doc.documentElement.lang = locale().split('-')[0];
     doc.title = `${t('requests.pdf')} · ${request.id}`;
     const heading = doc.createElement('h1');
@@ -255,8 +266,18 @@ export function createProductionEmployeeApplication({
         request.endsAt, room, catalog, currentRoomContext,
       )],
       [t('production.employee.room'), roomLabel(room || { id: request.roomId })],
-      [t('guest.address'), details.address || t('guest.askOrganizer')],
-      [t('guest.contact'), details.contact || t('guest.contactDefault')],
+      [t('guest.address'), formattedAddress],
+      [t('manager.publicTransport'), localizedGuest(guest?.publicTransport)],
+      [t('manager.parking'), localizedGuest(guest?.parking)],
+      [t('manager.reception'), localizedGuest(guest?.reception)],
+      [t('manager.accessibility'), [
+        currentRoomContext?.room?.accessibility?.join(', '),
+        localizedGuest(guest?.accessibility),
+      ].filter(Boolean).join(' · ') || '—'],
+      [t('manager.contact'), guest?.contact
+        ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
+        : '—'],
+      [t('guest.wifi'), t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)],
     ].forEach(([term, value]) => {
       const dt = doc.createElement('dt');
       const dd = doc.createElement('dd');
@@ -270,6 +291,61 @@ export function createProductionEmployeeApplication({
     print.addEventListener('click', () => printWindow.print());
     doc.body.append(heading, list, print);
     printWindow.focus();
+  }
+
+  function openGuestInfo(request, currentRoomContext = null) {
+    const room = catalog.rooms.find((entry) => entry.id === request.roomId)
+      || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
+    const guest = currentRoomContext?.guestPresentation;
+    const address = guest?.address;
+    const formattedAddress = address
+      ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
+        .filter(Boolean).join(', ')
+      : t('guest.askOrganizer');
+    const close = button(t('common.close'));
+    const print = button(t('guest.print'), { className: 'primary' });
+    const dialog = openDialog({
+      title: t('guest.welcome', {
+        title: request.details?.title || t('production.common.requestId', { id: request.id }),
+      }),
+      description: t('guest.subtitle'),
+      content: el('section', {}, [el('dl', { className: 'details-list' }, [
+        el('dt', { text: t('production.employee.room') }),
+        el('dd', { text: roomLabel(room || { id: request.roomId }) }),
+        el('dt', { text: t('guest.address') }),
+        el('dd', { text: formattedAddress }),
+        el('dt', { text: t('manager.accessibility') }),
+        el('dd', { text: [
+          currentRoomContext?.room?.accessibility?.join(', '),
+          localizedGuest(guest?.accessibility),
+        ].filter(Boolean).join(' · ') || '—' }),
+        el('dt', { text: t('manager.publicTransport') }),
+        el('dd', { text: localizedGuest(guest?.publicTransport) || '—' }),
+        el('dt', { text: t('manager.parking') }),
+        el('dd', { text: localizedGuest(guest?.parking) || '—' }),
+        el('dt', { text: t('manager.reception') }),
+        el('dd', { text: localizedGuest(guest?.reception) || '—' }),
+        el('dt', { text: t('manager.contact') }),
+        el('dd', { text: guest?.contact
+          ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
+          : '—' }),
+        el('dt', { text: t('guest.wifi') }),
+        el('dd', { text: t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`) }),
+      ]), guest?.routeUrl ? el('p', {}, el('a', {
+        href: guest.routeUrl,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        text: t('guest.route'),
+      })) : null]),
+      actions: [close, print],
+      labelledById: `guestInformation-${request.id}`,
+    });
+    close.addEventListener('click', () => dialog.close());
+    print.addEventListener('click', () => printRequest(request, currentRoomContext));
+  }
+
+  function localizedGuest(value) {
+    return value || '';
   }
 
   function formattedRequestValue(value, room, requestCatalog, currentRoomContext = null) {
@@ -489,6 +565,23 @@ export function createProductionEmployeeApplication({
               Number(entry.price.amountMinor || 0) / 100,
               entry.price.currency,
             )} · ${t('room.cost')}`,
+          }));
+        }
+        card.appendChild(el('div', {
+          className: 'room-floorplan-preview',
+          attrs: {
+            role: 'img',
+            'aria-label': t('production.employee.floorplanPreview', { room: entry.name }),
+          },
+        }, [
+          el('span', { className: 'room-floorplan-table', attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'room-floorplan-screen', attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'room-floorplan-door', attrs: { 'aria-hidden': 'true' } }),
+        ]));
+        if (entry.equipment.length) {
+          card.appendChild(el('p', {
+            className: 'room-equipment',
+            text: t('production.employee.roomEquipment', { equipment: entry.equipment.join(', ') }),
           }));
         }
         roomSelectionGrid.appendChild(card);
@@ -1366,6 +1459,21 @@ export function createProductionEmployeeApplication({
           const isCurrentCard = () => (
             isInteractiveProjection(generation) && card?.isConnected
           );
+          const withGuestRoomContext = async (target, action) => {
+            try {
+              const prepared = await loadCoherentRequestRoomContext(
+                target, nextCatalog, persistence, { projection: 'guest' },
+              );
+              if (!isCurrentCard()) return;
+              if (!prepared) {
+                showToast(t('production.error.conflict'));
+                return;
+              }
+              action(target, prepared.currentRoomContext);
+            } catch (caught) {
+              if (isCurrentCard()) showToast(errorMessage(caught));
+            }
+          };
           const reconcileMutation = async (tracked, caught = null) => {
             if (!isActiveSurface() || tracked.reconciled) return;
             tracked.reconciled = true;
@@ -1458,6 +1566,7 @@ export function createProductionEmployeeApplication({
                 if (shouldNotify) showToast(errorMessage(caught));
               }
             },
+            onGuestInfo: (target) => withGuestRoomContext(target, openGuestInfo),
             onHistory: async (target, control) => {
               const interactionGeneration = refreshGeneration;
               const isCurrentInteraction = () => (
@@ -1483,7 +1592,7 @@ export function createProductionEmployeeApplication({
                 if (isActiveCard() && control.isConnected) control.disabled = false;
               }
             },
-            onPrint: printRequest,
+            onPrint: (target) => withGuestRoomContext(target, printRequest),
             onRepeat: (target) => queueRequest(target),
             onResubmit: (target) => queueRequest(target, { resubmit: true }),
           });

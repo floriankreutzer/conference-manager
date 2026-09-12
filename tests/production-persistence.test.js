@@ -104,12 +104,73 @@ test('profile hydration accepts only the exact server profile projection', async
 });
 
 test('production persistence assembles every bounded catalogue section with one generation', async () => {
-  const harness = api((path) => catalogPage(new URL(`https://example.test/${path}`).searchParams.get('section')));
+  const harness = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    return catalogPage(section, section === 'rooms' ? { entries: [{
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: ['Display'],
+      floorplanAssetId: 'floorplan-room-1', mediaAssetIds: ['room-1-front'],
+    }] } : section === 'sites' ? { entries: [{
+      id: 'site-1', name: 'Site 1', active: true, timeZone: 'Europe/Berlin',
+    }] } : {});
+  });
   const catalog = await createProductionPersistence({ apiClient: harness.client }).loadCatalog();
   assert.deepEqual(catalog.configurationRevisions, revisions());
   assert.equal(harness.calls.length, 6);
   assert.match(harness.calls[0].path, /section=sites/);
   for (const call of harness.calls.slice(1)) assert.match(call.path, /context=catalog_context/);
+  assert.deepEqual(catalog.rooms[0].equipment, ['Display']);
+  assert.equal(catalog.rooms[0].floorplanAssetId, 'floorplan-room-1');
+});
+
+test('Room presentation accepts the exact pre-cutover schema with safe empty visual defaults', async () => {
+  const harness = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    if (section === 'sites') return catalogPage(section, { entries: [{
+      id: 'site-1', name: 'Site 1', active: true, timeZone: 'Europe/Berlin',
+    }] });
+    return catalogPage(section, section === 'rooms' ? { entries: [{
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' },
+    }] } : {});
+  });
+
+  const catalog = await createProductionPersistence({ apiClient: harness.client }).loadCatalog();
+  assert.deepEqual(catalog.rooms[0].equipment, []);
+  assert.equal(catalog.rooms[0].floorplanAssetId, null);
+  assert.deepEqual(catalog.rooms[0].mediaAssetIds, []);
+});
+
+test('Room presentation projection rejects unsafe or expanded server payloads', async () => {
+  for (const room of [
+    {
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: ['Display', 'Display'],
+      floorplanAssetId: null, mediaAssetIds: [],
+    },
+    {
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: [],
+      floorplanAssetId: 'https://attacker.invalid/room', mediaAssetIds: [],
+    },
+    {
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: [],
+      floorplanAssetId: null, mediaAssetIds: [], providerId: 'internal',
+    },
+  ]) {
+    const harness = api((path) => {
+      const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+      if (section === 'sites') return catalogPage(section, { entries: [{
+        id: 'site-1', name: 'Site 1', active: true, timeZone: 'Europe/Berlin',
+      }] });
+      return catalogPage(section, section === 'rooms' ? { entries: [room] } : {});
+    });
+    await assert.rejects(
+      createProductionPersistence({ apiClient: harness.client }).loadCatalog(),
+      (error) => error.code === 'PRODUCTION_CATALOG_PAGE_INVALID',
+    );
+  }
 });
 
 test('catalogue generation permits observation-time drift but rejects policy drift', async () => {

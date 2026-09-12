@@ -245,6 +245,10 @@ main {
   align-items: flex-start;
 }
 
+.request-card {
+  overflow-wrap: anywhere;
+}
+
 .request-grid div,
 .request-timeline li {
   overflow-wrap: anywhere;
@@ -252,8 +256,15 @@ main {
 
 .calendar-shell {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   overscroll-behavior-inline: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.calendar-shell > .calendar-table {
+  width: max(100%, 760px);
 }
 
 .request-list[hidden] {
@@ -711,6 +722,7 @@ main {
     min-width: 0;
     height: 100%;
     white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .button-row button:last-child:nth-child(odd),

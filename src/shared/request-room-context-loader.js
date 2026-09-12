@@ -17,23 +17,29 @@ function normalizedLookupTimeout(value) {
   return value;
 }
 
-async function loadBoundedRequestRoomContext(persistence, requestId, timeoutMs) {
+async function loadBoundedRequestRoomContext(persistence, requestId, timeoutMs, projection = null) {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await persistence.loadRequestRoomContext(requestId, { signal: controller.signal });
+    return await persistence.loadRequestRoomContext(requestId, {
+      signal: controller.signal,
+      ...(projection ? { projection } : {}),
+    });
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
 }
 
-async function loadBoundedCatalogAndContext(persistence, requestId, timeoutMs) {
+async function loadBoundedCatalogAndContext(persistence, requestId, timeoutMs, projection = null) {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await Promise.all([
       persistence.loadCatalog({ signal: controller.signal }),
-      persistence.loadRequestRoomContext(requestId, { signal: controller.signal }),
+      persistence.loadRequestRoomContext(requestId, {
+        signal: controller.signal,
+        ...(projection ? { projection } : {}),
+      }),
     ]);
   } finally {
     globalThis.clearTimeout(timeoutId);
@@ -65,7 +71,7 @@ export async function loadCoherentRequestRoomContext(
   request,
   catalog,
   persistence,
-  { timeoutMs = LOOKUP_TIMEOUT_MS } = {},
+  { timeoutMs = LOOKUP_TIMEOUT_MS, projection = null } = {},
 ) {
   if (
     !request
@@ -78,6 +84,7 @@ export async function loadCoherentRequestRoomContext(
     persistence,
     request.id,
     lookupTimeout,
+    projection,
   );
   const firstContext = coherentRequestRoomContext(request, firstEnvelope, catalog);
   if (firstContext) return Object.freeze({ catalog, currentRoomContext: firstContext });
@@ -86,6 +93,7 @@ export async function loadCoherentRequestRoomContext(
     persistence,
     request.id,
     lookupTimeout,
+    projection,
   );
   const nextContext = coherentRequestRoomContext(request, nextEnvelope, nextCatalog);
   return nextContext
