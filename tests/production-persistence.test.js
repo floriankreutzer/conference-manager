@@ -127,6 +127,24 @@ test('production persistence assembles every bounded catalogue section with one 
   assert.equal(catalog.rooms[0].floorplanAssetId, 'floorplan-room-1');
 });
 
+test('Room presentation accepts the exact pre-cutover schema with safe empty visual defaults', async () => {
+  const harness = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    if (section === 'sites') return catalogPage(section, { entries: [{
+      id: 'site-1', name: 'Site 1', active: true, timeZone: 'Europe/Berlin',
+    }] });
+    return catalogPage(section, section === 'rooms' ? { entries: [{
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' },
+    }] } : {});
+  });
+
+  const catalog = await createProductionPersistence({ apiClient: harness.client }).loadCatalog();
+  assert.deepEqual(catalog.rooms[0].equipment, []);
+  assert.equal(catalog.rooms[0].floorplanAssetId, null);
+  assert.deepEqual(catalog.rooms[0].mediaAssetIds, []);
+});
+
 test('Room presentation projection rejects unsafe or expanded server payloads', async () => {
   for (const room of [
     {
