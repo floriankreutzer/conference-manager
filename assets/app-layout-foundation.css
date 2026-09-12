@@ -722,6 +722,7 @@ main {
     min-width: 0;
     height: 100%;
     white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .button-row button:last-child:nth-child(odd),
