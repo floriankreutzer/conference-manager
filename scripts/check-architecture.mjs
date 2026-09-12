@@ -445,8 +445,10 @@ if (!/id: evidence_boundary[\s\S]*if: always\(\)[\s\S]*node scripts\/verify-zap-
     || !/Upload raw ZAP evidence[\s\S]*if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}/.test(dast)
     || !/lstatSync\(evidenceDirectory\)/.test(dastEvidenceBoundary)
     || !/metadata[.]isSymbolicLink\(\) \|\| !metadata[.]isFile\(\)/.test(dastEvidenceBoundary)
+    || !/metadata[.]size > ZAP_EVIDENCE_FILE_LIMITS\[name\]/.test(dastEvidenceBoundary)
+    || !/totalSize > ZAP_EVIDENCE_TOTAL_LIMIT/.test(dastEvidenceBoundary)
     || !/readdirSync\(evidenceDirectory\)[.]sort\(\)/.test(dastEvidenceBoundary)) {
-  fail('.github/workflows/dast.yml: post-container evidence must be exact, regular and link-free before validation or upload.');
+  fail('.github/workflows/dast.yml: post-container evidence must be exact, bounded, regular and link-free before validation or upload.');
 }
 if (/continue-on-error:/.test(dast)) {
   fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');

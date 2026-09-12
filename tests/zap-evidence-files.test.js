@@ -4,6 +4,7 @@ import {
   mkdirSync,
   rmSync,
   symlinkSync,
+  truncateSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,6 +14,8 @@ import test from 'node:test';
 import {
   verifyZapEvidenceFiles,
   ZAP_EVIDENCE_FILES,
+  ZAP_EVIDENCE_FILE_LIMITS,
+  ZAP_EVIDENCE_TOTAL_LIMIT,
 } from '../scripts/verify-zap-evidence-files.mjs';
 
 function fixture() {
@@ -66,5 +69,33 @@ test('ZAP evidence boundary rejects directory links and unreviewed entries', () 
   } finally {
     rmSync(linked.workspace, { recursive: true, force: true });
     rmSync(extra.workspace, { recursive: true, force: true });
+  }
+});
+
+test('ZAP evidence boundary rejects oversized individual and aggregate evidence', () => {
+  const individual = fixture();
+  const aggregate = fixture();
+  try {
+    truncateSync(
+      join(individual.evidence, 'report_json.json'),
+      ZAP_EVIDENCE_FILE_LIMITS['report_json.json'] + 1,
+    );
+    assert.throws(
+      () => verifyZapEvidenceFiles({ workspace: individual.workspace }),
+      /report_json[.]json exceeds its reviewed size limit/,
+    );
+
+    const reportSize = Math.floor(ZAP_EVIDENCE_TOTAL_LIMIT / 3);
+    for (const name of ['report_html.html', 'report_json.json', 'report_md.md']) {
+      assert.ok(reportSize <= ZAP_EVIDENCE_FILE_LIMITS[name]);
+      truncateSync(join(aggregate.evidence, name), reportSize);
+    }
+    assert.throws(
+      () => verifyZapEvidenceFiles({ workspace: aggregate.workspace }),
+      /evidence set exceeds its reviewed aggregate size limit/,
+    );
+  } finally {
+    rmSync(individual.workspace, { recursive: true, force: true });
+    rmSync(aggregate.workspace, { recursive: true, force: true });
   }
 });
