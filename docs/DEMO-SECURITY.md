@@ -35,7 +35,8 @@ policy.
 The scheduled/manual ZAP workflow first requires a direct HTTP `200` from the Pages launchpad or the
 surface-specific Customer/Platform readiness endpoint, so a Render Free cold start cannot be
 mistaken for a scan result. The repository generates the exact Automation Framework plan before
-starting ZAP. Its `INFO` compatibility map contains exactly the unsuffixed plugin IDs derived from
+starting ZAP and scopes both context and spider to the reviewed target URL rather than broadening a
+path target to its origin root. Its `INFO` compatibility map contains exactly the unsuffixed plugin IDs derived from
 each surface's exact policy. Every exact-policy row encodes one canonical HTTPS URL; repeated alert
 references enumerate distinct reviewed URLs. Each map URL expression must equal the
 repository-generated finite union of those exact URLs byte for byte. The compatibility map does not

@@ -191,17 +191,13 @@ export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
     throw new Error(`The ZAP target is invalid: ${error.message}`);
   }
   const normalizedTarget = targetUrl.href;
-  const originRoot = `${targetUrl.origin}/`;
-  const contextUrls = normalizedTarget === originRoot
-    ? [normalizedTarget]
-    : [normalizedTarget, originRoot];
   const expectedEnvironment = [
     'env:',
     '  contexts:',
     '  - excludePaths: []',
     '    name: baseline',
     '    urls:',
-    ...contextUrls.map((url) => `    - ${url}`),
+    `    - ${normalizedTarget}`,
     '  parameters:',
     '    failOnError: true',
     '    progressToStdout: false',
@@ -248,7 +244,7 @@ export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
   const spiderParameters = jobParameters(typedJobs[1].job, 'spider');
   if (Object.keys(spiderParameters).length !== 2
       || spiderParameters.maxDuration !== '1'
-      || spiderParameters.url !== originRoot) {
+      || spiderParameters.url !== normalizedTarget) {
     throw new Error('The generated ZAP spider target does not match the scan target.');
   }
 

@@ -30,10 +30,7 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
     throw new Error('The ZAP summary policy must contain at least one reviewed plugin.');
   }
 
-  const originRoot = `${targetUrl.origin}/`;
-  const contextUrls = targetUrl.href === originRoot
-    ? [targetUrl.href]
-    : [targetUrl.href, originRoot];
+  const normalizedTarget = targetUrl.href;
   const jobs = [
     '- parameters:',
     '    enableTags: false',
@@ -42,7 +39,7 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
     '  type: passiveScan-config',
     '- parameters:',
     '    maxDuration: 1',
-    `    url: ${originRoot}`,
+    `    url: ${normalizedTarget}`,
     '  type: spider',
     '- parameters:',
     '    maxDuration: 0',
@@ -68,7 +65,7 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
     '  - excludePaths: []',
     '    name: baseline',
     '    urls:',
-    ...contextUrls.map((url) => `    - ${url}`),
+    `    - ${normalizedTarget}`,
     '  parameters:',
     '    failOnError: true',
     '    progressToStdout: false',

@@ -149,8 +149,7 @@ const automationPlanFixture = ({
   jsonReportBeforeSpider = false,
 } = {}) => {
   const targetUrl = new URL(target);
-  const originRoot = `${targetUrl.origin}/`;
-  const contextUrls = targetUrl.href === originRoot ? [targetUrl.href] : [targetUrl.href, originRoot];
+  const normalizedTarget = targetUrl.href;
   const passiveConfigJob = [
     '- parameters:',
     '    enableTags: false',
@@ -160,7 +159,7 @@ const automationPlanFixture = ({
   const spiderJob = [
     '- parameters:',
     '    maxDuration: 1',
-    `    url: ${originRoot}`,
+    `    url: ${normalizedTarget}`,
     '  type: spider',
   ];
   const passiveWaitJob = [
@@ -203,7 +202,7 @@ const automationPlanFixture = ({
     '  - excludePaths: []',
     '    name: baseline',
     '    urls:',
-    ...contextUrls.map((url) => `    - ${url}`),
+    `    - ${normalizedTarget}`,
     '  parameters:',
     '    failOnError: true',
     '    progressToStdout: false',
@@ -235,6 +234,24 @@ test('repository-generated ZAP plans preserve every passive finding', () => {
     ),
     /unlimited alert evidence/,
   );
+});
+
+test('repository-generated ZAP plans do not broaden a path target to its origin root', () => {
+  const summaryRows = readSummaryPolicyRows(
+    `10049\tINFO\t${exactUrlPattern('https://example.test/application/')}`,
+  );
+  const plan = generateZapAutomationPlan({
+    target: 'https://example.test/application/',
+    summaryPolicyRows: summaryRows,
+  });
+  assert.match(plan, /    - https:\/\/example[.]test\/application\//);
+  assert.match(plan, /    url: https:\/\/example[.]test\/application\//);
+  assert.doesNotMatch(plan, /^    - https:\/\/example[.]test\/$/m);
+  assert.doesNotThrow(() => validateAutomationPlan(
+    plan,
+    'https://example.test/application/',
+    summaryRows,
+  ));
 });
 
 const exactPolicyFixture = () => ({
