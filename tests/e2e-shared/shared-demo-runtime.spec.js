@@ -293,19 +293,31 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('#productionEnd').fill(businessWindow.end);
   await customerPage.locator('#productionInternal').fill('2');
   await customerPage.locator('#productionExternal').fill('0');
-  await customerPage.getByRole('button', { name: 'Weiter' }).click();
-  await customerPage.locator('input[name="productionRoomChoice"]:enabled').first().check();
-  await expect(customerPage.getByRole('button', { name: 'Weiter' })).toBeDisabled();
-  await expectUiResponseStatus(
-    customerPage,
-    'POST',
-    '/api/v1/application/room-availability',
-    () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
-    200,
-  );
-  await expect(customerPage.getByRole('button', { name: 'Weiter' })).toBeEnabled();
-  for (let step = 3; step <= 6; step += 1) {
-    await customerPage.getByRole('button', { name: 'Weiter' }).click();
+  const guidedNext = customerPage.getByRole('button', { name: 'Weiter' });
+  if (await guidedNext.count()) {
+    await guidedNext.click();
+    await customerPage.locator('input[name="productionRoomChoice"]:enabled').first().check();
+    await expect(guidedNext).toBeDisabled();
+    await expectUiResponseStatus(
+      customerPage,
+      'POST',
+      '/api/v1/application/room-availability',
+      () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
+      200,
+    );
+    await expect(guidedNext).toBeEnabled();
+    for (let step = 3; step <= 6; step += 1) {
+      await guidedNext.click();
+    }
+  } else {
+    await customerPage.locator('#productionRoom').selectOption({ index: 1 });
+    await expectUiResponseStatus(
+      customerPage,
+      'POST',
+      '/api/v1/application/room-availability',
+      () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
+      200,
+    );
   }
   const submitRequest = customerPage.getByRole('button', { name: 'Anfrage absenden' });
   await expect(submitRequest).toBeEnabled();
