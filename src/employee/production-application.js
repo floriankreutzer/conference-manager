@@ -1239,7 +1239,7 @@ export function createProductionEmployeeApplication({
       close.addEventListener('click', () => {
         if (submissionNotice === currentNotice) submissionNotice = null;
         notice.remove();
-        if (!isCurrent(generation)) return;
+        if (!isInteractiveProjection(generation)) return;
         [...root.querySelectorAll('[data-production-request-id]')]
           .find((card) => card.dataset.productionRequestId === currentNotice.requestId)
           ?.focus();

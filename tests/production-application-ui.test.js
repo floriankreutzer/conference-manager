@@ -569,7 +569,7 @@ test('EMP-08: successful Employee submissions expose a persistent accessible com
   assert.match(employee, /submissionNotice = Object\.freeze\(\{[\s\S]*requestId: submittedRequest\.id/);
   assert.match(employee, /dataset: \{ uxSubmissionSuccess: 'true' \}[\s\S]*role: 'status', tabindex: '-1'/);
   assert.match(employee, /submission\.resubmittedTitle[\s\S]*submission\.sentTitle/);
-  assert.match(employee, /submissionNotice === currentNotice[\s\S]*productionRequestId === currentNotice\.requestId[\s\S]*\.focus\(\)/);
+  assert.match(employee, /submissionNotice === currentNotice[\s\S]*isInteractiveProjection\(generation\)[\s\S]*productionRequestId === currentNotice\.requestId[\s\S]*\.focus\(\)/);
   assert.match(employee, /production\.employee\.loadError[\s\S]*renderSubmissionNotice\(generation\)/);
 });
 

@@ -333,6 +333,7 @@ async function installProductionApplicationFixture(page, {
   let availabilityIndex = 0;
   let requestCreateIndex = 0;
   let nextRequestRead = null;
+  let nextRequestReadFails = false;
   let nextCatalogLoad = null;
   let catalogContextSequence = 0;
   const catalogLoadsByContext = new Map();
@@ -370,6 +371,10 @@ async function installProductionApplicationFixture(page, {
       snapshot: requests.map((entry) => structuredClone(entry)),
     };
     return release;
+  }
+
+  function failNextRequestRead() {
+    nextRequestReadFails = true;
   }
 
   function replaceRequests(nextRequests) {
@@ -757,6 +762,15 @@ async function installProductionApplicationFixture(page, {
     }
 
     if (url.pathname === '/api/v1/application/requests' && request.method() === 'GET') {
+      if (nextRequestReadFails) {
+        nextRequestReadFails = false;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: 'SERVICE_UNAVAILABLE', requestId: API_REQUEST_ID } }),
+        });
+        return;
+      }
       let responseRequests = requests;
       if (nextRequestRead) {
         const pendingRead = nextRequestRead;
@@ -1126,6 +1140,7 @@ async function installProductionApplicationFixture(page, {
     catalogReads,
     catalogueWrites,
     decisionWrites,
+    failNextRequestRead,
     holdNextCatalogLoad,
     holdNextRequestRead,
     locationWrites,
@@ -1283,6 +1298,10 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   await expect(completion).toBeFocused();
   await expect(completion.getByText('Anfrage erfolgreich gesendet', { exact: true })).toBeVisible();
   await expect(completion).toContainText('Das Conference Management prüft jetzt');
+  fixture.failNextRequestRead();
+  await page.getByRole('button', { name: 'Aktualisieren' }).click();
+  await expect(page.locator('#toast')).toContainText('Die Produktionsdaten konnten nicht sicher geladen werden.');
+  await expect(completion).toBeVisible();
   await completion.getByRole('button', { name: 'Schließen' }).click();
   await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
 
