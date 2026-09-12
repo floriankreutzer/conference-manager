@@ -2271,6 +2271,7 @@ test('Conference Manager creates every owned catalogue entry type and package va
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
   await page.getByRole('button', { name: 'Katalog & Preise' }).click();
@@ -2324,6 +2325,7 @@ test('Conference Manager preserves an absent Room price and receives accessible 
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.getByRole('button', { name: 'Katalog & Preise' }).click();
 
@@ -2402,6 +2404,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
 
@@ -2461,6 +2464,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.locator('#manager-room-name-0').fill('Conflicting Room');
   const save = page.getByRole('button', { name: 'Speichern' });
@@ -2477,6 +2481,7 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.getByRole('button', { name: 'Katalog & Preise' }).click();
   await page.getByRole('button', { name: 'Speichern' }).click();
