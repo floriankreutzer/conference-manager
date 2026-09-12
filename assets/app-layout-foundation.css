@@ -246,7 +246,7 @@ main {
 }
 
 .request-card[tabindex]:focus-visible {
-  outline-offset: calc(-1 * var(--focus-width));
+  outline-offset: calc(0px - var(--focus-width));
 }
 
 .request-grid div,
