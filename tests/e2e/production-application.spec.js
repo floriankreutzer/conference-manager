@@ -1279,6 +1279,12 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect(page.locator('#toast')).toContainText('Anfrage wurde abgesendet.');
+  const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
+  await expect(completion.getByText('Anfrage erfolgreich gesendet', { exact: true })).toBeVisible();
+  await expect(completion).toContainText('Das Conference Management prüft jetzt');
+  await completion.getByRole('button', { name: 'Schließen' }).click();
+  await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
 
   expect(fixture.availabilityChecks).toHaveLength(2);
   expect(fixture.availabilityChecks[1]).toEqual({
@@ -1612,6 +1618,9 @@ test('EMP-07: Employee rebases a conflicted resubmission and preserves the edito
   await page.getByRole('button', { name: 'Änderung erneut einreichen' }).click();
 
   await expect(page.locator('#viewTitle')).toHaveText('Meine Anfragen');
+  const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
+  await expect(completion.getByText('Änderung erfolgreich eingereicht', { exact: true })).toBeVisible();
   expect(fixture.writes).toHaveLength(2);
   expect(fixture.writes.map(({ body }) => body.expectedVersion)).toEqual([1, 2]);
   expect(fixture.writes.map(({ body }) => body.request.title)).toEqual([

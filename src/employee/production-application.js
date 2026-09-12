@@ -195,6 +195,7 @@ export function createProductionEmployeeApplication({
   let catalog = Object.freeze({ rooms: Object.freeze([]) });
   let queuedRequest = null;
   let queuedResubmission = false;
+  let submissionNotice = null;
   let editorRenderGeneration = 0;
   let activeRequestsRefresh = null;
   const requestMutations = new Map();
@@ -1134,16 +1135,23 @@ export function createProductionEmployeeApplication({
           specialRequirements: specialRequirements.value.trim() || null,
           allocations,
         };
+        let submittedRequest;
         if (isResubmission) {
-          await persistence.resubmitRequest(
+          submittedRequest = await persistence.resubmitRequest(
             sourceRequest.id,
             sourceRequest.version,
             compositionDraft(sourceRequest, requestCatalog, overrides),
           );
         } else {
-          await persistence.createRequest(compositionDraft(sourceRequest, requestCatalog, overrides));
+          submittedRequest = await persistence.createRequest(compositionDraft(
+            sourceRequest, requestCatalog, overrides,
+          ));
         }
         if (!isCurrentEditor()) return;
+        submissionNotice = Object.freeze({
+          requestId: submittedRequest.id,
+          type: isResubmission ? 'resubmitted' : 'sent',
+        });
         status.textContent = t('production.employee.submitted');
         showToast(t('production.employee.submitted'));
         if (!sourceRequest && draftStore) {
@@ -1213,6 +1221,35 @@ export function createProductionEmployeeApplication({
       generation === interactiveProjectionGeneration
       && isActiveSurface()
     );
+    const renderSubmissionNotice = (generation) => {
+      const currentNotice = submissionNotice;
+      if (!currentNotice) return;
+      const notice = el('aside', {
+        className: 'ux-submission-success',
+        dataset: { uxSubmissionSuccess: 'true' },
+        attrs: { role: 'status', tabindex: '-1' },
+      });
+      const copy = el('div', {}, [
+        el('strong', { text: t(currentNotice.type === 'resubmitted'
+          ? 'submission.resubmittedTitle' : 'submission.sentTitle') }),
+        el('p', { text: t(currentNotice.type === 'resubmitted'
+          ? 'submission.resubmittedText' : 'submission.sentText') }),
+      ]);
+      const close = button(t('common.close'));
+      close.addEventListener('click', () => {
+        if (submissionNotice === currentNotice) submissionNotice = null;
+        notice.remove();
+        if (!isCurrent(generation)) return;
+        [...root.querySelectorAll('[data-production-request-id]')]
+          .find((card) => card.dataset.productionRequestId === currentNotice.requestId)
+          ?.focus();
+      });
+      notice.append(copy, close);
+      root.prepend(notice);
+      requestAnimationFrame(() => {
+        if (isCurrent(generation) && notice.isConnected) notice.focus();
+      });
+    };
 
     async function refresh(focusRequestId = null) {
       const generation = ++refreshGeneration;
@@ -1245,6 +1282,7 @@ export function createProductionEmployeeApplication({
         if (!requests.length) {
           root.appendChild(el('div', { className: 'button-row' }, [refreshButton]));
           root.appendChild(el('p', { className: 'info-box', text: t('requests.none') }));
+          renderSubmissionNotice(generation);
           return;
         }
         if (focusRequestId) requestDisplay = 'list';
@@ -1434,6 +1472,7 @@ export function createProductionEmployeeApplication({
           }
         }
         showDisplay(requestDisplay);
+        renderSubmissionNotice(generation);
         if (focusRequestId) {
           requestAnimationFrame(() => {
             if (!isCurrent(generation)) return;
