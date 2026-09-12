@@ -333,6 +333,7 @@ async function installProductionApplicationFixture(page, {
   let availabilityIndex = 0;
   let requestCreateIndex = 0;
   let nextRequestRead = null;
+  let nextRequestReadFails = false;
   let nextCatalogLoad = null;
   let catalogContextSequence = 0;
   const catalogLoadsByContext = new Map();
@@ -369,6 +370,16 @@ async function installProductionApplicationFixture(page, {
       gate,
       snapshot: requests.map((entry) => structuredClone(entry)),
     };
+    return release;
+  }
+
+  function failNextRequestRead() {
+    nextRequestReadFails = Promise.resolve();
+  }
+
+  function holdNextFailingRequestRead() {
+    let release;
+    nextRequestReadFails = new Promise((resolve) => { release = resolve; });
     return release;
   }
 
@@ -757,6 +768,17 @@ async function installProductionApplicationFixture(page, {
     }
 
     if (url.pathname === '/api/v1/application/requests' && request.method() === 'GET') {
+      if (nextRequestReadFails) {
+        const failureGate = nextRequestReadFails;
+        nextRequestReadFails = null;
+        await failureGate;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: 'SERVICE_UNAVAILABLE', requestId: API_REQUEST_ID } }),
+        });
+        return;
+      }
       let responseRequests = requests;
       if (nextRequestRead) {
         const pendingRead = nextRequestRead;
@@ -1126,6 +1148,8 @@ async function installProductionApplicationFixture(page, {
     catalogReads,
     catalogueWrites,
     decisionWrites,
+    failNextRequestRead,
+    holdNextFailingRequestRead,
     holdNextCatalogLoad,
     holdNextRequestRead,
     locationWrites,
@@ -1279,6 +1303,16 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect(page.locator('#toast')).toContainText('Anfrage wurde abgesendet.');
+  const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
+  await expect(completion.getByText('Anfrage erfolgreich gesendet', { exact: true })).toBeVisible();
+  await expect(completion).toContainText('Das Conference Management prüft jetzt');
+  fixture.failNextRequestRead();
+  await page.getByRole('button', { name: 'Aktualisieren' }).click();
+  await expect(page.locator('#toast')).toContainText('Die Produktionsdaten konnten nicht sicher geladen werden.');
+  await expect(completion).toBeVisible();
+  await completion.getByRole('button', { name: 'Schließen' }).click();
+  await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
 
   expect(fixture.availabilityChecks).toHaveLength(2);
   expect(fixture.availabilityChecks[1]).toEqual({
@@ -1310,6 +1344,71 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
     csrf: CSRF_TOKEN,
     body: { transition: 'cancel' },
   });
+});
+
+test('EMP-08: first post-submit list failure retains completion and restores focus to the error', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  fixture.failNextRequestRead();
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+
+  const completion = page.locator('[data-ux-submission-success]');
+  const loadError = page.getByText('Die Produktionsdaten konnten nicht sicher geladen werden.', { exact: true });
+  await expect(completion).toBeFocused();
+  await expect(loadError).toBeVisible();
+  await completion.getByRole('button', { name: 'Schließen' }).click();
+  await expect(loadError).toBeFocused();
+  expect(fixture.writes).toHaveLength(1);
+});
+
+test('EMP-08: completion dismissal during refresh restores focus after the new projection commits', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+
+  const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
+  const releaseRefresh = fixture.holdNextRequestRead();
+  await page.getByRole('button', { name: 'Aktualisieren' }).click();
+  await completion.getByRole('button', { name: 'Schließen' }).click();
+  releaseRefresh();
+
+  await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
+  expect(fixture.writes).toHaveLength(1);
+});
+
+test('EMP-08: completion dismissal during a failing refresh restores retained-card focus', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+
+  const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
+  const releaseRefresh = fixture.holdNextFailingRequestRead();
+  await page.getByRole('button', { name: 'Aktualisieren' }).click();
+  await completion.getByRole('button', { name: 'Schließen' }).click();
+  releaseRefresh();
+
+  await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
+  await expect(page.locator('#toast')).toContainText(
+    'Die Produktionsdaten konnten nicht sicher geladen werden.',
+  );
+  expect(fixture.writes).toHaveLength(1);
 });
 
 test('EMP-02: Employee schedule keeps both participant counts required', async ({ page }) => {
@@ -1612,6 +1711,9 @@ test('EMP-07: Employee rebases a conflicted resubmission and preserves the edito
   await page.getByRole('button', { name: 'Änderung erneut einreichen' }).click();
 
   await expect(page.locator('#viewTitle')).toHaveText('Meine Anfragen');
+  const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
+  await expect(completion.getByText('Änderung erfolgreich eingereicht', { exact: true })).toBeVisible();
   expect(fixture.writes).toHaveLength(2);
   expect(fixture.writes.map(({ body }) => body.expectedVersion)).toEqual([1, 2]);
   expect(fixture.writes.map(({ body }) => body.request.title)).toEqual([

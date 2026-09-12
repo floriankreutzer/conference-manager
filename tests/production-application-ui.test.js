@@ -564,6 +564,18 @@ test('Employee Requests restores the server-backed list and calendar presentatio
   assert.match(employee, /onSelect:[\s\S]*showDisplay\('list'\)[\s\S]*productionRequestId[\s\S]*\.focus\(\)/);
 });
 
+test('EMP-08: successful Employee submissions expose a persistent accessible completion state', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  assert.match(employee, /submissionNotice = Object\.freeze\(\{[\s\S]*requestId: submittedRequest\.id/);
+  assert.match(employee, /dataset: \{ uxSubmissionSuccess: 'true' \}[\s\S]*role: 'status', tabindex: '-1'/);
+  assert.match(employee, /submission\.resubmittedTitle[\s\S]*submission\.sentTitle/);
+  assert.match(employee, /submissionNotice === currentNotice[\s\S]*isInteractiveProjection\(generation\)[\s\S]*productionRequestId === currentNotice\.requestId[\s\S]*\.focus\(\)/);
+  assert.match(employee, /else if \(isCurrent\(generation\)\)[\s\S]*querySelector\('\.error-box'\)[\s\S]*\.focus\(\)/);
+  assert.match(employee, /pendingSubmissionFocusRequestId = currentNotice\.requestId/);
+  assert.match(employee, /const restorePendingSubmissionFocus = \(generation\) =>[\s\S]*productionRequestId === requestId[\s\S]*querySelector\(':scope > \.error-box'\)[\s\S]*getElementById\('viewTitle'\)/);
+  assert.match(employee, /production\.employee\.loadError[\s\S]*renderSubmissionNotice\(generation\)/);
+});
+
 test('Employee Request history uses the localized server-backed timeline renderer', async () => {
   const [employee, history] = await Promise.all([
     source(EMPLOYEE_SOURCE), source(EMPLOYEE_HISTORY_SOURCE),
