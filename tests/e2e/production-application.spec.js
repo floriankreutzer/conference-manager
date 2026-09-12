@@ -1266,6 +1266,12 @@ test('EMP-02: Employee schedule keeps both participant counts required', async (
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
 
+  const businessWindow = futureBusinessWindow();
+  await page.locator('#productionTitle').fill('Pflichtfeldprüfung');
+  await page.locator('#productionDate').fill(businessWindow.date);
+  await page.locator('#productionStart').fill(businessWindow.start);
+  await page.locator('#productionEndDate').fill(businessWindow.date);
+  await page.locator('#productionEnd').fill(businessWindow.end);
   const externalParticipants = page.locator('#productionExternal');
   await externalParticipants.fill('');
   await page.getByRole('button', { name: 'Weiter' }).click();
