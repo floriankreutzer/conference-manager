@@ -534,8 +534,8 @@ export function createProductionManagerApplication({
             ), 0);
             const confirmed = report.requests.filter((entry) => entry.status === 'Confirmed');
             const catering = report.requests.filter((entry) => (
-              entry.details?.cateringPackageId
-              || Object.values(entry.details?.cateringQuantities || {}).some(Number)
+              entry.details?.catering?.packageSelection
+              || entry.details?.catering?.itemQuantities?.some(({ quantity }) => quantity > 0)
             ));
             const serviceCounts = new Map();
             report.requests.forEach((entry) => {

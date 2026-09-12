@@ -493,6 +493,9 @@ test('MGR-01: Production Manager restores four server-backed cockpit workspaces'
   assert.match(manager, /\['BOOKINGS', 'manager\.ready\.bookingsTab'\]/);
   assert.match(manager, /\['ROOM_PLAN', 'manager\.roomPlan'\]/);
   assert.match(manager, /\['REPORTS', 'manager\.reports'\]/);
+  assert.match(manager, /entry\.details\?\.catering\?\.packageSelection/);
+  assert.match(manager, /entry\.details\?\.catering\?\.itemQuantities/);
+  assert.doesNotMatch(manager, /cateringPackageId|cateringQuantities/);
   assert.match(manager, /\['ADMIN', 'manager\.admin'\]/);
   assert.match(manager, /className: 'dashboard-grid'/);
   assert.match(manager, /production\.manager\.utilizationReport/);
