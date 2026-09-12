@@ -851,11 +851,23 @@ async function installProductionApplicationFixture(page, {
       const current = requests[0];
       const resubmitted = {
         ...current,
-        ...body.request,
         id: REQUEST_ID,
+        roomId: body.request.roomId,
+        startsAt: body.request.startsAt,
+        endsAt: body.request.endsAt,
+        internalParticipants: body.request.internalParticipants,
+        externalParticipants: body.request.externalParticipants,
         version: body.expectedVersion + 1,
         status: 'Submitted',
         statusReason: null,
+        details: {
+          ...current.details,
+          title: body.request.title,
+          specialRequirements: body.request.specialRequirements,
+          dietaryRequirements: body.request.dietaryRequirements,
+          serviceIds: body.request.serviceIds,
+          catering: body.request.catering,
+        },
       };
       requests = [resubmitted];
       await route.fulfill({
