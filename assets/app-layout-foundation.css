@@ -245,6 +245,10 @@ main {
   align-items: flex-start;
 }
 
+.request-card[tabindex]:focus-visible {
+  outline-offset: calc(-1 * var(--focus-width));
+}
+
 .request-grid div,
 .request-timeline li {
   overflow-wrap: anywhere;
