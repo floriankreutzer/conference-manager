@@ -431,7 +431,8 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await followUpCard.getByRole('button', { name: 'Verlauf' }).click();
   const historyDialog = customerPage.getByRole('dialog', { name: 'Verlauf' });
   await expect(historyDialog).toBeVisible();
-  await expect(historyDialog.locator('p')).toHaveCount(3);
+  await expect(historyDialog.locator('.request-timeline li')).toHaveCount(3);
+  await expect(historyDialog.getByText('Status geändert', { exact: true }).first()).toBeVisible();
   await historyDialog.getByRole('button', { name: 'Schließen' }).click();
 
   await followUpCard.getByRole('button', { name: 'Änderung bearbeiten' }).click();
