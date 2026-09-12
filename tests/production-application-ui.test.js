@@ -569,6 +569,7 @@ test('Employee Request history uses the localized server-backed timeline rendere
     source(EMPLOYEE_SOURCE), source(EMPLOYEE_HISTORY_SOURCE),
   ]);
   assert.match(employee, /renderServerRequestHistory\(entries\)/);
+  assert.match(employee, /dialog\.addEventListener\('close',[\s\S]*isCurrentInteraction\(\)[\s\S]*control\.focus\(\)/);
   assert.match(history, /className: 'request-timeline'/);
   assert.match(history, /el\('ol'\)/);
   assert.match(history, /status\.\$\{entry\.request\.status\}/);

@@ -1413,6 +1413,9 @@ export function createProductionEmployeeApplication({
                   title: t('production.manager.historyTab'), content, actions: [close],
                   labelledById: `employeeHistory-${target.id}`,
                 });
+                dialog.addEventListener('close', () => {
+                  if (isCurrentInteraction() && control.isConnected) control.focus();
+                }, { once: true });
                 close.addEventListener('click', () => dialog.close());
               } catch (error) {
                 if (isCurrentInteraction()) showToast(errorMessage(error));
