@@ -1312,6 +1312,25 @@ test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-saf
   expect(viewportFits).toBe(true);
 });
 
+test('EMP-12: Employee history is an accessible localized server timeline with focus return', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+
+  const history = page.getByRole('button', { name: 'Verlauf' });
+  await history.click();
+  const dialog = page.getByRole('dialog', { name: 'Verlauf' });
+  await expect(dialog.locator('.request-timeline li')).toHaveCount(1);
+  await expect(dialog.getByText('Status geändert', { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/Version 1/)).toBeVisible();
+  await expect(dialog.getByText('Status: Bestätigt', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Schließen' }).click();
+
+  await expect(history).toBeFocused();
+  expect(fixture.requestHistoryReads).toEqual([REQUEST_ID]);
+});
+
 test('Employee reconciles one held cancellation after cross-navigation from pre-cancel state', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, { holdTransition: true });
   fixture.requests().push(confirmedRequestFixture());

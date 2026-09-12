@@ -20,6 +20,7 @@ import {
   projectServerRequestCalendar,
   renderServerRequestCalendar,
 } from './server-request-calendar.js';
+import { renderServerRequestHistory } from './server-request-history.js';
 import { composeServerRequestDraft } from '../shared/production-request-draft.js';
 import {
   cateringEditorOptions,
@@ -1386,11 +1387,7 @@ export function createProductionEmployeeApplication({
               try {
                 const entries = await persistence.loadRequestHistory(target.id);
                 if (!isCurrentInteraction() || !control.isConnected) return;
-                const content = el('section', {}, entries.length
-                  ? entries.map((entry) => el('p', {
-                    text: `${entry.version} · ${t(`timeline.operation.${entry.operation}`)} · ${formatProductionDateTime(entry.capturedAt, { locale: locale(), timeZone: 'UTC' })}`,
-                  }))
-                  : [el('p', { text: t('production.manager.historyEmpty') })]);
+                const content = renderServerRequestHistory(entries);
                 const close = button(t('common.close'));
                 const dialog = openDialog({
                   title: t('production.manager.historyTab'), content, actions: [close],

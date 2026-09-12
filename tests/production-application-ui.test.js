@@ -22,6 +22,7 @@ import {
 import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
 
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
+const EMPLOYEE_HISTORY_SOURCE = new URL('../src/employee/server-request-history.js', import.meta.url);
 const MANAGER_SOURCE = new URL('../src/manager/production-application.js', import.meta.url);
 const APP_SOURCE = new URL('../src/app.js', import.meta.url);
 const CONTEXT_SOURCE = new URL('../src/platform/application-context.js', import.meta.url);
@@ -85,11 +86,14 @@ test('Employee request timezone lookup safely handles an unresolved Room context
 });
 
 test('server history operation codes are localized on Employee and Manager surfaces', async () => {
-  const [employee, manager] = await Promise.all([source(EMPLOYEE_SOURCE), source(MANAGER_SOURCE)]);
+  const [employee, employeeHistory, manager] = await Promise.all([
+    source(EMPLOYEE_SOURCE), source(EMPLOYEE_HISTORY_SOURCE), source(MANAGER_SOURCE),
+  ]);
 
-  assert.match(employee, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
+  assert.match(employee, /renderServerRequestHistory\(entries\)/);
+  assert.match(employeeHistory, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
   assert.match(manager, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
-  assert.doesNotMatch(employee, /\$\{entry\.operation\} ·/);
+  assert.doesNotMatch(employeeHistory, /\$\{entry\.operation\} ·/);
   assert.doesNotMatch(manager, /\$\{entry\.operation\} ·/);
 });
 
@@ -556,6 +560,16 @@ test('Employee Requests restores the server-backed list and calendar presentatio
   assert.match(employee, /aria-pressed[\s\S]*requestDisplay === 'calendar'/);
   assert.match(employee, /renderServerRequestCalendar\(\{/);
   assert.match(employee, /onSelect:[\s\S]*showDisplay\('list'\)[\s\S]*productionRequestId[\s\S]*\.focus\(\)/);
+});
+
+test('Employee Request history uses the localized server-backed timeline renderer', async () => {
+  const [employee, history] = await Promise.all([
+    source(EMPLOYEE_SOURCE), source(EMPLOYEE_HISTORY_SOURCE),
+  ]);
+  assert.match(employee, /renderServerRequestHistory\(entries\)/);
+  assert.match(history, /className: 'request-timeline'/);
+  assert.match(history, /el\('ol'\)/);
+  assert.match(history, /status\.\$\{entry\.request\.status\}/);
 });
 
 test('Employee editor and proposal lifecycles reject detached or duplicate async work', async () => {
