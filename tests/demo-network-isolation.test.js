@@ -96,7 +96,9 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.match(dast, /test ! -L zap-evidence/);
   assert.match(dast, /realpath -- "\$GITHUB_WORKSPACE"/);
   assert.match(dast, /test "\$actual_evidence_path" = "\$expected_evidence_path"/);
-  assert.match(dast, /if: always\(\)[\s\S]*node scripts\/validate-zap-report[.]mjs/);
+  assert.match(dast, /id: evidence_boundary[\s\S]*if: always\(\)[\s\S]*node scripts\/verify-zap-evidence-files[.]mjs/);
+  assert.match(dast, /if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}[\s\S]*node scripts\/validate-zap-report[.]mjs/);
+  assert.match(dast, /Upload raw ZAP evidence[\s\S]*if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}/);
   assert.match(planGenerator, /maxAlertsPerRule: 0/);
   assert.match(planGenerator, /id: 90004[\s\S]*id: 90005/);
   assert.doesNotMatch(planGenerator, /maxAlertsPerRule: 10/);

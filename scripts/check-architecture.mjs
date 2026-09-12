@@ -400,6 +400,7 @@ for (const file of sourceFiles) visit(file);
 const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
 const dastPlanGenerator = readFileSync('scripts/generate-zap-plan.mjs', 'utf8');
 const dastRunner = readFileSync('scripts/run-zap-baseline.sh', 'utf8');
+const dastEvidenceBoundary = readFileSync('scripts/verify-zap-evidence-files.mjs', 'utf8');
 if (!/maxAlertsPerRule: 0/.test(dastPlanGenerator)
     || /maxAlertsPerRule: 10/.test(dastPlanGenerator)
     || !/id: 90004[\s\S]*id: 90005/.test(dastPlanGenerator)) {
@@ -436,6 +437,14 @@ if (!/rm -rf -- zap-evidence[\s\S]*install -d -m 0777 zap-evidence/.test(dast)
     || !/realpath -- "\$GITHUB_WORKSPACE"/.test(dast)
     || !/test "\$actual_evidence_path" = "\$expected_evidence_path"/.test(dast)) {
   fail('.github/workflows/dast.yml: the evidence mount must be recreated and verified without following symlinks.');
+}
+if (!/id: evidence_boundary[\s\S]*if: always\(\)[\s\S]*node scripts\/verify-zap-evidence-files[.]mjs/.test(dast)
+    || !/if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}[\s\S]*node scripts\/validate-zap-report[.]mjs/.test(dast)
+    || !/Upload raw ZAP evidence[\s\S]*if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}/.test(dast)
+    || !/lstatSync\(evidenceDirectory\)/.test(dastEvidenceBoundary)
+    || !/metadata[.]isSymbolicLink\(\) \|\| !metadata[.]isFile\(\)/.test(dastEvidenceBoundary)
+    || !/readdirSync\(evidenceDirectory\)[.]sort\(\)/.test(dastEvidenceBoundary)) {
+  fail('.github/workflows/dast.yml: post-container evidence must be exact, regular and link-free before validation or upload.');
 }
 if (/continue-on-error:/.test(dast)) {
   fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');

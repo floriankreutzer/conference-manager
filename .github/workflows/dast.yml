@@ -134,8 +134,13 @@ jobs:
             "$image_id" \
             bash /zap/wrk/run-zap-baseline.sh
 
-      - name: Verify exact alert references and reviewed risk
+      - name: Verify link-free ZAP evidence files
+        id: evidence_boundary
         if: always()
+        run: node scripts/verify-zap-evidence-files.mjs
+
+      - name: Verify exact alert references and reviewed risk
+        if: ${{ always() && steps.evidence_boundary.outcome == 'success' }}
         env:
           ZAP_REPORT_PATH: zap-evidence/report_json.json
           ZAP_POLICY_PATH: ${{ matrix.exact_policy }}
@@ -148,7 +153,7 @@ jobs:
         run: node scripts/validate-zap-report.mjs
 
       - name: Upload raw ZAP evidence (${{ matrix.surface }})
-        if: always()
+        if: ${{ always() && steps.evidence_boundary.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: zap-baseline-${{ matrix.surface }}
