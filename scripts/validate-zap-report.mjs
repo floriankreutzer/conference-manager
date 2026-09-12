@@ -19,15 +19,72 @@ const readRows = (source) => source
   .split('\n')
   .filter((line) => line.trim() && !line.trimStart().startsWith('#'));
 
-const compileUrlPattern = (pattern, label) => {
-  if (!pattern.startsWith('^https://') || !pattern.endsWith('$') || pattern.includes('.*')) {
-    throw new Error(`${label} must use a fully anchored HTTPS URL without a wildcard.`);
+const REGEX_META = new Set('\\^$.*+?()[]{}|');
+
+export const exactUrlPattern = (url) => `^${url.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}$`;
+
+export const isTargetSubtreeUrl = (candidate, target) => {
+  const candidateUrl = candidate instanceof URL ? candidate : new URL(candidate);
+  const targetUrl = target instanceof URL ? target : new URL(target);
+  const childPrefix = targetUrl.pathname.endsWith('/')
+    ? targetUrl.pathname
+    : `${targetUrl.pathname}/`;
+  return candidateUrl.origin === targetUrl.origin
+    && (candidateUrl.pathname === targetUrl.pathname
+      || candidateUrl.pathname.startsWith(childPrefix));
+};
+
+const exactUrlFromPattern = (pattern, label) => {
+  if (!pattern.startsWith('^') || !pattern.endsWith('$')) {
+    throw new Error(`${label} must use a fully anchored exact URL.`);
   }
+  const body = pattern.slice(1, -1);
+  let url = '';
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index];
+    if (character === '\\') {
+      const escaped = body[index + 1];
+      if (!escaped || !REGEX_META.has(escaped)) {
+        throw new Error(`${label} has a non-canonical URL escape.`);
+      }
+      url += escaped;
+      index += 1;
+      continue;
+    }
+    if (REGEX_META.has(character)) {
+      throw new Error(`${label} contains a URL wildcard or expression.`);
+    }
+    url += character;
+  }
+  let parsed;
   try {
-    return new RegExp(pattern);
+    parsed = new URL(url);
   } catch (error) {
-    throw new Error(`${label} has an invalid URL expression: ${error.message}`);
+    throw new Error(`${label} does not encode a valid URL: ${error.message}`);
   }
+  if (parsed.protocol !== 'https:'
+      || parsed.username
+      || parsed.password
+      || parsed.hash
+      || parsed.href !== url
+      || exactUrlPattern(url) !== pattern) {
+    throw new Error(`${label} must encode one canonical HTTPS URL.`);
+  }
+  return url;
+};
+
+export const exactUrlUnionPattern = (urls) => {
+  if (!Array.isArray(urls) || urls.length === 0) {
+    throw new Error('A summary policy requires at least one exact URL.');
+  }
+  const canonicalUrls = [...new Set(urls)].sort();
+  for (const url of canonicalUrls) {
+    if (exactUrlFromPattern(exactUrlPattern(url), 'Summary URL') !== url) {
+      throw new Error('A summary policy URL is not canonical.');
+    }
+  }
+  const bodies = canonicalUrls.map((url) => exactUrlPattern(url).slice(1, -1));
+  return bodies.length === 1 ? `^${bodies[0]}$` : `^(?:${bodies.join('|')})$`;
 };
 
 export const readPolicyRows = (source) => readRows(source).map((line, index) => {
@@ -42,10 +99,11 @@ export const readPolicyRows = (source) => readRows(source).map((line, index) => 
   if (action !== 'OUTOFSCOPE') {
     throw new Error(`Exact-policy row ${index + 1} must use OUTOFSCOPE.`);
   }
+  const label = `Exact-policy row ${index + 1}`;
   return {
     alertRef,
     pattern,
-    urlPattern: compileUrlPattern(pattern, `Exact-policy row ${index + 1}`),
+    url: exactUrlFromPattern(pattern, label),
   };
 });
 
@@ -61,12 +119,200 @@ export const readSummaryPolicyRows = (source) => readRows(source).map((line, ind
   if (action !== 'INFO') {
     throw new Error(`Summary-policy row ${index + 1} must use INFO.`);
   }
+  if (!pattern.startsWith('^') || !pattern.endsWith('$')) {
+    throw new Error(`Summary-policy row ${index + 1} must use a fully anchored URL union.`);
+  }
+  try {
+    new RegExp(pattern);
+  } catch (error) {
+    throw new Error(`Summary-policy row ${index + 1} has an invalid URL union: ${error.message}`);
+  }
   return {
     pluginId,
     pattern,
-    urlPattern: compileUrlPattern(pattern, `Summary-policy row ${index + 1}`),
   };
 });
+
+const yamlScalar = (source) => {
+  const value = source.trim();
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1).replaceAll("''", "'");
+  }
+  if (value.startsWith('"') && value.endsWith('"')) {
+    try {
+      return JSON.parse(value);
+    } catch {
+      throw new Error('The generated ZAP plan contains an invalid quoted value.');
+    }
+  }
+  return value;
+};
+
+const splitAutomationJobs = (lines, jobsIndex) => {
+  const jobs = [];
+  let current = null;
+  for (const line of lines.slice(jobsIndex + 1)) {
+    if (line.startsWith('- ')) {
+      if (current) jobs.push(current);
+      current = [line];
+      continue;
+    }
+    if (!current || (!line.startsWith('  ') && line.trim())) {
+      throw new Error('The generated ZAP plan has an invalid jobs structure.');
+    }
+    current.push(line);
+  }
+  if (current) jobs.push(current);
+  return jobs;
+};
+
+const jobType = (job) => {
+  const matches = job
+    .map((line) => line.match(/^  type:\s*(.*)$/))
+    .filter(Boolean);
+  if (matches.length !== 1) {
+    throw new Error('Every generated ZAP job must contain one direct type field.');
+  }
+  return yamlScalar(matches[0][1]);
+};
+
+const jobParameters = (job, type) => {
+  if (job[0] !== '- parameters:' || job.at(-1) !== `  type: ${type}`) {
+    throw new Error(`The generated ZAP ${type} job has an invalid structure.`);
+  }
+  const parameters = {};
+  for (const line of job.slice(1, -1)) {
+    const match = line.match(/^    ([A-Za-z][A-Za-z0-9]*):\s*(.*)$/);
+    if (!match || Object.hasOwn(parameters, match[1])) {
+      throw new Error(`The generated ZAP ${type} parameters are invalid.`);
+    }
+    parameters[match[1]] = yamlScalar(match[2]);
+  }
+  return parameters;
+};
+
+export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
+  if (source.includes('\t')) {
+    throw new Error('The generated ZAP plan must not contain tabs.');
+  }
+  let targetUrl;
+  try {
+    targetUrl = new URL(target);
+  } catch (error) {
+    throw new Error(`The ZAP target is invalid: ${error.message}`);
+  }
+  const normalizedTarget = targetUrl.href;
+  const subtreePattern = `${exactUrlPattern(normalizedTarget).slice(0, -1)}.*$`;
+  const expectedEnvironment = [
+    'env:',
+    '  contexts:',
+    '  - excludePaths: []',
+    '    includePaths:',
+    `    - ${subtreePattern}`,
+    '    name: baseline',
+    '    urls:',
+    `    - ${normalizedTarget}`,
+    '  parameters:',
+    '    failOnError: true',
+    '    progressToStdout: false',
+  ];
+  const lines = source
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() && !line.trimStart().startsWith('#'));
+  const jobsIndices = lines
+    .map((line, index) => (line === 'jobs:' ? index : -1))
+    .filter((index) => index >= 0);
+  if (jobsIndices.length !== 1) {
+    throw new Error('The generated ZAP plan must contain exactly one jobs collection.');
+  }
+  const jobsIndex = jobsIndices[0];
+  if (jobsIndex !== expectedEnvironment.length
+      || expectedEnvironment.some((line, index) => lines[index] !== line)) {
+    throw new Error('The generated ZAP plan environment does not match the scan target.');
+  }
+
+  const jobs = splitAutomationJobs(lines, jobsIndex);
+  const typedJobs = jobs.map((job) => ({ job, type: jobType(job) }));
+  const expectedJobTypes = [
+    'passiveScan-config',
+    'spider',
+    'passiveScan-wait',
+    'outputSummary',
+    'report',
+    'report',
+    'report',
+  ];
+  if (typedJobs.length !== expectedJobTypes.length
+      || typedJobs.some(({ type }, index) => type !== expectedJobTypes[index])) {
+    throw new Error('The generated ZAP jobs do not match the fail-closed raw-report order.');
+  }
+
+  const expectedPassiveConfigJob = [
+    '- parameters:',
+    '    enableTags: false',
+    '    maxAlertsPerRule: 0',
+    '  rules:',
+    '  - id: 90004',
+    '    threshold: Medium',
+    '  - id: 90005',
+    '    threshold: Medium',
+    '  type: passiveScan-config',
+  ];
+  if (typedJobs[0].job.length !== expectedPassiveConfigJob.length
+      || typedJobs[0].job.some((line, index) => line !== expectedPassiveConfigJob[index])) {
+    throw new Error('The generated ZAP passiveScan-config job must retain unlimited alert evidence with beta and alpha rules.');
+  }
+
+  const spiderParameters = jobParameters(typedJobs[1].job, 'spider');
+  if (Object.keys(spiderParameters).length !== 3
+      || spiderParameters.context !== 'baseline'
+      || spiderParameters.maxDuration !== '1'
+      || spiderParameters.url !== normalizedTarget) {
+    throw new Error('The generated ZAP spider target or subtree boundary does not match the scan target.');
+  }
+
+  const passiveWaitParameters = jobParameters(typedJobs[2].job, 'passiveScan-wait');
+  if (Object.keys(passiveWaitParameters).length !== 1
+      || passiveWaitParameters.maxDuration !== '0') {
+    throw new Error('The generated ZAP passiveScan-wait job is invalid.');
+  }
+
+  const expectedOutputSummaryJob = [
+    '- parameters:',
+    '    format: Long',
+    '    summaryFile: /home/zap/zap_out.json',
+    '  rules:',
+    ...summaryPolicyRows.flatMap(({ pluginId }) => [
+      '  - action: INFO',
+      "    customMessage: ''",
+      `    id: ${pluginId}`,
+    ]),
+    '  type: outputSummary',
+  ];
+  if (typedJobs[3].job.length !== expectedOutputSummaryJob.length
+      || typedJobs[3].job.some((line, index) => line !== expectedOutputSummaryJob[index])) {
+    throw new Error('The generated ZAP outputSummary job is invalid.');
+  }
+
+  const expectedReports = [
+    ['traditional-html', 'report_html.html'],
+    ['traditional-md', 'report_md.md'],
+    ['traditional-json', 'report_json.json'],
+  ];
+  for (let index = 0; index < expectedReports.length; index += 1) {
+    const parameters = jobParameters(typedJobs[index + 4].job, 'report');
+    const [template, reportFile] = expectedReports[index];
+    if (Object.keys(parameters).length !== 5
+        || parameters.reportDescription !== ''
+        || parameters.reportDir !== '/zap/wrk/'
+        || parameters.reportFile !== reportFile
+        || parameters.reportTitle !== 'ZAP Scanning Report'
+        || parameters.template !== template) {
+      throw new Error(`The generated ZAP ${template} report job is invalid.`);
+    }
+  }
+};
 
 const readFreshText = (path, label, startedAtMs) => {
   let metadata;
@@ -86,11 +332,28 @@ const readFreshText = (path, label, startedAtMs) => {
 
 const basePluginId = (alertRef) => alertRef.split('-', 1)[0];
 
-const validatePolicyProjection = ({ policyRows, summaryPolicyRows, maxRiskByAlertRef }) => {
-  const configuredRefs = policyRows.map(({ alertRef }) => alertRef);
-  if (new Set(configuredRefs).size !== configuredRefs.length) {
-    throw new Error('The exact DAST policy contains duplicate alert references.');
+export const validateZapAddonManifest = (source) => {
+  const rows = readRows(source).map((line) => line.split('\t'));
+  for (const [addonId, releaseStatus] of [
+    ['pscanrulesBeta', 'beta'],
+    ['pscanrulesAlpha', 'alpha'],
+  ]) {
+    const matches = rows.filter((columns) => columns[1] === addonId);
+    if (matches.length !== 1
+        || matches[0].length < 5
+        || !/^v[0-9][0-9A-Za-z._-]*$/.test(matches[0][2])
+        || matches[0][3] !== releaseStatus) {
+      throw new Error(`The ZAP add-on manifest does not prove one installed ${addonId} rule set.`);
+    }
   }
+};
+
+const validatePolicyProjection = ({ policyRows, summaryPolicyRows, maxRiskByAlertRef }) => {
+  const configuredRows = policyRows.map(({ alertRef, url }) => `${alertRef}\u0000${url}`);
+  if (new Set(configuredRows).size !== configuredRows.length) {
+    throw new Error('The exact DAST policy contains a duplicate alert-reference and URL pair.');
+  }
+  const configuredRefs = [...new Set(policyRows.map(({ alertRef }) => alertRef))];
   const reviewedRefs = Object.keys(maxRiskByAlertRef);
   if (configuredRefs.length !== reviewedRefs.length
       || configuredRefs.some((alertRef) => !Object.hasOwn(maxRiskByAlertRef, alertRef))) {
@@ -98,7 +361,10 @@ const validatePolicyProjection = ({ policyRows, summaryPolicyRows, maxRiskByAler
   }
 
   for (const [alertRef, maximum] of Object.entries(maxRiskByAlertRef)) {
-    if (!Number.isInteger(maximum) || maximum < 0 || maximum > 3) {
+    if (!/^\d+(?:-\d+)?$/.test(alertRef)
+        || !Number.isInteger(maximum)
+        || maximum < 0
+        || maximum > 3) {
       throw new Error(`The reviewed maximum risk for ${alertRef} must be an integer from 0 to 3.`);
     }
   }
@@ -114,11 +380,11 @@ const validatePolicyProjection = ({ policyRows, summaryPolicyRows, maxRiskByAler
   }
 
   for (const summaryRow of summaryPolicyRows) {
-    const exactPatterns = new Set(policyRows
+    const exactUrls = policyRows
       .filter(({ alertRef }) => basePluginId(alertRef) === summaryRow.pluginId)
-      .map(({ pattern }) => pattern));
-    if (exactPatterns.size !== 1 || !exactPatterns.has(summaryRow.pattern)) {
-      throw new Error(`Summary plugin ${summaryRow.pluginId} does not preserve one exact reviewed URL pattern.`);
+      .map(({ url }) => url);
+    if (summaryRow.pattern !== exactUrlUnionPattern(exactUrls)) {
+      throw new Error(`Summary plugin ${summaryRow.pluginId} is not the canonical exact-URL projection.`);
     }
   }
 };
@@ -145,6 +411,7 @@ export const validateZapReport = ({
   surface,
   target,
   automationPlan,
+  addonManifest,
 }) => {
   let targetUrl;
   try {
@@ -152,8 +419,12 @@ export const validateZapReport = ({
   } catch {
     throw new Error('The ZAP scan target is not a valid URL.');
   }
-  if (targetUrl.protocol !== 'https:' || targetUrl.username || targetUrl.password) {
-    throw new Error('The ZAP scan target must be an uncredentialed HTTPS URL.');
+  if (targetUrl.protocol !== 'https:'
+      || targetUrl.username
+      || targetUrl.password
+      || targetUrl.hash
+      || targetUrl.href !== target) {
+    throw new Error('The ZAP scan target must be one canonical uncredentialed HTTPS URL.');
   }
 
   const surfacePolicy = riskPolicy?.surfaces?.[surface];
@@ -168,10 +439,14 @@ export const validateZapReport = ({
     throw new Error(`The reviewed risk policy for ${surface} is invalid.`);
   }
 
-  validatePolicyProjection({ policyRows, summaryPolicyRows, maxRiskByAlertRef });
-  if (automationPlan.includes('alertFilter')) {
-    throw new Error('The generated ZAP plan must not filter or rewrite the raw report.');
+  for (const { alertRef, url } of policyRows) {
+    if (!isTargetSubtreeUrl(url, targetUrl)) {
+      throw new Error(`The exact DAST policy URL for ${alertRef} escaped the reviewed target subtree.`);
+    }
   }
+  validatePolicyProjection({ policyRows, summaryPolicyRows, maxRiskByAlertRef });
+  validateAutomationPlan(automationPlan, target, summaryPolicyRows);
+  validateZapAddonManifest(addonManifest);
 
   if (!Array.isArray(report?.site) || report.site.length !== 1) {
     throw new Error('The ZAP report must contain exactly one scanned site.');
@@ -214,11 +489,12 @@ export const validateZapReport = ({
       } catch {
         throw new Error(`Alert ${alertRef} has an invalid instance URL.`);
       }
-      if (instanceUrl.origin !== targetUrl.origin || instanceUrl.username || instanceUrl.password) {
-        throw new Error(`Alert ${alertRef} escaped the reviewed origin.`);
+      if (!isTargetSubtreeUrl(instanceUrl, targetUrl)
+          || instanceUrl.username || instanceUrl.password) {
+        throw new Error(`Alert ${alertRef} escaped the reviewed target subtree.`);
       }
       const matches = policyRows.filter((row) => row.alertRef === alertRef
-        && row.urlPattern.test(instance.uri));
+        && row.url === instance.uri);
       if (matches.length !== 1) {
         throw new Error(`Alert ${alertRef} at ${instance.uri} matched ${matches.length} exact-policy rows.`);
       }
@@ -234,6 +510,7 @@ export const runZapReportValidation = ({ env = process.env } = {}) => {
     'ZAP_SUMMARY_POLICY_PATH',
     'ZAP_RISK_POLICY_PATH',
     'ZAP_AUTOMATION_PLAN_PATH',
+    'ZAP_ADDON_MANIFEST_PATH',
     'ZAP_SURFACE',
     'ZAP_TARGET',
     'ZAP_SCAN_STARTED_AT_MS',
@@ -245,6 +522,11 @@ export const runZapReportValidation = ({ env = process.env } = {}) => {
   if (!Number.isFinite(startedAtMs)) throw new Error('ZAP_SCAN_STARTED_AT_MS must be numeric.');
   const reportSource = readFreshText(env.ZAP_REPORT_PATH, 'ZAP JSON report', startedAtMs);
   const planSource = readFreshText(env.ZAP_AUTOMATION_PLAN_PATH, 'ZAP automation plan', startedAtMs);
+  const addonManifest = readFreshText(
+    env.ZAP_ADDON_MANIFEST_PATH,
+    'ZAP add-on manifest',
+    startedAtMs,
+  );
   let report;
   try {
     report = JSON.parse(reportSource);
@@ -266,6 +548,7 @@ export const runZapReportValidation = ({ env = process.env } = {}) => {
     surface: env.ZAP_SURFACE,
     target: env.ZAP_TARGET,
     automationPlan: planSource,
+    addonManifest,
   });
 };
 

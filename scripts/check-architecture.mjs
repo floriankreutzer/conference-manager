@@ -1,5 +1,11 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
+import {
+  exactUrlUnionPattern,
+  isTargetSubtreeUrl,
+  readPolicyRows,
+  readSummaryPolicyRows,
+} from './validate-zap-report.mjs';
 
 let failures = 0;
 function fail(message) {
@@ -392,8 +398,21 @@ function visit(file) {
 for (const file of sourceFiles) visit(file);
 
 const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
-if (!/fail_action:\s*true\b/.test(dast)) {
-  fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
+const dastPlanGenerator = readFileSync('scripts/generate-zap-plan.mjs', 'utf8');
+const dastRunner = readFileSync('scripts/run-zap-baseline.sh', 'utf8');
+const dastEvidenceBoundary = readFileSync('scripts/verify-zap-evidence-files.mjs', 'utf8');
+if (!/maxAlertsPerRule: 0/.test(dastPlanGenerator)
+    || /maxAlertsPerRule: 10/.test(dastPlanGenerator)
+    || !/id: 90004[\s\S]*id: 90005/.test(dastPlanGenerator)) {
+  fail('scripts/generate-zap-plan.mjs: exact DAST evidence must be uncapped.');
+}
+if (!/-addoninstall pscanrulesBeta/.test(dastRunner)
+    || !/-addoninstall pscanrulesAlpha/.test(dastRunner)
+    || !/-addonlist/.test(dastRunner)
+    || !/require_addon pscanrulesBeta beta/.test(dastRunner)
+    || !/require_addon pscanrulesAlpha alpha/.test(dastRunner)
+    || !/zap[.]sh -cmd[\s\S]*-autorun \/zap\/wrk\/zap[.]yaml/.test(dastRunner)) {
+  fail('scripts/run-zap-baseline.sh: DAST must install and prove beta/alpha passive rules before the exact plan.');
 }
 if (!/Wait for public surface readiness/.test(dast) || !/status.*== '200'/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP must wait for an exact HTTP 200 before scanning a cold-startable public surface.');
@@ -404,9 +423,32 @@ if (!/persist-credentials:\s*false/.test(dast)) {
 if (/--location|(?:^|\s)-I(?:\s|$)/m.test(dast)) {
   fail('.github/workflows/dast.yml: readiness redirects and warning-tolerant ZAP execution are forbidden.');
 }
-if (/rules_file_name:/.test(dast)
-    || !/cmd_options:\s*'-a --auto -c \$\{\{ matrix\.summary_rules \}\}'/.test(dast)) {
-  fail('.github/workflows/dast.yml: ZAP must pass the reviewed plugin-summary projection explicitly with alpha rules.');
+if (/rules_file_name:|zaproxy\/action-baseline/.test(dast)
+    || !/node scripts\/generate-zap-plan[.]mjs/.test(dast)
+    || !/bash \/zap\/wrk\/run-zap-baseline[.]sh/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must run the repository-generated uncapped Automation Framework plan.');
+}
+if (!/--volume "\$GITHUB_WORKSPACE\/zap-evidence:\/zap\/wrk\/:rw"/.test(dast)
+    || /--volume "\$GITHUB_WORKSPACE:\/zap\/wrk\/:rw"/.test(dast)) {
+  fail('.github/workflows/dast.yml: the third-party ZAP container may mount only its isolated evidence directory.');
+}
+if (!/rm -rf -- zap-evidence[\s\S]*install -d -m 0777 zap-evidence/.test(dast)
+    || !/test ! -L zap-evidence/.test(dast)
+    || !/realpath -- "\$GITHUB_WORKSPACE"/.test(dast)
+    || !/test "\$actual_evidence_path" = "\$expected_evidence_path"/.test(dast)) {
+  fail('.github/workflows/dast.yml: the evidence mount must be recreated and verified without following symlinks.');
+}
+if (!/id: evidence_boundary[\s\S]*if: always\(\)[\s\S]*node scripts\/verify-zap-evidence-files[.]mjs/.test(dast)
+    || !/pull_request:[\s\S]*scripts\/verify-zap-evidence-files[.]mjs[\s\S]*push:/.test(dast)
+    || !/push:[\s\S]*scripts\/verify-zap-evidence-files[.]mjs[\s\S]*schedule:/.test(dast)
+    || !/if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}[\s\S]*node scripts\/validate-zap-report[.]mjs/.test(dast)
+    || !/Upload raw ZAP evidence[\s\S]*if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}/.test(dast)
+    || !/lstatSync\(evidenceDirectory\)/.test(dastEvidenceBoundary)
+    || !/metadata[.]isSymbolicLink\(\) \|\| !metadata[.]isFile\(\)/.test(dastEvidenceBoundary)
+    || !/metadata[.]size > ZAP_EVIDENCE_FILE_LIMITS\[name\]/.test(dastEvidenceBoundary)
+    || !/totalSize > ZAP_EVIDENCE_TOTAL_LIMIT/.test(dastEvidenceBoundary)
+    || !/readdirSync\(evidenceDirectory\)[.]sort\(\)/.test(dastEvidenceBoundary)) {
+  fail('.github/workflows/dast.yml: post-container evidence must be exact, bounded, regular and link-free before validation or upload.');
 }
 if (/continue-on-error:/.test(dast)) {
   fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');
@@ -415,11 +457,15 @@ if (!/group:\s*zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref 
   fail('.github/workflows/dast.yml: PR scans must not cancel trusted main, scheduled or manual DAST evidence.');
 }
 for (const proof of [
+  'scripts/generate-zap-plan.mjs',
+  'scripts/run-zap-baseline.sh',
   'scripts/validate-zap-report.mjs',
-  'rm -f report_json.json zap.yaml',
+  'rm -rf -- zap-evidence',
+  'install -d -m 0777 zap-evidence',
   'if: always()',
   'ZAP_POLICY_PATH: ${{ matrix.exact_policy }}',
   'ZAP_SUMMARY_POLICY_PATH: ${{ matrix.summary_rules }}',
+  'ZAP_ADDON_MANIFEST_PATH: zap-evidence/addons.txt',
   'node scripts/validate-zap-report.mjs',
 ]) {
   if (!dast.includes(proof)) fail(`.github/workflows/dast.yml: missing exact-alert proof ${proof}.`);
@@ -441,81 +487,58 @@ for (const readiness of [
     fail(`.github/workflows/dast.yml: surface-specific readiness URL is missing ${readiness}.`);
   }
 }
-for (const [policyPath, host] of [
-  ['.zap/static-launchpad.tsv', 'floriankreutzer[.]github[.]io'],
-  ['.zap/customer-demo.tsv', 'conference-manager-demo[.]onrender[.]com'],
-  ['.zap/platform-demo.tsv', 'conference-manager-ops-demo[.]onrender[.]com'],
+const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
+for (const [surface, policyPath, summaryPath, reviewedTarget] of [
+  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv', 'https://floriankreutzer.github.io/conference-manager/'],
+  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv', 'https://conference-manager-demo.onrender.com/'],
+  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv', 'https://conference-manager-ops-demo.onrender.com/'],
 ]) {
-  const rows = readFileSync(policyPath, 'utf8')
-    .split('\n')
-    .filter((line) => line && !line.startsWith('#'));
-  for (const row of rows) {
-    const [ruleId, action, value, ...extra] = row.split('\t');
-    if (!ruleId || !action || !value || extra.length) {
-      fail(`${policyPath}: every policy row must have exactly three tab-separated columns.`);
-      continue;
+  let exactRows;
+  let summaryRows;
+  try {
+    exactRows = readPolicyRows(readFileSync(policyPath, 'utf8'));
+    summaryRows = readSummaryPolicyRows(readFileSync(summaryPath, 'utf8'));
+  } catch (error) {
+    fail(`${policyPath}: ${error.message}`);
+    continue;
+  }
+  const rowKeys = exactRows.map(({ alertRef, url }) => `${alertRef}\u0000${url}`);
+  if (new Set(rowKeys).size !== rowKeys.length) {
+    fail(`${policyPath}: duplicate alert-reference and URL pairs are forbidden.`);
+  }
+  for (const { alertRef, url } of exactRows) {
+    if (['10049', '10055', '90004', '90005'].includes(alertRef)) {
+      fail(`${policyPath}: multiplexed rule ${alertRef} must use an exact suffixed alert reference.`);
     }
-    if (!/^\d+(?:-\d+)?$/.test(ruleId)) {
-      fail(`${policyPath}: ${ruleId} is not an exact ZAP alert reference.`);
-    } else if (['10049', '10055', '90004', '90005'].includes(ruleId)) {
-      fail(`${policyPath}: multiplexed rule ${ruleId} must use an exact suffixed alert reference.`);
-    } else if (action === 'OUTOFSCOPE') {
-      if (!value.startsWith('^https://') || !value.endsWith('$') || value.includes('.*') || !value.includes(host)) {
-        fail(`${policyPath}: OUTOFSCOPE policy must be URL-anchored to its exact reviewed surface without a wildcard.`);
-      }
-      try {
-        new RegExp(value);
-      } catch {
-        fail(`${policyPath}: invalid OUTOFSCOPE URL regular expression for rule ${ruleId}.`);
-      }
-    } else {
-      fail(`${policyPath}: only exact URL-scoped OUTOFSCOPE dispositions are supported, received ${action}.`);
+    if (!isTargetSubtreeUrl(url, reviewedTarget)) {
+      fail(`${policyPath}: ${url} escaped the exact reviewed target subtree ${reviewedTarget}.`);
     }
   }
-}
-
-const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
-for (const [surface, policyPath, summaryPath] of [
-  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv'],
-  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv'],
-  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv'],
-]) {
-  const exactRows = readFileSync(policyPath, 'utf8')
-    .split('\n')
-    .filter((line) => line && !line.startsWith('#'))
-    .map((line) => line.split('\t'));
-  const policyRefs = exactRows.map(([alertRef]) => alertRef);
+  const policyRefs = [...new Set(exactRows.map(({ alertRef }) => alertRef))];
   const riskRefs = Object.keys(reviewedAlertRisks.surfaces?.[surface]?.maxRiskByAlertRef ?? {});
   if (policyRefs.length !== riskRefs.length || policyRefs.some((alertRef) => !riskRefs.includes(alertRef))) {
     fail(`${policyPath}: alert references must exactly match .zap/reviewed-alert-risks.json.`);
   }
-  const exactPatternsByPlugin = new Map();
-  for (const [alertRef, , pattern] of exactRows) {
-    const pluginId = alertRef.split('-', 1)[0];
-    const patterns = exactPatternsByPlugin.get(pluginId) ?? new Set();
-    patterns.add(pattern);
-    exactPatternsByPlugin.set(pluginId, patterns);
+  const summaryIds = summaryRows.map(({ pluginId }) => pluginId);
+  if (new Set(summaryIds).size !== summaryIds.length) {
+    fail(`${summaryPath}: duplicate plugin IDs are forbidden.`);
   }
-  const summaryRows = readFileSync(summaryPath, 'utf8')
-    .split('\n')
-    .filter((line) => line && !line.startsWith('#'))
-    .map((line) => line.split('\t'));
-  const summaryIds = new Set();
-  for (const [pluginId, action, pattern, ...extra] of summaryRows) {
-    if (!/^\d+$/.test(pluginId) || action !== 'INFO' || !pattern || extra.length) {
-      fail(`${summaryPath}: rows must use one unsuffixed numeric plugin ID, INFO and one URL pattern.`);
+  const exactPluginIds = [...new Set(policyRefs.map((alertRef) => alertRef.split('-', 1)[0]))];
+  if (summaryIds.length !== exactPluginIds.length
+      || exactPluginIds.some((pluginId) => !summaryIds.includes(pluginId))) {
+    fail(`${summaryPath}: plugin IDs must be an exact projection of ${policyPath}.`);
+  }
+  for (const { pluginId, pattern } of summaryRows) {
+    const exactUrls = exactRows
+      .filter(({ alertRef }) => alertRef.split('-', 1)[0] === pluginId)
+      .map(({ url }) => url);
+    if (exactUrls.length === 0) {
+      fail(`${summaryPath}: plugin ${pluginId} has no reviewed exact URLs.`);
       continue;
     }
-    if (summaryIds.has(pluginId)) fail(`${summaryPath}: duplicate plugin ID ${pluginId}.`);
-    summaryIds.add(pluginId);
-    const exactPatterns = exactPatternsByPlugin.get(pluginId);
-    if (!exactPatterns || exactPatterns.size !== 1 || !exactPatterns.has(pattern)) {
-      fail(`${summaryPath}: plugin ${pluginId} must preserve its one exact reviewed URL pattern.`);
+    if (pattern !== exactUrlUnionPattern(exactUrls)) {
+      fail(`${summaryPath}: plugin ${pluginId} must use the canonical finite union of reviewed URLs.`);
     }
-  }
-  if (summaryIds.size !== exactPatternsByPlugin.size
-      || [...exactPatternsByPlugin.keys()].some((pluginId) => !summaryIds.has(pluginId))) {
-    fail(`${summaryPath}: plugin IDs must be an exact projection of ${policyPath}.`);
   }
 }
 
