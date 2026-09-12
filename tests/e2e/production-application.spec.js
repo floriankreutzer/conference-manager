@@ -1464,13 +1464,10 @@ test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-saf
 
   await expect(list).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator(`[data-production-request-id="${sourceRequest.id}"]`)).toBeFocused();
-  const reflow = await page.evaluate(() => ({
-    fits: document.documentElement.scrollWidth <= window.innerWidth,
-    documentWidth: document.documentElement.scrollWidth,
-    viewportWidth: window.innerWidth,
-    overflow: [...document.querySelectorAll('body *')]
-      .map((element) => {
+  const reflow = await page.evaluate(() => {
+    const describe = (element) => {
         const bounds = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
         return {
           element: element.tagName.toLowerCase(),
           className: typeof element.className === 'string' ? element.className : '',
@@ -1479,11 +1476,26 @@ test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-saf
           right: Math.round(bounds.right),
           scrollWidth: element.scrollWidth,
           clientWidth: element.clientWidth,
+          display: style.display,
+          position: style.position,
+          overflowX: style.overflowX,
+          outline: `${style.outlineWidth} ${style.outlineStyle} ${style.outlineOffset}`,
+          boxShadow: style.boxShadow,
         };
-      })
+    };
+    const elements = [...document.querySelectorAll('body *')].map(describe);
+    return {
+      fits: document.documentElement.scrollWidth <= window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      root: [document.body, ...document.body.children].map(describe),
+      active: describe(document.activeElement),
+      edge: elements.filter(({ right }) => right >= window.innerWidth).slice(0, 20),
+      overflow: elements
       .filter(({ left, right }) => left < 0 || right > window.innerWidth)
       .slice(0, 12),
-  }));
+    };
+  });
   expect(reflow.fits, JSON.stringify(reflow)).toBe(true);
 });
 
