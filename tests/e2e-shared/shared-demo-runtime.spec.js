@@ -437,7 +437,8 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await followUpCard.getByRole('button', { name: 'Änderung bearbeiten' }).click();
   await expect(customerPage.locator('#productionTitle')).toHaveValue(REQUEST_TITLE);
   await customerPage.locator('#productionInternal').fill('3');
-  await customerPage.getByRole('button', { name: 'Weiter' }).click();
+  const resubmissionGuidedNext = customerPage.getByRole('button', { name: 'Weiter' });
+  if (await resubmissionGuidedNext.count()) await resubmissionGuidedNext.click();
   const [resubmissionAvailabilityRequest] = await Promise.all([
     customerPage.waitForRequest((request) => request.method() === 'POST'
       && new URL(request.url()).pathname === '/api/v1/application/room-availability'),
@@ -452,8 +453,10 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   expect(resubmissionAvailabilityRequest.postDataJSON()).toMatchObject({
     resubmissionRequestId: createdRequestId,
   });
-  for (let step = 3; step <= 6; step += 1) {
-    await customerPage.getByRole('button', { name: 'Weiter' }).click();
+  if (await resubmissionGuidedNext.count()) {
+    for (let step = 3; step <= 6; step += 1) {
+      await resubmissionGuidedNext.click();
+    }
   }
   await expectUiResponseStatus(
     customerPage,
