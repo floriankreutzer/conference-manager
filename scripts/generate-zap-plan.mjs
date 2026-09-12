@@ -37,6 +37,11 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
     '    enableTags: false',
     // Zero is ZAP's documented unlimited value. Exact evidence must never be truncated.
     '    maxAlertsPerRule: 0',
+    '  rules:',
+    '  - id: 90004',
+    '    threshold: Medium',
+    '  - id: 90005',
+    '    threshold: Medium',
     '  type: passiveScan-config',
     '- parameters:',
     '    context: baseline',

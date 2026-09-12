@@ -398,9 +398,19 @@ for (const file of sourceFiles) visit(file);
 
 const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
 const dastPlanGenerator = readFileSync('scripts/generate-zap-plan.mjs', 'utf8');
+const dastRunner = readFileSync('scripts/run-zap-baseline.sh', 'utf8');
 if (!/maxAlertsPerRule: 0/.test(dastPlanGenerator)
-    || /maxAlertsPerRule: 10/.test(dastPlanGenerator)) {
+    || /maxAlertsPerRule: 10/.test(dastPlanGenerator)
+    || !/id: 90004[\s\S]*id: 90005/.test(dastPlanGenerator)) {
   fail('scripts/generate-zap-plan.mjs: exact DAST evidence must be uncapped.');
+}
+if (!/-addoninstall pscanrulesBeta/.test(dastRunner)
+    || !/-addoninstall pscanrulesAlpha/.test(dastRunner)
+    || !/-addonlist/.test(dastRunner)
+    || !/require_addon pscanrulesBeta beta/.test(dastRunner)
+    || !/require_addon pscanrulesAlpha alpha/.test(dastRunner)
+    || !/zap[.]sh -cmd[\s\S]*-autorun \/zap\/wrk\/zap[.]yaml/.test(dastRunner)) {
+  fail('scripts/run-zap-baseline.sh: DAST must install and prove beta/alpha passive rules before the exact plan.');
 }
 if (!/Wait for public surface readiness/.test(dast) || !/status.*== '200'/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP must wait for an exact HTTP 200 before scanning a cold-startable public surface.');
@@ -413,7 +423,7 @@ if (/--location|(?:^|\s)-I(?:\s|$)/m.test(dast)) {
 }
 if (/rules_file_name:|zaproxy\/action-baseline/.test(dast)
     || !/node scripts\/generate-zap-plan[.]mjs/.test(dast)
-    || !/zap[.]sh -cmd -autorun \/zap\/wrk\/zap[.]yaml/.test(dast)) {
+    || !/bash \/zap\/wrk\/run-zap-baseline[.]sh/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP must run the repository-generated uncapped Automation Framework plan.');
 }
 if (!/--volume "\$GITHUB_WORKSPACE\/zap-evidence:\/zap\/wrk\/:rw"/.test(dast)
@@ -434,12 +444,14 @@ if (!/group:\s*zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref 
 }
 for (const proof of [
   'scripts/generate-zap-plan.mjs',
+  'scripts/run-zap-baseline.sh',
   'scripts/validate-zap-report.mjs',
   'rm -rf -- zap-evidence',
   'install -d -m 0777 zap-evidence',
   'if: always()',
   'ZAP_POLICY_PATH: ${{ matrix.exact_policy }}',
   'ZAP_SUMMARY_POLICY_PATH: ${{ matrix.summary_rules }}',
+  'ZAP_ADDON_MANIFEST_PATH: zap-evidence/addons.txt',
   'node scripts/validate-zap-report.mjs',
 ]) {
   if (!dast.includes(proof)) fail(`.github/workflows/dast.yml: missing exact-alert proof ${proof}.`);

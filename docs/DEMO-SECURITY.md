@@ -49,7 +49,10 @@ targets. Before the third-party container starts, the workflow recreates and pat
 isolated evidence mount. The
 projection's plugin set and URL patterns must be an exact derivation of the alert-reference policy.
 The third-party scanner container receives only a dedicated plan/report directory, never the
-checked-out repository tree.
+checked-out repository tree. In the same container home, the runner preserves the official
+baseline `-a` behavior by installing both `pscanrulesBeta` and `pscanrulesAlpha`, records ZAP's
+installed-add-on manifest, and fails before scanning unless each rule set is present with its
+expected release status. Rules `90004` and `90005` are explicitly enabled in the validated plan.
 
 An unknown plugin, new sibling alert reference, changed URL, risk escalation, filtered finding or
 wrong-origin report remains validator-blocking even when its base plugin appears in the

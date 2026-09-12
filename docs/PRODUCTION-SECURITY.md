@@ -300,6 +300,11 @@ evidence is split between exact `10050-1` (`X-Cache: HIT`) and `10050-2` (valid 
 references at enumerated public-static URLs. Those Demo classifications do not transfer to a
 Production scan.
 
+The direct Automation Framework runner preserves the official baseline `-a` behavior: it installs
+and lists both beta and alpha passive rule add-ons in the same container before the scan. The
+always-run validator requires a fresh manifest proving exactly one installed rule set of each
+expected release status, while the plan explicitly enables reviewed rules `90004` and `90005`.
+
 The repository-generated plan's one-minute spider makes this a bounded passive regression control,
 but `maxAlertsPerRule: 0` preserves unlimited alert evidence for the exact verifier. It remains no
 substitute for an exhaustive crawl, authenticated API authorization scan or penetration test.

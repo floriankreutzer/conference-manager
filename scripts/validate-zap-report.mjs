@@ -237,11 +237,20 @@ export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
     throw new Error('The generated ZAP jobs do not match the fail-closed raw-report order.');
   }
 
-  const passiveConfigParameters = jobParameters(typedJobs[0].job, 'passiveScan-config');
-  if (Object.keys(passiveConfigParameters).length !== 2
-      || passiveConfigParameters.enableTags !== 'false'
-      || passiveConfigParameters.maxAlertsPerRule !== '0') {
-    throw new Error('The generated ZAP passiveScan-config job must retain unlimited alert evidence.');
+  const expectedPassiveConfigJob = [
+    '- parameters:',
+    '    enableTags: false',
+    '    maxAlertsPerRule: 0',
+    '  rules:',
+    '  - id: 90004',
+    '    threshold: Medium',
+    '  - id: 90005',
+    '    threshold: Medium',
+    '  type: passiveScan-config',
+  ];
+  if (typedJobs[0].job.length !== expectedPassiveConfigJob.length
+      || typedJobs[0].job.some((line, index) => line !== expectedPassiveConfigJob[index])) {
+    throw new Error('The generated ZAP passiveScan-config job must retain unlimited alert evidence with beta and alpha rules.');
   }
 
   const spiderParameters = jobParameters(typedJobs[1].job, 'spider');
@@ -312,6 +321,22 @@ const readFreshText = (path, label, startedAtMs) => {
 
 const basePluginId = (alertRef) => alertRef.split('-', 1)[0];
 
+export const validateZapAddonManifest = (source) => {
+  const rows = readRows(source).map((line) => line.split('\t'));
+  for (const [addonId, releaseStatus] of [
+    ['pscanrulesBeta', 'beta'],
+    ['pscanrulesAlpha', 'alpha'],
+  ]) {
+    const matches = rows.filter((columns) => columns[1] === addonId);
+    if (matches.length !== 1
+        || matches[0].length < 5
+        || !/^v[0-9][0-9A-Za-z._-]*$/.test(matches[0][2])
+        || matches[0][3] !== releaseStatus) {
+      throw new Error(`The ZAP add-on manifest does not prove one installed ${addonId} rule set.`);
+    }
+  }
+};
+
 const validatePolicyProjection = ({ policyRows, summaryPolicyRows, maxRiskByAlertRef }) => {
   const configuredRows = policyRows.map(({ alertRef, url }) => `${alertRef}\u0000${url}`);
   if (new Set(configuredRows).size !== configuredRows.length) {
@@ -375,6 +400,7 @@ export const validateZapReport = ({
   surface,
   target,
   automationPlan,
+  addonManifest,
 }) => {
   let targetUrl;
   try {
@@ -409,6 +435,7 @@ export const validateZapReport = ({
   }
   validatePolicyProjection({ policyRows, summaryPolicyRows, maxRiskByAlertRef });
   validateAutomationPlan(automationPlan, target, summaryPolicyRows);
+  validateZapAddonManifest(addonManifest);
 
   if (!Array.isArray(report?.site) || report.site.length !== 1) {
     throw new Error('The ZAP report must contain exactly one scanned site.');
@@ -471,6 +498,7 @@ export const runZapReportValidation = ({ env = process.env } = {}) => {
     'ZAP_SUMMARY_POLICY_PATH',
     'ZAP_RISK_POLICY_PATH',
     'ZAP_AUTOMATION_PLAN_PATH',
+    'ZAP_ADDON_MANIFEST_PATH',
     'ZAP_SURFACE',
     'ZAP_TARGET',
     'ZAP_SCAN_STARTED_AT_MS',
@@ -482,6 +510,11 @@ export const runZapReportValidation = ({ env = process.env } = {}) => {
   if (!Number.isFinite(startedAtMs)) throw new Error('ZAP_SCAN_STARTED_AT_MS must be numeric.');
   const reportSource = readFreshText(env.ZAP_REPORT_PATH, 'ZAP JSON report', startedAtMs);
   const planSource = readFreshText(env.ZAP_AUTOMATION_PLAN_PATH, 'ZAP automation plan', startedAtMs);
+  const addonManifest = readFreshText(
+    env.ZAP_ADDON_MANIFEST_PATH,
+    'ZAP add-on manifest',
+    startedAtMs,
+  );
   let report;
   try {
     report = JSON.parse(reportSource);
@@ -503,6 +536,7 @@ export const runZapReportValidation = ({ env = process.env } = {}) => {
     surface: env.ZAP_SURFACE,
     target: env.ZAP_TARGET,
     automationPlan: planSource,
+    addonManifest,
   });
 };
 

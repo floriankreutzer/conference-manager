@@ -16,6 +16,7 @@ import {
   readSummaryPolicyRows,
   runZapReportValidation,
   validateAutomationPlan,
+  validateZapAddonManifest,
   validateZapReport,
 } from '../scripts/validate-zap-report.mjs';
 import { generateZapAutomationPlan } from '../scripts/generate-zap-plan.mjs';
@@ -82,10 +83,11 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.doesNotMatch(dast, /rules_file_name:|zaproxy\/action-baseline/);
   assert.doesNotMatch(dast, /continue-on-error:/);
   assert.match(dast, /node scripts\/generate-zap-plan[.]mjs/);
+  assert.match(dast, /scripts\/run-zap-baseline[.]sh/);
   assert.match(dast, /docker image inspect --format '\{\{[.]Id\}\}'/);
   assert.match(dast, /--volume "\$GITHUB_WORKSPACE\/zap-evidence:\/zap\/wrk\/:rw"/);
   assert.doesNotMatch(dast, /--volume "\$GITHUB_WORKSPACE:\/zap\/wrk\/:rw"/);
-  assert.match(dast, /zap[.]sh -cmd -autorun \/zap\/wrk\/zap[.]yaml/);
+  assert.match(dast, /bash \/zap\/wrk\/run-zap-baseline[.]sh/);
   assert.match(dast, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
   assert.match(dast, /ZAP_POLICY_PATH: \$\{\{ matrix\.exact_policy \}\}/);
   assert.match(dast, /ZAP_SUMMARY_POLICY_PATH: \$\{\{ matrix\.summary_rules \}\}/);
@@ -96,6 +98,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.match(dast, /test "\$actual_evidence_path" = "\$expected_evidence_path"/);
   assert.match(dast, /if: always\(\)[\s\S]*node scripts\/validate-zap-report[.]mjs/);
   assert.match(planGenerator, /maxAlertsPerRule: 0/);
+  assert.match(planGenerator, /id: 90004[\s\S]*id: 90005/);
   assert.doesNotMatch(planGenerator, /maxAlertsPerRule: 10/);
 
   const policies = [
@@ -159,6 +162,11 @@ const automationPlanFixture = ({
     '- parameters:',
     '    enableTags: false',
     '    maxAlertsPerRule: 0',
+    '  rules:',
+    '  - id: 90004',
+    '    threshold: Medium',
+    '  - id: 90005',
+    '    threshold: Medium',
     '  type: passiveScan-config',
   ];
   const spiderJob = [
@@ -311,6 +319,10 @@ const validateFixture = (report, overrides = {}) => {
     surface: 'example',
     target: 'https://example.test/',
     automationPlan: fixture.plan,
+    addonManifest: [
+      'Passive Scan Rules (Beta)\tpscanrulesBeta\tv1.2.3\tbeta\tBeta rules',
+      'Passive Scan Rules (Alpha)\tpscanrulesAlpha\tv1.2.3\talpha\tAlpha rules',
+    ].join('\n'),
     ...overrides,
   });
 };
@@ -345,6 +357,17 @@ test('generated ZAP plan binds ordered unfiltered summary evidence after the sca
     () => validateAutomationPlan(extraRule, 'https://example.test/', summaryRows),
     /outputSummary job/,
   );
+});
+
+test('ZAP evidence requires installed beta and alpha passive rule sets', () => {
+  const manifest = [
+    'Passive Scan Rules (Beta)\tpscanrulesBeta\tv1.2.3\tbeta\tBeta rules',
+    'Passive Scan Rules (Alpha)\tpscanrulesAlpha\tv1.2.3\talpha\tAlpha rules',
+  ].join('\n');
+  assert.doesNotThrow(() => validateZapAddonManifest(manifest));
+  assert.throws(() => validateZapAddonManifest(manifest.replace(/.*pscanrulesAlpha.*\n?/, '')), /pscanrulesAlpha/);
+  assert.throws(() => validateZapAddonManifest(manifest.replace('\talpha\t', '\trelease\t')), /pscanrulesAlpha/);
+  assert.throws(() => validateZapAddonManifest(`${manifest}\n${manifest.split('\n')[1]}`), /pscanrulesAlpha/);
 });
 
 test('exact ZAP policy accepts only the reviewed alert reference, URL and risk', () => {
@@ -503,17 +526,23 @@ test('ZAP report validation fails closed for missing, malformed and stale genera
       summaryRules: join(directory, 'summary-rules.tsv'),
       risks: join(directory, 'risks.json'),
       plan: join(directory, 'zap.yaml'),
+      addons: join(directory, 'addons.txt'),
     };
     writeFileSync(paths.rules, `10049-2\tOUTOFSCOPE\t${exactUrlPattern('https://example.test/')}`);
     writeFileSync(paths.summaryRules, `10049\tINFO\t${exactUrlPattern('https://example.test/')}`);
     writeFileSync(paths.risks, JSON.stringify(fixture.riskPolicy));
     writeFileSync(paths.plan, fixture.plan);
+    writeFileSync(paths.addons, [
+      'Passive Scan Rules (Beta)\tpscanrulesBeta\tv1.2.3\tbeta\tBeta rules',
+      'Passive Scan Rules (Alpha)\tpscanrulesAlpha\tv1.2.3\talpha\tAlpha rules',
+    ].join('\n'));
     const env = {
       ZAP_REPORT_PATH: paths.report,
       ZAP_POLICY_PATH: paths.rules,
       ZAP_SUMMARY_POLICY_PATH: paths.summaryRules,
       ZAP_RISK_POLICY_PATH: paths.risks,
       ZAP_AUTOMATION_PLAN_PATH: paths.plan,
+      ZAP_ADDON_MANIFEST_PATH: paths.addons,
       ZAP_SURFACE: 'example',
       ZAP_TARGET: 'https://example.test/',
       ZAP_SCAN_STARTED_AT_MS: String(Date.now() - 5_000),
@@ -533,6 +562,10 @@ test('ZAP report validation fails closed for missing, malformed and stale genera
     rmSync(paths.plan);
     env.ZAP_SCAN_STARTED_AT_MS = String(Date.now() - 5_000);
     assert.throws(() => runZapReportValidation({ env }), /automation plan is unavailable/);
+
+    writeFileSync(paths.plan, fixture.plan);
+    writeFileSync(paths.addons, 'Passive Scan Rules (Beta)\tpscanrulesBeta\tv1.2.3\tbeta\tBeta rules');
+    assert.throws(() => runZapReportValidation({ env }), /pscanrulesAlpha/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

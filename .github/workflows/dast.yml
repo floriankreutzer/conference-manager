@@ -7,6 +7,7 @@ on:
       - .github/workflows/dast.yml
       - .zap/**
       - scripts/generate-zap-plan.mjs
+      - scripts/run-zap-baseline.sh
       - scripts/validate-zap-report.mjs
   push:
     branches:
@@ -15,6 +16,7 @@ on:
       - .github/workflows/dast.yml
       - .zap/**
       - scripts/generate-zap-plan.mjs
+      - scripts/run-zap-baseline.sh
       - scripts/validate-zap-report.mjs
   schedule:
     - cron: '41 4 * * 2'
@@ -106,11 +108,14 @@ jobs:
           test "$actual_evidence_path" = "$expected_evidence_path"
           echo "ZAP_SCAN_STARTED_AT_MS=$(date -u +%s%3N)" >> "$GITHUB_ENV"
           node scripts/generate-zap-plan.mjs
+          install -m 0555 scripts/run-zap-baseline.sh zap-evidence/run-zap-baseline.sh
           touch \
+            zap-evidence/addons.txt \
             zap-evidence/report_html.html \
             zap-evidence/report_json.json \
             zap-evidence/report_md.md
           chmod a+rw \
+            zap-evidence/addons.txt \
             zap-evidence/report_html.html \
             zap-evidence/report_json.json \
             zap-evidence/report_md.md
@@ -127,7 +132,7 @@ jobs:
             --volume "$GITHUB_WORKSPACE/zap-evidence:/zap/wrk/:rw" \
             --network host \
             "$image_id" \
-            zap.sh -cmd -autorun /zap/wrk/zap.yaml -config stats.pkg.baseline-af=1
+            bash /zap/wrk/run-zap-baseline.sh
 
       - name: Verify exact alert references and reviewed risk
         if: always()
@@ -137,6 +142,7 @@ jobs:
           ZAP_SUMMARY_POLICY_PATH: ${{ matrix.summary_rules }}
           ZAP_RISK_POLICY_PATH: .zap/reviewed-alert-risks.json
           ZAP_AUTOMATION_PLAN_PATH: zap-evidence/zap.yaml
+          ZAP_ADDON_MANIFEST_PATH: zap-evidence/addons.txt
           ZAP_SURFACE: ${{ matrix.surface }}
           ZAP_TARGET: ${{ matrix.target }}
         run: node scripts/validate-zap-report.mjs
@@ -150,6 +156,8 @@ jobs:
             zap-evidence/report_html.html
             zap-evidence/report_json.json
             zap-evidence/report_md.md
+            zap-evidence/addons.txt
+            zap-evidence/run-zap-baseline.sh
             zap-evidence/zap.yaml
           if-no-files-found: error
           retention-days: 30
