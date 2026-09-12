@@ -439,6 +439,8 @@ if (!/rm -rf -- zap-evidence[\s\S]*install -d -m 0777 zap-evidence/.test(dast)
   fail('.github/workflows/dast.yml: the evidence mount must be recreated and verified without following symlinks.');
 }
 if (!/id: evidence_boundary[\s\S]*if: always\(\)[\s\S]*node scripts\/verify-zap-evidence-files[.]mjs/.test(dast)
+    || !/pull_request:[\s\S]*scripts\/verify-zap-evidence-files[.]mjs[\s\S]*push:/.test(dast)
+    || !/push:[\s\S]*scripts\/verify-zap-evidence-files[.]mjs[\s\S]*schedule:/.test(dast)
     || !/if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}[\s\S]*node scripts\/validate-zap-report[.]mjs/.test(dast)
     || !/Upload raw ZAP evidence[\s\S]*if: \$\{\{ always\(\) && steps[.]evidence_boundary[.]outcome == 'success' \}\}/.test(dast)
     || !/lstatSync\(evidenceDirectory\)/.test(dastEvidenceBoundary)

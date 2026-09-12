@@ -70,7 +70,9 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.match(dast, /https:\/\/conference-manager-demo\.onrender\.com\//);
   assert.match(dast, /https:\/\/conference-manager-ops-demo\.onrender\.com\//);
   assert.match(dast, /pull_request:[\s\S]*\.zap\/\*\*[\s\S]*scripts\/generate-zap-plan[.]mjs[\s\S]*scripts\/validate-zap-report[.]mjs/);
+  assert.match(dast, /pull_request:[\s\S]*scripts\/verify-zap-evidence-files[.]mjs[\s\S]*push:/);
   assert.match(dast, /push:[\s\S]*branches:[\s\S]*- main[\s\S]*\.zap\/\*\*/);
+  assert.match(dast, /push:[\s\S]*scripts\/verify-zap-evidence-files[.]mjs[\s\S]*schedule:/);
   assert.match(dast, /scripts\/validate-zap-report[.]mjs/);
   assert.match(dast, /Wait for public surface readiness/);
   assert.match(dast, /persist-credentials: false/);

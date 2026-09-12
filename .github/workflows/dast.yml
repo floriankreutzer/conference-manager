@@ -8,6 +8,7 @@ on:
       - .zap/**
       - scripts/generate-zap-plan.mjs
       - scripts/run-zap-baseline.sh
+      - scripts/verify-zap-evidence-files.mjs
       - scripts/validate-zap-report.mjs
   push:
     branches:
@@ -17,6 +18,7 @@ on:
       - .zap/**
       - scripts/generate-zap-plan.mjs
       - scripts/run-zap-baseline.sh
+      - scripts/verify-zap-evidence-files.mjs
       - scripts/validate-zap-report.mjs
   schedule:
     - cron: '41 4 * * 2'
