@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, normalize } from 'node:path';
 import {
   exactUrlUnionPattern,
+  isTargetSubtreeUrl,
   readPolicyRows,
   readSummaryPolicyRows,
 } from './validate-zap-report.mjs';
@@ -474,10 +475,10 @@ for (const readiness of [
   }
 }
 const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
-for (const [surface, policyPath, summaryPath, reviewedOrigin] of [
-  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv', 'https://floriankreutzer.github.io'],
-  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv', 'https://conference-manager-demo.onrender.com'],
-  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv', 'https://conference-manager-ops-demo.onrender.com'],
+for (const [surface, policyPath, summaryPath, reviewedTarget] of [
+  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv', 'https://floriankreutzer.github.io/conference-manager/'],
+  ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv', 'https://conference-manager-demo.onrender.com/'],
+  ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv', 'https://conference-manager-ops-demo.onrender.com/'],
 ]) {
   let exactRows;
   let summaryRows;
@@ -496,8 +497,8 @@ for (const [surface, policyPath, summaryPath, reviewedOrigin] of [
     if (['10049', '10055', '90004', '90005'].includes(alertRef)) {
       fail(`${policyPath}: multiplexed rule ${alertRef} must use an exact suffixed alert reference.`);
     }
-    if (new URL(url).origin !== reviewedOrigin) {
-      fail(`${policyPath}: ${url} escaped the exact reviewed origin ${reviewedOrigin}.`);
+    if (!isTargetSubtreeUrl(url, reviewedTarget)) {
+      fail(`${policyPath}: ${url} escaped the exact reviewed target subtree ${reviewedTarget}.`);
     }
   }
   const policyRefs = [...new Set(exactRows.map(({ alertRef }) => alertRef))];

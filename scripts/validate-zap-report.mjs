@@ -23,6 +23,17 @@ const REGEX_META = new Set('\\^$.*+?()[]{}|');
 
 export const exactUrlPattern = (url) => `^${url.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}$`;
 
+export const isTargetSubtreeUrl = (candidate, target) => {
+  const candidateUrl = candidate instanceof URL ? candidate : new URL(candidate);
+  const targetUrl = target instanceof URL ? target : new URL(target);
+  const childPrefix = targetUrl.pathname.endsWith('/')
+    ? targetUrl.pathname
+    : `${targetUrl.pathname}/`;
+  return candidateUrl.origin === targetUrl.origin
+    && (candidateUrl.pathname === targetUrl.pathname
+      || candidateUrl.pathname.startsWith(childPrefix));
+};
+
 const exactUrlFromPattern = (pattern, label) => {
   if (!pattern.startsWith('^') || !pattern.endsWith('$')) {
     throw new Error(`${label} must use a fully anchored exact URL.`);
@@ -429,8 +440,8 @@ export const validateZapReport = ({
   }
 
   for (const { alertRef, url } of policyRows) {
-    if (new URL(url).origin !== targetUrl.origin) {
-      throw new Error(`The exact DAST policy URL for ${alertRef} escaped the reviewed origin.`);
+    if (!isTargetSubtreeUrl(url, targetUrl)) {
+      throw new Error(`The exact DAST policy URL for ${alertRef} escaped the reviewed target subtree.`);
     }
   }
   validatePolicyProjection({ policyRows, summaryPolicyRows, maxRiskByAlertRef });
@@ -478,8 +489,9 @@ export const validateZapReport = ({
       } catch {
         throw new Error(`Alert ${alertRef} has an invalid instance URL.`);
       }
-      if (instanceUrl.origin !== targetUrl.origin || instanceUrl.username || instanceUrl.password) {
-        throw new Error(`Alert ${alertRef} escaped the reviewed origin.`);
+      if (!isTargetSubtreeUrl(instanceUrl, targetUrl)
+          || instanceUrl.username || instanceUrl.password) {
+        throw new Error(`Alert ${alertRef} escaped the reviewed target subtree.`);
       }
       const matches = policyRows.filter((row) => row.alertRef === alertRef
         && row.url === instance.uri);

@@ -131,8 +131,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
     '10015', '10049-2', '10055-12', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.deepEqual(uniqueRefs(staticRules), [
-    '10015', '10020-1', '10021', '10035-1', '10049-3', '10050-1', '10050-2',
-    '10055-6', '10055-12', '10055-13', '10063-1', '10094-3', '10098',
+    '10015', '10020-1', '10021', '10049-3', '10050-1', '10063-1', '10098',
     '90004-2', '90004-3', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10049|10055|90004|90005)\t/m);
@@ -145,8 +144,8 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
     '10015', '10049', '10055', '90005',
   ]);
   assert.deepEqual(readSummaryPolicyRows(staticSummaryRules).map(({ pluginId }) => pluginId), [
-    '10015', '10020', '10021', '10035', '10049', '10050',
-    '10055', '10063', '10094', '10098', '90004', '90005',
+    '10015', '10020', '10021', '10049', '10050',
+    '10063', '10098', '90004', '90005',
   ]);
 });
 
@@ -385,6 +384,45 @@ test('exact ZAP policy accepts only the reviewed alert reference, URL and risk',
   assert.throws(() => validateFixture(reportFixture({ uri: 'https://other.test/' })), /escaped/);
   assert.throws(() => validateFixture(reportFixture({ uri: 'https://example.test/?changed=1' })), /matched 0/);
   assert.throws(() => validateFixture(reportFixture({ instances: [] })), /no reviewable instances/);
+
+  const pathTarget = 'https://example.test/application/';
+  const pathRows = readPolicyRows(
+    `10049-2\tOUTOFSCOPE\t${exactUrlPattern(pathTarget)}`,
+  );
+  const pathSummaryRows = readSummaryPolicyRows(
+    `10049\tINFO\t${exactUrlPattern(pathTarget)}`,
+  );
+  const pathPlan = automationPlanFixture({ target: pathTarget, summaryRows: pathSummaryRows });
+  assert.doesNotThrow(() => validateFixture(reportFixture({ uri: pathTarget }), {
+    target: pathTarget,
+    policyRows: pathRows,
+    summaryPolicyRows: pathSummaryRows,
+    automationPlan: pathPlan,
+  }));
+  assert.throws(() => validateFixture(
+    reportFixture({ uri: 'https://example.test/robots.txt' }),
+    {
+      target: pathTarget,
+      policyRows: pathRows,
+      summaryPolicyRows: pathSummaryRows,
+      automationPlan: pathPlan,
+    },
+  ), /target subtree/);
+  assert.throws(() => validateFixture(reportFixture({ uri: 'https://example.test/robots.txt' }), {
+    target: pathTarget,
+    policyRows: readPolicyRows(
+      `10049-2\tOUTOFSCOPE\t${exactUrlPattern('https://example.test/robots.txt')}`,
+    ),
+    summaryPolicyRows: readSummaryPolicyRows(
+      `10049\tINFO\t${exactUrlPattern('https://example.test/robots.txt')}`,
+    ),
+    automationPlan: automationPlanFixture({
+      target: pathTarget,
+      summaryRows: readSummaryPolicyRows(
+        `10049\tINFO\t${exactUrlPattern('https://example.test/robots.txt')}`,
+      ),
+    }),
+  }), /target subtree/);
 
   const cleanReport = reportFixture();
   cleanReport.site[0].alerts = [];

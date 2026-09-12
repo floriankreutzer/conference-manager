@@ -43,7 +43,9 @@ repository-generated finite union of those exact URLs byte for byte. The compati
 filter or rewrite the report.
 An always-run repository validator independently requires the fresh raw report, exact HTTPS target
 metadata and an unfiltered instance for every finding, then binds each instance to one reviewed
-alert reference, URL, method and maximum risk. It also binds the generated Automation Framework
+alert reference, URL, method and maximum risk. Policy URLs and report instances must remain inside
+the canonical target subtree; same-origin root, robots, sitemap or sibling paths are rejected. It
+also binds the generated Automation Framework
 environment, target subtree, scan/wait parameters, ordered summary rules and three post-scan report
 targets. Before the third-party container starts, the workflow recreates and path-verifies the
 isolated evidence mount. The
@@ -55,7 +57,7 @@ installed-add-on manifest, and fails before scanning unless each rule set is pre
 expected release status. Rules `90004` and `90005` are explicitly enabled in the validated plan.
 
 An unknown plugin, new sibling alert reference, changed URL, risk escalation, filtered finding or
-wrong-origin report remains validator-blocking even when its base plugin appears in the
+wrong-origin or out-of-target-subtree report remains validator-blocking even when its base plugin appears in the
 compatibility projection. The four
 exact `90005-*` alert references are URL-scoped because ZAP's crawler, unlike a browser, does not
 send the `Sec-Fetch-Dest`, `Sec-Fetch-Mode`, `Sec-Fetch-Site` or `Sec-Fetch-User` request headers
