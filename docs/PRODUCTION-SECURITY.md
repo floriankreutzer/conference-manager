@@ -281,9 +281,9 @@ to infer one origin's posture from another. Production acceptance must target th
 Production application/API origin and identity context independently.
 
 The public-Demo matrix is cold-start aware and uses surface-specific reviewed passive-alert
-policies. `fail_action: true`, the explicit Automation Framework path and alpha passive rules remain
-mandatory. A plugin-ID `INFO` compatibility map exists only for `zap-baseline.py` exit-summary
-handling and must contain exactly the plugin IDs derived from the reviewed alert-reference policy.
+policies. The explicit repository-generated Automation Framework plan remains mandatory. A
+plugin-ID `INFO` compatibility map must contain exactly the plugin IDs derived from the reviewed
+alert-reference policy.
 Every exact-policy row encodes one canonical HTTPS URL, and each map URL expression must equal the
 deterministic finite union of those URLs byte for byte. The map is not a ZAP filter and does not
 rewrite the generated report. The always-run validator binds the fresh raw report, exact HTTPS site
@@ -298,9 +298,9 @@ evidence is split between exact `10050-1` (`X-Cache: HIT`) and `10050-2` (valid 
 references at enumerated public-static URLs. Those Demo classifications do not transfer to a
 Production scan.
 
-The upstream plan's one-minute spider and `maxAlertsPerRule: 10` make this a bounded passive
-regression control, not an exhaustive crawl, authenticated API authorization scan or penetration
-test.
+The repository-generated plan's one-minute spider makes this a bounded passive regression control,
+but `maxAlertsPerRule: 0` preserves unlimited alert evidence for the exact verifier. It remains no
+substitute for an exhaustive crawl, authenticated API authorization scan or penetration test.
 
 Exact-head CI, hosted acceptance and DAST results are recorded separately in the hardening register
 and GitHub checks. A historical successful run cannot be carried forward to a changed frontend/API

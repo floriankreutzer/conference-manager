@@ -241,8 +241,8 @@ export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
   const passiveConfigParameters = jobParameters(typedJobs[0].job, 'passiveScan-config');
   if (Object.keys(passiveConfigParameters).length !== 2
       || passiveConfigParameters.enableTags !== 'false'
-      || passiveConfigParameters.maxAlertsPerRule !== '10') {
-    throw new Error('The generated ZAP passiveScan-config job is invalid.');
+      || passiveConfigParameters.maxAlertsPerRule !== '0') {
+    throw new Error('The generated ZAP passiveScan-config job must retain unlimited alert evidence.');
   }
 
   const spiderParameters = jobParameters(typedJobs[1].job, 'spider');

@@ -34,31 +34,32 @@ policy.
 
 The scheduled/manual ZAP workflow first requires a direct HTTP `200` from the Pages launchpad or the
 surface-specific Customer/Platform readiness endpoint, so a Render Free cold start cannot be
-mistaken for a scan result. It retains `-a`, explicitly requires ZAP's Automation Framework with
-`--auto`, and retains `fail_action: true`. Because `zap-baseline.py` evaluates exit-summary rules by
-unsuffixed plugin ID, it receives an `INFO` compatibility map containing exactly the plugin IDs
-derived from each surface's exact policy. Every exact-policy row encodes one canonical HTTPS URL;
-repeated alert references enumerate distinct reviewed URLs. Each map URL expression must equal the
-repository-generated finite union of those exact URLs byte for byte. ZAP's plugin summary does not
-use that projection to filter findings. The
-compatibility map therefore does not filter or rewrite the report.
+mistaken for a scan result. The repository generates the exact Automation Framework plan before
+starting ZAP. Its `INFO` compatibility map contains exactly the unsuffixed plugin IDs derived from
+each surface's exact policy. Every exact-policy row encodes one canonical HTTPS URL; repeated alert
+references enumerate distinct reviewed URLs. Each map URL expression must equal the
+repository-generated finite union of those exact URLs byte for byte. The compatibility map does not
+filter or rewrite the report.
 An always-run repository validator independently requires the fresh raw report, exact HTTPS target
 metadata and an unfiltered instance for every finding, then binds each instance to one reviewed
 alert reference, URL, method and maximum risk. It also binds the generated Automation Framework
 environment, scan/wait parameters, ordered summary rules and three post-scan report targets. The
 projection's plugin set and URL patterns must be an exact derivation of the alert-reference policy.
+The third-party scanner container receives only a dedicated plan/report directory, never the
+checked-out repository tree.
 
-This two-layer gate means an unknown plugin remains action-blocking, while a new sibling alert
-reference, changed URL, risk escalation, filtered finding or wrong-origin report remains
-validator-blocking even when its base plugin appears in the compatibility projection. The four
+An unknown plugin, new sibling alert reference, changed URL, risk escalation, filtered finding or
+wrong-origin report remains validator-blocking even when its base plugin appears in the
+compatibility projection. The four
 exact `90005-*` alert references are URL-scoped because ZAP's crawler, unlike a browser, does not
 send the `Sec-Fetch-Dest`, `Sec-Fetch-Mode`, `Sec-Fetch-Site` or `Sec-Fetch-User` request headers
-that the rules inspect. Broad plugin dispositions in the exact policy, `IGNORE`, `OUTOFSCOPE` in the
-action compatibility file, wildcard exclusions and `-I` are prohibited.
+that the rules inspect. Broad plugin dispositions in the exact policy, `IGNORE`, wildcard
+exclusions and warning-tolerant execution are prohibited.
 
-This is a bounded upstream passive-baseline control: its generated plan uses a one-minute spider
-and `maxAlertsPerRule: 10`. It is useful repeatable regression evidence, but it is not an exhaustive
-crawl, authenticated API authorization test or penetration test.
+This is a bounded passive-baseline control: its repository-generated plan uses a one-minute spider,
+but configures `maxAlertsPerRule: 0` so ZAP retains unlimited alert evidence for the exact verifier.
+It is useful repeatable regression evidence, but it is not an exhaustive crawl, authenticated API
+authorization test or penetration test.
 
 The Pages policy is limited to cache behavior, response-header controls that GitHub Pages cannot
 configure, public-static CORS and GitHub account-root `404`/base64 observations. Its exact

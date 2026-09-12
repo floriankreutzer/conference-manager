@@ -397,8 +397,10 @@ function visit(file) {
 for (const file of sourceFiles) visit(file);
 
 const dast = readFileSync('.github/workflows/dast.yml', 'utf8');
-if (!/fail_action:\s*true\b/.test(dast)) {
-  fail('.github/workflows/dast.yml: ZAP findings must fail the DAST workflow; informational-only scans are forbidden.');
+const dastPlanGenerator = readFileSync('scripts/generate-zap-plan.mjs', 'utf8');
+if (!/maxAlertsPerRule: 0/.test(dastPlanGenerator)
+    || /maxAlertsPerRule: 10/.test(dastPlanGenerator)) {
+  fail('scripts/generate-zap-plan.mjs: exact DAST evidence must be uncapped.');
 }
 if (!/Wait for public surface readiness/.test(dast) || !/status.*== '200'/.test(dast)) {
   fail('.github/workflows/dast.yml: ZAP must wait for an exact HTTP 200 before scanning a cold-startable public surface.');
@@ -409,9 +411,14 @@ if (!/persist-credentials:\s*false/.test(dast)) {
 if (/--location|(?:^|\s)-I(?:\s|$)/m.test(dast)) {
   fail('.github/workflows/dast.yml: readiness redirects and warning-tolerant ZAP execution are forbidden.');
 }
-if (/rules_file_name:/.test(dast)
-    || !/cmd_options:\s*'-a --auto -c \$\{\{ matrix\.summary_rules \}\}'/.test(dast)) {
-  fail('.github/workflows/dast.yml: ZAP must pass the reviewed plugin-summary projection explicitly with alpha rules.');
+if (/rules_file_name:|zaproxy\/action-baseline/.test(dast)
+    || !/node scripts\/generate-zap-plan[.]mjs/.test(dast)
+    || !/zap[.]sh -cmd -autorun \/zap\/wrk\/zap[.]yaml/.test(dast)) {
+  fail('.github/workflows/dast.yml: ZAP must run the repository-generated uncapped Automation Framework plan.');
+}
+if (!/--volume "\$GITHUB_WORKSPACE\/zap-evidence:\/zap\/wrk\/:rw"/.test(dast)
+    || /--volume "\$GITHUB_WORKSPACE:\/zap\/wrk\/:rw"/.test(dast)) {
+  fail('.github/workflows/dast.yml: the third-party ZAP container may mount only its isolated evidence directory.');
 }
 if (/continue-on-error:/.test(dast)) {
   fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');
@@ -420,8 +427,9 @@ if (!/group:\s*zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref 
   fail('.github/workflows/dast.yml: PR scans must not cancel trusted main, scheduled or manual DAST evidence.');
 }
 for (const proof of [
+  'scripts/generate-zap-plan.mjs',
   'scripts/validate-zap-report.mjs',
-  'rm -f report_json.json zap.yaml',
+  'install -d -m 0777 zap-evidence',
   'if: always()',
   'ZAP_POLICY_PATH: ${{ matrix.exact_policy }}',
   'ZAP_SUMMARY_POLICY_PATH: ${{ matrix.summary_rules }}',

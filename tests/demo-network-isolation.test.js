@@ -18,6 +18,7 @@ import {
   validateAutomationPlan,
   validateZapReport,
 } from '../scripts/validate-zap-report.mjs';
+import { generateZapAutomationPlan } from '../scripts/generate-zap-plan.mjs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -46,6 +47,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   const productionSecurity = read('docs/PRODUCTION-SECURITY.md');
   const portal = read('demo-portal/index.html');
   const dast = read('.github/workflows/dast.yml');
+  const planGenerator = read('scripts/generate-zap-plan.mjs');
   const staticRules = read('.zap/static-launchpad.tsv');
   const customerRules = read('.zap/customer-demo.tsv');
   const platformRules = read('.zap/platform-demo.tsv');
@@ -66,7 +68,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.match(dast, /https:\/\/floriankreutzer\.github\.io\/conference-manager\//);
   assert.match(dast, /https:\/\/conference-manager-demo\.onrender\.com\//);
   assert.match(dast, /https:\/\/conference-manager-ops-demo\.onrender\.com\//);
-  assert.match(dast, /pull_request:[\s\S]*\.zap\/\*\*[\s\S]*scripts\/validate-zap-report[.]mjs/);
+  assert.match(dast, /pull_request:[\s\S]*\.zap\/\*\*[\s\S]*scripts\/generate-zap-plan[.]mjs[\s\S]*scripts\/validate-zap-report[.]mjs/);
   assert.match(dast, /push:[\s\S]*branches:[\s\S]*- main[\s\S]*\.zap\/\*\*/);
   assert.match(dast, /scripts\/validate-zap-report[.]mjs/);
   assert.match(dast, /Wait for public surface readiness/);
@@ -77,14 +79,20 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.match(dast, /https:\/\/conference-manager-demo\.onrender\.com\/api\/v1\/health\/ready/);
   assert.match(dast, /https:\/\/conference-manager-ops-demo\.onrender\.com\/api\/v1\/platform\/health\/ready/);
   assert.match(dast, /status.*== '200'/);
-  assert.doesNotMatch(dast, /rules_file_name:/);
+  assert.doesNotMatch(dast, /rules_file_name:|zaproxy\/action-baseline/);
   assert.doesNotMatch(dast, /continue-on-error:/);
-  assert.match(dast, /fail_action:\s*true/);
-  assert.match(dast, /cmd_options: '-a --auto -c \$\{\{ matrix\.summary_rules \}\}'/);
+  assert.match(dast, /node scripts\/generate-zap-plan[.]mjs/);
+  assert.match(dast, /docker image inspect --format '\{\{[.]Id\}\}'/);
+  assert.match(dast, /--volume "\$GITHUB_WORKSPACE\/zap-evidence:\/zap\/wrk\/:rw"/);
+  assert.doesNotMatch(dast, /--volume "\$GITHUB_WORKSPACE:\/zap\/wrk\/:rw"/);
+  assert.match(dast, /zap[.]sh -cmd -autorun \/zap\/wrk\/zap[.]yaml/);
+  assert.match(dast, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
   assert.match(dast, /ZAP_POLICY_PATH: \$\{\{ matrix\.exact_policy \}\}/);
   assert.match(dast, /ZAP_SUMMARY_POLICY_PATH: \$\{\{ matrix\.summary_rules \}\}/);
-  assert.match(dast, /rm -f report_json[.]json zap[.]yaml/);
+  assert.match(dast, /install -d -m 0777 zap-evidence/);
   assert.match(dast, /if: always\(\)[\s\S]*node scripts\/validate-zap-report[.]mjs/);
+  assert.match(planGenerator, /maxAlertsPerRule: 0/);
+  assert.doesNotMatch(planGenerator, /maxAlertsPerRule: 10/);
 
   const policies = [
     ['floriankreutzer.github.io', readPolicyRows(staticRules), readSummaryPolicyRows(staticSummaryRules)],
@@ -146,7 +154,7 @@ const automationPlanFixture = ({
   const passiveConfigJob = [
     '- parameters:',
     '    enableTags: false',
-    '    maxAlertsPerRule: 10',
+    '    maxAlertsPerRule: 0',
     '  type: passiveScan-config',
   ];
   const spiderJob = [
@@ -204,6 +212,30 @@ const automationPlanFixture = ({
     '',
   ].join('\n');
 };
+
+test('repository-generated ZAP plans preserve every passive finding', () => {
+  const summaryRows = readSummaryPolicyRows(
+    `10049\tINFO\t${exactUrlPattern('https://example.test/')}`,
+  );
+  const plan = generateZapAutomationPlan({
+    target: 'https://example.test/',
+    summaryPolicyRows: summaryRows,
+  });
+  assert.equal(plan, automationPlanFixture({ summaryRows }));
+  assert.doesNotThrow(() => validateAutomationPlan(
+    plan,
+    'https://example.test/',
+    summaryRows,
+  ));
+  assert.throws(
+    () => validateAutomationPlan(
+      plan.replace('maxAlertsPerRule: 0', 'maxAlertsPerRule: 10'),
+      'https://example.test/',
+      summaryRows,
+    ),
+    /unlimited alert evidence/,
+  );
+});
 
 const exactPolicyFixture = () => ({
   rows: readPolicyRows(`10049-2\tOUTOFSCOPE\t${exactUrlPattern('https://example.test/')}`),
