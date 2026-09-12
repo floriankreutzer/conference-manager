@@ -491,9 +491,10 @@ function snapshotEntry(value, code) {
   });
 }
 
-function requestDetails(value, code) {
+function requestDetails(value, code, schemaVersion) {
   const details = exactObject(value, [
     'title', 'specialRequirements', 'dietaryRequirements', 'serviceIds', 'catering',
+    ...(schemaVersion === 3 ? ['equipmentIds'] : []),
   ], code);
   const catering = exactObject(details.catering, [
     'participantCount', 'packageSelection', 'itemQuantities',
@@ -523,6 +524,7 @@ function requestDetails(value, code) {
     specialRequirements: draftText(details.specialRequirements, { maximum: 2_000, nullable: true, code }),
     dietaryRequirements: draftText(details.dietaryRequirements, { maximum: 2_000, nullable: true, code }),
     serviceIds: uniqueIdentifiers(details.serviceIds, 200, code, { sorted: true }),
+    ...(schemaVersion === 3 ? { equipmentIds: uniqueIdentifiers(details.equipmentIds, 200, code, { sorted: true }) } : {}),
     catering: Object.freeze({
       participantCount: safeInteger(catering.participantCount, 0, MAX_PARTICIPANTS, code),
       packageSelection,
@@ -541,14 +543,16 @@ function pricingRoom(value, code) {
   });
 }
 
-function requestPricing(value, code) {
+function requestPricing(value, code, schemaVersion) {
   const pricing = exactObject(value, [
     'currency', 'totalMinor', 'breakdown', 'room', 'services', 'catering',
+    ...(schemaVersion === 3 ? ['equipment'] : []),
   ], code);
   const currency = supportedCurrency(pricing.currency, code);
   const totalMinor = safeInteger(pricing.totalMinor, 0, MAX_TOTAL_MINOR, code);
   const breakdownValue = exactObject(pricing.breakdown, [
     'roomMinor', 'servicesMinor', 'cateringPackageMinor', 'cateringItemsMinor',
+    ...(schemaVersion === 3 ? ['equipmentMinor'] : []),
   ], code);
   const breakdown = Object.freeze(Object.fromEntries(Object.entries(breakdownValue).map(
     ([key, amount]) => [key, safeInteger(amount, 0, MAX_TOTAL_MINOR, code)],
@@ -566,6 +570,18 @@ function requestPricing(value, code) {
     new Set(services.map((entry) => entry.service.id)).size !== services.length
     || services.some((entry, index) => index > 0 && services[index - 1].service.id >= entry.service.id)
   ) invalid(code);
+  const equipment = schemaVersion === 3 ? (() => {
+    if (!Array.isArray(pricing.equipment) || pricing.equipment.length > 200) invalid(code);
+    const lines = pricing.equipment.map((value) => {
+      const line = exactObject(value, ['equipment', 'lineTotalMinor'], code);
+      const entry = snapshotEntry(line.equipment, code);
+      const amount = safeInteger(line.lineTotalMinor, 0, MAX_TOTAL_MINOR, code);
+      if (amount !== entry.price.amountMinor) invalid(code);
+      return Object.freeze({ equipment: entry, lineTotalMinor: amount });
+    });
+    uniqueIdentifiers(lines.map((entry) => entry.equipment.id), 200, code, { sorted: true });
+    return Object.freeze(lines);
+  })() : [];
   const cateringValue = exactObject(pricing.catering, [
     'participantCount', 'packageSelection', 'items',
   ], code);
@@ -621,6 +637,7 @@ function requestPricing(value, code) {
   if (
     breakdown.roomMinor !== room.price.amountMinor
     || breakdown.servicesMinor !== servicesMinor
+    || (schemaVersion === 3 && breakdown.equipmentMinor !== safeSum(equipment.map((entry) => entry.lineTotalMinor), code))
     || breakdown.cateringPackageMinor !== packageMinor
     || breakdown.cateringItemsMinor !== itemsMinor
     || totalMinor !== safeSum(Object.values(breakdown), code)
@@ -628,6 +645,7 @@ function requestPricing(value, code) {
   const chargedCurrencies = new Set([
     room.price.currency,
     ...services.map((entry) => entry.service.price.currency),
+    ...equipment.map((entry) => entry.equipment.price.currency),
     ...(packageSelection ? [packageSelection.variant.price.currency] : []),
     ...items.filter((entry) => !entry.includedByPackage).map((entry) => entry.item.price.currency),
   ]);
@@ -638,6 +656,7 @@ function requestPricing(value, code) {
     breakdown,
     room,
     services,
+    ...(schemaVersion === 3 ? { equipment } : {}),
     catering: { participantCount, packageSelection, items },
   });
 }
@@ -721,15 +740,26 @@ function requestAllocations(value, code) {
   });
 }
 
-export function normalizeProductionPublicRequest(value) {
+function displayAttribution(value, code, { action = false, nullable = false } = {}) {
+  if (nullable && value === null) return null;
+  const input = exactObject(value, action ? ['displayName', 'roleAtAction'] : ['displayName'], code);
+  const displayName = input.displayName;
+  if (typeof displayName !== 'string' || displayName.length < 1 || displayName.length > 160
+    || displayName.trim() !== displayName || CONTROL_CHARACTER.test(displayName)) invalid(code);
+  if (action && ![null, 'employee', 'conference_manager'].includes(input.roleAtAction)) invalid(code);
+  return Object.freeze({ displayName, ...(action ? { roleAtAction: input.roleAtAction } : {}) });
+}
+
+export function normalizeProductionPublicRequest(value, attribution = false) {
   const code = 'PRODUCTION_REQUEST_INVALID';
   const input = exactObject(value, [
     'schemaVersion', 'version', 'id', 'roomId', 'status', 'statusReason',
     'startsAt', 'endsAt', 'internalParticipants', 'externalParticipants',
     'statusChangedAt', 'createdAt', 'updatedAt', 'details', 'pricing',
     'configurationRevisions', 'policy', 'allocations',
+    ...(attribution ? ['requesterAttribution'] : []),
   ], code);
-  if (![1, 2].includes(input.schemaVersion) || !REQUEST_STATUSES.has(input.status)) invalid(code);
+  if (![1, 2, 3].includes(input.schemaVersion) || !REQUEST_STATUSES.has(input.status)) invalid(code);
   const startsAt = canonicalUtc(input.startsAt, code);
   const endsAt = canonicalUtc(input.endsAt, code);
   if (endsAt <= startsAt) invalid(code);
@@ -738,6 +768,7 @@ export function normalizeProductionPublicRequest(value) {
     : responseText(input.statusReason, { maximum: 1_000, code });
   if (REASON_STATUSES.has(input.status) !== (statusReason !== null)) invalid(code);
   const common = {
+    ...(attribution ? { requesterAttribution: displayAttribution(input.requesterAttribution, code) } : {}),
     schemaVersion: input.schemaVersion,
     version: positiveVersion(input.version, code),
     id: identifier(input.id, code),
@@ -777,8 +808,8 @@ export function normalizeProductionPublicRequest(value) {
     || participants > MAX_PARTICIPANTS
     || Date.parse(endsAt) - Date.parse(startsAt) > 86_400_000
   ) invalid(code);
-  const details = requestDetails(input.details, code);
-  const pricing = requestPricing(input.pricing, code);
+  const details = requestDetails(input.details, code, input.schemaVersion);
+  const pricing = requestPricing(input.pricing, code, input.schemaVersion);
   const revisions = configurationRevisions(input.configurationRevisions, code);
   const policy = bookingPolicy(input.policy, code);
   const allocations = requestAllocations(input.allocations, code);
@@ -792,6 +823,7 @@ export function normalizeProductionPublicRequest(value) {
       policy.rules.allowedServiceIds.length && !policy.rules.allowedServiceIds.includes(id)
     ))
     || !sameIdentifiers(details.serviceIds, pricing.services.map((entry) => entry.service.id))
+    || (input.schemaVersion === 3 && !sameIdentifiers(details.equipmentIds, pricing.equipment.map((entry) => entry.equipment.id)))
     || !sameIdentifiers(
       details.catering.itemQuantities.map((entry) => entry.itemId),
       pricing.catering.items.map((entry) => entry.item.id),
@@ -821,9 +853,9 @@ function samePackageSelection(details, pricing) {
   return details.packageId === pricing.package.id && details.variantId === pricing.variant.id;
 }
 
-function orderedRequests(value, maximum, code) {
+function orderedRequests(value, maximum, code, attribution = false) {
   if (!Array.isArray(value) || value.length > maximum) invalid(code);
-  const requests = Object.freeze(value.map(normalizeProductionPublicRequest));
+  const requests = Object.freeze(value.map((entry) => normalizeProductionPublicRequest(entry, attribution)));
   if (
     new Set(requests.map((entry) => entry.id)).size !== requests.length
     || requests.some((entry, index) => index > 0 && (
@@ -837,18 +869,18 @@ function orderedRequests(value, maximum, code) {
 export function normalizeProductionRequestListPage(value) {
   const code = 'PRODUCTION_REQUEST_LIST_INVALID';
   const input = exactObject(value, ['schemaVersion', 'asOf', 'requests', 'page'], code);
-  if (input.schemaVersion !== 2) invalid(code);
+  if (![2, 3].includes(input.schemaVersion)) invalid(code);
   const publicPage = page(input.page, 10, code);
   const asOf = canonicalUtc(input.asOf, code);
-  const requests = orderedRequests(input.requests, publicPage.limit, code);
+  const requests = orderedRequests(input.requests, publicPage.limit, code, input.schemaVersion === 3);
   if (requests.some((entry) => entry.updatedAt > asOf)) invalid(code);
-  return Object.freeze({ schemaVersion: 2, asOf, requests, page: publicPage });
+  return Object.freeze({ schemaVersion: input.schemaVersion, asOf, requests, page: publicPage });
 }
 
 export function normalizeProductionRequestReportPage(value) {
   const code = 'PRODUCTION_REQUEST_REPORT_INVALID';
   const input = exactObject(value, ['schemaVersion', 'asOf', 'range', 'requests', 'page'], code);
-  if (input.schemaVersion !== 2) invalid(code);
+  if (![2, 3].includes(input.schemaVersion)) invalid(code);
   const rangeValue = exactObject(input.range, [
     'field', 'fromInclusive', 'toExclusive', 'timeZone',
   ], code);
@@ -858,12 +890,12 @@ export function normalizeProductionRequestReportPage(value) {
   const duration = Date.parse(toExclusive) - Date.parse(fromInclusive);
   if (duration <= 0 || duration > 366 * 86_400_000) invalid(code);
   const publicPage = page(input.page, 10, code);
-  const requests = orderedRequests(input.requests, publicPage.limit, code);
+  const requests = orderedRequests(input.requests, publicPage.limit, code, input.schemaVersion === 3);
   if (requests.some((entry) => entry.startsAt < fromInclusive || entry.startsAt >= toExclusive)) {
     invalid(code);
   }
   return immutable({
-    schemaVersion: 2,
+    schemaVersion: input.schemaVersion,
     asOf: canonicalUtc(input.asOf, code),
     range: { field: 'startsAt', fromInclusive, toExclusive, timeZone: 'UTC' },
     requests,
@@ -880,11 +912,13 @@ function draftAllocation(value, code) {
 }
 
 export function normalizeProductionRequestDraft(value) {
+  const equipmentDraft = Boolean(value && Object.hasOwn(value, 'equipmentIds'));
   const code = 'PRODUCTION_REQUEST_DRAFT_INVALID';
   const input = exactObject(value, [
     'title', 'roomId', 'startsAt', 'endsAt', 'internalParticipants',
     'externalParticipants', 'serviceIds', 'catering', 'dietaryRequirements',
     'specialRequirements', 'allocations', 'configurationRevisions',
+    ...(equipmentDraft ? ['equipmentIds'] : []),
   ], code);
   const startsAt = canonicalUtc(input.startsAt, code);
   const endsAt = canonicalUtc(input.endsAt, code);
@@ -930,6 +964,7 @@ export function normalizeProductionRequestDraft(value) {
     internalParticipants,
     externalParticipants,
     serviceIds: [...uniqueIdentifiers(input.serviceIds, 200, code)].sort(),
+    ...(equipmentDraft ? { equipmentIds: [...uniqueIdentifiers(input.equipmentIds, 200, code)].sort() } : {}),
     catering: { participantCount, packageSelection, itemQuantities },
     dietaryRequirements: draftText(input.dietaryRequirements, { maximum: 2_000, nullable: true, code }),
     specialRequirements: draftText(input.specialRequirements, { maximum: 2_000, nullable: true, code }),
@@ -940,7 +975,7 @@ export function normalizeProductionRequestDraft(value) {
 
 function requestRef(value, code) {
   const input = exactObject(value, ['id', 'schemaVersion', 'version', 'status'], code);
-  if (![1, 2].includes(input.schemaVersion) || !REQUEST_STATUSES.has(input.status)) invalid(code);
+  if (![1, 2, 3].includes(input.schemaVersion) || !REQUEST_STATUSES.has(input.status)) invalid(code);
   return Object.freeze({
     id: identifier(input.id, code),
     schemaVersion: input.schemaVersion,
@@ -1065,14 +1100,15 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
   });
 }
 
-function bookingChange(value, ref, code) {
+function bookingChange(value, ref, code, attribution = false) {
   if (value === null) return null;
   const input = exactObject(value, [
     'id', 'status', 'roomId', 'startsAt', 'endsAt', 'internalParticipants',
     'externalParticipants', 'rejectionReason', 'createdAt', 'updatedAt',
     'requestSchemaVersion', 'baseRequestVersion', 'request', 'proposedRequest',
+    ...(attribution ? ['initiatorAttribution', 'deciderAttribution'] : []),
   ], code);
-  if (!BOOKING_CHANGE_STATUSES.has(input.status) || ![1, 2].includes(input.requestSchemaVersion)) invalid(code);
+  if (!BOOKING_CHANGE_STATUSES.has(input.status) || ![1, 2, 3].includes(input.requestSchemaVersion)) invalid(code);
   const rejectionReason = input.rejectionReason === null
     ? null
     : responseText(input.rejectionReason, { maximum: 1_000, code });
@@ -1092,6 +1128,10 @@ function bookingChange(value, ref, code) {
     rejectionReason,
     createdAt: canonicalUtc(input.createdAt, code),
     updatedAt: canonicalUtc(input.updatedAt, code),
+    ...(attribution ? {
+      initiatorAttribution: displayAttribution(input.initiatorAttribution, code, { action: true }),
+      deciderAttribution: displayAttribution(input.deciderAttribution, code, { action: true, nullable: true }),
+    } : {}),
     requestSchemaVersion: input.requestSchemaVersion,
     baseRequestVersion,
     request: null,
@@ -1101,9 +1141,13 @@ function bookingChange(value, ref, code) {
     if (input.request !== null || input.proposedRequest !== null) invalid(code);
   } else {
     result.request = normalizeProductionRequestDraft(input.request);
-    result.proposedRequest = normalizeProductionPublicRequest(input.proposedRequest);
+    result.proposedRequest = normalizeProductionPublicRequest(input.proposedRequest, attribution);
     if (
-      result.proposedRequest.schemaVersion !== 2
+      result.proposedRequest.schemaVersion !== input.requestSchemaVersion
+      || Object.hasOwn(result.request, 'equipmentIds') !== (input.requestSchemaVersion === 3)
+      || (input.requestSchemaVersion === 3 && !sameIdentifiers(
+        result.request.equipmentIds, result.proposedRequest.details.equipmentIds,
+      ))
       || result.proposedRequest.id !== ref.id
       || result.proposedRequest.version !== baseRequestVersion + 1
       || result.proposedRequest.status !== 'Confirmed'
@@ -1119,6 +1163,7 @@ function bookingChange(value, ref, code) {
       || result.externalParticipants !== result.proposedRequest.externalParticipants
     ) invalid(code);
   }
+  if (attribution && result.status === 'pending' && result.deciderAttribution !== null) invalid(code);
   const applied = result.status === 'applied';
   if (
     ref.status !== 'Confirmed'
@@ -1131,7 +1176,7 @@ function bookingChange(value, ref, code) {
 export function normalizeProductionBookingChangeEnvelope(value) {
   const code = 'PRODUCTION_BOOKING_CHANGE_INVALID';
   const envelope = exactObject(value, ['schemaVersion', 'result'], code);
-  if (envelope.schemaVersion !== 2) invalid(code);
+  if (![2, 3].includes(envelope.schemaVersion)) invalid(code);
   if (!envelope.result || typeof envelope.result !== 'object' || Array.isArray(envelope.result)) invalid(code);
   const blocked = envelope.result.status === 'blocked';
   const result = exactObject(
@@ -1140,7 +1185,7 @@ export function normalizeProductionBookingChangeEnvelope(value) {
     code,
   );
   const ref = requestRef(result.requestRef, code);
-  const normalized = { change: bookingChange(result.change, ref, code), requestRef: ref };
+  const normalized = { change: bookingChange(result.change, ref, code, envelope.schemaVersion === 3), requestRef: ref };
   if (blocked) {
     normalized.status = 'blocked';
     normalized.alternatives = uniqueIdentifiers(result.alternatives, 5, code);
@@ -1151,15 +1196,18 @@ export function normalizeProductionBookingChangeEnvelope(value) {
 export function normalizeProductionRequestMutationEnvelope(value) {
   const code = 'PRODUCTION_REQUEST_MUTATION_INVALID';
   const envelope = exactObject(value, ['schemaVersion', 'request', 'requestId'], code);
-  if (envelope.schemaVersion !== 2) invalid(code);
+  if (![2, 3].includes(envelope.schemaVersion)) invalid(code);
   identifier(envelope.requestId, code);
-  return normalizeProductionPublicRequest(envelope.request);
+  return normalizeProductionPublicRequest(envelope.request, envelope.schemaVersion === 3);
 }
 
-export function normalizeProductionRequestHistoryEntry(value) {
+export function normalizeProductionRequestHistoryEntry(value, attribution = false) {
   const code = 'PRODUCTION_REQUEST_HISTORY_INVALID';
-  const input = exactObject(value, ['version', 'schemaVersion', 'operation', 'capturedAt', 'request'], code);
-  const request = normalizeProductionPublicRequest(input.request);
+  const input = exactObject(value, [
+    'version', 'schemaVersion', 'operation', 'capturedAt', 'request',
+    ...(attribution ? ['actorAttribution'] : []),
+  ], code);
+  const request = normalizeProductionPublicRequest(input.request, attribution);
   if (
     !HISTORY_OPERATIONS.has(input.operation)
     || input.version !== request.version
@@ -1168,6 +1216,7 @@ export function normalizeProductionRequestHistoryEntry(value) {
   return Object.freeze({
     version: positiveVersion(input.version, code),
     schemaVersion: input.schemaVersion,
+    ...(attribution ? { actorAttribution: displayAttribution(input.actorAttribution, code, { action: true, nullable: true }) } : {}),
     operation: input.operation,
     capturedAt: canonicalUtc(input.capturedAt, code),
     request,
@@ -1177,9 +1226,9 @@ export function normalizeProductionRequestHistoryEntry(value) {
 export function normalizeProductionRequestDetailEnvelope(value) {
   const code = 'PRODUCTION_REQUEST_DETAIL_INVALID';
   const envelope = exactObject(value, ['schemaVersion', 'request', 'requestId'], code);
-  if (envelope.schemaVersion !== 2) invalid(code);
+  if (![2, 3].includes(envelope.schemaVersion)) invalid(code);
   identifier(envelope.requestId, code);
-  return normalizeProductionPublicRequest(envelope.request);
+  return normalizeProductionPublicRequest(envelope.request, envelope.schemaVersion === 3);
 }
 
 export function normalizeProductionRequestHistoryPage(value) {
@@ -1187,12 +1236,12 @@ export function normalizeProductionRequestHistoryPage(value) {
   const input = exactObject(value, [
     'schemaVersion', 'requestId', 'asOfVersion', 'history', 'page',
   ], code);
-  if (input.schemaVersion !== 2) invalid(code);
+  if (![2, 3].includes(input.schemaVersion)) invalid(code);
   identifier(input.requestId, code);
   const asOfVersion = positiveVersion(input.asOfVersion, code);
   const publicPage = page(input.page, 10, code);
   if (!Array.isArray(input.history) || input.history.length > publicPage.limit) invalid(code);
-  const history = Object.freeze(input.history.map(normalizeProductionRequestHistoryEntry));
+  const history = Object.freeze(input.history.map((entry) => normalizeProductionRequestHistoryEntry(entry, input.schemaVersion === 3)));
   if (history.some((entry, index) => (
     entry.version > asOfVersion || (index > 0 && history[index - 1].version <= entry.version)
   ))) invalid(code);
