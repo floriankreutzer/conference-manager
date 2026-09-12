@@ -49,7 +49,7 @@ function requestPage(overrides = {}) {
 }
 function requestRoomContextEnvelope(overrides = {}) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 1,
     requestRef: {
       id: REQUEST_ID,
       schemaVersion: 2,
@@ -64,16 +64,12 @@ function requestRoomContextEnvelope(overrides = {}) {
         name: 'Retired Room',
         capacity: 20,
         active: false,
-        accessibility: ['Step-free access'],
       },
       site: {
         id: 'site-retired',
         name: 'Retired Site',
         active: false,
         timeZone: 'Europe/Berlin',
-        address: {
-          line1: 'Main Street 1', line2: null, postalCode: '10115', city: 'Berlin', countryCode: 'DE',
-        },
       },
     },
     requestId: CORRELATION_ID,
@@ -271,16 +267,12 @@ test('Request Room context uses the exact GET boundary and accepts inactive or n
         name: 'Retired Room',
         capacity: 20,
         active: false,
-        accessibility: ['Step-free access'],
       },
       site: {
         id: 'site-retired',
         name: 'Retired Site',
         active: false,
         timeZone: 'Europe/Berlin',
-        address: {
-          line1: 'Main Street 1', line2: null, postalCode: '10115', city: 'Berlin', countryCode: 'DE',
-        },
       },
     },
   });

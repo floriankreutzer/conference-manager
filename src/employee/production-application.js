@@ -245,7 +245,8 @@ export function createProductionEmployeeApplication({
       || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
     const site = catalog.sites?.find((entry) => entry.id === room?.siteId)
       || (currentRoomContext?.site?.id === room?.siteId ? currentRoomContext.site : null);
-    const address = currentRoomContext?.site?.address;
+    const guest = currentRoomContext?.guestPresentation;
+    const address = guest?.address;
     const formattedAddress = address
       ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
         .filter(Boolean).join(', ')
@@ -266,7 +267,17 @@ export function createProductionEmployeeApplication({
       )],
       [t('production.employee.room'), roomLabel(room || { id: request.roomId })],
       [t('guest.address'), formattedAddress],
-      [t('manager.accessibility'), currentRoomContext?.room?.accessibility?.join(', ') || '—'],
+      [t('manager.publicTransport'), localizedGuest(guest?.publicTransport)],
+      [t('manager.parking'), localizedGuest(guest?.parking)],
+      [t('manager.reception'), localizedGuest(guest?.reception)],
+      [t('manager.accessibility'), [
+        currentRoomContext?.room?.accessibility?.join(', '),
+        localizedGuest(guest?.accessibility),
+      ].filter(Boolean).join(' · ') || '—'],
+      [t('manager.contact'), guest?.contact
+        ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
+        : '—'],
+      [t('guest.wifi'), t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)],
     ].forEach(([term, value]) => {
       const dt = doc.createElement('dt');
       const dd = doc.createElement('dd');
@@ -285,7 +296,8 @@ export function createProductionEmployeeApplication({
   function openGuestInfo(request, currentRoomContext = null) {
     const room = catalog.rooms.find((entry) => entry.id === request.roomId)
       || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
-    const address = currentRoomContext?.site?.address;
+    const guest = currentRoomContext?.guestPresentation;
+    const address = guest?.address;
     const formattedAddress = address
       ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
         .filter(Boolean).join(', ')
@@ -297,19 +309,44 @@ export function createProductionEmployeeApplication({
         title: request.details?.title || t('production.common.requestId', { id: request.id }),
       }),
       description: t('guest.subtitle'),
-      content: el('dl', { className: 'details-list' }, [
+      content: el('section', {}, [el('dl', { className: 'details-list' }, [
         el('dt', { text: t('production.employee.room') }),
         el('dd', { text: roomLabel(room || { id: request.roomId }) }),
         el('dt', { text: t('guest.address') }),
         el('dd', { text: formattedAddress }),
         el('dt', { text: t('manager.accessibility') }),
-        el('dd', { text: currentRoomContext?.room?.accessibility?.join(', ') || '—' }),
-      ]),
+        el('dd', { text: [
+          currentRoomContext?.room?.accessibility?.join(', '),
+          localizedGuest(guest?.accessibility),
+        ].filter(Boolean).join(' · ') || '—' }),
+        el('dt', { text: t('manager.publicTransport') }),
+        el('dd', { text: localizedGuest(guest?.publicTransport) || '—' }),
+        el('dt', { text: t('manager.parking') }),
+        el('dd', { text: localizedGuest(guest?.parking) || '—' }),
+        el('dt', { text: t('manager.reception') }),
+        el('dd', { text: localizedGuest(guest?.reception) || '—' }),
+        el('dt', { text: t('manager.contact') }),
+        el('dd', { text: guest?.contact
+          ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
+          : '—' }),
+        el('dt', { text: t('guest.wifi') }),
+        el('dd', { text: t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`) }),
+      ]), guest?.routeUrl ? el('p', {}, el('a', {
+        href: guest.routeUrl,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        text: t('guest.route'),
+      })) : null]),
       actions: [close, print],
       labelledById: `guestInformation-${request.id}`,
     });
     close.addEventListener('click', () => dialog.close());
     print.addEventListener('click', () => printRequest(request, currentRoomContext));
+  }
+
+  function localizedGuest(value) {
+    if (!value) return '';
+    return locale().toLowerCase().startsWith('de') ? value.de : value.en;
   }
 
   function formattedRequestValue(value, room, requestCatalog, currentRoomContext = null) {
@@ -531,16 +568,17 @@ export function createProductionEmployeeApplication({
             )} · ${t('room.cost')}`,
           }));
         }
-        if (entry.floorplanAssetId) {
-          card.appendChild(el('div', {
-            className: 'room-floorplan-preview',
-            dataset: { managedAssetId: entry.floorplanAssetId },
-            attrs: {
-              role: 'img',
-              'aria-label': t('production.employee.floorplanPreview', { room: entry.name }),
-            },
-          }));
-        }
+        card.appendChild(el('div', {
+          className: 'room-floorplan-preview',
+          attrs: {
+            role: 'img',
+            'aria-label': t('production.employee.floorplanPreview', { room: entry.name }),
+          },
+        }, [
+          el('span', { className: 'room-floorplan-table', attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'room-floorplan-screen', attrs: { 'aria-hidden': 'true' } }),
+          el('span', { className: 'room-floorplan-door', attrs: { 'aria-hidden': 'true' } }),
+        ]));
         if (entry.equipment.length) {
           card.appendChild(el('p', {
             className: 'room-equipment',
@@ -1425,7 +1463,7 @@ export function createProductionEmployeeApplication({
           const withGuestRoomContext = async (target, action) => {
             try {
               const prepared = await loadCoherentRequestRoomContext(
-                target, nextCatalog, persistence,
+                target, nextCatalog, persistence, { projection: 'guest' },
               );
               if (!isCurrentCard()) return;
               if (!prepared) {

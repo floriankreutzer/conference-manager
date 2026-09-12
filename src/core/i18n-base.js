@@ -2,6 +2,7 @@ import { readLanguagePreference, writeLanguagePreference } from './preferences.j
 
 const MESSAGES = {
   de: {
+    'guest.wifiPolicy.open': 'Offenes Gastnetz', 'guest.wifiPolicy.credentials_on_arrival': 'Zugangsdaten bei Ankunft', 'guest.wifiPolicy.contact_organizer': 'Zugang beim Veranstalter erfragen', 'guest.wifiPolicy.not_available': 'Nicht verfügbar',
     'app.title': 'Conference Manager', 'app.internalServices': 'Internal Services', 'app.mvp': 'MVP · Kalenderintegration simuliert', 'app.demoShared': 'Demo · gemeinsamer Serverzustand',
     'nav.welcome': 'Willkommen', 'nav.newRequest': 'Neue Anfrage', 'nav.myRequests': 'Meine Anfragen', 'nav.manager': 'Manager Cockpit', 'nav.profile': 'Profil',
     'common.back': 'Zurück', 'common.next': 'Weiter', 'common.close': 'Schließen', 'common.cancel': 'Abbrechen', 'common.save': 'Speichern', 'common.delete': 'Löschen', 'common.edit': 'Bearbeiten', 'common.none': 'Keine', 'common.optional': 'optional', 'common.yes': 'Ja', 'common.no': 'Nein', 'common.today': 'Heute', 'common.all': 'Alle', 'common.active': 'Aktiv', 'common.past': 'Vergangen', 'common.person': 'Person',
@@ -41,6 +42,7 @@ const MESSAGES = {
 };
 
 const EN = {
+  'guest.wifiPolicy.open': 'Open guest network', 'guest.wifiPolicy.credentials_on_arrival': 'Credentials provided on arrival', 'guest.wifiPolicy.contact_organizer': 'Ask the organizer for access', 'guest.wifiPolicy.not_available': 'Not available',
   'app.title': 'Conference Manager', 'app.internalServices': 'Internal Services', 'app.mvp': 'MVP · calendar integration simulated', 'app.demoShared': 'Demo · shared server state',
   'nav.welcome': 'Welcome', 'nav.newRequest': 'New request', 'nav.myRequests': 'My requests', 'nav.manager': 'Manager cockpit', 'nav.profile': 'Profile',
   'common.back': 'Back', 'common.next': 'Next', 'common.close': 'Close', 'common.cancel': 'Cancel', 'common.save': 'Save', 'common.delete': 'Delete', 'common.edit': 'Edit', 'common.none': 'None', 'common.optional': 'optional', 'common.yes': 'Yes', 'common.no': 'No', 'common.today': 'Today', 'common.all': 'All', 'common.active': 'Active', 'common.past': 'Past', 'common.person': 'person',

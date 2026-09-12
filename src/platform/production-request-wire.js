@@ -960,24 +960,27 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
   if (envelope.currentRoomContext === null) {
     return immutable({ requestRef: ref, currentRoomContext: null });
   }
-  const context = exactObject(envelope.currentRoomContext, [
-    'locationsRevision', 'room', 'site',
-  ], code);
-  const room = exactObject(context.room, envelope.schemaVersion === 2
-    ? ['id', 'siteId', 'name', 'capacity', 'active', 'accessibility']
+  const guestProjection = envelope.schemaVersion === 2;
+  const context = exactObject(envelope.currentRoomContext, guestProjection
+    ? ['locationsRevision', 'room', 'site', 'guestPresentation']
+    : ['locationsRevision', 'room', 'site'], code);
+  const room = exactObject(context.room, guestProjection
+    ? ['id', 'siteId', 'name', 'capacity', 'active', 'floor', 'accessibility', 'floorplanAssetId', 'mediaAssetIds']
     : ['id', 'siteId', 'name', 'capacity', 'active'], code);
-  const site = exactObject(context.site, envelope.schemaVersion === 2
-    ? ['id', 'name', 'active', 'timeZone', 'address']
-    : ['id', 'name', 'active', 'timeZone'], code);
+  const site = exactObject(context.site, ['id', 'name', 'active', 'timeZone'], code);
   if (typeof room.active !== 'boolean' || typeof site.active !== 'boolean') invalid(code);
   if (site.timeZone !== null && !isProductionTimeZone(site.timeZone)) invalid(code);
   let accessibility = Object.freeze([]);
-  if (envelope.schemaVersion === 2) {
+  let mediaAssetIds = Object.freeze([]);
+  if (guestProjection) {
     if (!Array.isArray(room.accessibility) || room.accessibility.length > 20) invalid(code);
     accessibility = Object.freeze(room.accessibility.map((entry) => (
       responseText(entry, { maximum: 80, code })
     )));
     if (new Set(accessibility).size !== accessibility.length) invalid(code);
+    if (!Array.isArray(room.mediaAssetIds) || room.mediaAssetIds.length > 20) invalid(code);
+    mediaAssetIds = Object.freeze(room.mediaAssetIds.map((entry) => identifier(entry, code)));
+    if (new Set(mediaAssetIds).size !== mediaAssetIds.length) invalid(code);
   }
   const normalizedRoom = {
     id: identifier(room.id, code),
@@ -985,37 +988,87 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
     name: responseText(room.name, { maximum: 160, code }),
     capacity: safeInteger(room.capacity, 1, 100_000, code),
     active: room.active,
-    accessibility,
+    ...(guestProjection ? {
+      floor: responseText(room.floor, { maximum: 80, nullable: true, code }),
+      floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
+      mediaAssetIds,
+      accessibility,
+    } : {}),
   };
-  let address = null;
-  if (envelope.schemaVersion === 2 && site.address !== null) {
-    const input = exactObject(site.address, [
-      'line1', 'line2', 'postalCode', 'city', 'countryCode',
-    ], code);
-    const countryCode = responseText(input.countryCode, { maximum: 2, code });
-    if (!/^[A-Z]{2}$/.test(countryCode)) invalid(code);
-    address = Object.freeze({
-      line1: responseText(input.line1, { maximum: 160, code }),
-      line2: input.line2 === null ? null : responseText(input.line2, { maximum: 160, code }),
-      postalCode: responseText(input.postalCode, { maximum: 32, code }),
-      city: responseText(input.city, { maximum: 120, code }),
-      countryCode,
-    });
-  }
   const normalizedSite = {
     id: identifier(site.id, code),
     name: responseText(site.name, { maximum: 160, code }),
     active: site.active,
     timeZone: site.timeZone,
-    address,
   };
   if (normalizedRoom.siteId !== normalizedSite.id) invalid(code);
+  let guestPresentation = null;
+  if (guestProjection && context.guestPresentation !== null) {
+    const guest = exactObject(context.guestPresentation, [
+      'address', 'publicTransport', 'arrival', 'parking', 'reception', 'building',
+      'visitorNotes', 'accessibility', 'wifiPolicy', 'wifiNetworkName', 'contact', 'routeUrl',
+    ], code);
+    const localized = (input, maximum = 600) => {
+      if (input === null) return null;
+      const item = exactObject(input, ['de', 'en'], code);
+      return Object.freeze({
+        de: responseText(item.de, { maximum, code }),
+        en: responseText(item.en, { maximum, code }),
+      });
+    };
+    let address = null;
+    if (guest.address !== null) {
+      const input = exactObject(guest.address, ['line1', 'line2', 'postalCode', 'city', 'countryCode'], code);
+      const countryCode = responseText(input.countryCode, { maximum: 2, code });
+      if (!/^[A-Z]{2}$/.test(countryCode)) invalid(code);
+      address = Object.freeze({
+        line1: responseText(input.line1, { maximum: 160, code }),
+        line2: input.line2 === null ? null : responseText(input.line2, { maximum: 160, code }),
+        postalCode: responseText(input.postalCode, { maximum: 32, code }),
+        city: responseText(input.city, { maximum: 120, code }),
+        countryCode,
+      });
+    }
+    let contact = null;
+    if (guest.contact !== null) {
+      const input = exactObject(guest.contact, ['name', 'email', 'phone'], code);
+      contact = Object.freeze({
+        name: responseText(input.name, { maximum: 160, code }),
+        email: responseText(input.email, { maximum: 254, nullable: true, code }),
+        phone: responseText(input.phone, { maximum: 64, nullable: true, code }),
+      });
+    }
+    const wifiPolicy = responseText(guest.wifiPolicy, { maximum: 32, code });
+    if (!['open', 'credentials_on_arrival', 'contact_organizer', 'not_available'].includes(wifiPolicy)) invalid(code);
+    let routeUrl = null;
+    if (guest.routeUrl !== null) {
+      routeUrl = responseText(guest.routeUrl, { maximum: 2048, code });
+      let parsed;
+      try { parsed = new URL(routeUrl); } catch { invalid(code); }
+      if (parsed.protocol !== 'https:' || parsed.username || parsed.password) invalid(code);
+    }
+    guestPresentation = Object.freeze({
+      address,
+      publicTransport: localized(guest.publicTransport),
+      arrival: localized(guest.arrival),
+      parking: localized(guest.parking),
+      reception: localized(guest.reception),
+      building: localized(guest.building),
+      visitorNotes: localized(guest.visitorNotes, 1_200),
+      accessibility: localized(guest.accessibility),
+      wifiPolicy,
+      wifiNetworkName: responseText(guest.wifiNetworkName, { maximum: 64, nullable: true, code }),
+      contact,
+      routeUrl,
+    });
+  }
   return immutable({
     requestRef: ref,
     currentRoomContext: {
       locationsRevision: positiveVersion(context.locationsRevision, code),
       room: normalizedRoom,
       site: normalizedSite,
+      ...(guestProjection ? { guestPresentation } : {}),
     },
   });
 }

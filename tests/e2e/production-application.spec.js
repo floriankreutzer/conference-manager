@@ -1283,7 +1283,7 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
     date: requestDate, internal: '2', external: '1',
   });
   await expect(page.getByText('Kapazität passend')).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Grundrissvorschau für Room A' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Schematische Raumübersicht für Room A' })).toBeVisible();
   await expect(page.getByText('Ausstattung: Display, Whiteboard')).toBeVisible();
   await expect(page.getByText('Verfügbar', { exact: true })).toHaveCount(0);
   const roomOption = page.getByRole('radio', { name: /Room A/ });
@@ -1989,13 +1989,27 @@ test('confirmed Request exposes only guest-safe address and accessibility contex
       locationsRevision: 1,
       room: {
         id: 'room-a', siteId: 'berlin', name: 'Room A', capacity: 12, active: true,
+        floor: '1', floorplanAssetId: null, mediaAssetIds: [],
         accessibility: ['Step-free access'],
       },
       site: {
         id: 'berlin', name: 'Berlin', active: true, timeZone: 'Europe/Berlin',
+      },
+      guestPresentation: {
         address: {
           line1: 'Main Street 1', line2: null, postalCode: '10115', city: 'Berlin', countryCode: 'DE',
         },
+        publicTransport: { de: 'S-Bahn', en: 'Urban rail' },
+        arrival: null,
+        parking: null,
+        reception: null,
+        building: null,
+        visitorNotes: null,
+        accessibility: { de: 'Aufzug vorhanden', en: 'Lift available' },
+        wifiPolicy: 'credentials_on_arrival',
+        wifiNetworkName: 'Guest',
+        contact: { name: 'Conference Management', email: null, phone: null },
+        routeUrl: 'https://www.openstreetmap.org/',
       },
     },
   });
@@ -2007,7 +2021,8 @@ test('confirmed Request exposes only guest-safe address and accessibility contex
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Main Street 1, 10115 Berlin, DE');
   await expect(dialog).toContainText('Step-free access');
-  await expect(dialog).not.toContainText(/WLAN|Passwort|provider/i);
+  await expect(dialog).toContainText('Zugangsdaten bei Ankunft');
+  await expect(dialog).not.toContainText(/Passwort|provider/i);
 });
 
 test('Conference Manager capability is independent and transitions server-owned request state', async ({ page }) => {
