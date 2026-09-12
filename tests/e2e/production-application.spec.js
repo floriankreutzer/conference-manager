@@ -1377,6 +1377,7 @@ test('EMP-08: completion dismissal during refresh restores focus after the new p
   await page.getByRole('button', { name: 'Anfrage absenden' }).click();
 
   const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
   const releaseRefresh = fixture.holdNextRequestRead();
   await page.getByRole('button', { name: 'Aktualisieren' }).click();
   await completion.getByRole('button', { name: 'Schließen' }).click();
@@ -1397,6 +1398,7 @@ test('EMP-08: completion dismissal during a failing refresh restores retained-ca
   await page.getByRole('button', { name: 'Anfrage absenden' }).click();
 
   const completion = page.locator('[data-ux-submission-success]');
+  await expect(completion).toBeFocused();
   const releaseRefresh = fixture.holdNextFailingRequestRead();
   await page.getByRole('button', { name: 'Aktualisieren' }).click();
   await completion.getByRole('button', { name: 'Schließen' }).click();
