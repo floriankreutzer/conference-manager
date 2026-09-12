@@ -571,6 +571,8 @@ test('EMP-08: successful Employee submissions expose a persistent accessible com
   assert.match(employee, /submission\.resubmittedTitle[\s\S]*submission\.sentTitle/);
   assert.match(employee, /submissionNotice === currentNotice[\s\S]*isInteractiveProjection\(generation\)[\s\S]*productionRequestId === currentNotice\.requestId[\s\S]*\.focus\(\)/);
   assert.match(employee, /else if \(isCurrent\(generation\)\)[\s\S]*querySelector\('\.error-box'\)[\s\S]*\.focus\(\)/);
+  assert.match(employee, /pendingSubmissionFocusRequestId = currentNotice\.requestId/);
+  assert.match(employee, /const restorePendingSubmissionFocus = \(generation\) =>[\s\S]*productionRequestId === requestId[\s\S]*querySelector\(':scope > \.error-box'\)[\s\S]*getElementById\('viewTitle'\)/);
   assert.match(employee, /production\.employee\.loadError[\s\S]*renderSubmissionNotice\(generation\)/);
 });
 

@@ -1207,6 +1207,7 @@ export function createProductionEmployeeApplication({
     let hasCommittedProjection = false;
     let committedProjectionGeneration = 0;
     let interactiveProjectionGeneration = 0;
+    let pendingSubmissionFocusRequestId = null;
     let requestDisplay = 'list';
     let calendarReference = null;
     const isActiveSurface = () => (
@@ -1221,6 +1222,24 @@ export function createProductionEmployeeApplication({
       generation === interactiveProjectionGeneration
       && isActiveSurface()
     );
+    const restorePendingSubmissionFocus = (generation) => {
+      const requestId = pendingSubmissionFocusRequestId;
+      if (!requestId) return;
+      requestAnimationFrame(() => {
+        if (!isCurrent(generation) || pendingSubmissionFocusRequestId !== requestId) return;
+        const activeElement = document.activeElement;
+        if (activeElement !== document.body && activeElement !== document.documentElement) {
+          pendingSubmissionFocusRequestId = null;
+          return;
+        }
+        const target = [...root.querySelectorAll('[data-production-request-id]')]
+          .find((card) => card.dataset.productionRequestId === requestId)
+          || root.querySelector(':scope > .error-box')
+          || document.getElementById('viewTitle');
+        pendingSubmissionFocusRequestId = null;
+        target?.focus();
+      });
+    };
     const renderSubmissionNotice = (generation) => {
       const currentNotice = submissionNotice;
       if (!currentNotice) return;
@@ -1245,6 +1264,8 @@ export function createProductionEmployeeApplication({
             ?.focus();
         } else if (isCurrent(generation)) {
           root.querySelector('.error-box')?.focus();
+        } else if (isActiveSurface() && interactiveProjectionGeneration === 0) {
+          pendingSubmissionFocusRequestId = currentNotice.requestId;
         }
       });
       notice.append(copy, close);
@@ -1286,6 +1307,7 @@ export function createProductionEmployeeApplication({
           root.appendChild(el('div', { className: 'button-row' }, [refreshButton]));
           root.appendChild(el('p', { className: 'info-box', text: t('requests.none') }));
           renderSubmissionNotice(generation);
+          restorePendingSubmissionFocus(generation);
           return;
         }
         if (focusRequestId) requestDisplay = 'list';
@@ -1476,6 +1498,7 @@ export function createProductionEmployeeApplication({
         }
         showDisplay(requestDisplay);
         renderSubmissionNotice(generation);
+        restorePendingSubmissionFocus(generation);
         if (focusRequestId) {
           requestAnimationFrame(() => {
             if (!isCurrent(generation)) return;
@@ -1490,6 +1513,7 @@ export function createProductionEmployeeApplication({
         if (hasCommittedProjection && focusRequestId === null) {
           interactiveProjectionGeneration = committedProjectionGeneration;
           showToast(t('production.employee.loadError'));
+          restorePendingSubmissionFocus(generation);
           return;
         }
         hasCommittedProjection = false;
@@ -1502,6 +1526,7 @@ export function createProductionEmployeeApplication({
           attrs: { tabindex: '-1' },
         }));
         renderSubmissionNotice(generation);
+        restorePendingSubmissionFocus(generation);
       }
     }
 
