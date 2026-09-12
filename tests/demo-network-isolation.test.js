@@ -154,6 +154,7 @@ const automationPlanFixture = ({
 } = {}) => {
   const targetUrl = new URL(target);
   const normalizedTarget = targetUrl.href;
+  const subtreePattern = `${exactUrlPattern(normalizedTarget).slice(0, -1)}.*$`;
   const passiveConfigJob = [
     '- parameters:',
     '    enableTags: false',
@@ -162,8 +163,8 @@ const automationPlanFixture = ({
   ];
   const spiderJob = [
     '- parameters:',
+    '    context: baseline',
     '    maxDuration: 1',
-    '    subtreeOnly: true',
     `    url: ${normalizedTarget}`,
     '  type: spider',
   ];
@@ -205,6 +206,8 @@ const automationPlanFixture = ({
     'env:',
     '  contexts:',
     '  - excludePaths: []',
+    '    includePaths:',
+    `    - ${subtreePattern}`,
     '    name: baseline',
     '    urls:',
     `    - ${normalizedTarget}`,
@@ -397,13 +400,13 @@ test('exact ZAP policy accepts only the reviewed alert reference, URL and risk',
     /spider target/,
   );
 
-  const unboundedSpiderPlan = exactPolicyFixture().plan.replace('    subtreeOnly: true\n', '');
+  const unboundedSpiderPlan = exactPolicyFixture().plan.replace(/    includePaths:\n    - [^\n]+\n/, '');
   assert.throws(
     () => validateFixture(reportFixture(), { automationPlan: unboundedSpiderPlan }),
-    /subtree boundary/,
+    /environment/,
   );
 
-  const disabledSubtreePlan = exactPolicyFixture().plan.replace('    subtreeOnly: true', '    subtreeOnly: false');
+  const disabledSubtreePlan = exactPolicyFixture().plan.replace('    context: baseline', '    context: sibling');
   assert.throws(
     () => validateFixture(reportFixture(), { automationPlan: disabledSubtreePlan }),
     /subtree boundary/,

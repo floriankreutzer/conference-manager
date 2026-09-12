@@ -191,10 +191,13 @@ export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
     throw new Error(`The ZAP target is invalid: ${error.message}`);
   }
   const normalizedTarget = targetUrl.href;
+  const subtreePattern = `${exactUrlPattern(normalizedTarget).slice(0, -1)}.*$`;
   const expectedEnvironment = [
     'env:',
     '  contexts:',
     '  - excludePaths: []',
+    '    includePaths:',
+    `    - ${subtreePattern}`,
     '    name: baseline',
     '    urls:',
     `    - ${normalizedTarget}`,
@@ -243,8 +246,8 @@ export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
 
   const spiderParameters = jobParameters(typedJobs[1].job, 'spider');
   if (Object.keys(spiderParameters).length !== 3
+      || spiderParameters.context !== 'baseline'
       || spiderParameters.maxDuration !== '1'
-      || spiderParameters.subtreeOnly !== 'true'
       || spiderParameters.url !== normalizedTarget) {
     throw new Error('The generated ZAP spider target or subtree boundary does not match the scan target.');
   }

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { readSummaryPolicyRows } from './validate-zap-report.mjs';
+import { exactUrlPattern, readSummaryPolicyRows } from './validate-zap-report.mjs';
 
 const reportJob = (template, reportFile) => [
   '- parameters:',
@@ -31,6 +31,7 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
   }
 
   const normalizedTarget = targetUrl.href;
+  const subtreePattern = `${exactUrlPattern(normalizedTarget).slice(0, -1)}.*$`;
   const jobs = [
     '- parameters:',
     '    enableTags: false',
@@ -38,8 +39,8 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
     '    maxAlertsPerRule: 0',
     '  type: passiveScan-config',
     '- parameters:',
+    '    context: baseline',
     '    maxDuration: 1',
-    '    subtreeOnly: true',
     `    url: ${normalizedTarget}`,
     '  type: spider',
     '- parameters:',
@@ -64,6 +65,8 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
     'env:',
     '  contexts:',
     '  - excludePaths: []',
+    '    includePaths:',
+    `    - ${subtreePattern}`,
     '    name: baseline',
     '    urls:',
     `    - ${normalizedTarget}`,
