@@ -109,6 +109,11 @@ test('API-01 drafts retain explicit v3 empty selections and reject browser price
 
 test('API-03 list and history require versioned exact historical attribution and honest legacy nulls', () => {
   const request = compatibleRequest({ attribution: true });
+  const decomposedName = 'Jose\u0301';
+  const unicodeRequest = structuredClone(request);
+  unicodeRequest.requesterAttribution.displayName = decomposedName;
+  assert.equal(normalizeProductionRequestDetailEnvelope(detail(unicodeRequest, 3))
+    .requesterAttribution.displayName, decomposedName);
   const page = { limit: 10, complete: true, nextCursor: null };
   const list = { schemaVersion: 3, asOf: NOW, requests: [request], page };
   assert.equal(normalizeProductionRequestListPage(list).requests[0].requesterAttribution.displayName, 'Historical requester');
@@ -146,6 +151,12 @@ test('API-03 booking changes preserve separate initiator and decider with compos
     requestRef: { id: 'request-1', version: 1, schemaVersion: 3, status: 'Confirmed' } } };
   const normalized = normalizeProductionBookingChangeEnvelope(envelope);
   assert.equal(normalized.change.deciderAttribution, null);
+  change.deciderAttribution = { ...change.initiatorAttribution };
+  assert.throws(() => normalizeProductionBookingChangeEnvelope(envelope));
+  change.deciderAttribution = null;
+  change.request.equipmentIds = [];
+  assert.throws(() => normalizeProductionBookingChangeEnvelope(envelope));
+  change.request.equipmentIds = ['equipment-1'];
   change.status = 'applied';
   change.deciderAttribution = { ...change.initiatorAttribution };
   envelope.result.requestRef.version = 2;

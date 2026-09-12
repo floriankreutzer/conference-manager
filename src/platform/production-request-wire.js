@@ -743,7 +743,9 @@ function requestAllocations(value, code) {
 function displayAttribution(value, code, { action = false, nullable = false } = {}) {
   if (nullable && value === null) return null;
   const input = exactObject(value, action ? ['displayName', 'roleAtAction'] : ['displayName'], code);
-  const displayName = responseText(input.displayName, { maximum: 160, code });
+  const displayName = input.displayName;
+  if (typeof displayName !== 'string' || displayName.length < 1 || displayName.length > 160
+    || displayName.trim() !== displayName || CONTROL_CHARACTER.test(displayName)) invalid(code);
   if (action && ![null, 'employee', 'conference_manager'].includes(input.roleAtAction)) invalid(code);
   return Object.freeze({ displayName, ...(action ? { roleAtAction: input.roleAtAction } : {}) });
 }
@@ -1143,6 +1145,9 @@ function bookingChange(value, ref, code, attribution = false) {
     if (
       result.proposedRequest.schemaVersion !== input.requestSchemaVersion
       || Object.hasOwn(result.request, 'equipmentIds') !== (input.requestSchemaVersion === 3)
+      || (input.requestSchemaVersion === 3 && !sameIdentifiers(
+        result.request.equipmentIds, result.proposedRequest.details.equipmentIds,
+      ))
       || result.proposedRequest.id !== ref.id
       || result.proposedRequest.version !== baseRequestVersion + 1
       || result.proposedRequest.status !== 'Confirmed'
@@ -1158,6 +1163,7 @@ function bookingChange(value, ref, code, attribution = false) {
       || result.externalParticipants !== result.proposedRequest.externalParticipants
     ) invalid(code);
   }
+  if (attribution && result.status === 'pending' && result.deciderAttribution !== null) invalid(code);
   const applied = result.status === 'applied';
   if (
     ref.status !== 'Confirmed'
