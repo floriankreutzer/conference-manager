@@ -73,10 +73,14 @@ export function createProductionManagerApplication({
   setPageHeading,
   persistence,
   requestMutations = new Map(),
+  onOpenBusinessSettings = null,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_MANAGER_UI_REQUIRED');
   if (!(requestMutations instanceof Map)) {
     throw new TypeError('PRODUCTION_MANAGER_MUTATION_STATE_REQUIRED');
+  }
+  if (onOpenBusinessSettings !== null && typeof onOpenBusinessSettings !== 'function') {
+    throw new TypeError('PRODUCTION_MANAGER_SETTINGS_NAVIGATION_REQUIRED');
   }
   if (
     !persistence
@@ -292,6 +296,11 @@ export function createProductionManagerApplication({
     });
   }
 
+  let activeTab = 'BOOKINGS';
+  let managerSearch = '';
+  let managerStatus = 'ALL';
+  let managerSite = 'ALL';
+
   async function renderManager() {
     clear(appRoot);
     setPageHeading(t('production.manager.title'), t('production.manager.subtitle'));
@@ -342,15 +351,65 @@ export function createProductionManagerApplication({
         hasCommittedProjection = true;
         committedProjectionGeneration = generation;
         interactiveProjectionGeneration = generation;
+        const tabs = el('nav', {
+          className: 'manager-tabs',
+          attrs: { role: 'tablist', 'aria-label': t('production.manager.title') },
+        });
+        const tabDefinitions = [
+          ['BOOKINGS', 'manager.ready.bookingsTab'],
+          ['ROOM_PLAN', 'manager.roomPlan'],
+          ['REPORTS', 'manager.reports'],
+          ['ADMIN', 'manager.admin'],
+        ];
+        tabDefinitions.forEach(([tabId, label], tabIndex) => {
+          const tab = button(t(label), {
+            dataset: { managerTab: tabId },
+            attrs: {
+              role: 'tab',
+              'aria-selected': String(activeTab === tabId),
+              tabindex: activeTab === tabId ? '0' : '-1',
+            },
+          });
+          tab.addEventListener('click', () => {
+            if (activeTab === tabId) return;
+            activeTab = tabId;
+            void refresh().then(() => {
+              if (activeTab === tabId) root.querySelector(`[data-manager-tab="${tabId}"]`)?.focus();
+            });
+          });
+          tab.addEventListener('keydown', (event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const nextIndex = event.key === 'Home'
+              ? 0
+              : (event.key === 'End'
+                ? tabDefinitions.length - 1
+                : (tabIndex + (event.key === 'ArrowRight' ? 1 : -1) + tabDefinitions.length)
+                  % tabDefinitions.length);
+            const [nextTab] = tabDefinitions[nextIndex];
+            activeTab = nextTab;
+            void refresh().then(() => {
+              if (activeTab === nextTab) {
+                root.querySelector(`[data-manager-tab="${nextTab}"]`)?.focus();
+              }
+            });
+          });
+          tabs.appendChild(tab);
+        });
+        root.appendChild(tabs);
+
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', () => { void refresh(); });
-        const roomPlanButton = button(t('manager.roomPlan'));
-        roomPlanButton.addEventListener('click', () => {
+        root.appendChild(el('div', { className: 'button-row' }, [refreshButton]));
+
+        if (activeTab === 'ROOM_PLAN') {
           const sites = catalog.sites.filter((site) => (
             catalog.rooms.some((room) => room.siteId === site.id) && site.timeZone
           ));
           if (!sites.length) {
-            showToast(t('production.employee.timeZoneUnavailable'));
+            root.appendChild(el('p', {
+              className: 'error-box', text: t('production.employee.timeZoneUnavailable'),
+            }));
             return;
           }
           const siteSelect = el('select');
@@ -429,11 +488,12 @@ export function createProductionManagerApplication({
           });
           date.addEventListener('change', renderTable);
           renderTable();
-          const close = button(t('common.close'));
-          const dialog = openDialog({
-            title: t('manager.roomPlan'),
-            description: t('manager.roomPlanDesc'),
-            content: el('section', {}, [
+          root.appendChild(el('section', {
+            className: 'manager-workspace-panel',
+            attrs: { role: 'tabpanel' },
+          }, [
+            el('h2', { text: t('manager.roomPlan') }),
+            el('p', { className: 'muted', text: t('manager.roomPlanDesc') }),
               field({
                 id: 'productionRoomPlanSite',
                 label: t('schedule.location'),
@@ -447,51 +507,175 @@ export function createProductionManagerApplication({
               }),
               dateError,
               tableRoot,
-            ]),
-            actions: [close],
-            labelledById: 'productionRoomPlan',
-          });
-          close.addEventListener('click', () => dialog.close());
-        });
-        const reportButton = button(t('production.manager.reportTab'));
-        reportButton.addEventListener('click', async () => {
-          const reportGeneration = generation;
-          const reportRefreshGeneration = refreshGeneration;
-          const reportIsCurrent = () => (
-            reportRefreshGeneration === refreshGeneration
-            && isInteractiveProjection(reportGeneration)
-            && reportButton.isConnected
-          );
-          reportButton.disabled = true;
+          ]));
+          return;
+        }
+
+        if (activeTab === 'REPORTS') {
+          const reportPanel = el('section', {
+            className: 'manager-workspace-panel',
+            attrs: { role: 'tabpanel', 'aria-busy': 'true' },
+          }, [
+            el('h2', { text: t('manager.reports') }),
+            el('p', { className: 'muted', text: t('manager.reportDesc') }),
+          ]);
+          root.appendChild(reportPanel);
           try {
             const year = new Date().getUTCFullYear();
             const report = await persistence.loadRequestReport(
               `${year}-01-01T00:00:00.000Z`, `${year + 1}-01-01T00:00:00.000Z`,
             );
-            if (!reportIsCurrent()) return;
+            if (!isCurrent(generation) || activeTab !== 'REPORTS') return;
             const participants = report.requests.reduce((sum, entry) => (
               sum + entry.internalParticipants + entry.externalParticipants
             ), 0);
             const hours = report.requests.reduce((sum, entry) => (
               sum + (Date.parse(entry.endsAt) - Date.parse(entry.startsAt)) / 3_600_000
             ), 0);
-            showToast(t('production.manager.reportSummary', {
-              count: report.requests.length, participants, hours: hours.toFixed(1),
-            }));
+            const confirmed = report.requests.filter((entry) => entry.status === 'Confirmed');
+            const catering = report.requests.filter((entry) => (
+              entry.details?.catering?.packageSelection
+              || entry.details?.catering?.itemQuantities?.some(({ quantity }) => quantity > 0)
+            ));
+            const serviceCounts = new Map();
+            report.requests.forEach((entry) => {
+              (entry.details?.serviceIds || []).forEach((id) => {
+                serviceCounts.set(id, (serviceCounts.get(id) || 0) + 1);
+              });
+            });
+            const metrics = el('section', { className: 'dashboard-grid' }, [
+              el('article', { className: 'kpi' }, [
+                el('strong', { text: String(report.requests.length) }),
+                el('span', { text: t('manager.bookings') }),
+              ]),
+              el('article', { className: 'kpi' }, [
+                el('strong', { text: String(participants) }),
+                el('span', { text: t('manager.totalParticipants') }),
+              ]),
+              el('article', { className: 'kpi' }, [
+                el('strong', { text: hours.toFixed(1) }),
+                el('span', { text: t('production.manager.roomHours') }),
+              ]),
+              el('article', { className: 'kpi' }, [
+                el('strong', { text: String(catering.length) }),
+                el('span', { text: t('manager.cateringBookings') }),
+              ]),
+            ]);
+            const breakdown = el('div', { className: 'report-grid' }, [
+              el('section', { className: 'card' }, [
+                el('h3', { text: t('production.manager.utilizationReport') }),
+                el('p', { text: t('production.manager.confirmedSummary', {
+                  confirmed: confirmed.length, total: report.requests.length,
+                }) }),
+              ]),
+              el('section', { className: 'card' }, [
+                el('h3', { text: t('production.manager.serviceReport') }),
+                serviceCounts.size
+                  ? el('ul', {}, [...serviceCounts].map(([id, count]) => el('li', {
+                    text: `${catalog.services?.find((entry) => entry.id === id)?.name || id}: ${count}`,
+                  })))
+                  : el('p', { text: t('manager.experience.noServices') }),
+              ]),
+              el('section', { className: 'card' }, [
+                el('h3', { text: t('production.manager.cateringReport') }),
+                el('p', { text: t('production.manager.cateringSummary', {
+                  catering: catering.length, total: report.requests.length,
+                }) }),
+              ]),
+            ]);
+            reportPanel.removeAttribute('aria-busy');
+            reportPanel.append(metrics, breakdown);
           } catch (error) {
-            if (reportIsCurrent()) showToast(errorMessage(error));
-          } finally {
-            if (isActiveSurface() && reportButton.isConnected) reportButton.disabled = false;
+            if (isCurrent(generation) && activeTab === 'REPORTS') {
+              reportPanel.removeAttribute('aria-busy');
+              reportPanel.appendChild(el('p', { className: 'error-box', text: errorMessage(error) }));
+            }
           }
-        });
-        root.appendChild(el('div', { className: 'button-row' }, [
-          refreshButton, roomPlanButton, reportButton,
+          return;
+        }
+
+        if (activeTab === 'ADMIN') {
+          const openSettings = button(t('managerSettings.title'), { className: 'primary' });
+          openSettings.disabled = onOpenBusinessSettings === null;
+          openSettings.addEventListener('click', () => onOpenBusinessSettings?.());
+          root.appendChild(el('section', {
+            className: 'manager-workspace-panel', attrs: { role: 'tabpanel' },
+          }, [
+            el('h2', { text: t('manager.admin') }),
+            el('p', { text: t('managerSettings.description') }),
+            el('div', { className: 'button-row' }, [openSettings]),
+          ]));
+          return;
+        }
+
+        const openStatuses = new Set(['Submitted', 'In Review', 'Change Requested']);
+        const confirmedCount = requests.filter((entry) => entry.status === 'Confirmed').length;
+        const openCount = requests.filter((entry) => openStatuses.has(entry.status)).length;
+        const participantCount = requests.reduce((sum, entry) => (
+          sum + entry.internalParticipants + entry.externalParticipants
+        ), 0);
+        root.appendChild(el('section', { className: 'dashboard-grid' }, [
+          el('article', { className: 'kpi' }, [el('strong', { text: String(openCount) }), el('span', { text: t('manager.openRequests') })]),
+          el('article', { className: 'kpi' }, [el('strong', { text: String(confirmedCount) }), el('span', { text: t('manager.confirmedBookings') })]),
+          el('article', { className: 'kpi' }, [el('strong', { text: String(participantCount) }), el('span', { text: t('manager.totalParticipants') })]),
         ]));
-        if (!requests.length) {
+
+        const filters = el('form', { className: 'manager-filters' });
+        filters.addEventListener('submit', (event) => event.preventDefault());
+        const search = el('input', {
+          value: managerSearch,
+          attrs: { type: 'search', placeholder: t('manager.search'), 'aria-label': t('manager.search') },
+        });
+        const status = el('select', { attrs: { 'aria-label': t('manager.status') } });
+        status.appendChild(el('option', { value: 'ALL', text: t('manager.allStatuses') }));
+        status.appendChild(el('option', { value: 'OPEN', text: t('manager.ux.openRequests') }));
+        [...new Set(requests.map((entry) => entry.status))].forEach((value) => {
+          status.appendChild(el('option', { value, text: t(`status.${value}`) }));
+        });
+        status.value = managerStatus;
+        const site = el('select', { attrs: { 'aria-label': t('manager.location') } });
+        site.appendChild(el('option', { value: 'ALL', text: t('manager.allLocations') }));
+        catalog.sites.forEach((entry) => site.appendChild(el('option', { value: entry.id, text: entry.name })));
+        site.value = managerSite;
+        const applyFilters = () => {
+          managerSearch = search.value.trim();
+          managerStatus = status.value;
+          managerSite = site.value;
+          void refresh();
+        };
+        search.addEventListener('change', applyFilters);
+        status.addEventListener('change', applyFilters);
+        site.addEventListener('change', applyFilters);
+        const openOnly = button(t('manager.ux.openRequests'));
+        openOnly.addEventListener('click', () => {
+          managerStatus = 'OPEN';
+          void refresh();
+        });
+        const reset = button(t('manager.ux.resetFilters'));
+        reset.addEventListener('click', () => {
+          managerSearch = '';
+          managerStatus = 'ALL';
+          managerSite = 'ALL';
+          void refresh();
+        });
+        filters.append(search, status, site, openOnly, reset);
+        root.appendChild(filters);
+
+        const normalizedSearch = managerSearch.toLocaleLowerCase(locale());
+        const visibleEntries = requests.map((request, index) => ({ request, index })).filter(({ request }) => {
+          const room = catalog.rooms.find((entry) => entry.id === request.roomId);
+          const title = request.details?.title || '';
+          return (managerStatus === 'ALL'
+              || (managerStatus === 'OPEN' ? openStatuses.has(request.status) : request.status === managerStatus))
+            && (managerSite === 'ALL' || room?.siteId === managerSite)
+            && (!normalizedSearch
+              || `${request.id} ${title}`.toLocaleLowerCase(locale()).includes(normalizedSearch));
+        });
+        if (!visibleEntries.length) {
           root.appendChild(el('p', { className: 'info-box', text: t('production.manager.none') }));
           return;
         }
-        for (const [index, request] of requests.entries()) {
+        for (const { request, index } of visibleEntries) {
           const bookingChange = changes[index];
           const article = el('article', {
             className: 'request-card',

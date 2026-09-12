@@ -1963,14 +1963,17 @@ test('Conference Manager capability is independent and transitions server-owned 
   await expect(page.locator('[data-view="manager"]')).toBeVisible();
   await expect(page.locator('[data-view="tenantAdmin"]')).toHaveCount(0);
   await page.locator('[data-view="manager"]').click();
-  const operationalActions = page.locator(
-    '[data-manager-operational-root] > section.card > .button-row',
-  ).first();
-  await expect(operationalActions).toBeVisible();
-  expect(await operationalActions.getByRole('button').allTextContents()).toEqual([
-    'Aktualisieren', 'Raumplanung', 'Bericht',
+  const managerTabs = page.getByRole('tablist', { name: 'Conference Manager' });
+  await expect(managerTabs).toBeVisible();
+  expect(await managerTabs.getByRole('tab').allTextContents()).toEqual([
+    'Anfragen & Buchungen', 'Raumplanung', 'Reports', 'Administration',
   ]);
-  await expect(operationalActions).not.toHaveAttribute('role', 'tablist');
+  await expect(managerTabs.getByRole('tab', { name: 'Anfragen & Buchungen' }))
+    .toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.dashboard-grid')).toContainText('Offene Anfragen');
+  await expect(page.getByRole('searchbox', { name: 'Suche' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Status' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Standort' })).toBeVisible();
   await page.getByRole('button', { name: 'Prüfung starten' }).click();
   await expect(page.locator('#toast')).toContainText('Workflow-Status wurde aktualisiert.');
   await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
@@ -1980,6 +1983,40 @@ test('Conference Manager capability is independent and transitions server-owned 
     csrf: CSRF_TOKEN,
     body: { transition: 'start_review' },
   });
+});
+
+test('MGR-01 MGR-04 MGR-05: Manager tabs expose inline room planning and visible server reports', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    roles: ['employee', 'conference_manager'],
+  });
+  fixture.requests().push({
+    ...confirmedRequestFixture(),
+    details: {
+      title: 'Leadership Summit',
+      serviceIds: ['svc-video'],
+      cateringPackageId: 'package-standard',
+      cateringQuantities: { coffee: 4 },
+    },
+  });
+
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Raumplanung' }).click();
+  await expect(page.getByRole('tabpanel')).toContainText('Tagesübersicht der Raumbelegung.');
+  await expect(page.getByRole('table')).toContainText('Room A');
+
+  await page.getByRole('tab', { name: 'Reports' }).click();
+  await expect.poll(() => fixture.reportReads.length).toBe(1);
+  const report = page.getByRole('tabpanel');
+  await expect(report).toContainText('Raumauslastung');
+  await expect(report).toContainText('Service-Nutzung');
+  await expect(report).toContainText('Catering-Nutzung');
+  await expect(report.locator('.dashboard-grid')).toContainText('Gebuchte Raumstunden');
+
+  await page.getByRole('tab', { name: 'Administration' }).click();
+  await expect(page.getByRole('tabpanel')).toContainText('Business-Einstellungen');
+  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await expect(page.locator('[data-manager-business-settings-root]')).toBeVisible();
 });
 
 test('Conference Manager cancels a confirmed request through the exact non-destructive transition', async ({ page }) => {
@@ -2234,6 +2271,7 @@ test('Conference Manager creates every owned catalogue entry type and package va
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
   await page.getByRole('button', { name: 'Katalog & Preise' }).click();
@@ -2287,6 +2325,7 @@ test('Conference Manager preserves an absent Room price and receives accessible 
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.getByRole('button', { name: 'Katalog & Preise' }).click();
 
@@ -2365,6 +2404,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
 
@@ -2424,6 +2464,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.locator('#manager-room-name-0').fill('Conflicting Room');
   const save = page.getByRole('button', { name: 'Speichern' });
@@ -2440,6 +2481,7 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.getByRole('button', { name: 'Katalog & Preise' }).click();
   await page.getByRole('button', { name: 'Speichern' }).click();
@@ -2662,7 +2704,7 @@ test('stale Manager report feedback is suppressed once a newer refresh starts', 
   fixture.requests().push(confirmedRequestFixture());
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
-  await page.getByRole('button', { name: 'Bericht' }).click();
+  await page.getByRole('tab', { name: 'Reports' }).click();
   await expect.poll(() => fixture.reportReads.length).toBe(1);
 
   const releaseRefresh = fixture.holdNextRequestRead();
@@ -2687,7 +2729,7 @@ test('stale Manager report feedback is suppressed once a newer refresh starts', 
   ));
   releaseRefresh();
   await refreshResponse;
-  await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeVisible();
+  await expect(page.getByRole('tabpanel')).toContainText('Raumauslastung');
   await expect(page.locator('#toast')).toBeEmpty();
 });
 
@@ -2698,7 +2740,7 @@ test('inactivity lock suppresses delayed Manager report feedback and clears live
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
-  await page.getByRole('button', { name: 'Bericht' }).click();
+  await page.getByRole('tab', { name: 'Reports' }).click();
   await expect.poll(() => fixture.reportReads.length).toBe(1);
 
   await page.evaluate(async () => {

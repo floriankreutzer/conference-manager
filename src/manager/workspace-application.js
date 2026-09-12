@@ -1,5 +1,4 @@
-import { t } from '../core/i18n.js';
-import { button, el } from '../core/ui.js';
+import { el } from '../core/ui.js';
 import { createManagerBusinessSettingsApplication } from './business-settings-application.js';
 import { createProductionManagerApplication } from './production-application.js';
 
@@ -28,21 +27,11 @@ export function createManagerWorkspaceApplication({
       setPageHeading,
       persistence,
       requestMutations,
+      onOpenBusinessSettings: () => {
+        void businessSettings.renderManagerSettings({ focusHeading: true });
+      },
     });
     await operational.renderManager();
-    if (
-      workspaceRoot.parentNode !== appRoot
-      || document.documentElement.dataset.sessionLocked === 'true'
-    ) return;
-    const openBusinessSettings = button(t('managerSettings.title'), { className: 'primary' });
-    openBusinessSettings.addEventListener('click', () => {
-      void businessSettings.renderManagerSettings({ focusHeading: true });
-    });
-    workspaceRoot.prepend(el('section', { className: 'card' }, [
-      el('h2', { text: t('managerSettings.title') }),
-      el('p', { text: t('managerSettings.description') }),
-      el('div', { className: 'button-row' }, [openBusinessSettings]),
-    ]));
   }
 
   return Object.freeze({ renderManager });

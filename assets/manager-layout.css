@@ -53,6 +53,17 @@ main,
   white-space: nowrap;
 }
 
+.manager-tabs button[aria-selected="true"] {
+  color: var(--brand-primary);
+  border-color: var(--brand-secondary);
+  background: var(--brand-secondary-surface);
+}
+
+.manager-workspace-panel {
+  display: grid;
+  gap: var(--manager-control-gap);
+}
+
 .manager-surface {
   display: block;
   overflow: visible;
