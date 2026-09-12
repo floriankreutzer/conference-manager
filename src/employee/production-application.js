@@ -81,7 +81,7 @@ function openDetachedPrintWindow() {
 
 function requestCard(request, catalog, currentRoomContext, openChange, {
   mutationInFlight = () => false,
-  onCancel, onChange, onHistory, onPrint, onRepeat, onResubmit,
+  onCancel, onChange, onGuestInfo, onHistory, onPrint, onRepeat, onResubmit,
 }) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId)
     || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
@@ -154,9 +154,11 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   history.addEventListener('click', () => onHistory(request, history));
   const secondaryActions = [history];
   if (request.status === 'Confirmed') {
+    const guest = button(t('guest.title'));
+    guest.addEventListener('click', () => onGuestInfo(request, currentRoomContext));
     const print = button(t('guest.print'));
     print.addEventListener('click', () => onPrint(request, currentRoomContext));
-    secondaryActions.push(print);
+    secondaryActions.push(guest, print);
   }
   if (['Rejected', 'Cancelled'].includes(request.status)) {
     const repeat = button(t(request.status === 'Rejected' ? 'requests.repeatRejected' : 'requests.repeat'));
@@ -239,7 +241,11 @@ export function createProductionEmployeeApplication({
       || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
     const site = catalog.sites?.find((entry) => entry.id === room?.siteId)
       || (currentRoomContext?.site?.id === room?.siteId ? currentRoomContext.site : null);
-    const details = siteInfo?.sites?.find?.((entry) => entry.id === site?.id) || {};
+    const address = currentRoomContext?.site?.address;
+    const formattedAddress = address
+      ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
+        .filter(Boolean).join(', ')
+      : t('guest.askOrganizer');
     doc.documentElement.lang = locale().split('-')[0];
     doc.title = `${t('requests.pdf')} · ${request.id}`;
     const heading = doc.createElement('h1');
@@ -255,8 +261,8 @@ export function createProductionEmployeeApplication({
         request.endsAt, room, catalog, currentRoomContext,
       )],
       [t('production.employee.room'), roomLabel(room || { id: request.roomId })],
-      [t('guest.address'), details.address || t('guest.askOrganizer')],
-      [t('guest.contact'), details.contact || t('guest.contactDefault')],
+      [t('guest.address'), formattedAddress],
+      [t('manager.accessibility'), currentRoomContext?.room?.accessibility?.join(', ') || '—'],
     ].forEach(([term, value]) => {
       const dt = doc.createElement('dt');
       const dd = doc.createElement('dd');
@@ -270,6 +276,36 @@ export function createProductionEmployeeApplication({
     print.addEventListener('click', () => printWindow.print());
     doc.body.append(heading, list, print);
     printWindow.focus();
+  }
+
+  function openGuestInfo(request, currentRoomContext = null) {
+    const room = catalog.rooms.find((entry) => entry.id === request.roomId)
+      || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
+    const address = currentRoomContext?.site?.address;
+    const formattedAddress = address
+      ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
+        .filter(Boolean).join(', ')
+      : t('guest.askOrganizer');
+    const close = button(t('common.close'));
+    const print = button(t('guest.print'), { className: 'primary' });
+    const dialog = openDialog({
+      title: t('guest.welcome', {
+        title: request.details?.title || t('production.common.requestId', { id: request.id }),
+      }),
+      description: t('guest.subtitle'),
+      content: el('dl', { className: 'details-list' }, [
+        el('dt', { text: t('production.employee.room') }),
+        el('dd', { text: roomLabel(room || { id: request.roomId }) }),
+        el('dt', { text: t('guest.address') }),
+        el('dd', { text: formattedAddress }),
+        el('dt', { text: t('manager.accessibility') }),
+        el('dd', { text: currentRoomContext?.room?.accessibility?.join(', ') || '—' }),
+      ]),
+      actions: [close, print],
+      labelledById: `guestInformation-${request.id}`,
+    });
+    close.addEventListener('click', () => dialog.close());
+    print.addEventListener('click', () => printRequest(request, currentRoomContext));
   }
 
   function formattedRequestValue(value, room, requestCatalog, currentRoomContext = null) {
@@ -489,6 +525,22 @@ export function createProductionEmployeeApplication({
               Number(entry.price.amountMinor || 0) / 100,
               entry.price.currency,
             )} · ${t('room.cost')}`,
+          }));
+        }
+        if (entry.floorplanAssetId) {
+          card.appendChild(el('div', {
+            className: 'room-floorplan-preview',
+            dataset: { managedAssetId: entry.floorplanAssetId },
+            attrs: {
+              role: 'img',
+              'aria-label': t('production.employee.floorplanPreview', { room: entry.name }),
+            },
+          }));
+        }
+        if (entry.equipment.length) {
+          card.appendChild(el('p', {
+            className: 'room-equipment',
+            text: t('production.employee.roomEquipment', { equipment: entry.equipment.join(', ') }),
           }));
         }
         roomSelectionGrid.appendChild(card);
@@ -1458,6 +1510,7 @@ export function createProductionEmployeeApplication({
                 if (shouldNotify) showToast(errorMessage(caught));
               }
             },
+            onGuestInfo: openGuestInfo,
             onHistory: async (target, control) => {
               const interactionGeneration = refreshGeneration;
               const isCurrentInteraction = () => (

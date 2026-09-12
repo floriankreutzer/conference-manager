@@ -6,6 +6,21 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   display: none !important;
 }
 
+.room-floorplan-preview {
+  min-height: 7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(90deg, transparent 48%, var(--color-border) 49%, var(--color-border) 51%, transparent 52%),
+    linear-gradient(0deg, transparent 48%, var(--color-border) 49%, var(--color-border) 51%, transparent 52%),
+    var(--brand-secondary-surface);
+}
+
+.room-equipment {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
 .ux-mobile-progress {
   display: none;
 }

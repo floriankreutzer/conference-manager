@@ -49,7 +49,7 @@ function requestPage(overrides = {}) {
 }
 function requestRoomContextEnvelope(overrides = {}) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     requestRef: {
       id: REQUEST_ID,
       schemaVersion: 2,
@@ -64,12 +64,16 @@ function requestRoomContextEnvelope(overrides = {}) {
         name: 'Retired Room',
         capacity: 20,
         active: false,
+        accessibility: ['Step-free access'],
       },
       site: {
         id: 'site-retired',
         name: 'Retired Site',
         active: false,
         timeZone: 'Europe/Berlin',
+        address: {
+          line1: 'Main Street 1', line2: null, postalCode: '10115', city: 'Berlin', countryCode: 'DE',
+        },
       },
     },
     requestId: CORRELATION_ID,
@@ -104,12 +108,55 @@ test('profile hydration accepts only the exact server profile projection', async
 });
 
 test('production persistence assembles every bounded catalogue section with one generation', async () => {
-  const harness = api((path) => catalogPage(new URL(`https://example.test/${path}`).searchParams.get('section')));
+  const harness = api((path) => {
+    const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+    return catalogPage(section, section === 'rooms' ? { entries: [{
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: ['Display'],
+      floorplanAssetId: 'floorplan-room-1', mediaAssetIds: ['room-1-front'],
+    }] } : section === 'sites' ? { entries: [{
+      id: 'site-1', name: 'Site 1', active: true, timeZone: 'Europe/Berlin',
+    }] } : {});
+  });
   const catalog = await createProductionPersistence({ apiClient: harness.client }).loadCatalog();
   assert.deepEqual(catalog.configurationRevisions, revisions());
   assert.equal(harness.calls.length, 6);
   assert.match(harness.calls[0].path, /section=sites/);
   for (const call of harness.calls.slice(1)) assert.match(call.path, /context=catalog_context/);
+  assert.deepEqual(catalog.rooms[0].equipment, ['Display']);
+  assert.equal(catalog.rooms[0].floorplanAssetId, 'floorplan-room-1');
+});
+
+test('Room presentation projection rejects unsafe or expanded server payloads', async () => {
+  for (const room of [
+    {
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: ['Display', 'Display'],
+      floorplanAssetId: null, mediaAssetIds: [],
+    },
+    {
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: [],
+      floorplanAssetId: 'https://attacker.invalid/room', mediaAssetIds: [],
+    },
+    {
+      id: 'room-1', siteId: 'site-1', name: 'Room 1', capacity: 10, active: true,
+      price: { amountMinor: 0, currency: 'EUR' }, equipment: [],
+      floorplanAssetId: null, mediaAssetIds: [], providerId: 'internal',
+    },
+  ]) {
+    const harness = api((path) => {
+      const section = new URL(`https://example.test/${path}`).searchParams.get('section');
+      if (section === 'sites') return catalogPage(section, { entries: [{
+        id: 'site-1', name: 'Site 1', active: true, timeZone: 'Europe/Berlin',
+      }] });
+      return catalogPage(section, section === 'rooms' ? { entries: [room] } : {});
+    });
+    await assert.rejects(
+      createProductionPersistence({ apiClient: harness.client }).loadCatalog(),
+      (error) => error.code === 'PRODUCTION_CATALOG_PAGE_INVALID',
+    );
+  }
 });
 
 test('catalogue generation permits observation-time drift but rejects policy drift', async () => {
@@ -206,12 +253,16 @@ test('Request Room context uses the exact GET boundary and accepts inactive or n
         name: 'Retired Room',
         capacity: 20,
         active: false,
+        accessibility: ['Step-free access'],
       },
       site: {
         id: 'site-retired',
         name: 'Retired Site',
         active: false,
         timeZone: 'Europe/Berlin',
+        address: {
+          line1: 'Main Street 1', line2: null, postalCode: '10115', city: 'Berlin', countryCode: 'DE',
+        },
       },
     },
   });

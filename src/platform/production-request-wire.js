@@ -257,8 +257,22 @@ function catalogSite(value, code) {
 }
 
 function catalogRoom(value, code) {
-  const room = exactObject(value, ['id', 'siteId', 'name', 'capacity', 'active', 'price'], code);
+  const room = exactObject(value, [
+    'id', 'siteId', 'name', 'capacity', 'active', 'price',
+    'equipment', 'floorplanAssetId', 'mediaAssetIds',
+  ], code);
   if (room.active !== true || room.price === null) invalid(code);
+  if (
+    !Array.isArray(room.equipment)
+    || room.equipment.length > 100
+    || !Array.isArray(room.mediaAssetIds)
+    || room.mediaAssetIds.length > 20
+  ) invalid(code);
+  const equipment = room.equipment.map((entry) => responseText(entry, { maximum: 160, code }));
+  const mediaAssetIds = room.mediaAssetIds.map((entry) => identifier(entry, code));
+  if (new Set(equipment).size !== equipment.length || new Set(mediaAssetIds).size !== mediaAssetIds.length) {
+    invalid(code);
+  }
   return Object.freeze({
     id: identifier(room.id, code),
     siteId: identifier(room.siteId, code),
@@ -266,6 +280,9 @@ function catalogRoom(value, code) {
     capacity: safeInteger(room.capacity, 1, 100_000, code),
     active: true,
     price: money(room.price, code),
+    equipment: Object.freeze(equipment),
+    floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
+    mediaAssetIds: Object.freeze(mediaAssetIds),
   });
 }
 
@@ -918,7 +935,7 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
   const envelope = exactObject(value, [
     'schemaVersion', 'requestRef', 'currentRoomContext', 'requestId',
   ], code);
-  if (envelope.schemaVersion !== 1) invalid(code);
+  if (![1, 2].includes(envelope.schemaVersion)) invalid(code);
   const ref = requestRef(envelope.requestRef, code);
   identifier(envelope.requestId, code);
   if (envelope.currentRoomContext === null) {
@@ -927,26 +944,51 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
   const context = exactObject(envelope.currentRoomContext, [
     'locationsRevision', 'room', 'site',
   ], code);
-  const room = exactObject(context.room, [
-    'id', 'siteId', 'name', 'capacity', 'active',
-  ], code);
-  const site = exactObject(context.site, [
-    'id', 'name', 'active', 'timeZone',
-  ], code);
+  const room = exactObject(context.room, envelope.schemaVersion === 2
+    ? ['id', 'siteId', 'name', 'capacity', 'active', 'accessibility']
+    : ['id', 'siteId', 'name', 'capacity', 'active'], code);
+  const site = exactObject(context.site, envelope.schemaVersion === 2
+    ? ['id', 'name', 'active', 'timeZone', 'address']
+    : ['id', 'name', 'active', 'timeZone'], code);
   if (typeof room.active !== 'boolean' || typeof site.active !== 'boolean') invalid(code);
   if (site.timeZone !== null && !isProductionTimeZone(site.timeZone)) invalid(code);
+  let accessibility = Object.freeze([]);
+  if (envelope.schemaVersion === 2) {
+    if (!Array.isArray(room.accessibility) || room.accessibility.length > 20) invalid(code);
+    accessibility = Object.freeze(room.accessibility.map((entry) => (
+      responseText(entry, { maximum: 80, code })
+    )));
+    if (new Set(accessibility).size !== accessibility.length) invalid(code);
+  }
   const normalizedRoom = {
     id: identifier(room.id, code),
     siteId: identifier(room.siteId, code),
     name: responseText(room.name, { maximum: 160, code }),
     capacity: safeInteger(room.capacity, 1, 100_000, code),
     active: room.active,
+    accessibility,
   };
+  let address = null;
+  if (envelope.schemaVersion === 2 && site.address !== null) {
+    const input = exactObject(site.address, [
+      'line1', 'line2', 'postalCode', 'city', 'countryCode',
+    ], code);
+    const countryCode = responseText(input.countryCode, { maximum: 2, code });
+    if (!/^[A-Z]{2}$/.test(countryCode)) invalid(code);
+    address = Object.freeze({
+      line1: responseText(input.line1, { maximum: 160, code }),
+      line2: input.line2 === null ? null : responseText(input.line2, { maximum: 160, code }),
+      postalCode: responseText(input.postalCode, { maximum: 32, code }),
+      city: responseText(input.city, { maximum: 120, code }),
+      countryCode,
+    });
+  }
   const normalizedSite = {
     id: identifier(site.id, code),
     name: responseText(site.name, { maximum: 160, code }),
     active: site.active,
     timeZone: site.timeZone,
+    address,
   };
   if (normalizedRoom.siteId !== normalizedSite.id) invalid(code);
   return immutable({
