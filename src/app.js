@@ -25,7 +25,7 @@ import {
   isTenantAdminRoute,
 } from './tenant-admin/server.js';
 
-const APP_BUILD = '2026.09.01.78';
+const APP_BUILD = '2026.09.08.79';
 const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const appRoot = document.getElementById('app');
 

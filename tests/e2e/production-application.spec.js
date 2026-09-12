@@ -831,6 +831,57 @@ async function installProductionApplicationFixture(page, {
       return;
     }
 
+    if (url.pathname === `/api/v1/application/requests/${REQUEST_ID}/resubmissions`
+        && request.method() === 'POST') {
+      const body = request.postDataJSON();
+      writes.push({ path: url.pathname, csrf: request.headers()['x-csrf-token'], body });
+      const createError = requestCreateErrors[requestCreateIndex];
+      requestCreateIndex += 1;
+      if (createError) {
+        if (Number.isSafeInteger(createError.latestVersion) && requests[0]) {
+          requests = [{ ...requests[0], version: createError.latestVersion }];
+        }
+        await route.fulfill({
+          status: createError.status,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: createError.code, requestId: API_REQUEST_ID } }),
+        });
+        return;
+      }
+      const current = requests[0];
+      const resubmitted = {
+        ...current,
+        id: REQUEST_ID,
+        roomId: body.request.roomId,
+        startsAt: body.request.startsAt,
+        endsAt: body.request.endsAt,
+        internalParticipants: body.request.internalParticipants,
+        externalParticipants: body.request.externalParticipants,
+        version: body.expectedVersion + 1,
+        status: 'Submitted',
+        statusReason: null,
+        details: {
+          ...current.details,
+          title: body.request.title,
+          specialRequirements: body.request.specialRequirements,
+          dietaryRequirements: body.request.dietaryRequirements,
+          serviceIds: body.request.serviceIds,
+          catering: body.request.catering,
+        },
+      };
+      requests = [resubmitted];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({
+          schemaVersion: 2,
+          request: publicRequest(resubmitted),
+          requestId: API_REQUEST_ID,
+        }),
+      });
+      return;
+    }
+
     if (url.pathname === `/api/v1/requests/${REQUEST_ID}` && request.method() === 'GET') {
       await route.fulfill({
         status: 200,
@@ -1104,6 +1155,33 @@ function futureDate(days = 14) {
   return value.toISOString().slice(0, 10);
 }
 
+async function fillEmployeeSchedule(page, {
+  title = 'Customer workshop',
+  date = futureDate(),
+  start = '09:00',
+  end = '10:00',
+  internal = '1',
+  external = '0',
+} = {}) {
+  await page.locator('#productionTitle').fill(title);
+  await page.locator('#productionDate').fill(date);
+  await page.locator('#productionStart').fill(start);
+  await page.locator('#productionEnd').fill(end);
+  await page.locator('#productionInternal').fill(internal);
+  await page.locator('#productionExternal').fill(external);
+}
+
+async function openEmployeeRoomStep(page, schedule = {}) {
+  await fillEmployeeSchedule(page, schedule);
+  await page.getByRole('button', { name: 'Weiter' }).click();
+}
+
+async function advanceEmployeeToReview(page) {
+  for (let step = 3; step <= 6; step += 1) {
+    await page.getByRole('button', { name: 'Weiter' }).click();
+  }
+}
+
 function confirmedRequestFixture() {
   const date = futureDate();
   return {
@@ -1160,7 +1238,7 @@ async function lockProductionApplication(page) {
   await expect(page.locator('dialog[data-inactivity-lock="true"]')).toBeVisible();
 }
 
-test('Employee production flow uses server catalog and CSRF-protected request persistence', async ({ page }) => {
+test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server catalog and CSRF-protected request persistence', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page);
   const requestDate = futureDate();
   await page.goto(`${ORIGIN}/`);
@@ -1169,23 +1247,35 @@ test('Employee production flow uses server catalog and CSRF-protected request pe
   await expect(page.locator('[data-view="tenantAdmin"]')).toHaveCount(0);
   await page.locator('[data-view="employee"]').click();
   await expect(page.locator('#viewTitle')).toBeFocused();
-  await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionTitle').fill('Customer workshop');
-  await page.locator('#productionDate').fill(requestDate);
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
-  await page.locator('#productionInternal').fill('2');
-  await page.locator('#productionExternal').fill('1');
-  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
-  await expect(submit).toBeDisabled();
+  await expect(page.locator('[data-step-panel]')).toHaveCount(6);
+  await expect(page.locator('[data-step-panel]:visible')).toHaveCount(1);
+  await expect(page.locator('.participant-total strong')).toHaveText('1');
+  await expect(page.getByText('settings.catalogue.title')).toHaveCount(0);
+  await openEmployeeRoomStep(page, {
+    date: requestDate, internal: '2', external: '1',
+  });
+  await expect(page.getByText('Kapazität passend')).toBeVisible();
+  await expect(page.getByText('Verfügbar', { exact: true })).toHaveCount(0);
+  const roomOption = page.getByRole('radio', { name: /Room A/ });
+  await expect(roomOption).toBeVisible();
+  await roomOption.check();
+  await expect(page.getByRole('radio', { name: /Room A/ })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await expect(page.getByText('Der Raum ist im gewählten Zeitraum verfügbar.')).toBeVisible();
-  await expect(submit).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
 
+  await page.getByRole('button', { name: 'Zurück' }).click();
   await page.locator('#productionEnd').fill('10:30');
-  await expect(submit).toBeDisabled();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await expect(page.getByText('Prüfen Sie die Verfügbarkeit für den aktuell gewählten Raum und Zeitraum.')).toBeVisible();
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
+  await advanceEmployeeToReview(page);
+  await expect(page.getByRole('heading', { name: 'Anfrage prüfen' })).toBeVisible();
+  await expect(page.locator('[data-step-panel="6"] .review-card')).toHaveCount(5);
+  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect(page.locator('#toast')).toContainText('Anfrage wurde abgesendet.');
@@ -1220,6 +1310,76 @@ test('Employee production flow uses server catalog and CSRF-protected request pe
     csrf: CSRF_TOKEN,
     body: { transition: 'cancel' },
   });
+});
+
+test('EMP-02: Employee schedule keeps both participant counts required', async ({ page }) => {
+  await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+
+  const requestDate = futureDate();
+  await page.locator('#productionTitle').fill('Pflichtfeldprüfung');
+  await page.locator('#productionDate').fill(requestDate);
+  await page.locator('#productionStart').fill('09:00');
+  await page.locator('#productionEndDate').fill(requestDate);
+  await page.locator('#productionEnd').fill('10:30');
+  const externalParticipants = page.locator('#productionExternal');
+  await externalParticipants.fill('');
+  await page.getByRole('button', { name: 'Weiter' }).click();
+
+  await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
+  await expect(externalParticipants).toHaveAttribute('aria-invalid', 'true');
+  await expect(externalParticipants).toBeFocused();
+});
+
+test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-safe mobile calendar', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  const sourceRequest = confirmedV2RequestFixture();
+  fixture.requests().push(sourceRequest);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+
+  const list = page.getByRole('button', { name: 'Liste', exact: true });
+  const calendar = page.getByRole('button', { name: 'Kalender', exact: true });
+  await expect(list).toHaveAttribute('aria-pressed', 'true');
+  await calendar.click();
+  await expect(calendar).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.calendar-table')).toBeVisible();
+  await expect(page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`))
+    .toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Nächster Monat' }).click();
+  await expect(page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`))
+    .toHaveCount(0);
+  await page.getByRole('button', { name: 'Vorheriger Monat' }).click();
+  const event = page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`);
+  await event.focus();
+  await event.press('Enter');
+
+  await expect(list).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator(`[data-production-request-id="${sourceRequest.id}"]`)).toBeFocused();
+  const viewportFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+  expect(viewportFits).toBe(true);
+});
+
+test('EMP-12: Employee history is an accessible localized server timeline with focus return', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+
+  const history = page.getByRole('button', { name: 'Verlauf' });
+  await history.click();
+  const dialog = page.getByRole('dialog', { name: 'Verlauf' });
+  await expect(dialog.locator('.request-timeline li')).toHaveCount(1);
+  await expect(dialog.getByText('Status geändert', { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/Version 1/)).toBeVisible();
+  await expect(dialog.getByText('Status: Bestätigt', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Schließen' }).click();
+
+  await expect(history).toBeFocused();
+  expect(fixture.requestHistoryReads).toEqual([REQUEST_ID]);
 });
 
 test('Employee reconciles one held cancellation after cross-navigation from pre-cancel state', async ({ page }) => {
@@ -1345,8 +1505,9 @@ test('Employee keeps the current resubmission editor when a detached create load
 
   await expect(page.locator('#productionTitle')).toHaveValue('Updated conference');
   await expect(page.locator('#productionRoom')).toHaveValue('room-a');
-  await expect(page.locator('#productionRoom option:checked')).toHaveText('Current Room · 24');
+  await expect(page.locator('[data-room-id="room-a"]')).toContainText('Current Room');
   await expect(page.locator('#productionInternal')).toHaveValue('2');
+  await page.getByRole('button', { name: 'Weiter' }).click();
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await expect(page.getByText('Der Raum ist im gewählten Zeitraum verfügbar.')).toBeVisible();
   expect(fixture.availabilityChecks).toEqual([{
@@ -1382,40 +1543,84 @@ test('Employee keeps the current resubmission editor when a detached create load
     { context: olderLoad.context, section: 'costCenters' },
   ]);
   await expect(page.locator('#productionTitle')).toHaveValue('Updated conference');
-  await expect(page.locator('#productionRoom option:checked')).toHaveText('Current Room · 24');
+  await expect(page.locator('[data-room-id="room-a"]')).toContainText('Current Room');
   await expect(page.locator('#productionInternal')).toHaveValue('2');
   await expect(page.locator('#toast')).toBeEmpty();
   await expect(page.locator('#viewTitle')).toHaveText('Konferenzanfrage');
   expect(fixture.writes).toHaveLength(0);
 });
 
-test('Employee production flow invalidates availability after request creation fails', async ({ page }) => {
+test('EMP-01 EMP-07: Employee production flow invalidates availability after a non-conflict request creation failure', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
-    requestCreateErrors: [{ status: 409, code: 'REQUEST_CONFLICT' }],
+    requestCreateErrors: [{ status: 503, code: 'SERVICE_UNAVAILABLE' }],
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
-  await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionTitle').fill('Customer workshop');
-  await page.locator('#productionDate').fill(futureDate());
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
-  await page.locator('#productionInternal').fill('1');
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
 
   const availability = page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' });
-  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
   await availability.click();
+  await advanceEmployeeToReview(page);
+  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect(submit).toBeDisabled();
+  await page.getByRole('button', { name: 'Raum ändern' }).click();
+  await expect(availability).toBeVisible();
 
   await availability.click();
-  await expect(submit).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
   expect(fixture.availabilityChecks).toHaveLength(2);
   expect(fixture.writes).toHaveLength(1);
 });
 
-test('Employee production flow exposes occupied, transport-error, and available states', async ({ page }) => {
+test('EMP-03: Employee room cards use each projected price currency', async ({ page }) => {
+  const catalog = catalogPayload();
+  catalog.catalog.rooms[0].price = { amountMinor: 2_500, currency: 'CHF' };
+  await installProductionApplicationFixture(page, { catalog });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+
+  await expect(page.locator('[data-room-id="room-a"] .price')).toContainText('CHF');
+});
+
+test('EMP-07: Employee rebases a conflicted resubmission and preserves the editor draft', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    requestCreateErrors: [{ status: 409, code: 'REQUEST_CONFLICT', latestVersion: 2 }],
+  });
+  fixture.requests().push({
+    ...confirmedV2RequestFixture(),
+    status: 'Change Requested',
+    statusReason: 'Please revise the request.',
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Änderung bearbeiten' }).click();
+
+  await page.locator('#productionTitle').fill('Preserved resubmission draft');
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Änderung erneut einreichen' }).click();
+
+  await expect(page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' })).toBeVisible();
+  await expect(page.locator('#productionTitle')).toHaveValue('Preserved resubmission draft');
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Änderung erneut einreichen' }).click();
+
+  await expect(page.locator('#viewTitle')).toHaveText('Meine Anfragen');
+  expect(fixture.writes).toHaveLength(2);
+  expect(fixture.writes.map(({ body }) => body.expectedVersion)).toEqual([1, 2]);
+  expect(fixture.writes.map(({ body }) => body.request.title)).toEqual([
+    'Preserved resubmission draft',
+    'Preserved resubmission draft',
+  ]);
+});
+
+test('EMP-03: Employee production flow exposes occupied, transport-error, and available states', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     availabilityResponses: [
       { available: false, conflictCount: 1 },
@@ -1426,42 +1631,37 @@ test('Employee production flow exposes occupied, transport-error, and available 
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
-  await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionDate').fill(futureDate());
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
   const check = page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' });
-  const submit = page.getByRole('button', { name: 'Anfrage absenden' });
 
   await check.click();
   await expect(page.getByText('Raumverfügbarkeit wird serverseitig geprüft …')).toBeVisible();
   await expect(check).toBeDisabled();
   fixture.releaseAvailability();
   await expect(page.getByText(/Der Raum ist im gewählten Zeitraum belegt/)).toBeVisible();
-  await expect(submit).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await check.click();
   await expect(page.getByText(/konnte nicht sicher geprüft werden/)).toBeVisible();
-  await expect(submit).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   await check.click();
   await expect(page.getByText('Der Raum ist im gewählten Zeitraum verfügbar.')).toBeVisible();
-  await expect(submit).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
   expect(fixture.availabilityChecks).toHaveLength(3);
   expect(fixture.writes).toHaveLength(0);
 });
 
-test('Employee production flow blocks availability checks without an authoritative site timezone', async ({ page }) => {
+test('EMP-02 EMP-03: Employee production flow blocks availability checks without an authoritative site timezone', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, { timeZone: null });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
-  await page.locator('#productionRoom').selectOption('room-a');
-  await page.locator('#productionDate').fill(futureDate());
-  await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEnd').fill('10:00');
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
 
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
 
   await expect(page.getByText(/keine gültige Zeitzone konfiguriert/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Anfrage absenden' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
   expect(fixture.availabilityChecks).toHaveLength(0);
   expect(fixture.writes).toHaveLength(0);
 });

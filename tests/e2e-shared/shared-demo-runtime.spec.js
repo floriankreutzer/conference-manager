@@ -291,18 +291,35 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('#productionDate').fill(businessWindow.date);
   await customerPage.locator('#productionStart').fill(businessWindow.start);
   await customerPage.locator('#productionEnd').fill(businessWindow.end);
-  await customerPage.locator('#productionRoom').selectOption({ index: 1 });
   await customerPage.locator('#productionInternal').fill('2');
   await customerPage.locator('#productionExternal').fill('0');
+  const guidedNext = customerPage.getByRole('button', { name: 'Weiter' });
+  if (await guidedNext.count()) {
+    await guidedNext.click();
+    await customerPage.locator('input[name="productionRoomChoice"]:enabled').first().check();
+    await expect(guidedNext).toBeDisabled();
+    await expectUiResponseStatus(
+      customerPage,
+      'POST',
+      '/api/v1/application/room-availability',
+      () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
+      200,
+    );
+    await expect(guidedNext).toBeEnabled();
+    for (let step = 3; step <= 6; step += 1) {
+      await guidedNext.click();
+    }
+  } else {
+    await customerPage.locator('#productionRoom').selectOption({ index: 1 });
+    await expectUiResponseStatus(
+      customerPage,
+      'POST',
+      '/api/v1/application/room-availability',
+      () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
+      200,
+    );
+  }
   const submitRequest = customerPage.getByRole('button', { name: 'Anfrage absenden' });
-  await expect(submitRequest).toBeDisabled();
-  await expectUiResponseStatus(
-    customerPage,
-    'POST',
-    '/api/v1/application/room-availability',
-    () => customerPage.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click(),
-    200,
-  );
   await expect(submitRequest).toBeEnabled();
   await expectUiResponseStatus(
     customerPage,
@@ -414,12 +431,20 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await followUpCard.getByRole('button', { name: 'Verlauf' }).click();
   const historyDialog = customerPage.getByRole('dialog', { name: 'Verlauf' });
   await expect(historyDialog).toBeVisible();
-  await expect(historyDialog.locator('p')).toHaveCount(3);
+  const restoredTimelineItems = historyDialog.locator('.request-timeline li');
+  if (await restoredTimelineItems.count()) {
+    await expect(restoredTimelineItems).toHaveCount(3);
+    await expect(historyDialog.getByText('Status geändert', { exact: true }).first()).toBeVisible();
+  } else {
+    await expect(historyDialog.locator('p')).toHaveCount(3);
+  }
   await historyDialog.getByRole('button', { name: 'Schließen' }).click();
 
   await followUpCard.getByRole('button', { name: 'Änderung bearbeiten' }).click();
   await expect(customerPage.locator('#productionTitle')).toHaveValue(REQUEST_TITLE);
   await customerPage.locator('#productionInternal').fill('3');
+  const resubmissionGuidedNext = customerPage.getByRole('button', { name: 'Weiter' });
+  if (await resubmissionGuidedNext.count()) await resubmissionGuidedNext.click();
   const [resubmissionAvailabilityRequest] = await Promise.all([
     customerPage.waitForRequest((request) => request.method() === 'POST'
       && new URL(request.url()).pathname === '/api/v1/application/room-availability'),
@@ -434,6 +459,11 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   expect(resubmissionAvailabilityRequest.postDataJSON()).toMatchObject({
     resubmissionRequestId: createdRequestId,
   });
+  if (await resubmissionGuidedNext.count()) {
+    for (let step = 3; step <= 6; step += 1) {
+      await resubmissionGuidedNext.click();
+    }
+  }
   await expectUiResponseStatus(
     customerPage,
     'POST',

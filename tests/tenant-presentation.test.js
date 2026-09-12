@@ -348,6 +348,7 @@ test('tenant localization supplies defaults while an explicit User language rema
   assert.equal(currency(), 'GBP');
   assert.equal(storage.getItem('conference_language_v1'), 'de');
   assert.match(formatMoney(1234.5), /£|GBP/);
+  assert.match(formatMoney(1234.5, 'CHF'), /CHF|Fr/);
 });
 
 test('production request business numbers follow the active locale', () => {

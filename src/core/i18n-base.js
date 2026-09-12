@@ -133,7 +133,12 @@ export function formatDateTime(value) {
 }
 
 export function formatTime(value) { return value || ''; }
-export function formatMoney(value) { return new Intl.NumberFormat(locale(), { style: 'currency', currency: tenantCurrency }).format(Number(value || 0)); }
+export function formatMoney(value, selectedCurrency = tenantCurrency) {
+  if (!SUPPORTED_CURRENCIES.has(selectedCurrency)) throw new TypeError('TENANT_LOCALIZATION_INVALID');
+  return new Intl.NumberFormat(locale(), {
+    style: 'currency', currency: selectedCurrency,
+  }).format(Number(value || 0));
+}
 export function formatNumber(value, options) { return new Intl.NumberFormat(locale(), options).format(Number(value || 0)); }
 
 document.documentElement.lang = currentLanguage;

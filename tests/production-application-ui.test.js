@@ -22,6 +22,7 @@ import {
 import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
 
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
+const EMPLOYEE_HISTORY_SOURCE = new URL('../src/employee/server-request-history.js', import.meta.url);
 const MANAGER_SOURCE = new URL('../src/manager/production-application.js', import.meta.url);
 const APP_SOURCE = new URL('../src/app.js', import.meta.url);
 const CONTEXT_SOURCE = new URL('../src/platform/application-context.js', import.meta.url);
@@ -85,11 +86,14 @@ test('Employee request timezone lookup safely handles an unresolved Room context
 });
 
 test('server history operation codes are localized on Employee and Manager surfaces', async () => {
-  const [employee, manager] = await Promise.all([source(EMPLOYEE_SOURCE), source(MANAGER_SOURCE)]);
+  const [employee, employeeHistory, manager] = await Promise.all([
+    source(EMPLOYEE_SOURCE), source(EMPLOYEE_HISTORY_SOURCE), source(MANAGER_SOURCE),
+  ]);
 
-  assert.match(employee, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
+  assert.match(employee, /renderServerRequestHistory\(entries\)/);
+  assert.match(employeeHistory, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
   assert.match(manager, /t\(`timeline\.operation\.\$\{entry\.operation\}`\)/);
-  assert.doesNotMatch(employee, /\$\{entry\.operation\} ·/);
+  assert.doesNotMatch(employeeHistory, /\$\{entry\.operation\} ·/);
   assert.doesNotMatch(manager, /\$\{entry\.operation\} ·/);
 });
 
@@ -164,6 +168,23 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /allocationRows\.push\([^;]+;\s*scheduleDraftSave\(\);/);
   assert.match(employee, /roomSupportsParticipants\([\s\S]*requestCatalog\.bookingPolicy\?\.rules\?\.maximumParticipants/);
   assert.match(employee, /if \(!sourceRequest && !restoredDraft && !allocationRows\.length/);
+});
+
+test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: server-backed Employee editor restores the six-step presentation without changing authority', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+
+  assert.match(employee, /const stepLabels = \[[\s\S]*'request\.step\.review'/);
+  assert.match(employee, /dataset: \{ stepPanel: '6' \}/);
+  assert.match(employee, /className: 'ux-mobile-progress'/);
+  assert.match(employee, /className: 'participant-total'/);
+  assert.match(employee, /className: 'selection-grid'/);
+  assert.match(employee, /const renderReview = \(\) =>/);
+  assert.match(employee, /key !== null && key === verifiedAvailabilityKey/);
+  assert.match(employee, /String\(value\)\.trim\(\) === ''/);
+  assert.match(employee, /next\.disabled = activeStep === 2 && !isAvailabilityVerified\(\)/);
+  assert.match(employee, /type: 'radio',[\s\S]*name: 'productionRoomChoice'/);
+  assert.doesNotMatch(employee, /const room = el\('select'\)/);
+  assert.doesNotMatch(employee, /t\('settings\.catalogue\.title'\)/);
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
@@ -436,6 +457,8 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(roomContextLoader, /room && currentRoomContext\?\.site\?\.id === room\.siteId/);
   assert.match(employee, /persistence\.transitionRequest/);
   assert.match(employee, /persistence\.resubmitRequest/);
+  assert.match(employee, /currentRequest\.version > sourceRequest\.version/);
+  assert.match(employee, /entry\.price\.currency/);
   assert.match(employee, /persistence\.loadRequestHistory/);
   assert.match(employee, /repeatRequestProjection/);
   assert.match(employee, /printWindow\.print/);
@@ -532,6 +555,26 @@ test('production workflow refreshes restore focus to the mutated request card', 
   assert.match(manager, /productionRequestId[\s\S]*\.focus\(\)/);
 });
 
+test('Employee Requests restores the server-backed list and calendar presentation contract', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  assert.match(employee, /projectServerRequestCalendar\(\s*requests, nextCatalog, roomContexts/);
+  assert.match(employee, /requests\.list[\s\S]*requests\.calendar/);
+  assert.match(employee, /aria-pressed[\s\S]*requestDisplay === 'calendar'/);
+  assert.match(employee, /renderServerRequestCalendar\(\{/);
+  assert.match(employee, /onSelect:[\s\S]*showDisplay\('list'\)[\s\S]*productionRequestId[\s\S]*\.focus\(\)/);
+});
+
+test('Employee Request history uses the localized server-backed timeline renderer', async () => {
+  const [employee, history] = await Promise.all([
+    source(EMPLOYEE_SOURCE), source(EMPLOYEE_HISTORY_SOURCE),
+  ]);
+  assert.match(employee, /renderServerRequestHistory\(entries\)/);
+  assert.match(employee, /dialog\.addEventListener\('close',[\s\S]*isCurrentInteraction\(\)[\s\S]*control\.focus\(\)/);
+  assert.match(history, /className: 'request-timeline'/);
+  assert.match(history, /el\('ol'\)/);
+  assert.match(history, /status\.\$\{entry\.request\.status\}/);
+});
+
 test('Employee editor and proposal lifecycles reject detached or duplicate async work', async () => {
   const employee = await source(EMPLOYEE_SOURCE);
   const editor = employee.slice(
@@ -546,6 +589,7 @@ test('Employee editor and proposal lifecycles reject detached or duplicate async
   assert.match(editor, /requestCatalog = await persistence\.loadCatalog\(\);\s*if \(!isCurrentEditor\(\)\) return;\s*catalog = requestCatalog;/);
   assert.match(editor, /if \(!draftDirty \|\| !isCurrentEditor\(\)\) return;/);
   assert.match(editor, /await persistence\.createRequest\([\s\S]*if \(!isCurrentEditor\(\)\) return;/);
+  assert.match(editor, /catch \(error\) \{\s*if \(!isCurrentEditor\(\)\) return;\s*invalidateAvailability\(\);/);
   assert.match(editor, /compositionDraft\(sourceRequest, requestCatalog, overrides\)/);
   assert.match(requests, /reserveRequestMutation\(target\.id, 'proposal'\)/);
   assert.match(requests, /mutationInFlight: \(\) => requestMutations\.has\(request\.id\)/);
