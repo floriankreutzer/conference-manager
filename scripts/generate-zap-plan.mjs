@@ -39,6 +39,7 @@ export const generateZapAutomationPlan = ({ target, summaryPolicyRows }) => {
     '  type: passiveScan-config',
     '- parameters:',
     '    maxDuration: 1',
+    '    subtreeOnly: true',
     `    url: ${normalizedTarget}`,
     '  type: spider',
     '- parameters:',

@@ -44,7 +44,9 @@ filter or rewrite the report.
 An always-run repository validator independently requires the fresh raw report, exact HTTPS target
 metadata and an unfiltered instance for every finding, then binds each instance to one reviewed
 alert reference, URL, method and maximum risk. It also binds the generated Automation Framework
-environment, scan/wait parameters, ordered summary rules and three post-scan report targets. The
+environment, target subtree, scan/wait parameters, ordered summary rules and three post-scan report
+targets. Before the third-party container starts, the workflow recreates and path-verifies the
+isolated evidence mount. The
 projection's plugin set and URL patterns must be an exact derivation of the alert-reference policy.
 The third-party scanner container receives only a dedicated plan/report directory, never the
 checked-out repository tree.

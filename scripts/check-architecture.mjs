@@ -420,6 +420,12 @@ if (!/--volume "\$GITHUB_WORKSPACE\/zap-evidence:\/zap\/wrk\/:rw"/.test(dast)
     || /--volume "\$GITHUB_WORKSPACE:\/zap\/wrk\/:rw"/.test(dast)) {
   fail('.github/workflows/dast.yml: the third-party ZAP container may mount only its isolated evidence directory.');
 }
+if (!/rm -rf -- zap-evidence[\s\S]*install -d -m 0777 zap-evidence/.test(dast)
+    || !/test ! -L zap-evidence/.test(dast)
+    || !/realpath -- "\$GITHUB_WORKSPACE"/.test(dast)
+    || !/test "\$actual_evidence_path" = "\$expected_evidence_path"/.test(dast)) {
+  fail('.github/workflows/dast.yml: the evidence mount must be recreated and verified without following symlinks.');
+}
 if (/continue-on-error:/.test(dast)) {
   fail('.github/workflows/dast.yml: the ZAP action and exact-alert verifier must remain fail-closed.');
 }
@@ -429,6 +435,7 @@ if (!/group:\s*zap-baseline-\$\{\{ github[.]event_name \}\}-\$\{\{ github[.]ref 
 for (const proof of [
   'scripts/generate-zap-plan.mjs',
   'scripts/validate-zap-report.mjs',
+  'rm -rf -- zap-evidence',
   'install -d -m 0777 zap-evidence',
   'if: always()',
   'ZAP_POLICY_PATH: ${{ matrix.exact_policy }}',

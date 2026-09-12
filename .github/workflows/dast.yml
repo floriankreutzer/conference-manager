@@ -98,12 +98,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf -- zap-evidence
           install -d -m 0777 zap-evidence
-          rm -f \
-            zap-evidence/report_html.html \
-            zap-evidence/report_json.json \
-            zap-evidence/report_md.md \
-            zap-evidence/zap.yaml
+          test ! -L zap-evidence
+          expected_evidence_path="$(realpath -- "$GITHUB_WORKSPACE")/zap-evidence"
+          actual_evidence_path="$(realpath -- zap-evidence)"
+          test "$actual_evidence_path" = "$expected_evidence_path"
           echo "ZAP_SCAN_STARTED_AT_MS=$(date -u +%s%3N)" >> "$GITHUB_ENV"
           node scripts/generate-zap-plan.mjs
           touch \

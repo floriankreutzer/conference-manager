@@ -288,7 +288,9 @@ Every exact-policy row encodes one canonical HTTPS URL, and each map URL express
 deterministic finite union of those URLs byte for byte. The map is not a ZAP filter and does not
 rewrite the generated report. The always-run validator binds the fresh raw report, exact HTTPS site
 metadata and exact ordered seven-job Automation Framework plan to reviewed alert references, URLs,
-methods, maximum risks and summary rule IDs. The ZAP
+methods, maximum risks and summary rule IDs. The plan constrains the spider to the exact target
+subtree, and the workflow recreates plus path-verifies the isolated evidence directory before it is
+mounted into ZAP. The ZAP
 crawler's missing Fetch Metadata request headers are classified only for the four exact `90005-*`
 references at
 reviewed URLs. A sibling reference, changed URL, risk escalation, filtered/wrong-origin report,

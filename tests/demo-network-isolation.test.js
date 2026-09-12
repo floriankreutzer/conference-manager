@@ -89,7 +89,11 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.match(dast, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
   assert.match(dast, /ZAP_POLICY_PATH: \$\{\{ matrix\.exact_policy \}\}/);
   assert.match(dast, /ZAP_SUMMARY_POLICY_PATH: \$\{\{ matrix\.summary_rules \}\}/);
+  assert.match(dast, /rm -rf -- zap-evidence[\s\S]*install -d -m 0777 zap-evidence/);
   assert.match(dast, /install -d -m 0777 zap-evidence/);
+  assert.match(dast, /test ! -L zap-evidence/);
+  assert.match(dast, /realpath -- "\$GITHUB_WORKSPACE"/);
+  assert.match(dast, /test "\$actual_evidence_path" = "\$expected_evidence_path"/);
   assert.match(dast, /if: always\(\)[\s\S]*node scripts\/validate-zap-report[.]mjs/);
   assert.match(planGenerator, /maxAlertsPerRule: 0/);
   assert.doesNotMatch(planGenerator, /maxAlertsPerRule: 10/);
@@ -159,6 +163,7 @@ const automationPlanFixture = ({
   const spiderJob = [
     '- parameters:',
     '    maxDuration: 1',
+    '    subtreeOnly: true',
     `    url: ${normalizedTarget}`,
     '  type: spider',
   ];
@@ -390,6 +395,18 @@ test('exact ZAP policy accepts only the reviewed alert reference, URL and risk',
   assert.throws(
     () => validateFixture(reportFixture(), { automationPlan: truncatedSpiderPlan }),
     /spider target/,
+  );
+
+  const unboundedSpiderPlan = exactPolicyFixture().plan.replace('    subtreeOnly: true\n', '');
+  assert.throws(
+    () => validateFixture(reportFixture(), { automationPlan: unboundedSpiderPlan }),
+    /subtree boundary/,
+  );
+
+  const disabledSubtreePlan = exactPolicyFixture().plan.replace('    subtreeOnly: true', '    subtreeOnly: false');
+  assert.throws(
+    () => validateFixture(reportFixture(), { automationPlan: disabledSubtreePlan }),
+    /subtree boundary/,
   );
 
   const truncatedWaitPlan = exactPolicyFixture().plan.replace(

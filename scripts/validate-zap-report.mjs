@@ -242,10 +242,11 @@ export const validateAutomationPlan = (source, target, summaryPolicyRows) => {
   }
 
   const spiderParameters = jobParameters(typedJobs[1].job, 'spider');
-  if (Object.keys(spiderParameters).length !== 2
+  if (Object.keys(spiderParameters).length !== 3
       || spiderParameters.maxDuration !== '1'
+      || spiderParameters.subtreeOnly !== 'true'
       || spiderParameters.url !== normalizedTarget) {
-    throw new Error('The generated ZAP spider target does not match the scan target.');
+    throw new Error('The generated ZAP spider target or subtree boundary does not match the scan target.');
   }
 
   const passiveWaitParameters = jobParameters(typedJobs[2].job, 'passiveScan-wait');
