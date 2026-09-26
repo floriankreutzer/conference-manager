@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: a25ff6c4372d18bfa5fd8c0cd7bc3c7a17d7ed07
+          ref: c0aaff74432fd66f6cc4aebc8f09525ba75455a5
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN }}
           persist-credentials: false
           path: api
@@ -122,7 +122,7 @@ jobs:
         run: |
           DATABASE_URL="$DEMO_MIGRATION_DATABASE_URL" DATABASE_SSL=disable npm run db:migrate
           npm run demo:db:migrate
-          npm run demo:db:reset -- --confirm-seed-version=saas-3.5-shared-demo-v1
+          npm run demo:db:reset -- --confirm-seed-version=saas-3.6-shared-demo-v5
       - name: Start separate Customer and Platform Demo APIs
         working-directory: api
         run: |
@@ -160,6 +160,8 @@ jobs:
           exit 1
       - name: Run shared PostgreSQL browser journey once
         working-directory: frontend
+        env:
+          DEMO_SEED_VERSION: saas-3.6-shared-demo-v5
         run: npm run test:e2e:shared-demo
       - name: Stop Demo API processes
         if: always()
