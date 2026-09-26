@@ -274,15 +274,18 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const organizationForm = customerPage.locator('[data-tenant-settings-form="organization"]');
   await expect(organizationForm.locator('#tenant-organization-display-name')).toHaveValue(BASELINE_NAME_B);
   await organizationForm.locator('#tenant-organization-display-name').fill(MUTATED_NAME_B);
-  const organizationUpdate = await expectUiResponseStatus(
+  await expectUiResponseStatus(
     customerPage,
     'PUT',
     '/api/v1/tenant/settings/organization',
     () => organizationForm.getByRole('button', { name: /speichern/i }).click(),
     200,
   );
-  expect((await organizationUpdate.json()).organization.displayName).toBe(MUTATED_NAME_B);
   await expect(customerPage.locator('#brandTitle')).toHaveText(MUTATED_NAME_B);
+  const persistedOrganization = await customerContext.request.get(
+    `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/organization`,
+  );
+  expect((await expectStatus(persistedOrganization, 200)).organization.displayName).toBe(MUTATED_NAME_B);
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
   expect(customerSession.tenant).toEqual({ id: TENANT_B, status: 'active' });
   const requestOwnerUserId = customerSession.user.id;
