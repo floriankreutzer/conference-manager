@@ -61,7 +61,14 @@ main,
 
 .manager-workspace-panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--manager-control-gap);
+}
+
+.manager-workspace-panel > *,
+.manager-workspace-panel [data-manager-business-settings-root] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .manager-data-scroll {

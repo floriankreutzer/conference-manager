@@ -4399,6 +4399,13 @@ test('MGR-01 MGR-02 MGR-03 MGR-11 MGR-12 MGR-14: restored Manager cockpit keeps 
           className: typeof element.className === 'string' ? element.className : '',
           width: Math.ceil(element.getBoundingClientRect().width),
           right: Math.ceil(element.getBoundingClientRect().right),
+          ancestors: [...(function* parents() {
+            let parent = element.parentElement;
+            while (parent && parent !== document.body) {
+              yield `${parent.tagName.toLowerCase()}${parent.id ? `#${parent.id}` : ''}${parent.classList.length ? `.${[...parent.classList].join('.')}` : ''}:${Math.ceil(parent.getBoundingClientRect().width)}`;
+              parent = parent.parentElement;
+            }
+          }())].slice(0, 7),
         })),
     }));
     expect(overflow.documentWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.viewportWidth);

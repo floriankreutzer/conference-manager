@@ -21,6 +21,7 @@ test('production onboarding classifies safe server failures into recovery-orient
     [error('HTTP_503', { serverCode: 'MICROSOFT365_ROOM_DISCOVERY_UNAVAILABLE' }), 'tenantAdmin.onboarding.error.providerUnavailable'],
     [error('HTTP_503', { serverCode: 'MICROSOFT365_ROOM_MAPPING_UNAVAILABLE' }), 'tenantAdmin.onboarding.error.providerUnavailable'],
     [error('HTTP_409', { serverCode: 'MICROSOFT365_CONNECTION_STALE' }), 'tenantAdmin.onboarding.error.reconnect'],
+    [error('HTTP_409', { serverCode: 'ONBOARDING_UNAVAILABLE' }), 'tenantAdmin.onboarding.error.adminRights'],
     [error('HTTP_400', { serverCode: 'VALIDATION_FAILED' }), 'tenantAdmin.onboarding.error.validation'],
   ];
   for (const [failure, expected] of cases) {

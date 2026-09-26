@@ -59,11 +59,12 @@ export function onboardingErrorKey(error, operation) {
   if (containsAny(codes, PERMISSION_CODES)) return 'tenantAdmin.onboarding.error.permissionMissing';
   if (containsAny(codes, THROTTLED_CODES)) return 'tenantAdmin.onboarding.error.throttled';
   if (containsAny(codes, UNAVAILABLE_CODES)) return 'tenantAdmin.onboarding.error.providerUnavailable';
+  if (containsAny(codes, ADMIN_CODES)) return 'tenantAdmin.onboarding.error.adminRights';
   if (containsAny(codes, CONFLICT_CODES)) return 'tenantAdmin.onboarding.error.reconnect';
   if (containsAny(codes, SESSION_CODES) || codes.has('HTTP_401')) {
     return 'tenantAdmin.onboarding.error.session';
   }
-  if (containsAny(codes, ADMIN_CODES) || codes.has('HTTP_403')) {
+  if (codes.has('HTTP_403')) {
     return 'tenantAdmin.onboarding.error.adminRights';
   }
   if (codes.has('HTTP_429')) return 'tenantAdmin.onboarding.error.throttled';
