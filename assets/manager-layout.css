@@ -71,6 +71,14 @@ main,
   max-inline-size: 100%;
 }
 
+.manager-surface [data-manager-business-settings-root] .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.manager-surface [data-manager-business-settings-root] .field :where(input, select, textarea) {
+  min-inline-size: 0;
+}
+
 .manager-data-scroll {
   min-inline-size: 0;
   max-inline-size: 100%;

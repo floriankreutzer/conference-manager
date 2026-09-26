@@ -2,30 +2,37 @@
 
 ## Current candidate state
 
-The latest committed local frontend executable candidate
-`ead50a7020830b2a7a12250a173a3565308f8213` contains the Equipment,
+The last fully browser-executed frontend draft PR #201 head
+`5b47eb6bd544dac6fbfdebc14768f4fa005f4f96` contains the Equipment,
 persisted-attribution and Guest Information consumers, response binding, visible-version `If-Match`
 transition requests, central authority/branding invalidation, known-label Guest correction and a
 test-only REG direct-entry/reload/role-loss and dual-role/Manager-absence successor.
-API candidate `e71b8e21f5f2a5fb2bbaa2c9806efa4988e27832` contains schema 38, migrations
+Its successor includes the nested Manager form CSS correction and this evidence update;
+the final frontend SHA must be taken from PR #201 after CI completes.
+API draft PR #78 head `8c40290ae984433b8a69a7ef13ce842dea64c50e` contains schema 38, migrations
 035-038, Equipment/attribution/Guest contracts, server-side transition precondition, fail-closed
 reconciliation and both H-040 provider-event fences with canonical Request mutation lock order.
 H-035 now has the accepted structured-content product direction in ADR-012; its implementation
 and risk/evidence gates remain open.
 
-This is a local candidate state, not a merged, remotely validated or deployed release. The frontend
-CI workflow still selects historical API `550cc0f`; the API Render manifest selects historical
-frontend `af4d877`; Hosted Acceptance targets another older deployed pair. No remote CI, protected
-review, PostgreSQL migration result, deployment identity or human acceptance for the current pair is
-recorded. Local candidate commits are not publication evidence; pushing, merging, migrating and
-publishing require operator authorization and protected workflows.
+These are synchronized draft PR candidates, not merged or deployed release refs. Frontend
+CI selects API `8c40290a`; API PR #78's Render manifest still pins older frontend `7b17a2c`.
+API exact-pair CI `36265393728` passed quality, PostgreSQL 18 migration/persistence/race
+tests and both shared-Demo browser engines on that run's pinned frontend; frontend
+CI `36269943540` passed quality/shared Demo and 260/262 Chromium/WebKit cases.
+The two failures are one mirrored Manager 320px form-reflow issue; a focused CSS
+correction is pending exact-head CI.
+Neither PR has a protected review or human release acceptance. Render Customer and
+Platform Demo still run API `62f8e5857dffefa789d1db573ecfd1222b188246` via live deploys
+`dep-daiq043m8hqs73driar0` and `dep-daipqqvqj5pc73b3t9vg` from 12 September 2026.
+No deployed identity for the candidate pair has been recorded.
 
-Frontend `ead50a7` passed local `npm run check` with 457/457 tests and dependency audit with zero
-vulnerabilities. Playwright discovered 260 Chromium desktop and WebKit mobile cases in six files,
-but this host has neither browser executable installed, so none is a browser pass. On API `e71b8e2`,
-local `npm run check` passed 786/786, Customer DAST and Platform DAST 16/16; audit reported zero
-vulnerabilities. The PostgreSQL 18 migration/up/down/reapply and H-040 two-client race suites were
-not executed locally.
+Frontend `5b47eb6b` passed local `npm run check` with 458/458 tests. Its GitHub CI
+executed 262 Chromium desktop/WebKit mobile cases: 260 passed, two failed from the
+same nested Manager form overflow. A further CSS correction needs the full browser matrix.
+API `8c40290a` passed local `npm run check` (788/788), audit with zero
+vulnerabilities and PostgreSQL 18 two-client race/migration checks in CI
+`36265393728`. None of these results proves H-034/H-035 or deployment acceptance.
 
 EMP-03 is incomplete: the API exposes opaque Room asset identifiers, while the frontend renders
 synthetic schematics and deliberately performs no asset request. H-034 in the hardening register must
@@ -73,16 +80,17 @@ if status and reason match: without a persisted operation identity that response
 different actor. Only an authorized command against the exact current terminal version can read
 the already-target outcome; a Confirmed retry never falls back to Employee read permission.
 H-040 is a separate final-confirmation race: a losing concurrent confirmation could compensate
-a deterministic provider event that the winner was about to persist. API `e71b8e2` fences both
+a deterministic provider event that the winner was about to persist. API `8c40290a` fences both
 that compensation path and the write-disabled pre-confirmation cleanup with durable Request
 version/status and provider-reference state, and canonicalizes the Revision-Watermark→Tenant-Audit
-lock order across Request mutations. Held local tests passed; the committed two-client tests have
-not run on PostgreSQL 18, so provider-race and lock-order release evidence is still missing.
+lock order across Request mutations. The committed two-client tests ran on PostgreSQL 18 in
+API CI `36265393728`; repeat on the final reviewed head after H-034/H-035 migrations.
 
 ## Ordered release handoff
 
-1. Verify both H-040 provider-event races and tenant-wide lock-order cases in PostgreSQL 18;
-   implement H-034/H-035 under ADR-012, then settle the exact final frontend
+1. Preserve the passing H-040 PostgreSQL 18 evidence and implement H-034/H-035 under
+   ADR-012; repeat migration, provider-event race and lock-order tests on the final API
+   schema, then settle the exact final frontend
    and API SHAs. Preserve the already-integrated compatibility reader while concurrent security
    and acceptance fixes land.
 2. Run protected exact-head repository gates for both candidates. Record an ordered release pair
@@ -115,7 +123,7 @@ Until every gate is green on the integrated and deployed final heads, the public
 | Public release | Protected merges, explicit publication/migration approval, Hosted Acceptance, live journeys and exact three-surface DAST |
 
 Current traceability identifies partial REG-01 authorized Tenant Admin, REG-02 Manager-absence and
-REG-03 dual-role browser journeys; it includes newly discovered but not executed Tenant Admin
+REG-03 dual-role browser journeys; the PR browser jobs executed Tenant Admin
 direct-entry/reload, Demo role-loss, Production reload role-loss and dual-role/Manager-absence
 tests. It does not yet close all deep-entry/reload cases, live Production stale-capability removal,
 the complete Manager report/Room-price absence matrix or same-Tenant non-owner Request access.

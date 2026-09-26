@@ -74,35 +74,38 @@ ADR-012 (`ADR-012-SAAS36-ROOM-MEDIA-AND-GUEST-PUBLIC-CONTENT.md`) accepts the H-
 product direction. The managed-media and structured-public-content implementations and
 their operational, security and acceptance evidence remain open.
 
-The branch-progress wording in the earlier status cells is historical. The latest committed local
-frontend executable candidate is `ead50a7020830b2a7a12250a173a3565308f8213` (followed by
-ADR-012 documentation-only commits `7dc5207` and `54c7d24`). It integrates
-the prior Employee/Manager/Equipment/attribution/Guest work, H-036 response binding, H-037 global
-authority/branding invalidation and the H-035 known-label correction, with test-only
-REG direct-entry/reload/role-loss and dual-role/Manager-absence browser coverage. The latest committed local API
-candidate is `fe9ef0b` (schema 38), including H-038/H-039/H-040,
-the symmetric known-label correction and a bounded H-034 image-decoding/re-encoding adapter.
+The branch-progress wording in the earlier status cells is historical. The last fully
+browser-executed frontend draft PR #201 head was `5b47eb6bd544dac6fbfdebc14768f4fa005f4f96`;
+its successor includes the nested-form correction and this evidence update. API draft PR #78 points to
+`8c40290ae984433b8a69a7ef13ce842dea64c50e`. The frontend integrates Employee/Manager,
+Equipment, attribution, Guest, H-036 response binding and H-037 authority invalidation.
+The API candidate includes schema 38, H-038/H-039/H-040, known-label correction and
+a bounded H-034 image-decoding/re-encoding adapter.
 The adapter accepts PNG/JPEG/WebP up to 2 MiB and 4 megapixels, rejects format mismatch
 and animation, and emits metadata-free WebP. API `npm run check` (788/788 tests) and
-`npm run audit` (0 vulnerabilities) passed locally on 2026-09-26. Asset persistence,
+`npm run audit` (0 vulnerabilities) passed locally on 2026-09-26. API exact-pair CI
+`36265393728` passed its quality, PostgreSQL 18 migration/persistence/concurrency and
+shared-Demo browser jobs against the pinned frontend candidate of that run. Asset persistence,
 Tenant quota, attachment authorization, delivery and real frontend rendering do not yet exist.
-These are local candidates, not final merged or deployed
-release references.
+These are draft PR candidates, not final merged or deployed release references.
 
-- The local candidates contain the restored Employee, Manager, Equipment, attribution and Guest
+- The PR candidates contain the restored Employee, Manager, Equipment, attribution and Guest
   Information implementations, but H-034 remains an unresolved repository-controlled EMP-03 gap.
-- H-033/H-036/H-037/H-038/H-039/H-040 and known H-035 label bypasses are corrected locally, but the
-  two-client PostgreSQL tests have not run. H-035 remains open for the accepted structured
-  public-content implementation; no finite label screen proves unlabeled
-  secrets absent. None has received exact paired-head remote CI, protected review or integration evidence.
-- The frontend workflow still pins historical API `550cc0f`, while API `e71b8e2` still pins historical
-  frontend `af4d877` in its Render manifest. Hosted acceptance also targets an older deployed pair.
-  There is therefore no CI, deployment or acceptance result for the current pair. The release must
+- H-033/H-036/H-037/H-038/H-039/H-040 and known H-035 label bypasses have candidate fixes;
+  the API two-client PostgreSQL 18 tests ran in CI `36265393728`, but H-035 remains open for
+  structured public values and inherited-field risk acceptance. No finite label scanner proves
+  unlabeled secrets absent. Protected review, final deployment and human acceptance remain absent.
+- FE CI `36269943540` passed quality/shared PostgreSQL Demo but failed two of 262
+  Chromium/WebKit cases (one mirrored Manager 320px form-reflow cause). The subsequent
+  frontend candidate constrains the nested Manager form track; exact-head CI is pending. API PR #78's
+  `render.yaml` still pins older frontend `7b17a2c`; a passing CI pair is not a deployed pair.
+  Render Customer and Platform Demo are both still live on API `62f8e5857dffefa789d1db573ecfd1222b188246`
+  (deploys `dep-daiq043m8hqs73driar0` and `dep-daipqqvqj5pc73b3t9vg`, 12 September 2026).
+  The release must
   use an ordered compatibility handoff and record the exact pair through workflow inputs and
   post-deployment identity; reciprocal commit-SHA pins cannot be fabricated as a hash cycle.
-- Local candidate commits are not publication evidence. Pushing, opening or updating pull requests,
-  merging, deploying Pages/Render and applying Production migrations require operator authorization
-  and the protected workflows.
+- Draft PR publication and green candidate jobs are not release evidence. Protected review,
+  merges, deployments and Production migrations must follow the configured release workflows.
 - The public readiness markers remain `in-validation`; #182, #170 and the SaaS 3.6 milestone remain
   open until H-034/H-035 and all outstanding H-040 external evidence, exact-head, deployment and
   human-acceptance gates below are complete.
@@ -111,21 +114,20 @@ release references.
 
 | Candidate | Local state | Evidence still required |
 | --- | --- | --- |
-| Frontend | Committed executable `ead50a7`; `npm run check` passed 457/457, audit 0 vulnerabilities; 260 browser cases discovered across six files, not executed locally | Remote quality, CodeQL, dependency and secret gates; real Chromium desktop and WebKit mobile; paired Shared Demo |
-| API | Committed `e71b8e2`, schema 38 with migrations 035-038; `npm run check` passed 786/786 including Customer DAST and Platform 16/16; audit found 0 vulnerabilities | Remote quality, dependency and secret gates; PostgreSQL 18 migration/up/down/rollback and H-040 two-client races; paired Shared Demo in both browsers |
-| Paired release | Historical pins only; no deployed identity for the current pair | Reviewed compatibility-first handoff, exact workflow-dispatch/post-merge refs, protected review/merge, Hosted Acceptance and live three-surface DAST |
+| Frontend | Draft PR #201; preceding executable head `5b47eb6b` had exact-pair CI `36269943540`: quality/shared Demo green, 260/262 browser cases passed; nested Manager form correction pending CI | Green exact-head full browser matrix and protected review; H-034/H-035 real UI |
+| API | Draft PR #78 `8c40290a`, schema 38; exact-pair CI `36265393728` passed quality, PostgreSQL 18 and shared-Demo browsers | H-034/H-035 implementation with new database/browser evidence, protected review and deployment |
+| Paired release | Immutable CI pair available; live Customer/Platform Demo still on API `62f8e585` from 12 September | Reviewed compatibility-first handoff, exact deployment identities, protected review/merge, Hosted Acceptance and live three-surface DAST |
 | Product acceptance | Readiness is `in-validation` | Implement accepted ADR-012 managed media and structured public values; named human #182 acceptance for keyboard/focus, 200% reflow, responsive states, dialogs, print and real Room media |
 
-Local Node checks and Playwright discovery are useful candidate diagnostics only. The local host has
-no installed Chromium or WebKit executable, so the discovered cases were not browser-executed.
-Discovery is not a browser pass, the API's PostgreSQL-free local test run is not migration evidence,
-and neither can replace remote exact-head gates or human acceptance. Record the final documentation
-successor SHA and its executed remote results before integration.
+Local Node checks remain candidate diagnostics. Chromium/WebKit and PostgreSQL 18 evidence above
+is limited to the exact named CI runs; it cannot validate newer heads, missing product contracts,
+actual Render deployments or human acceptance. Record the final documentation successor SHA
+and its executed remote results before integration.
 
 The REG-01/02/03 browser titles now identify existing authorized Tenant Admin, Manager-absence and
 dual-role journeys. `e3d55a5` adds direct Tenant Admin entry, reload and Demo role-loss coverage;
-`ead50a7` adds Production reload role-loss and dual-role/Manager-absence checks. These cases were
-discovered but not browser-executed. Residual role-gate evidence is still required for other
+`ead50a7` adds Production reload role-loss and dual-role/Manager-absence checks. These cases ran
+on the prior PR head in both browser engines. Residual role-gate evidence is still required for other
 direct/deep entry and reload, live stale-capability removal after a Production role change, the
 complete Manager report/Room-price absence matrix and same-Tenant non-owner Request access.
 Backend authorization negatives remain complementary and do not substitute for those browser outcomes.
@@ -133,7 +135,7 @@ Backend authorization negatives remain complementary and do not substitute for t
 ## Historical scanner and CI evidence (superseded for current candidates)
 
 The exact results below remain useful audit history for the SHAs they name. They do not validate
-frontend `ead50a7`, its documentation successor, API `e71b8e2` or their pairing.
+the final frontend documentation successor, API `8c40290a` or their pairing.
 
 ### Historical frontend executable candidate `de3dd11404ee5ebab5252b3b98e957b091827651`
 
