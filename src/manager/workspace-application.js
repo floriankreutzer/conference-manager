@@ -21,7 +21,7 @@ export function createManagerWorkspaceApplication({
     persistence,
     requestMutations,
     onAuthorityFailure,
-    onOpenBusinessSettings: (panel, invalidateAuthorityProjection) => {
+    onOpenBusinessSettings: (panel, invalidateAuthorityProjection, { focusHeading = false } = {}) => {
       const heading = el('header');
       const content = el('div');
       panel.replaceChildren(heading, content);
@@ -34,7 +34,7 @@ export function createManagerWorkspaceApplication({
         catalogue,
         onAuthorityFailure: invalidateAuthorityProjection,
       });
-      void businessSettings.renderManagerSettings();
+      void businessSettings.renderManagerSettings({ focusHeading });
     },
   });
 

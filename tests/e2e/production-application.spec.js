@@ -206,8 +206,8 @@ function publicRequest(value) {
   };
 }
 
-function appliedRequest(current, change) {
-  const request = {
+function appliedRequest(current, change, submittedRequest = null) {
+  const request = submittedRequest || {
     title: 'Updated conference', roomId: change.roomId, startsAt: change.startsAt, endsAt: change.endsAt,
     internalParticipants: change.internalParticipants, externalParticipants: change.externalParticipants,
     serviceIds: [], catering: { participantCount: 0, packageSelection: null, itemQuantities: [] },
@@ -224,8 +224,12 @@ function appliedRequest(current, change) {
     statusChangedAt: '2026-08-26T11:00:00.000Z', createdAt: current.createdAt ?? current.updatedAt,
     updatedAt: '2026-08-26T11:00:00.000Z',
     details: {
-      title: request.title, specialRequirements: null, dietaryRequirements: null,
-      serviceIds: [], catering: request.catering,
+      title: request.title,
+      specialRequirements: request.specialRequirements,
+      dietaryRequirements: request.dietaryRequirements,
+      serviceIds: request.serviceIds,
+      ...(Array.isArray(request.equipmentIds) ? { equipmentIds: request.equipmentIds } : {}),
+      catering: request.catering,
     },
     pricing: {
       currency: 'EUR', totalMinor: 0,
@@ -1213,7 +1217,7 @@ async function installProductionApplicationFixture(page, {
         updatedAt: '2026-08-26T10:00:00.000Z',
         baseRequestVersion: body.expectedVersion,
       };
-      const projection = appliedRequest(current, change);
+      const projection = appliedRequest(current, change, body.request);
       const compositionOnly = current.schemaVersion === 2
         && current.roomId === change.roomId
         && current.startsAt === change.startsAt
@@ -1752,8 +1756,8 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(review.getByText('Service host', { exact: true })).toBeVisible();
   await expect(review.getByText('Portable display', { exact: true })).toBeVisible();
   await expect(review.getByText('Workshop package · Standard', { exact: true })).toBeVisible();
-  await expect(review.getByText('Coffee × 3 · im Paket enthalten', { exact: true })).toBeVisible();
-  await expect(review.getByText('Cake × 2', { exact: true })).toBeVisible();
+  await expect(review.locator('dd').filter({ hasText: 'Coffee × 3 · im Paket enthalten' }))
+    .toContainText('Cake × 2');
   await expect(review.getByText('Vegetarian', { exact: true })).toBeVisible();
   await expect(review.getByText(/471100 · Operations: 100/)).toBeVisible();
   await expect(review.getByText(/68,50\s*€/)).toBeVisible();
@@ -2087,6 +2091,8 @@ test('Employee reconciles one held cancellation after cross-navigation from pre-
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="requests"]').click();
   await page.getByRole('button', { name: 'Anfrage stornieren' }).click();
+  await page.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' })
+    .getByRole('button', { name: 'Anfrage stornieren' }).click();
   await expect.poll(() => fixture.writes.length).toBe(1);
 
   await page.locator('[data-view="welcome"]').click();
@@ -2711,7 +2717,8 @@ test('Conference Manager capability is independent and transitions server-owned 
   ]);
   await expect(managerTabs.getByRole('tab', { name: 'Anfragen & Buchungen' }))
     .toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('.dashboard-grid')).toContainText('Offene Anfragen');
+  await expect(page.locator('.dashboard-grid').getByRole('button', { name: '1 Handlungsbedarf' }))
+    .toBeVisible();
   await expect(page.getByRole('searchbox', { name: 'Suche' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Status' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Standort' })).toBeVisible();
@@ -4318,7 +4325,7 @@ test('production onboarding explains permissions and maps admin, revoked and Gra
         calendarsPermission: 'missing',
         reason: 'provider_unauthorized',
       },
-      connectError: { status: 403, code: 'FORBIDDEN' },
+      connectError: { status: 409, code: 'ONBOARDING_UNAVAILABLE' },
       verifyError: { status: 503, code: 'MICROSOFT365_CONNECTION_UNAVAILABLE' },
     },
   });

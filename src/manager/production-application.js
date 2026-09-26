@@ -511,7 +511,7 @@ export function createProductionManagerApplication({
           const openSettings = button(t('managerSettings.title'), { className: 'primary' });
           openSettings.disabled = onOpenBusinessSettings === null;
           openSettings.addEventListener('click', () => (
-            onOpenBusinessSettings?.(adminRoot, invalidateAuthorityProjection)
+            onOpenBusinessSettings?.(adminRoot, invalidateAuthorityProjection, { focusHeading: true })
           ));
           panel.append(el('h2', { text: t('manager.admin') }),
             el('p', { text: t('managerSettings.description') }),

@@ -846,7 +846,7 @@ test('all Customer authority failures delegate to one shell and context invalida
   assert.match(shell, /catch \(error\) \{\s*if \(invalidateAuthorityProjection\(error\)\) return;\s*logout\.disabled = false;/);
   assert.match(employee, /authoritySurfaces\.closeAll\(\);\s*if \(onAuthorityFailure\?\.\(error\)\) return true;\s*if \(!root\.isConnected\) return false;/);
   assert.match(manager, /authoritySurfaces\.closeAll\(\);\s*if \(onAuthorityFailure\?\.\(error\)\) return true;\s*if \(!root\.isConnected\) return false;/);
-  assert.match(workspace, /onOpenBusinessSettings: \(panel, invalidateAuthorityProjection\)[\s\S]*onAuthorityFailure: invalidateAuthorityProjection/);
+  assert.match(workspace, /onOpenBusinessSettings: \(panel, invalidateAuthorityProjection, \{ focusHeading = false \} = \{\}\)[\s\S]*onAuthorityFailure: invalidateAuthorityProjection/);
   assert.match(businessSettings, /function handleAuthorityFailure\(error\) \{\s*if \(!authorityFailureCode\(error\)\) return false;\s*onAuthorityFailure\(error\)/);
   assert.match(businessSettings, /catch \(error\) \{\s*if \(handleAuthorityFailure\(error\)\) return;\s*if \(!isCurrentRender/);
   assert.match(tenantRegistry, /authorityAwareAdapter[\s\S]*authorityFailureCode\(error\)[\s\S]*onAuthorityFailure\(error\)/);
