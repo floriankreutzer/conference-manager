@@ -72,11 +72,11 @@ export function createTenantPresentationRuntime({
   const refreshTimeout = normalizedRefreshTimeout(refreshTimeoutMs);
   const subscribers = new Set();
 
-  function apply(next) {
+  function apply(next, reason = 'refresh') {
     const changed = !sameSnapshot(current, next);
     current = next;
     applyLocalization(current);
-    if (changed) subscribers.forEach((subscriber) => subscriber(current));
+    if (changed) subscribers.forEach((subscriber) => subscriber(current, reason));
     return current;
   }
 
@@ -119,7 +119,7 @@ export function createTenantPresentationRuntime({
       if (next.revision < highestRevision) throw new TypeError('TENANT_PRESENTATION_MUTATION_STALE');
       refreshSequence += 1;
       highestRevision = next.revision;
-      return apply(next);
+      return apply(next, 'organization-write');
     },
     invalidateAuthority() {
       if (authorityInvalidated) return current;

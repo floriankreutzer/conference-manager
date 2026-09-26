@@ -293,6 +293,27 @@ test('Demo projection derives from the same organization revision and rejects un
   await assert.rejects(api.loadPresentation(), (error) => error.code === 'TENANT_PRESENTATION_RESPONSE_INVALID');
 });
 
+test('organization-write branding notification does not require replacing an in-flight editor', async () => {
+  const runtime = createTenantPresentationRuntime({ adapter: {
+    async loadPresentation() { return payload({ revision: 1 }); },
+  } });
+  const events = [];
+  runtime.subscribe((snapshot, reason) => events.push({ revision: snapshot.revision, reason }));
+  await runtime.refresh();
+  runtime.applyOrganizationResult({
+    revision: 2,
+    organization: {
+      displayName: 'After save',
+      presentation: { defaultLocale: 'de-DE', defaultCurrency: 'USD' },
+      branding: { logoAssetRef: MANAGED_BRAND_REFERENCE, accentToken: 'default' },
+    },
+  });
+  assert.deepEqual(events, [
+    { revision: 1, reason: 'refresh' },
+    { revision: 2, reason: 'organization-write' },
+  ]);
+});
+
 test('organization writes project success and await a bounded authoritative presentation reread', async () => {
   const calls = [];
   const organizationSettings = {

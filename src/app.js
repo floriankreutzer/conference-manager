@@ -8,6 +8,7 @@ import {
   createTenantCapabilitiesApi,
 } from './platform/tenant-admin-operations-api.js';
 import {
+  applyTenantPresentationToDocument,
   createTenantBookingPolicySettingsApi,
   createTenantCatalogueSettingsApi,
   createTenantCostAllocationSettingsApi,
@@ -173,8 +174,12 @@ export async function bootstrapCustomerApplication({
   }
 
   let presentationRenderFrame = 0;
-  tenantPresentation.subscribe(() => {
+  tenantPresentation.subscribe((snapshot, reason) => {
     if (!context.isAuthenticated()) return;
+    if (reason === 'organization-write') {
+      applyTenantPresentationToDocument(document, snapshot);
+      return;
+    }
     if (presentationRenderFrame) cancelAnimationFrame(presentationRenderFrame);
     presentationRenderFrame = requestAnimationFrame(() => {
       presentationRenderFrame = 0;

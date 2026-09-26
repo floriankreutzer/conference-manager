@@ -5,6 +5,7 @@ export { createTenantLocationSettingsApi } from './tenant-location-settings-api.
 export { createTenantOrganizationSettingsApi } from './tenant-organization-settings-api.js';
 export { createTenantPresentationApi } from './tenant-presentation-api.js';
 export {
+  applyTenantPresentationToDocument,
   createPresentationRefreshingOrganizationSettings,
   createTenantPresentationRuntime,
 } from './tenant-presentation-runtime.js';

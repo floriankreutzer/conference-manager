@@ -999,6 +999,7 @@ async function installProductionApplicationFixture(page, {
       const current = requests[0];
       const resubmitted = {
         ...current,
+        schemaVersion: body.schemaVersion,
         id: REQUEST_ID,
         roomId: body.request.roomId,
         startsAt: body.request.startsAt,
@@ -1014,8 +1015,17 @@ async function installProductionApplicationFixture(page, {
           specialRequirements: body.request.specialRequirements,
           dietaryRequirements: body.request.dietaryRequirements,
           serviceIds: body.request.serviceIds,
+          ...(body.schemaVersion === 3 ? { equipmentIds: body.request.equipmentIds } : {}),
           catering: body.request.catering,
         },
+        ...(body.schemaVersion === 3 ? {
+          pricing: {
+            ...current.pricing,
+            breakdown: { ...current.pricing.breakdown, equipmentMinor: 0 },
+            equipment: [],
+          },
+        } : {}),
+        configurationRevisions: body.request.configurationRevisions,
       };
       requests = [resubmitted];
       await route.fulfill({
@@ -4378,7 +4388,20 @@ test('MGR-01 MGR-02 MGR-03 MGR-11 MGR-12 MGR-14: restored Manager cockpit keeps 
   await expect(page.getByRole('tab', { name: 'Administration' })).toHaveAttribute('aria-selected', 'true');
   for (const viewport of [{ width: 320, height: 640 }, { width: 768, height: 1024 }, { width: 1280, height: 900 }]) {
     await page.setViewportSize(viewport);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const overflow = await page.evaluate(() => ({
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+      rightEdges: [...document.querySelectorAll('body *')]
+        .filter((element) => element.getBoundingClientRect().right > window.innerWidth + 1)
+        .slice(0, 12)
+        .map((element) => ({
+          tag: element.tagName,
+          className: typeof element.className === 'string' ? element.className : '',
+          width: Math.ceil(element.getBoundingClientRect().width),
+          right: Math.ceil(element.getBoundingClientRect().right),
+        })),
+    }));
+    expect(overflow.documentWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.viewportWidth);
   }
 });
 
@@ -4488,19 +4511,19 @@ test('EMP-13 MGR-04 MGR-06 MGR-08: API-03 attribution stays historical and a lat
   await expect(card).not.toContainText('Angefragt von: Conference Manager');
   await expect(card).toContainText('Änderung vorgeschlagen von: Historical Proposal Author');
   await expect(card).toContainText('Entschieden von: Historical Decision Owner');
-  await expect(card.getByRole('button', { name: 'Buchungsänderung vorschlagen' })).toBeEnabled();
+  await expect(card.getByRole('button', { name: 'Bestätigte Buchung ändern' })).toBeEnabled();
   await card.getByRole('button', { name: 'Verlauf' }).click();
   const history = page.getByRole('dialog', { name: 'Verlauf' });
   await expect(history).toContainText('Historical Audit Actor');
   await expect(history).not.toContainText('Conference Manager · Rolle bei der Aktion');
   await page.keyboard.press('Escape');
-  await card.getByRole('button', { name: 'Buchungsänderung vorschlagen' }).click();
-  await expect(page.getByRole('dialog', { name: 'Buchungsänderung vorschlagen' })).toBeVisible();
+  await card.getByRole('button', { name: 'Bestätigte Buchung ändern' }).click();
+  await expect(page.getByRole('dialog', { name: 'Bestätigte Buchung ändern' })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.locator('[data-view="requests"]').click();
   const employeeCard = page.locator(`[data-production-request-id="${REQUEST_ID}"]`);
   await expect(employeeCard).toContainText('Abgelehnt');
-  await expect(employeeCard.getByRole('button', { name: 'Buchungsänderung vorschlagen' })).toBeEnabled();
+  await expect(employeeCard.getByRole('button', { name: 'Bestätigte Buchung ändern' })).toBeEnabled();
 });
 
 test('MGR-05 MGR-07 MGR-13: Manager confirmation requires review and cancellation retains the request', async ({ page }) => {
