@@ -163,6 +163,10 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
     }
     if (path === '/api/v1/application/requests' && request.method() === 'GET') {
       if (context.tenantId === TENANT_B && initial.denyReadyTenantRequests) {
+        await route.fulfill({ status: 503, json: { error: { code: 'DEPENDENCY_UNAVAILABLE' } } });
+        return;
+      }
+      if (context.tenantId === TENANT_B && initial.revokeReadyTenantRequests) {
         await route.fulfill({ status: 403, json: { error: { code: 'FORBIDDEN' } } });
         return;
       }
@@ -331,6 +335,21 @@ test('Customer Demo can leave a ready Tenant after its business projections fail
 
   await expect(page.locator('#viewTitle')).not.toHaveText('Sichere Anmeldung nicht verfügbar');
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(TENANT_A);
+});
+
+test('Customer Demo revokes context controls after a forbidden business projection', async ({ page }) => {
+  await installCustomerDemoControlPlane(page, { revokeReadyTenantRequests: true });
+  await page.goto('/');
+
+  await page.getByLabel('Demo-Tenant').selectOption(TENANT_B);
+  const revokedReload = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+  await revokedReload;
+
+  await expect(page.locator('#viewTitle')).toHaveText('Sicher mit Microsoft anmelden');
+  await expect(page.getByLabel('Demo-Tenant')).toBeDisabled();
+  await expect(page.getByLabel('Demo-Persona')).toBeDisabled();
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
 });
 
 test('server-owned request remains visible across Employee and Conference Manager personas', async ({ page }) => {

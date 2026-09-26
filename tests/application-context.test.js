@@ -540,7 +540,7 @@ test('required startup projection failure invalidates the effective authenticate
   assert.deepEqual(context.requests(), []);
 });
 
-test('Customer Demo keeps its validated context switch available after an inactive Tenant projection denial', async () => {
+test('Customer Demo keeps its validated context switch available after a required projection outage', async () => {
   const calls = [];
   const authenticatedSession = Object.freeze({
     ...session({
@@ -561,7 +561,7 @@ test('Customer Demo keeps its validated context switch available after an inacti
     apiClient: Object.freeze({
       async request(path) {
         if (path.startsWith('v1/application/requests?')) {
-          throw new Error('HTTP_403');
+          throw Object.assign(new Error('HTTP_503'), { code: 'HTTP_503' });
         }
         if (path === 'v1/application/profile') {
           return { schemaVersion: 1, profile: { displayName: 'Demo Employee' } };
