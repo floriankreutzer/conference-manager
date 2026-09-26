@@ -210,6 +210,18 @@ function javascriptFiles(root) {
   return files;
 }
 const runtimeSource = javascriptFiles('src').map((file) => readFileSync(file, 'utf8')).join('\n');
+const catalogSource = readdirSync('src/core')
+  .filter((file) => /^i18n.*\.js$/.test(file))
+  .map((file) => readFileSync(join('src/core', file), 'utf8'))
+  .join('\n');
+const staticKeys = new Set(
+  [...runtimeSource.matchAll(/\bt\(\s*(['"])([^'"\n]+)\1/g)].map((match) => match[2]),
+);
+for (const key of staticKeys) {
+  if (!catalogSource.includes(`'${key}':`) && !catalogSource.includes(`"${key}":`)) {
+    fail(`Canonical localization is missing runtime key ${key}.`);
+  }
+}
 const dynamicPrefixes = new Set(
   [...runtimeSource.matchAll(/`([A-Za-z0-9_.-]*\.)\$\{/g)].map((match) => match[1]),
 );

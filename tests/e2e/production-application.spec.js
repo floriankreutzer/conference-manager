@@ -1836,10 +1836,8 @@ test('EMP-03: remote Room asset references fail the complete catalog projection 
   invalidCatalog.catalog.rooms[0].floorplanAssetId = 'https://attacker.invalid/room.png';
   await installProductionApplicationFixture(page, { catalog: invalidCatalog });
   await page.goto(`${ORIGIN}/`);
-  await page.locator('[data-view="employee"]').click();
-  await expect(page.getByText(
-    'Die Produktionsdaten konnten nicht sicher geladen werden.', { exact: true },
-  )).toBeVisible();
+  await expect(page.locator('#viewTitle')).toHaveText('Sichere Anmeldung nicht verfügbar');
+  await expect(page.locator('[data-view="employee"]')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Asset-Verfügbarkeit anzeigen' })).toHaveCount(0);
 });
 
@@ -4094,7 +4092,8 @@ test('Conference Manager reason validation is accessible and restores focus afte
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
-  await expect(page.getByText(/15\.09\.2026, 09:00/)).toBeVisible();
+  await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"] dd`)
+    .filter({ hasText: /15\.09\.2026, 09:00/ })).toBeVisible();
   await expect(page.getByText('2026-09-15T07:00:00.000Z')).toHaveCount(0);
   await page.getByRole('button', { name: 'Änderung anfordern' }).click();
   const dialog = page.getByRole('dialog');
