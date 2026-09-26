@@ -184,6 +184,14 @@ export async function bootstrapCustomerApplication({
   });
 
   window.addEventListener('conference-language-changed', render);
+  window.addEventListener('hashchange', () => {
+    if (!isTenantAdminRoute()) return;
+    if (!context.isTenantAdmin()) {
+      clearTenantAdminRoute();
+      return;
+    }
+    shell.setView('tenantAdmin');
+  });
 
   if (initialAuthorityFailure) {
     shell.invalidateAuthorityProjection(initialAuthorityFailure);

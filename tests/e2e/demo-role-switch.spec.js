@@ -368,7 +368,8 @@ test('server-owned request remains visible across Employee and Conference Manage
   await reload;
   await page.locator('#primaryNavigation button[data-view="manager"]').click();
 
-  await expect(page.getByText(`Anfrage ${SHARED_REQUEST.id}`)).toBeVisible();
+  await expect(page.getByRole('tabpanel', { name: 'Anfragen & Buchungen' })
+    .getByRole('heading', { name: `Anfrage ${SHARED_REQUEST.id}` })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Prüfung starten' })).toBeVisible();
   expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => (
     key !== 'conference_language_v1'

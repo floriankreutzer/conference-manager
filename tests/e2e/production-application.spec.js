@@ -1605,7 +1605,7 @@ test('API-01: Employee selects applicable Equipment by keyboard and persists the
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await page.getByRole('button', { name: 'Weiter' }).click();
 
-  const serviceGroup = page.getByRole('group', { name: 'Services' });
+  const serviceGroup = page.getByRole('group', { name: 'Services', exact: true });
   await expect(serviceGroup).toBeVisible();
   await expect(serviceGroup.getByText(
     'Für den gewählten Raum sind keine Optionen verfügbar.', { exact: true },
