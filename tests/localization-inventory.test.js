@@ -22,8 +22,8 @@ function capabilityMessages(language) {
 test('canonical localization catalogs remain synchronized after parity consolidation', () => {
   const inventory = buildLocalizationInventory();
 
-  assert.equal(inventory.canonical.deKeys, 328);
-  assert.equal(inventory.canonical.enKeys, 328);
+  assert.equal(inventory.canonical.deKeys, 333);
+  assert.equal(inventory.canonical.enKeys, 333);
   assert.deepEqual(inventory.canonical.missingInEnglish, []);
   assert.deepEqual(inventory.canonical.missingInGerman, []);
   assert.deepEqual(inventory.canonical.placeholderMismatches, []);
