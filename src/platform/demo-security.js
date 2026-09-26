@@ -2,6 +2,8 @@ import { language } from '../core/i18n.js';
 import { securityMessages } from '../core/security-i18n.js';
 import { announce } from '../core/ui.js';
 import { RUNTIME_MODE } from '../core/security-policy.js';
+import { authorityFailureCode } from '../shared/authority-failure.js';
+import { closeDetachedPrintWindows } from '../shared/detached-print-window.js';
 
 const DEMO_SECURITY_BUILD = '2026.09.01.78';
 const PERSONAS = Object.freeze(['employee', 'conference_manager', 'tenant_admin', 'dual_role']);
@@ -21,7 +23,11 @@ export function renderDemoSecurityControl({
   context,
   documentRoot = document,
   reload = () => globalThis.location.reload(),
+  onAuthorityFailure = null,
 } = {}) {
+  if (onAuthorityFailure !== null && typeof onAuthorityFailure !== 'function') {
+    throw new TypeError('DEMO_SECURITY_AUTHORITY_HANDLER_INVALID');
+  }
   if (
     context?.runtimeMode?.() !== RUNTIME_MODE.DEMO
     || documentRoot.querySelector('[data-demo-security]')
@@ -100,13 +106,15 @@ export function renderDemoSecurityControl({
     personaSelect.disabled = true;
     status.textContent = msg.applyingContext;
     try {
+      closeDetachedPrintWindows();
       await context.switchDemoContext({
         tenantId: tenantSelect.value,
         persona: personaSelect.value,
       });
       status.textContent = msg.contextApplied;
       reload();
-    } catch {
+    } catch (error) {
+      if (authorityFailureCode(error) && onAuthorityFailure?.(error)) return;
       status.textContent = msg.contextError;
       announce(msg.contextError, { assertive: true });
       const retryable = context.canSwitchRole();

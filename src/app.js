@@ -25,7 +25,7 @@ import {
   isTenantAdminRoute,
 } from './tenant-admin/server.js';
 
-const APP_BUILD = '2026.09.12.91';
+const APP_BUILD = '2026.09.19.92';
 const OPTIONAL_PROJECTION_TIMEOUT_MS = 5_000;
 const appRoot = document.getElementById('app');
 
@@ -48,10 +48,12 @@ export async function bootstrapCustomerApplication({
     optionalProjectionTimeoutMs: optionalTimeout,
   });
   let shell;
+  const onAuthorityFailure = (error) => shell?.invalidateAuthorityProjection(error) || false;
+  let initialAuthorityFailure = null;
 
   const setPageHeading = (title, subtitle) => shell.setPageHeading(title, subtitle);
   const authentication = context.authenticationRuntime();
-  const serverPersistence = context.serverPersistence();
+  let serverPersistence = context.serverPersistence();
   const canReadOrManageLocations = context.canManageRoomBusiness()
     || context.hasTenantAdminPermission('tenant:configure');
   const locationSettings = authentication && canReadOrManageLocations
@@ -75,7 +77,13 @@ export async function bootstrapCustomerApplication({
     adapter: tenantPresentationAdapter,
     refreshTimeoutMs: optionalTimeout,
   });
-  await tenantPresentation.refresh();
+  try {
+    await tenantPresentation.refresh();
+  } catch (error) {
+    if (!context.invalidateAuthority(error)) throw error;
+    serverPersistence = null;
+    initialAuthorityFailure = error;
+  }
   const effectiveTenantSettingsAdapters = Object.hasOwn(tenantSettingsAdapters, 'organization')
     ? Object.freeze({
       ...tenantSettingsAdapters,
@@ -91,8 +99,12 @@ export async function bootstrapCustomerApplication({
       setPageHeading,
       persistence: serverPersistence,
       onNavigate: (view) => shell.setView(view),
-      siteInfo: context.getSiteInfo(),
-      draftStore: createServerDraftStore({ tenantId: context.tenantId(), userId: context.userId() }),
+      draftStore: createServerDraftStore({
+        tenantId: context.tenantId(),
+        userId: context.userId(),
+        sessionExpiresAt: context.sessionExpiresAt(),
+      }),
+      onAuthorityFailure,
     })
     : null;
   const manager = serverPersistence && context.isManager() && locationSettings && catalogueSettings
@@ -102,6 +114,7 @@ export async function bootstrapCustomerApplication({
       persistence: serverPersistence,
       locations: locationSettings,
       catalogue: catalogueSettings,
+      onAuthorityFailure,
     })
     : null;
   const tenantUserAdministration = context.isTenantAdmin() && authentication
@@ -138,6 +151,7 @@ export async function bootstrapCustomerApplication({
         capabilities: tenantCapabilities,
         audit: tenantAudit,
       }),
+      onAuthorityFailure,
     })
     : null;
 
@@ -160,16 +174,21 @@ export async function bootstrapCustomerApplication({
 
   let presentationRenderFrame = 0;
   tenantPresentation.subscribe(() => {
+    if (!context.isAuthenticated()) return;
     if (presentationRenderFrame) cancelAnimationFrame(presentationRenderFrame);
     presentationRenderFrame = requestAnimationFrame(() => {
       presentationRenderFrame = 0;
+      if (!context.isAuthenticated()) return;
       render();
     });
   });
 
   window.addEventListener('conference-language-changed', render);
 
-  if (tenantAdmin && context.isTenantAdmin() && isTenantAdminRoute()) {
+  if (initialAuthorityFailure) {
+    shell.invalidateAuthorityProjection(initialAuthorityFailure);
+    document.documentElement.dataset.appBuild = APP_BUILD;
+  } else if (tenantAdmin && context.isTenantAdmin() && isTenantAdminRoute()) {
     shell.setView('tenantAdmin');
     document.documentElement.dataset.appBuild = APP_BUILD;
   } else {

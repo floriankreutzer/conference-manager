@@ -1,3 +1,4 @@
+import { createGuestInformationEditor } from './guest-information-editor.js';
 import { projectTechnicalLocationConfiguration } from '../../../core/tenant-location-ownership.js';
 import { formatDateTime, formatNumber, t } from '../../../core/i18n.js';
 import { button, clear, el, field, showToast } from '../../../core/ui.js';
@@ -35,6 +36,7 @@ function siteOption(site) {
 }
 
 function siteEditor(site, index) {
+  const guest = createGuestInformationEditor(site.guestInformation, index);
   const controls = {
     name: textInput(site.name, { required: 'required', maxlength: '160' }),
     active: checkbox(site.active),
@@ -59,7 +61,8 @@ function siteEditor(site, index) {
       field({ id: `tenant-site-active-${index}`, label: t('tenantSettings.common.active'), control: controls.active }),
     ]),
   ]);
-  return { site, controls, node };
+  node.appendChild(guest.node);
+  return { site, controls, node, guest };
 }
 
 function roomTechnicalEditor(room, provider, index, sites) {
@@ -114,6 +117,7 @@ function siteValue(editor) {
   }
   return {
     ...site,
+    guestInformation: editor.guest.readValue(),
     name: controls.name.value.trim(),
     active: controls.active.checked,
     timeZone: controls.timeZone.value.trim(),
@@ -152,7 +156,7 @@ export function createLocationsSection({ adapter = null } = {}) {
     let history;
     try {
       [snapshot, history] = await Promise.all([
-        adapter.loadLocations(),
+        adapter.loadLocations({ schemaVersion: 2 }),
         adapter.listLocationsHistory({ limit: 20 }),
       ]);
     } catch {
@@ -186,6 +190,7 @@ export function createLocationsSection({ adapter = null } = {}) {
         active: true,
         timeZone: 'Europe/Berlin',
         address: null,
+        guestInformation: null,
       };
       const editor = siteEditor(site, siteEditors.length);
       siteEditors.push(editor);
@@ -231,6 +236,7 @@ export function createLocationsSection({ adapter = null } = {}) {
           roomSites,
         });
         await adapter.saveLocations({
+          schemaVersion: 2,
           expectedRevision: snapshot.revision,
           configuration,
         });

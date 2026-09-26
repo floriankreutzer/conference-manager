@@ -4,12 +4,12 @@ Frontend application for Tenant-scoped conference requests with Employee, Confer
 
 ## Readiness status
 
-- Employee UX: **ready**
-- Conference Manager UX: **ready** on desktop and mobile
-- Technical marker: `<meta name="conference-manager-readiness" content="ready">`
-- Regression coverage: dedicated Conference Manager readiness E2E test plus the complete existing Manager/Employee suite
+- Employee UX: **in validation**
+- Conference Manager UX: **in validation** on desktop and mobile
+- Technical markers: `conference-end-user-readiness=in-validation` and `conference-manager-readiness=in-validation`
+- Regression coverage: dedicated Conference Manager readiness E2E test plus the complete existing Manager/Employee suite; the #182 parity gate and #170 release gate remain required before either marker may become `ready`
 
-The readiness status describes clarity, usability, responsive behavior, and regression coverage of the static MVP. It explicitly does not replace the SSO, backend, authorization, audit, and calendar-integration measures required for production operation.
+The readiness status describes clarity, usability, responsive behavior, and regression coverage of the static MVP. `in-validation` is intentionally non-final: it explicitly does not replace the #182/#170 evidence, SSO, backend, authorization, audit, or calendar-integration measures required for production operation.
 
 ## Feature scope
 
@@ -64,7 +64,6 @@ Current repository entry points:
 ├── assets/
 │   ├── tokens.css
 │   ├── styles.css
-│   ├── feature-parity.css
 │   ├── app-layout.css
 │   ├── employee-ux.css
 │   ├── manager-layout.css
@@ -122,9 +121,9 @@ The operational application uses a restrained consulting/business visual languag
 
 CSS responsibilities remain consolidated: `assets/employee-ux.css` owns Employee-specific experience presentation and `assets/manager-layout.css` owns all Manager-specific experience presentation. The JavaScript decomposition introduces no new CSS architecture or visible redesign.
 
-`src/platform/feature-parity.js` owns the single coalesced enhancement scheduler and invokes Employee/Manager behavior through their public module APIs. Feature modules do not create parallel global synchronization loops.
+Employee and Manager each have one canonical server-backed renderer behind their public module API. Historical browser-authority renderers, post-render parity/polish chains and the parallel parity stylesheet are removed; architecture gates reject their reintroduction even as unreachable files.
 
-New user-visible application copy belongs to the canonical Core localization mechanism and is rendered through `t()`. The former Shared parity translation catalogue has been consolidated into Core under semantic key namespaces. A temporary Manager-only `pt()` name-compatibility adapter remains for two baseline enhancement modules; it delegates directly to Core and owns no translations or fallback behavior.
+New user-visible application copy belongs to the canonical Core localization mechanism and is rendered through `t()`. Employee and Manager own no translation catalog or compatibility adapter; retired-renderer-only messages were removed with those paths.
 
 The approved SaaS production topology keeps this repository as the browser application and places the trusted production backend in a dedicated `conference-manager-api` repository while exposing the customer browser and `/api/*` through one HTTPS origin. The accepted SaaS 3 extension adds a separately deployable Platform Operator artifact and operator origin backed by a Platform-only process in the same backend repository; it does not add Platform authority to Tenant Admin or existing customer `src/platform` modules.
 

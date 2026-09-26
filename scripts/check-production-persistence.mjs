@@ -1,7 +1,15 @@
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
 const production = await readFile('src/platform/production-persistence.js', 'utf8');
-for (const forbidden of ['localStorage', 'sessionStorage', "../core/storage.js", 'conference_requests']) {
+for (const forbidden of [
+  'localStorage',
+  'sessionStorage',
+  "../core/storage.js",
+  'conference_requests',
+  "siteInfo: 'v1/application/site-info'",
+  'loadSiteInfo',
+]) {
   if (production.includes(forbidden)) {
     throw new Error(`Production persistence adapter must not depend on browser persistence: ${forbidden}.`);
   }
@@ -9,7 +17,6 @@ for (const forbidden of ['localStorage', 'sessionStorage', "../core/storage.js",
 for (const required of [
   "profile: 'v1/application/profile'",
   "catalog: 'v1/application/catalog'",
-  "siteInfo: 'v1/application/site-info'",
   "requests: 'v1/application/requests'",
   "roomAvailability: 'v1/application/room-availability'",
   "notifications: 'v1/application/notifications'",
@@ -36,20 +43,14 @@ if (/https?:\/\//i.test(production)) {
   throw new Error('Production persistence adapters must use only relative same-origin API paths.');
 }
 
-const storage = await readFile('src/core/storage.js', 'utf8');
-for (const required of [
-  'PRODUCTION_AUTHORITATIVE_KEYS',
-  'PRODUCTION_BROWSER_PERSISTENCE_BLOCKED',
-  'runtimeModeFromDocument() === RUNTIME_MODE.PRODUCTION',
-  'KEYS.requests',
-  'KEYS.catalog',
-  'KEYS.siteInfo',
-  'KEYS.role',
-  'KEYS.notifications',
-  'KEYS.profile',
+for (const retired of [
+  'src/core/storage.js',
+  'src/core/catalog.js',
+  'src/platform/requester-attribution.js',
+  'src/shared/parity-data.js',
 ]) {
-  if (!storage.includes(required)) {
-    throw new Error(`Browser persistence fail-closed boundary is missing ${required}.`);
+  if (existsSync(retired)) {
+    throw new Error(`${retired}: retired browser-authoritative persistence must not be reintroduced.`);
   }
 }
 
@@ -91,6 +92,11 @@ for (const required of [
 }
 
 const applicationContext = await readFile('src/platform/application-context.js', 'utf8');
+for (const forbidden of ['serverSiteInfo', 'getSiteInfo', 'loadSiteInfo']) {
+  if (applicationContext.includes(forbidden)) {
+    throw new Error(`Application context must not load the retired Site Info projection: ${forbidden}.`);
+  }
+}
 for (const required of [
   'createApplicationContextFromState',
   'authenticationBootstrap',
@@ -133,7 +139,8 @@ for (const required of [
   'async function bootstrapCustomerApplication(',
   'const context = await createApplicationContext({',
   'const authentication = context.authenticationRuntime()',
-  'const serverPersistence = context.serverPersistence()',
+  'let serverPersistence = context.serverPersistence()',
+  'serverPersistence = null',
   'createServerEmployeeApplication',
   'createServerManagerApplication',
   'authentication,',
@@ -186,8 +193,9 @@ for (const required of [
   'productionRequestRoomTimeZone(',
   'productionUtcInstant(date.value, start.value, timeZone)',
   'persistence.createRequest(compositionDraft(',
-  "persistence.transitionRequest(requestId, { transition: 'cancel' })",
+  "persistence.transitionRequest(requestId, { transition: 'cancel' }, request)",
   "const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed'])",
+  'canProposeProductionBookingChange(request.status, openChange)',
 ]) {
   if (!employeeProduction.includes(required)) {
     throw new Error(`Production Employee boundary is missing ${required}.`);
@@ -207,10 +215,10 @@ for (const required of [
 const managerProduction = await readFile('src/manager/production-application.js', 'utf8');
 for (const required of [
   "from '../shared/production-booking-change-editor.js'",
-  "persistence.transitionRequest(request.id, { transition: 'cancel' })",
+  "persistence.transitionRequest(request.id, { transition: 'cancel' }, request)",
   'managerRequestActions(request.status)',
   'persistence.listRequests()',
-  'persistence.transitionRequest(request.id, { transition })',
+  'persistence.transitionRequest(request.id, { transition }, request)',
   'persistence.loadRequestHistory(request.id)',
   'persistence.loadRequestReport(',
 ]) {
@@ -225,10 +233,23 @@ for (const required of [
   "'In Review': Object.freeze(['confirm', 'reject', 'request_change', 'cancel'])",
   "Confirmed: Object.freeze(['cancel'])",
   "'Change Requested': Object.freeze(['cancel'])",
-  "status === 'Confirmed' && bookingChange === null",
+  "from '../shared/production-booking-change.js'",
+  'canProposeProductionBookingChange(status, bookingChange)',
 ]) {
   if (!managerRequestActions.includes(required)) {
     throw new Error(`Production Conference Manager action model is missing ${required}.`);
+  }
+}
+
+const productionBookingChange = await readFile('src/shared/production-booking-change.js', 'utf8');
+for (const required of [
+  'bookingChange !== undefined',
+  "'applied'",
+  "'rejected'",
+  "'superseded'",
+]) {
+  if (!productionBookingChange.includes(required)) {
+    throw new Error(`Shared Production booking-change eligibility is missing ${required}.`);
   }
 }
 

@@ -541,11 +541,51 @@ main {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.selection-option-fieldset + .selection-option-fieldset {
+  margin-block-start: var(--space-5);
+}
+
+.selection-group-legend {
+  padding: 0;
+  margin-block-end: var(--space-3);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}
+
 .option-card {
   position: relative;
   padding: 16px;
   border-radius: var(--radius-xs);
   box-shadow: var(--shadow-sm);
+}
+
+.selection-option-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.selection-option-card > input {
+  margin-block-start: var(--space-1);
+}
+
+.selection-option-content,
+.selection-option-name,
+.selection-option-description {
+  display: block;
+  min-width: 0;
+}
+
+.selection-option-description {
+  margin-block-start: var(--space-1);
+  color: var(--color-muted);
+}
+
+.selection-option-card .price {
+  margin-block-start: var(--space-2);
 }
 
 .option-card.selected {

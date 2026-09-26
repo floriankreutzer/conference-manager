@@ -52,7 +52,7 @@ function room({
 
 function currentLocations(siteName = 'Berlin Current') {
   return {
-    sites: [{ id: 'berlin', name: siteName, active: true, timeZone: 'Europe/Berlin', address: null }],
+    sites: [{ id: 'berlin', name: siteName, active: true, timeZone: 'Europe/Berlin', address: null, guestInformation: null }],
     rooms: [
       room({ id: 'atlas', name: 'Atlas Local', capacity: 20, floor: '2' }),
       room({ id: 'room-new', name: 'Later Room', capacity: 8 }),
@@ -257,7 +257,7 @@ async function installProductionSettingsFixture(page, {
 
     if (url.pathname === '/api/v1/tenant/settings/locations' && method === 'GET') {
       await fulfillJson(route, { locations: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         revision: state.locations.revision,
         configuration: state.locations.configuration,
         providerContext: state.locations.providerContext,
@@ -276,7 +276,7 @@ async function installProductionSettingsFixture(page, {
       state.locations.revision = body.expectedRevision + 1;
       state.locations.configuration = clone(body.configuration);
       await fulfillJson(route, { locations: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         revision: state.locations.revision,
         configuration: state.locations.configuration,
         providerContext: state.locations.providerContext,
@@ -396,9 +396,11 @@ async function submit(content, formId) {
   await content.locator(`[data-tenant-settings-form="${formId}"] button[type="submit"]`).click();
 }
 
-test('Production composition writes owned Tenant Admin settings with exact CSRF/revisions', async ({ page }) => {
+test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-owned fields', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page);
   await openTenantSettings(page);
+
+  await expect(page.locator('[data-view="manager"]')).toHaveCount(0);
 
   let content = await openSection(page, 'organization', 'organization');
   await content.locator('#tenant-organization-display-name').fill('Northstar Reapplied');
@@ -459,7 +461,7 @@ test('Production composition writes owned Tenant Admin settings with exact CSRF/
     },
     {
       path: '/api/v1/tenant/settings/locations', method: 'PUT', csrf: CSRF_TOKEN,
-      body: { schemaVersion: 1, expectedRevision: 2, configuration: currentLocations('Berlin Production') },
+      body: { schemaVersion: 2, expectedRevision: 2, configuration: currentLocations('Berlin Production') },
     },
     {
       path: '/api/v1/tenant/settings/booking-policies', method: 'PUT', csrf: CSRF_TOKEN,
@@ -480,7 +482,7 @@ test('Production composition writes owned Tenant Admin settings with exact CSRF/
     '/api/v1/tenant/presentation',
     '/api/v1/tenant/settings/organization',
     '/api/v1/tenant/settings/organization/history?limit=10',
-    '/api/v1/tenant/settings/locations',
+    '/api/v1/tenant/settings/locations?schemaVersion=2',
     '/api/v1/tenant/settings/locations/history?limit=20',
     '/api/v1/tenant/settings/booking-policies',
     '/api/v1/tenant/settings/booking-policies/history?limit=20',
@@ -541,4 +543,65 @@ test('detached Tenant Admin conflict reapply stops before a second privileged wr
   await expect(page.locator('#welcomeHeading')).toBeVisible();
   await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
   await expect(page.locator('#toast')).toBeEmpty();
+});
+test('API-02 Tenant Admin edits public guest information with exact authority and deliberate clearing', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'locations', 'locations-technical');
+  const editor = content.locator('[data-guest-information-editor="0"]');
+  await expect(editor).toHaveAttribute('aria-describedby', 'tenant-site-guest-0-description');
+  await expect(content.locator('#tenant-site-guest-0-description')).not.toBeEmpty();
+  await expect(content.locator('#tenant-site-guest-0-arrival')).toBeHidden();
+  await content.locator('#tenant-site-guest-0-enabled').check();
+  await content.locator('#tenant-site-guest-0-arrival').fill('Use the main entrance');
+  await content.locator('#tenant-site-guest-0-wifiPolicy').selectOption('credentials_on_arrival');
+  await content.locator('#tenant-site-guest-0-wifiNetworkName').fill('Guest network');
+  await content.locator('#tenant-site-guest-0-routeUrl').fill('https://www.openstreetmap.org/way/123');
+  await submit(content, 'locations-technical');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  await expect(content.locator('#tenant-site-guest-0-arrival')).toHaveValue('Use the main entrance');
+  const saved = fixture.writes[0];
+  expect(saved.csrf).toBe(CSRF_TOKEN);
+  expect(saved.body.schemaVersion).toBe(2);
+  expect(saved.body.configuration.rooms).toEqual(currentLocations().rooms);
+  expect(saved.body.configuration.sites[0].guestInformation).toEqual({
+    address: null, publicTransport: null, arrival: 'Use the main entrance', parking: null,
+    reception: null, building: null, visitorNotes: null, accessibility: null,
+    wifiPolicy: 'credentials_on_arrival', wifiNetworkName: 'Guest network', contact: null,
+    routeUrl: 'https://www.openstreetmap.org/way/123',
+  });
+  await content.locator('#tenant-site-guest-0-enabled').uncheck();
+  await submit(content, 'locations-technical');
+  await expect.poll(() => fixture.writes.length).toBe(2);
+  expect(fixture.writes[1].body.configuration.sites[0].guestInformation).toBeNull();
+  await expect(content.locator('#tenant-site-guest-0-enabled')).not.toBeChecked();
+  await expect(content.locator('#tenant-site-guest-0-arrival')).toBeHidden();
+  expect(fixture.unexpectedApiRequests).toEqual([]);
+});
+
+test('API-02 guest editor blocks secrets and unsafe routes with field-associated errors', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'locations', 'locations-technical');
+  await content.locator('#tenant-site-guest-0-enabled').check();
+  const arrival = content.locator('#tenant-site-guest-0-arrival');
+  await arrival.fill('Password: secret');
+  await submit(content, 'locations-technical');
+  await expect(arrival).toBeFocused();
+  await expect(arrival).toHaveAttribute('aria-invalid', 'true');
+  await expect(content.locator('#tenant-site-guest-0-error')).not.toBeEmpty();
+  expect(fixture.writes).toEqual([]);
+  await arrival.fill('Ask at reception');
+  const route = content.locator('#tenant-site-guest-0-routeUrl');
+  await route.fill('https://maps.apple.com/?token=secret');
+  await submit(content, 'locations-technical');
+  await expect(route).toBeFocused();
+  await expect(route).toHaveAttribute('aria-invalid', 'true');
+  expect(fixture.writes).toEqual([]);
+  await route.fill('https://www.openstreetmap.org/way/123');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await submit(content, 'locations-technical');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  expect(fixture.unexpectedApiRequests).toEqual([]);
 });

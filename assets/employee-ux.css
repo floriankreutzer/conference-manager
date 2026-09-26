@@ -6,13 +6,55 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   display: none !important;
 }
 
-.room-floorplan-preview {
+.room-asset-visual {
   position: relative;
   min-height: 7rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--brand-secondary-surface);
   overflow: hidden;
+}
+
+.room-asset-visual.media {
+  min-height: 6rem;
+  background: var(--color-surface-subtle);
+}
+
+.room-asset-visual.media .room-floorplan-table {
+  inset: 30% 18%;
+  border-radius: var(--radius-md);
+  background: var(--brand-secondary-surface);
+}
+
+.room-asset-dialog,
+.room-asset-panel {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.room-asset-panel h3 {
+  margin: 0;
+}
+
+.room-media-grid,
+.catering-package-grid,
+.catering-item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--app-section-gap);
+  min-width: 0;
+}
+
+.room-preview-action {
+  width: 100%;
+  margin-block-start: var(--space-3);
+}
+
+.room-asset-summary,
+.room-asset-empty,
+.room-asset-note {
+  overflow-wrap: anywhere;
 }
 
 .room-floorplan-table {
@@ -44,6 +86,73 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
 .room-equipment {
   color: var(--color-muted);
   font-size: var(--font-size-sm);
+}
+
+.catering-option-fieldset {
+  min-inline-size: 0;
+  padding: 0;
+  margin: var(--space-5) 0 0;
+  border: 0;
+}
+
+.catering-variant-card,
+.catering-item-card {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.catering-variant-card {
+  cursor: pointer;
+}
+
+.catering-variant-card:has(input:focus-visible) {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+.catering-item-card h3,
+.catering-item-card p {
+  margin: 0;
+}
+
+.catering-card-title,
+.catering-card-copy {
+  display: block;
+}
+
+.catering-card-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.catering-variant-card > input {
+  margin: 0;
+}
+
+.catering-variant-card .price,
+.catering-item-card .price {
+  margin-block-start: auto;
+}
+
+.catering-item-card .field {
+  margin-block-start: var(--space-2);
+}
+
+.catering-included-items {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.review-details {
+  margin: 0;
+}
+
+.review-price-note {
+  margin-block: var(--space-4);
+  overflow-wrap: anywhere;
 }
 
 .ux-mobile-progress {

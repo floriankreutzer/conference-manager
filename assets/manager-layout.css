@@ -64,6 +64,84 @@ main,
   gap: var(--manager-control-gap);
 }
 
+.manager-data-scroll {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding: var(--space-1);
+}
+
+.manager-data-scroll .data-table {
+  min-inline-size: 36rem;
+}
+
+.manager-timeline-chart {
+  min-inline-size: 48rem;
+  padding-inline: var(--space-5);
+}
+
+.manager-timeline-ticks,
+.manager-timeline-lane {
+  position: relative;
+  min-block-size: var(--control-height);
+}
+
+.manager-timeline-ticks span {
+  position: absolute;
+  inset-inline-start: var(--timeline-start);
+  transform: translateX(-50%);
+}
+
+.manager-timeline-room {
+  border-block-start: 1px solid var(--color-border);
+  padding-block: var(--space-3);
+}
+
+.manager-timeline-lane button {
+  position: absolute;
+  inset-inline-start: var(--timeline-start);
+  inline-size: var(--timeline-width);
+  min-inline-size: var(--control-height);
+  max-inline-size: calc(100% - var(--timeline-start));
+  min-block-size: var(--control-height);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--brand-secondary-surface);
+}
+
+.manager-request-timeline {
+  padding-inline-start: var(--space-6);
+}
+
+.manager-request-timeline li {
+  padding-block: var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.manager-surface .room-plan-view label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--control-height);
+}
+
+.manager-surface .report-toolbar,
+.manager-surface .room-plan-toolbar,
+.manager-surface .manager-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  align-items: end;
+}
+
+.manager-surface .manager-tabs button {
+  block-size: auto;
+  padding-block: var(--space-2);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .manager-surface {
   display: block;
   overflow: visible;
@@ -103,6 +181,12 @@ main,
   width: 100%;
 }
 
+.manager-overview-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--manager-section-gap);
+}
+
 .manager-overview-card,
 .manager-parity-kpi,
 .report-card,
@@ -113,11 +197,52 @@ main,
   min-width: 0;
 }
 
+.manager-overview-card,
+.report-card,
+.report-insight-card {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.manager-overview-card:first-child {
+  background: var(--brand-secondary-surface);
+}
+
+.manager-overview-card > h3,
+.report-card > h3,
+.report-insight-card > h3 {
+  margin-top: 0;
+}
+
+.manager-overview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.manager-overview-row:first-of-type {
+  border-top: 0;
+}
+
+.manager-overview-row small {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-muted);
+}
+
 .room-plan-toolbar,
 .report-toolbar {
   width: 100%;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 0.8fr);
   gap: var(--manager-section-gap);
+  align-items: end;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
 }
 
 .room-plan-view {
@@ -125,6 +250,10 @@ main,
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--manager-control-gap);
   width: 100%;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
 }
 
 .room-plan-view legend {
@@ -624,7 +753,12 @@ main,
   .manager-overview-columns,
   .report-grid,
   .report-insights {
+    grid-template-columns: 1fr;
     gap: var(--manager-section-gap);
+  }
+
+  .manager-overview-row {
+    grid-template-columns: 1fr;
   }
 
   .room-timeline {

@@ -8,6 +8,7 @@ import {
   normalizeTenantPresentation,
   TENANT_PRESENTATION_FALLBACK,
 } from './tenant-presentation-api.js';
+import { authorityFailureCode } from '../shared/authority-failure.js';
 
 const PRODUCT_DEFAULT_LOGO_ASSET = new URL(
   '../../assets/brand/pavurel-signet-monochrome-white.svg?v=20260827-75',
@@ -67,6 +68,7 @@ export function createTenantPresentationRuntime({
   let current = TENANT_PRESENTATION_FALLBACK;
   let highestRevision = 0;
   let refreshSequence = 0;
+  let authorityInvalidated = false;
   const refreshTimeout = normalizedRefreshTimeout(refreshTimeoutMs);
   const subscribers = new Set();
 
@@ -83,6 +85,7 @@ export function createTenantPresentationRuntime({
       return current;
     },
     async refresh(options = {}) {
+      if (authorityInvalidated) return current;
       const sequence = ++refreshSequence;
       const { preserveCurrentOnFailure = false, ...adapterOptions } = options;
       let next;
@@ -100,7 +103,8 @@ export function createTenantPresentationRuntime({
         if (next.revision < highestRevision) {
           next = preserveCurrentOnFailure ? current : TENANT_PRESENTATION_FALLBACK;
         }
-      } catch {
+      } catch (error) {
+        if (authorityFailureCode(error)) throw error;
         next = preserveCurrentOnFailure ? current : TENANT_PRESENTATION_FALLBACK;
       } finally {
         if (timeoutId !== null) globalThis.clearTimeout(timeoutId);
@@ -110,11 +114,19 @@ export function createTenantPresentationRuntime({
       return apply(next);
     },
     applyOrganizationResult(result) {
+      if (authorityInvalidated) throw new TypeError('TENANT_PRESENTATION_AUTHORITY_INVALID');
       const next = presentationFromOrganizationResult(result);
       if (next.revision < highestRevision) throw new TypeError('TENANT_PRESENTATION_MUTATION_STALE');
       refreshSequence += 1;
       highestRevision = next.revision;
       return apply(next);
+    },
+    invalidateAuthority() {
+      if (authorityInvalidated) return current;
+      authorityInvalidated = true;
+      refreshSequence += 1;
+      highestRevision = 0;
+      return apply(TENANT_PRESENTATION_FALLBACK);
     },
     subscribe(subscriber) {
       if (typeof subscriber !== 'function') throw new TypeError('TENANT_PRESENTATION_SUBSCRIBER_INVALID');
@@ -145,9 +157,10 @@ export function createPresentationRefreshingOrganizationSettings({
     async saveOrganization(...args) {
       const result = await organizationSettings.saveOrganization(...args);
       presentationRuntime.applyOrganizationResult(result);
-      void Promise.resolve(
-        presentationRuntime.refresh({ preserveCurrentOnFailure: true }),
-      ).catch(() => {});
+      // A successful write may keep its immediate projection on availability
+      // failure, but an authority failure on the bounded reread must reach the
+      // owning save flow and invalidate the session before reporting success.
+      await presentationRuntime.refresh({ preserveCurrentOnFailure: true });
       return result;
     },
   };

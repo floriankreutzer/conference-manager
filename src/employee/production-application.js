@@ -1,5 +1,6 @@
 import { formatMoney, formatNumber, locale, t } from '../core/i18n.js';
 import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
+import { canProposeProductionBookingChange } from '../shared/production-booking-change.js';
 import { openProductionBookingChangeDialog } from '../shared/production-booking-change-editor.js';
 import {
   loadCoherentRequestRoomContext,
@@ -24,13 +25,26 @@ import { renderServerRequestHistory } from './server-request-history.js';
 import { composeServerRequestDraft } from '../shared/production-request-draft.js';
 import {
   cateringEditorOptions,
+  equipmentEditorOptions,
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
   roomEditorOptions,
   roomSupportsParticipants,
   serviceEditorOptions,
 } from './server-request-editor.js';
+import {
+  buildServerRequestReview,
+  roomAssetPreviewState,
+} from './server-request-review.js';
 import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
+import {
+  closeDetachedPrintWindow,
+  closeDetachedPrintWindows,
+  initializeDetachedPrintDocument,
+  openDetachedPrintWindow,
+} from '../shared/detached-print-window.js';
+import { authorityFailureCode } from '../shared/authority-failure.js';
+import { createAuthoritySurfaceRegistry } from '../shared/authority-surface-registry.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed']);
 const MAX_PARTICIPANTS = 500;
@@ -42,7 +56,7 @@ function safeParticipantCount(value) {
 }
 
 function errorMessage(error) {
-  const causeCode = error?.cause?.code;
+  const causeCode = authorityFailureCode(error) || error?.cause?.code;
   if (causeCode === 'HTTP_401') return t('production.error.session');
   if (causeCode === 'HTTP_403') return t('production.error.forbidden');
   if (causeCode === 'HTTP_409') return t('production.error.conflict');
@@ -51,7 +65,93 @@ function errorMessage(error) {
 
 function roomLabel(room) {
   const capacity = Number.isSafeInteger(Number(room.capacity)) ? Number(room.capacity) : null;
-  return capacity ? `${room.name} · ${capacity}` : String(room.name || room.id);
+  return capacity ? `${room.name} · ${capacity}` : String(room.name || room.id || '');
+}
+
+function roomPreviewVisual(label, className = '') {
+  return el('div', {
+    className: `room-asset-visual${className ? ` ${className}` : ''}`,
+    attrs: { role: 'img', 'aria-label': label },
+  }, [
+    el('span', { className: 'room-floorplan-table', attrs: { 'aria-hidden': 'true' } }),
+    el('span', { className: 'room-floorplan-screen', attrs: { 'aria-hidden': 'true' } }),
+    el('span', { className: 'room-floorplan-door', attrs: { 'aria-hidden': 'true' } }),
+  ]);
+}
+
+function openRoomPreview(room, trigger, previewIndex) {
+  const assets = roomAssetPreviewState(room);
+  const content = el('section', { className: 'room-asset-dialog' });
+  if (assets.hasFloorplan) {
+    content.appendChild(el('article', { className: 'room-asset-panel' }, [
+      el('h3', { text: t('production.employee.roomFloorplanHeading') }),
+      roomPreviewVisual(t('production.employee.roomFloorplanAlt', { room: room.name }), 'floorplan'),
+    ]));
+  }
+  if (assets.mediaCount > 0) {
+    const media = el('section', { className: 'room-asset-panel' }, [
+      el('h3', { text: t('production.employee.roomMediaHeading') }),
+    ]);
+    const grid = el('div', { className: 'room-media-grid' });
+    for (let index = 0; index < assets.mediaCount; index += 1) {
+      grid.appendChild(roomPreviewVisual(t('production.employee.roomMediaAlt', {
+        room: room.name,
+        index: formatNumber(index + 1),
+        count: formatNumber(assets.mediaCount),
+      }), 'media'));
+    }
+    media.appendChild(grid);
+    content.appendChild(media);
+  }
+  if (!assets.hasFloorplan && assets.mediaCount === 0) {
+    content.appendChild(el('p', {
+      className: 'info-box room-asset-empty',
+      text: t('production.employee.roomAssetsEmpty'),
+    }));
+  }
+  content.appendChild(el('p', {
+    className: 'muted room-asset-note',
+    text: t('production.employee.roomAssetsPrivacy'),
+  }));
+  const close = button(t('common.close'));
+  const dialog = openDialog({
+    title: t('production.employee.roomPreviewTitle', { room: room.name }),
+    content,
+    actions: [close],
+    labelledById: `productionRoomPreviewTitle-${previewIndex}`,
+  });
+  close.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => {
+    if (trigger.isConnected && document.documentElement.dataset.sessionLocked !== 'true') {
+      trigger.focus();
+    }
+  }, { once: true });
+  return dialog;
+}
+
+function openEmployeeCancellationConfirmation(request, confirmAction) {
+  const dismiss = button(t('common.cancel'));
+  const confirm = button(t('requests.cancel'), { className: 'danger' });
+  const requestTitle = request.details?.title
+    || t('production.common.requestId', { id: request.id });
+  const dialog = openDialog({
+    title: t('production.employee.cancelTitle'),
+    description: t('production.employee.cancelDescription', { title: requestTitle }),
+    actions: [dismiss, confirm],
+    labelledById: 'productionEmployeeCancelTitle',
+  });
+  let pending = false;
+  dismiss.addEventListener('click', () => dialog.close());
+  confirm.addEventListener('click', async () => {
+    if (pending || !dialog.isConnected
+      || document.documentElement.dataset.sessionLocked === 'true') return;
+    pending = true;
+    dismiss.disabled = true;
+    confirm.disabled = true;
+    dialog.close();
+    await confirmAction();
+  });
+  return dialog;
 }
 
 function compositionDraft(request, catalog, overrides = {}) {
@@ -63,25 +163,9 @@ function compositionDraft(request, catalog, overrides = {}) {
   });
 }
 
-function openDetachedPrintWindow() {
-  const printWindow = globalThis.window?.open?.('', '_blank');
-  if (!printWindow) return null;
-  try {
-    printWindow.opener = null;
-    if (printWindow.opener !== null) {
-      printWindow.close?.();
-      return null;
-    }
-  } catch {
-    try { printWindow.close?.(); } catch {}
-    return null;
-  }
-  return printWindow;
-}
-
 function requestCard(request, catalog, currentRoomContext, openChange, {
   mutationInFlight = () => false,
-  onCancel, onChange, onGuestInfo, onHistory, onPrint, onRepeat, onResubmit,
+  onCancel, onCancelConfirmation, onChange, onGuestInfo, onHistory, onPrint, onRepeat, onResubmit,
 }) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId)
     || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
@@ -135,19 +219,27 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
       className: 'error-box',
       text: t('production.bookingChange.unavailable'),
     }));
-  } else if (openChange) {
-    article.appendChild(el('p', {
-      className: 'info-box',
-      text: t(`production.bookingChange.status.${openChange.status}`),
-    }));
-  } else if (request.status === 'Confirmed') {
-    const change = registerMutationControl(button(t('production.bookingChange.propose')));
-    change.addEventListener('click', () => { void runMutation(() => onChange(request)); });
-    article.appendChild(change);
+  } else {
+    if (openChange) {
+      article.appendChild(el('p', {
+        className: 'info-box',
+        text: t(`production.bookingChange.status.${openChange.status}`),
+      }));
+    }
+    if (canProposeProductionBookingChange(request.status, openChange)) {
+      const change = registerMutationControl(button(t('production.bookingChange.propose')));
+      change.addEventListener('click', () => { void runMutation(() => onChange(request)); });
+      article.appendChild(change);
+    }
   }
   if (CANCELLABLE_STATUSES.has(request.status)) {
     const cancel = registerMutationControl(button(t('requests.cancel'), { className: 'danger' }));
-    cancel.addEventListener('click', () => { void runMutation(() => onCancel(request.id)); });
+    cancel.addEventListener('click', () => {
+      onCancelConfirmation(
+        request,
+        () => runMutation(() => onCancel(request.id)),
+      );
+    });
     article.appendChild(cancel);
   }
   const history = button(t('production.manager.historyTab'));
@@ -183,10 +275,13 @@ export function createProductionEmployeeApplication({
   setPageHeading,
   persistence,
   onNavigate = null,
-  siteInfo = Object.freeze({}),
   draftStore = null,
+  onAuthorityFailure = null,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_EMPLOYEE_UI_REQUIRED');
+  if (onAuthorityFailure !== null && typeof onAuthorityFailure !== 'function') {
+    throw new TypeError('PRODUCTION_EMPLOYEE_AUTHORITY_HANDLER_REQUIRED');
+  }
   if (
     !persistence
     || typeof persistence.loadCatalog !== 'function'
@@ -205,6 +300,7 @@ export function createProductionEmployeeApplication({
   let editorRenderGeneration = 0;
   let activeRequestsRefresh = null;
   const requestMutations = new Map();
+  const authoritySurfaces = createAuthoritySurfaceRegistry();
 
   function reserveRequestMutation(requestId, kind) {
     if (requestMutations.has(requestId)) return null;
@@ -237,10 +333,47 @@ export function createProductionEmployeeApplication({
     else void renderRequest();
   }
 
-  function printRequest(request, currentRoomContext = null) {
-    const printWindow = openDetachedPrintWindow();
-    if (!printWindow) return;
-    const doc = printWindow.document;
+  function guestPresentationDetails(guest, currentRoomContext) {
+    return [
+      [t('room.floor'), currentRoomContext?.room?.floor],
+      [t('manager.publicTransport'), localizedGuest(guest?.publicTransport)],
+      [t('guest.arrival'), localizedGuest(guest?.arrival)],
+      [t('manager.parking'), localizedGuest(guest?.parking)],
+      [t('manager.reception'), localizedGuest(guest?.reception)],
+      [t('guest.building'), localizedGuest(guest?.building)],
+      [t('guest.visitorNotes'), localizedGuest(guest?.visitorNotes)],
+      [t('manager.accessibility'), [
+        currentRoomContext?.room?.accessibility?.join(', '),
+        localizedGuest(guest?.accessibility),
+      ].filter(Boolean).join(' · ')],
+      [t('manager.contact'), guest?.contact
+        ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
+        : ''],
+      [t('guest.wifi'), t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)],
+      [t('guest.network'), localizedGuest(guest?.wifiNetworkName)],
+    ].map(([term, value]) => [term, value || '—']);
+  }
+
+  function printRequest(
+    request,
+    currentRoomContext = null,
+    printWindow = openDetachedPrintWindow(),
+  ) {
+    if (!printWindow) {
+      showToast(t('guest.popupBlocked'));
+      return false;
+    }
+    let doc;
+    try {
+      doc = initializeDetachedPrintDocument(printWindow, {
+        lang: locale().split('-')[0],
+        title: t('requests.pdf'),
+      });
+    } catch {
+      closeDetachedPrintWindow(printWindow);
+      showToast(t('guest.popupBlocked'));
+      return false;
+    }
     const room = catalog.rooms.find((entry) => entry.id === request.roomId)
       || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
     const site = catalog.sites?.find((entry) => entry.id === room?.siteId)
@@ -251,11 +384,9 @@ export function createProductionEmployeeApplication({
       ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
         .filter(Boolean).join(', ')
       : t('guest.askOrganizer');
-    doc.documentElement.lang = locale().split('-')[0];
-    doc.title = `${t('requests.pdf')} · ${request.id}`;
     const heading = doc.createElement('h1');
     heading.textContent = t('guest.welcome', {
-      title: request.details?.title || t('production.common.requestId', { id: request.id }),
+      title: request.details?.title || t('guest.title'),
     });
     const list = doc.createElement('dl');
     [
@@ -265,19 +396,9 @@ export function createProductionEmployeeApplication({
       [t('production.employee.end'), formattedRequestValue(
         request.endsAt, room, catalog, currentRoomContext,
       )],
-      [t('production.employee.room'), roomLabel(room || { id: request.roomId })],
+      [t('production.employee.room'), room ? roomLabel(room) : t('guest.askOrganizer')],
       [t('guest.address'), formattedAddress],
-      [t('manager.publicTransport'), localizedGuest(guest?.publicTransport)],
-      [t('manager.parking'), localizedGuest(guest?.parking)],
-      [t('manager.reception'), localizedGuest(guest?.reception)],
-      [t('manager.accessibility'), [
-        currentRoomContext?.room?.accessibility?.join(', '),
-        localizedGuest(guest?.accessibility),
-      ].filter(Boolean).join(' · ') || '—'],
-      [t('manager.contact'), guest?.contact
-        ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
-        : '—'],
-      [t('guest.wifi'), t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)],
+      ...guestPresentationDetails(guest, currentRoomContext),
     ].forEach(([term, value]) => {
       const dt = doc.createElement('dt');
       const dd = doc.createElement('dd');
@@ -285,12 +406,21 @@ export function createProductionEmployeeApplication({
       dd.textContent = value;
       list.append(dt, dd);
     });
+    const route = guest?.routeUrl ? doc.createElement('a') : null;
+    if (route) {
+      route.href = guest.routeUrl;
+      route.target = '_blank';
+      route.rel = 'noopener noreferrer';
+      route.textContent = t('guest.route');
+    }
     const print = doc.createElement('button');
     print.type = 'button';
+    print.className = 'print-action';
     print.textContent = t('guest.print');
     print.addEventListener('click', () => printWindow.print());
-    doc.body.append(heading, list, print);
+    doc.body.append(heading, list, ...(route ? [route] : []), print);
     printWindow.focus();
+    return true;
   }
 
   function openGuestInfo(request, currentRoomContext = null) {
@@ -310,27 +440,20 @@ export function createProductionEmployeeApplication({
       }),
       description: t('guest.subtitle'),
       content: el('section', {}, [el('dl', { className: 'details-list' }, [
+        el('dt', { text: t('production.employee.start') }),
+        el('dd', { text: formattedRequestValue(
+          request.startsAt, room, catalog, currentRoomContext,
+        ) }),
+        el('dt', { text: t('production.employee.end') }),
+        el('dd', { text: formattedRequestValue(
+          request.endsAt, room, catalog, currentRoomContext,
+        ) }),
         el('dt', { text: t('production.employee.room') }),
         el('dd', { text: roomLabel(room || { id: request.roomId }) }),
         el('dt', { text: t('guest.address') }),
         el('dd', { text: formattedAddress }),
-        el('dt', { text: t('manager.accessibility') }),
-        el('dd', { text: [
-          currentRoomContext?.room?.accessibility?.join(', '),
-          localizedGuest(guest?.accessibility),
-        ].filter(Boolean).join(' · ') || '—' }),
-        el('dt', { text: t('manager.publicTransport') }),
-        el('dd', { text: localizedGuest(guest?.publicTransport) || '—' }),
-        el('dt', { text: t('manager.parking') }),
-        el('dd', { text: localizedGuest(guest?.parking) || '—' }),
-        el('dt', { text: t('manager.reception') }),
-        el('dd', { text: localizedGuest(guest?.reception) || '—' }),
-        el('dt', { text: t('manager.contact') }),
-        el('dd', { text: guest?.contact
-          ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
-          : '—' }),
-        el('dt', { text: t('guest.wifi') }),
-        el('dd', { text: t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`) }),
+        ...guestPresentationDetails(guest, currentRoomContext)
+          .flatMap(([term, value]) => [el('dt', { text: term }), el('dd', { text: value })]),
       ]), guest?.routeUrl ? el('p', {}, el('a', {
         href: guest.routeUrl,
         target: '_blank',
@@ -342,6 +465,8 @@ export function createProductionEmployeeApplication({
     });
     close.addEventListener('click', () => dialog.close());
     print.addEventListener('click', () => printRequest(request, currentRoomContext));
+    authoritySurfaces.track(dialog);
+    return dialog;
   }
 
   function localizedGuest(value) {
@@ -375,17 +500,45 @@ export function createProductionEmployeeApplication({
     ]);
     root.addEventListener('submit', (event) => event.preventDefault());
     appRoot.appendChild(root);
+    let authorityProjectionInvalid = false;
     const isCurrentEditor = () => (
       generation === editorRenderGeneration
       && root.parentNode === appRoot
       && document.documentElement.dataset.sessionLocked !== 'true'
+      && !authorityProjectionInvalid
     );
+    const invalidateEditorAuthority = (error) => {
+      authorityProjectionInvalid = true;
+      editorRenderGeneration += 1;
+      activeRequestsRefresh = null;
+      requestMutations.clear();
+      closeDetachedPrintWindows();
+      authoritySurfaces.closeAll();
+      if (onAuthorityFailure?.(error)) return true;
+      if (!root.isConnected) return false;
+      clear(root);
+      root.removeAttribute('aria-busy');
+      const status = el('p', {
+        className: 'error-box',
+        text: errorMessage(error),
+        attrs: { tabindex: '-1', role: 'status' },
+      });
+      root.appendChild(status);
+      requestAnimationFrame(() => {
+        if (authorityProjectionInvalid && root.isConnected) status.focus();
+      });
+      return true;
+    };
     let requestCatalog;
     try {
       requestCatalog = await persistence.loadCatalog();
       if (!isCurrentEditor()) return;
       catalog = requestCatalog;
-    } catch {
+    } catch (error) {
+      if (authorityFailureCode(error)) {
+        invalidateEditorAuthority(error);
+        return;
+      }
       if (!isCurrentEditor()) return;
       clear(root);
       root.appendChild(el('p', { className: 'error-box', text: t('production.employee.loadError') }));
@@ -428,6 +581,7 @@ export function createProductionEmployeeApplication({
       control.setAttribute('aria-required', 'true');
     });
     const selectedServices = new Set(sourceRequest?.details?.serviceIds || restoredDraft?.serviceIds || []);
+    const selectedEquipment = new Set(sourceRequest?.details?.equipmentIds || restoredDraft?.equipmentIds || []);
     let packageSelection = sourceRequest?.details?.catering?.packageSelection
       ? { ...sourceRequest.details.catering.packageSelection }
       : (restoredDraft?.packageSelection ? { ...restoredDraft.packageSelection } : null);
@@ -442,32 +596,50 @@ export function createProductionEmployeeApplication({
         value: String(sourceRequest?.details?.catering?.participantCount ?? restoredDraft?.cateringParticipants ?? 0),
       },
     });
-    const servicePanel = el('section');
-    const renderServiceControls = () => {
-      clear(servicePanel);
+    const servicePanel = el('fieldset', { className: 'room-option-fieldset selection-option-fieldset' });
+    const equipmentPanel = el('fieldset', { className: 'room-option-fieldset selection-option-fieldset' });
+    const renderSelections = (panel, entries, selected, heading) => {
+      clear(panel);
+      panel.appendChild(el('legend', { className: 'selection-group-legend', text: heading }));
       if (!room.value) {
-        servicePanel.appendChild(el('p', {
-          className: 'muted', text: t('schedule.locationPlaceholder'),
-        }));
+        panel.appendChild(el('p', { className: 'muted', text: t('schedule.locationPlaceholder') }));
         return;
       }
-      const services = serviceEditorOptions(requestCatalog, room.value);
-      const applicableIds = new Set(services.map((entry) => entry.id));
-      [...selectedServices].forEach((serviceId) => {
-        if (!applicableIds.has(serviceId)) selectedServices.delete(serviceId);
-      });
-      if (!services.length) {
-        servicePanel.appendChild(el('p', { className: 'muted', text: t('production.common.timeUnavailable') }));
+      const applicableIds = new Set(entries.map((entry) => entry.id));
+      [...selected].forEach((id) => { if (!applicableIds.has(id)) selected.delete(id); });
+      if (!entries.length) {
+        panel.appendChild(el('p', { className: 'muted', text: t('production.employee.noSelections') }));
         return;
       }
-      services.forEach((service) => {
-        const control = el('input', { attrs: { type: 'checkbox', value: service.id } });
-        control.checked = selectedServices.has(service.id);
+      const grid = el('div', { className: 'selection-grid' });
+      entries.forEach((entry) => {
+        const control = el('input', { attrs: { type: 'checkbox', value: entry.id } });
+        control.checked = selected.has(entry.id);
+        const card = el('label', { className: `option-card selection-option-card${control.checked ? ' selected' : ''}` }, [
+          control,
+          el('span', { className: 'selection-option-content' }, [
+            el('strong', { className: 'selection-option-name', text: entry.name }),
+            entry.description
+              ? el('span', { className: 'selection-option-description', text: entry.description })
+              : null,
+            el('strong', {
+              className: 'price',
+              dataset: { uxPriceBasis: 'request' },
+              text: `${formatMoney(entry.price.amountMinor / 100, entry.price.currency)} · ${t('price.perRequest')}`,
+            }),
+          ]),
+        ]);
         control.addEventListener('change', () => {
-          if (control.checked) selectedServices.add(service.id); else selectedServices.delete(service.id);
+          if (control.checked) selected.add(entry.id); else selected.delete(entry.id);
+          card.classList.toggle('selected', control.checked);
         });
-        servicePanel.appendChild(el('label', {}, [control, document.createTextNode(` ${service.name}`)]));
+        grid.appendChild(card);
       });
+      panel.appendChild(grid);
+    };
+    const renderServiceControls = () => {
+      renderSelections(servicePanel, serviceEditorOptions(requestCatalog, room.value), selectedServices, t('review.services'));
+      renderSelections(equipmentPanel, equipmentEditorOptions(requestCatalog, room.value), selectedEquipment, t('production.employee.equipmentHeading'));
     };
     const roomSelectionGrid = el('div', { className: 'selection-grid' });
     const roomSelectionPanel = el('fieldset', { className: 'room-option-fieldset' }, [
@@ -485,6 +657,7 @@ export function createProductionEmployeeApplication({
         requestCatalog.bookingPolicy?.rules?.maximumParticipants,
       )) room.value = '';
       rooms.forEach((entry, index) => {
+        const assets = roomAssetPreviewState(entry);
         const supported = roomSupportsParticipants(
           entry,
           participants,
@@ -567,17 +740,39 @@ export function createProductionEmployeeApplication({
             )} · ${t('room.cost')}`,
           }));
         }
-        card.appendChild(el('div', {
-          className: 'room-floorplan-preview',
-          attrs: {
-            role: 'img',
-            'aria-label': t('production.employee.floorplanPreview', { room: entry.name }),
-          },
-        }, [
-          el('span', { className: 'room-floorplan-table', attrs: { 'aria-hidden': 'true' } }),
-          el('span', { className: 'room-floorplan-screen', attrs: { 'aria-hidden': 'true' } }),
-          el('span', { className: 'room-floorplan-door', attrs: { 'aria-hidden': 'true' } }),
-        ]));
+        if (assets.hasFloorplan || assets.mediaCount > 0) {
+          card.append(
+            roomPreviewVisual(
+              t('production.employee.roomAssetsAvailable', {
+                room: entry.name,
+                count: formatNumber(assets.mediaCount),
+              }),
+              'room-floorplan-preview',
+            ),
+            el('p', {
+              className: 'muted room-asset-summary',
+              text: t('production.employee.roomAssetsSummary', {
+                floorplan: assets.hasFloorplan
+                  ? t('production.employee.roomAssetAvailable')
+                  : t('production.employee.roomAssetUnavailable'),
+                count: formatNumber(assets.mediaCount),
+              }),
+            }),
+          );
+        } else {
+          card.appendChild(el('p', {
+            className: 'muted room-asset-empty',
+            text: t('production.employee.roomAssetsEmpty'),
+          }));
+        }
+        const preview = button(t('production.employee.roomPreviewAction'), {
+          className: 'secondary room-preview-action',
+          attrs: { 'aria-haspopup': 'dialog' },
+        });
+        preview.addEventListener('click', () => {
+          authoritySurfaces.track(openRoomPreview(entry, preview, index));
+        });
+        card.appendChild(preview);
         if (entry.equipment.length) {
           card.appendChild(el('p', {
             className: 'room-equipment',
@@ -615,44 +810,151 @@ export function createProductionEmployeeApplication({
         if (!applicableItemIds.has(itemId)) delete itemQuantities[itemId];
       });
       const packageOptions = options.packages.flatMap((entry) => (
-        (entry.variants || []).filter((variant) => variant.active !== false)
-          .map((variant) => ({ packageId: entry.id, variantId: variant.id, label: `${entry.name} · ${variant.name}` }))
+        [...(entry.variants || [])].filter((variant) => variant.active !== false)
+          .sort((left, right) => (left.order - right.order) || left.id.localeCompare(right.id))
+          .map((variant) => ({ package: entry, variant }))
       ));
-      const packageControl = el('select');
-      packageControl.appendChild(el('option', { value: '', text: t('catering.noPackage') }));
-      packageOptions.forEach((entry, index) => {
-        packageControl.appendChild(el('option', { value: String(index), text: entry.label }));
-        if (entry.packageId === packageSelection?.packageId && entry.variantId === packageSelection?.variantId) {
-          packageControl.value = String(index);
-        }
+      if (!packageOptions.some((entry) => entry.package.id === packageSelection?.packageId
+        && entry.variant.id === packageSelection?.variantId)) packageSelection = null;
+      const packageFieldset = el('fieldset', { className: 'catering-option-fieldset' }, [
+        el('legend', { className: 'selection-group-legend', text: t('production.employee.cateringPackages') }),
+      ]);
+      const packageGrid = el('div', { className: 'catering-package-grid' });
+      const packageControls = [];
+      const syncPackageCards = () => {
+        packageControls.forEach(({ control, card }) => card.classList.toggle('selected', control.checked));
+      };
+      const noPackage = el('input', {
+        id: 'productionCateringPackage-none',
+        attrs: {
+          type: 'radio', name: 'productionCateringPackage', value: '',
+          'aria-label': t('catering.noPackage'),
+        },
+        checked: packageSelection === null,
       });
-      if (!packageOptions.some((entry) => entry.packageId === packageSelection?.packageId
-        && entry.variantId === packageSelection?.variantId)) packageSelection = null;
-      packageControl.addEventListener('change', () => {
-        packageSelection = packageControl.value === '' ? null : {
-          packageId: packageOptions[Number(packageControl.value)].packageId,
-          variantId: packageOptions[Number(packageControl.value)].variantId,
-        };
+      const noPackageCard = el('label', {
+        className: `option-card catering-variant-card${noPackage.checked ? ' selected' : ''}`,
+      }, [
+        noPackage,
+        el('span', { className: 'catering-card-title', text: t('catering.noPackage') }),
+        el('span', {
+          className: 'muted catering-card-copy',
+          text: t('production.employee.cateringNoPackageDescription'),
+        }),
+      ]);
+      packageControls.push({ control: noPackage, card: noPackageCard });
+      noPackage.addEventListener('change', () => {
+        if (noPackage.checked) packageSelection = null;
+        syncPackageCards();
       });
+      packageGrid.appendChild(noPackageCard);
+      packageOptions.forEach(({ package: packageEntry, variant }, index) => {
+        const selected = packageEntry.id === packageSelection?.packageId
+          && variant.id === packageSelection?.variantId;
+        const control = el('input', {
+          id: `productionCateringPackage-${index}`,
+          attrs: {
+            type: 'radio', name: 'productionCateringPackage', value: String(index),
+            'aria-label': `${packageEntry.name} · ${variant.name}`,
+          },
+          checked: selected,
+        });
+        const includedItems = packageEntry.itemIds.map((itemId) => (
+          options.items.find((item) => item.id === itemId)?.name
+        )).filter(Boolean);
+        const card = el('label', {
+          className: `option-card catering-variant-card${selected ? ' selected' : ''}`,
+        }, [
+          control,
+          el('span', {
+            className: 'catering-card-title',
+            text: `${packageEntry.name} · ${variant.name}`,
+          }),
+          packageEntry.description
+            ? el('span', {
+              className: 'catering-package-description catering-card-copy',
+              text: packageEntry.description,
+            })
+            : null,
+          variant.description
+            ? el('span', { className: 'muted catering-card-copy', text: variant.description })
+            : null,
+          includedItems.length
+            ? el('span', {
+              className: 'catering-included-items catering-card-copy',
+              text: t('production.employee.cateringIncludedItems', {
+                items: includedItems.join(' · '),
+              }),
+            })
+            : null,
+          el('strong', {
+            className: 'price',
+            text: t('production.employee.cateringPricePerPerson', {
+              price: formatMoney(variant.price.amountMinor / 100, variant.price.currency),
+            }),
+          }),
+        ]);
+        packageControls.push({ control, card });
+        control.addEventListener('change', () => {
+          if (control.checked) {
+            packageSelection = { packageId: packageEntry.id, variantId: variant.id };
+          }
+          syncPackageCards();
+        });
+        packageGrid.appendChild(card);
+      });
+      packageFieldset.appendChild(packageGrid);
+      if (!packageOptions.length) {
+        packageFieldset.appendChild(el('p', {
+          className: 'muted',
+          text: t('production.employee.cateringPackagesEmpty'),
+        }));
+      }
+      const itemFieldset = el('fieldset', { className: 'catering-option-fieldset' }, [
+        el('legend', { className: 'selection-group-legend', text: t('catering.items') }),
+      ]);
+      const itemGrid = el('div', { className: 'catering-item-grid' });
       cateringPanel.append(
         el('h2', { text: t('catering.heading'), attrs: { tabindex: '-1' } }),
+        el('p', { className: 'muted', text: t('catering.desc') }),
         field({
           id: 'productionCateringParticipants', label: t('catering.people'), control: cateringParticipants,
           hint: t('catering.peopleHint'),
         }),
-        field({ id: 'productionCateringPackage', label: t('catering.package'), control: packageControl }),
-        el('h3', { text: t('catering.items') }),
+        packageFieldset,
+        itemFieldset,
       );
-      if (!options.items.length) cateringPanel.appendChild(el('p', { className: 'muted', text: t('catering.noItems') }));
-      options.items.forEach((item) => {
+      if (!options.items.length) {
+        itemFieldset.appendChild(el('p', { className: 'muted', text: t('catering.noItems') }));
+      }
+      options.items.forEach((item, index) => {
         const quantity = el('input', {
           attrs: { type: 'number', min: '0', max: '1000', step: '1', value: String(itemQuantities[item.id] || 0) },
         });
-        quantity.addEventListener('input', () => { itemQuantities[item.id] = quantity.value; });
-        cateringPanel.appendChild(field({
-          id: `productionCateringItem-${item.id}`, label: item.name, control: quantity,
-        }));
+        const card = el('article', {
+          className: `option-card catering-item-card${Number(quantity.value) > 0 ? ' selected' : ''}`,
+        }, [
+          el('h3', { text: item.name }),
+          item.description ? el('p', { className: 'muted', text: item.description }) : null,
+          el('strong', {
+            className: 'price',
+            text: t('production.employee.cateringPricePerItem', {
+              price: formatMoney(item.price.amountMinor / 100, item.price.currency),
+            }),
+          }),
+          field({
+            id: `productionCateringItem-${index}`,
+            label: t('production.employee.cateringQuantity', { item: item.name }),
+            control: quantity,
+          }),
+        ]);
+        quantity.addEventListener('input', () => {
+          itemQuantities[item.id] = quantity.value;
+          card.classList.toggle('selected', Number(quantity.value) > 0);
+        });
+        itemGrid.appendChild(card);
       });
+      itemFieldset.appendChild(itemGrid);
     };
 
     const activeCostCenterIds = new Set(requestCatalog.costCenters
@@ -890,6 +1192,7 @@ export function createProductionEmployeeApplication({
           el('div', {}, [el('h2', { text: t('services.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('services.desc') })]),
         ]),
         servicePanel,
+        equipmentPanel,
       ]),
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '4' } }, [
         cateringPanel,
@@ -925,49 +1228,113 @@ export function createProductionEmployeeApplication({
       el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
     ]);
     const actions = el('footer', { className: 'wizard-actions' });
-    let activeStep = 1;
+    let activeStep = restoredDraft?.activeStep || 1;
 
     const renderReview = () => {
       const review = panels[5];
       clear(review);
       const selectedRoom = rooms.find((entry) => entry.id === room.value);
-      const selectedServiceNames = serviceEditorOptions(requestCatalog, room.value)
-        .filter((entry) => selectedServices.has(entry.id)).map((entry) => entry.name);
-      const selectedPackage = packageSelection
-        ? cateringEditorOptions(requestCatalog, room.value).packages.find(
-          (entry) => entry.id === packageSelection.packageId,
-        ) : null;
       const window = currentAvailabilityWindow();
       const timeZone = productionRequestRoomTimeZone(selectedRoom, requestCatalog);
       const schedule = window ? t('production.employee.reviewSchedule', {
         start: formatProductionDateTime(window.startsAt, { locale: locale(), timeZone }),
         end: formatProductionDateTime(window.endsAt, { locale: locale(), timeZone }),
       }) : '';
+      const model = buildServerRequestReview({
+        catalog: requestCatalog,
+        roomId: room.value,
+        internalParticipants: internal.value,
+        externalParticipants: external.value,
+        serviceIds: [...selectedServices],
+        equipmentIds: [...selectedEquipment],
+        cateringParticipantCount: cateringParticipants.value,
+        packageSelection,
+        itemQuantities,
+        allocations: allocationRows,
+        dietaryRequirements: dietaryRequirements.value,
+        specialRequirements: specialRequirements.value,
+      });
+      const none = t('common.none');
+      const joinedNames = (entries) => entries.map((entry) => entry.name).join(' · ') || none;
+      const cateringPackage = model.catering.packageSelection
+        ? `${model.catering.packageSelection.package.name} · ${model.catering.packageSelection.variant.name}`
+        : t('catering.noPackage');
+      const cateringItems = model.catering.items.map((entry) => (
+        `${entry.item.name} × ${formatNumber(entry.quantity)}${entry.includedByPackage
+          ? ` · ${t('production.employee.cateringIncludedByPackage')}` : ''}`
+      )).join(' · ') || t('catering.noItems');
+      const includedItems = model.catering.packageSelection?.includedItems
+        .map((entry) => entry.name).join(' · ') || none;
+      const allocationText = model.allocations.map((entry) => (
+        `${entry.costCenter.code} · ${entry.costCenter.name}: ${formatNumber(entry.percentage / 100, {
+          style: 'percent', maximumFractionDigits: 2,
+        })}`
+      )).join(' · ') || none;
+      const previewMoney = (amountMinor) => formatMoney(
+        amountMinor / 100,
+        model.price.currency,
+      );
       const reviewGrid = el('div', { className: 'review-grid' });
-      const reviewCard = (heading, value, targetStep) => {
+      const reviewCard = (heading, rows, targetStep, section) => {
         const edit = button(t('review.edit'), { className: 'ux-review-edit' });
         edit.setAttribute('aria-label', t('review.editAria', { section: heading }));
         edit.addEventListener('click', () => moveToStep(targetStep));
-        return el('article', { className: 'review-card' }, [
+        return el('article', {
+          className: 'review-card',
+          dataset: { reviewSection: section },
+        }, [
           el('div', { className: 'ux-review-card-header' }, [el('h3', { text: heading }), edit]),
-          el('p', { text: value || t('common.none') }),
+          el('dl', { className: 'details-list review-details' }, rows.flatMap(([term, value]) => [
+            el('dt', { text: term }),
+            el('dd', { text: value || none }),
+          ])),
         ]);
       };
+      const priceRows = model.price ? [
+        [t('cost.room'), previewMoney(model.price.breakdown.roomMinor)],
+        [t('review.services'), previewMoney(model.price.breakdown.servicesMinor)],
+        [t('production.employee.equipmentHeading'), previewMoney(model.price.breakdown.equipmentMinor)],
+        [t('catering.package'), previewMoney(model.price.breakdown.cateringPackageMinor)],
+        [t('catering.items'), previewMoney(model.price.breakdown.cateringItemsMinor)],
+        [t('review.total'), previewMoney(model.price.totalMinor)],
+      ] : [[t('review.total'), t('production.employee.reviewPriceUnavailable')]];
       reviewGrid.append(
-        reviewCard(t('review.schedule'), schedule, 1),
-        reviewCard(t('review.room'), roomLabel(selectedRoom || {}), 2),
-        reviewCard(t('review.services'), selectedServiceNames.join(' · '), 3),
-        reviewCard(t('review.catering'), selectedPackage?.name || t('common.none'), 4),
-        reviewCard(t('review.costs'), allocationRows.map((entry) => {
-          const center = requestCatalog.costCenters.find((candidate) => candidate.id === entry.costCenterId);
-          return center ? `${center.code} · ${entry.percentage} %` : '';
-        }).filter(Boolean).join(' · '), 5),
+        reviewCard(t('production.employee.reviewEventParticipants'), [
+          [t('schedule.title'), title.value.trim()],
+          [t('review.schedule'), schedule],
+          [t('production.employee.internal'), formatNumber(model.participants.internal)],
+          [t('production.employee.external'), formatNumber(model.participants.external)],
+          [t('schedule.total'), formatNumber(model.participants.total)],
+          [t('review.special'), model.specialRequirements || none],
+        ], 1, 'event'),
+        reviewCard(t('review.room'), [
+          [t('production.employee.room'), roomLabel(model.room || {})],
+          [t('production.employee.roomFacilities'), joinedNames(
+            (model.room?.equipment || []).map((name) => ({ name })),
+          )],
+        ], 2, 'room'),
+        reviewCard(t('production.employee.reviewServicesEquipment'), [
+          [t('review.services'), joinedNames(model.services)],
+          [t('production.employee.equipmentHeading'), joinedNames(model.equipment)],
+        ], 3, 'services-equipment'),
+        reviewCard(t('review.catering'), [
+          [t('catering.package'), cateringPackage],
+          [t('catering.people'), formatNumber(model.catering.participantCount)],
+          [t('production.employee.cateringIncludedItemsLabel'), includedItems],
+          [t('catering.items'), cateringItems],
+          [t('catering.dietary'), model.dietaryRequirements || t('catering.noDietary')],
+        ], 4, 'catering'),
+        reviewCard(t('review.costs'), [
+          [t('cost.allocations'), allocationText],
+        ], 5, 'allocations'),
+        reviewCard(t('production.employee.reviewPriceBreakdown'), priceRows, 5, 'price'),
       );
       review.append(
         el('div', { className: 'section-heading' }, [
           el('div', {}, [el('h2', { text: t('review.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('review.desc') })]),
         ]),
         reviewGrid,
+        el('p', { className: 'muted review-price-note', text: t('cost.note') }),
         el('aside', { className: 'tentative-box', attrs: { role: 'note' } }, [
           el('strong', { text: t('review.provisional') }),
           el('p', { text: t('review.provisionalText') }),
@@ -1072,6 +1439,7 @@ export function createProductionEmployeeApplication({
       if (activeStep !== 2) status.textContent = '';
       renderActiveStep();
       focusStep();
+      scheduleDraftSave({ immediate: true });
     }
     stepControls.forEach((control, index) => {
       control.addEventListener('click', () => moveToStep(index + 1));
@@ -1098,17 +1466,23 @@ export function createProductionEmployeeApplication({
           internalParticipants: internal.value,
           externalParticipants: external.value,
           serviceIds: [...selectedServices].sort(),
+          equipmentIds: [...selectedEquipment].sort(),
           cateringParticipants: cateringParticipants.value,
           packageSelection,
           itemQuantities,
           allocations: allocationRows,
           dietaryRequirements: dietaryRequirements.value,
           specialRequirements: specialRequirements.value,
+          activeStep,
         });
       };
-      scheduleDraftSave = () => {
+      scheduleDraftSave = (options = {}) => {
         draftDirty = true;
         if (draftTimer) clearTimeout(draftTimer);
+        if (options?.immediate === true) {
+          saveDraft();
+          return;
+        }
         draftTimer = setTimeout(saveDraft, 400);
       };
       root.addEventListener('input', scheduleDraftSave);
@@ -1160,7 +1534,11 @@ export function createProductionEmployeeApplication({
         renderRoomControls();
         renderActiveStep();
         requestAnimationFrame(() => checkAvailability.focus());
-      } catch {
+      } catch (error) {
+        if (authorityFailureCode(error)) {
+          invalidateEditorAuthority(error);
+          return;
+        }
         if (!isCurrentEditor() || availabilityRequestGeneration !== availabilityGeneration) return;
         availabilityState = 'error';
         status.className = 'error-box';
@@ -1223,6 +1601,8 @@ export function createProductionEmployeeApplication({
           internalParticipants,
           externalParticipants,
           serviceIds: [...selectedServices].sort(),
+          ...(Array.isArray(requestCatalog.equipment)
+            ? { equipmentIds: [...selectedEquipment].sort() } : {}),
           catering,
           dietaryRequirements: dietaryRequirements.value.trim() || null,
           specialRequirements: specialRequirements.value.trim() || null,
@@ -1256,6 +1636,10 @@ export function createProductionEmployeeApplication({
         verifiedAvailabilityKey = null;
         if (typeof onNavigate === 'function') onNavigate('requests');
       } catch (error) {
+        if (authorityFailureCode(error)) {
+          invalidateEditorAuthority(error);
+          return;
+        }
         if (!isCurrentEditor()) return;
         invalidateAvailability();
         status.className = 'error-box';
@@ -1273,7 +1657,11 @@ export function createProductionEmployeeApplication({
                 sourceRequest = currentRequest;
                 resubmissionVersionCurrent = true;
               }
-            } catch {
+            } catch (refreshError) {
+              if (authorityFailureCode(refreshError)) {
+                invalidateEditorAuthority(refreshError);
+                return;
+              }
               if (!isCurrentEditor()) return;
             }
           }
@@ -1300,12 +1688,14 @@ export function createProductionEmployeeApplication({
     let hasCommittedProjection = false;
     let committedProjectionGeneration = 0;
     let interactiveProjectionGeneration = 0;
+    let authorityProjectionInvalid = false;
     let pendingSubmissionFocusRequestId = null;
     let requestDisplay = 'list';
     let calendarReference = null;
     const isActiveSurface = () => (
       root.isConnected
       && document.documentElement.dataset.sessionLocked !== 'true'
+      && !authorityProjectionInvalid
     );
     const isCurrent = (generation) => (
       generation === refreshGeneration
@@ -1315,6 +1705,31 @@ export function createProductionEmployeeApplication({
       generation === interactiveProjectionGeneration
       && isActiveSurface()
     );
+    const invalidateAuthorityProjection = (error) => {
+      authorityProjectionInvalid = true;
+      refreshGeneration += 1;
+      closeDetachedPrintWindows();
+      requestMutations.clear();
+      hasCommittedProjection = false;
+      committedProjectionGeneration = 0;
+      interactiveProjectionGeneration = 0;
+      pendingSubmissionFocusRequestId = null;
+      authoritySurfaces.closeAll();
+      if (onAuthorityFailure?.(error)) return true;
+      if (!root.isConnected) return false;
+      clear(root);
+      root.removeAttribute('aria-busy');
+      const status = el('p', {
+        className: 'error-box',
+        text: errorMessage(error),
+        attrs: { tabindex: '-1', role: 'status' },
+      });
+      root.appendChild(status);
+      requestAnimationFrame(() => {
+        if (authorityProjectionInvalid && root.isConnected) status.focus();
+      });
+      return true;
+    };
     const restorePendingSubmissionFocus = (generation) => {
       const requestId = pendingSubmissionFocusRequestId;
       if (!requestId) return;
@@ -1371,6 +1786,7 @@ export function createProductionEmployeeApplication({
     async function refresh(focusRequestId = null) {
       const generation = ++refreshGeneration;
       if (!isCurrent(generation)) return;
+      closeDetachedPrintWindows();
       interactiveProjectionGeneration = 0;
       if (hasCommittedProjection) {
         root.setAttribute('aria-busy', 'true');
@@ -1389,6 +1805,7 @@ export function createProductionEmployeeApplication({
         ]);
         if (!isCurrent(generation)) return;
         catalog = nextCatalog;
+        authorityProjectionInvalid = false;
         clear(root);
         root.removeAttribute('aria-busy');
         hasCommittedProjection = true;
@@ -1459,22 +1876,32 @@ export function createProductionEmployeeApplication({
           const isCurrentCard = () => (
             isInteractiveProjection(generation) && card?.isConnected
           );
-          const withGuestRoomContext = async (target, action) => {
+          const withGuestRoomContext = async (target, action, { onAbort = null } = {}) => {
             try {
               const prepared = await loadCoherentRequestRoomContext(
                 target, nextCatalog, persistence, { projection: 'guest' },
               );
-              if (!isCurrentCard()) return;
+              if (!isCurrentCard()) {
+                onAbort?.();
+                return;
+              }
               if (!prepared) {
+                onAbort?.();
                 showToast(t('production.error.conflict'));
                 return;
               }
               action(target, prepared.currentRoomContext);
             } catch (caught) {
-              if (isCurrentCard()) showToast(errorMessage(caught));
+              onAbort?.();
+              if (authorityFailureCode(caught)) invalidateAuthorityProjection(caught);
+              else if (isCurrentCard()) showToast(errorMessage(caught));
             }
           };
           const reconcileMutation = async (tracked, caught = null) => {
+            if (authorityFailureCode(caught)) {
+              invalidateAuthorityProjection(caught);
+              return;
+            }
             if (!isActiveSurface() || tracked.reconciled) return;
             tracked.reconciled = true;
             if (requestMutations.get(request.id) === tracked) {
@@ -1490,9 +1917,12 @@ export function createProductionEmployeeApplication({
           };
           card = requestCard(request, nextCatalog, roomContexts[index], changes[index], {
             mutationInFlight: () => requestMutations.has(request.id),
+            onCancelConfirmation: (target, confirmAction) => {
+              authoritySurfaces.track(openEmployeeCancellationConfirmation(target, confirmAction));
+            },
             onCancel: async (requestId) => {
               const mutation = beginRequestMutation(requestId, 'cancel', () => (
-                persistence.transitionRequest(requestId, { transition: 'cancel' })
+                persistence.transitionRequest(requestId, { transition: 'cancel' }, request)
               ));
               if (!mutation) return;
               try {
@@ -1552,18 +1982,21 @@ export function createProductionEmployeeApplication({
                     }
                   },
                   errorMessage,
+                  onAuthorityFailure: invalidateAuthorityProjection,
                 });
                 if (!dialog) {
                   await releaseProposal();
                   return;
                 }
+                authoritySurfaces.track(dialog);
                 dialog.addEventListener('close', () => {
                   void releaseProposal();
                 }, { once: true });
               } catch (caught) {
                 const shouldNotify = isCurrentInteraction();
-                await releaseProposal();
-                if (shouldNotify) showToast(errorMessage(caught));
+                await releaseProposal({ reconcile: !authorityFailureCode(caught) });
+                if (authorityFailureCode(caught)) invalidateAuthorityProjection(caught);
+                else if (shouldNotify) showToast(errorMessage(caught));
               }
             },
             onGuestInfo: (target) => withGuestRoomContext(target, openGuestInfo),
@@ -1582,17 +2015,32 @@ export function createProductionEmployeeApplication({
                   title: t('production.manager.historyTab'), content, actions: [close],
                   labelledById: `employeeHistory-${target.id}`,
                 });
+                authoritySurfaces.track(dialog);
                 dialog.addEventListener('close', () => {
                   if (isCurrentInteraction() && control.isConnected) control.focus();
                 }, { once: true });
                 close.addEventListener('click', () => dialog.close());
               } catch (error) {
-                if (isCurrentInteraction()) showToast(errorMessage(error));
+                if (authorityFailureCode(error)) invalidateAuthorityProjection(error);
+                else if (isCurrentInteraction()) showToast(errorMessage(error));
               } finally {
                 if (isActiveCard() && control.isConnected) control.disabled = false;
               }
             },
-            onPrint: (target) => withGuestRoomContext(target, printRequest),
+            onPrint: (target) => {
+              const printWindow = openDetachedPrintWindow();
+              if (!printWindow) {
+                showToast(t('guest.popupBlocked'));
+                return undefined;
+              }
+              return withGuestRoomContext(
+                target,
+                (preparedTarget, currentRoomContext) => {
+                  printRequest(preparedTarget, currentRoomContext, printWindow);
+                },
+                { onAbort: () => closeDetachedPrintWindow(printWindow) },
+              );
+            },
             onRepeat: (target) => queueRequest(target),
             onResubmit: (target) => queueRequest(target, { resubmit: true }),
           });
@@ -1616,7 +2064,13 @@ export function createProductionEmployeeApplication({
               ?.focus();
           });
         }
-      } catch {
+      } catch (error) {
+        const authorityFailure = authorityFailureCode(error) !== null;
+        if (authorityFailure) {
+          invalidateAuthorityProjection(error);
+          return;
+        }
+        if (generation !== refreshGeneration || !root.isConnected) return;
         if (!isCurrent(generation)) return;
         root.removeAttribute('aria-busy');
         if (hasCommittedProjection && focusRequestId === null) {

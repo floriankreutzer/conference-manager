@@ -1,3 +1,5 @@
+import { authorityFailureCode } from './authority-failure.js';
+
 const MAX_CONCURRENT_LOOKUPS = 8;
 const LOOKUP_TIMEOUT_MS = 5_000;
 
@@ -46,10 +48,19 @@ async function loadBoundedCatalogAndContext(persistence, requestId, timeoutMs, p
   }
 }
 
-export function matchingRequestRoomContext(request, envelope) {
+function expectedProjectionSchemaVersion(projection) {
+  if (projection === null) return 1;
+  if (projection === 'guest') return 2;
+  return null;
+}
+
+export function matchingRequestRoomContext(request, envelope, { projection = null } = {}) {
+  const expectedSchemaVersion = expectedProjectionSchemaVersion(projection);
   if (
     !request
     || !envelope
+    || expectedSchemaVersion === null
+    || envelope.schemaVersion !== expectedSchemaVersion
     || envelope.requestRef?.id !== request.id
     || envelope.requestRef?.schemaVersion !== request.schemaVersion
     || envelope.requestRef?.version !== request.version
@@ -59,8 +70,8 @@ export function matchingRequestRoomContext(request, envelope) {
   return envelope.currentRoomContext;
 }
 
-export function coherentRequestRoomContext(request, envelope, catalog) {
-  const context = matchingRequestRoomContext(request, envelope);
+export function coherentRequestRoomContext(request, envelope, catalog, options = {}) {
+  const context = matchingRequestRoomContext(request, envelope, options);
   return context
     && context.locationsRevision === catalog?.configurationRevisions?.locations
     ? context
@@ -86,7 +97,12 @@ export async function loadCoherentRequestRoomContext(
     lookupTimeout,
     projection,
   );
-  const firstContext = coherentRequestRoomContext(request, firstEnvelope, catalog);
+  const firstContext = coherentRequestRoomContext(
+    request,
+    firstEnvelope,
+    catalog,
+    { projection },
+  );
   if (firstContext) return Object.freeze({ catalog, currentRoomContext: firstContext });
 
   const [nextCatalog, nextEnvelope] = await loadBoundedCatalogAndContext(
@@ -95,7 +111,12 @@ export async function loadCoherentRequestRoomContext(
     lookupTimeout,
     projection,
   );
-  const nextContext = coherentRequestRoomContext(request, nextEnvelope, nextCatalog);
+  const nextContext = coherentRequestRoomContext(
+    request,
+    nextEnvelope,
+    nextCatalog,
+    { projection },
+  );
   return nextContext
     ? Object.freeze({ catalog: nextCatalog, currentRoomContext: nextContext })
     : null;
@@ -138,7 +159,8 @@ export async function loadMissingRequestRoomContexts(
           envelope,
           catalog,
         ) || undefined;
-      } catch {
+      } catch (error) {
+        if (authorityFailureCode(error)) throw error;
         results[index] = undefined;
       }
     }

@@ -2,6 +2,7 @@ import { projectRoomBusinessConfiguration } from '../core/tenant-location-owners
 import { currency as tenantCurrency, formatDateTime, t } from '../core/i18n.js';
 import { button, clear, el, field, showToast } from '../core/ui.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-bulk-transfer-panel.js';
+import { authorityFailureCode } from '../shared/authority-failure.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -364,6 +365,7 @@ export function createManagerBusinessSettingsApplication({
   setPageHeading,
   locations,
   catalogue,
+  onAuthorityFailure,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') {
     throw new TypeError('MANAGER_BUSINESS_SETTINGS_ROOT_REQUIRED');
@@ -371,13 +373,40 @@ export function createManagerBusinessSettingsApplication({
   if (!validLocationsAdapter(locations) || !validCatalogueAdapter(catalogue)) {
     throw new TypeError('MANAGER_BUSINESS_SETTINGS_ADAPTER_REQUIRED');
   }
+  if (typeof onAuthorityFailure !== 'function') {
+    throw new TypeError('MANAGER_BUSINESS_SETTINGS_AUTHORITY_HANDLER_REQUIRED');
+  }
   let section = 'rooms';
   let renderRevision = 0;
 
   function isCurrentRender(revision, renderRoot) {
     return revision === renderRevision
+      && appRoot.isConnected
+      && renderRoot.isConnected
       && renderRoot.parentNode === appRoot
       && document.documentElement.dataset.sessionLocked !== 'true';
+  }
+
+  function handleAuthorityFailure(error) {
+    if (!authorityFailureCode(error)) return false;
+    onAuthorityFailure(error);
+    return true;
+  }
+
+  function authorityAwareBulkAdapter(adapter) {
+    return Object.freeze(Object.fromEntries([
+      'loadBulkTemplate',
+      'exportBulk',
+      'validateBulk',
+      'applyBulk',
+    ].map((method) => [method, async (...args) => {
+      try {
+        return await adapter[method](...args);
+      } catch (error) {
+        if (authorityFailureCode(error)) onAuthorityFailure(error);
+        throw error;
+      }
+    }])));
   }
 
   function focusCurrentHeading(revision, renderRoot, enabled) {
@@ -442,7 +471,8 @@ export function createManagerBusinessSettingsApplication({
         locations.loadLocations(),
         locations.listLocationsHistory({ limit: 20 }),
       ]);
-    } catch {
+    } catch (error) {
+      if (handleAuthorityFailure(error)) return;
       if (isCurrentRender(revision, renderRoot)) {
         renderFailure(
           revision,
@@ -535,6 +565,7 @@ export function createManagerBusinessSettingsApplication({
         showToast(t('managerSettings.saved'));
         await renderManagerSettings({ focusHeading: true });
       } catch (error) {
+        if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
         save.disabled = false;
         showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
@@ -543,7 +574,7 @@ export function createManagerBusinessSettingsApplication({
     renderRoot.appendChild(form);
     if (supportsBulkTransfer(locations)) {
       renderRoot.appendChild(createBulkTransferPanel({
-        adapter: locations,
+        adapter: authorityAwareBulkAdapter(locations),
         types: ['rooms'],
         rerender: () => {
           if (isCurrentRender(revision, renderRoot) && section === 'rooms') {
@@ -568,7 +599,8 @@ export function createManagerBusinessSettingsApplication({
         locations.loadLocations(),
         catalogue.listCatalogueHistory({ limit: 20 }),
       ]);
-    } catch {
+    } catch (error) {
+      if (handleAuthorityFailure(error)) return;
       if (isCurrentRender(revision, renderRoot)) {
         renderFailure(
           revision,
@@ -727,6 +759,7 @@ export function createManagerBusinessSettingsApplication({
         showToast(t('managerSettings.saved'));
         await renderManagerSettings({ focusHeading: true });
       } catch (error) {
+        if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
         save.disabled = false;
         showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
@@ -735,7 +768,7 @@ export function createManagerBusinessSettingsApplication({
     renderRoot.append(form);
     if (supportsBulkTransfer(catalogue)) {
       renderRoot.appendChild(createBulkTransferPanel({
-        adapter: catalogue,
+        adapter: authorityAwareBulkAdapter(catalogue),
         types: ['services', 'catering-items', 'catering-packages'],
         rerender: () => {
           if (isCurrentRender(revision, renderRoot) && section === 'catalogue') {

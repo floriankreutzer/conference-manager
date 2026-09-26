@@ -87,7 +87,7 @@ test('reference-data refresh replaces the cached catalog only after a bounded va
   assert.equal(context.getCatalog().sites[0].id, 'stale-site');
   const refreshed = await context.reloadReferenceData();
 
-  assert.equal(signals.length, 6);
+  assert.equal(signals.length, 7);
   assert.equal(signals.every((signal) => signal instanceof AbortSignal), true);
   assert.equal(refreshed.sites[0].id, 'fixture-site');
   assert.equal(refreshed.organization.defaultCurrency, 'GBP');

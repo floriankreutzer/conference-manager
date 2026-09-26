@@ -4,7 +4,6 @@ import {
   directBrowserStorageKinds,
   isApprovedFeatureFlagImport,
   moduleDeclarations,
-  onlyUsesApprovedManagerReturnStorage,
 } from './architecture-rules.mjs';
 
 let failures = 0;
@@ -47,7 +46,6 @@ const employeeIndex = normalize('src/employee/index.js');
 const managerIndex = normalize('src/manager/index.js');
 const tenantAdminIndex = normalize('src/tenant-admin/index.js');
 const tenantAdminServer = normalize('src/tenant-admin/server.js');
-const managerAdminParity = normalize('src/manager/admin-parity.js');
 const employeeServerDraftStore = normalize('src/employee/server-draft-store.js');
 const featureFlagPath = normalize('src/platform/feature-flags.js');
 const appPath = normalize('src/app.js');
@@ -186,10 +184,10 @@ for (const file of sourceFiles) {
 }
 
 const domainModules = [
-  'src/employee/request-session.js',
-  'src/employee/request-lifecycle.js',
-  'src/manager/booking-lifecycle.js',
-  'src/manager/reporting.js',
+  'src/employee/server-request-projection.js',
+  'src/manager/server-cockpit-model.js',
+  'src/manager/server-room-plan.js',
+  'src/shared/production-booking-change.js',
   'src/tenant-admin/user-role-model.js',
 ];
 for (const file of domainModules) {
@@ -209,15 +207,11 @@ for (const file of sourceFiles.filter((path) => (
   const storageKinds = directBrowserStorageKinds(source);
   if (!storageKinds.length) continue;
 
-  const approvedLegacyReturnMarker = file === managerAdminParity
-    && storageKinds.length === 1
-    && storageKinds[0] === 'sessionStorage'
-    && onlyUsesApprovedManagerReturnStorage(source);
   const approvedScopedServerDraft = file === employeeServerDraftStore
     && storageKinds.length === 1
     && storageKinds[0] === 'sessionStorage';
 
-  if (!approvedLegacyReturnMarker && !approvedScopedServerDraft) {
+  if (!approvedScopedServerDraft) {
     fail(`${file}: capability modules must use approved persistence contracts; direct browser storage is forbidden.`);
   }
 }

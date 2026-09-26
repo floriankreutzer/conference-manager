@@ -111,6 +111,35 @@ The SaaS 2 integration branch applied the following bounded root changes. They a
 - Organization branding accepts only `null` or the exact reviewed reference `managed-brand:conference-manager-mark-v1`. The form exposes a bounded native picker rather than a raw reference field. Server-side Tenant authorization remains mandatory; uploads, remote URLs and custom styles are not part of the browser contract.
 - IDs shown for local configuration records are immutable. Microsoft provider technical IDs never enter the browser response contract and therefore cannot be displayed or edited.
 
+## SaaS 3.6 public Site guest information amendment
+
+Tenant Admin technical Locations explicitly requests schema version `2` using
+`GET /api/v1/tenant/settings/locations?schemaVersion=2`. Each Site includes
+`guestInformation: null` or the bounded public guest-presentation model. The
+editor covers public address, arrival and transport, parking, reception,
+building, accessibility, visitor notes, contact, Wi-Fi policy/network name and
+an allowlisted public map destination. It never offers a Wi-Fi credential field.
+Disabling guest information deliberately writes `null`; an absent value is
+invalid. Labels, validation feedback and field-associated errors exist in DE/EN.
+
+The Location adapter opts into version `2` per operation, including historical
+revision reads and rollback. Existing Conference Manager calls remain version
+`1`. Version `2` writes retain the existing expected-revision/CSRF boundary and
+preserve all Room business fields through the technical ownership projection.
+The server remains responsible for `tenant:configure`, authoritative content
+validation, and preserving guest information on version `1` writes/rollback.
+Single-role Tenant Admin history remains metadata only; the new wire support
+does not expose a mixed-ownership rollback action.
+
+The shared `normalizeGuestPresentation` boundary rejects unknown properties,
+markup, embedded URIs, credential assignments, control characters and malformed
+address/contact groups. Route URLs accept only reviewed HTTPS map origins without
+query strings, fragments, credentials or ports. No URL is fetched or previewed.
+Unit fixtures cover both schema versions, strict rejection before transport and
+explicit clearing. The Production composition browser cases cover exact version
+`2`/CSRF writes, Room-field preservation, field focus/error association and mobile
+reflow. Completion of the broader SaaS 3.6 restore remains tracked in #181/#182.
+
 ## Demo contract
 
 At the SaaS 2 integration point, each domain owned a separate in-memory adapter and fixture. `reset({scenario})` supported `normal`, `empty`, `conflict`, `history`, and `recovery`, restored the authoritative revision to `1`, and returned `1`. Conflict scenarios advanced the authoritative revision before returning the exact shared `HTTP_409` / `TENANT_SETTINGS_REVISION_CONFLICT` contract. Recovery failed exactly once, then succeeded. History used fixed timestamps and actors. Those historical adapters contained no network, storage, real Tenant data, provider address or Production import. ADR-010 and its completed shared-Demo migration supersede any implication that an in-memory adapter is active authoritative Demo business state.

@@ -27,6 +27,7 @@ function catalog(locationsRevision = 12, roomIds = ['room-active']) {
 
 function envelope(overrides = {}) {
   return Object.freeze({
+    schemaVersion: 1,
     requestRef: Object.freeze({
       id: 'request-1',
       schemaVersion: 2,
@@ -80,6 +81,14 @@ test('Request Room context matching requires the exact Request reference and cur
   ]) assert.equal(matchingRequestRoomContext(sourceRequest, mismatch), null);
 
   assert.equal(coherentRequestRoomContext(sourceRequest, sourceEnvelope, catalog(11)), null);
+  assert.equal(matchingRequestRoomContext(sourceRequest, {
+    ...sourceEnvelope,
+    schemaVersion: 2,
+  }), null);
+  assert.equal(matchingRequestRoomContext(sourceRequest, {
+    ...sourceEnvelope,
+    schemaVersion: 2,
+  }, { projection: 'guest' }), sourceEnvelope.currentRoomContext);
 });
 
 test('a locations-revision mismatch reloads the catalogue and context as one coherent pair', async () => {
@@ -145,6 +154,26 @@ test('a coherent reload fails closed when its Request reference or context remai
     { timeoutMs: 1_000 },
   ), null);
   assert.equal(contextCalls, 2);
+});
+
+test('projection-specific coherent loads reject unrequested and downgraded envelope versions', async () => {
+  const sourceRequest = request();
+  for (const [projection, schemaVersion] of [[null, 2], ['guest', 1]]) {
+    const persistence = {
+      async loadRequestRoomContext() {
+        return envelope({ schemaVersion });
+      },
+      async loadCatalog() {
+        return catalog();
+      },
+    };
+    assert.equal(await loadCoherentRequestRoomContext(
+      sourceRequest,
+      catalog(),
+      persistence,
+      { timeoutMs: 1_000, projection },
+    ), null);
+  }
 });
 
 test('missing Request Room context lookups are bounded to eight concurrent requests', async () => {
@@ -214,6 +243,21 @@ test('missing Request Room context lookups abort on timeout and fail closed per 
 
   assert.equal(observedSignal.aborted, true);
   assert.deepEqual(results, [undefined]);
+});
+
+test('missing Room context lookups propagate 401/403 instead of preserving stale authority', async () => {
+  for (const code of ['HTTP_401', 'HTTP_403']) {
+    const authorityError = Object.assign(new Error(code), { code });
+    const wrapped = new Error('PRODUCTION_PERSISTENCE_UNAVAILABLE', { cause: authorityError });
+    await assert.rejects(
+      loadMissingRequestRoomContexts(
+        [request()],
+        catalog(),
+        { async loadRequestRoomContext() { throw wrapped; } },
+      ),
+      (error) => error === wrapped,
+    );
+  }
 });
 
 test('missing context lookup skips active Rooms and rejects stale, null or mismatched evidence', async () => {

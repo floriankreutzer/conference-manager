@@ -10,6 +10,7 @@ import {
   PRODUCTION_PERMISSION,
   PRODUCTION_TENANT_ROLE,
 } from './production-session.js';
+import { authorityFailureCode } from '../shared/authority-failure.js';
 
 const EMPTY_PROFILE = Object.freeze({ displayName: '', firstName: '', lastName: '' });
 const EMPTY_CATALOG = Object.freeze({
@@ -20,7 +21,6 @@ const EMPTY_CATALOG = Object.freeze({
   cateringItems: Object.freeze([]),
   costCenters: Object.freeze([]),
 });
-const EMPTY_SITE_INFO = Object.freeze({});
 const EMPTY_REQUESTS = Object.freeze([]);
 const EMPTY_NOTIFICATIONS = Object.freeze([]);
 const REQUIRED_PROJECTION_TIMEOUT_MS = 10_000;
@@ -85,18 +85,17 @@ export function createApplicationContextFromState({
   demoTenants = EMPTY_REQUESTS,
   serverProfile = EMPTY_PROFILE,
   serverCatalog = EMPTY_CATALOG,
-  serverSiteInfo = EMPTY_SITE_INFO,
   serverRequests = EMPTY_REQUESTS,
   serverNotifications = EMPTY_NOTIFICATIONS,
   requiredProjectionTimeoutMs = REQUIRED_PROJECTION_TIMEOUT_MS,
   optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
   const isDemo = runtimeMode === RUNTIME_MODE.DEMO;
-  const authenticationStatus = normalizedAuthenticationStatus(productionAuthenticationStatus);
-  const trustedSession = authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED
+  let authenticationStatus = normalizedAuthenticationStatus(productionAuthenticationStatus);
+  let trustedSession = authenticationStatus === PRODUCTION_AUTH_STATUS.AUTHENTICATED
     ? productionSession
     : null;
-  const recoverableDemoSession = isDemo
+  let recoverableDemoSession = isDemo
     && authenticationRuntime?.status?.() === PRODUCTION_AUTH_STATUS.AUTHENTICATED
     ? (trustedSession || demoControlSession)
     : null;
@@ -105,9 +104,8 @@ export function createApplicationContextFromState({
   const serverPersistence = trustedSession && authenticationRuntime?.apiClient?.request
     ? createProductionPersistence({ apiClient: authenticationRuntime.apiClient })
     : null;
-  const profile = normalizedProfile(serverProfile);
+  let profile = normalizedProfile(serverProfile);
   let catalog = serverCatalog && typeof serverCatalog === 'object' ? serverCatalog : EMPTY_CATALOG;
-  const siteInfo = serverSiteInfo && typeof serverSiteInfo === 'object' ? serverSiteInfo : EMPTY_SITE_INFO;
   let catalogRefreshRevision = 0;
   let requests = immutableArray(serverRequests, EMPTY_REQUESTS);
   let requestRefreshRevision = 0;
@@ -115,7 +113,7 @@ export function createApplicationContextFromState({
   let notificationRefreshRevision = 0;
   const requiredTimeout = normalizedOptionalProjectionTimeout(requiredProjectionTimeoutMs);
   const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
-  const tenants = immutableArray(demoTenants, EMPTY_REQUESTS);
+  let tenants = immutableArray(demoTenants, EMPTY_REQUESTS);
 
   function hasCapability(role, permission) {
     return Boolean(trustedSession) && roles.has(role) && permissions.has(permission);
@@ -149,8 +147,28 @@ export function createApplicationContextFromState({
     return true;
   }
 
+  function invalidateAuthority(error) {
+    if (!authorityFailureCode(error)) return false;
+    authenticationStatus = PRODUCTION_AUTH_STATUS.UNAUTHENTICATED;
+    trustedSession = null;
+    recoverableDemoSession = null;
+    tenants = EMPTY_REQUESTS;
+    roles.clear();
+    permissions.clear();
+    profile = EMPTY_PROFILE;
+    catalog = EMPTY_CATALOG;
+    requests = EMPTY_REQUESTS;
+    notifications = EMPTY_NOTIFICATIONS;
+    catalogRefreshRevision += 1;
+    requestRefreshRevision += 1;
+    notificationRefreshRevision += 1;
+    return true;
+  }
+
   return Object.freeze({
-    profile,
+    get profile() {
+      return profile;
+    },
     runtimeMode() {
       return runtimeMode;
     },
@@ -164,10 +182,10 @@ export function createApplicationContextFromState({
       return authenticationRuntime;
     },
     productionPersistence() {
-      return serverPersistence;
+      return trustedSession ? serverPersistence : null;
     },
     serverPersistence() {
-      return serverPersistence;
+      return trustedSession ? serverPersistence : null;
     },
     isAuthenticated() {
       return Boolean(trustedSession);
@@ -177,6 +195,9 @@ export function createApplicationContextFromState({
     },
     userId() {
       return trustedSession?.user?.id || '';
+    },
+    sessionExpiresAt() {
+      return trustedSession?.session?.expiresAt || '';
     },
     tenantId() {
       return trustedSession?.tenant?.id || recoverableDemoSession?.tenant?.id || '';
@@ -197,18 +218,15 @@ export function createApplicationContextFromState({
     getCatalog() {
       return catalog;
     },
-    getSiteInfo() {
-      return siteInfo;
-    },
     async reloadReferenceData() {
-      if (!serverPersistence) return catalog;
+      if (!trustedSession || !serverPersistence) return catalog;
       const revision = catalogRefreshRevision + 1;
       catalogRefreshRevision = revision;
       const refreshed = await loadBoundedProjection(
         (signal) => serverPersistence.loadCatalog({ signal }),
         requiredTimeout,
       );
-      if (revision === catalogRefreshRevision) catalog = refreshed;
+      if (trustedSession && revision === catalogRefreshRevision) catalog = refreshed;
       return catalog;
     },
     localized(value) {
@@ -218,25 +236,25 @@ export function createApplicationContextFromState({
       return requests;
     },
     async refreshRequests() {
-      if (!serverPersistence) return requests;
+      if (!trustedSession || !serverPersistence) return requests;
       const revision = requestRefreshRevision + 1;
       requestRefreshRevision = revision;
       const refreshed = immutableArray(await loadBoundedProjection(
         (signal) => serverPersistence.listRequests({ signal }),
         requiredTimeout,
       ), EMPTY_REQUESTS);
-      if (revision === requestRefreshRevision) requests = refreshed;
+      if (trustedSession && revision === requestRefreshRevision) requests = refreshed;
       return requests;
     },
     async refreshNotifications() {
-      if (!serverPersistence) return notifications;
+      if (!trustedSession || !serverPersistence) return notifications;
       const revision = notificationRefreshRevision + 1;
       notificationRefreshRevision = revision;
       const refreshed = immutableArray(await loadBoundedProjection(
         (signal) => serverPersistence.listNotifications({ signal }),
         optionalTimeout,
       ), EMPTY_NOTIFICATIONS);
-      if (revision === notificationRefreshRevision) notifications = refreshed;
+      if (trustedSession && revision === notificationRefreshRevision) notifications = refreshed;
       return notifications;
     },
     notifications(limit = 4) {
@@ -286,6 +304,7 @@ export function createApplicationContextFromState({
     shouldReloadForStorageKey() {
       return false;
     },
+    invalidateAuthority,
   });
 }
 
@@ -303,10 +322,10 @@ export async function createApplicationContext({
   const authentication = await authenticationBootstrap();
   let status = authentication?.status;
   let session = authentication?.session || null;
-  const demoControlSession = runtimeMode === RUNTIME_MODE.DEMO ? session : null;
+  let demoControlSession = runtimeMode === RUNTIME_MODE.DEMO ? session : null;
+  let demoTenants = authentication?.tenants || EMPTY_REQUESTS;
   let profile = EMPTY_PROFILE;
   let catalog = EMPTY_CATALOG;
-  let siteInfo = EMPTY_SITE_INFO;
   let requests = EMPTY_REQUESTS;
   let notifications = EMPTY_NOTIFICATIONS;
   if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED && !authentication?.runtime?.apiClient) {
@@ -323,22 +342,32 @@ export async function createApplicationContext({
         ]), requiredTimeout),
         Promise.allSettled([
           loadBoundedProjection(
-            (signal) => persistence.loadSiteInfo({ signal }),
-            optionalTimeout,
-          ),
-          loadBoundedProjection(
             (signal) => persistence.listNotifications({ signal }),
             optionalTimeout,
           ),
         ]),
       ]);
       [profile, catalog, requests] = required;
-      const [siteResult, notificationResult] = optional;
-      if (siteResult.status === 'fulfilled') siteInfo = siteResult.value;
+      const [notificationResult] = optional;
+      if (
+        notificationResult.status === 'rejected'
+        && authorityFailureCode(notificationResult.reason)
+      ) throw notificationResult.reason;
       if (notificationResult.status === 'fulfilled') notifications = notificationResult.value;
-    } catch {
-      status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
+    } catch (error) {
+      const authorityFailure = authorityFailureCode(error) !== null;
+      status = authorityFailure
+        ? PRODUCTION_AUTH_STATUS.UNAUTHENTICATED
+        : PRODUCTION_AUTH_STATUS.UNAVAILABLE;
       session = null;
+      if (authorityFailure) {
+        demoControlSession = null;
+        demoTenants = EMPTY_REQUESTS;
+      }
+      profile = EMPTY_PROFILE;
+      catalog = EMPTY_CATALOG;
+      requests = EMPTY_REQUESTS;
+      notifications = EMPTY_NOTIFICATIONS;
     }
   }
   return createApplicationContextFromState({
@@ -347,10 +376,9 @@ export async function createApplicationContext({
     productionAuthenticationStatus: status,
     authenticationRuntime: authentication?.runtime || null,
     demoControlSession,
-    demoTenants: authentication?.tenants || EMPTY_REQUESTS,
+    demoTenants,
     serverProfile: profile,
     serverCatalog: catalog,
-    serverSiteInfo: siteInfo,
     serverRequests: requests,
     serverNotifications: notifications,
     requiredProjectionTimeoutMs: requiredTimeout,

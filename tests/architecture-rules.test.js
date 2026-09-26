@@ -4,7 +4,6 @@ import {
   directBrowserStorageKinds,
   isApprovedFeatureFlagImport,
   moduleDeclarations,
-  onlyUsesApprovedManagerReturnStorage,
 } from '../scripts/architecture-rules.mjs';
 
 test('module declaration parsing covers semicolonless imports and exports', () => {
@@ -57,23 +56,4 @@ test('direct browser storage detection covers both browser storage mechanisms', 
     ['localStorage', 'sessionStorage'],
   );
   assert.deepEqual(directBrowserStorageKinds('repository.save(value);'), []);
-});
-
-test('only the documented Manager return-marker storage call is approved', () => {
-  assert.equal(
-    onlyUsesApprovedManagerReturnStorage('sessionStorage.setItem(PARITY_RETURN_KEY, JSON.stringify(value));'),
-    true,
-  );
-  assert.equal(
-    onlyUsesApprovedManagerReturnStorage('sessionStorage.setItem("another-key", "value");'),
-    false,
-  );
-  assert.equal(
-    onlyUsesApprovedManagerReturnStorage('sessionStorage.setItem(PARITY_RETURN_KEY, value); sessionStorage.getItem(PARITY_RETURN_KEY);'),
-    false,
-  );
-  assert.equal(
-    onlyUsesApprovedManagerReturnStorage('localStorage.setItem(PARITY_RETURN_KEY, value);'),
-    false,
-  );
 });

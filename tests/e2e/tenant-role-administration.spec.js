@@ -221,7 +221,7 @@ async function openTenantAdministration(page) {
   )).toHaveText('2 Benutzer geladen.');
 }
 
-test('Tenant Admin manages elevated roles through the production API with CSRF and keyboard focus', async ({ page }) => {
+test('REG-01: Tenant Admin manages elevated roles through the production API with CSRF and keyboard focus', async ({ page }) => {
   const fixture = await installProductionFixture(page);
   await openTenantAdministration(page);
 
@@ -292,7 +292,7 @@ test('role conflicts are localized, announced and return focus to the failed sav
   await expect(page.locator('#alertRegion')).toContainText('Mindestens ein aktiver Tenant Admin muss erhalten bleiben');
 });
 
-test('Tenant Admin navigation is server-session scoped and DE/EN copy stays functional', async ({ page }) => {
+test('REG-01: Tenant Admin navigation is server-session scoped and DE/EN copy stays functional', async ({ page }) => {
   await installProductionFixture(page, { roles: ['employee', 'conference_manager'] });
   await page.goto(`${ORIGIN}/`);
   await expect(page.locator('[data-view="tenantAdmin"]')).toHaveCount(0);

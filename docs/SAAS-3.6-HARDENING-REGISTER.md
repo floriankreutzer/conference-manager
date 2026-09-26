@@ -1,6 +1,6 @@
 # SaaS 3.6 hardening register
 
-Status date: 2026-09-08
+Status date: 2026-09-26
 Parent roadmap: #164
 Hardening work package: #171
 Security-regression work package: #168
@@ -38,7 +38,7 @@ misrepresented as Demo discoveries.
 | H-009 | Medium / governance consistency | Open frontend roadmap/issues | Production-relevant documentation | Older still-open current-state text in #74/#82/#91 assigns Tenant Admin business Room/catalogue maintenance that is superseded by #164/#166. Historical evidence must remain historical, but present-tense ownership is contradictory. | Current-baseline comments now preserve the historical records while explicitly applying Roadmap Approved Version 11 and #164/#166 to all pending work: #74 comment 5495272868, #82 comment 5495273109 and #91 comment 5495273426. The frontend historical/normative documents are corrected in the current candidate and the API normative documents in PR #61. | **CORRECTED ON BOTH BRANCHES — pending integration** |
 | H-010 | Medium / security evidence | DAST coverage | security-relevant evidence | The prior `.github/workflows/dast.yml` ran OWASP ZAP Baseline only against the static GitHub Pages launchpad. That result did not constitute Customer Render, Platform Render or Production application/API DAST evidence. | The branch retains the static-portal scan and extends the controlled passive baseline matrix to both public Customer/Platform Render application origins. These scans do not replace authenticated authorization/API or real Production penetration evidence. | **FIXED ON BRANCH — pending final-head three-target DAST, live evidence and merge** |
 | H-011 | Medium / security evidence | Code scanning/SAST | Repository-wide | Repository workflows expose custom syntax/static/SAST/architecture checks, dependency review/audit and secret scan; the workflow tree has no standalone CodeQL file because repository default setup owns the scan. | PR #173 head `4a948897` produced successful CodeQL, Actions and JavaScript/TypeScript analysis in addition to the repository gates. Re-run/verify those required checks on the final head; do not misrepresent default setup as a repository workflow file. The separate AI-finding job failed through unsupported scanner-model infrastructure, not a reported code finding. | **PASS ON `4a948897` — final-head rerun required** |
-| H-012 | Informational | Source maintenance debt | Repository-wide | The 2026-09-01 marker sweep found legitimate historical/legacy terminology and the documented temporary Manager parity-i18n compatibility bridge, but no new unclassified release-blocking defect after semantic review. | The known bridge remains bounded non-blocking cleanup debt in `ARCHITECTURE.md`: it owns no translations and may gain no consumers. Continue to classify concrete compatibility/dead-code findings semantically rather than using marker counts as a quality metric. | Closed / no release-blocking finding |
+| H-012 | Informational | Source maintenance debt | Repository-wide | The 2026-09-01 marker sweep found legitimate historical/legacy terminology and the then-documented temporary Manager parity-i18n compatibility bridge, but no new unclassified release-blocking defect after semantic review. | The current frontend integration removes that bridge and the other module-graph-proven unreachable Employee/Manager render chains, and its architecture gates prohibit those runtime roots from returning. Continue to classify compatibility/dead-code findings semantically rather than using marker counts as a quality metric. | **CLOSED ON LOCAL FRONTEND CANDIDATE — exact-head CI and integration review pending** |
 | H-013 | High / P1 architecture-failure-path debt | Backend Shared Demo PostgreSQL gate | demo-only reachability; current hardening debt | The still-open review thread on already-merged API PR #58 was revalidated against current `main`: `demo-runtime-gate.js` still owned a second hand-written BEGIN/UTC/COMMIT/ROLLBACK/release lifecycle instead of the canonical `withPostgresTransaction`, so future transaction cleanup/nesting/instrumentation fixes could diverge. Import search shows this gate is used only by Demo Customer/Platform composition and tests, not Production composition. | SaaS 3.6 API PR #61 extends the canonical transaction helper with an opt-in infrastructure-error mapper for `connect`/`setup`/`commit`, preserving work errors unchanged, and makes the Demo gate delegate the full transaction lifecycle to it. Generic and Demo-gate regression tests prohibit lifecycle duplication; implementation head `9221ada` passed the complete API CI gate. | **FIXED ON API BRANCH — current paired-head revalidation and merge pending** |
 | H-014 | Medium / static security posture | Static GitHub Pages Demo launchpad | demo-only | The static launchpad set referrer and indexing policy but no restrictive CSP. GitHub Pages also offers no repository-controlled response-header configuration, while CSP `frame-ancestors` is invalid in an HTML meta policy. | Add a fail-closed meta CSP for resource, form, object and base-URL restrictions plus a regression assertion. Explicitly document the provider-controlled response-header/clickjacking limitation; do not claim `frame-ancestors` protection. | **FIXED ON BRANCH — quality passed on `4a948897`; final-head CI, Pages deployment and live evidence pending** |
 | H-015 | High / P1 authorization-workflow correctness | Conference Manager Request operations | production-defect / security-relevant | API and frontend review showed that the public cancel transition remained owner-only and the Manager UI exposed neither foreign-Request cancellation nor confirmed-booking proposal, despite the approved Tenant-wide Manager workflow. Broadening Employee or Tenant Admin authority would be an escalation. | API policy grants same-Tenant eligible cancellation only to Conference Manager + `request:manage`, retaining owner-only Employee, independent Tenant Admin, CSRF, audit, state/reconciliation and no-DELETE controls. The frontend now provides accessible cancel and shared confirmed-booking proposal/decision flows. Exact same-Manager audit progression, negative API tests and both-browser evidence remain final-head gates. | **FIXED ON BOTH BRANCHES — API implementation head `9221ada` green; paired-head/browser revalidation and merge pending** |
@@ -59,42 +59,83 @@ misrepresented as Demo discoveries.
 | H-030 | Medium / security-control integrity; Low / deployed header | Public Demo DAST workflow and Render shells | security-relevant evidence | Scheduled run `34207782850` exposed that the three-surface ZAP job scanned Render without a cold-start readiness gate and had no reviewed passive-alert policy. The first attempt timed out on both sleeping Render services; after an explicit wake, all surfaces completed with zero ZAP FAIL alerts but the action failed on known warnings. The review separated provider-controlled Pages responses, intentional Render `no-cache`/header-plus-meta CSP behavior and ZAP's missing Fetch Metadata request headers from one repository-actionable Low: both Render shells lacked `Cross-Origin-Embedder-Policy`. A permanently red control cannot be represented as usable release evidence. Failed candidate run `34257529823` then proved that suffixed alert references cannot be passed directly to the plugin-ID-based baseline summary: it generated alert filters, duplicated findings and synthetic zero-instance rows instead of preserving raw evidence. | The workflow checks out reviewed policy without persisting credentials, waits for direct HTTP 200 at surface-specific readiness URLs and generates the exact Automation Framework plan before the scan. Exact-policy rows are mechanically limited to one canonical HTTPS URL. An unsuffixed plugin-ID `INFO` compatibility map is a deterministic finite-URL projection, not a ZAP filter. The always-run validator requires one fresh unfiltered raw report and the exact ordered seven-job plan; it binds every instance to the reviewed reference, URL, method and maximum risk and binds generated summary rules to the projection. Unknown plugins, sibling references, changed URLs/risks and filtered, stale, early or wrong-origin evidence remain validator-blocking. Broad ignores, wildcard exclusions and warning-tolerant execution are prohibited. The plan uses `maxAlertsPerRule: 0`, so findings cannot be suppressed by a per-plugin ceiling. The API correction adds and tests `Cross-Origin-Embedder-Policy: require-corp` on both Demo shells. A trusted `main` push touching the DAST policy triggers all three live scans so the correction and durable Pages source receive post-merge evidence. | **CORRECTION IN PROGRESS — corrected pull-request gate, protected merge and green trusted-main three-surface DAST evidence required** |
 | H-031 | Medium / P1 recovery correctness | Customer Demo Tenant/persona control | demo-only | During hosted acceptance, selecting the server-known Contoso Tenant while it remained in lifecycle state `ready` correctly denied active-only business projections with HTTP 403. The application then discarded the effective business session as required, but the Demo selector was coupled to that same session and became unusable, trapping the User in the unavailable Tenant. Production has no Demo Tenant/persona selector. | Frontend PR #175 preserves the initially validated server-backed session only as a Demo control-session snapshot while the Demo runtime still reports `authenticated`. That snapshot can display the selected Tenant/persona and submit the existing bounded context-switch intent; it never restores User, role, permission, business persistence or application authentication authority. Unit and Chromium/WebKit regressions enter the denied Tenant, require the application to remain unavailable, and recover to the active Tenant. API PR #64 pins the corrected immutable frontend for both Render services. | **CLOSED — frontend PR #175 merge `456a8137ef26dca1e18298a36565d0dc0f6e50ef`; API PR #64 merge `f75a940bc1c589f4f91e3a534539b5eb58c346a9`; recovery CI `34192640969` and exact deployed-release acceptance `34193819829` green** |
 | H-032 | High / P1 security-evidence integrity | Exact DAST raw evidence | security-relevant evidence | PR #189 review found that upstream Baseline generation set `maxAlertsPerRule: 10`. ZAP applies that ceiling to the base passive scanner plugin, so later URLs can be suppressed before the raw report reaches the exact verifier; Platform plugin `90005` reached that boundary in live evidence. Later reviews found that a path target did not itself prove a subtree restriction, same-origin evidence outside that subtree remained verifier-acceptable, an existing evidence-path symlink could defeat the intended narrow bind mount, and the direct Automation Framework start had dropped the wrapper's `-a` alpha passive rules. | The workflow now generates and validates its exact seven-job Automation Framework plan in the repository with `maxAlertsPerRule: 0`, explicit `90004`/`90005` thresholds, an exact target-subtree context include and an explicitly context-bound spider. The verifier independently rejects policy and report URLs outside that subtree. In the same container home it installs beta and alpha passive add-ons, records the installed manifest, and refuses evidence unless both expected rule sets are proven. Before the container starts, the workflow removes the exact evidence path without following links, recreates a real directory and verifies its resolved location; the container mounts only that directory rather than the repository tree. | **FIXED ON BRANCH — pending exact-head three-target DAST, fresh security review and merge** |
+| H-033 | High / P1 Unicode presentation integrity | Request attribution API and frontend wire | production-defect / security-relevant | The attribution `displayName` wire accepted bidirectional overrides/isolates, zero-width and other Unicode format/control characters. A visually reordered or concealed actor label can misrepresent who performed a Request operation even when the underlying audit identity remains server-owned. | The frontend wire requires trimmed NFC text and rejects Unicode control, format, surrogate, line-separator and paragraph-separator categories before rendering. API Guest hardening `49a8e9a` also rejects lone surrogate code points before persistence and response. Paired negative contract tests exist locally; exact paired-head remote execution and review remain required. | **CORRECTED LOCALLY ON THE FRONTEND AND API CANDIDATES — exact-head paired CI, review and integration pending** |
+| H-034 | High / P1 functional contract and asset trust boundary | EMP-03 Room media | production-defect / security-relevant | The frontend reduces opaque `floorplanAssetId`/`mediaAssetIds` values to presence/count and renders synthetic CSS schematics; its browser fixture explicitly proves that no asset request occurs. The API stores opaque identifiers in Room JSON but has no asset registry, bytes, authenticated upload or byte-delivery/resolution contract. This does not satisfy the approved EMP-03 image, preview and floorplan requirement. | ADR-012 accepts bounded PostgreSQL raster assets, Tenant quota, image processing, Room-reference lifecycle and same-Tenant read/upload authority. Implement the same-origin managed-asset contract with authorization, content-type, size, cache and failure bounds and no arbitrary URL/SSRF authority, plus API and Chromium/WebKit negative and visual coverage. Verify backup/retention cost and recovery before release. A placeholder URL or ID alone is not a delivery contract. | **PRODUCT DIRECTION ACCEPTED — implementation and evidence still block #182 and #170** |
+| H-035 | High / P1 public-content boundary | Site Guest and Request Room Guest text | production-defect / security-relevant | The initial credential-label screen missed voucher/Wi-Fi/passcode/token labels and Room floor/accessibility, including legacy stored details. Adversarial review found obfuscated, suffixed and non-Latin credential labels; broad script rejection also blocked legitimate multilingual wayfinding. More fundamentally, free text can disclose a code without any label (for example, “The combination 1234 opens the door”), which no finite label detector can prove absent. | FE `f4d68ee` and API `8a0714c` apply bounded candidate-based screening and raw/full/separator-preserving skeleton passes. Paired tests reject reproduced glued/numeric/prefix/Latin/Cherokee and `@/$` plus leet patterns, preserve Cyrillic/Japanese/mixed-script wayfinding and `passwordless` semantics, and cover the Unicode normalization hot path; the Room-specific non-Markdown contract remains. ADR-012 accepts credential-incapable structured public values and withholding of unmigrated Guest prose. Existing Site/Room names are older v1/Catalogue/Provider fields; owning-role content policy and inherited-risk review remain necessary. Contact email/phone remain bounded strings, not new RFC/E.164 contracts. | **PRODUCT DIRECTION ACCEPTED — structured contract, migration and PostgreSQL/browser/CI evidence pending** |
+| H-036 | High / P1 Request response integrity | Frontend Request adapter | production-defect / security-relevant | A validly shaped mutation/proposal response could silently confirm different Room, time, participants, title or configuration than submitted; Request attribution could downgrade between separate API calls; report rows updated after `asOf`, booking-change `change:null` with a foreign version, and transition responses with a different status/version/reason could look successful. | Frontend `4af7c23` binds full submitted draft and proposal snapshots, visible Request references and transition intent/version, latches v3 attribution across endpoint families, checks report `updatedAt <= asOf`, and sends a strong visible-version `If-Match` on transitions. Adversarial responses remain independently wire-valid in the negative tests; API H-038 supplies the complementary server precondition. | **FIXED LOCALLY — exact paired CI/browser evidence pending** |
+| H-037 | High / P1 session authority lifetime | Customer shell and Employee/Manager/Tenant Admin subviews | security-relevant | 401/403 from Notifications, Settings, Tenant Admin, bulk, presentation, sign-out, Demo Tenant/persona switch and detached/late feature calls could be swallowed by local lifecycle catches while privileged navigation/profile/dialogs remained live. A queued Profile→Help frame could reopen a dialog after invalidation. | Frontend `3899aac` adds central context invalidation of session, capabilities and cached projections; shell closes dialogs/print, clears navigation/feedback and renders a focused sign-in status. Successor `8656dd1` also resets external branding/title/localization and prevents a late presentation refresh from reapplying tenant identity. Held-call/navigation/save/logout regressions are present; final local quality passed 457/457, browser discovery is not execution. | **FIXED IN LOCAL FRONTEND CANDIDATE — exact-head browser CI, review and integration pending** |
+| H-038 | High / P1 stale workflow mutation | Backend Request transitions and confirmation | production-defect / security-relevant | Transition POST had no visible Request-version precondition. After another actor changes and resubmits a Request into an allowed status, a stale Manager command can mutate unseen content; frontend response checking detects the mismatch only after a database/provider/calendar side effect. The repository compare-and-set checked status but not Request version, and already-target reconciliation could accept another operation as success. | Frontend `4af7c23` sends one strong decimal `If-Match` tag for the displayed positive version. API `3790d68` requires it (428 missing / 400 malformed), checks before policy/provider/calendar activity and atomically under status+version compare-and-set in transition and confirmation writes. Successor `d5203d1` fails closed on a predecessor-version retry because target/reason/version cannot prove the same actor and operation without an operation identity; `f544211` prevents one ambiguous confirmation path from adopting/compensating a winner's event. An already-terminal command can only reread the exact current version under its command entitlement. ABA, same-status races, confirmation/no-orphan, stale/retry, malformed-header and PostgreSQL-negative coverage were added. Deploy the compatible frontend first; H-040 provides the complementary provider-event fence. | **FIXED LOCALLY — H-040 PostgreSQL 18 and exact paired browser/CI evidence pending** |
+| H-039 | High / P1 command authorization | Already-confirmed Request retry | security-relevant | An Employee who may read their own already Confirmed Request could submit the `confirm` command with the predecessor version and receive a success-equivalent response despite lacking the Manager `request:manage` entitlement; the confirmation service's already-target branch used read authorization. A direct transition correctly denied that same principal. | API `d5203d1` requires Manager `request:manage` reconciliation authority even on already-Confirmed state and fails predecessor-version commands closed; real-policy and HTTP Employee-denial/Manager-current-version tests are included. | **FIXED LOCALLY — 786/786 API gates passed; PostgreSQL 18/exact-head evidence pending** |
+| H-040 | High / P1 booking-provider race | Concurrent final confirmation and compensation | production-defect / security-relevant | Two final confirmations can share a deterministic provider event. A losing Room-compare-and-set compensation or a concurrent write-disabled pre-confirmation cleanup could delete that event before the write-enabled winner commits, leaving Confirmed without a live Calendar event. A held repro observed `providerEventActive=false` after winner success. | API `88dd4a0` fences compensation with the Request row, active reference and per-reference advisory lock. `f508b47` adds a dedicated version/status-fenced pre-confirm cleanup: `active→compensating→compensated` before the external Delete; after Room check the successful Confirm atomically records Request revision, cleanup/audit and `compensated→cancelled`. `e71b8e2` canonicalizes Revision-Watermark→Tenant-Audit lock order across all six Request writers, including pending-change supersede. Held unit races and barrier-based two-client PostgreSQL tests for both provider orderings and both tenant-wide advisory contention paths are committed, but the latter were not executed without PostgreSQL 18. Ordinary cancellation remains separate. | **FIXED LOCALLY — two-client PostgreSQL 18/provider integration, exact-head CI/review and deployed evidence required** |
 
-### Final repository-controlled disposition
+### Current repository-controlled disposition
 
-The branch-progress wording in individual status cells records discovery history. This disposition is
-authoritative for the final integration candidates:
+ADR-012 (`ADR-012-SAAS36-ROOM-MEDIA-AND-GUEST-PUBLIC-CONTENT.md`) accepts the H-034/H-035
+product direction. The managed-media and structured-public-content implementations and
+their operational, security and acceptance evidence remain open.
 
-- H-002, H-008 and H-012 remain closed as recorded.
-- H-001, H-003, H-004, H-007, H-014, H-016, H-018 and H-020 through H-027 are corrected and
-  validated on frontend executable candidate `de3dd11404ee5ebab5252b3b98e957b091827651`.
-- H-005, H-006, H-013 and H-017 are corrected on API implementation
-  `550cc0f1264085631c67f8a6465ac276e0af2ae0`; H-009, H-015 and H-019 are corrected across that API
-  implementation and the frontend candidate. Final deployment-pin/test-document evidence is
-  maintained in integration PR #62.
-- H-028 and H-029 are corrected and validated on current API integration candidate
-  `4cbb6600398e1db56bd9dd2de130502844cec258`. Rollback-negative coverage and its contract
-  reconciliation were completed on `7fa72d03cb78a9ad9e7d1ebb94d59f72b15a4afd` and are preserved by
-  `4cbb660`. The remaining API successor is restricted to pinning this register's final frontend
-  documentation head and must repeat the applicable exact-head gates.
-- H-011 passes on the final frontend executable candidate through repository checks and GitHub
-  default-setup CodeQL for JavaScript/TypeScript and Actions.
-- H-010 repository automation is complete. Public deployment identity, live journeys and live DAST
-  remain planned external evidence under #172/#170 and are not represented as repository-controlled
-  defects or self-approved acceptance.
+The branch-progress wording in the earlier status cells is historical. The latest committed local
+frontend executable candidate is `ead50a7020830b2a7a12250a173a3565308f8213` (followed by
+ADR-012 documentation-only commits `7dc5207` and `54c7d24`). It integrates
+the prior Employee/Manager/Equipment/attribution/Guest work, H-036 response binding, H-037 global
+authority/branding invalidation and the H-035 known-label correction, with test-only
+REG direct-entry/reload/role-loss and dual-role/Manager-absence browser coverage. The latest committed local API
+candidate is `fe9ef0b` (schema 38), including H-038/H-039/H-040,
+the symmetric known-label correction and a bounded H-034 image-decoding/re-encoding adapter.
+The adapter accepts PNG/JPEG/WebP up to 2 MiB and 4 megapixels, rejects format mismatch
+and animation, and emits metadata-free WebP. API `npm run check` (788/788 tests) and
+`npm run audit` (0 vulnerabilities) passed locally on 2026-09-26. Asset persistence,
+Tenant quota, attachment authorization, delivery and real frontend rendering do not yet exist.
+These are local candidates, not final merged or deployed
+release references.
 
-No unresolved repository-controlled implementation defect remains. A final deployment-pin-only API
-successor must pin the final frontend documentation candidate and repeat the exact-head gates.
-Integration into `main`, current-state documentation and the explicitly external acceptance chain
-remain delivery gates rather than hidden residual defects.
+- The local candidates contain the restored Employee, Manager, Equipment, attribution and Guest
+  Information implementations, but H-034 remains an unresolved repository-controlled EMP-03 gap.
+- H-033/H-036/H-037/H-038/H-039/H-040 and known H-035 label bypasses are corrected locally, but the
+  two-client PostgreSQL tests have not run. H-035 remains open for the accepted structured
+  public-content implementation; no finite label screen proves unlabeled
+  secrets absent. None has received exact paired-head remote CI, protected review or integration evidence.
+- The frontend workflow still pins historical API `550cc0f`, while API `e71b8e2` still pins historical
+  frontend `af4d877` in its Render manifest. Hosted acceptance also targets an older deployed pair.
+  There is therefore no CI, deployment or acceptance result for the current pair. The release must
+  use an ordered compatibility handoff and record the exact pair through workflow inputs and
+  post-deployment identity; reciprocal commit-SHA pins cannot be fabricated as a hash cycle.
+- Local candidate commits are not publication evidence. Pushing, opening or updating pull requests,
+  merging, deploying Pages/Render and applying Production migrations require operator authorization
+  and the protected workflows.
+- The public readiness markers remain `in-validation`; #182, #170 and the SaaS 3.6 milestone remain
+  open until H-034/H-035 and all outstanding H-040 external evidence, exact-head, deployment and
+  human-acceptance gates below are complete.
 
-## Current scanner and CI evidence
+## Current candidate evidence
 
-Executable evidence is recorded by exact executable head. Documentation-only successors must
-preserve that executable tree, pass their own applicable gates and be identified by exact head in
-PR #174.
+| Candidate | Local state | Evidence still required |
+| --- | --- | --- |
+| Frontend | Committed executable `ead50a7`; `npm run check` passed 457/457, audit 0 vulnerabilities; 260 browser cases discovered across six files, not executed locally | Remote quality, CodeQL, dependency and secret gates; real Chromium desktop and WebKit mobile; paired Shared Demo |
+| API | Committed `e71b8e2`, schema 38 with migrations 035-038; `npm run check` passed 786/786 including Customer DAST and Platform 16/16; audit found 0 vulnerabilities | Remote quality, dependency and secret gates; PostgreSQL 18 migration/up/down/rollback and H-040 two-client races; paired Shared Demo in both browsers |
+| Paired release | Historical pins only; no deployed identity for the current pair | Reviewed compatibility-first handoff, exact workflow-dispatch/post-merge refs, protected review/merge, Hosted Acceptance and live three-surface DAST |
+| Product acceptance | Readiness is `in-validation` | Implement accepted ADR-012 managed media and structured public values; named human #182 acceptance for keyboard/focus, 200% reflow, responsive states, dialogs, print and real Room media |
 
-### Final frontend executable candidate `de3dd11404ee5ebab5252b3b98e957b091827651`
+Local Node checks and Playwright discovery are useful candidate diagnostics only. The local host has
+no installed Chromium or WebKit executable, so the discovered cases were not browser-executed.
+Discovery is not a browser pass, the API's PostgreSQL-free local test run is not migration evidence,
+and neither can replace remote exact-head gates or human acceptance. Record the final documentation
+successor SHA and its executed remote results before integration.
+
+The REG-01/02/03 browser titles now identify existing authorized Tenant Admin, Manager-absence and
+dual-role journeys. `e3d55a5` adds direct Tenant Admin entry, reload and Demo role-loss coverage;
+`ead50a7` adds Production reload role-loss and dual-role/Manager-absence checks. These cases were
+discovered but not browser-executed. Residual role-gate evidence is still required for other
+direct/deep entry and reload, live stale-capability removal after a Production role change, the
+complete Manager report/Room-price absence matrix and same-Tenant non-owner Request access.
+Backend authorization negatives remain complementary and do not substitute for those browser outcomes.
+
+## Historical scanner and CI evidence (superseded for current candidates)
+
+The exact results below remain useful audit history for the SHAs they name. They do not validate
+frontend `ead50a7`, its documentation successor, API `e71b8e2` or their pairing.
+
+### Historical frontend executable candidate `de3dd11404ee5ebab5252b3b98e957b091827651`
 
 - CI run `33534092470`: `quality` passed with 401/401 Node tests and zero high-severity dependency
   vulnerabilities; Chromium desktop and WebKit mobile passed 146/146 browser tests; shared-Demo
@@ -111,7 +152,7 @@ PR #174.
 - Optional AI run `33534089780` failed before analysis because the configured model is unsupported;
   it reported no code finding and is not a required repository gate.
 
-### Frontend documentation candidate `e76a3d95aee249083511db82aab651e4edfc44c3`
+### Historical frontend documentation candidate `e76a3d95aee249083511db82aab651e4edfc44c3`
 
 - This candidate preserves executable tree `05dcb6c9754d8dc5026cc85f2ba8e109fc26b25e` from the final
   executable candidate and changes only milestone evidence documentation.
@@ -125,7 +166,7 @@ PR #174.
 - The current documentation-only successor adds H-028/H-029 disposition and must repeat applicable
   exact-head gates before integration.
 
-### Current API implementation evidence
+### Historical API implementation evidence
 
 - API implementation `550cc0f1264085631c67f8a6465ac276e0af2ae0` contains the locked
   revision/authorization correction. Paired candidate `613a740b7f5e02f6517e26d3c97fe4f060c91fe3`
@@ -235,13 +276,22 @@ hosted evidence.
 
 ## Remaining delivery gates before #170
 
-1. Integrate API PR #62 and frontend PR #174 without bypassing required review, branch protection,
-   CodeQL, dependency, secret, quality, browser, shared-Demo or architecture/security gates.
-2. Verify both merged `main` heads and the session-revocation migration through their post-merge
-   checks; resolve historical review provenance only with the replacing merge evidence.
-3. Reconcile #169 GitHub and Confluence current-state documentation to the actual merged frontend/API
-   refs while preserving historical roadmap evidence.
-4. Execute and record the external hosted launchpad/Render/live-DAST acceptance required by
-   #172/#170. Repository implementation must not self-approve that evidence.
-5. #170 remains open until the external evidence chain is complete; #164 and SaaS 4 remain blocked
-   until that final gate passes.
+1. Execute both H-040 provider races and tenant-wide lock-order cases on PostgreSQL 18.
+   Implement H-034 through the ADR-012 managed-media contract and UI; add safe-delivery
+   negatives and real-media acceptance. Implement H-035 through ADR-012 structured public
+   values, withholding unmigrated Guest prose; known-label screening alone cannot certify
+   unlabeled secrets absent.
+2. Settle and record the final frontend and API SHAs. Use the ordered compatibility-first handoff to
+   configure exact workflow inputs and deployment refs without inventing reciprocal commit hashes.
+3. Run protected remote frontend gates, including quality, CodeQL, dependency/secret checks, real
+   Chromium desktop and WebKit mobile, and the paired Shared Demo. Run the exact API gates including
+   PostgreSQL 18 migration/up/down/rollback, dependency/secret checks and both Shared-Demo browsers.
+4. Close the residual REG role-gate evidence for direct entry/reload, capability removal, complete
+   Manager-surface absence and same-Tenant non-owner access. Record named human #182 acceptance for
+   keyboard/focus, 200% reflow, responsive states, dialogs, print and real Room media.
+5. After protected reviews and merges, obtain explicit operator authorization before applying API
+   migrations or publishing Pages/Render. Then verify deployed identities and execute Hosted
+   Acceptance, live journeys and exact three-surface DAST. Repository implementation cannot
+   self-approve those results.
+6. Reconcile #169 current-state documentation to the actual merged/deployed refs. Only then may the
+   readiness marker become `ready`, #170 close and the SaaS 3.6 milestone be declared complete.

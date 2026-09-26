@@ -13,6 +13,7 @@ import { productionRequestRoomTimeZone } from '../src/shared/request-room-contex
 import { composeServerRequestDraft } from '../src/shared/production-request-draft.js';
 import {
   cateringEditorOptions,
+  equipmentEditorOptions,
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
   roomEditorOptions,
@@ -22,6 +23,10 @@ import {
 import { roomPlanProjection, siteLocalIsoDate } from '../src/manager/server-room-plan.js';
 
 const EMPLOYEE_SOURCE = new URL('../src/employee/production-application.js', import.meta.url);
+const EMPLOYEE_CSS_SOURCE = new URL('../assets/employee-ux.css', import.meta.url);
+const PRODUCTION_MESSAGES_SOURCE = new URL(
+  '../src/core/i18n-production-application-messages.js', import.meta.url,
+);
 const EMPLOYEE_HISTORY_SOURCE = new URL('../src/employee/server-request-history.js', import.meta.url);
 const MANAGER_SOURCE = new URL('../src/manager/production-application.js', import.meta.url);
 const APP_SOURCE = new URL('../src/app.js', import.meta.url);
@@ -148,10 +153,10 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /CANCELLABLE_STATUSES = new Set\(\[[^\]]*'Confirmed'/);
   assert.match(employee, /isProductionTimeZone\(timeZone\)[\s\S]*roomId: '', startsAt: '', endsAt: ''/);
   const serviceRender = employee.slice(
-    employee.indexOf('const renderServiceControls'),
+    employee.indexOf('const renderSelections'),
     employee.indexOf('const renderCateringControls'),
   );
-  assert.ok(serviceRender.indexOf('if (!room.value)') < serviceRender.indexOf('selectedServices.delete'));
+  assert.ok(serviceRender.indexOf('if (!room.value)') < serviceRender.indexOf('selected.delete'));
   const cateringRender = employee.slice(
     employee.indexOf('const renderCateringControls'),
     employee.indexOf('const allocationRows'),
@@ -162,7 +167,8 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /value: sourceEnd\?\.date \|\| restoredDraft\?\.endDate/);
   assert.match(employee, /sum: formatNumber\(sum, \{ maximumFractionDigits: 2 \}\)/);
   assert.doesNotMatch(employee, /allocationStatus\.textContent[\s\S]{0,120}toFixed/);
-  assert.match(employee, /scheduleDraftSave = \(\) => \{\s*draftDirty = true;/);
+  assert.match(employee, /scheduleDraftSave = \(options = \{\}\) => \{\s*draftDirty = true;/);
+  assert.match(employee, /scheduleDraftSave\(\{ immediate: true \}\);/);
   assert.match(employee, /if \(draftTimer\) clearTimeout\(draftTimer\);\s*draftTimer = null;\s*draftStore\.clear\(\);/);
   assert.match(employee, /allocationRows\.splice\(index, 1\);\s*scheduleDraftSave\(\);/);
   assert.match(employee, /allocationRows\.push\([^;]+;\s*scheduleDraftSave\(\);/);
@@ -171,7 +177,9 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
 });
 
 test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: server-backed Employee editor restores the six-step presentation without changing authority', async () => {
-  const employee = await source(EMPLOYEE_SOURCE);
+  const [employee, messages] = await Promise.all([
+    source(EMPLOYEE_SOURCE), source(PRODUCTION_MESSAGES_SOURCE),
+  ]);
 
   assert.match(employee, /const stepLabels = \[[\s\S]*'request\.step\.review'/);
   assert.match(employee, /dataset: \{ stepPanel: '6' \}/);
@@ -183,8 +191,79 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: server-backed Employee editor restores
   assert.match(employee, /String\(value\)\.trim\(\) === ''/);
   assert.match(employee, /next\.disabled = activeStep === 2 && !isAvailabilityVerified\(\)/);
   assert.match(employee, /type: 'radio',[\s\S]*name: 'productionRoomChoice'/);
+  assert.match(employee, /roomAssetPreviewState\(entry\)/);
+  assert.match(employee, /openRoomPreview\(entry, preview, index\)/);
+  assert.match(employee, /production\.employee\.roomAssetsPrivacy/);
+  assert.match(messages, /Schematischer Platzhalter: Grundriss-Referenz/);
+  assert.match(messages, /Schematic placeholder: a floor-plan reference/);
+  assert.match(messages, /Der aktuelle Katalog liefert keine Asset-Dateien/);
+  assert.match(messages, /The current catalogue provides no asset files/);
+  assert.doesNotMatch(messages, /Freigegebene (?:Raum|Grundriss)|Approved (?:room|floor-plan)/);
+  assert.match(employee, /buildServerRequestReview\(\{/);
+  assert.match(employee, /className: 'details-list review-details'/);
+  assert.match(employee, /dataset: \{ reviewSection: section \}/);
+  assert.match(employee, /let activeStep = restoredDraft\?\.activeStep \|\| 1;/);
+  assert.match(employee, /activeStep,\s*\}\);/);
   assert.doesNotMatch(employee, /const room = el\('select'\)/);
   assert.doesNotMatch(employee, /t\('settings\.catalogue\.title'\)/);
+});
+
+test('EMP-05: Catering uses native package choices and quantity cards without inventing image sources', async () => {
+  const [employee, css] = await Promise.all([
+    source(EMPLOYEE_SOURCE), source(EMPLOYEE_CSS_SOURCE),
+  ]);
+  const catering = employee.slice(
+    employee.indexOf('const renderCateringControls'),
+    employee.indexOf('const activeCostCenterIds'),
+  );
+
+  assert.match(catering, /className: 'catering-option-fieldset'/);
+  assert.match(catering, /className: 'catering-package-grid'/);
+  assert.match(catering, /className: 'catering-item-grid'/);
+  assert.match(catering, /type: 'radio', name: 'productionCateringPackage'/);
+  assert.match(catering, /const noPackageCard = el\('label'/);
+  assert.match(catering, /const card = el\('label', \{\s*className: `option-card catering-variant-card/);
+  assert.match(catering, /production\.employee\.cateringIncludedItems/);
+  assert.match(catering, /production\.employee\.cateringQuantity/);
+  assert.doesNotMatch(catering, /(?:src|href):\s*(?:item|packageEntry)/);
+  assert.match(css, /\.catering-variant-card:has\(input:focus-visible\)/);
+});
+
+test('EMP-13: Employee cancellation is confirmation-gated, lock-safe, and never deletes a Request', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  const confirmation = employee.slice(
+    employee.indexOf('function openEmployeeCancellationConfirmation'),
+    employee.indexOf('function compositionDraft'),
+  );
+  const requestCardCancellation = employee.slice(
+    employee.indexOf('if (CANCELLABLE_STATUSES.has(request.status))'),
+    employee.indexOf("const history = button(t('production.manager.historyTab'))"),
+  );
+
+  assert.match(confirmation, /openDialog\(\{/);
+  assert.match(confirmation, /dataset\.sessionLocked === 'true'/);
+  assert.match(confirmation, /await confirmAction\(\)/);
+  assert.match(requestCardCancellation, /onCancelConfirmation\(/);
+  assert.match(employee, /authoritySurfaces\.track\(openEmployeeCancellationConfirmation/);
+  assert.doesNotMatch(requestCardCancellation, /void runMutation\(\(\) => onCancel/);
+  assert.doesNotMatch(employee, /deleteRequest|method:\s*['"]DELETE['"]/);
+});
+
+test('EMP-04: Service and Equipment choices use native grouped card semantics and localized prices', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  const selectionRender = employee.slice(
+    employee.indexOf("const servicePanel = el('fieldset'"),
+    employee.indexOf('const roomSelectionGrid'),
+  );
+
+  assert.match(selectionRender, /const servicePanel = el\('fieldset'/);
+  assert.match(selectionRender, /const equipmentPanel = el\('fieldset'/);
+  assert.match(selectionRender, /el\('legend', \{ className: 'selection-group-legend'/);
+  assert.match(selectionRender, /className: `option-card selection-option-card/);
+  assert.match(selectionRender, /className: 'price'/);
+  assert.match(selectionRender, /uxPriceBasis: 'request'/);
+  assert.match(selectionRender, /t\('price\.perRequest'\)/);
+  assert.doesNotMatch(selectionRender, /selection-card/);
 });
 
 test('schema-v2 repeat composition preserves catering and cost allocations from its source projection', () => {
@@ -263,7 +342,7 @@ test('Employee and Manager share one capability-independent booking-change edito
   assert.match(editor, /persistence\.proposeBookingChange/);
   assert.match(editor, /composeServerRequestDraft/);
   assert.doesNotMatch(manager, /\.\.\/employee\//);
-  assert.match(manager, /transitionRequest\(request\.id, \{ transition: 'cancel' \}\)/);
+  assert.match(manager, /transitionRequest\(request\.id, \{ transition: 'cancel' \}, request\)/);
   assert.doesNotMatch(manager, /deleteRequest|method:\s*['"]DELETE['"]/);
 });
 
@@ -288,12 +367,12 @@ test('Employee editor exposes only services applicable to the selected authorita
   const catalog = {
     rooms: [{ id: 'room-1', siteId: 'site-1' }],
     services: [
-      { id: 'global', active: true, siteIds: [], roomIds: [] },
-      { id: 'site', active: true, siteIds: ['site-1'], roomIds: [] },
-      { id: 'room', active: true, siteIds: [], roomIds: ['room-1'] },
-      { id: 'other-site', active: true, siteIds: ['site-2'], roomIds: [] },
-      { id: 'other-room', active: true, siteIds: [], roomIds: ['room-2'] },
-      { id: 'inactive', active: false, siteIds: [], roomIds: [] },
+      { id: 'global', active: true, order: 0, siteIds: [], roomIds: [] },
+      { id: 'site', active: true, order: 1, siteIds: ['site-1'], roomIds: [] },
+      { id: 'room', active: true, order: 2, siteIds: [], roomIds: ['room-1'] },
+      { id: 'other-site', active: true, order: 0, siteIds: ['site-2'], roomIds: [] },
+      { id: 'other-room', active: true, order: 0, siteIds: [], roomIds: ['room-2'] },
+      { id: 'inactive', active: false, order: 0, siteIds: [], roomIds: [] },
     ],
   };
   assert.deepEqual(
@@ -301,6 +380,42 @@ test('Employee editor exposes only services applicable to the selected authorita
     ['global', 'site', 'room'],
   );
   assert.deepEqual(serviceEditorOptions(catalog, ''), []);
+});
+
+test('Employee editor exposes only active Equipment applicable to the selected authoritative room and site', () => {
+  const catalog = {
+    rooms: [{ id: 'room-1', siteId: 'site-1' }],
+    equipment: [
+      { id: 'global', active: true, order: 0, siteIds: [], roomIds: [] },
+      { id: 'site', active: true, order: 1, siteIds: ['site-1'], roomIds: [] },
+      { id: 'room', active: true, order: 2, siteIds: [], roomIds: ['room-1'] },
+      { id: 'other-site', active: true, order: 0, siteIds: ['site-2'], roomIds: [] },
+      { id: 'other-room', active: true, order: 0, siteIds: [], roomIds: ['room-2'] },
+      { id: 'inactive', active: false, order: 0, siteIds: [], roomIds: [] },
+    ],
+  };
+  assert.deepEqual(
+    equipmentEditorOptions(catalog, 'room-1').map(({ id }) => id),
+    ['global', 'site', 'room'],
+  );
+  assert.deepEqual(equipmentEditorOptions(catalog, ''), []);
+});
+
+test('Employee editor orders applicable Services and Equipment by configured order then identifier', () => {
+  const entries = [
+    { id: 'alpha-last', active: true, order: 20, siteIds: [], roomIds: [] },
+    { id: 'zulu-second', active: true, order: 1, siteIds: [], roomIds: [] },
+    { id: 'beta-first', active: true, order: 1, siteIds: [], roomIds: [] },
+  ];
+  const catalog = {
+    rooms: [{ id: 'room-1', siteId: 'site-1' }],
+    services: entries,
+    equipment: entries,
+  };
+  const expected = ['beta-first', 'zulu-second', 'alpha-last'];
+
+  assert.deepEqual(serviceEditorOptions(catalog, 'room-1').map(({ id }) => id), expected);
+  assert.deepEqual(equipmentEditorOptions(catalog, 'room-1').map(({ id }) => id), expected);
 });
 
 test('Employee editor applies the authoritative booking-policy allowlists to rooms and services', () => {
@@ -464,10 +579,11 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.match(employee, /printWindow\.print/);
   assert.match(manager, /persistence\.transitionRequest/);
   assert.match(manager, /manager\.roomPlan/);
-  assert.match(manager, /dateError\.textContent = t\('validation\.date'\)/);
-  assert.match(manager, /error\.message === 'ROOM_PLAN_DATE_INVALID'/);
-  assert.match(manager, /date\.setAttribute\('aria-invalid', 'true'\)/);
-  assert.match(manager, /tableRoot\.replaceChildren\(\)/);
+  const analytics = await source(new URL('../src/manager/server-analytics-view.js', import.meta.url));
+  assert.match(analytics, /error\.textContent = t\('validation\.date'\)/);
+  assert.match(analytics, /roomPlanProjection\(\{ catalog, requests/);
+  assert.match(analytics, /date\.setAttribute\('aria-invalid', 'true'\)/);
+  assert.match(analytics, /results\.replaceChildren\(\)/);
   assert.match(manager, /persistence\.loadRequestReport/);
   assert.match(employee, /isProductionTimeZone\(timeZone\)/);
   assert.match(bookingChangeModel, /Date\.parse\(startsAt\) <= now/);
@@ -480,47 +596,93 @@ test('production Employee and Manager applications cannot depend on browser pers
   assert.doesNotMatch(bookingChangeEditor, /entry\.active \|\| entry\.id === request\.roomId/);
   assert.match(employee, /loadOpenBookingChanges/);
   assert.match(manager, /loadOpenBookingChanges/);
+  assert.match(employee, /canProposeProductionBookingChange\(request\.status, openChange\)/);
   assert.match(manager, /requestMutations/);
   assert.match(manager, /bookingChange\.status === 'pending'/);
 });
 
 test('MGR-01: Production Manager restores four server-backed cockpit workspaces', async () => {
-  const [manager, workspace] = await Promise.all([
+  const [manager, workspace, analytics, model] = await Promise.all([
     source(MANAGER_SOURCE),
     source(new URL('../src/manager/workspace-application.js', import.meta.url)),
+    source(new URL('../src/manager/server-analytics-view.js', import.meta.url)),
+    source(new URL('../src/manager/server-cockpit-model.js', import.meta.url)),
   ]);
   assert.match(manager, /role: 'tablist'/);
   assert.match(manager, /\['BOOKINGS', 'manager\.ready\.bookingsTab'\]/);
   assert.match(manager, /\['ROOM_PLAN', 'manager\.roomPlan'\]/);
   assert.match(manager, /\['REPORTS', 'manager\.reports'\]/);
-  assert.match(manager, /entry\.details\?\.catering\?\.packageSelection/);
-  assert.match(manager, /entry\.details\?\.catering\?\.itemQuantities/);
+  assert.match(model, /const catering = request\.details\?\.catering/);
+  assert.match(model, /catering\?\.packageSelection/);
+  assert.match(model, /catering\?\.itemQuantities/);
   assert.doesNotMatch(manager, /cateringPackageId|cateringQuantities/);
   assert.match(manager, /\['ADMIN', 'manager\.admin'\]/);
   assert.match(manager, /className: 'dashboard-grid'/);
-  assert.match(manager, /production\.manager\.utilizationReport/);
-  assert.match(manager, /production\.manager\.serviceReport/);
-  assert.match(manager, /production\.manager\.cateringReport/);
+  assert.match(analytics, /production\.manager\.utilizationReport/);
+  assert.match(analytics, /production\.manager\.serviceReport/);
+  assert.match(analytics, /production\.manager\.cateringReport/);
   assert.match(workspace, /onOpenBusinessSettings:[\s\S]*renderManagerSettings/);
 });
 
-test('production print popup detaches its opener before accessing the new document', async () => {
-  const employee = await source(EMPLOYEE_SOURCE);
-  const helperStart = employee.indexOf('function openDetachedPrintWindow()');
-  const openCall = employee.indexOf("globalThis.window?.open?.('', '_blank')", helperStart);
-  const detach = employee.indexOf('printWindow.opener = null', openCall);
-  const verifyDetached = employee.indexOf('printWindow.opener !== null', detach);
-  const helperEnd = employee.indexOf('\n}', verifyDetached);
-  const documentAccess = employee.indexOf('const doc = printWindow.document', helperEnd);
-
-  assert.equal(helperStart >= 0, true);
-  assert.equal(openCall > helperStart, true);
-  assert.equal(detach > openCall, true);
+test('EMP-15: every print popup uses the shared detached, secret-free, lifecycle-bound surface', async () => {
+  const [employee, helper, inactivity, demoSecurity, shell] = await Promise.all([
+    source(EMPLOYEE_SOURCE),
+    source(new URL('../src/shared/detached-print-window.js', import.meta.url)),
+    source(new URL('../src/platform/inactivity-lock.js', import.meta.url)),
+    source(new URL('../src/platform/demo-security.js', import.meta.url)),
+    source(SHELL_SOURCE),
+  ]);
+  const detach = helper.indexOf('printWindow.opener = null');
+  const verifyDetached = helper.indexOf('printWindow.opener !== null', detach);
+  const register = helper.indexOf('detachedPrintWindows.add(printWindow)', verifyDetached);
+  const documentAccess = helper.indexOf('const doc = printWindow.document', register);
+  assert.equal(detach >= 0, true);
   assert.equal(verifyDetached > detach, true);
-  assert.equal(documentAccess > helperEnd, true);
-  assert.doesNotMatch(employee.slice(helperStart, helperEnd), /noopener|noreferrer/);
-  assert.match(employee.slice(helperStart, helperEnd), /printWindow\.close\?\.\(\)/);
-  assert.match(employee, /const printWindow = openDetachedPrintWindow\(\)/);
+  assert.equal(register > verifyDetached, true);
+  assert.equal(documentAccess > register, true);
+  assert.match(helper, /default-src 'none'/);
+  assert.match(helper, /script-src 'none'/);
+  assert.match(helper, /img-src 'none'/);
+  assert.match(helper, /connect-src 'none'/);
+  assert.match(helper, /url\\s\*\\\(|@import|@font-face/);
+  assert.match(helper, /documentElement[\s\S]*replaceChildren/);
+  assert.match(helper, /pagehide', closeDetachedPrintWindows/);
+  assert.match(helper, /beforeunload', closeDetachedPrintWindows/);
+
+  for (const printSource of [employee]) {
+    assert.match(printSource, /openDetachedPrintWindow/);
+    assert.match(printSource, /initializeDetachedPrintDocument/);
+    assert.doesNotMatch(printSource, /window\.open\(/);
+    assert.doesNotMatch(printSource, /doc\.title\s*=/);
+  }
+  assert.doesNotMatch(employee, /wifiPassword|wifiInstructions|LOCAL_ROUTE_CODES|<img/);
+  assert.doesNotMatch(employee, /title: `\$\{t\('requests\.pdf'\)\}[^`]*request\.id/);
+  const productionPrint = employee.slice(
+    employee.indexOf('function printRequest('),
+    employee.indexOf('function openGuestInfo('),
+  );
+  assert.doesNotMatch(productionPrint, /roomLabel\(room \|\| \{ id: request\.roomId \}\)/);
+  assert.match(employee, /onAbort: \(\) => closeDetachedPrintWindow\(printWindow\)/);
+  assert.match(inactivity, /renderLocked\(\)[\s\S]*closeDetachedPrintWindows\(\)/);
+  assert.match(demoSecurity, /closeDetachedPrintWindows\(\);[\s\S]*switchDemoContext/);
+  assert.match(shell, /logout\.disabled = true;[\s\S]*closeDetachedPrintWindows\(\);[\s\S]*authentication\.signOut\(\);[\s\S]*invalidateAuthorityProjection\(error\)/);
+
+  const printCallback = employee.indexOf('onPrint: (target) =>');
+  const reservedWindow = employee.indexOf('const printWindow = openDetachedPrintWindow()', printCallback);
+  const guestLoad = employee.indexOf('return withGuestRoomContext(', reservedWindow);
+  assert.equal(printCallback >= 0, true);
+  assert.equal(reservedWindow > printCallback, true);
+  assert.equal(guestLoad > reservedWindow, true);
+  for (const key of [
+    'guest.arrival',
+    'guest.building',
+    'guest.visitorNotes',
+    'guest.network',
+    'guest.route',
+    'room.floor',
+  ]) assert.match(employee, new RegExp(key.replace('.', '\\.')));
+  assert.match(employee, /guest\?\.wifiNetworkName/);
+  assert.match(employee, /route\.href = guest\.routeUrl/);
 });
 
 test('Platform owns shared server persistence and Composition Root uses only server applications', async () => {
@@ -534,7 +696,7 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   assert.match(app, /optionalProjectionTimeoutMs: optionalTimeout/);
   assert.match(app, /createServerEmployeeApplication/);
   assert.match(app, /createServerManagerApplication/);
-  assert.match(app, /createServerDraftStore\(\{ tenantId: context\.tenantId\(\), userId: context\.userId\(\) \}\)/);
+  assert.match(app, /createServerDraftStore\(\{[\s\S]*tenantId: context\.tenantId\(\),[\s\S]*userId: context\.userId\(\),[\s\S]*sessionExpiresAt: context\.sessionExpiresAt\(\),/);
   assert.doesNotMatch(app, /createDemo|demo-adapter|demo-store|fixtures/);
   assert.doesNotMatch(app, /production-persistence\.js|localStorage|sessionStorage/);
   assert.match(context, /Promise\.allSettled/);
@@ -621,10 +783,75 @@ test('Employee editor and proposal lifecycles reject detached or duplicate async
   assert.match(editor, /requestCatalog = await persistence\.loadCatalog\(\);\s*if \(!isCurrentEditor\(\)\) return;\s*catalog = requestCatalog;/);
   assert.match(editor, /if \(!draftDirty \|\| !isCurrentEditor\(\)\) return;/);
   assert.match(editor, /await persistence\.createRequest\([\s\S]*if \(!isCurrentEditor\(\)\) return;/);
-  assert.match(editor, /catch \(error\) \{\s*if \(!isCurrentEditor\(\)\) return;\s*invalidateAvailability\(\);/);
+  assert.match(
+    editor,
+    /catch \(error\) \{\s*if \(authorityFailureCode\(error\)\) \{\s*invalidateEditorAuthority\(error\);\s*return;\s*\}\s*if \(!isCurrentEditor\(\)\) return;\s*invalidateAvailability\(\);/,
+  );
   assert.match(editor, /compositionDraft\(sourceRequest, requestCatalog, overrides\)/);
   assert.match(requests, /reserveRequestMutation\(target\.id, 'proposal'\)/);
   assert.match(requests, /mutationInFlight: \(\) => requestMutations\.has\(request\.id\)/);
   assert.match(requests, /activeMutation\?\.kind === 'cancel'/);
   assert.match(requests, /dialog\.addEventListener\('close',[\s\S]*releaseProposal\(\)/);
+});
+
+test('Employee refresh invalidates the complete interactive projection on 401/403 only', async () => {
+  const employee = await source(EMPLOYEE_SOURCE);
+  const requests = employee.slice(employee.indexOf('async function renderRequests()'));
+  assert.match(requests, /let authorityProjectionInvalid = false/);
+  assert.match(
+    requests,
+    /isActiveSurface = \(\) => \([\s\S]*dataset\.sessionLocked !== 'true'[\s\S]*!authorityProjectionInvalid/,
+  );
+  assert.match(
+    requests,
+    /invalidateAuthorityProjection = \(error\) => \{[\s\S]*authorityProjectionInvalid = true;[\s\S]*closeDetachedPrintWindows\(\);[\s\S]*requestMutations\.clear\(\);[\s\S]*authoritySurfaces\.closeAll\(\);/,
+  );
+  assert.match(
+    requests,
+    /hasCommittedProjection = false;[\s\S]*committedProjectionGeneration = 0;[\s\S]*interactiveProjectionGeneration = 0;[\s\S]*clear\(root\);/,
+  );
+  assert.match(requests, /text: errorMessage\(error\)[\s\S]*role: 'status'[\s\S]*status\.focus\(\)/);
+  assert.match(requests, /authorityFailureCode\(error\) !== null;[\s\S]*invalidateAuthorityProjection\(error\)/);
+  assert.match(
+    requests,
+    /if \(hasCommittedProjection && focusRequestId === null\) \{[\s\S]*interactiveProjectionGeneration = committedProjectionGeneration;[\s\S]*showToast/,
+  );
+});
+
+test('all Customer authority failures delegate to one shell and context invalidation boundary', async () => {
+  const [app, context, shell, employee, manager, workspace, businessSettings, tenantRegistry,
+    bookingEditor, analytics, demoBootstrap, demoSecurity] = await Promise.all([
+    source(APP_SOURCE),
+    source(CONTEXT_SOURCE),
+    source(SHELL_SOURCE),
+    source(EMPLOYEE_SOURCE),
+    source(MANAGER_SOURCE),
+    source(new URL('../src/manager/workspace-application.js', import.meta.url)),
+    source(new URL('../src/manager/business-settings-application.js', import.meta.url)),
+    source(new URL('../src/tenant-admin/section-registry.js', import.meta.url)),
+    source(BOOKING_CHANGE_EDITOR_SOURCE),
+    source(new URL('../src/manager/server-analytics-view.js', import.meta.url)),
+    source(new URL('../src/platform/demo-bootstrap.js', import.meta.url)),
+    source(new URL('../src/platform/demo-security.js', import.meta.url)),
+  ]);
+
+  assert.match(app, /const onAuthorityFailure = \(error\) => shell\?\.invalidateAuthorityProjection\(error\)/);
+  assert.match(app, /createServerEmployeeApplication\(\{[\s\S]*onAuthorityFailure,/);
+  assert.match(app, /createServerManagerApplication\(\{[\s\S]*onAuthorityFailure,/);
+  assert.match(app, /createTenantAdminApplication\(\{[\s\S]*onAuthorityFailure,/);
+  assert.match(context, /function invalidateAuthority\(error\)[\s\S]*trustedSession = null;[\s\S]*roles\.clear\(\);[\s\S]*profile = EMPTY_PROFILE;[\s\S]*notifications = EMPTY_NOTIFICATIONS;/);
+  assert.match(shell, /function invalidateAuthorityProjection\(error\)[\s\S]*invalidatePendingRender\(\);[\s\S]*closeDetachedPrintWindows\(\);[\s\S]*clear\(navigationRoot\);[\s\S]*closeAuthorityDialogs\(\)/);
+  assert.match(shell, /authorityFailure = \[requestResult, referenceResult, notificationResult\][\s\S]*invalidateAuthorityProjection\(authorityFailure\.reason\)[\s\S]*revision !== renderRevision/);
+  assert.match(shell, /interactionRevision === renderRevision[\s\S]*context\.isAuthenticated\(\)[\s\S]*openHelp\(\)/);
+  assert.match(shell, /catch \(error\) \{\s*if \(invalidateAuthorityProjection\(error\)\) return;\s*logout\.disabled = false;/);
+  assert.match(employee, /authoritySurfaces\.closeAll\(\);\s*if \(onAuthorityFailure\?\.\(error\)\) return true;\s*if \(!root\.isConnected\) return false;/);
+  assert.match(manager, /authoritySurfaces\.closeAll\(\);\s*if \(onAuthorityFailure\?\.\(error\)\) return true;\s*if \(!root\.isConnected\) return false;/);
+  assert.match(workspace, /onOpenBusinessSettings: \(panel, invalidateAuthorityProjection\)[\s\S]*onAuthorityFailure: invalidateAuthorityProjection/);
+  assert.match(businessSettings, /function handleAuthorityFailure\(error\) \{\s*if \(!authorityFailureCode\(error\)\) return false;\s*onAuthorityFailure\(error\)/);
+  assert.match(businessSettings, /catch \(error\) \{\s*if \(handleAuthorityFailure\(error\)\) return;\s*if \(!isCurrentRender/);
+  assert.match(tenantRegistry, /authorityAwareAdapter[\s\S]*authorityFailureCode\(error\)[\s\S]*onAuthorityFailure\(error\)/);
+  assert.match(bookingEditor, /catch \(caught\) \{\s*if \(authorityFailureCode\(caught\)\)[\s\S]*if \(!dialog\.isConnected\) return;/);
+  assert.match(analytics, /catch \(caught\) \{\s*if \(authorityFailureCode\(caught\)\)[\s\S]*if \(!isCurrent\(\)/);
+  assert.match(demoBootstrap, /onAuthorityFailure: application\.shell\.invalidateAuthorityProjection/);
+  assert.match(demoSecurity, /catch \(error\) \{\s*if \(authorityFailureCode\(error\) && onAuthorityFailure\?\.\(error\)\) return;/);
 });

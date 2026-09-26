@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -177,11 +178,18 @@ test('every parity surface has an exact navigation and validation trace', async 
   assert.match(contract, /first-invalid focus/);
 });
 
-test('architecture documents the temporary active-renderer gap without making history authoritative', async () => {
+test('architecture records one server-backed renderer per capability and retired paths stay absent', async () => {
   const architecture = await source(ARCHITECTURE);
 
   assert.match(architecture, /docs\/UI-RESTORE-PARITY\.md/);
-  assert.match(architecture, /historical browser-state authority/);
-  assert.match(architecture, /historical browser persistence/);
-  assert.match(architecture, /not in the\s+active runtime graph/);
+  assert.match(architecture, /exactly one canonical server-backed Employee renderer/i);
+  assert.match(architecture, /exactly one canonical server-backed Manager renderer/i);
+  assert.match(architecture, /retired browser-authority and parallel-renderer paths/i);
+  for (const path of [
+    '../src/core/storage.js',
+    '../src/employee/application.js',
+    '../src/manager/application.js',
+    '../src/platform/feature-parity.js',
+    '../src/platform/requester-attribution.js',
+  ]) assert.equal(existsSync(new URL(path, import.meta.url)), false, path);
 });

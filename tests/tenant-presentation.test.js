@@ -233,6 +233,43 @@ test('stalled Production presentation transport aborts to the safe bootstrap fal
   assert.equal(aborted, true);
 });
 
+test('presentation refresh never turns 401/403 into an authenticated fallback', async () => {
+  for (const code of ['HTTP_401', 'HTTP_403']) {
+    const denied = Object.assign(new Error(code), { code });
+    const runtime = createTenantPresentationRuntime({ adapter: {
+      async loadPresentation() { throw new Error('PRESENTATION_UNAVAILABLE', { cause: denied }); },
+    } });
+    await assert.rejects(runtime.refresh(), (error) => error.cause === denied);
+    await assert.rejects(runtime.refresh({ preserveCurrentOnFailure: true }),
+      (error) => error.cause === denied);
+  }
+});
+
+test('authority invalidation clears branding and prevents late or new presentation reads', async () => {
+  let release;
+  let calls = 0;
+  const runtime = createTenantPresentationRuntime({ adapter: {
+    async loadPresentation() {
+      calls += 1;
+      if (calls === 1) return payload({ revision: 2 });
+      return new Promise((resolve) => { release = resolve; });
+    },
+  } });
+  const revisions = [];
+  runtime.subscribe((snapshot) => revisions.push(snapshot.revision));
+  assert.equal((await runtime.refresh()).revision, 2);
+  const pending = runtime.refresh();
+  assert.equal(typeof release, 'function');
+  assert.deepEqual(runtime.invalidateAuthority(), TENANT_PRESENTATION_FALLBACK);
+  release(payload({ revision: 3 }));
+  assert.deepEqual(await pending, TENANT_PRESENTATION_FALLBACK);
+  assert.deepEqual(await runtime.refresh(), TENANT_PRESENTATION_FALLBACK);
+  assert.equal(calls, 2);
+  assert.deepEqual(revisions, [2, 0]);
+  assert.throws(() => runtime.applyOrganizationResult({}),
+    { message: 'TENANT_PRESENTATION_AUTHORITY_INVALID' });
+});
+
 test('Demo projection derives from the same organization revision and rejects unapproved references', async () => {
   let reference = MANAGED_BRAND_REFERENCE;
   const organizationSettings = {
@@ -256,7 +293,7 @@ test('Demo projection derives from the same organization revision and rejects un
   await assert.rejects(api.loadPresentation(), (error) => error.code === 'TENANT_PRESENTATION_RESPONSE_INVALID');
 });
 
-test('organization writes project success immediately and schedule an authoritative presentation reread', async () => {
+test('organization writes project success and await a bounded authoritative presentation reread', async () => {
   const calls = [];
   const organizationSettings = {
     async loadOrganization() { calls.push('load'); return { revision: 1 }; },
@@ -321,7 +358,6 @@ test('organization save cannot remain pending on a stalled presentation verifica
   });
 
   assert.equal((await adapter.saveOrganization({})).revision, 2);
-  await new Promise((resolve) => { setTimeout(resolve, 10); });
   assert.equal(aborted, true);
   assert.deepEqual(presentationRuntime.current(), payload({
     revision: 2,
@@ -332,6 +368,35 @@ test('organization save cannot remain pending on a stalled presentation verifica
       branding: { logoPreset: MANAGED_BRAND_LOGO_PRESET, accentToken: 'default' },
     },
   }));
+});
+
+test('post-save presentation 401/403 propagates while non-authority failure preserves saved projection', async () => {
+  for (const code of ['HTTP_401', 'HTTP_403', 'HTTP_503']) {
+    const denied = Object.assign(new Error(code), { code });
+    const runtime = createTenantPresentationRuntime({ adapter: {
+      async loadPresentation() { throw denied; },
+    } });
+    const settings = createPresentationRefreshingOrganizationSettings({
+      organizationSettings: {
+        async loadOrganization() { return {}; },
+        async listOrganizationHistory() { return {}; },
+        async saveOrganization() { return {
+          schemaVersion: 1, revision: 2, organization: {
+            displayName: 'Saved organization',
+            presentation: { defaultLocale: 'en-GB', defaultCurrency: 'GBP' },
+            branding: { logoAssetRef: MANAGED_BRAND_REFERENCE, accentToken: 'default' },
+          },
+        }; },
+      },
+      presentationRuntime: runtime,
+    });
+    if (code === 'HTTP_503') {
+      assert.equal((await settings.saveOrganization({})).revision, 2);
+    } else {
+      await assert.rejects(settings.saveOrganization({}), (error) => error === denied);
+    }
+    assert.equal(runtime.current().revision, 2);
+  }
 });
 
 test('tenant localization supplies defaults while an explicit User language remains authoritative', () => {

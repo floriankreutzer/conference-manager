@@ -13,13 +13,40 @@ const DEMO_ONLY = Object.freeze([
 const BROWSER_STORAGE = /\b(?:localStorage|sessionStorage)\b/;
 const RETIRED_BROWSER_AUTHORITY = /\b(?:requestRepository|notificationRepository|createDemoTenant|createDemoOrganization|createDemoLocation|createDemoCatalogue|createDemoBooking|createDemoCost|createDemoOnboarding)\b/;
 const RETIRED_PATHS = Object.freeze([
+  'src/core/catalog.js',
+  'src/core/storage.js',
   'src/platform/identity-bootstrap.js',
   'src/platform/requester-attribution.js',
   'src/platform/feature-parity.js',
+  'src/shared/notifications.js',
   'src/shared/parity-data.js',
+  'src/shared/request-card.js',
   'src/employee/application.js',
+  'src/employee/employee-accessibility-polish.js',
+  'src/employee/employee-first-use-personalization.js',
+  'src/employee/employee-ux-i18n.js',
+  'src/employee/employee-ux.js',
+  'src/employee/employee-visuals.js',
+  'src/employee/parity-data.js',
+  'src/employee/request-lifecycle.js',
+  'src/employee/request-session.js',
+  'src/employee/welcome-print.js',
   'src/manager/application.js',
-  'src/core/storage.js',
+  'src/manager/admin-parity.js',
+  'src/manager/booking-lifecycle.js',
+  'src/manager/conference-manager-ready.js',
+  'src/manager/employee-visuals.js',
+  'src/manager/manager-final-polish.js',
+  'src/manager/manager-first-use.js',
+  'src/manager/manager-operational-ux.js',
+  'src/manager/manager-parity.js',
+  'src/manager/manager-responsive.js',
+  'src/manager/manager-tabs.js',
+  'src/manager/manager-ux-polish.js',
+  'src/manager/parity-data.js',
+  'src/manager/parity-i18n.js',
+  'src/manager/reporting.js',
+  'src/manager/timeline-position.js',
 ]);
 
 function reachable(graph, entry) {
@@ -43,6 +70,12 @@ export function customerDemoBoundaryViolations(sourceEntries) {
   const violations = [];
   const productionReachable = reachable(graph, PRODUCTION_ENTRY);
   const demoReachable = reachable(graph, DEMO_ENTRY);
+
+  for (const file of RETIRED_PATHS) {
+    if (sources.has(file)) {
+      violations.push(violation(file, 'Retired browser-authority or parallel-renderer source must not be reintroduced.'));
+    }
+  }
 
   for (const file of productionReachable) {
     if (DEMO_ONLY.includes(file) || /(?:^|\/)demo-(?:adapter|fixtures|onboarding|tenant|user)/.test(file)) {

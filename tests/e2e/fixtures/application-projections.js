@@ -49,8 +49,6 @@ export function applicationProjectionPayload(url, {
       return { schemaVersion: 1, profile: { displayName } };
     case '/api/v1/application/catalog':
       return catalogPage(url.searchParams.get('section'), defaultCurrency);
-    case '/api/v1/application/site-info':
-      return { schemaVersion: 1, siteInfo: {} };
     case '/api/v1/application/requests':
       return {
         schemaVersion: 2,

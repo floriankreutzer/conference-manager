@@ -1,3 +1,5 @@
+import { canProposeProductionBookingChange } from '../shared/production-booking-change.js';
+
 const NO_ACTIONS = Object.freeze([]);
 
 const ACTIONS_BY_STATUS = Object.freeze({
@@ -12,5 +14,5 @@ export function managerRequestActions(status) {
 }
 
 export function managerCanProposeBookingChange(status, bookingChange) {
-  return status === 'Confirmed' && bookingChange === null;
+  return canProposeProductionBookingChange(status, bookingChange);
 }

@@ -118,6 +118,7 @@ test('production capability checks preserve independent Employee, Conference Man
     permissions: ['request:read', 'request:cancel'],
   }));
   assert.equal(employee.isAuthenticated(), true);
+  assert.equal(employee.sessionExpiresAt(), '2026-08-25T18:00:00.000Z');
   assert.equal(employee.isManager(), false);
   assert.equal(employee.canManageRoomBusiness(), false);
   assert.equal(employee.canManageTenantCatalogue(), false);
@@ -305,6 +306,161 @@ test('authenticated context refreshes its notification projection from server pe
   assert.deepEqual(context.notifications(), [{ id: 'notification-2', title: 'Request changed' }]);
 });
 
+test('runtime authority invalidation clears every cached projection, capability and pending refresh', async () => {
+  let releaseNotifications;
+  const notificationGate = new Promise((resolve) => { releaseNotifications = resolve; });
+  const runtime = Object.freeze({
+    apiClient: Object.freeze({
+      async request(path) {
+        assert.equal(path, 'v1/application/notifications');
+        await notificationGate;
+        return {
+          schemaVersion: 1,
+          notifications: [{ id: 'notification-new', title: 'Must not be restored' }],
+        };
+      },
+    }),
+    status() { return PRODUCTION_AUTH_STATUS.AUTHENTICATED; },
+  });
+  const context = createApplicationContextFromState({
+    runtimeMode: 'production',
+    productionSession: session({
+      roles: ['employee', 'conference_manager'],
+      permissions: MANAGER_PERMISSIONS,
+    }),
+    productionAuthenticationStatus: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+    authenticationRuntime: runtime,
+    serverProfile: { displayName: 'Demo Manager' },
+    serverCatalog: { rooms: [{ id: 'room-a' }] },
+    serverRequests: [{ id: 'request-a' }],
+    serverNotifications: [{ id: 'notification-old', title: 'Cached' }],
+  });
+  const pendingNotifications = context.refreshNotifications();
+
+  assert.equal(context.invalidateAuthority(Object.assign(new Error('temporary'), { code: 'HTTP_503' })), false);
+  assert.equal(context.isAuthenticated(), true);
+  assert.equal(context.invalidateAuthority(Object.assign(new Error('forbidden'), { code: 'HTTP_403' })), true);
+  releaseNotifications();
+  await pendingNotifications;
+
+  assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.UNAUTHENTICATED);
+  assert.equal(context.isAuthenticated(), false);
+  assert.equal(context.isManager(), false);
+  assert.equal(context.canManageRoomBusiness(), false);
+  assert.equal(context.canManageTenantCatalogue(), false);
+  assert.equal(context.fullName(), '');
+  assert.deepEqual(context.profile, { displayName: '', firstName: '', lastName: '' });
+  assert.deepEqual(context.getCatalog(), {
+    sites: [], rooms: [], services: [], cateringPackages: [], cateringItems: [], costCenters: [],
+  });
+  assert.deepEqual(context.requests(), []);
+  assert.deepEqual(context.notifications(), []);
+  assert.equal(context.userId(), '');
+  assert.equal(context.tenantId(), '');
+  assert.equal(context.serverPersistence(), null);
+  assert.equal(context.productionPersistence(), null);
+});
+
+test('optional startup 401/403 invalidates authentication while harmless optional failures degrade', async () => {
+  for (const code of ['HTTP_401', 'HTTP_403']) {
+    const authenticatedSession = session({
+      roles: ['employee'],
+      permissions: ['request:read', 'request:cancel'],
+    });
+    const context = await createApplicationContext({
+      runtimeMode: 'production',
+      async authenticationBootstrap() {
+        return {
+          status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+          session: authenticatedSession,
+          runtime: Object.freeze({
+            apiClient: Object.freeze({
+              async request(path) {
+                if (path === 'v1/application/profile') {
+                  return { schemaVersion: 1, profile: { displayName: 'Must be cleared' } };
+                }
+                if (path.startsWith('v1/application/catalog?')) {
+                  return startupCatalogPage(new URLSearchParams(path.split('?')[1]).get('section'));
+                }
+                if (path.startsWith('v1/application/requests?')) {
+                  return {
+                    schemaVersion: 2,
+                    asOf: '2026-08-30T12:00:00.000Z',
+                    requests: [],
+                    page: { limit: 10, complete: true, nextCursor: null },
+                  };
+                }
+                if (path === 'v1/application/notifications') {
+                  throw Object.assign(new Error(code), { code });
+                }
+                throw new Error('UNEXPECTED_STARTUP_PATH');
+              },
+            }),
+          }),
+        };
+      },
+    });
+
+    assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.UNAUTHENTICATED, code);
+    assert.equal(context.isAuthenticated(), false, code);
+    assert.equal(context.isManager(), false, code);
+    assert.equal(context.fullName(), '', code);
+    assert.deepEqual(context.notifications(), [], code);
+  }
+});
+
+test('Customer Demo startup authority failure clears context-switch recovery and Tenant inventory', async () => {
+  const authenticatedSession = Object.freeze({
+    ...session({
+      roles: ['employee'],
+      permissions: ['request:read', 'request:cancel'],
+    }),
+    demo: Object.freeze({ persona: 'employee' }),
+  });
+  const tenants = Object.freeze([
+    Object.freeze({ id: authenticatedSession.tenant.id, displayName: 'Northwind' }),
+  ]);
+  const context = await createApplicationContext({
+    runtimeMode: 'demo',
+    async authenticationBootstrap() {
+      return {
+        status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+        session: authenticatedSession,
+        tenants,
+        runtime: Object.freeze({
+          status() { return PRODUCTION_AUTH_STATUS.AUTHENTICATED; },
+          async selectContext() { throw new Error('CONTEXT_SWITCH_MUST_NOT_RUN'); },
+          apiClient: Object.freeze({
+            async request(path) {
+              if (path === 'v1/application/profile') {
+                return { schemaVersion: 1, profile: { displayName: 'Must be cleared' } };
+              }
+              if (path.startsWith('v1/application/catalog?')) {
+                return startupCatalogPage(new URLSearchParams(path.split('?')[1]).get('section'));
+              }
+              if (path.startsWith('v1/application/requests?')) {
+                throw Object.assign(new Error('unauthenticated'), { code: 'HTTP_401' });
+              }
+              if (path === 'v1/application/notifications') {
+                return { schemaVersion: 1, notifications: [] };
+              }
+              throw new Error('UNEXPECTED_STARTUP_PATH');
+            },
+          }),
+        }),
+      };
+    },
+  });
+
+  assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.UNAUTHENTICATED);
+  assert.equal(context.isAuthenticated(), false);
+  assert.equal(context.canSwitchRole(), false);
+  assert.equal(context.tenantId(), '');
+  assert.equal(context.demoPersona(), null);
+  assert.deepEqual(context.demoTenants(), []);
+  assert.equal(await context.switchDemoContext({ tenantId: tenants[0].id, persona: 'employee' }), false);
+});
+
 test('stalled optional startup projections are aborted without blocking authenticated rendering', async () => {
   const authenticatedSession = session({
     roles: ['employee'],
@@ -336,7 +492,7 @@ test('stalled optional startup projections are aborted without blocking authenti
                   page: { limit: 10, complete: true, nextCursor: null },
                 };
               }
-              if (['v1/application/site-info', 'v1/application/notifications'].includes(path)) {
+              if (path === 'v1/application/notifications') {
                 return new Promise((resolve, reject) => {
                   options.signal.addEventListener('abort', () => {
                     aborted += 1;
@@ -354,8 +510,7 @@ test('stalled optional startup projections are aborted without blocking authenti
 
   assert.equal(context.authenticationStatus(), PRODUCTION_AUTH_STATUS.AUTHENTICATED);
   assert.equal(context.isAuthenticated(), true);
-  assert.equal(aborted, 2);
-  assert.deepEqual(context.getSiteInfo(), {});
+  assert.equal(aborted, 1);
   assert.deepEqual(context.notifications(), []);
 });
 
@@ -411,9 +566,6 @@ test('Customer Demo keeps its validated context switch available after an inacti
         if (path === 'v1/application/profile') {
           return { schemaVersion: 1, profile: { displayName: 'Demo Employee' } };
         }
-        if (path === 'v1/application/site-info') {
-          return { schemaVersion: 1, siteInfo: {} };
-        }
         if (path === 'v1/application/notifications') {
           return { schemaVersion: 1, notifications: [] };
         }
@@ -462,10 +614,8 @@ test('stalled required startup projections are aborted and fail closed', async (
         runtime: Object.freeze({
           apiClient: Object.freeze({
             async request(path, options = {}) {
-              if (['v1/application/site-info', 'v1/application/notifications'].includes(path)) {
-                return path.endsWith('site-info')
-                  ? { schemaVersion: 1, siteInfo: {} }
-                  : { schemaVersion: 1, notifications: [] };
+              if (path === 'v1/application/notifications') {
+                return { schemaVersion: 1, notifications: [] };
               }
               assert.equal(options.signal instanceof AbortSignal, true);
               return new Promise((resolve, reject) => {

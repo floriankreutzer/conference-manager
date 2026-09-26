@@ -105,6 +105,31 @@ test('unsafe API requests accept only a caller-generated UUID idempotency key', 
   );
 });
 
+test('Request version preconditions use one strong If-Match tag and reject invalid transport intent', async () => {
+  const calls = [];
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    csrfTokenProvider: () => '0123456789abcdef0123456789abcdef',
+    fetchImpl: async (_url, options) => {
+      calls.push(options);
+      return jsonResponse({ ok: true });
+    },
+  });
+  await client.request('v1/requests/request-1/transitions', {
+    method: 'POST', body: { transition: 'cancel' }, ifMatchVersion: 3,
+  });
+  assert.equal(calls[0].headers['If-Match'], '"3"');
+  for (const [method, value] of [
+    ['GET', 3], ['PUT', 3], ['POST', 0], ['POST', -1], ['POST', 1.5],
+    ['POST', '3'], ['POST', '"3"'], ['POST', Number.MAX_SAFE_INTEGER],
+  ]) {
+    await assert.rejects(() => client.request('v1/requests/request-1/transitions', {
+      method, ifMatchVersion: value,
+    }), (error) => assertSecurityCode(error, 'INVALID_VERSION_PRECONDITION'));
+  }
+  assert.equal(calls.length, 1);
+});
+
 test('API responses must use JSON content types', async () => {
   const client = createApiClient({
     origin: 'https://conference.example',

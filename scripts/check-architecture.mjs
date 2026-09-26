@@ -44,7 +44,6 @@ const cssLinks = [...index.matchAll(/href=["']\.\/([^"']+\.css)(?:\?[^"']*)?["']
 const expectedCss = [
   'assets/tokens.css',
   'assets/styles.css',
-  'assets/feature-parity.css',
   'assets/app-layout.css',
   'assets/manager-layout.css',
   'assets/employee-ux.css',
@@ -84,15 +83,19 @@ if (existsSync('src/features')) {
 
 for (const required of [
   'src/employee/index.js',
+  'src/employee/production-application.js',
+  'src/employee/server-request-editor.js',
   'src/manager/index.js',
-  'src/manager/timeline-position.js',
+  'src/manager/production-application.js',
+  'src/manager/workspace-application.js',
+  'src/manager/server-cockpit-model.js',
+  'src/manager/server-room-plan.js',
+  'src/manager/server-analytics-view.js',
   'src/platform/feature-flags.js',
-  'src/platform/feature-parity.js',
   'src/platform/demo-bootstrap.js',
   'src/platform/production-bootstrap.js',
   'src/platform/demo-session.js',
   'src/tenant-admin/server.js',
-  'src/shared/parity-data.js',
   'src/shared/booking-change-loader.js',
   'src/core/i18n.js',
   'src/core/i18n-base.js',
@@ -106,8 +109,46 @@ for (const required of [
 ]) {
   if (!existsSync(required)) fail(`${required}: required modular architecture file is missing.`);
 }
-for (const removed of ['src/shared/parity-i18n.js', 'src/employee/parity-i18n.js']) {
-  if (existsSync(removed)) fail(`${removed}: retired localization compatibility bridge must not be reintroduced.`);
+
+const retiredRuntimePaths = [
+  'src/core/catalog.js',
+  'src/core/storage.js',
+  'src/platform/feature-parity.js',
+  'src/platform/requester-attribution.js',
+  'src/shared/notifications.js',
+  'src/shared/parity-data.js',
+  'src/shared/request-card.js',
+  'src/employee/application.js',
+  'src/employee/employee-accessibility-polish.js',
+  'src/employee/employee-first-use-personalization.js',
+  'src/employee/employee-ux-i18n.js',
+  'src/employee/employee-ux.js',
+  'src/employee/employee-visuals.js',
+  'src/employee/parity-data.js',
+  'src/employee/request-lifecycle.js',
+  'src/employee/request-session.js',
+  'src/employee/welcome-print.js',
+  'src/manager/application.js',
+  'src/manager/admin-parity.js',
+  'src/manager/booking-lifecycle.js',
+  'src/manager/conference-manager-ready.js',
+  'src/manager/employee-visuals.js',
+  'src/manager/manager-final-polish.js',
+  'src/manager/manager-first-use.js',
+  'src/manager/manager-operational-ux.js',
+  'src/manager/manager-parity.js',
+  'src/manager/manager-responsive.js',
+  'src/manager/manager-tabs.js',
+  'src/manager/manager-ux-polish.js',
+  'src/manager/parity-data.js',
+  'src/manager/parity-i18n.js',
+  'src/manager/reporting.js',
+  'src/manager/timeline-position.js',
+  'assets/feature-parity.css',
+  'assets/demo/route-openstreetmap.svg',
+];
+for (const removed of retiredRuntimePaths) {
+  if (existsSync(removed)) fail(`${removed}: retired browser-authority or parallel-renderer path must not be reintroduced.`);
 }
 
 const removedStyleLayers = [
@@ -120,63 +161,6 @@ const removedStyleLayers = [
 ];
 for (const path of removedStyleLayers) {
   if (existsSync(path)) fail(`${path}: parallel polish stylesheet must remain consolidated.`);
-}
-
-const managerEnhancementModules = [
-  'src/manager/manager-tabs.js',
-  'src/manager/manager-first-use.js',
-  'src/manager/manager-ux-polish.js',
-  'src/manager/manager-operational-ux.js',
-  'src/manager/manager-final-polish.js',
-  'src/manager/conference-manager-ready.js',
-];
-for (const file of managerEnhancementModules) {
-  const source = readFileSync(file, 'utf8');
-  if (/(?:document|window)\.addEventListener\s*\(/.test(source)) {
-    fail(`${file}: global listeners are forbidden in Manager enhancement modules; use platform/feature-parity.js orchestration.`);
-  }
-  if (/\bmobileMedia\.addEventListener\s*\(/.test(source)) {
-    fail(`${file}: local media-query synchronization is forbidden; use the central resize/sync path.`);
-  }
-}
-
-const orchestratorPath = 'src/platform/feature-parity.js';
-const orchestrator = readFileSync(orchestratorPath, 'utf8');
-for (const required of [
-  "from '../employee/index.js'",
-  "from '../manager/index.js'",
-  'ensureManagerTabIdentity',
-  'managerTabControl',
-  'enhanceManagerFirstUse',
-  'enhanceManagerUxPolish',
-  'enhanceManagerOperationalUx',
-  'enhanceManagerFinalPolish',
-  'enhanceConferenceManagerReady',
-  'conference:manager-sync-request',
-  '#primaryNavigation button[data-view="manager"]',
-  "managerTabControl('ADMIN')",
-]) {
-  if (!orchestrator.includes(required)) fail(`${orchestratorPath}: central orchestration missing ${required}.`);
-}
-if (/from\s+['"]\.\.\/(?:employee|manager)\/(?!index\.js)/.test(orchestrator)) {
-  fail(`${orchestratorPath}: platform orchestration must consume Employee and Manager behavior only through module public APIs.`);
-}
-if (/t\(['"](?:nav\.manager|manager\.admin)['"]\)/.test(orchestrator)) {
-  fail(`${orchestratorPath}: Manager restore must not derive navigation state from localized visible labels.`);
-}
-
-const firstUseCalls = [...orchestrator.matchAll(/enhanceManagerFirstUse\(\);/g)].map((match) => match.index);
-const managerCall = orchestrator.indexOf('enhanceManager();');
-const identityCalls = [...orchestrator.matchAll(/ensureManagerTabIdentity\(\);/g)].map((match) => match.index);
-const guardedLanding = "if (!document.querySelector('.manager-tabs')) enhanceManagerFirstUse();";
-if (!orchestrator.includes(guardedLanding)) {
-  fail(`${orchestratorPath}: Manager first-use landing must only run before base enhancement when Manager tabs are absent.`);
-}
-if (managerCall < 0 || firstUseCalls.length < 2 || firstUseCalls[0] > managerCall || firstUseCalls[firstUseCalls.length - 1] < managerCall) {
-  fail(`${orchestratorPath}: Manager lifecycle must support guarded landing before base enhancement and first-use decoration after base enhancement.`);
-}
-if (!identityCalls.some((position) => position > firstUseCalls[0] && position < managerCall)) {
-  fail(`${orchestratorPath}: Manager tab identity must be applied after guarded landing and before base Manager enhancement.`);
 }
 
 const employeeFacade = readFileSync('src/employee/index.js', 'utf8');
@@ -198,12 +182,7 @@ for (const required of [
   if (!managerFacade.includes(required)) fail(`src/manager/index.js: public Manager contract missing ${required}.`);
 }
 
-const managerEmployeeBridge = readFileSync('src/manager/employee-visuals.js', 'utf8');
-if (!managerEmployeeBridge.includes("from '../employee/index.js'")) {
-  fail('src/manager/employee-visuals.js: cross-module request-card compatibility must use the Employee public contract.');
-}
 for (const file of javascriptFiles('src/manager')) {
-  if (file === normalize('src/manager/employee-visuals.js')) continue;
   const source = readFileSync(file, 'utf8');
   if (/from\s+['"]\.\.\/employee\//.test(source)) {
     fail(`${file}: direct Manager dependency on Employee internals is forbidden; use an explicit public contract.`);
@@ -231,109 +210,55 @@ if (existsSync('src/core/booking-change-loader.js')) {
   fail('src/core/booking-change-loader.js: feature-specific booking-change orchestration is forbidden in Core.');
 }
 
-const managerTabs = readFileSync('src/manager/manager-tabs.js', 'utf8');
+const managerApplication = readFileSync('src/manager/production-application.js', 'utf8');
 for (const tab of ['BOOKINGS', 'ROOM_PLAN', 'REPORTS', 'ADMIN']) {
-  if (!managerTabs.includes(`'${tab}'`)) fail(`src/manager/manager-tabs.js: missing stable ${tab} tab identity.`);
-}
-if (!managerTabs.includes('control.dataset.managerTab = tab')) {
-  fail('src/manager/manager-tabs.js: Manager controls must receive stable data-manager-tab identities.');
-}
-
-for (const file of ['src/manager/manager-parity.js', 'src/manager/manager-first-use.js']) {
-  const source = readFileSync(file, 'utf8');
-  if (!source.includes("from './manager-tabs.js'")) {
-    fail(`${file}: Manager tab state must use the shared semantic manager-tabs helper.`);
-  }
-  if (/function\s+currentManagerTab\s*\(/.test(source)) {
-    fail(`${file}: local text-based Manager tab detection is forbidden; use manager-tabs.js.`);
+  if (!managerApplication.includes(`['${tab}',`)) {
+    fail(`src/manager/production-application.js: missing stable ${tab} tab identity.`);
   }
 }
-
-const requestCard = readFileSync('src/shared/request-card.js', 'utf8');
 for (const required of [
-  'dataset: { requestId: request.id }',
-  "dataset: { managerAction: 'confirm' }",
-  "dataset: { managerAction: 'change' }",
-  "dataset: { managerAction: 'reject' }",
-  "dataset: { requestAction: 'print' }",
+  "dataset: { managerTab: tabId }",
+  "role: 'tablist'",
+  "role: 'tab'",
+  "'aria-selected': String(activeTab === tabId)",
+  'data-manager-tab="${tabId}"',
+  'dataset: { productionRequestId: request.id }',
+  'request.requesterAttribution?.displayName',
+  'entry.actorAttribution',
+  'bookingChange.initiatorAttribution',
+  'bookingChange.deciderAttribution',
 ]) {
-  if (!requestCard.includes(required)) fail(`src/shared/request-card.js: semantic DOM contract missing ${required}.`);
+  if (!managerApplication.includes(required)) {
+    fail(`src/manager/production-application.js: active Manager contract missing ${required}.`);
+  }
+}
+if (/textContent[\s\S]{0,100}(?:BOOKINGS|ROOM_PLAN|REPORTS|ADMIN)/.test(managerApplication)) {
+  fail('src/manager/production-application.js: Manager tab identity must not be derived from visible text.');
 }
 
-const employeeApplication = readFileSync('src/employee/application.js', 'utf8');
+const employeeApplication = readFileSync('src/employee/production-application.js', 'utf8');
 for (const required of [
-  'dataset: { roomId: room.id }',
-  "dataset: { roomAction: 'select' }",
-  "dataset: { roomAction: 'floorplan' }",
-  'dataset: { packageId: pack.id, packageTier: variant.tier }',
-  "dataset: { packageAction: 'select' }",
+  'dataset: { productionRequestId: request.id }',
+  'dataset: { roomId: entry.id }',
+  "dataset: { stepPanel: '6' }",
+  'currentRoomContext?.guestPresentation',
+  "t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)",
 ]) {
-  if (!employeeApplication.includes(required)) fail(`src/employee/application.js: semantic selection contract missing ${required}.`);
+  if (!employeeApplication.includes(required)) {
+    fail(`src/employee/production-application.js: active Employee contract missing ${required}.`);
+  }
 }
 
-const employeeVisuals = readFileSync('src/employee/employee-visuals.js', 'utf8');
+const requestWire = readFileSync('src/platform/production-request-wire.js', 'utf8');
 for (const required of [
-  'card.dataset.requestId',
-  'card?.dataset.roomId',
-  'card?.dataset.packageId',
-  'card?.dataset.packageTier',
-  'button[data-room-action="floorplan"]',
-  'button[data-request-action="print"]',
+  "['requesterAttribution']",
+  "['initiatorAttribution', 'deciderAttribution']",
+  "['actorAttribution']",
+  "![null, 'employee', 'conference_manager'].includes(input.roleAtAction)",
 ]) {
-  if (!employeeVisuals.includes(required)) fail(`src/employee/employee-visuals.js: semantic enhancement lookup missing ${required}.`);
-}
-if (/requestIdFromCard[\s\S]*?textContent/.test(employeeVisuals)
-  || /roomForCard[\s\S]*?textContent/.test(employeeVisuals)
-  || /packageForCard[\s\S]*?textContent/.test(employeeVisuals)
-  || /control\.textContent\.trim\(\)\s*===\s*t\(/.test(employeeVisuals)) {
-  fail('src/employee/employee-visuals.js: enhancement identity must not be derived from visible/localized text.');
-}
-
-const managerFirstUse = readFileSync('src/manager/manager-first-use.js', 'utf8');
-if (!managerFirstUse.includes('button[data-manager-action="${action}"]')) {
-  fail('src/manager/manager-first-use.js: Manager decisions must consume stable data-manager-action identities.');
-}
-if (/ensureNativeActionIdentity/.test(managerFirstUse) || /dataset\.managerAction\s*=/.test(managerFirstUse)) {
-  fail('src/manager/manager-first-use.js: Manager enhancement must not infer or assign action identity by control order.');
-}
-if (/nativeAction[\s\S]*?textContent\.trim\(\)/.test(managerFirstUse)) {
-  fail('src/manager/manager-first-use.js: Manager decisions must not be discovered from localized visible labels.');
-}
-
-const managerParity = readFileSync('src/manager/manager-parity.js', 'utf8');
-if (!managerParity.includes("from './timeline-position.js'") || !managerParity.includes('timelinePosition(request.start, request.end)')) {
-  fail('src/manager/manager-parity.js: room timeline must use the deterministic timeline-position contract.');
-}
-if (/\.style\.(?:left|right|width|insetInlineStart|inlineSize)\s*=/.test(managerParity)) {
-  fail('src/manager/manager-parity.js: room timeline must not use inline positioning styles under the CSP.');
-}
-if (!managerParity.includes('.request-card[data-request-id]') || /requestIdFromCard/.test(managerParity)) {
-  fail('src/manager/manager-parity.js: Manager filtering must use semantic data-request-id contracts directly.');
-}
-
-const timelineCss = readFileSync('assets/feature-parity.css', 'utf8');
-for (const required of [
-  'inset-inline-start:',
-  'inline-size:',
-  'border-inline-start:',
-  'margin-inline-start:',
-  'text-align: start',
-  'text-align: end',
-]) {
-  if (!timelineCss.includes(required)) fail(`assets/feature-parity.css: logical timeline styling missing ${required}.`);
-}
-
-const managerReady = readFileSync('src/manager/conference-manager-ready.js', 'utf8');
-if (!managerReady.includes("managerTabControl('BOOKINGS')")) {
-  fail('src/manager/conference-manager-ready.js: bookings label must target the semantic BOOKINGS tab identity.');
-}
-
-const requesterAttribution = readFileSync('src/platform/requester-attribution.js', 'utf8');
-if (/requestRepository\.save\s*=/.test(requesterAttribution)) {
-  fail('src/platform/requester-attribution.js: requestRepository.save monkey-patching is forbidden.');
-}
-if (!requesterAttribution.includes("addBeforeSaveHook('requester-attribution'")) {
-  fail('src/platform/requester-attribution.js: named repository save hook is required.');
+  if (!requestWire.includes(required)) {
+    fail(`src/platform/production-request-wire.js: persisted attribution contract missing ${required}.`);
+  }
 }
 
 const featureFlags = readFileSync('src/platform/feature-flags.js', 'utf8');
@@ -347,25 +272,6 @@ if (!defaultsMatch) {
   fail('src/platform/feature-flags.js: newly registered feature flags must not default to true.');
 }
 
-const storage = readFileSync('src/core/storage.js', 'utf8');
-if (!storage.includes('addBeforeSaveHook(name, hook)')) {
-  fail('src/core/storage.js: explicit before-save hook API is required.');
-}
-if (!storage.includes('class RepositoryWriteError') || !storage.includes('if (!persisted && failOnWrite)')) {
-  fail('src/core/storage.js: authoritative repositories must fail closed when browser persistence fails.');
-}
-if (!storage.includes('failOnWrite: false')) {
-  fail('src/core/storage.js: non-authoritative notification persistence must remain explicitly best-effort.');
-}
-
-const parityData = readFileSync('src/shared/parity-data.js', 'utf8');
-if (!parityData.includes('RepositoryWriteError') || !parityData.includes('writeAuthoritativeJson')) {
-  fail('src/shared/parity-data.js: Manager catalog/site persistence must fail closed on write failure.');
-}
-for (const required of ['return writeAuthoritativeJson(KEYS.catalog, catalog)', 'return writeAuthoritativeJson(KEYS.siteInfo, sites)']) {
-  if (!parityData.includes(required)) fail(`src/shared/parity-data.js: authoritative Manager persistence missing ${required}.`);
-}
-
 const apiClient = readFileSync('src/core/api-client.js', 'utf8');
 if (!apiClient.includes('response.body.getReader') || !apiClient.includes('byteCount > MAX_RESPONSE_BYTES')) {
   fail('src/core/api-client.js: production API responses must be byte-bounded while streaming.');
@@ -376,7 +282,53 @@ if (/await\s+response\.text\s*\(/.test(apiClient)) {
 
 const sourceFiles = javascriptFiles('src');
 const sourceSet = new Set(sourceFiles);
-const graph = new Map(sourceFiles.map((file) => [file, relativeModuleDependencies(file).filter((dependency) => sourceSet.has(dependency))]));
+const graph = new Map(sourceFiles.map((file) => {
+  const dependencies = relativeModuleDependencies(file);
+  for (const dependency of dependencies) {
+    if (!sourceSet.has(dependency)) fail(`${file}: unresolved local module dependency ${dependency}.`);
+  }
+  return [file, dependencies.filter((dependency) => sourceSet.has(dependency))];
+}));
+function reachableFrom(entry) {
+  const reachable = new Set();
+  const visitDependency = (file) => {
+    if (reachable.has(file)) return;
+    reachable.add(file);
+    for (const dependency of graph.get(file) || []) visitDependency(dependency);
+  };
+  if (graph.has(entry)) visitDependency(entry);
+  return reachable;
+}
+const productionCustomerGraph = reachableFrom('src/platform/production-bootstrap.js');
+const demoCustomerGraph = reachableFrom('src/platform/demo-bootstrap.js');
+const productionPlatformGraph = reachableFrom('src/platform-admin/production/bootstrap.js');
+const demoPlatformGraph = reachableFrom('src/platform-admin/demo/bootstrap.js');
+for (const [name, reachable, required] of [
+  ['Production Customer', productionCustomerGraph, ['src/app.js', 'src/employee/production-application.js', 'src/manager/workspace-application.js']],
+  ['Demo Customer', demoCustomerGraph, ['src/app.js', 'src/employee/production-application.js', 'src/manager/workspace-application.js']],
+  ['Production Platform Admin', productionPlatformGraph, ['src/platform-admin/application.js']],
+  ['Demo Platform Admin', demoPlatformGraph, ['src/platform-admin/application.js']],
+]) {
+  for (const file of required) {
+    if (!reachable.has(file)) fail(`${name} module graph does not reach required runtime module ${file}.`);
+  }
+}
+for (const forbidden of ['src/platform/demo-bootstrap.js', 'src/platform/demo-session.js', 'src/platform/demo-security.js']) {
+  if (productionCustomerGraph.has(forbidden)) {
+    fail(`Production Customer module graph reaches Demo-only module ${forbidden}.`);
+  }
+}
+if (demoCustomerGraph.has('src/platform/production-bootstrap.js')) {
+  fail('Demo Customer module graph reaches the Production composition root.');
+}
+for (const [name, reachable] of [
+  ['Production Platform Admin', productionPlatformGraph],
+  ['Demo Platform Admin', demoPlatformGraph],
+]) {
+  for (const forbidden of ['src/app.js', 'src/employee/index.js', 'src/manager/index.js', 'src/tenant-admin/index.js']) {
+    if (reachable.has(forbidden)) fail(`${name} module graph reaches Customer capability ${forbidden}.`);
+  }
+}
 const visiting = new Set();
 const visited = new Set();
 const stack = [];

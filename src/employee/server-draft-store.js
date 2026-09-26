@@ -21,8 +21,8 @@ function identifier(value) {
   return typeof value === 'string' && IDENTIFIER.test(value) ? value : null;
 }
 
-function identifiers(values) {
-  if (!Array.isArray(values) || values.length > MAX_COLLECTION) return null;
+function identifiers(values, maximum = MAX_COLLECTION) {
+  if (!Array.isArray(values) || values.length > maximum) return null;
   const normalized = values.map(identifier);
   return normalized.every(Boolean) && new Set(normalized).size === normalized.length
     ? normalized : null;
@@ -57,16 +57,20 @@ function allocations(value) {
   return normalized.every(Boolean) ? normalized : null;
 }
 
-function validatedDraft(value) {
+function validatedDraft(value, schemaVersion = 1) {
   const keys = [
     'roomId', 'startDate', 'endDate', 'startTime', 'endTime', 'title',
     'internalParticipants', 'externalParticipants', 'serviceIds',
     'cateringParticipants', 'packageSelection', 'itemQuantities', 'allocations',
     'dietaryRequirements', 'specialRequirements',
+    ...(schemaVersion >= 2 ? ['equipmentIds'] : []),
+    ...(schemaVersion === 3 ? ['activeStep'] : []),
   ];
   if (!exactObject(value, keys)) return null;
   const roomId = value.roomId === '' ? '' : identifier(value.roomId);
   const serviceIds = identifiers(value.serviceIds);
+  const equipmentIds = schemaVersion >= 2 ? identifiers(value.equipmentIds, 200) : [];
+  const activeStep = schemaVersion === 3 ? value.activeStep : 1;
   const selectedPackage = packageSelection(value.packageSelection);
   const quantities = itemQuantities(value.itemQuantities);
   const allocationRows = allocations(value.allocations);
@@ -82,7 +86,8 @@ function validatedDraft(value) {
     || internalParticipants === null || !INTEGER.test(internalParticipants)
     || externalParticipants === null || !INTEGER.test(externalParticipants)
     || cateringParticipants === null || !INTEGER.test(cateringParticipants)
-    || !serviceIds || selectedPackage === undefined || !quantities || !allocationRows) return null;
+    || !Number.isSafeInteger(activeStep) || activeStep < 1 || activeStep > 6
+    || !serviceIds || !equipmentIds || selectedPackage === undefined || !quantities || !allocationRows) return null;
   return Object.freeze({
     roomId,
     startDate: value.startDate,
@@ -93,6 +98,8 @@ function validatedDraft(value) {
     internalParticipants,
     externalParticipants,
     serviceIds: Object.freeze(serviceIds),
+    ...(schemaVersion >= 2 ? { equipmentIds: Object.freeze(equipmentIds) } : {}),
+    ...(schemaVersion === 3 ? { activeStep } : {}),
     cateringParticipants,
     packageSelection: selectedPackage ? Object.freeze(selectedPackage) : null,
     itemQuantities: Object.freeze(quantities),
@@ -105,38 +112,69 @@ function validatedDraft(value) {
 export function createServerDraftStore({
   tenantId,
   userId,
+  sessionExpiresAt,
   storage,
+  clock = () => Date.now(),
 } = {}) {
   const tenant = identifier(tenantId);
   const user = identifier(userId);
+  const sessionExpiry = typeof sessionExpiresAt === 'string'
+    && sessionExpiresAt.length <= 64 && sessionExpiresAt.endsWith('Z')
+    ? Date.parse(sessionExpiresAt) : Number.NaN;
+  const currentTime = () => {
+    try {
+      const now = clock();
+      return Number.isFinite(now) ? now : null;
+    } catch {
+      return null;
+    }
+  };
+  const sessionActive = (now = currentTime()) => now !== null && sessionExpiry > now;
   let selectedStorage = storage;
   if (selectedStorage === undefined) {
     try { selectedStorage = globalThis.sessionStorage; } catch { return null; }
   }
-  if (!tenant || !user || !selectedStorage
+  if (!tenant || !user || typeof clock !== 'function' || !Number.isFinite(sessionExpiry)
+    || !sessionActive() || !selectedStorage
     || typeof selectedStorage.getItem !== 'function'
     || typeof selectedStorage.setItem !== 'function'
     || typeof selectedStorage.removeItem !== 'function') return null;
 
+  let draftCreatedAt = null;
+
   function clear() {
+    draftCreatedAt = null;
     try { selectedStorage.removeItem(SERVER_DRAFT_KEY); } catch {}
   }
 
   function load() {
     try {
+      if (!sessionActive()) {
+        clear();
+        return null;
+      }
       const serialized = selectedStorage.getItem(SERVER_DRAFT_KEY);
       if (typeof serialized !== 'string' || new TextEncoder().encode(serialized).length > MAX_SERIALIZED_BYTES) {
         if (serialized !== null) clear();
         return null;
       }
       const envelope = JSON.parse(serialized);
-      if (!exactObject(envelope, ['schemaVersion', 'tenantId', 'userId', 'draft'])
-        || envelope.schemaVersion !== 1 || envelope.tenantId !== tenant || envelope.userId !== user) {
+      const now = currentTime();
+      const createdAt = typeof envelope?.createdAt === 'string'
+        && envelope.createdAt.length <= 64 && envelope.createdAt.endsWith('Z')
+        ? Date.parse(envelope.createdAt) : Number.NaN;
+      if (!exactObject(envelope, [
+        'schemaVersion', 'tenantId', 'userId', 'createdAt', 'expiresAt', 'draft',
+      ]) || envelope.schemaVersion !== 4 || envelope.tenantId !== tenant
+        || envelope.userId !== user || envelope.expiresAt !== sessionExpiresAt
+        || now === null || !Number.isFinite(createdAt) || createdAt > now
+        || createdAt >= sessionExpiry) {
         clear();
         return null;
       }
-      const draft = validatedDraft(envelope.draft);
+      const draft = validatedDraft(envelope.draft, 3);
       if (!draft) clear();
+      else draftCreatedAt = envelope.createdAt;
       return draft;
     } catch {
       clear();
@@ -145,12 +183,22 @@ export function createServerDraftStore({
   }
 
   function save(value) {
-    const draft = validatedDraft(value);
-    if (!draft) return false;
+    const draft = validatedDraft(value, 3);
+    const now = currentTime();
+    if (!draft || !sessionActive(now)) return false;
     try {
-      const serialized = JSON.stringify({ schemaVersion: 1, tenantId: tenant, userId: user, draft });
+      const createdAt = draftCreatedAt || new Date(now).toISOString();
+      const serialized = JSON.stringify({
+        schemaVersion: 4,
+        tenantId: tenant,
+        userId: user,
+        createdAt,
+        expiresAt: sessionExpiresAt,
+        draft,
+      });
       if (new TextEncoder().encode(serialized).length > MAX_SERIALIZED_BYTES) return false;
       selectedStorage.setItem(SERVER_DRAFT_KEY, serialized);
+      draftCreatedAt = createdAt;
       return true;
     } catch {
       return false;

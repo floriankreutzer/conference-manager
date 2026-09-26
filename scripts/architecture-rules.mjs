@@ -29,14 +29,3 @@ export function isApprovedFeatureFlagImport(statement) {
 
   return importedNames.length > 0 && importedNames.every((name) => name === 'featureFlags');
 }
-
-export function onlyUsesApprovedManagerReturnStorage(source) {
-  const text = String(source || '');
-  if (!/sessionStorage\.setItem\(\s*PARITY_RETURN_KEY\s*,/.test(text)) return false;
-
-  const withoutApprovedCall = text.replace(
-    /sessionStorage\.setItem\(\s*PARITY_RETURN_KEY\s*,/g,
-    'approvedManagerReturnStorage(',
-  );
-  return directBrowserStorageKinds(withoutApprovedCall).length === 0;
-}

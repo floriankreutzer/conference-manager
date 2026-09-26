@@ -56,3 +56,17 @@ test('a stalled production booking-change lookup propagates AbortSignal and pres
   assert.equal(aborted, true);
   assert.equal(result[0], undefined);
 });
+
+test('booking-change lookups propagate 401/403 instead of preserving stale authority', async () => {
+  for (const code of ['HTTP_401', 'HTTP_403']) {
+    const authorityError = Object.assign(new Error(code), { code });
+    const wrapped = new Error('PRODUCTION_PERSISTENCE_UNAVAILABLE', { cause: authorityError });
+    await assert.rejects(
+      loadOpenBookingChanges(
+        [{ id: 'CR-authority', status: 'Confirmed' }],
+        { async loadBookingChange() { throw wrapped; } },
+      ),
+      (error) => error === wrapped,
+    );
+  }
+});
