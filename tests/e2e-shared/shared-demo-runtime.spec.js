@@ -81,6 +81,7 @@ async function expectUiResponseStatus(page, method, pathname, action, expectedSt
   await action();
   const response = await responsePromise;
   expect(response.status()).toBe(expectedStatus);
+  return response;
 }
 
 async function switchPlatformThroughUi(page, persona) {
@@ -273,13 +274,14 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const organizationForm = customerPage.locator('[data-tenant-settings-form="organization"]');
   await expect(organizationForm.locator('#tenant-organization-display-name')).toHaveValue(BASELINE_NAME_B);
   await organizationForm.locator('#tenant-organization-display-name').fill(MUTATED_NAME_B);
-  await expectUiResponseStatus(
+  const organizationUpdate = await expectUiResponseStatus(
     customerPage,
     'PUT',
     '/api/v1/tenant/settings/organization',
     () => organizationForm.getByRole('button', { name: /speichern/i }).click(),
     200,
   );
+  expect((await organizationUpdate.json()).organization.displayName).toBe(MUTATED_NAME_B);
   await expect(customerPage.locator('#brandTitle')).toHaveText(MUTATED_NAME_B);
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
   expect(customerSession.tenant).toEqual({ id: TENANT_B, status: 'active' });
