@@ -341,23 +341,25 @@ export function createProductionEmployeeApplication({
   }
 
   function guestPresentationDetails(guest, currentRoomContext) {
+    const siteValues = currentRoomContext?.guestPublicValues;
+    const roomValues = currentRoomContext?.room?.guestPublicValues;
+    const features = [...new Set([
+      ...(siteValues?.accessibilityFeatures || []),
+      ...(roomValues?.accessibilityFeatures || []),
+    ])];
     return [
-      [t('room.floor'), currentRoomContext?.room?.floor],
-      [t('manager.publicTransport'), localizedGuest(guest?.publicTransport)],
-      [t('guest.arrival'), localizedGuest(guest?.arrival)],
-      [t('manager.parking'), localizedGuest(guest?.parking)],
-      [t('manager.reception'), localizedGuest(guest?.reception)],
-      [t('guest.building'), localizedGuest(guest?.building)],
-      [t('guest.visitorNotes'), localizedGuest(guest?.visitorNotes)],
-      [t('manager.accessibility'), [
-        currentRoomContext?.room?.accessibility?.join(', '),
-        localizedGuest(guest?.accessibility),
-      ].filter(Boolean).join(' · ')],
+      [t('room.floor'), roomValues?.floorNumber === null || roomValues?.floorNumber === undefined
+        ? '' : String(roomValues.floorNumber)],
+      [t('manager.publicTransport'), siteValues
+        ? t(`guest.publicAvailability.${siteValues.publicTransport}`) : ''],
+      [t('guest.arrival'), siteValues ? t(`guest.publicArrival.${siteValues.arrival}`) : ''],
+      [t('manager.parking'), siteValues
+        ? t(`guest.publicAvailability.${siteValues.parking}`) : ''],
+      [t('manager.accessibility'), features.map((feature) => t(`guest.publicFeature.${feature}`)).join(', ')],
       [t('manager.contact'), guest?.contact
         ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
         : ''],
       [t('guest.wifi'), t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)],
-      [t('guest.network'), localizedGuest(guest?.wifiNetworkName)],
     ].map(([term, value]) => [term, value || '—']);
   }
 

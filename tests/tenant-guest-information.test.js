@@ -249,7 +249,7 @@ test('API-02 Locations v2 uses explicit version negotiation and exact versioned 
 });
 
 test('API-02 rejects version drift and guest mutations before transport while v1 remains exact', async () => {
-  for (const schemaVersion of [0, 3, '2', null]) {
+  for (const schemaVersion of [0, 4, '2', null]) {
     const apiClient = client([]);
     const api = createTenantLocationSettingsApi({ apiClient });
     await assert.rejects(api.loadLocations({ schemaVersion }));
@@ -270,4 +270,42 @@ test('API-02 rejects version drift and guest mutations before transport while v1
     expectedRevision: 4, configuration: locations(2, null).locations.configuration,
   });
   assert.equal(clearing.calls[0].options.body.configuration.sites[0].guestInformation, null);
+});
+
+test('Locations v3 reads, writes, and withdraws bounded public Guest values', async () => {
+  const base = locations(2).locations;
+  const configured = {
+    ...base, schemaVersion: 3,
+    configuration: {
+      sites: base.configuration.sites.map((site) => ({
+        ...site,
+        guestPublicValues: {
+          publicTransport: 'available', parking: 'not_available', arrival: 'reception',
+          accessibilityFeatures: ['step_free_entry'],
+        },
+      })),
+      rooms: [],
+    },
+  };
+  const harness = client([{ locations: configured }, { locations: configured }]);
+  const api = createTenantLocationSettingsApi({ apiClient: harness });
+  const current = await api.loadLocations({ schemaVersion: 3 });
+  assert.equal(current.configuration.sites[0].guestPublicValues.arrival, 'reception');
+  await api.saveLocations({ schemaVersion: 3, expectedRevision: 4, configuration: current.configuration });
+  assert.equal(harness.calls[0].path, 'v1/tenant/settings/locations?schemaVersion=3');
+  assert.equal(harness.calls[1].options.body.schemaVersion, 3);
+  const invalidInput = { ...current.configuration,
+    sites: [{ ...current.configuration.sites[0], guestPublicValues: {
+      ...current.configuration.sites[0].guestPublicValues, arrival: 'door code 1234',
+    } }],
+  };
+  const denied = client([]);
+  await assert.rejects(createTenantLocationSettingsApi({ apiClient: denied })
+    .saveLocations({ schemaVersion: 3, expectedRevision: 4, configuration: invalidInput }));
+  assert.deepEqual(denied.calls, []);
+  const withdrawn = { ...configured,
+    configuration: { sites: [{ ...configured.configuration.sites[0], guestPublicValues: null }], rooms: [] },
+  };
+  assert.equal((await createTenantLocationSettingsApi({ apiClient: client([{ locations: withdrawn }]) })
+    .loadLocations({ schemaVersion: 3 })).configuration.sites[0].guestPublicValues, null);
 });

@@ -660,17 +660,19 @@ export function createProductionPersistence({ apiClient } = {}) {
 
     async loadRequestRoomContext(requestId, options = {}) {
       const id = assertRequestId(requestId);
-      const { projection = null, ...requestOptions } = options;
-      if (projection !== null && projection !== 'guest') {
+      const { projection = null, schemaVersion = projection === 'guest' ? 3 : 1, ...requestOptions } = options;
+      if ((projection !== null && projection !== 'guest')
+        || (projection === 'guest' && ![2, 3].includes(schemaVersion))
+        || (projection === null && schemaVersion !== 1)) {
         throw new ProductionPersistenceError('PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
       }
       const result = normalizeProductionRequestRoomContextEnvelope(await call(
         apiClient,
         projection === 'guest'
-          ? `v1/requests/${encodeURIComponent(id)}/room-context?projection=guest`
+          ? `v1/requests/${encodeURIComponent(id)}/room-context?projection=guest${schemaVersion === 3 ? '&schemaVersion=3' : ''}`
           : `v1/requests/${encodeURIComponent(id)}/room-context`,
         requestOptions,
-      ), projection === 'guest' ? 2 : 1);
+      ), schemaVersion);
       if (result.requestRef.id !== id) {
         throw new ProductionPersistenceError('PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
       }

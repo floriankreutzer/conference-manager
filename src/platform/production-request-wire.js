@@ -1,3 +1,4 @@
+import { publicRoomGuestValues, publicSiteGuestValues } from '../core/public-guest-values.js';
 import { normalizeGuestPresentation, normalizeGuestRoomText } from '../core/guest-presentation.js';
 import { isProductionTimeZone } from '../core/production-time.js';
 
@@ -1010,7 +1011,7 @@ export function normalizeProductionRequestRoomContextEnvelope(value, expectedSch
     'schemaVersion', 'requestRef', 'currentRoomContext', 'requestId',
   ], code);
   if (
-    ![1, 2].includes(envelope.schemaVersion)
+    ![1, 2, 3].includes(envelope.schemaVersion)
     || (expectedSchemaVersion !== null && envelope.schemaVersion !== expectedSchemaVersion)
   ) invalid(code);
   const ref = requestRef(envelope.requestRef, code);
@@ -1022,12 +1023,13 @@ export function normalizeProductionRequestRoomContextEnvelope(value, expectedSch
       currentRoomContext: null,
     });
   }
-  const guestProjection = envelope.schemaVersion === 2;
+  const guestProjection = envelope.schemaVersion >= 2;
+  const structuredProjection = envelope.schemaVersion === 3;
   const context = exactObject(envelope.currentRoomContext, guestProjection
-    ? ['locationsRevision', 'room', 'site', 'guestPresentation']
+    ? ['locationsRevision', 'room', 'site', 'guestPresentation', ...(structuredProjection ? ['guestPublicValues'] : [])]
     : ['locationsRevision', 'room', 'site'], code);
   const room = exactObject(context.room, guestProjection
-    ? ['id', 'siteId', 'name', 'capacity', 'active', 'floor', 'accessibility', 'floorplanAssetId', 'mediaAssetIds']
+    ? ['id', 'siteId', 'name', 'capacity', 'active', 'floor', 'accessibility', 'floorplanAssetId', 'mediaAssetIds', ...(structuredProjection ? ['guestPublicValues'] : [])]
     : ['id', 'siteId', 'name', 'capacity', 'active'], code);
   const site = exactObject(context.site, ['id', 'name', 'active', 'timeZone'], code);
   if (typeof room.active !== 'boolean' || typeof site.active !== 'boolean') invalid(code);
@@ -1044,6 +1046,14 @@ export function normalizeProductionRequestRoomContextEnvelope(value, expectedSch
     mediaAssetIds = Object.freeze(room.mediaAssetIds.map((entry) => identifier(entry, code)));
     if (new Set(mediaAssetIds).size !== mediaAssetIds.length) invalid(code);
   }
+  let sitePublicValues = null;
+  let roomPublicValues = null;
+  if (structuredProjection) {
+    try {
+      sitePublicValues = publicSiteGuestValues(context.guestPublicValues, code);
+      roomPublicValues = publicRoomGuestValues(room.guestPublicValues, code);
+    } catch { invalid(code); }
+  }
   const normalizedRoom = {
     id: identifier(room.id, code),
     siteId: identifier(room.siteId, code),
@@ -1055,6 +1065,7 @@ export function normalizeProductionRequestRoomContextEnvelope(value, expectedSch
       floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
       mediaAssetIds,
       accessibility,
+      ...(structuredProjection ? { guestPublicValues: roomPublicValues } : {}),
     } : {}),
   };
   const normalizedSite = {
@@ -1077,6 +1088,7 @@ export function normalizeProductionRequestRoomContextEnvelope(value, expectedSch
       room: normalizedRoom,
       site: normalizedSite,
       ...(guestProjection ? { guestPresentation } : {}),
+      ...(structuredProjection ? { guestPublicValues: sitePublicValues } : {}),
     },
   });
 }

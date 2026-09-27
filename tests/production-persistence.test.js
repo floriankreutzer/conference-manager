@@ -681,7 +681,7 @@ test('Request Room context uses the exact GET boundary and accepts inactive or n
 test('Request Guest context reuses the exact secret-free Site projection contract', async () => {
   const harness = api(() => guestRoomContextEnvelope());
   const result = await createProductionPersistence({ apiClient: harness.client })
-    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' });
+    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest', schemaVersion: 2 });
   assert.equal(result.schemaVersion, 2);
   assert.deepEqual(result.currentRoomContext.guestPresentation, guestPresentation());
   assert.deepEqual(harness.calls, [{
@@ -698,7 +698,7 @@ test('Request Guest context reuses the exact secret-free Site projection contrac
   ]) {
     await assert.rejects(
       createProductionPersistence({ apiClient: api(() => guestRoomContextEnvelope(guest)).client })
-        .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' }),
+        .loadRequestRoomContext(REQUEST_ID, { projection: 'guest', schemaVersion: 2 }),
       (error) => error.code === 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID',
     );
   }
@@ -743,20 +743,20 @@ test('Request Guest room fields reject credential labels and invisible Unicode b
     const envelope = guestRoomContextEnvelope();
     envelope.currentRoomContext.room = unsafeRoom;
     await assert.rejects(createProductionPersistence({ apiClient: api(() => envelope).client })
-      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' }),
+      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest', schemaVersion: 2 }),
     (error) => error.code === 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
   }
   const safe = guestRoomContextEnvelope();
   safe.currentRoomContext.room = { ...room, floor: '2', accessibility: ['Step-free access'] };
   const result = await createProductionPersistence({ apiClient: api(() => safe).client })
-    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' });
+    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest', schemaVersion: 2 });
   assert.equal(result.currentRoomContext.room.floor, '2');
   assert.deepEqual(result.currentRoomContext.room.accessibility, ['Step-free access']);
   for (const floor of ['B[1]', 'Level -1', 'E\u0301tage 2']) {
     const allowed = guestRoomContextEnvelope();
     allowed.currentRoomContext.room = { ...room, floor, accessibility: ['Step-free access'] };
     const next = await createProductionPersistence({ apiClient: api(() => allowed).client })
-      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' });
+      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest', schemaVersion: 2 });
     assert.equal(next.currentRoomContext.room.floor, floor);
   }
   for (const floor of [
@@ -771,7 +771,7 @@ test('Request Guest room fields reject credential labels and invisible Unicode b
     const allowed = guestRoomContextEnvelope();
     allowed.currentRoomContext.room = { ...room, floor, accessibility: ['Безбарьерный вход'] };
     const next = await createProductionPersistence({ apiClient: api(() => allowed).client })
-      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' });
+      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest', schemaVersion: 2 });
     assert.equal(next.currentRoomContext.room.floor, floor);
     assert.deepEqual(next.currentRoomContext.room.accessibility, ['Безбарьерный вход']);
   }
@@ -855,7 +855,7 @@ test('Request Room context rejects authority expansion and malformed projections
   );
   await assert.rejects(
     createProductionPersistence({ apiClient: api(() => requestRoomContextEnvelope()).client })
-      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' }),
+      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest', schemaVersion: 2 }),
     (error) => error.code === 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID',
   );
 });
@@ -1168,4 +1168,39 @@ test('unsafe Request identifiers fail before transport', async () => {
   await assert.rejects(createProductionPersistence({ apiClient: harness.client }).loadRequest('../tenant'),
     (error) => error.code === 'REQUEST_ID_INVALID');
   assert.equal(harness.calls.length, 0);
+});
+
+test('structured Guest context negotiates v3 and rejects prose-shaped public values', async () => {
+  const fixture = guestRoomContextEnvelope();
+  fixture.schemaVersion = 3;
+  fixture.currentRoomContext.guestPublicValues = {
+    publicTransport: 'available', parking: 'not_available', arrival: 'reception',
+    accessibilityFeatures: ['step_free_entry'],
+  };
+  fixture.currentRoomContext.room.guestPublicValues = {
+    floorNumber: 2, accessibilityFeatures: ['lift'],
+  };
+  const harness = api(() => fixture);
+  const response = await createProductionPersistence({ apiClient: harness.client })
+    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' });
+  assert.equal(response.schemaVersion, 3);
+  assert.equal(response.currentRoomContext.room.guestPublicValues.floorNumber, 2);
+  assert.deepEqual(harness.calls, [{
+    path: `v1/requests/${REQUEST_ID}/room-context?projection=guest&schemaVersion=3`, options: {},
+  }]);
+  fixture.currentRoomContext.guestPublicValues.arrival = 'Door code 1234';
+  await assert.rejects(createProductionPersistence({ apiClient: api(() => fixture).client })
+    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' }),
+  (error) => error.code === 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
+  fixture.currentRoomContext.guestPublicValues.arrival = 'reception';
+  fixture.currentRoomContext.room.guestPublicValues.floorNumber = '2';
+  await assert.rejects(createProductionPersistence({ apiClient: api(() => fixture).client })
+    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' }),
+  (error) => error.code === 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
+  fixture.currentRoomContext.room.guestPublicValues = null;
+  fixture.currentRoomContext.guestPublicValues = null;
+  const withdrawn = await createProductionPersistence({ apiClient: api(() => fixture).client })
+    .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' });
+  assert.equal(withdrawn.currentRoomContext.guestPublicValues, null);
+  assert.equal(withdrawn.currentRoomContext.room.guestPublicValues, null);
 });
