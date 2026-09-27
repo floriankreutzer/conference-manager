@@ -429,9 +429,10 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   await expect(atlas.locator('#tenant-room-name-0, #tenant-room-capacity-0')).toHaveCount(0);
   await expect(atlas.locator('#tenant-room-site-0')).toHaveValue('berlin');
   await content.locator('#tenant-site-name-0').fill('Berlin Production');
+  const locationsFormBeforeSave = await content.locator('[data-tenant-settings-form="locations-technical"]').elementHandle();
   await submit(content, 'locations-technical');
   await expect.poll(() => fixture.writes.length).toBe(3);
-  await expect(content.getByText('Konfigurationsstand: 3')).toBeVisible();
+  await expect.poll(() => locationsFormBeforeSave.evaluate((form) => form.isConnected)).toBe(false);
   await expect(content.locator('#tenant-site-name-0')).toHaveValue('Berlin Production');
 
   await expect(page.locator(
