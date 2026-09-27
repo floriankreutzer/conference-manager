@@ -440,8 +440,14 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   )).toHaveCount(0);
 
   content = await openSection(page, 'booking-policies', 'booking-policies');
-  await content.locator('#tenant-policy-0-participants').fill('450');
-  await expect(content.locator('#tenant-policy-0-participants')).toHaveValue('450');
+  // The app may refresh the entire section when the prior Locations save updates
+  // the Tenant presentation. Re-enter the value in the currently connected form
+  // and still verify the actual committed payload and revision below.
+  const participants = content.locator('#tenant-policy-0-participants');
+  await expect.poll(async () => {
+    await participants.fill('450');
+    return participants.inputValue();
+  }).toBe('450');
   await submit(content, 'booking-policies');
   await expect.poll(() => fixture.writes.length).toBe(4);
   await expect(content.getByText('Konfigurationsstand: 6')).toBeVisible();
