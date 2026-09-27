@@ -431,6 +431,7 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   await content.locator('#tenant-site-name-0').fill('Berlin Production');
   await submit(content, 'locations-technical');
   await expect.poll(() => fixture.writes.length).toBe(3);
+  await expect(content.getByText('Konfigurationsstand: 3')).toBeVisible();
   await expect(content.locator('#tenant-site-name-0')).toHaveValue('Berlin Production');
 
   await expect(page.locator(
@@ -439,8 +440,10 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
 
   content = await openSection(page, 'booking-policies', 'booking-policies');
   await content.locator('#tenant-policy-0-participants').fill('450');
+  await expect(content.locator('#tenant-policy-0-participants')).toHaveValue('450');
   await submit(content, 'booking-policies');
   await expect.poll(() => fixture.writes.length).toBe(4);
+  await expect(content.getByText('Konfigurationsstand: 6')).toBeVisible();
   await expect(content.locator('#tenant-policy-0-participants')).toHaveValue('450');
 
   content = await openSection(page, 'cost-allocation', 'cost-allocation');
