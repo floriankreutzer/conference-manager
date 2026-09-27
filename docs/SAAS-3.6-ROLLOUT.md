@@ -23,8 +23,8 @@ CI `36269943540` passed quality/shared Demo and 260/262 Chromium/WebKit cases.
 The two failures are one mirrored Manager 320px form-reflow issue; a focused CSS
 correction is pending exact-head CI.
 Neither PR has a protected review or human release acceptance. Render Customer and
-Platform Demo still run API `62f8e5857dffefa789d1db573ecfd1222b188246` via live deploys
-`dep-daiq043m8hqs73driar0` and `dep-daipqqvqj5pc73b3t9vg` from 12 September 2026.
+Platform Demo now run API `eb451bcb8aac59c2c68e0d0b96ff2076f85f5cfb` via manual live deploys
+`dep-dasfq1d9fdbs73d8h1mg` and `dep-dasfpqvpn0mc7387m4og` from 27 September 2026.
 No deployed identity for the candidate pair has been recorded.
 
 Frontend `5b47eb6b` passed local `npm run check` with 458/458 tests. Its GitHub CI

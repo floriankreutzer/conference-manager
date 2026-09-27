@@ -99,8 +99,8 @@ These are draft PR candidates, not final merged or deployed release references.
   Chromium/WebKit cases (one mirrored Manager 320px form-reflow cause). The subsequent
   frontend candidate constrains the nested Manager form track; exact-head CI is pending. API PR #78's
   `render.yaml` still pins older frontend `7b17a2c`; a passing CI pair is not a deployed pair.
-  Render Customer and Platform Demo are both still live on API `62f8e5857dffefa789d1db573ecfd1222b188246`
-  (deploys `dep-daiq043m8hqs73driar0` and `dep-daipqqvqj5pc73b3t9vg`, 12 September 2026).
+  Render Customer and Platform Demo are both live on API `eb451bcb8aac59c2c68e0d0b96ff2076f85f5cfb`
+  (deploys `dep-dasfq1d9fdbs73d8h1mg` and `dep-dasfpqvpn0mc7387m4og`, 27 September 2026).
   The release must
   use an ordered compatibility handoff and record the exact pair through workflow inputs and
   post-deployment identity; reciprocal commit-SHA pins cannot be fabricated as a hash cycle.
@@ -116,7 +116,7 @@ These are draft PR candidates, not final merged or deployed release references.
 | --- | --- | --- |
 | Frontend | Draft PR #201; preceding executable head `5b47eb6b` had exact-pair CI `36269943540`: quality/shared Demo green, 260/262 browser cases passed; nested Manager form correction pending CI | Green exact-head full browser matrix and protected review; H-034/H-035 real UI |
 | API | Draft PR #78 `8c40290a`, schema 38; exact-pair CI `36265393728` passed quality, PostgreSQL 18 and shared-Demo browsers | H-034/H-035 implementation with new database/browser evidence, protected review and deployment |
-| Paired release | Immutable CI pair available; live Customer/Platform Demo still on API `62f8e585` from 12 September | Reviewed compatibility-first handoff, exact deployment identities, protected review/merge, Hosted Acceptance and live three-surface DAST |
+| Paired release | Immutable CI pair available; live Customer/Platform Demo manually advanced to API `eb451bcb` on 27 September while retaining frontend `456a8137` | Reviewed compatibility-first handoff, exact deployment identities, protected review/merge, Hosted Acceptance and live three-surface DAST |
 | Product acceptance | Readiness is `in-validation` | Implement accepted ADR-012 managed media and structured public values; named human #182 acceptance for keyboard/focus, 200% reflow, responsive states, dialogs, print and real Room media |
 
 Local Node checks remain candidate diagnostics. Chromium/WebKit and PostgreSQL 18 evidence above
