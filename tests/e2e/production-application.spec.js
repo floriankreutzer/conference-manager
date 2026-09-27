@@ -303,6 +303,7 @@ async function installProductionApplicationFixture(page, {
   const bulkWrites = [];
   const catalogueWrites = [];
   const locationWrites = [];
+  const roomMediaUploads = [];
   const reportReads = [];
   const requestHistoryReads = [];
   const roomContextReads = [];
@@ -434,6 +435,24 @@ async function installProductionApplicationFixture(page, {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify(presentationPayload()),
+      });
+      return;
+    }
+
+    const roomMediaUpload = url.pathname.match(
+      /^\/api\/v1\/tenant\/rooms\/([A-Za-z0-9][A-Za-z0-9._:-]{0,127})\/media$/,
+    );
+    if (roomMediaUpload && request.method() === 'POST') {
+      roomMediaUploads.push({
+        roomId: roomMediaUpload[1],
+        csrf: request.headers()['x-csrf-token'],
+        contentType: request.headers()['content-type'],
+        bytes: request.postDataBuffer(),
+      });
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ assetId: '11111111-1111-4111-8111-111111111111' }),
       });
       return;
     }
@@ -1349,6 +1368,7 @@ async function installProductionApplicationFixture(page, {
     requestEnvelopes,
     requestHistoryReads,
     roomContextReads,
+    roomMediaUploads,
     requests: () => requests,
     writes,
   };
@@ -3250,6 +3270,49 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   await expect(page.locator('#toast')).toContainText('zwischenzeitlich geändert');
   await expect(save).toBeEnabled();
   expect(conflictFixture.locationWrites).toHaveLength(1);
+});
+
+test('H-034 Conference Manager uploads a private Room floorplan and attaches it by Locations revision', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    roles: ['employee', 'conference_manager'],
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
+  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+
+  const room = page.locator('[data-manager-room-id="room-a"]');
+  const bytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAD91JpzAAAAFElEQVR42mP4z8DAwMDAxAADCBYAOx0BA8VudC8AAAAASUVORK5CYII=',
+    'base64',
+  );
+  await room.getByLabel('Grundrissdatei (PNG, JPEG oder WebP; bis 2 MiB)').setInputFiles({
+    name: 'room-a-floorplan.png',
+    mimeType: 'image/png',
+    buffer: bytes,
+  });
+  await room.getByRole('button', { name: 'Grundriss hochladen' }).click();
+
+  await expect(page.locator('#toast')).toContainText('Raumbild gespeichert.');
+  expect(fixture.roomMediaUploads).toHaveLength(1);
+  expect(fixture.roomMediaUploads[0]).toMatchObject({
+    roomId: 'room-a',
+    csrf: CSRF_TOKEN,
+    contentType: 'image/png',
+  });
+  expect(fixture.roomMediaUploads[0].bytes).toEqual(bytes);
+  expect(fixture.locationWrites).toHaveLength(1);
+  expect(fixture.locationWrites[0].body).toMatchObject({
+    schemaVersion: 1,
+    expectedRevision: 1,
+    configuration: {
+      rooms: [{
+        id: 'room-a',
+        floorplanAssetId: '11111111-1111-4111-8111-111111111111',
+        mediaAssetIds: [],
+      }],
+    },
+  });
 });
 
 test('stale Catalogue save cannot restore Manager settings after navigation', async ({ page }) => {
