@@ -1,4 +1,4 @@
-import { productionUtcInstant } from '../core/production-time.js';
+import { isProductionTimeZone, productionUtcInstant } from '../core/production-time.js';
 import { siteLocalIsoDate } from './server-room-plan.js';
 
 const OPEN = new Set(['Submitted', 'In Review', 'Change Requested']);
@@ -28,8 +28,9 @@ export function managerCockpitModel({ requests, catalog, roomContexts = [], chan
     const site = requestSite(request, catalog, roomContexts[index]);
     const room = catalog.rooms.find((entry) => entry.id === request.roomId)
       || roomContexts[index]?.room || request.pricing?.room;
-    const today = site ? siteLocalIsoDate(now, site.timeZone) : null;
-    const date = site ? siteLocalIsoDate(Date.parse(request.startsAt), site.timeZone) : null;
+    const hasLocalDate = isProductionTimeZone(site?.timeZone);
+    const today = hasLocalDate ? siteLocalIsoDate(now, site.timeZone) : null;
+    const date = hasLocalDate ? siteLocalIsoDate(Date.parse(request.startsAt), site.timeZone) : null;
     const active = !CLOSED.has(request.status);
     return {
       request, index, room, site,
