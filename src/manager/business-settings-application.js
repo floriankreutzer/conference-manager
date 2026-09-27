@@ -14,6 +14,10 @@ const COLLECTION_LIMITS = Object.freeze({
   cateringPackages: 100,
 });
 const PACKAGE_VARIANT_LIMIT = 20;
+const ROOM_BUSINESS_FIELDS = Object.freeze([
+  'name', 'capacity', 'active', 'floor', 'equipment', 'accessibility', 'serviceIds',
+  'cateringPackageIds', 'floorplanAssetId', 'mediaAssetIds',
+]);
 
 function validLocationsAdapter(value) {
   return value && ['loadLocations', 'saveLocations', 'listLocationsHistory']
@@ -530,6 +534,56 @@ export function createManagerBusinessSettingsApplication({
           field({ id: `manager-room-active-${index}`, label: t('managerSettings.room.active'), control: controls.active }),
         ]),
       ]);
+      if (typeof locations.uploadRoomMedia === 'function') {
+        const uploadPanel = el('section', { className: 'room-asset-panel' });
+        uploadPanel.appendChild(el('h3', { text: t('managerSettings.room.mediaUploadHeading') }));
+        for (const kind of ['floorplan', 'media']) {
+          const picker = el('input', {
+            type: 'file',
+            attrs: { accept: 'image/png,image/jpeg,image/webp' },
+          });
+          const upload = button(t(`managerSettings.room.upload.${kind}`), { className: 'secondary' });
+          upload.addEventListener('click', async () => {
+            if (!picker.files?.[0]) {
+              picker.focus();
+              return;
+            }
+            if (kind === 'media' && room.mediaAssetIds.length >= 20) {
+              showToast(t('managerSettings.room.mediaLimit'));
+              return;
+            }
+            upload.disabled = true;
+            try {
+              const assetId = await locations.uploadRoomMedia(room.id, picker.files[0]);
+              const edits = snapshot.configuration.rooms.map((entry) => ({
+                id: entry.id,
+                ...Object.fromEntries(ROOM_BUSINESS_FIELDS.map((key) => [key, entry[key]])),
+                ...(entry.id === room.id ? (kind === 'floorplan'
+                  ? { floorplanAssetId: assetId }
+                  : { mediaAssetIds: [...entry.mediaAssetIds, assetId] }) : {}),
+              }));
+              const configuration = projectRoomBusinessConfiguration(snapshot.configuration, edits);
+              await locations.saveLocations({ expectedRevision: snapshot.revision, configuration });
+              if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+              showToast(t('managerSettings.room.mediaUploaded'));
+              await renderManagerSettings({ focusHeading: true });
+            } catch (error) {
+              if (handleAuthorityFailure(error)) return;
+              if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+              upload.disabled = false;
+              showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.room.mediaUploadError'));
+            }
+          });
+          uploadPanel.appendChild(field({
+            id: `manager-room-${kind}-upload-${index}`,
+            label: t(`managerSettings.room.file.${kind}`),
+            control: picker,
+            optional: true,
+          }));
+          uploadPanel.appendChild(upload);
+        }
+        node.appendChild(uploadPanel);
+      }
       return { room, controls, nameField, node };
     });
     const form = el('form');

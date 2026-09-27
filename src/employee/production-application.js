@@ -45,6 +45,7 @@ import {
 } from '../shared/detached-print-window.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { createAuthoritySurfaceRegistry } from '../shared/authority-surface-registry.js';
+import { managedRoomMedia } from './room-media.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed']);
 const MAX_PARTICIPANTS = 500;
@@ -68,45 +69,51 @@ function roomLabel(room) {
   return capacity ? `${room.name} · ${capacity}` : String(room.name || room.id || '');
 }
 
-function roomPreviewVisual(label, className = '') {
-  return el('div', {
+function roomPreviewVisual(path, label, className = '') {
+  const image = el('img', {
     className: `room-asset-visual${className ? ` ${className}` : ''}`,
-    attrs: { role: 'img', 'aria-label': label },
-  }, [
-    el('span', { className: 'room-floorplan-table', attrs: { 'aria-hidden': 'true' } }),
-    el('span', { className: 'room-floorplan-screen', attrs: { 'aria-hidden': 'true' } }),
-    el('span', { className: 'room-floorplan-door', attrs: { 'aria-hidden': 'true' } }),
-  ]);
+    attrs: { src: path, alt: label, loading: 'lazy', referrerpolicy: 'no-referrer' },
+  });
+  const status = el('p', { className: 'muted room-asset-note',
+    text: t('production.employee.roomAssetLoading') });
+  image.addEventListener('load', () => { status.textContent = ''; }, { once: true });
+  image.addEventListener('error', () => {
+    image.hidden = true;
+    status.textContent = t('production.employee.roomAssetLoadError');
+  }, { once: true });
+  return el('div', { className: 'room-asset-frame' }, [image, status]);
 }
 
 function openRoomPreview(room, trigger, previewIndex) {
   const assets = roomAssetPreviewState(room);
+  const managed = managedRoomMedia(room);
   const content = el('section', { className: 'room-asset-dialog' });
-  if (assets.hasFloorplan) {
+  if (managed.floorplan) {
     content.appendChild(el('article', { className: 'room-asset-panel' }, [
       el('h3', { text: t('production.employee.roomFloorplanHeading') }),
-      roomPreviewVisual(t('production.employee.roomFloorplanAlt', { room: room.name }), 'floorplan'),
+      roomPreviewVisual(managed.floorplan, t('production.employee.roomFloorplanAlt', { room: room.name }), 'floorplan'),
     ]));
   }
-  if (assets.mediaCount > 0) {
+  if (managed.media.length > 0) {
     const media = el('section', { className: 'room-asset-panel' }, [
       el('h3', { text: t('production.employee.roomMediaHeading') }),
     ]);
     const grid = el('div', { className: 'room-media-grid' });
-    for (let index = 0; index < assets.mediaCount; index += 1) {
-      grid.appendChild(roomPreviewVisual(t('production.employee.roomMediaAlt', {
+    for (let index = 0; index < managed.media.length; index += 1) {
+      grid.appendChild(roomPreviewVisual(managed.media[index], t('production.employee.roomMediaAlt', {
         room: room.name,
         index: formatNumber(index + 1),
-        count: formatNumber(assets.mediaCount),
+        count: formatNumber(managed.media.length),
       }), 'media'));
     }
     media.appendChild(grid);
     content.appendChild(media);
   }
-  if (!assets.hasFloorplan && assets.mediaCount === 0) {
+  if (!managed.floorplan && managed.media.length === 0) {
     content.appendChild(el('p', {
       className: 'info-box room-asset-empty',
-      text: t('production.employee.roomAssetsEmpty'),
+      text: assets.hasFloorplan || assets.mediaCount
+        ? t('production.employee.roomAssetLoadError') : t('production.employee.roomAssetsEmpty'),
     }));
   }
   content.appendChild(el('p', {
@@ -740,29 +747,32 @@ export function createProductionEmployeeApplication({
             )} · ${t('room.cost')}`,
           }));
         }
-        if (assets.hasFloorplan || assets.mediaCount > 0) {
+        const managed = managedRoomMedia(entry);
+        if (managed.floorplan || managed.media.length > 0) {
           card.append(
             roomPreviewVisual(
+              managed.floorplan || managed.media[0],
               t('production.employee.roomAssetsAvailable', {
                 room: entry.name,
-                count: formatNumber(assets.mediaCount),
+                count: formatNumber(managed.media.length),
               }),
               'room-floorplan-preview',
             ),
             el('p', {
               className: 'muted room-asset-summary',
               text: t('production.employee.roomAssetsSummary', {
-                floorplan: assets.hasFloorplan
+                floorplan: managed.floorplan
                   ? t('production.employee.roomAssetAvailable')
                   : t('production.employee.roomAssetUnavailable'),
-                count: formatNumber(assets.mediaCount),
+                count: formatNumber(managed.media.length),
               }),
             }),
           );
         } else {
           card.appendChild(el('p', {
             className: 'muted room-asset-empty',
-            text: t('production.employee.roomAssetsEmpty'),
+            text: assets.hasFloorplan || assets.mediaCount
+              ? t('production.employee.roomAssetLoadError') : t('production.employee.roomAssetsEmpty'),
           }));
         }
         const preview = button(t('production.employee.roomPreviewAction'), {

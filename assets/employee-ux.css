@@ -7,23 +7,22 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
 }
 
 .room-asset-visual {
-  position: relative;
-  min-height: 7rem;
+  display: block;
+  width: 100%;
+  max-height: min(60vh, 32rem);
+  object-fit: contain;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--brand-secondary-surface);
-  overflow: hidden;
 }
 
 .room-asset-visual.media {
-  min-height: 6rem;
+  max-height: 20rem;
   background: var(--color-surface-subtle);
 }
 
-.room-asset-visual.media .room-floorplan-table {
-  inset: 30% 18%;
-  border-radius: var(--radius-md);
-  background: var(--brand-secondary-surface);
+.room-asset-visual[hidden] {
+  display: none;
 }
 
 .room-asset-dialog,
@@ -55,32 +54,6 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
 .room-asset-empty,
 .room-asset-note {
   overflow-wrap: anywhere;
-}
-
-.room-floorplan-table {
-  position: absolute;
-  inset: 25% 24%;
-  border: 2px solid var(--color-brand);
-  border-radius: 999px;
-  background: var(--color-surface);
-}
-
-.room-floorplan-screen {
-  position: absolute;
-  inset: 12% 22% auto;
-  height: 0.35rem;
-  border-radius: 999px;
-  background: var(--color-text);
-}
-
-.room-floorplan-door {
-  position: absolute;
-  right: 8%;
-  bottom: 0;
-  width: 18%;
-  height: 24%;
-  border-top: 2px solid var(--color-brand);
-  border-left: 2px solid var(--color-brand);
 }
 
 .room-equipment {

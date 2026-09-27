@@ -189,6 +189,18 @@ export function createTenantLocationSettingsApi({ apiClient } = {}) {
   });
   return Object.freeze({
     ...bulk,
+    async uploadRoomMedia(roomId, file) {
+      if (typeof roomId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(roomId)
+        || typeof apiClient.uploadRoomImage !== 'function') invalid('TENANT_ROOM_MEDIA_UPLOAD_INVALID');
+      try {
+        const result = await apiClient.uploadRoomImage(`v1/tenant/rooms/${roomId}/media`, file);
+        exactObject(result, ['assetId'], 'TENANT_ROOM_MEDIA_RESPONSE_INVALID');
+        const assetId = internalUuid(result.assetId, 'TENANT_ROOM_MEDIA_RESPONSE_INVALID');
+        return assetId;
+      } catch (error) {
+        throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_ROOM_MEDIA_UPLOAD_FAILED');
+      }
+    },
     async loadLocations({ schemaVersion = 1 } = {}) {
       locationSchemaVersion(schemaVersion);
       try { return wrapped(await apiClient.request(versionedPath(CURRENT_PATH, schemaVersion)), schemaVersion); }

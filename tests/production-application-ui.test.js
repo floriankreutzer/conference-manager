@@ -194,10 +194,11 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: server-backed Employee editor restores
   assert.match(employee, /roomAssetPreviewState\(entry\)/);
   assert.match(employee, /openRoomPreview\(entry, preview, index\)/);
   assert.match(employee, /production\.employee\.roomAssetsPrivacy/);
-  assert.match(messages, /Schematischer Platzhalter: Grundriss-Referenz/);
-  assert.match(messages, /Schematic placeholder: a floor-plan reference/);
-  assert.match(messages, /Der aktuelle Katalog liefert keine Asset-Dateien/);
-  assert.match(messages, /The current catalogue provides no asset files/);
+  assert.match(messages, /Grundriss des Raums/);
+  assert.match(messages, /Floor plan for room/);
+  assert.match(employee, /managedRoomMedia\(entry\)/);
+  assert.match(employee, /roomPreviewVisual\(managed\.floorplan/);
+  assert.doesNotMatch(employee, /room-floorplan-table|room-floorplan-door/);
   assert.doesNotMatch(messages, /Freigegebene (?:Raum|Grundriss)|Approved (?:room|floor-plan)/);
   assert.match(employee, /buildServerRequestReview\(\{/);
   assert.match(employee, /className: 'details-list review-details'/);
