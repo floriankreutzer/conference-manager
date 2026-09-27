@@ -43,7 +43,7 @@ export function createPublicGuestValueEditor(value, index, kind) {
     entries.push(field({ id: `${id}-${feature}`, label: t(`guest.publicFeature.${feature}`), control }));
     return [feature, control];
   });
-  const fields = el('div', { className: 'form-grid' }, entries);
+  const fields = el('div', {}, [el('div', { className: 'form-grid' }, entries)]);
   const node = el('fieldset', { className: 'card' }, [
     el('legend', { text: t('guest.publicValues.title') }),
     field({ id: `${id}-enabled`, label: t('guest.publicValues.enabled'), control: enabled }),

@@ -87,7 +87,7 @@ test('Request Room context matching requires the exact Request reference and cur
   }), null);
   assert.equal(matchingRequestRoomContext(sourceRequest, {
     ...sourceEnvelope,
-    schemaVersion: 2,
+    schemaVersion: 3,
   }, { projection: 'guest' }), sourceEnvelope.currentRoomContext);
 });
 
