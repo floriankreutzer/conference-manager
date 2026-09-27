@@ -14,8 +14,8 @@ export function moduleSpecifiers(source) {
   const text = String(source || '');
   const [imports] = parse(text);
   const specifiers = imports
-    .filter((entry) => entry.d !== -2 && typeof entry.n === 'string')
-    .map((entry) => entry.n.split(/[?#]/)[0]);
+    .filter((entry) => typeof entry.specifier === 'string')
+    .map((entry) => entry.specifier.split(/[?#]/)[0]);
   return Object.freeze(specifiers);
 }
 
