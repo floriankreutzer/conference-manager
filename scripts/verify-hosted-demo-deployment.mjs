@@ -4,6 +4,8 @@ const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const METADATA_PATH = '/assets/hosted-demo-deployment.json';
 const METADATA_TIMEOUT_MS = 20_000;
+const METADATA_ATTEMPTS = 3;
+const METADATA_RETRY_DELAY_MS = 250;
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const EXPECTED_REPOSITORY = 'floriankreutzer/conference-manager-api';
 const EXPECTED_BRANCH = 'main';
@@ -33,11 +35,22 @@ function requireOrigins(customerOrigin, platformOrigin) {
 }
 
 async function readMetadata(fetchImpl, service) {
-  const response = await fetchImpl(`${service.origin}${METADATA_PATH}`, {
-    redirect: 'error',
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
-  });
+  let response;
+  for (let attempt = 1; attempt <= METADATA_ATTEMPTS; attempt += 1) {
+    try {
+      response = await fetchImpl(`${service.origin}${METADATA_PATH}`, {
+        redirect: 'error',
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
+      });
+      if (![502, 503, 504].includes(response.status) || attempt === METADATA_ATTEMPTS) break;
+    } catch (error) {
+      if (attempt === METADATA_ATTEMPTS) {
+        throw new Error('HOSTED_DEMO_DEPLOYMENT_METADATA_UNAVAILABLE', { cause: error });
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, METADATA_RETRY_DELAY_MS * attempt));
+  }
   const contentType = response.headers.get('content-type') || '';
   if (response.status !== 200 || !contentType.startsWith('application/json')) {
     throw new Error('HOSTED_DEMO_DEPLOYMENT_METADATA_RESPONSE_INVALID');

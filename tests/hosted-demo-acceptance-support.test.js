@@ -210,6 +210,31 @@ test('hosted acceptance verifies build-bound metadata from both public services 
   assert.ok(calls.every(({ options }) => options.signal instanceof AbortSignal));
 });
 
+test('hosted acceptance retries a bounded transient deployment-metadata outage', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url, options });
+    if (calls.length === 1) throw new TypeError('fetch failed', { cause: new Error('ECONNRESET') });
+    return jsonResponse(deploymentMetadata(serviceNameFor(url)));
+  };
+
+  const result = await verifyHostedDemoDeployment({
+    fetchImpl,
+    customerOrigin: CUSTOMER_ORIGIN,
+    platformOrigin: PLATFORM_ORIGIN,
+    expectedRuntimeRef: RUNTIME_REF,
+    expectedFrontendRef: FRONTEND_REF,
+  });
+
+  assert.equal(result.length, 2);
+  assert.deepEqual(calls.map(({ url }) => url), [
+    `${CUSTOMER_ORIGIN}/assets/hosted-demo-deployment.json`,
+    `${CUSTOMER_ORIGIN}/assets/hosted-demo-deployment.json`,
+    `${PLATFORM_ORIGIN}/assets/hosted-demo-deployment.json`,
+  ]);
+  assert.ok(calls.every(({ options }) => options.signal instanceof AbortSignal));
+});
+
 test('hosted acceptance rejects stale, mutable, unexpected or unbounded deployment evidence', async () => {
   const cases = [
     deploymentMetadata('conference-manager-demo', { runtimeRef: 'b'.repeat(40) }),
