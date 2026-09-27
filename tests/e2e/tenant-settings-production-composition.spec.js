@@ -442,7 +442,12 @@ test('Production composition writes owned Tenant Admin settings with exact CSRF/
   await expect(content.locator('#tenant-policy-0-participants')).toHaveValue('450');
 
   content = await openSection(page, 'cost-allocation', 'cost-allocation');
-  await content.locator('#tenant-cost-center-0-name').fill('Production Events');
+  await expect(content.getByText('Konfigurationsstand: 6')).toBeVisible();
+  const costCenterName = content.locator('#tenant-cost-center-0-name');
+  await expect.poll(async () => {
+    await costCenterName.fill('Production Events');
+    return costCenterName.inputValue();
+  }).toBe('Production Events');
   await submit(content, 'cost-allocation');
   await expect.poll(() => fixture.writes.length).toBe(5);
   await expect(content.locator('#tenant-cost-center-0-name')).toHaveValue('Production Events');
