@@ -1,0 +1,7 @@
+# Structured Guest display for SaaS 3.6
+
+The Tenant Admin Site editor and Conference Manager Room editor load and save Locations schema 3 with the same revision-bound mutation contract. Each public section starts withheld (`null`). Enabling it selects finite availability/arrival states and accessibility features; the Room editor also accepts a bounded integer floor. Disabling it publishes `null` on save. Existing private v2 prose stays in the editor and history but is not used as public arrival, parking, floor or accessibility copy.
+
+The authenticated Request Guest view and detached print negotiate Request room-context v3. The adapter checks the exact envelope and finite structured values before presentation. Both surfaces use `src/core/i18n-base.js` German and English templates and DOM text, never interpolate an arbitrary configured string for the new fields. Older explicit v2 clients remain parseable during the compatibility window. Null and withdrawn values display a missing marker; room media and inherited Site address/contact/route and Site/Room names continue under their existing contracts. ADR-012 documents the inherited public-field risk and pending acceptance.
+
+The paired API change is `conference-manager-api` PR #80, including migration 040. Release needs both heads, PostgreSQL and browser CI, deployed proof, and named #182 product acceptance. This document does not assert those outcomes.

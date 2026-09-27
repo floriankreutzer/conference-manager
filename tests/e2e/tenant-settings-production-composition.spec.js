@@ -47,12 +47,13 @@ function room({
     cateringPackageIds: [],
     floorplanAssetId: id === 'atlas' ? 'floor-atlas' : null,
     mediaAssetIds: id === 'atlas' ? ['atlas-photo'] : [],
+    guestPublicValues: null,
   };
 }
 
 function currentLocations(siteName = 'Berlin Current') {
   return {
-    sites: [{ id: 'berlin', name: siteName, active: true, timeZone: 'Europe/Berlin', address: null, guestInformation: null }],
+    sites: [{ id: 'berlin', name: siteName, active: true, timeZone: 'Europe/Berlin', address: null, guestInformation: null, guestPublicValues: null }],
     rooms: [
       room({ id: 'atlas', name: 'Atlas Local', capacity: 20, floor: '2' }),
       room({ id: 'room-new', name: 'Later Room', capacity: 8 }),
@@ -256,10 +257,15 @@ async function installProductionSettingsFixture(page, {
     }
 
     if (url.pathname === '/api/v1/tenant/settings/locations' && method === 'GET') {
+      const schemaVersion = Number(url.searchParams.get('schemaVersion') || 1);
+      const configuration = schemaVersion === 1 ? {
+        sites: state.locations.configuration.sites.map(({ guestInformation, guestPublicValues, ...site }) => site),
+        rooms: state.locations.configuration.rooms.map(({ guestPublicValues, ...room }) => room),
+      } : state.locations.configuration;
       await fulfillJson(route, { locations: {
-        schemaVersion: 2,
+        schemaVersion,
         revision: state.locations.revision,
-        configuration: state.locations.configuration,
+        configuration,
         providerContext: state.locations.providerContext,
       } });
       return;
@@ -276,7 +282,7 @@ async function installProductionSettingsFixture(page, {
       state.locations.revision = body.expectedRevision + 1;
       state.locations.configuration = clone(body.configuration);
       await fulfillJson(route, { locations: {
-        schemaVersion: 2,
+        schemaVersion: body.schemaVersion,
         revision: state.locations.revision,
         configuration: state.locations.configuration,
         providerContext: state.locations.providerContext,
@@ -476,7 +482,7 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
     },
     {
       path: '/api/v1/tenant/settings/locations', method: 'PUT', csrf: CSRF_TOKEN,
-      body: { schemaVersion: 2, expectedRevision: 2, configuration: currentLocations('Berlin Production') },
+      body: { schemaVersion: 3, expectedRevision: 2, configuration: currentLocations('Berlin Production') },
     },
     {
       path: '/api/v1/tenant/settings/booking-policies', method: 'PUT', csrf: CSRF_TOKEN,
@@ -497,7 +503,7 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
     '/api/v1/tenant/presentation',
     '/api/v1/tenant/settings/organization',
     '/api/v1/tenant/settings/organization/history?limit=10',
-    '/api/v1/tenant/settings/locations?schemaVersion=2',
+    '/api/v1/tenant/settings/locations?schemaVersion=3',
     '/api/v1/tenant/settings/locations/history?limit=20',
     '/api/v1/tenant/settings/booking-policies',
     '/api/v1/tenant/settings/booking-policies/history?limit=20',
@@ -577,7 +583,7 @@ test('API-02 Tenant Admin edits public guest information with exact authority an
   await expect(content.locator('#tenant-site-guest-0-arrival')).toHaveValue('Use the main entrance');
   const saved = fixture.writes[0];
   expect(saved.csrf).toBe(CSRF_TOKEN);
-  expect(saved.body.schemaVersion).toBe(2);
+  expect(saved.body.schemaVersion).toBe(3);
   expect(saved.body.configuration.rooms).toEqual(currentLocations().rooms);
   expect(saved.body.configuration.sites[0].guestInformation).toEqual({
     address: null, publicTransport: null, arrival: 'Use the main entrance', parking: null,
@@ -618,5 +624,29 @@ test('API-02 guest editor blocks secrets and unsafe routes with field-associated
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await submit(content, 'locations-technical');
   await expect.poll(() => fixture.writes.length).toBe(1);
+  expect(fixture.unexpectedApiRequests).toEqual([]);
+});
+
+test('H-035 Tenant Admin publishes and withdraws only finite Site Guest values', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'locations', 'locations-technical');
+  const enabled = content.locator('#public-guest-site-0-enabled');
+  await expect(content.locator('#public-guest-site-0-arrival')).toBeHidden();
+  await enabled.check();
+  await content.locator('#public-guest-site-0-publicTransport').selectOption('available');
+  await content.locator('#public-guest-site-0-arrival').selectOption('reception');
+  await content.locator('#public-guest-site-0-step_free_entry').check();
+  await submit(content, 'locations-technical');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  expect(fixture.writes[0].body.configuration.sites[0].guestPublicValues).toEqual({
+    publicTransport: 'available', parking: 'not_available', arrival: 'reception',
+    accessibilityFeatures: ['step_free_entry'],
+  });
+  await expect(content.locator('#public-guest-site-0-enabled')).toBeChecked();
+  await content.locator('#public-guest-site-0-enabled').uncheck();
+  await submit(content, 'locations-technical');
+  await expect.poll(() => fixture.writes.length).toBe(2);
+  expect(fixture.writes[1].body.configuration.sites[0].guestPublicValues).toBeNull();
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });
