@@ -58,7 +58,7 @@ test('Pages workflow deploys only the dedicated static portal with pinned action
     'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
     'actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d',
     'actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b',
-    'actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e',
+    'actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346',
   ]) assert.match(WORKFLOW, new RegExp(action.replaceAll('/', '\\/')));
   assert.match(WORKFLOW, /permissions:\n  contents: read/);
   assert.match(WORKFLOW, /permissions:\n      pages: write\n      id-token: write/);
