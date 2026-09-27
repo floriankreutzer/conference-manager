@@ -258,7 +258,9 @@ test('Tenant Admin lifecycle is keyboard operable, server-authoritative, and res
 
   const search = page.locator('#tenant-user-search');
   await search.fill('Casey');
-  await search.press('Enter');
+  const applyFilters = page.locator('[data-tenant-user-filters] button[type="submit"]');
+  await applyFilters.focus();
+  await page.keyboard.press('Enter');
   await expect.poll(() => fixture.reads.at(-1)?.search).toBe('Casey');
 
   const userCard = page.locator(`[data-tenant-user-id="${USER_ID}"]`);
