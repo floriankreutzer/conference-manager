@@ -48,6 +48,22 @@ test('MGR-02 MGR-04: deactivated-room context keeps site-local summaries without
   assert.equal(filterManagerEntries(model.entries, { search: 'Requester Alpha' }).length, 0);
 });
 
+test('MGR-02: a Site without a valid time zone remains visible without invented local-day flags', () => {
+  for (const timeZone of [null, 'Invalid/Zone']) {
+    const noZoneCatalog = { ...catalog, sites: [{ ...catalog.sites[0], timeZone }, catalog.sites[1]] };
+    const model = managerCockpitModel({ requests: [request(), request({ id: 'request-b', roomId: 'room-b', pricing: null })],
+      catalog: noZoneCatalog, now: Date.parse('2026-03-29T00:30:00.000Z') });
+    assert.equal(model.entries.length, 2);
+    assert.equal(model.entries[0].site.id, 'berlin');
+    assert.equal(model.entries[0].today, false);
+    assert.equal(model.entries[0].nextSevenDays, false);
+    assert.equal(model.entries[0].upcoming, true);
+    assert.equal(model.today.length, 1);
+    assert.equal(model.nextSevenDays.length, 1);
+    assert.deepEqual(filterManagerEntries(model.entries, { siteId: 'berlin' }).map(({ request: value }) => value.id), ['request-a']);
+  }
+});
+
 test('MGR-10: report periods honor Site DST, calendar quarters, leap years and invalid boundaries', () => {
   const spring = serverReportRange('DAY', '2026-03-29', 'Europe/Berlin');
   assert.equal(spring.fromInclusive, '2026-03-28T23:00:00.000Z');
