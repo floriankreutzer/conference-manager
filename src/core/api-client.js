@@ -87,6 +87,15 @@ function idempotencyHeader(method, value) {
   return { 'Idempotency-Key': value.toLowerCase() };
 }
 
+function versionPreconditionHeader(method, value) {
+  if (value === undefined) return {};
+  if (method !== 'POST' || !Number.isSafeInteger(value)
+    || value < 1 || value >= Number.MAX_SAFE_INTEGER) {
+    throw new ApiSecurityError('INVALID_VERSION_PRECONDITION');
+  }
+  return { 'If-Match': `"${value}"` };
+}
+
 function serializeBody(body) {
   if (body === undefined) return undefined;
   try {
@@ -187,7 +196,27 @@ export function createApiClient({
   const base = normalizeBaseUrl(baseUrl, origin);
 
   return Object.freeze({
-    async request(path, { method = 'GET', body, signal, idempotencyKey } = {}) {
+    async uploadRoomImage(path, file, { signal } = {}) {
+      if (!/^v1\/tenant\/rooms\/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\/media$/.test(path)
+        || !file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+        || !Number.isSafeInteger(file.size) || file.size < 1 || file.size > 2 * 1024 * 1024) {
+        throw new ApiSecurityError('ROOM_MEDIA_INPUT_INVALID');
+      }
+      const response = await fetchImpl(endpointUrl(base, path), {
+        method: 'POST',
+        credentials: 'same-origin',
+        redirect: 'error',
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        headers: { Accept: 'application/json', 'Content-Type': file.type,
+          ...csrfHeader('POST', csrfTokenProvider) },
+        ...(signal === undefined ? {} : { signal: normalizedSignal(signal) }),
+        body: file,
+      });
+      if (!response.ok) throw await responseError(response);
+      return parseJsonResponse(response);
+    },
+    async request(path, { method = 'GET', body, signal, idempotencyKey, ifMatchVersion } = {}) {
       const normalized = normalizedMethod(method);
       const url = endpointUrl(base, path);
       const serialized = serializeBody(body);
@@ -203,6 +232,7 @@ export function createApiClient({
           ...(serialized === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...csrfHeader(normalized, csrfTokenProvider),
           ...idempotencyHeader(normalized, idempotencyKey),
+          ...versionPreconditionHeader(normalized, ifMatchVersion),
         },
         ...(abortSignal === undefined ? {} : { signal: abortSignal }),
         ...(serialized === undefined ? {} : { body: serialized }),

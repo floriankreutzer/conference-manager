@@ -4,34 +4,6 @@ import path from 'node:path';
 import { customerDemoBoundaryViolations } from './customer-demo-boundary-policy.mjs';
 import { asProductionHtml } from '../tests/e2e/fixtures/production-html.js';
 
-const RETIRED_CUSTOMER_DEMO_E2E = Object.freeze([
-  'app-responsive.spec.js',
-  'conference-manager-ready.spec.js',
-  'conference-manager.spec.js',
-  'demo-network-isolation.spec.js',
-  'design-system.spec.js',
-  'employee-accessibility-polish.spec.js',
-  'employee-ux.spec.js',
-  'end-user-ready.spec.js',
-  'extended.spec.js',
-  'feature-parity.spec.js',
-  'manager-final-polish.spec.js',
-  'manager-first-use.spec.js',
-  'manager-operational-ux.spec.js',
-  'manager-responsive.spec.js',
-  'print-security.spec.js',
-  'repository-hardening.spec.js',
-  'security.spec.js',
-  'standards.spec.js',
-  'tenant-admin-operations.spec.js',
-  'tenant-admin-settings-shell.spec.js',
-  'tenant-location-settings.spec.js',
-  'tenant-onboarding.spec.js',
-  'tenant-settings-conflict-recovery.spec.js',
-  'tenant-settings-domains.spec.js',
-  'tenant-user-filter-focus.spec.js',
-]);
-
 async function sourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
@@ -122,12 +94,6 @@ if (/demo\/reset|resetDemo|demo-security-reset/.test(`${demoSession}\n${demoSecu
   fail('Customer Demo runtime must not expose Platform reset behavior or reset presentation.');
 }
 
-for (const file of RETIRED_CUSTOMER_DEMO_E2E) {
-  if (existsSync(`tests/e2e/${file}`)) {
-    fail(`tests/e2e/${file}: retired browser-authority Customer Demo journey must not return.`);
-  }
-}
-
 const customerRuntimeE2e = await readFile('tests/e2e/demo-role-switch.spec.js', 'utf8');
 for (const required of [
   '/api/v1/demo/session',
@@ -138,6 +104,27 @@ for (const required of [
 ]) {
   if (!customerRuntimeE2e.includes(required)) {
     fail(`tests/e2e/demo-role-switch.spec.js: bounded Customer runtime evidence is missing ${required}.`);
+  }
+}
+
+const productionApplicationE2e = await readFile('tests/e2e/production-application.spec.js', 'utf8');
+for (let index = 1; index <= 14; index += 1) {
+  const parityId = `MGR-${String(index).padStart(2, '0')}`;
+  if (!productionApplicationE2e.includes(parityId)) {
+    fail(`tests/e2e/production-application.spec.js: observable server-backed evidence missing ${parityId}.`);
+  }
+}
+for (const required of [
+  '/api/v1/application/reports/requests',
+  '/booking-change',
+  'requesterAttribution',
+  'actorAttribution',
+  'initiatorAttribution',
+  'deciderAttribution',
+  'latest terminal change permits a new proposal',
+]) {
+  if (!productionApplicationE2e.includes(required)) {
+    fail(`tests/e2e/production-application.spec.js: active Manager server contract missing ${required}.`);
   }
 }
 

@@ -1,8 +1,18 @@
 import { REQUEST_STATUS } from '../core/domain.js';
 import { formatDateTime, language, locale, setLanguage, t } from '../core/i18n.js';
-import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
+import {
+  button,
+  clear,
+  clearTransientFeedback,
+  el,
+  field,
+  openDialog,
+  showToast,
+} from '../core/ui.js';
 import { kpi } from '../shared/application-presentation.js';
 import { notificationText } from '../shared/notification-presentation.js';
+import { closeDetachedPrintWindows } from '../shared/detached-print-window.js';
+import { authorityFailureCode } from '../shared/authority-failure.js';
 import { PRODUCTION_AUTH_STATUS } from './production-session.js';
 import { TENANT_PRESENTATION_FALLBACK } from './tenant-presentation-api.js';
 import { applyTenantPresentationToDocument } from './tenant-presentation-runtime.js';
@@ -51,12 +61,59 @@ export function createAppShell({
   let view = 'welcome';
   let renderRevision = 0;
 
+  function closeAuthorityDialogs() {
+    document.querySelectorAll('dialog[open]:not([data-inactivity-lock="true"])').forEach((dialog) => {
+      try {
+        dialog.close?.();
+      } finally {
+        dialog.replaceChildren();
+        dialog.remove();
+      }
+    });
+  }
+
   function sessionLocked() {
     return document.documentElement.dataset.sessionLocked === 'true';
   }
 
   function invalidatePendingRender() {
     renderRevision += 1;
+  }
+
+  function invalidateAuthorityProjection(error) {
+    const code = authorityFailureCode(error);
+    if (!code || !context.invalidateAuthority(error)) return false;
+    invalidatePendingRender();
+    tenantPresentation?.invalidateAuthority?.();
+    applyTenantPresentationToDocument(document, TENANT_PRESENTATION_FALLBACK);
+    view = 'welcome';
+    closeDetachedPrintWindows();
+    clearTransientFeedback(document, globalThis);
+    document.querySelector('[data-demo-security]')?.remove();
+    clear(appRoot);
+    clear(navigationRoot);
+    closeAuthorityDialogs();
+    onViewChange?.('welcome');
+    document.getElementById('mainContent').removeAttribute('aria-busy');
+    const message = t(code === 'HTTP_401' ? 'production.error.session' : 'production.error.forbidden');
+    titleRoot.textContent = t('auth.production.signInTitle');
+    subtitleRoot.textContent = message;
+    const status = el('p', {
+      className: 'error-box',
+      text: message,
+      attrs: {
+        role: 'status',
+        tabindex: '-1',
+        'aria-live': 'assertive',
+        'aria-atomic': 'true',
+      },
+      dataset: { authorityInvalid: 'true' },
+    });
+    appRoot.appendChild(status);
+    requestAnimationFrame(() => {
+      if (status.isConnected && !sessionLocked()) status.focus();
+    });
+    return true;
   }
 
   function setPageHeading(title, subtitle) {
@@ -192,19 +249,24 @@ export function createAppShell({
   async function renderWelcome(revision) {
     setPageHeading(t('nav.welcome'), t('welcome.subtitle'));
     let currentRequests;
-    const [requestResult, referenceResult] = await Promise.allSettled([
+    const [requestResult, referenceResult, notificationResult] = await Promise.allSettled([
       context.refreshRequests(),
       context.reloadReferenceData(),
       context.refreshNotifications(),
     ]);
+    const authorityFailure = [requestResult, referenceResult, notificationResult]
+      .find((result) => result.status === 'rejected' && authorityFailureCode(result.reason));
+    if (authorityFailure) {
+      invalidateAuthorityProjection(authorityFailure.reason);
+      return;
+    }
+    if (revision !== renderRevision || view !== 'welcome') return;
     if (requestResult.status === 'rejected' || referenceResult.status === 'rejected') {
-      if (revision !== renderRevision || view !== 'welcome') return;
       clear(appRoot);
       renderProjectionUnavailable();
       return;
     }
     currentRequests = requestResult.value;
-    if (revision !== renderRevision || view !== 'welcome') return;
     const now = Date.now();
     const openCount = currentRequests.filter((request) => [
       REQUEST_STATUS.SUBMITTED,
@@ -312,7 +374,7 @@ export function createAppShell({
   }
 
   function openProfile() {
-    if (sessionLocked()) return;
+    if (sessionLocked() || !context.isAuthenticated()) return;
     const content = el('section', { className: 'profile-content' });
     const dl = el('dl', { className: 'details-list' });
     const profileDetails = context.fullName()
@@ -344,15 +406,24 @@ export function createAppShell({
     });
     close.addEventListener('click', () => dialog.close());
     help.addEventListener('click', () => {
+      const interactionRevision = renderRevision;
       dialog.close();
-      requestAnimationFrame(openHelp);
+      requestAnimationFrame(() => {
+        if (
+          interactionRevision === renderRevision
+          && context.isAuthenticated()
+          && !sessionLocked()
+        ) openHelp();
+      });
     });
     logout?.addEventListener('click', async () => {
       logout.disabled = true;
+      closeDetachedPrintWindows();
       try {
         if (!authentication) throw new Error('AUTHENTICATION_RUNTIME_UNAVAILABLE');
         await authentication.signOut();
-      } catch {
+      } catch (error) {
+        if (invalidateAuthorityProjection(error)) return;
         logout.disabled = false;
         showToast(t('auth.production.logoutFailed'));
       }
@@ -364,7 +435,7 @@ export function createAppShell({
   }
 
   function openHelp() {
-    if (sessionLocked()) return;
+    if (sessionLocked() || !context.isAuthenticated()) return;
     const content = el('section', { className: 'help-grid' });
     [
       [t('help.noRoom'), t('help.noRoomText')],
@@ -439,5 +510,6 @@ export function createAppShell({
     setView,
     openHelp,
     invalidatePendingRender,
+    invalidateAuthorityProjection,
   };
 }

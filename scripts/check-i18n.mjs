@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 const PUBLIC_I18N_PATH = 'src/core/i18n.js';
 const BASE_CATALOG_PATH = 'src/core/i18n-base.js';
@@ -138,9 +139,11 @@ for (const required of [
   if (!publicI18n.includes(required)) fail(`${PUBLIC_I18N_PATH}: canonical localization contract missing ${required}.`);
 }
 
+const baseCatalog = readBaseCatalog();
+const capabilityCatalog = readFrozenCatalog(CAPABILITY_CATALOG_PATH);
 const canonical = mergeCatalogs(
-  readBaseCatalog(),
-  readFrozenCatalog(CAPABILITY_CATALOG_PATH),
+  baseCatalog,
+  capabilityCatalog,
   readFrozenCatalog(PLATFORM_ADMIN_CATALOG_PATH),
   readNamedFrozenCatalog(TENANT_ADMIN_OPERATIONS_CATALOG_PATH, 'TENANT_ADMIN_OPERATIONS_MESSAGES'),
   readFrozenCatalog(TENANT_SETTINGS_DOMAIN_CATALOG_PATH),
@@ -165,30 +168,22 @@ for (const [language, messages] of Object.entries(canonical)) {
   }
 }
 
-const parityBridgePaths = [
+const retiredLocalizationPaths = [
   'src/shared/parity-i18n.js',
   'src/employee/parity-i18n.js',
   'src/manager/parity-i18n.js',
-].filter(existsSync);
-for (const file of parityBridgePaths) {
-  const bridge = readFileSync(file, 'utf8');
-  if (/\b(?:MESSAGES|TRANSLATIONS|COPY)\b\s*=|Object\.freeze\s*\(\s*\{\s*(?:de|en)\s*:/.test(bridge)) {
-    fail(`${file}: retired parity localization path must not define or own translation messages.`);
-  }
-  if (!bridge.includes('../core/i18n.js')) {
-    fail(`${file}: retained compatibility bridge must delegate directly to canonical Core i18n.`);
-  }
+  'src/employee/employee-ux-i18n.js',
+];
+for (const file of retiredLocalizationPaths) {
+  if (existsSync(file)) fail(`${file}: retired localization compatibility path must not be reintroduced.`);
 }
 
 const experienceModules = [
-  'src/employee/employee-ux-i18n.js',
-  'src/employee/employee-accessibility-polish.js',
-  'src/employee/employee-first-use-personalization.js',
-  'src/manager/manager-first-use.js',
-  'src/manager/manager-ux-polish.js',
-  'src/manager/manager-operational-ux.js',
-  'src/manager/manager-final-polish.js',
-  'src/manager/conference-manager-ready.js',
+  'src/employee/production-application.js',
+  'src/employee/server-request-calendar.js',
+  'src/manager/production-application.js',
+  'src/manager/server-analytics-view.js',
+  'src/manager/business-settings-application.js',
 ];
 const forbiddenModulePatterns = [
   { pattern: /\bconst\s+(?:COPY|MESSAGES|TRANSLATIONS)\b/, message: 'parallel translation table' },
@@ -202,9 +197,61 @@ for (const file of experienceModules) {
   }
 }
 
-const compatibilityAdapter = readFileSync('src/employee/employee-ux-i18n.js', 'utf8');
-if (!/return\s+t\(key,\s*values\)/.test(compatibilityAdapter)) {
-  fail('src/employee/employee-ux-i18n.js: compatibility adapter must delegate to core t().');
+function javascriptFiles(root) {
+  const files = [];
+  const walk = (directory) => {
+    for (const entry of readdirSync(directory)) {
+      const current = join(directory, entry);
+      if (statSync(current).isDirectory()) walk(current);
+      else if (current.endsWith('.js') && !current.startsWith('src/core/i18n')) files.push(current);
+    }
+  };
+  walk(root);
+  return files;
+}
+const runtimeSource = javascriptFiles('src').map((file) => readFileSync(file, 'utf8')).join('\n');
+const catalogSource = readdirSync('src/core')
+  .filter((file) => /^i18n.*\.js$/.test(file))
+  .map((file) => readFileSync(join('src/core', file), 'utf8'))
+  .join('\n');
+const staticKeys = new Set(
+  [...runtimeSource.matchAll(/\bt\(\s*(['"])([^'"\n]+)\1/g)].map((match) => match[2]),
+);
+for (const key of staticKeys) {
+  if (!catalogSource.includes(`'${key}':`) && !catalogSource.includes(`"${key}":`)) {
+    fail(`Canonical localization is missing runtime key ${key}.`);
+  }
+}
+const dynamicPrefixes = new Set(
+  [...runtimeSource.matchAll(/`([A-Za-z0-9_.-]*\.)\$\{/g)].map((match) => match[1]),
+);
+const boundedDynamicKeys = new Set([
+  'guest.wifiPolicy.open',
+  'guest.wifiPolicy.credentials_on_arrival',
+  'guest.wifiPolicy.contact_organizer',
+  'guest.wifiPolicy.not_available',
+  'manager.report.day',
+  'manager.report.month',
+  'manager.report.quarter',
+  'manager.report.year',
+  'manager.restore.role.employee',
+  'manager.restore.role.conference_manager',
+]);
+const boundedDynamicPrefixes = new Set([
+  'guest.wifiPolicy.',
+  'manager.report.',
+  'manager.restore.role.',
+]);
+for (const [catalogName, catalog] of [['base', baseCatalog], ['capability', capabilityCatalog]]) {
+  for (const key of catalog.de.keys()) {
+    const dynamic = [...dynamicPrefixes].some((prefix) => (
+      key.startsWith(prefix)
+      && (!boundedDynamicPrefixes.has(prefix) || boundedDynamicKeys.has(key))
+    ));
+    if (!runtimeSource.includes(key) && !dynamic) {
+      fail(`${catalogName} localization key ${key} has no active runtime consumer.`);
+    }
+  }
 }
 
 for (const cssFile of ['assets/employee-ux.css', 'assets/manager-layout.css']) {

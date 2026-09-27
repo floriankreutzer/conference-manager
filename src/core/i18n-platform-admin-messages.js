@@ -1,5 +1,6 @@
 export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
   de: Object.freeze({
+    'common.unknown': 'Unbekannt',
     'platformAdmin.documentTitle': 'Platform Administration · Conference Manager',
     'platformAdmin.title': 'Platform Administration',
     'platformAdmin.subtitle': 'Mandantenübergreifende Steuerung mit expliziter Operator-Berechtigung.',
@@ -365,6 +366,7 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
     'platformAdmin.state.connected': 'Verbunden',
   }),
   en: Object.freeze({
+    'common.unknown': 'Unknown',
     'platformAdmin.documentTitle': 'Platform Administration · Conference Manager',
     'platformAdmin.title': 'Platform Administration',
     'platformAdmin.subtitle': 'Cross-tenant control with explicit operator authorization.',

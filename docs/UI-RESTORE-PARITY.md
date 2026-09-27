@@ -2,9 +2,11 @@
 
 ## Status and authority
 
-This document is the source-controlled parity contract for GitHub issue #179. It records the
-approved UI restoration scope before #180 and #181 change the active application. Issue #182 is
-the mandatory evidence gate for this contract.
+This document is the source-controlled parity contract for GitHub issue #179 and the cleanup
+traceability record for #182. The matrices preserve the approved pre-implementation findings that
+governed #180 and #181; the final runtime disposition is recorded below. Milestone acceptance still
+requires the complete #182 automated and browser evidence, review and integration into the approved
+baseline. A local implementation or documentation change does not by itself close that gate.
 
 The comparison baseline is the exact parent tree of SaaS 3.5 commit
 `07f2896d56e6f66a9f8daf96457ab12c763adf80`: commit
@@ -39,26 +41,30 @@ No `RESTORE_REQUIRED` or `RETAIN_AND_ENHANCE` item may be silently dropped. A ch
 requires an explicit product/security decision in the owning issue and a corresponding update to
 this contract.
 
-## Current runtime finding
+## Final runtime disposition
 
-The current Composition Root creates `createServerEmployeeApplication()` and
-`createServerManagerApplication()`. The public Employee and Manager facades currently route those
-names to `production-application.js` and `workspace-application.js`. The older rich presentation
-modules remain in the tree but are not part of the active runtime graph.
+The Customer Composition Root creates `createServerEmployeeApplication()` and
+`createServerManagerApplication()`. Their public facades route to one canonical server-backed
+Employee renderer and one canonical server-backed Manager workspace. The restored wizard,
+own-Request, Guest/print, cockpit, planning, report and business-settings surfaces now live in those
+active renderers and their pure server projection/model modules.
 
-This produces a split state:
+Issue #182 removes the former split implementation:
 
-- current server-backed persistence, workflow, Room availability, history, booking-change and
-  Manager business-settings contracts are authoritative and reusable;
-- `src/employee/application.js`, the Employee enhancement modules, `src/manager/application.js`
-  and the Manager enhancement/parity modules contain reference presentation behavior but depend on
-  historical browser-shaped models and cannot simply be re-exported;
-- the CSS and central DE/EN messages still contain much of the approved visual language;
-- the SaaS 3.5 boundary gate lists the removed UI E2E specifications as retired, so equivalent
-  server-backed contract tests must replace that implementation-coupled prohibition in #182;
-- `docs/ARCHITECTURE.md` describes the complete Employee/Manager behavior as if it were active,
-  while the active exported renderer is the simplified server UI. That documentation is corrected
-  alongside this contract and must be finalized again by #169 after implementation.
+- server-backed persistence, workflow, Room availability/context, history, booking-change and
+  Manager business-settings contracts remain authoritative;
+- historical Employee/Manager renderers, post-render enhancement/parity chains and their browser
+  repository helpers are absent rather than dormant fallbacks;
+- active Manager styles live in `assets/manager-layout.css`; the parallel
+  `assets/feature-parity.css` layer and its HTML link are absent;
+- active DE/EN messages live only in the canonical Core catalogs; messages and adapters reachable
+  only from retired renderers are absent;
+- architecture tests validate the active factories, observable server-backed contracts and the
+  absence of retired paths. Customer Production, Customer Demo, Platform Production and Platform
+  Demo roots are checked separately by the module graph.
+
+The `Current finding` columns below are the frozen #179 gap assessment, not a claim that the listed
+gap remains in the final runtime.
 
 ## Employee parity matrix
 
@@ -101,10 +107,10 @@ This produces a split state:
 
 ## Required enabling server contracts
 
-These are hard dependencies of the restore, not optional presentation enhancements. The associated
-#180 or #181 change must land the matching `conference-manager-api` persistence, migration,
-authorization and negative-test work before the surface can be called implemented. This #179
-contract changes no runtime behavior.
+These are hard dependencies of the restore, not optional presentation enhancements. The matching
+`conference-manager-api` persistence, migration, authorization and negative-test work must be
+deployed compatibly before a dependent frontend surface can be accepted. Browser validation is a
+projection boundary only and never replaces backend authority.
 
 ### `API-01` — distinct bookable Equipment composition
 
@@ -167,6 +173,15 @@ Display projections contain only the localized display data needed for the UI. P
 session identifiers, tokens and internal Tenant/User keys remain server-side. Every projection is
 exact-shape validated and server scoped; current browser Principal data must never be substituted
 for a missing historical requester, actor, initiator or decider.
+
+Attribution-enabled public Request list/detail/history and booking-change outer envelopes use
+`schemaVersion: 3`; the nested Request independently remains schema version 1, 2 or 3. History uses
+`actorAttribution: { displayName, roleAtAction } | null`; booking changes use non-null
+`initiatorAttribution` and nullable `deciderAttribution`, with `roleAtAction` limited to
+`employee`, `conference_manager` or an honest legacy `null`. Pending, applying, immediately applied
+and returned-to-pending projections have no decider. The booking-change read prefers an open
+`pending`/`applying` proposal and otherwise returns the latest terminal change matching the current
+Request, so an earlier terminal change never blocks a new proposal.
 
 ## Regression-only matrix
 
@@ -302,15 +317,16 @@ in both Chromium and WebKit/iPhone where the profile calls for browser coverage.
    historical application repository.
 4. **#181 — Manager:** port cockpit/planning/report presentation into the server-backed Manager
    workspace and integrate #166 business settings behind the approved fourth tab.
-5. **#182 — gate and cleanup:** replace retired implementation-name checks with observable
-   server-backed parity coverage, run the complete role/security/browser matrix, then remove
-   superseded/unreachable UI paths and dead selectors/imports.
+5. **#182 — gate and cleanup:** observable server-backed contract/absence checks and static root
+   separation replace implementation-name assertions. Superseded unreachable UI paths, dead
+   selectors/imports and the parallel stylesheet are removed. The complete role/security/browser
+   matrix still determines acceptance.
 6. **#169/#170 — documentation and release:** document exact merged behavior and accept SaaS 3.6
    only after #182 passes.
 
-Unblocked Employee and Manager presentation work may proceed in parallel after this contract is
-merged, but each API-dependent surface waits for its named server contract. #182 starts only after
-both capability restores and all three server enablers are integrated.
+Each API-dependent surface requires its named compatible server contract. Cleanup commits may be
+stacked locally for deterministic integration, but #182 and the milestone remain open until the
+combined Employee/Manager/Guest/Equipment runtime and required browser/CI evidence pass.
 
 ## Target active ownership
 
@@ -323,26 +339,29 @@ both capability restores and all three server enablers are integrated.
 | Session, Principal, Tenant and permission projection | Platform/trusted backend | Never derived by Employee or Manager DOM state |
 | Tenant technical/configuration administration | Tenant Admin | Independent injected APIs and permissions |
 
-## Obsolete-path disposition
+## Final obsolete-path disposition
 
-The following paths require an explicit decision during #180-#182 rather than indefinite parallel
-retention:
+The module graph first proved the following paths unreachable from each Customer Production,
+Customer Demo, Platform Production and Platform Demo root. They are now removed and the architecture
+and Demo-boundary gates reject their reintroduction even as unreferenced files:
 
-- `src/employee/application.js` and Employee post-render enhancement modules: port reusable
-  presentation behavior to the canonical server Employee renderer, then remove or reduce the
-  historical browser-shaped path when no active consumer remains;
-- `src/manager/application.js` and Manager parity/polish modules: port reusable cockpit, planning
-  and reporting behavior to the canonical server Manager workspace, then remove the obsolete path;
-- `src/employee/production-application.js` and `src/manager/production-application.js`: evolve or
-  replace behind the public facades, but do not leave both simplified and restored active renderers;
-- `scripts/check-customer-demo-boundaries.mjs`: stop treating removed UI test filenames as the
-  security boundary; enforce prohibited LocalStorage/session/fixture authority and parallel active
-  runtime behavior instead;
-- deleted pre-SaaS-3.5 E2E specifications: restore equivalent observable contracts with
-  server-backed fixtures. Historical LocalStorage setup is not reusable authority evidence.
+- `src/employee/application.js`, its first-use/UX/visual/accessibility enhancement chain,
+  `request-session.js`, `request-lifecycle.js`, `welcome-print.js` and Employee parity adapters;
+- `src/manager/application.js`, the Manager parity/polish/responsive/first-use/operational chain,
+  `booking-lifecycle.js`, `reporting.js`, `timeline-position.js`, `admin-parity.js` and Manager
+  localization/data adapters;
+- `src/core/storage.js`, `src/core/catalog.js`, `src/platform/feature-parity.js`,
+  `src/platform/requester-attribution.js` and the former Shared notification, request-card and
+  parity-data helpers;
+- `assets/feature-parity.css` and the dead historical route illustration.
 
-Removal happens only after the restored observable behavior and current security contracts are
-covered. Git history remains the audit record.
+The canonical files retained behind the public facades are
+`src/employee/production-application.js`, the Employee `server-*` modules,
+`src/manager/workspace-application.js`, `src/manager/production-application.js`,
+`src/manager/business-settings-application.js` and the Manager server model/view modules. Active
+tests use server-backed fixtures and assert visible contracts or prohibited-path absence; they do
+not restore LocalStorage authority or weaken production validation. Git history remains the audit
+record for the deleted implementation.
 
 ## Definition of done for #179
 

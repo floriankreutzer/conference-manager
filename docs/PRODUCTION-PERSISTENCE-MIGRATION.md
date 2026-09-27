@@ -22,7 +22,7 @@ Any missing, malformed or non-`demo` runtime value is treated as `production` by
 
 In production:
 
-- authoritative profile, role, Request, catalog, site, notification and configuration data must come from the trusted same-origin API;
+- authoritative profile, role, Request, catalogue, Room/Site context, notification and configuration data must come from the trusted same-origin API;
 - the browser must not read or write the corresponding LocalStorage keys;
 - production API failures fail closed and are never converted into LocalStorage success;
 - stale or manipulated browser data cannot override server state;
@@ -41,8 +41,10 @@ Current contract paths are:
 | --- | --- | --- |
 | Profile | `GET/PUT /api/v1/application/profile` | authenticated User/Tenant backend state |
 | Catalog | `GET /api/v1/application/catalog` | Tenant-scoped backend catalog |
-| Site information | `GET /api/v1/application/site-info` | Tenant-scoped backend configuration |
 | Requests | `GET/POST /api/v1/application/requests` | authorized backend Request use cases |
+| Request detail/history | `GET /api/v1/requests/{id}` and `/history` | server-scoped Request and persisted action-attribution snapshots |
+| Request Room context | `GET /api/v1/requests/{id}/room-context` | minimized current Room/Site projection; optional confirmed-Request Guest Presentation |
+| Request report | `GET /api/v1/application/reports/requests` | bounded Tenant-wide Manager report projection |
 | Room availability | `POST /api/v1/application/room-availability` | Tenant-scoped local conflict and Microsoft Free/Busy use case |
 | Request transition | `POST /api/v1/requests/{id}/transitions` | existing server workflow policy |
 | Confirmed booking change | `GET/POST /api/v1/requests/{id}/booking-change` | owner/manager proposal policy and single-open invariant |
@@ -53,15 +55,27 @@ Current contract paths are:
 
 These paths are transport contracts. Backend implementations must continue to derive Tenant, User, roles, permissions, ownership, prices, statuses and audit context server-side. Browser fields with those names are never authoritative.
 
+There is no `/api/v1/application/site-info` bootstrap contract. Employee Guest/print surfaces obtain
+only the minimized Guest Presentation through the authorized Request Room-context endpoint;
+operational time zones come from the validated catalogue/current-Room context. Missing context fails
+visibly and never selects a browser fixture or an unminimized Site object.
+
 The production Employee client converts a selected room/date/time window only with the authoritative IANA time zone returned on that room's `catalog.sites[]` entry. It never uses the browser time zone or silently assumes UTC. A missing or invalid site time zone blocks availability verification and request submission. Every room or time change invalidates the prior availability result; submission remains disabled until the backend verifies the exact current `{ roomId, startsAt, endsAt }` tuple. This browser check is a prerequisite for the production UI, but the server's final confirmation check remains the booking authority.
 
-For a confirmed booking, the Employee and Conference Manager production clients render the server's single open proposal. The browser sends only the desired room, UTC window and participant counts. It cannot set proposal state, initiator, decision actor, Tenant, Request owner or provider references. The Manager UI exposes approve/reject only and renders server-derived alternatives when approval is blocked. The original booking remains presented as active until the server returns a successfully applied Request.
+For a confirmed booking, the Employee and Conference Manager production clients render the server's open proposal when one exists; otherwise they may render the latest terminal change that matches the current Request. A prior terminal change never prevents creating a new proposal. The browser sends only the desired room, UTC window and participant counts. It cannot set proposal state, initiator, decision actor, Tenant, Request owner or provider references. The Manager UI exposes approve/reject only and renders server-derived alternatives when approval is blocked. The original booking remains presented as active until the server returns a successfully applied Request.
 
 ## Versioned data boundary
 
-Production application-domain responses use an envelope with `schemaVersion: 1` plus exactly the requested domain payload. Unknown versions fail closed with `PRODUCTION_SCHEMA_VERSION_UNSUPPORTED`.
+Production responses use explicit domain-specific versioned envelopes. Profile, notification and
+configuration contracts retain their schema-v1 envelopes; the application Catalogue uses schema 2.
+Attribution-enabled public Request list/detail/history/report and booking-change responses use outer
+`schemaVersion: 3`. Their nested Request composition independently accepts schema 1, 2 or 3 as
+defined by the Request wire contract. The frontend compatibility validator can still read the
+frozen schema-v2 Request envelope without attribution, but it never fabricates attribution and
+rejects v3 fields on v2. Unknown versions and shapes fail closed with the domain-specific production
+error.
 
-For catalog and Request list/write responses, the browser adapter additionally enforces the exact minimized shapes emitted by the backend application service. Every required field is type- and range-checked; unknown fields, duplicate collection IDs, invalid catalog references, unsupported Request states and semantically invalid status reasons fail closed. The adapter neither retains nor infers Tenant IDs, requester IDs, ownership or replacement room references. Public price and workflow fields remain presentation data and never become browser authority.
+For Catalogue and Request list/write responses, the browser adapter enforces the exact minimized shapes emitted by the backend application service. Every required field is type- and range-checked; unknown fields, duplicate collection IDs, invalid catalogue references, unsupported Request states and semantically invalid status reasons fail closed. The adapter does not retain or infer Tenant IDs, requester IDs, ownership or replacement Room references. It does retain only the persisted display snapshots required by the v3 contract: `requesterAttribution`, history `actorAttribution`, and booking-change `initiatorAttribution`/`deciderAttribution`. `roleAtAction` is limited to `employee`, `conference_manager` or an honest legacy `null`; current Principal/profile data is never a fallback. Public price, attribution and workflow fields remain presentation data and never become browser authority.
 
 Historical browser Demo objects are not declared wire-compatible merely because they contain similarly named fields. Production and Demo payload schemas must be evolved deliberately and versioned when a breaking semantic or shape change is required.
 
@@ -93,7 +107,7 @@ A production write succeeds only after the same-origin API returns a valid succe
 
 There is no write-through cache and no fallback to `requestRepository`, catalog LocalStorage, notification LocalStorage or profile LocalStorage.
 
-The Customer and Platform Demo compositions use server-backed session/API adapters and canonical backend application services. `src/core/storage.js` contains historical/static-MVP contracts but is not an authoritative repository in either active Demo graph. Architecture gates reject Demo business-state storage, browser role/persona authority and API-failure fallback.
+The Customer and Platform Demo compositions use server-backed session/API adapters and canonical backend application services. The historical `src/core/storage.js` browser repository and its parallel catalogue/data helpers are removed. Architecture gates reject their reintroduction, Demo business-state storage, browser role/persona authority and API-failure fallback.
 
 ## Rollback
 

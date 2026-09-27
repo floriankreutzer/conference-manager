@@ -16,7 +16,6 @@ import {
 const DOMAIN_ENDPOINTS = Object.freeze({
   profile: 'v1/application/profile',
   catalog: 'v1/application/catalog',
-  siteInfo: 'v1/application/site-info',
   requests: 'v1/application/requests',
   roomAvailability: 'v1/application/room-availability',
   notifications: 'v1/application/notifications',
@@ -36,9 +35,17 @@ const REQUEST_STATUSES = new Set([
 ]);
 const REASON_REQUEST_STATUSES = new Set(['Rejected', 'Change Requested']);
 const MAX_COLLECTION = 2_000;
+const MAX_CURSOR_PAGES = 200;
 const MAX_TEXT = 160;
 const MAX_PARTICIPANTS = 100_000;
 const BOOKING_CHANGE_STATUSES = new Set(['pending', 'applying', 'applied', 'rejected']);
+const TRANSITION_TARGETS = Object.freeze({
+  start_review: 'In Review',
+  confirm: 'Confirmed',
+  reject: 'Rejected',
+  request_change: 'Change Requested',
+  cancel: 'Cancelled',
+});
 
 export class ProductionPersistenceError extends Error {
   constructor(code, options = {}) {
@@ -377,11 +384,95 @@ function stableBookingPolicy(policy) {
   return stable;
 }
 
+function nextBoundedCursor(page, state, code) {
+  state.pageCount += 1;
+  const nextCursor = page.nextCursor;
+  if (
+    state.pageCount > MAX_CURSOR_PAGES
+    || (state.pageCount === MAX_CURSOR_PAGES && nextCursor !== null)
+    || (nextCursor !== null && state.seenCursors.has(nextCursor))
+  ) throw new ProductionPersistenceError(code);
+  if (nextCursor !== null) state.seenCursors.add(nextCursor);
+  return nextCursor;
+}
+
+function cursorState() {
+  return { pageCount: 0, seenCursors: new Set() };
+}
+
+function assertUniqueRequest(request, identifiers, versions, code) {
+  const versionKey = `${request.id}\u0000${request.version}`;
+  if (identifiers.has(request.id) || versions.has(versionKey)) {
+    throw new ProductionPersistenceError(code);
+  }
+  identifiers.add(request.id);
+  versions.add(versionKey);
+}
+
+function requestOrderAfter(previous, current, newestFirst = false) {
+  return previous === null
+    || (newestFirst ? previous.startsAt > current.startsAt : previous.startsAt < current.startsAt)
+    || (previous.startsAt === current.startsAt && previous.id < current.id);
+}
+
+function requestCompositionSchemaVersion(request) {
+  return Object.hasOwn(request, 'equipmentIds') ? 3 : 2;
+}
+
+function sameIdentifierSelection(left, right) {
+  return Array.isArray(left)
+    && Array.isArray(right)
+    && left.length === right.length
+    && left.every((identifier, index) => identifier === right[index]);
+}
+
+function sameAllocationSelection(left, right) {
+  if (!Array.isArray(right) || left.length !== right.length) return false;
+  const selected = [...right].sort((a, b) => a.costCenterId.localeCompare(b.costCenterId));
+  return left.every((entry, index) => entry.costCenterId === selected[index].costCenterId
+    && entry.percentageBasisPoints === selected[index].percentageBasisPoints);
+}
+
+function boundRequestIntent(request, response, code) {
+  const expectedSchemaVersion = requestCompositionSchemaVersion(request);
+  const details = response.details;
+  if (
+    response.schemaVersion !== expectedSchemaVersion
+    || response.roomId !== request.roomId
+    || response.startsAt !== request.startsAt || response.endsAt !== request.endsAt
+    || response.internalParticipants !== request.internalParticipants
+    || response.externalParticipants !== request.externalParticipants
+    || details?.title !== request.title
+    || details?.dietaryRequirements !== request.dietaryRequirements
+    || details?.specialRequirements !== request.specialRequirements
+    || !sameIdentifierSelection(details?.serviceIds, request.serviceIds)
+    || (expectedSchemaVersion === 3 && !sameIdentifierSelection(details?.equipmentIds, request.equipmentIds))
+    || JSON.stringify(details?.catering) !== JSON.stringify(request.catering)
+    || JSON.stringify(response.configurationRevisions) !== JSON.stringify(request.configurationRevisions)
+    || !sameAllocationSelection(request.allocations, response.allocations?.entries)
+  ) {
+    throw new ProductionPersistenceError(code);
+  }
+  return response;
+}
+
+function assertBoundBookingChange(request, result) {
+  const expectedSchemaVersion = requestCompositionSchemaVersion(request);
+  if (
+    result.change?.requestSchemaVersion !== expectedSchemaVersion
+    || JSON.stringify(result.change.request) !== JSON.stringify(request)
+  ) {
+    throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
+  }
+  boundRequestIntent(request, result.change.proposedRequest, 'PRODUCTION_BOOKING_CHANGE_INVALID');
+}
+
 async function loadCatalogV2(apiClient, options = {}) {
   const assembled = Object.fromEntries(PRODUCTION_CATALOG_SECTIONS.map((section) => [section, []]));
   let authority = null;
   for (const section of PRODUCTION_CATALOG_SECTIONS) {
     let cursor = null;
+    const cursorGuard = cursorState();
     do {
       const values = cursor
         ? { section, limit: '10', cursor }
@@ -403,7 +494,7 @@ async function loadCatalogV2(apiClient, options = {}) {
         throw new ProductionPersistenceError('PRODUCTION_CATALOG_INVALID');
       }
       assembled[section].push(...page.entries);
-      cursor = page.page.nextCursor;
+      cursor = nextBoundedCursor(page.page, cursorGuard, 'PRODUCTION_CATALOG_INVALID');
     } while (cursor !== null);
   }
   return normalizeProductionCatalog({
@@ -415,15 +506,42 @@ async function loadCatalogV2(apiClient, options = {}) {
   });
 }
 
-async function loadAllRequestPages(apiClient, path, normalize, options = {}) {
+async function loadAllRequestPages(apiClient, path, options = {}, observeVersion = () => {}) {
   const requests = [];
   let cursor = null;
+  let authority = null;
+  let previousRequest = null;
+  const identifiers = new Set();
+  const versions = new Set();
+  const cursorGuard = cursorState();
   do {
-    const page = normalize(await call(apiClient, queryPath(path, {
+    const page = normalizeProductionRequestListPage(await call(apiClient, queryPath(path, {
       limit: '10', ...(cursor ? { cursor } : {}),
     }), options));
-    requests.push(...page.requests);
-    cursor = page.page.nextCursor;
+    if (authority === null) {
+      authority = page;
+    } else if (page.schemaVersion !== authority.schemaVersion || page.asOf !== authority.asOf) {
+      throw new ProductionPersistenceError('PRODUCTION_REQUEST_LIST_INVALID');
+    }
+    observeVersion(page.schemaVersion, 'PRODUCTION_REQUEST_LIST_INVALID');
+    for (const request of page.requests) {
+      assertUniqueRequest(
+        request,
+        identifiers,
+        versions,
+        'PRODUCTION_REQUEST_LIST_INVALID',
+      );
+      if (!requestOrderAfter(previousRequest, request, true)) {
+        throw new ProductionPersistenceError('PRODUCTION_REQUEST_LIST_INVALID');
+      }
+      previousRequest = request;
+      requests.push(request);
+    }
+    cursor = nextBoundedCursor(
+      page.page,
+      cursorGuard,
+      'PRODUCTION_REQUEST_LIST_INVALID',
+    );
   } while (cursor !== null);
   return Object.freeze(requests);
 }
@@ -432,6 +550,17 @@ export function createProductionPersistence({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') {
     throw new TypeError('PRODUCTION_API_CLIENT_REQUIRED');
   }
+
+  // The API changes public Request envelopes from v2 to v3 in one migration.
+  // Once this session has seen persisted attribution, it must never display an
+  // older envelope with that attribution silently stripped by a stale peer.
+  let highestObservedRequestEnvelopeVersion = 2;
+  const observeRequestEnvelopeVersion = (version, code) => {
+    if (version < highestObservedRequestEnvelopeVersion) {
+      throw new ProductionPersistenceError(code);
+    }
+    highestObservedRequestEnvelopeVersion = version;
+  };
 
   return Object.freeze({
     async loadProfile(options = {}) {
@@ -446,21 +575,12 @@ export function createProductionPersistence({ apiClient } = {}) {
       return loadCatalogV2(apiClient, options);
     },
 
-    async loadSiteInfo(options = {}) {
-      return Object.freeze({
-        ...assertPlainObject(assertVersionedEnvelope(
-          await call(apiClient, DOMAIN_ENDPOINTS.siteInfo, options),
-          'siteInfo',
-        )),
-      });
-    },
-
     async listRequests(options = {}) {
       return loadAllRequestPages(
         apiClient,
         DOMAIN_ENDPOINTS.requests,
-        normalizeProductionRequestListPage,
         options,
+        observeRequestEnvelopeVersion,
       );
     },
 
@@ -493,11 +613,18 @@ export function createProductionPersistence({ apiClient } = {}) {
 
     async createRequest(requestDraft) {
       const request = normalizeProductionRequestDraft(requestDraft);
-      return normalizeProductionRequestMutationEnvelope(await call(
+      const schemaVersion = requestCompositionSchemaVersion(request);
+      const payload = await call(
         apiClient,
         DOMAIN_ENDPOINTS.requests,
-        { method: 'POST', body: { schemaVersion: 2, request } },
-      ));
+        { method: 'POST', body: { schemaVersion, request } },
+      );
+      const result = normalizeProductionRequestMutationEnvelope(payload);
+      observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_REQUEST_MUTATION_INVALID');
+      if (result.version !== 1 || result.status !== 'Submitted') {
+        throw new ProductionPersistenceError('PRODUCTION_REQUEST_MUTATION_INVALID');
+      }
+      return boundRequestIntent(request, result, 'PRODUCTION_REQUEST_MUTATION_INVALID');
     },
 
     async resubmitRequest(requestId, expectedVersion, requestDraft) {
@@ -506,20 +633,27 @@ export function createProductionPersistence({ apiClient } = {}) {
         throw new ProductionPersistenceError('PRODUCTION_REQUEST_INVALID');
       }
       const request = normalizeProductionRequestDraft(requestDraft);
-      const result = normalizeProductionRequestMutationEnvelope(await call(
+      const schemaVersion = requestCompositionSchemaVersion(request);
+      const payload = await call(
         apiClient,
         `${DOMAIN_ENDPOINTS.requests}/${encodeURIComponent(id)}/resubmissions`,
-        { method: 'POST', body: { schemaVersion: 2, expectedVersion, request } },
-      ));
-      if (result.id !== id) throw new ProductionPersistenceError('PRODUCTION_REQUEST_MUTATION_INVALID');
-      return result;
+        { method: 'POST', body: { schemaVersion, expectedVersion, request } },
+      );
+      const result = normalizeProductionRequestMutationEnvelope(payload);
+      observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_REQUEST_MUTATION_INVALID');
+      if (result.id !== id || result.version !== expectedVersion + 1 || result.status !== 'Submitted') {
+        throw new ProductionPersistenceError('PRODUCTION_REQUEST_MUTATION_INVALID');
+      }
+      return boundRequestIntent(request, result, 'PRODUCTION_REQUEST_MUTATION_INVALID');
     },
 
     async loadRequest(requestId) {
       const id = assertRequestId(requestId);
-      const request = normalizeProductionRequestDetailEnvelope(await call(
+      const payload = await call(
         apiClient, `v1/requests/${encodeURIComponent(id)}`,
-      ));
+      );
+      const request = normalizeProductionRequestDetailEnvelope(payload);
+      observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_REQUEST_DETAIL_INVALID');
       if (request.id !== id) throw new ProductionPersistenceError('PRODUCTION_REQUEST_DETAIL_INVALID');
       return request;
     },
@@ -536,7 +670,7 @@ export function createProductionPersistence({ apiClient } = {}) {
           ? `v1/requests/${encodeURIComponent(id)}/room-context?projection=guest`
           : `v1/requests/${encodeURIComponent(id)}/room-context`,
         requestOptions,
-      ));
+      ), projection === 'guest' ? 2 : 1);
       if (result.requestRef.id !== id) {
         throw new ProductionPersistenceError('PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
       }
@@ -547,6 +681,10 @@ export function createProductionPersistence({ apiClient } = {}) {
       const id = assertRequestId(requestId);
       const history = [];
       let cursor = null;
+      let authority = null;
+      let previousVersion = null;
+      const versions = new Set();
+      const cursorGuard = cursorState();
       do {
         const page = normalizeProductionRequestHistoryPage(await call(
           apiClient,
@@ -554,12 +692,31 @@ export function createProductionPersistence({ apiClient } = {}) {
             limit: '10', ...(cursor ? { cursor } : {}),
           }),
         ));
-        history.push(...page.history);
-        cursor = page.page.nextCursor;
+        if (authority === null) {
+          authority = page;
+        } else if (
+          page.schemaVersion !== authority.schemaVersion
+          || page.asOfVersion !== authority.asOfVersion
+        ) {
+          throw new ProductionPersistenceError('PRODUCTION_REQUEST_HISTORY_INVALID');
+        }
+        observeRequestEnvelopeVersion(page.schemaVersion, 'PRODUCTION_REQUEST_HISTORY_INVALID');
+        for (const entry of page.history) {
+          if (
+            entry.request.id !== id
+            || versions.has(entry.version)
+            || (previousVersion !== null && previousVersion <= entry.version)
+          ) throw new ProductionPersistenceError('PRODUCTION_REQUEST_HISTORY_INVALID');
+          versions.add(entry.version);
+          previousVersion = entry.version;
+          history.push(entry);
+        }
+        cursor = nextBoundedCursor(
+          page.page,
+          cursorGuard,
+          'PRODUCTION_REQUEST_HISTORY_INVALID',
+        );
       } while (cursor !== null);
-      if (history.some((entry) => entry.request.id !== id)) {
-        throw new ProductionPersistenceError('PRODUCTION_REQUEST_HISTORY_INVALID');
-      }
       return Object.freeze(history);
     },
 
@@ -568,6 +725,11 @@ export function createProductionPersistence({ apiClient } = {}) {
       const toExclusive = assertCanonicalUtc(to, 'PRODUCTION_REQUEST_REPORT_INVALID');
       const requests = [];
       let cursor = null;
+      let authority = null;
+      let previousRequest = null;
+      const identifiers = new Set();
+      const versions = new Set();
+      const cursorGuard = cursorState();
       do {
         const page = normalizeProductionRequestReportPage(await call(
           apiClient,
@@ -578,30 +740,91 @@ export function createProductionPersistence({ apiClient } = {}) {
             ...(cursor ? { cursor } : {}),
           }),
         ));
-        requests.push(...page.requests);
-        cursor = page.page.nextCursor;
+        if (
+          page.range.fromInclusive !== fromInclusive
+          || page.range.toExclusive !== toExclusive
+        ) throw new ProductionPersistenceError('PRODUCTION_REQUEST_REPORT_INVALID');
+        if (authority === null) {
+          authority = page;
+        } else if (
+          page.schemaVersion !== authority.schemaVersion
+          || page.asOf !== authority.asOf
+          || JSON.stringify(page.range) !== JSON.stringify(authority.range)
+        ) {
+          throw new ProductionPersistenceError('PRODUCTION_REQUEST_REPORT_INVALID');
+        }
+        observeRequestEnvelopeVersion(page.schemaVersion, 'PRODUCTION_REQUEST_REPORT_INVALID');
+        for (const request of page.requests) {
+          assertUniqueRequest(
+            request,
+            identifiers,
+            versions,
+            'PRODUCTION_REQUEST_REPORT_INVALID',
+          );
+          if (!requestOrderAfter(previousRequest, request)) {
+            throw new ProductionPersistenceError('PRODUCTION_REQUEST_REPORT_INVALID');
+          }
+          previousRequest = request;
+          requests.push(request);
+        }
+        cursor = nextBoundedCursor(
+          page.page,
+          cursorGuard,
+          'PRODUCTION_REQUEST_REPORT_INVALID',
+        );
       } while (cursor !== null);
       return Object.freeze({ fromInclusive, toExclusive, requests: Object.freeze(requests) });
     },
 
-    async transitionRequest(requestId, transition) {
+    async transitionRequest(requestId, transition, expectedRequest) {
       const id = assertRequestId(requestId);
-      const request = normalizeProductionRequestDetailEnvelope(
-        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/transitions`, {
+      const intent = assertPlainObject(transition, 'PRODUCTION_TRANSITION_INVALID');
+      const target = TRANSITION_TARGETS[intent.transition];
+      const needsReason = intent.transition === 'reject' || intent.transition === 'request_change';
+      if (
+        !Object.hasOwn(TRANSITION_TARGETS, intent.transition)
+        || expectedRequest?.id !== id
+        || !Number.isSafeInteger(expectedRequest.version)
+        || expectedRequest.version < 1
+        || expectedRequest.version >= Number.MAX_SAFE_INTEGER
+        || !REQUEST_STATUSES.has(expectedRequest.status)
+        || Object.keys(intent).some((key) => key !== 'transition' && key !== 'reason')
+        || (needsReason && (typeof intent.reason !== 'string'
+          || intent.reason.trim().length < 1 || intent.reason.trim().length > 1_000
+          || /[\u0000-\u001f\u007f]/u.test(intent.reason)))
+        || (!needsReason && Object.hasOwn(intent, 'reason'))
+      ) throw new ProductionPersistenceError('PRODUCTION_TRANSITION_INVALID');
+      const payload = await call(apiClient, `v1/requests/${encodeURIComponent(id)}/transitions`, {
           method: 'POST',
-          body: assertPlainObject(transition, 'PRODUCTION_TRANSITION_INVALID'),
-        }),
-      );
-      if (request.id !== id) throw new ProductionPersistenceError('PRODUCTION_REQUEST_DETAIL_INVALID');
+          body: intent,
+          ifMatchVersion: expectedRequest.version,
+        });
+      const request = normalizeProductionRequestDetailEnvelope(payload);
+      observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_REQUEST_DETAIL_INVALID');
+      if (
+        request.id !== id || request.status !== target
+        || request.statusReason !== (needsReason ? intent.reason.trim() : null)
+        || request.version !== (expectedRequest.status === target
+          ? expectedRequest.version : expectedRequest.version + 1)
+      ) throw new ProductionPersistenceError('PRODUCTION_REQUEST_DETAIL_INVALID');
       return request;
     },
 
     async loadBookingChange(requestId, options = {}) {
       const id = assertRequestId(requestId);
-      const result = normalizeProductionBookingChangeEnvelope(
-        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, options),
-      );
-      if (result.requestRef.id !== id) {
+      const { expectedRequest, ...requestOptions } = options;
+      const payload = await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, requestOptions);
+      const result = normalizeProductionBookingChangeEnvelope(payload);
+      observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_BOOKING_CHANGE_INVALID');
+      if (
+        result.requestRef.id !== id
+        || (expectedRequest !== undefined && (
+          expectedRequest.id !== id
+          || result.requestRef.schemaVersion !== expectedRequest.schemaVersion
+          || result.requestRef.version !== expectedRequest.version
+          || result.requestRef.status !== expectedRequest.status
+        ))
+      ) {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
       return result.change;
@@ -613,12 +836,13 @@ export function createProductionPersistence({ apiClient } = {}) {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
       const request = normalizeProductionRequestDraft(proposed);
-      const result = normalizeProductionBookingChangeEnvelope(
-        await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, {
+      const schemaVersion = requestCompositionSchemaVersion(request);
+      const payload = await call(apiClient, `v1/requests/${encodeURIComponent(id)}/booking-change`, {
           method: 'POST',
-          body: { schemaVersion: 2, expectedVersion, request },
-        }),
-      );
+          body: { schemaVersion, expectedVersion, request },
+        });
+      const result = normalizeProductionBookingChangeEnvelope(payload);
+      observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_BOOKING_CHANGE_INVALID');
       if (
         result.requestRef.id !== id
         || !result.change
@@ -627,6 +851,7 @@ export function createProductionPersistence({ apiClient } = {}) {
       ) {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
+      assertBoundBookingChange(request, result);
       return result;
     },
 
@@ -651,17 +876,20 @@ export function createProductionPersistence({ apiClient } = {}) {
       } else {
         throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       }
-      const result = normalizeProductionBookingChangeEnvelope(await call(
+      const payload = await call(
         apiClient,
         `v1/requests/${encodeURIComponent(id)}/booking-change/${encodeURIComponent(change)}/decision`,
         { method: 'POST', body },
-      ));
+      );
+      const result = normalizeProductionBookingChangeEnvelope(payload);
+      observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_BOOKING_CHANGE_INVALID');
       if (
         result.requestRef.id !== id
         || (result.change !== null && result.change.id !== change)
       ) throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
       if (decision === 'reject') {
-        if (result.change?.status !== 'rejected') {
+        if (result.change?.status !== 'rejected'
+          || result.change.rejectionReason !== body.reason) {
           throw new ProductionPersistenceError('PRODUCTION_BOOKING_CHANGE_INVALID');
         }
         return result;

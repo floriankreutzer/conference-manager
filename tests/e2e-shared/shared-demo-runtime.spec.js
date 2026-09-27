@@ -81,6 +81,7 @@ async function expectUiResponseStatus(page, method, pathname, action, expectedSt
   await action();
   const response = await responsePromise;
   expect(response.status()).toBe(expectedStatus);
+  return response;
 }
 
 async function switchPlatformThroughUi(page, persona) {
@@ -281,6 +282,10 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     200,
   );
   await expect(customerPage.locator('#brandTitle')).toHaveText(MUTATED_NAME_B);
+  const persistedOrganization = await customerContext.request.get(
+    `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/organization`,
+  );
+  expect((await expectStatus(persistedOrganization, 200)).organization.displayName).toBe(MUTATED_NAME_B);
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
   expect(customerSession.tenant).toEqual({ id: TENANT_B, status: 'active' });
   const requestOwnerUserId = customerSession.user.id;

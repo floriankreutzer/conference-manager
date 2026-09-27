@@ -1,3 +1,4 @@
+import { normalizeGuestPresentation, normalizeGuestRoomText } from '../core/guest-presentation.js';
 import { isProductionTimeZone } from '../core/production-time.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -5,6 +6,7 @@ const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
 const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const UNSAFE_DRAFT_TEXT = /[<>\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
+const UNSAFE_DISPLAY_NAME_CHARACTER = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u;
 const COST_CENTER_CODE = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
 const MAX_SAFE_VERSION = Number.MAX_SAFE_INTEGER - 1;
 const MAX_PARTICIPANTS = 500;
@@ -14,6 +16,7 @@ export const PRODUCTION_CATALOG_SECTIONS = Object.freeze([
   'sites',
   'rooms',
   'services',
+  'equipment',
   'cateringPackages',
   'cateringItems',
   'costCenters',
@@ -362,7 +365,7 @@ function catalogCostCenter(value, code) {
 function catalogEntry(section, value, code) {
   if (section === 'sites') return catalogSite(value, code);
   if (section === 'rooms') return catalogRoom(value, code);
-  if (section === 'services' || section === 'cateringItems') {
+  if (section === 'services' || section === 'equipment' || section === 'cateringItems') {
     return catalogApplicability(value, code);
   }
   if (section === 'cateringPackages') {
@@ -434,6 +437,9 @@ export function normalizeProductionCatalog(value) {
   const services = normalizeAssembledEntries(
     input.services, 200, (entry) => catalogApplicability(entry, code), code,
   );
+  const equipment = normalizeAssembledEntries(
+    input.equipment, 200, (entry) => catalogApplicability(entry, code), code,
+  );
   const cateringPackages = normalizeAssembledEntries(
     input.cateringPackages, 100, (entry) => catalogApplicability(entry, code, { packageEntry: true }), code,
   );
@@ -445,7 +451,7 @@ export function normalizeProductionCatalog(value) {
   const roomIds = new Set(rooms.map((entry) => entry.id));
   const itemIds = new Set(cateringItems.map((entry) => entry.id));
   if (rooms.some((entry) => !siteIds.has(entry.siteId))) invalid(code);
-  for (const entry of [...services, ...cateringPackages, ...cateringItems]) {
+  for (const entry of [...services, ...equipment, ...cateringPackages, ...cateringItems]) {
     if (
       entry.siteIds.some((id) => !siteIds.has(id))
       || entry.roomIds.some((id) => !roomIds.has(id))
@@ -465,6 +471,7 @@ export function normalizeProductionCatalog(value) {
     sites,
     rooms,
     services,
+    equipment,
     cateringPackages,
     cateringItems,
     costCenters,
@@ -744,8 +751,10 @@ function displayAttribution(value, code, { action = false, nullable = false } = 
   if (nullable && value === null) return null;
   const input = exactObject(value, action ? ['displayName', 'roleAtAction'] : ['displayName'], code);
   const displayName = input.displayName;
-  if (typeof displayName !== 'string' || displayName.length < 1 || displayName.length > 160
-    || displayName.trim() !== displayName || CONTROL_CHARACTER.test(displayName)) invalid(code);
+  if (typeof displayName !== 'string' || [...displayName].length < 1 || [...displayName].length > 160
+    || displayName.trim() !== displayName
+    || displayName.normalize('NFC') !== displayName
+    || UNSAFE_DISPLAY_NAME_CHARACTER.test(displayName)) invalid(code);
   if (action && ![null, 'employee', 'conference_manager'].includes(input.roleAtAction)) invalid(code);
   return Object.freeze({ displayName, ...(action ? { roleAtAction: input.roleAtAction } : {}) });
 }
@@ -853,13 +862,22 @@ function samePackageSelection(details, pricing) {
   return details.packageId === pricing.package.id && details.variantId === pricing.variant.id;
 }
 
-function orderedRequests(value, maximum, code, attribution = false) {
+function guestRoomText(value, code) {
+  // Location v1 stores trimmed text without imposing NFC. The Guest-only
+  // boundary validates that legacy representation without rewriting it.
+  try { return normalizeGuestRoomText(value); }
+  catch { invalid(code); }
+}
+
+function orderedRequests(value, maximum, code, attribution = false, newestFirst = false) {
   if (!Array.isArray(value) || value.length > maximum) invalid(code);
   const requests = Object.freeze(value.map((entry) => normalizeProductionPublicRequest(entry, attribution)));
   if (
     new Set(requests.map((entry) => entry.id)).size !== requests.length
     || requests.some((entry, index) => index > 0 && (
-      requests[index - 1].startsAt > entry.startsAt
+      (newestFirst
+        ? requests[index - 1].startsAt < entry.startsAt
+        : requests[index - 1].startsAt > entry.startsAt)
       || (requests[index - 1].startsAt === entry.startsAt && requests[index - 1].id >= entry.id)
     ))
   ) invalid(code);
@@ -872,7 +890,7 @@ export function normalizeProductionRequestListPage(value) {
   if (![2, 3].includes(input.schemaVersion)) invalid(code);
   const publicPage = page(input.page, 10, code);
   const asOf = canonicalUtc(input.asOf, code);
-  const requests = orderedRequests(input.requests, publicPage.limit, code, input.schemaVersion === 3);
+  const requests = orderedRequests(input.requests, publicPage.limit, code, input.schemaVersion === 3, true);
   if (requests.some((entry) => entry.updatedAt > asOf)) invalid(code);
   return Object.freeze({ schemaVersion: input.schemaVersion, asOf, requests, page: publicPage });
 }
@@ -891,12 +909,14 @@ export function normalizeProductionRequestReportPage(value) {
   if (duration <= 0 || duration > 366 * 86_400_000) invalid(code);
   const publicPage = page(input.page, 10, code);
   const requests = orderedRequests(input.requests, publicPage.limit, code, input.schemaVersion === 3);
-  if (requests.some((entry) => entry.startsAt < fromInclusive || entry.startsAt >= toExclusive)) {
+  const asOf = canonicalUtc(input.asOf, code);
+  if (requests.some((entry) => entry.startsAt < fromInclusive || entry.startsAt >= toExclusive
+    || entry.updatedAt > asOf)) {
     invalid(code);
   }
   return immutable({
     schemaVersion: input.schemaVersion,
-    asOf: canonicalUtc(input.asOf, code),
+    asOf,
     range: { field: 'startsAt', fromInclusive, toExclusive, timeZone: 'UTC' },
     requests,
     page: publicPage,
@@ -984,16 +1004,23 @@ function requestRef(value, code) {
   });
 }
 
-export function normalizeProductionRequestRoomContextEnvelope(value) {
+export function normalizeProductionRequestRoomContextEnvelope(value, expectedSchemaVersion = null) {
   const code = 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID';
   const envelope = exactObject(value, [
     'schemaVersion', 'requestRef', 'currentRoomContext', 'requestId',
   ], code);
-  if (![1, 2].includes(envelope.schemaVersion)) invalid(code);
+  if (
+    ![1, 2].includes(envelope.schemaVersion)
+    || (expectedSchemaVersion !== null && envelope.schemaVersion !== expectedSchemaVersion)
+  ) invalid(code);
   const ref = requestRef(envelope.requestRef, code);
   identifier(envelope.requestId, code);
   if (envelope.currentRoomContext === null) {
-    return immutable({ requestRef: ref, currentRoomContext: null });
+    return immutable({
+      schemaVersion: envelope.schemaVersion,
+      requestRef: ref,
+      currentRoomContext: null,
+    });
   }
   const guestProjection = envelope.schemaVersion === 2;
   const context = exactObject(envelope.currentRoomContext, guestProjection
@@ -1010,7 +1037,7 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
   if (guestProjection) {
     if (!Array.isArray(room.accessibility) || room.accessibility.length > 20) invalid(code);
     accessibility = Object.freeze(room.accessibility.map((entry) => (
-      responseText(entry, { maximum: 80, code })
+      guestRoomText(entry, code)
     )));
     if (new Set(accessibility).size !== accessibility.length) invalid(code);
     if (!Array.isArray(room.mediaAssetIds) || room.mediaAssetIds.length > 20) invalid(code);
@@ -1024,7 +1051,7 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
     capacity: safeInteger(room.capacity, 1, 100_000, code),
     active: room.active,
     ...(guestProjection ? {
-      floor: responseText(room.floor, { maximum: 80, nullable: true, code }),
+      floor: room.floor === null ? null : guestRoomText(room.floor, code),
       floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
       mediaAssetIds,
       accessibility,
@@ -1038,58 +1065,12 @@ export function normalizeProductionRequestRoomContextEnvelope(value) {
   };
   if (normalizedRoom.siteId !== normalizedSite.id) invalid(code);
   let guestPresentation = null;
-  if (guestProjection && context.guestPresentation !== null) {
-    const guest = exactObject(context.guestPresentation, [
-      'address', 'publicTransport', 'arrival', 'parking', 'reception', 'building',
-      'visitorNotes', 'accessibility', 'wifiPolicy', 'wifiNetworkName', 'contact', 'routeUrl',
-    ], code);
-    let address = null;
-    if (guest.address !== null) {
-      const input = exactObject(guest.address, ['line1', 'line2', 'postalCode', 'city', 'countryCode'], code);
-      const countryCode = responseText(input.countryCode, { maximum: 2, code });
-      if (!/^[A-Z]{2}$/.test(countryCode)) invalid(code);
-      address = Object.freeze({
-        line1: responseText(input.line1, { maximum: 160, code }),
-        line2: input.line2 === null ? null : responseText(input.line2, { maximum: 160, code }),
-        postalCode: responseText(input.postalCode, { maximum: 32, code }),
-        city: responseText(input.city, { maximum: 120, code }),
-        countryCode,
-      });
-    }
-    let contact = null;
-    if (guest.contact !== null) {
-      const input = exactObject(guest.contact, ['name', 'email', 'phone'], code);
-      contact = Object.freeze({
-        name: responseText(input.name, { maximum: 160, code }),
-        email: responseText(input.email, { maximum: 254, nullable: true, code }),
-        phone: responseText(input.phone, { maximum: 64, nullable: true, code }),
-      });
-    }
-    const wifiPolicy = responseText(guest.wifiPolicy, { maximum: 32, code });
-    if (!['open', 'credentials_on_arrival', 'contact_organizer', 'not_available'].includes(wifiPolicy)) invalid(code);
-    let routeUrl = null;
-    if (guest.routeUrl !== null) {
-      routeUrl = responseText(guest.routeUrl, { maximum: 2048, code });
-      let parsed;
-      try { parsed = new URL(routeUrl); } catch { invalid(code); }
-      if (parsed.protocol !== 'https:' || parsed.username || parsed.password) invalid(code);
-    }
-    guestPresentation = Object.freeze({
-      address,
-      publicTransport: responseText(guest.publicTransport, { maximum: 600, nullable: true, code }),
-      arrival: responseText(guest.arrival, { maximum: 600, nullable: true, code }),
-      parking: responseText(guest.parking, { maximum: 600, nullable: true, code }),
-      reception: responseText(guest.reception, { maximum: 600, nullable: true, code }),
-      building: responseText(guest.building, { maximum: 600, nullable: true, code }),
-      visitorNotes: responseText(guest.visitorNotes, { maximum: 1_200, nullable: true, code }),
-      accessibility: responseText(guest.accessibility, { maximum: 600, nullable: true, code }),
-      wifiPolicy,
-      wifiNetworkName: responseText(guest.wifiNetworkName, { maximum: 64, nullable: true, code }),
-      contact,
-      routeUrl,
-    });
+  if (guestProjection) {
+    try { guestPresentation = normalizeGuestPresentation(context.guestPresentation); }
+    catch { invalid(code); }
   }
   return immutable({
+    schemaVersion: envelope.schemaVersion,
     requestRef: ref,
     currentRoomContext: {
       locationsRevision: positiveVersion(context.locationsRevision, code),
@@ -1245,5 +1226,10 @@ export function normalizeProductionRequestHistoryPage(value) {
   if (history.some((entry, index) => (
     entry.version > asOfVersion || (index > 0 && history[index - 1].version <= entry.version)
   ))) invalid(code);
-  return Object.freeze({ asOfVersion, history, page: publicPage });
+  return Object.freeze({
+    schemaVersion: input.schemaVersion,
+    asOfVersion,
+    history,
+    page: publicPage,
+  });
 }

@@ -12,7 +12,10 @@ async function bootstrapDemoCustomerApplication() {
   const renderSecurityControl = () => {
     document.querySelector('[data-demo-security]')?.remove();
     if (document.documentElement.dataset.sessionLocked === 'true') return;
-    renderDemoSecurityControl({ context: application.context });
+    renderDemoSecurityControl({
+      context: application.context,
+      onAuthorityFailure: application.shell.invalidateAuthorityProjection,
+    });
   };
   renderSecurityControl();
   installCustomerInactivityLock({

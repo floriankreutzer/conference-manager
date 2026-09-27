@@ -41,6 +41,9 @@ export function productionRequestBusinessDetails(request) {
   return [
     [t('schedule.title'), details.title],
     [t('review.services'), services],
+    ...(request.schemaVersion === 3 ? [[t('production.employee.equipmentHeading'), joined(
+      pricing.equipment.map((entry) => entry.equipment.name), none,
+    )]] : []),
     [t('catering.package'), cateringPackage],
     [t('catering.people'), formatNumber(details.catering.participantCount)],
     [t('catering.items'), cateringItems],

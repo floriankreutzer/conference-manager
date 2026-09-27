@@ -5,8 +5,10 @@ import {
   normalizeProductionRequestDraft,
   normalizeProductionRequestHistoryPage,
   normalizeProductionRequestListPage,
+  normalizeProductionRequestReportPage,
   normalizeProductionBookingChangeEnvelope,
 } from '../src/platform/production-request-wire.js';
+import { createProductionPersistence } from '../src/platform/production-persistence.js';
 
 const NOW = '2026-09-12T08:00:00.000Z';
 const START = '2026-09-15T10:00:00.000Z';
@@ -55,6 +57,55 @@ export function compatibleRequest({ equipment = false, attribution = false } = {
 
 function detail(request, schemaVersion = 2) {
   return { schemaVersion, request, requestId: 'correlation-1' };
+}
+
+function requestDraft(request) {
+  return {
+    title: request.details.title,
+    roomId: request.roomId,
+    startsAt: request.startsAt,
+    endsAt: request.endsAt,
+    internalParticipants: request.internalParticipants,
+    externalParticipants: request.externalParticipants,
+    serviceIds: [...request.details.serviceIds],
+    ...(request.schemaVersion === 3 ? { equipmentIds: [...request.details.equipmentIds] } : {}),
+    catering: structuredClone(request.details.catering),
+    dietaryRequirements: request.details.dietaryRequirements,
+    specialRequirements: request.details.specialRequirements,
+    allocations: [],
+    configurationRevisions: { ...request.configurationRevisions },
+  };
+}
+
+function emptyEquipmentRequest({ attribution = true, version = 1 } = {}) {
+  const request = compatibleRequest({ equipment: true, attribution });
+  request.version = version;
+  request.details.equipmentIds = [];
+  request.pricing.equipment = [];
+  request.pricing.breakdown.equipmentMinor = 0;
+  request.pricing.totalMinor = 0;
+  request.allocations.totalMinor = 0;
+  request.allocations.unallocatedMinor = 0;
+  return request;
+}
+
+function bookingChangeEnvelope({ proposedRequest, draft, requestSchemaVersion, outerSchemaVersion = 3 } = {}) {
+  return {
+    schemaVersion: outerSchemaVersion,
+    result: {
+      change: {
+        id: 'change-1', status: 'pending', roomId: draft.roomId,
+        startsAt: draft.startsAt, endsAt: draft.endsAt,
+        internalParticipants: draft.internalParticipants,
+        externalParticipants: draft.externalParticipants,
+        rejectionReason: null, createdAt: NOW, updatedAt: NOW,
+        requestSchemaVersion, baseRequestVersion: 1, request: draft, proposedRequest,
+        initiatorAttribution: { displayName: 'Manager', roleAtAction: 'conference_manager' },
+        deciderAttribution: null,
+      },
+      requestRef: { id: 'request-1', version: 1, schemaVersion: requestSchemaVersion, status: 'Confirmed' },
+    },
+  };
 }
 
 test('API-01/API-03 accept independent composition and attribution versions without reinterpreting v2', () => {
@@ -107,13 +158,150 @@ test('API-01 drafts retain explicit v3 empty selections and reject browser price
   ]) assert.throws(() => normalizeProductionRequestDraft({ ...draft, ...fields }));
 });
 
+test('API-01 mutations and booking proposals preserve explicit empty Equipment v3 intent', async () => {
+  const mutationRequest = emptyEquipmentRequest();
+  const draft = requestDraft(mutationRequest);
+  const proposedRequest = emptyEquipmentRequest({ version: 2 });
+  const responses = [
+    { schemaVersion: 3, request: { ...mutationRequest, status: 'Submitted' }, requestId: 'correlation-1' },
+    { schemaVersion: 3, request: { ...mutationRequest, status: 'Submitted', version: 2 }, requestId: 'correlation-2' },
+    bookingChangeEnvelope({ proposedRequest, draft, requestSchemaVersion: 3 }),
+  ];
+  const calls = [];
+  const persistence = createProductionPersistence({ apiClient: {
+    async request(path, options) {
+      calls.push({ path, options });
+      return responses.shift();
+    },
+  } });
+
+  await persistence.createRequest(draft);
+  await persistence.resubmitRequest('request-1', 1, draft);
+  await persistence.proposeBookingChange('request-1', 1, draft);
+
+  assert.deepEqual(calls.map(({ options }) => options.body.schemaVersion), [3, 3, 3]);
+  assert.deepEqual(calls.map(({ options }) => options.body.request.equipmentIds), [[], [], []]);
+});
+
+test('API-01 mutation responses reject composition downgrade and lost Equipment selections', async () => {
+  const sentRequest = compatibleRequest({ equipment: true, attribution: true });
+  const sentDraft = requestDraft(sentRequest);
+  const downgraded = compatibleRequest({ attribution: true });
+  const lostEquipment = emptyEquipmentRequest();
+  const invalidMutationResponses = [
+    { schemaVersion: 3, request: downgraded, requestId: 'correlation-1' },
+    { schemaVersion: 3, request: lostEquipment, requestId: 'correlation-2' },
+  ];
+  for (const response of invalidMutationResponses) {
+    await assert.rejects(
+      createProductionPersistence({ apiClient: { async request() { return response; } } })
+        .createRequest(sentDraft),
+      (error) => error.code === 'PRODUCTION_REQUEST_MUTATION_INVALID',
+    );
+    await assert.rejects(
+      createProductionPersistence({ apiClient: { async request() { return response; } } })
+        .resubmitRequest('request-1', 1, sentDraft),
+      (error) => error.code === 'PRODUCTION_REQUEST_MUTATION_INVALID',
+    );
+  }
+
+  downgraded.version = 2;
+  const downgradedDraft = requestDraft(downgraded);
+  await assert.rejects(
+    createProductionPersistence({ apiClient: { async request() {
+      return bookingChangeEnvelope({
+        proposedRequest: downgraded,
+        draft: downgradedDraft,
+        requestSchemaVersion: 2,
+      });
+    } } }).proposeBookingChange('request-1', 1, sentDraft),
+    (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
+
+  lostEquipment.version = 2;
+  await assert.rejects(
+    createProductionPersistence({ apiClient: { async request() {
+      return bookingChangeEnvelope({
+        proposedRequest: lostEquipment,
+        draft: requestDraft(lostEquipment),
+        requestSchemaVersion: 3,
+      });
+    } } }).proposeBookingChange('request-1', 1, sentDraft),
+    (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+  );
+});
+
+test('API-01 mutation success is bound to every submitted field, version and status', async () => {
+  const draft = requestDraft(emptyEquipmentRequest());
+  const response = { schemaVersion: 3, request: {
+    ...emptyEquipmentRequest(), status: 'Submitted',
+  }, requestId: 'correlation-1' };
+  const edits = [
+    (item) => { item.request.details.title = 'Different title'; },
+    (item) => { item.request.roomId = 'room-2'; item.request.pricing.room.id = 'room-2'; },
+    (item) => { item.request.startsAt = '2026-09-15T10:15:00.000Z'; },
+    (item) => { item.request.internalParticipants = 3; },
+    (item) => { item.request.details.specialRequirements = 'Different requirements'; },
+    (item) => {
+      item.request.details.catering.participantCount = 1;
+      item.request.pricing.catering.participantCount = 1;
+    },
+    (item) => {
+      item.request.configurationRevisions.costAllocation = 2;
+      item.request.allocations.configurationRevision = 2;
+    },
+    (item) => { item.request.version = 2; },
+    (item) => { item.request.status = 'Confirmed'; },
+  ];
+  for (const edit of edits) {
+    const tampered = structuredClone(response);
+    edit(tampered);
+    assert.ok(normalizeProductionRequestDetailEnvelope(tampered), 'independently valid response');
+    await assert.rejects(
+      createProductionPersistence({ apiClient: { async request() { return tampered; } } }).createRequest(draft),
+      (error) => error.code === 'PRODUCTION_REQUEST_MUTATION_INVALID',
+    );
+  }
+  const wrongResubmission = structuredClone(response);
+  await assert.rejects(
+    createProductionPersistence({ apiClient: { async request() { return wrongResubmission; } } })
+      .resubmitRequest('request-1', 1, draft),
+    (error) => error.code === 'PRODUCTION_REQUEST_MUTATION_INVALID',
+  );
+});
+
+test('API-01 booking proposal binds the returned draft and proposed snapshot to submitted intent', async () => {
+  const request = emptyEquipmentRequest();
+  const draft = requestDraft(request);
+  const envelope = bookingChangeEnvelope({
+    draft, proposedRequest: emptyEquipmentRequest({ version: 2 }), requestSchemaVersion: 3,
+  });
+  const edits = [
+    (item) => { item.result.change.request.title = 'Changed draft'; },
+    (item) => { item.result.change.proposedRequest.details.title = 'Changed snapshot'; },
+    (item) => {
+      item.result.change.proposedRequest.configurationRevisions.costAllocation = 2;
+      item.result.change.proposedRequest.allocations.configurationRevision = 2;
+    },
+  ];
+  for (const edit of edits) {
+    const tampered = structuredClone(envelope);
+    edit(tampered);
+    assert.ok(normalizeProductionBookingChangeEnvelope(tampered), 'independently valid proposal');
+    await assert.rejects(
+      createProductionPersistence({ apiClient: { async request() { return tampered; } } })
+        .proposeBookingChange('request-1', 1, draft),
+      (error) => error.code === 'PRODUCTION_BOOKING_CHANGE_INVALID',
+    );
+  }
+});
+
 test('API-03 list and history require versioned exact historical attribution and honest legacy nulls', () => {
   const request = compatibleRequest({ attribution: true });
   const decomposedName = 'Jose\u0301';
   const unicodeRequest = structuredClone(request);
   unicodeRequest.requesterAttribution.displayName = decomposedName;
-  assert.equal(normalizeProductionRequestDetailEnvelope(detail(unicodeRequest, 3))
-    .requesterAttribution.displayName, decomposedName);
+  assert.throws(() => normalizeProductionRequestDetailEnvelope(detail(unicodeRequest, 3)));
   const page = { limit: 10, complete: true, nextCursor: null };
   const list = { schemaVersion: 3, asOf: NOW, requests: [request], page };
   assert.equal(normalizeProductionRequestListPage(list).requests[0].requesterAttribution.displayName, 'Historical requester');
@@ -126,12 +314,56 @@ test('API-03 list and history require versioned exact historical attribution and
   assert.equal(normalizeProductionRequestHistoryPage(history).history[0].actorAttribution.roleAtAction, 'conference_manager');
   for (const actor of [
     { displayName: '', roleAtAction: null }, { displayName: 'Name\n', roleAtAction: null },
+    { displayName: 'Admin\u202eUser', roleAtAction: null },
+    { displayName: 'Admin\u2066User\u2069', roleAtAction: null },
+    { displayName: 'Admin\u200bUser', roleAtAction: null },
+    { displayName: 'Admin\u00adUser', roleAtAction: null },
+    { displayName: 'Admin\ufeffUser', roleAtAction: null },
+    { displayName: 'Admin\ud800User', roleAtAction: null },
     { displayName: 'Name', roleAtAction: 'tenant_admin' },
     { displayName: 'Name', roleAtAction: 'employee', userId: 'internal' },
   ]) {
     history.history[0].actorAttribution = actor;
     assert.throws(() => normalizeProductionRequestHistoryPage(history));
   }
+});
+
+test('API-03 attribution length counts Unicode code points as PostgreSQL does', () => {
+  const request = compatibleRequest({ attribution: true });
+  request.requesterAttribution.displayName = '😀'.repeat(160);
+  assert.equal(normalizeProductionRequestDetailEnvelope(detail(request, 3))
+    .requesterAttribution.displayName, '😀'.repeat(160));
+  request.requesterAttribution.displayName += '😀';
+  assert.throws(() => normalizeProductionRequestDetailEnvelope(detail(request, 3)));
+});
+
+test('API-03 list orders newest-first with id ties; report remains oldest-first', () => {
+  const request = (id, startsAt) => {
+    const result = compatibleRequest({ attribution: true });
+    result.id = id;
+    result.startsAt = startsAt;
+    result.endsAt = new Date(Date.parse(startsAt) + 3_600_000).toISOString();
+    return result;
+  };
+  const first = request('request-a', '2026-09-16T10:00:00.000Z');
+  const tied = request('request-b', first.startsAt);
+  const older = request('request-c', '2026-09-15T10:00:00.000Z');
+  const page = { limit: 10, complete: true, nextCursor: null };
+  const list = { schemaVersion: 3, asOf: NOW, requests: [first, tied, older], page };
+  assert.deepEqual(normalizeProductionRequestListPage(list).requests.map((entry) => entry.id),
+    ['request-a', 'request-b', 'request-c']);
+  assert.throws(() => normalizeProductionRequestListPage({ ...list, requests: [older, first] }));
+  assert.throws(() => normalizeProductionRequestListPage({ ...list, requests: [tied, first] }));
+  const report = { ...list, range: { field: 'startsAt',
+    fromInclusive: '2026-09-15T00:00:00.000Z',
+    toExclusive: '2026-09-17T00:00:00.000Z', timeZone: 'UTC' },
+  requests: [older, first, tied] };
+  assert.deepEqual(normalizeProductionRequestReportPage(report).requests.map((entry) => entry.id),
+    ['request-c', 'request-a', 'request-b']);
+  assert.throws(() => normalizeProductionRequestReportPage({ ...report, requests: [first, older] }));
+  const futureUpdate = structuredClone(older);
+  futureUpdate.updatedAt = '2026-09-13T08:00:00.000Z';
+  assert.throws(() => normalizeProductionRequestReportPage({ ...report, requests: [futureUpdate] }));
 });
 
 test('API-03 booking changes preserve separate initiator and decider with composition v3', () => {

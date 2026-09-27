@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { buildLocalizationInventory, parseMessageEntries } from '../scripts/localization-inventory.mjs';
 
 function sectionBetween(source, startMarker, endMarker) {
@@ -22,8 +22,8 @@ function capabilityMessages(language) {
 test('canonical localization catalogs remain synchronized after parity consolidation', () => {
   const inventory = buildLocalizationInventory();
 
-  assert.equal(inventory.canonical.deKeys, 644);
-  assert.equal(inventory.canonical.enKeys, 644);
+  assert.equal(inventory.canonical.deKeys, 333);
+  assert.equal(inventory.canonical.enKeys, 333);
   assert.deepEqual(inventory.canonical.missingInEnglish, []);
   assert.deepEqual(inventory.canonical.missingInGerman, []);
   assert.deepEqual(inventory.canonical.placeholderMismatches, []);
@@ -32,21 +32,25 @@ test('canonical localization catalogs remain synchronized after parity consolida
 
   const de = capabilityMessages('de');
   const en = capabilityMessages('en');
-  assert.equal(de.size, 166);
-  assert.equal(en.size, 166);
+  assert.equal(de.size, 111);
+  assert.equal(en.size, 111);
   assert.deepEqual([...de.keys()], [...en.keys()]);
   assert.ok([...de.keys()].every((key) => !key.startsWith('parity.')));
 });
 
-test('remaining Manager parity compatibility bridge owns no translations and delegates to Core', () => {
+test('retired localization bridges and parity aliases cannot return', () => {
   const inventory = buildLocalizationInventory();
-  assert.deepEqual(inventory.legacy.bridgeFiles, ['src/manager/parity-i18n.js']);
-  assert.ok(inventory.legacy.compatibilityReferences.length > 0, 'Manager compatibility consumers must remain inventoried until their call sites migrate');
+  assert.deepEqual(inventory.legacy.bridgeFiles, []);
+  assert.deepEqual(inventory.legacy.compatibilityReferences, []);
+  for (const file of [
+    'src/shared/parity-i18n.js',
+    'src/employee/parity-i18n.js',
+    'src/manager/parity-i18n.js',
+    'src/employee/employee-ux-i18n.js',
+  ]) assert.equal(existsSync(file), false, file);
 
-  const source = readFileSync('src/manager/parity-i18n.js', 'utf8');
-  assert.match(source, /core\/i18n\.js/);
-  assert.doesNotMatch(source, /\b(?:MESSAGES|TRANSLATIONS|COPY)\b\s*=/);
-  assert.doesNotMatch(source, /Object\.freeze\s*\(\s*\{\s*(?:de|en)\s*:/);
+  const source = readFileSync('src/core/i18n.js', 'utf8');
+  assert.doesNotMatch(source, /LEGACY_KEY_ALIASES|LEGACY_PREFIXES|canonicalKey|parity\./);
 });
 
 test('canonical migration preserves representative German and English baseline copy exactly', () => {
@@ -57,22 +61,16 @@ test('canonical migration preserves representative German and English baseline c
   assert.equal(en.get('auth.production.signInAction'), 'Sign in with Microsoft');
   assert.equal(de.get('profile.role.tenantAdmin'), 'Tenant-Administration');
   assert.equal(en.get('profile.role.tenantAdmin'), 'Tenant administration');
-  assert.equal(de.get('manager.admin.activeRooms'), 'Aktive Räume');
-  assert.equal(en.get('manager.admin.activeRooms'), 'Active rooms');
-  assert.equal(de.get('manager.admin.image'), 'Bild (lokaler Asset-Pfad oder SVG-Daten-URL)');
-  assert.equal(en.get('manager.admin.image'), 'Image (local asset path or SVG data URL)');
-  assert.equal(de.get('manager.admin.invalidImage'), 'Bitte einen lokalen Bild-Asset-Pfad oder eine sichere SVG-Daten-URL verwenden.');
-  assert.equal(en.get('manager.admin.invalidImage'), 'Please use a local image asset path or a safe SVG data URL.');
+  assert.equal(de.get('manager.restore.requester'), 'Angefragt von: {name}');
+  assert.equal(en.get('manager.restore.requester'), 'Requested by: {name}');
   assert.equal(de.get('manager.operational.displayed'), '{shown} von {total} Buchungen angezeigt');
   assert.equal(en.get('manager.operational.displayed'), '{shown} of {total} bookings displayed');
   assert.equal(de.get('manager.report.range'), '{start} bis {end}');
   assert.equal(en.get('manager.report.range'), '{start} to {end}');
   assert.equal(de.get('manager.roomPlan.bookingLabel'), '{title}, {start} bis {end}, {participants} Teilnehmende, {status}');
   assert.equal(en.get('manager.roomPlan.bookingLabel'), '{title}, {start} to {end}, {participants} participants, {status}');
-  assert.equal(de.get('welcome.print.heroText'), 'Wir freuen uns auf Ihren Besuch bei „{title}“. Hier finden Sie alles für eine entspannte Anreise und einen guten Start vor Ort.');
-  assert.equal(en.get('welcome.print.heroText'), 'We look forward to welcoming you to “{title}”. Here you will find everything for a smooth arrival and a good start on site.');
-  assert.equal(de.get('room.floorplan.defaultDescription'), 'Raum für bis zu {capacity} Personen mit passender Meeting- und Präsentationsfläche.');
-  assert.equal(en.get('room.floorplan.defaultDescription'), 'Room for up to {capacity} people with suitable meeting and presentation space.');
+  assert.equal(de.get('manager.report.noRoomData'), 'Keine bestätigten Raumbuchungen im Zeitraum.');
+  assert.equal(en.get('manager.report.noRoomData'), 'No confirmed room bookings in this period.');
   assert.equal(de.get('tenantAdmin.microsoft365.connect'), 'Microsoft 365 verbinden');
   assert.equal(en.get('tenantAdmin.microsoft365.connect'), 'Connect Microsoft 365');
   assert.equal(de.get('tenantAdmin.microsoft365.permission.calendars'), 'Kalender: {state}');

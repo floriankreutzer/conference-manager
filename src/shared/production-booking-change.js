@@ -2,6 +2,18 @@ import { productionUtcInstant } from '../core/production-time.js';
 
 export const PRODUCTION_BOOKING_CHANGE_MAX_PARTICIPANTS = 500;
 
+const TERMINAL_BOOKING_CHANGE_STATUSES = new Set([
+  'applied',
+  'rejected',
+  'superseded',
+]);
+
+export function canProposeProductionBookingChange(requestStatus, bookingChange) {
+  return requestStatus === 'Confirmed'
+    && bookingChange !== undefined
+    && (bookingChange === null || TERMINAL_BOOKING_CHANGE_STATUSES.has(bookingChange?.status));
+}
+
 function safeParticipantCount(value) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed)

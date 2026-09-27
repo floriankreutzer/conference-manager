@@ -26,11 +26,18 @@ test('Conference Manager workflow actions preserve existing server-authoritative
   ]);
 });
 
-test('confirmed booking change proposals fail closed unless the lookup proves no open change', () => {
+test('MGR-06: confirmed booking change proposals fail closed unless the lookup proves no open change', () => {
   assert.equal(managerCanProposeBookingChange('Confirmed', null), true);
   assert.equal(managerCanProposeBookingChange('Confirmed', undefined), false);
   assert.equal(managerCanProposeBookingChange('Confirmed', { status: 'pending' }), false);
   assert.equal(managerCanProposeBookingChange('In Review', null), false);
+  for (const status of ['applied', 'rejected', 'superseded']) {
+    assert.equal(managerCanProposeBookingChange('Confirmed', { status }), true);
+    assert.equal(managerCanProposeBookingChange('In Review', { status }), false);
+  }
+  for (const status of ['pending', 'applying', 'unknown', null]) {
+    assert.equal(managerCanProposeBookingChange('Confirmed', { status }), false);
+  }
 });
 
 test('shared booking-change validation derives exact UTC instants and bounded participant counts', () => {

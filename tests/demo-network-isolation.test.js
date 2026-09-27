@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -23,12 +24,14 @@ import { generateZapAutomationPlan } from '../scripts/generate-zap-plan.mjs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('Demo automatic image and QR paths cannot use a cross-origin network source', () => {
+test('Demo automatic images and detached print cannot use a cross-origin network source', () => {
   const index = read('index.html');
-  const parityData = read('src/shared/parity-data.js');
-  const welcomePrint = read('src/employee/welcome-print.js');
-  const routeCode = read('assets/demo/route-openstreetmap.svg');
-  const runtimeSources = `${index}\n${parityData}\n${welcomePrint}`;
+  const employee = read('src/employee/production-application.js');
+  const detachedPrint = read('src/shared/detached-print-window.js');
+  const guestPresentation = read('src/core/guest-presentation.js');
+  const requestWire = read('src/platform/production-request-wire.js');
+  const tenantPresentation = read('src/platform/tenant-presentation-runtime.js');
+  const runtimeSources = `${index}\n${employee}\n${detachedPrint}\n${guestPresentation}\n${requestWire}\n${tenantPresentation}`;
 
   const csp = index.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)?.[1];
   assert.ok(csp, 'The Customer Demo artifact must declare a CSP.');
@@ -38,9 +41,12 @@ test('Demo automatic image and QR paths cannot use a cross-origin network source
 
   assert.doesNotMatch(runtimeSources, /images\.unsplash\.com/i);
   assert.doesNotMatch(runtimeSources, /api\.qrserver\.com/i);
-  assert.match(parityData, /data:image\/svg\+xml;charset=UTF-8,/);
-  assert.match(welcomePrint, /assets\/demo\/route-openstreetmap\.svg/);
-  assert.match(routeCode, /<svg[^>]+viewBox="0 0 33 33"/);
+  const printSource = employee.slice(employee.indexOf('function printRequest('), employee.indexOf('function openGuestInfo('));
+  assert.doesNotMatch(printSource, /createElement\(['"]img['"]\)|\.src\s*=/);
+  assert.match(guestPresentation, /route\.protocol !== 'https:' \|\| route\.username \|\| route\.password \|\| route\.port/);
+  assert.match(employee, /rel: 'noopener noreferrer'/);
+  assert.match(detachedPrint, /initializeDetachedPrintDocument/);
+  assert.equal(existsSync(new URL('../assets/demo/route-openstreetmap.svg', import.meta.url)), false);
 });
 
 test('GitHub Pages remains static while DAST covers every public Demo surface independently', () => {

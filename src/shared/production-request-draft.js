@@ -19,6 +19,7 @@ export function composeServerRequestDraft({
     internalParticipants: request?.internalParticipants ?? 1,
     externalParticipants: request?.externalParticipants ?? 0,
     serviceIds: [...(details?.serviceIds || [])],
+    ...(request?.schemaVersion === 3 ? { equipmentIds: [...details.equipmentIds] } : {}),
     catering: details?.catering
       ? {
         ...details.catering,

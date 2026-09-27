@@ -97,6 +97,7 @@ async function installFixture(page, {
   organizationSettings = false,
   holdOrganizationSave = false,
   holdPostSavePresentation = false,
+  postSavePresentationFailureStatus = null,
 } = {}) {
   let presentation = structuredClone(initialPresentation);
   let organization = organizationFromPresentation(presentation);
@@ -128,6 +129,11 @@ async function installFixture(page, {
       presentationReads.push(url.pathname);
       if (postSavePresentationGate && presentationReads.length > 1) {
         await postSavePresentationGate;
+      }
+      if (presentationReads.length > 1 && postSavePresentationFailureStatus !== null) {
+        await fulfillJson(route, { error: { code: postSavePresentationFailureStatus === 401
+          ? 'UNAUTHENTICATED' : 'FORBIDDEN' } }, postSavePresentationFailureStatus);
+        return;
       }
       if (presentationFailure) {
         await fulfillJson(route, { error: { code: 'SERVICE_UNAVAILABLE' } }, 503);
@@ -297,12 +303,12 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   await expect.poll(async () => page.evaluate(async () => (await import('/src/core/i18n.js')).currency()))
     .toBe('USD');
   await expect.poll(() => fixture.presentationReads.length).toBe(2);
-  await expect(page.locator('[data-tenant-admin-section-content] h2')).toBeFocused();
   const presentationResponse = page.waitForResponse((value) => (
     new URL(value.url()).pathname === '/api/v1/tenant/presentation'
   ));
   fixture.releasePostSavePresentation();
   await presentationResponse;
+  await expect(page.locator('[data-tenant-admin-section-content] h2')).toBeFocused();
   expect(fixture.presentationReads).toEqual([
     '/api/v1/tenant/presentation',
     '/api/v1/tenant/presentation',
@@ -310,6 +316,39 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   expect(fixture.writes).toHaveLength(1);
   expect(fixture.writes[0].organization.branding.logoAssetRef).toBe(MANAGED_BRAND_REFERENCE);
 });
+
+for (const status of [401, 403]) {
+  test(`post-save presentation ${status} clears branding and does not restore a privileged shell`, async ({ page }) => {
+    const fixture = await installFixture(page, {
+      roles: ['employee', 'tenant_admin'],
+      organizationSettings: true,
+      holdPostSavePresentation: true,
+      postSavePresentationFailureStatus: status,
+      initialPresentation: presentationPayload({ displayName: 'Before save', defaultCurrency: 'GBP' }),
+    });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="tenantAdmin"]').click();
+    await page.locator('[data-tenant-admin-section="organization"]').click();
+    const form = page.locator('[data-tenant-settings-form="organization"]');
+    await form.locator('#tenant-organization-display-name').fill('Sensitive brand');
+    await form.locator('#tenant-organization-currency').selectOption('USD');
+    await form.getByRole('button', { name: /speichern/i }).click();
+    await expect(page.locator('#brandTitle')).toHaveText('Sensitive brand');
+    await expect.poll(() => fixture.presentationReads.length).toBe(2);
+    fixture.releasePostSavePresentation();
+
+    await expect(page.locator('[data-authority-invalid="true"]')).toBeFocused();
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+    await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
+    await expect(page.locator('#brandTitle')).toHaveText('Conference Manager');
+    await expect(page.locator('.brand-mark img')).toHaveAttribute('src',
+      /pavurel-signet-monochrome-white\.svg\?v=20260827-75$/);
+    await expect(page.locator('html')).toHaveAttribute('data-tenant-presentation-revision', '0');
+    await expect(page).toHaveTitle('Conference Manager');
+    await expect.poll(async () => page.evaluate(async () => (await import('/src/core/i18n.js')).currency()))
+      .toBe('EUR');
+  });
+}
 
 test('stale Tenant Admin save cannot restore its detached settings shell', async ({ page }) => {
   const fixture = await installFixture(page, {

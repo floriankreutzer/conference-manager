@@ -49,7 +49,6 @@ src/
 ├── app.js                         # composition/bootstrap only
 ├── core/
 │   ├── api-client.js
-│   ├── catalog.js
 │   ├── domain.js
 │   ├── i18n.js                    # public canonical localization contract
 │   ├── i18n-base.js               # baseline catalog/runtime implementation
@@ -58,24 +57,23 @@ src/
 │   ├── security-policy.js
 │   ├── tenant-location-ownership.js # Room field projection/ownership contract
 │   ├── preferences.js             # bounded non-authoritative preferences only
-│   ├── storage.js
 │   └── ui.js
 ├── employee/
 │   ├── index.js                   # public Employee API
-│   ├── application.js             # Employee UI/use-case orchestration
+│   ├── production-application.js  # canonical server-backed Employee renderer
 │   ├── server-draft-store.js      # scoped, untrusted session draft only
-│   ├── request-session.js         # request-session model/mapping rules
-│   ├── request-lifecycle.js       # submit/resubmit/cancel/filter rules
-│   └── Employee experience enhancements
+│   ├── server-request-editor.js   # pure editor selection/allocation rules
+│   ├── server-request-calendar.js # own-Request calendar presentation
+│   ├── server-request-history.js  # own-Request history presentation
+│   └── server-request-projection.js # repeat/resubmit projection rules
 ├── manager/
 │   ├── index.js                   # public Manager API
-│   ├── application.js             # Manager UI/use-case orchestration
 │   ├── workspace-application.js   # operational and business-settings composition
+│   ├── production-application.js  # canonical four-tab Manager renderer
 │   ├── business-settings-application.js # Room business/Catalogue presentation
-│   ├── booking-lifecycle.js       # confirm/change/reject rules
-│   ├── reporting.js               # reporting domain calculations
-│   ├── parity-i18n.js             # temporary Manager-only Core delegation bridge
-│   └── Manager experience enhancements
+│   ├── server-cockpit-model.js    # filter/KPI/report projections
+│   ├── server-room-plan.js        # timezone-safe planning projections
+│   └── server-analytics-view.js   # Room plan and report presentation
 ├── tenant-admin/
 │   ├── index.js                   # public Tenant Admin API
 │   ├── application.js             # settings-shell composition/orchestration
@@ -116,9 +114,7 @@ src/
 │   ├── tenant-presentation-runtime.js # in-memory revision/localization/shell integration
 │   ├── tenant-user-administration-api.js # Tenant-scoped role API adapter
 │   ├── demo-security.js
-│   ├── feature-flags.js
-│   ├── feature-parity.js
-│   └── requester-attribution.js
+│   └── feature-flags.js
 ├── platform-admin/
 │   ├── application.js             # shared operator presentation only
 │   ├── platform-api.js            # validated Platform HTTP adapter
@@ -132,11 +128,8 @@ src/
     ├── production-booking-change.js   # capability-independent confirmed-change input model
     ├── production-booking-change-editor.js # Employee/Manager confirmed-change presentation
     ├── production-request-draft.js    # server Request draft composition without authority
-    ├── notifications.js
-    ├── request-card.js
     ├── request-room-context-loader.js # bounded historical current-Room presentation lookup
-    ├── tenant-bulk-transfer-panel.js  # capability-neutral receipt-bound bulk presentation
-    └── parity-data.js
+    └── tenant-bulk-transfer-panel.js  # capability-neutral receipt-bound bulk presentation
 ```
 
 The former flat `src/features` directory is not part of the modular architecture. The architecture quality gate rejects its reintroduction.
@@ -165,8 +158,6 @@ If logic begins growing in the Composition Root, move it to the owning capabilit
 Core contains stable domain and infrastructure primitives:
 
 - `domain.js`: scheduling/conflict validation, participant totals, cost calculation, repeat/history logic and status constants;
-- `catalog.js`: catalog/site defaults and loading/localization helpers;
-- `storage.js`: defensive browser persistence and named repository APIs;
 - `i18n.js`: the only public application localization contract. It owns key resolution and exposes `t()`, `tFor()`, language/locale state and locale-aware formatting contracts;
 - `i18n-base.js`: the pre-existing synchronized DE/EN baseline catalog and locale runtime, retained inside Core so its established storage, fallback, event and `Intl` semantics remain unchanged;
 - `i18n-capability-messages.js`: the synchronized DE/EN capability messages migrated from the former parity catalog under semantic canonical namespaces;
@@ -181,21 +172,14 @@ Core remains capability-independent. Feature-specific business logic and capabil
 
 Employee owns the complete baseline Employee application behavior behind `src/employee/index.js`.
 
-The active server-backed Employee entry point currently resolves through `production-application.js`.
-It owns the current Request editor and own-Request presentation over injected server persistence.
-`application.js` and the Employee enhancement modules retain the richer historical six-step,
-calendar, Guest Information and print presentation as migration reference, but they are not in the
-active runtime graph and must not be reconnected to their historical browser-state authority.
-
-`docs/UI-RESTORE-PARITY.md` records the SaaS 3.6 contract for porting that complete presentation to
-the current server-backed capability under #180 and removing the superseded path under #182.
-
-Business/session rules that can be tested without the DOM are separated into:
-
-- `request-session.js`: request editing state, room-availability model, cost composition, draft payload/restore and repeat/change mapping;
-- `request-lifecycle.js`: final validation, submit/resubmit/cancel transitions and Employee request filtering.
-
-Existing Employee parity/UX/accessibility modules remain within the Employee boundary and continue to be exposed through the same public facade. Employee localization consumers use the canonical Core localization contract directly; the former Employee parity-i18n bridge has been retired.
+The active Customer graph contains exactly one canonical server-backed Employee renderer:
+`production-application.js`. It owns the restored six-step editor, own-Request list/calendar/history,
+confirmed-change, Guest Information and detached print presentation over injected server
+persistence. Pure projection/editor rules remain in the `server-*` modules, and the only local state
+exception is the scoped, untrusted draft store. The historical browser-authority renderer,
+enhancement chain, LocalStorage repositories, rich-print fallback and compatibility adapters were
+removed under #182; Git history is the migration record. `docs/UI-RESTORE-PARITY.md` remains the
+traceability contract for the restored behavior.
 
 Employee internals are private. External code must not expose or import internal Employee modules merely for convenience; public API additions require a legitimate cross-module contract.
 
@@ -203,20 +187,19 @@ Employee internals are private. External code must not expose or import internal
 
 Manager owns the complete baseline Conference Manager application behavior behind `src/manager/index.js`.
 
-The active server-backed Manager entry point currently composes `workspace-application.js`,
-`production-application.js` and `business-settings-application.js`. It provides server-authoritative
-Request operations, a reduced Room-plan/report presentation and the #166 business-settings editor.
-
-`application.js` and the Manager parity/polish modules retain the richer historical four-tab
-cockpit, filtering, planning and reporting presentation as migration reference. They are not in the
-active runtime graph and must not be reconnected to historical browser persistence. The approved
-port to current server contracts is defined in `docs/UI-RESTORE-PARITY.md` and owned by #181/#182.
+The active Customer graph contains exactly one canonical server-backed Manager renderer.
+`workspace-application.js` composes `production-application.js` and
+`business-settings-application.js`; together they own the restored four-tab cockpit, filtering,
+Request review/workflow/history, Room planning, reports and Room/Catalogue administration. The
+historical Manager renderer and parity/polish chain were removed under #182 instead of remaining as
+a dormant fallback. Persisted requester/actor/initiator/decider snapshots come only from validated
+server envelopes; current profile or Principal data is never substituted for missing history.
 
 `workspace-application.js` composes the operational Manager application with the bounded business-settings application. `business-settings-application.js` presents Room business-field and Tenant Catalogue mutation intent only. Its Location updates project Conference Manager-owned fields onto the current complete snapshot and preserve Site, Room identity and provider-controlled technical fields. Its Catalogue path includes Services, equipment, catering packages/items/variants and authoritative Room prices. The trusted API independently reclassifies the mutation and enforces Tenant scope, revisions and authorization; the browser contract is not permission evidence.
 
-`booking-lifecycle.js` owns testable confirm/change/reject status and calendar transitions. `reporting.js` remains the testable Manager reporting calculation model used by the enhanced reporting experience.
-
-`parity-i18n.js` is a temporary Manager-only compatibility bridge for two baseline enhancement modules that still call the historical `pt()` function name. It owns no messages, fallback behavior, storage or interpolation logic and delegates directly to `src/core/i18n.js`. It must not receive new consumers or translation content and should be removed when those remaining call sites are migrated in a separately regression-protected cleanup.
+`server-cockpit-model.js` and `server-room-plan.js` own independently testable filtering,
+historical-report scoping and timezone-safe planning projections. `server-analytics-view.js` renders
+those projections without creating browser authority.
 
 Manager internals are private. Manager-to-Employee collaboration is permitted only through an explicit approved Employee public contract and must never reach into Employee implementation details.
 
@@ -244,7 +227,7 @@ The Production Tenant Admin capability is composed only when the validated serve
 
 Platform contains application-wide composition and infrastructure-facing concerns rather than Employee/Manager business logic.
 
-- `application-context.js` owns access to the validated server session, injected profile/catalog/site/Request repositories and the bounded Demo context-switch contract.
+- `application-context.js` owns access to the validated server session, injected profile/catalog/Request repositories and the bounded Demo context-switch contract. It does not bootstrap or retain a separate Site-info projection.
 - `demo-bootstrap.js` and `demo-session.js` own Customer Demo bootstrap, same-origin `/api/v1/demo/*` session/context calls and strict reuse of the Production session projection validator. Persona or Tenant choices are browser request input only; the server returns effective authority.
 - `production-bootstrap.js` owns the mutually exclusive Customer Production bootstrap.
 - `inactivity-policy.js` and `inactivity-lock.js` own the additive browser inactivity policy and lock overlay. Unlock always re-runs the server session bootstrap; it never extends, rotates or reconstructs server authority from browser state, and server expiry/revocation/security-version/CSRF controls remain authoritative.
@@ -254,9 +237,9 @@ Platform contains application-wide composition and infrastructure-facing concern
 - `tenant-settings-api.js` and `server-tenant-settings-api.js` expose bounded server adapters at the Composition Root without assigning role ownership. Organization, Booking Policy and Cost Allocation adapters are Tenant Admin capabilities; the Location adapter is shared only because the API classifies technical and business fields; the Catalogue adapter is composed only for Conference Manager authority. The domain adapters retain their individual response-validation and wire-contract ownership behind those facades.
 - `tenant-presentation-api.js` owns the exact minimized presentation projection used by every authenticated Tenant role. `tenant-presentation-runtime.js` owns only its fail-safe in-memory revision lifecycle, Core localization configuration, reviewed same-origin mark rendering, and Organization-save refresh integration. Neither accepts remote assets, custom styles, Demo fallback, or browser-side authority. The complete contract is documented in `docs/SAAS2-TENANT-PRESENTATION.md`.
 - `tenant-user-administration-api.js` owns validated, cursor-paginated Tenant User reads and allowlisted elevated-role writes through the shared same-origin API client.
-- Demo-security disclosure, requester attribution, feature flags and the post-render parity scheduler remain Platform responsibilities.
+- Demo-security disclosure and feature flags remain Platform responsibilities. Persisted requester/action attribution is validated at the Request wire boundary and rendered by the owning capability; Platform does not synthesize it from the current Principal.
 
-`feature-parity.js` remains the single coalesced enhancement scheduler. Manager enhancement modules must not add their own global synchronization loops. Platform localization consumers use the canonical Core localization contract directly.
+There is no post-render parity scheduler. The canonical Employee and Manager applications render their complete server-backed surfaces directly, and Platform localization consumers use the canonical Core localization contract.
 
 Platform must not become a replacement monolith for logic moved out of `src/app.js`. Capability business rules and capability-specific rendering stay with the owning capability.
 
@@ -264,16 +247,12 @@ Platform must not become a replacement monolith for logic moved out of `src/app.
 
 Shared contains code genuinely reused across capabilities with stable cross-capability meaning and must not depend back on Employee or Manager.
 
-- `request-card.js` owns the common request-card/timeline DOM contract and receives capability-specific actions as callbacks.
 - `application-presentation.js` owns the small cross-capability form/section/KPI presentation primitives extracted from the former composition root.
 - `booking-change-loader.js` owns the bounded, failure-isolated proposal lookup contract used by the Employee and Manager production capabilities. Its explicit Shared ownership prevents feature workflow orchestration from leaking into capability-independent Core.
 - `production-booking-change.js`, `production-booking-change-editor.js` and `production-request-draft.js` own the capability-independent confirmed-booking change input model, accessible Employee/Conference Manager editor and lossless Request-draft composition reused by both production capabilities. They translate validated presentation state into mutation intent only. They do not decide eligibility, object scope, workflow outcome, authoritative prices, policy, configuration, availability or authorization. The editor submits the version of the validated Request being displayed as the optimistic-concurrency token; the trusted API revalidates that version and every business/authorization boundary.
 - `request-room-context-loader.js` owns bounded, timeout-limited loading of the exact current Room/Site presentation context for a Request whose historical Room is absent from the active catalogue. It accepts a context only when its Request reference (`id`, schema version, version and status), current Room ID and Locations revision match the already validated Request/catalogue, and performs one bounded catalogue/context refresh when revisions drift. The shared time-zone lookup uses an active-catalogue Site or, only when an actual current Room exists and its `siteId` exactly matches, the historical context Site. A missing Room, missing context, mismatch or unavailable authoritative IANA time zone returns no time-zone authority and must not fall back to browser time or implicit UTC. The loader neither merges inactive entities into the active catalogue nor grants selection, mutation or workflow authority; same-object authorization and Tenant scoping remain backend responsibilities.
 - `tenant-bulk-transfer-panel.js` owns the capability-neutral JSON template/export/validate/apply presentation reused by Conference Manager business settings and Tenant Admin technical settings. The owning capability injects the explicit aggregate types and server adapter. Validation generations and the captured type/file/document/receipt bind Apply to the exact successful validation, while lifecycle checks suppress downloads, announcements and rerenders after navigation, detachment or inactivity lock. The narrowly scoped Blob download path is not a general URL-trust exception. The panel cannot expose an un-injected aggregate, grant endpoint access or replace aggregate-specific backend authorization, revision checks and receipt verification.
-- `notifications.js` owns the common notification persistence/presentation contract.
-- `parity-data.js` centralizes the existing enhanced catalog/site/request presentation data helpers and uses the canonical Core localization contract where localized defaults are required.
-
-The former Shared parity translation catalog and bridge have been retired. Shared must not become a second localization owner.
+The former Shared request-card, notification, parity-data and parity-translation paths have been retired. Shared must not become a browser persistence owner, a second renderer or a second localization owner.
 
 Do not move code into Shared merely because two files currently use it. Keep code in its owning capability until there is a real stable reuse requirement. Do not create generic `utils`, `helpers`, `misc`, `common` or equivalent dumping grounds.
 
@@ -281,8 +260,8 @@ Do not move code into Shared merely because two files currently use it. Keep cod
 
 Public module APIs are explicit:
 
-- Employee: `src/employee/index.js`, including `createEmployeeApplication` plus the existing Employee enhancement exports.
-- Manager: `src/manager/index.js`, including the operational Manager application, `createManagerWorkspaceApplication`, the bounded business-settings application and existing Manager enhancement exports.
+- Employee: `src/employee/index.js`, exposing the canonical server-backed application factories and bounded pure projection/date-time contracts.
+- Manager: `src/manager/index.js`, exposing the canonical server-backed application factories, `createManagerWorkspaceApplication` and the bounded business-settings application.
 - Tenant Admin: `src/tenant-admin/index.js`, exposing `createTenantAdminApplication`, the server-backed `createTenantAdminOnboardingRuntime`, and the bounded route helpers `clearTenantAdminRoute`, `isTenantAdminRoute`, `tenantAdminHashForSection` and `tenantAdminSectionFromHash`.
 
 The application factories return capability contracts consumed by Platform composition:
@@ -304,7 +283,7 @@ Composition
         -> approved Core / Platform infrastructure contracts
 ```
 
-`request-session.js`, `request-lifecycle.js`, `booking-lifecycle.js`, `reporting.js`, `tenant-location-ownership.js`, the inactivity policy and Tenant Admin's independently testable role/route rules must remain independent of unrelated browser rendering responsibilities. Rendering/application modules may consume those rules, not the reverse.
+The Employee `server-*` editor/calendar/history/projection modules, Manager cockpit/room-plan models, `tenant-location-ownership.js`, the inactivity policy and Tenant Admin's independently testable role/route rules must remain independent of unrelated browser rendering responsibilities. Rendering/application modules may consume those rules, not the reverse.
 
 Significant business rules should be independently testable where practical and must not be buried unnecessarily inside DOM event callbacks, large rendering functions, browser-storage handlers or the Composition Root.
 
@@ -328,20 +307,13 @@ Runtime modules outside `src/platform/feature-flags.js` may consume the exported
 
 The active Customer and Platform Demo runtimes use one isolated PostgreSQL database through separate server processes and least-privilege database roles. Customer and Platform sessions, cookies, CSRF state, audit domains, API namespaces and origins remain separate. A shared database is not a shared authorization boundary.
 
-`src/core/preferences.js` owns the bounded browser-local language preference. An explicitly reviewed navigation marker or unsaved draft may remain local only when it cannot establish identity, Tenant, permission, workflow, price, entitlement, provider, audit or other business authority. `src/employee/server-draft-store.js` is the sole active request-draft exception: it uses one versioned `sessionStorage` envelope scoped to the exact server-issued Tenant and User identifiers, accepts only a bounded allowlisted shape, and is discarded on scope mismatch or malformed data. Restored values remain untrusted editor input: the current server catalogue, booking-policy allowlists, time-zone conversion, availability endpoint, request validation and authorization are reapplied before submission. It never restores a server Request identifier, version, status, price, permission or workflow transition. `src/core/storage.js` contains historical/static-MVP persistence contracts but is unreachable as authoritative persistence from the active Demo and Production roots.
+`src/core/preferences.js` owns the bounded browser-local language preference. An explicitly reviewed unsaved draft may remain local only when it cannot establish identity, Tenant, permission, workflow, price, entitlement, provider, audit or other business authority. `src/employee/server-draft-store.js` is the sole active request-draft exception: it uses one versioned `sessionStorage` envelope scoped to the exact server-issued Tenant and User identifiers, accepts only a bounded allowlisted shape, and is discarded on scope mismatch or malformed data. Restored values remain untrusted editor input: the current server catalogue, booking-policy allowlists, time-zone conversion, availability endpoint, request validation and authorization are reapplied before submission. It never restores a server Request identifier, version, status, price, permission or workflow transition. The historical `src/core/storage.js` browser repository has been removed.
 
 Capability runtimes must not invent direct browser-storage conventions. New storage keys, serialization formats, restore/cache behavior or persistence abstractions require explicit architectural justification.
 
-The architecture gate permits only the scoped Employee draft store above, the bounded Core language preference, and one historical navigation exception: `src/manager/admin-parity.js` writes `PARITY_RETURN_KEY` directly to `sessionStorage` immediately before a controlled page reload so the Manager administration view can restore its return position. The Manager exception is a narrow session-scoped navigation marker, not a general persistence convention. No other direct Employee/Manager browser-storage access is allowed.
+The architecture gate permits only the scoped Employee draft store above and the bounded Core language preference. No Manager browser-storage exception exists, and no other direct Employee/Manager browser-storage access is allowed.
 
-Historical browser data is never silently uploaded into the shared Demo or a Production Tenant. Server/API schema changes and any deliberately retained local preference migration remain explicit and tested. The repository retains compatibility documentation for:
-
-- existing storage key names;
-- request/catalog/site/profile/notification/draft object shapes;
-- serialization behavior;
-- request and calendar status identifiers;
-- draft restore behavior;
-- existing saved data.
+Historical browser data is never silently uploaded into the shared Demo or a Production Tenant. Removed browser-repository formats remain available only in Git history and are not active compatibility contracts. Server/API schema changes and any deliberately retained language-preference or scoped-draft migration remain explicit and tested.
 
 Any required persistence migration must be explicit, tested, documented and backward-safe where practical.
 
@@ -357,13 +329,15 @@ User-visible application copy remains governed by the repository i18n rules. New
 
 ## Canonical localization architecture
 
-Application localization has one translation-ownership path under Core. The former `src/shared/parity-i18n.js` catalog was characterized before migration: 149 synchronized DE/EN legacy keys, 148 active references, one unused candidate, no DE/EN placeholder drift and no same-key conflicts. Of those legacy values, 45 active entries reused exact existing canonical translations, one unused alias was not migrated, and 103 unique active translations were moved into `src/core/i18n-capability-messages.js` under semantic namespaces.
+Application localization has one translation-ownership path under Core. During restoration, still-referenced capability copy moved to semantic keys in `src/core/i18n-capability-messages.js`; translations referenced only by the retired browser-authority and parallel-renderer paths were removed with those paths.
 
-The canonical application catalogs now contain 570 synchronized DE/EN keys. `scripts/check-i18n.mjs` enforces key synchronization, duplicate-definition detection, DE/EN placeholder parity, absence of canonical `parity.*` keys and the rule that any retained compatibility bridge cannot own translations. `tests/localization-inventory.test.js` protects the consolidated end state and representative baseline copy.
+The active Customer base and capability catalogs contain 329 synchronized DE/EN keys. Across Customer, security and Platform Admin catalogs, `scripts/check-i18n.mjs` currently validates 1,099 synchronized keys, duplicate-definition absence and DE/EN placeholder parity. It also rejects compatibility bridges, canonical `parity.*` keys, capability-local translation tables and unused base/capability messages except for a bounded reviewed dynamic-key allowlist. `tests/localization-inventory.test.js` protects the consolidated end state and representative active copy.
 
 `src/core/i18n.js` is the public resolver. Normal UI rendering uses `t()`. `tFor(locale, key)` exists only for the established bilingual master-data initialization path that must materialize both DE and EN values independent of the currently selected UI language. Locale persistence, fallback behavior, language-change events and `Intl` formatting continue to use the preserved baseline Core implementation. A valid explicit User language remains authoritative; when it is absent, the effective Tenant locale is applied without persisting it as a User choice. The effective Tenant ISO currency drives the shared money formatter.
 
-The remaining Manager `parity-i18n.js` file is a name-compatibility adapter only, not a localization catalog or alternative API implementation. New code must import the Core contract directly.
+Employee and Manager code import the Core localization contract directly. No parity localization adapter remains.
+
+The architecture and Customer-Demo gates enumerate the retired browser-authority and parallel-renderer paths and reject their reintroduction even when a file would be unreachable from a composition root. The module graph independently checks Customer Production, Customer Demo, Platform Production and Platform Demo roots, unresolved imports and cross-artifact reachability.
 
 ## Incremental architecture changes
 

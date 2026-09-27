@@ -163,6 +163,10 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
     }
     if (path === '/api/v1/application/requests' && request.method() === 'GET') {
       if (context.tenantId === TENANT_B && initial.denyReadyTenantRequests) {
+        await route.fulfill({ status: 503, json: { error: { code: 'DEPENDENCY_UNAVAILABLE' } } });
+        return;
+      }
+      if (context.tenantId === TENANT_B && initial.revokeReadyTenantRequests) {
         await route.fulfill({ status: 403, json: { error: { code: 'FORBIDDEN' } } });
         return;
       }
@@ -179,7 +183,7 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
     const optionalProjection = applicationProjectionPayload(new URL(request.url()));
     if (
       optionalProjection !== null
-      && ['/api/v1/application/site-info', '/api/v1/application/notifications'].includes(path)
+      && path === '/api/v1/application/notifications'
     ) {
       await route.fulfill({ json: optionalProjection });
       return;
@@ -245,6 +249,41 @@ test('Customer Demo context controls submit Tenant and persona intent to the ser
   )))).toEqual([]);
 });
 
+test('REG-04 Tenant/persona switch clears and closes detached print state', async ({ page }) => {
+  await installCustomerDemoControlPlane(page);
+  await page.goto('/');
+  await page.evaluate(async () => {
+    const print = await import('/src/shared/detached-print-window.js');
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.dataset.testid = 'open-detached-print';
+    trigger.textContent = 'Open detached print';
+    trigger.addEventListener('click', () => {
+      const popup = print.openDetachedPrintWindow();
+      if (!popup) return;
+      const popupDocument = print.initializeDetachedPrintDocument(popup, {
+        lang: 'de',
+        title: 'Tenant A print',
+      });
+      popupDocument.body.textContent = 'Sensitive Tenant A print state';
+    });
+    document.body.appendChild(trigger);
+  });
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByTestId('open-detached-print').click();
+  const popup = await popupPromise;
+  await expect(popup.locator('body')).toHaveText('Sensitive Tenant A print state');
+  expect(await popup.evaluate(() => window.opener)).toBeNull();
+
+  await page.getByLabel('Demo-Tenant').selectOption(TENANT_B);
+  await page.getByLabel('Demo-Persona').selectOption('conference_manager');
+  const reload = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+
+  await expect.poll(() => popup.isClosed()).toBe(true);
+  await reload;
+});
+
 test('Customer Demo API failure is visible and never falls back to browser business state', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('conference_demo_role_v1', 'manager');
@@ -298,6 +337,21 @@ test('Customer Demo can leave a ready Tenant after its business projections fail
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(TENANT_A);
 });
 
+test('Customer Demo revokes context controls after a forbidden business projection', async ({ page }) => {
+  await installCustomerDemoControlPlane(page, { revokeReadyTenantRequests: true });
+  await page.goto('/');
+
+  await page.getByLabel('Demo-Tenant').selectOption(TENANT_B);
+  const revokedReload = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+  await revokedReload;
+
+  await expect(page.locator('#viewTitle')).toHaveText('Sicher mit Microsoft anmelden');
+  await expect(page.getByLabel('Demo-Tenant')).toBeDisabled();
+  await expect(page.getByLabel('Demo-Persona')).toBeDisabled();
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
+});
+
 test('server-owned request remains visible across Employee and Conference Manager personas', async ({ page }) => {
   await installCustomerDemoControlPlane(page);
   await page.goto('/');
@@ -314,17 +368,20 @@ test('server-owned request remains visible across Employee and Conference Manage
   await reload;
   await page.locator('#primaryNavigation button[data-view="manager"]').click();
 
-  await expect(page.getByText(`Anfrage ${SHARED_REQUEST.id}`)).toBeVisible();
+  await expect(page.getByRole('tabpanel', { name: 'Anfragen & Buchungen' })
+    .getByRole('heading', { name: `Anfrage ${SHARED_REQUEST.id}` })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Prüfung starten' })).toBeVisible();
   expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => (
     key !== 'conference_language_v1'
   )))).toEqual([]);
 });
 
-test('Tenant Admin Demo navigation is authorized, keyboard operable and responsive', async ({ page }) => {
+test('REG-01 REG-02: Tenant Admin Demo exposes authorized sections and excludes Manager ownership', async ({ page }) => {
   await installCustomerDemoControlPlane(page, { persona: 'tenant_admin' });
   await page.goto('/');
 
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
+  await expect(page.locator('[data-manager-workspace-root]')).toHaveCount(0);
   const tenantAdminNavigation = page.locator('#primaryNavigation button[data-view="tenantAdmin"]');
   await tenantAdminNavigation.focus();
   await page.keyboard.press('Enter');
@@ -343,6 +400,9 @@ test('Tenant Admin Demo navigation is authorized, keyboard operable and responsi
   ]) {
     await expect(page.locator(`[data-tenant-admin-section="${sectionId}"]`)).toHaveCount(1);
   }
+  await expect(page.locator(
+    '[data-tenant-admin-section="catalog"], [data-tenant-admin-section="catalogue"]',
+  )).toHaveCount(0);
 
   const usersNavigation = page.locator('[data-tenant-admin-section="users"]');
   await usersNavigation.focus();
@@ -359,7 +419,7 @@ test('Tenant Admin Demo navigation is authorized, keyboard operable and responsi
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
 });
 
-test('Customer Demo dual role exposes both independent workspaces and localized role identity', async ({ page }) => {
+test('REG-03: Customer Demo dual role exposes independent capability navigation and workspaces', async ({ page }) => {
   await installCustomerDemoControlPlane(page, { persona: 'dual_role' });
   await page.goto('/');
 
@@ -382,6 +442,31 @@ test('Customer Demo dual role exposes both independent workspaces and localized 
     .getByText('Conference Manager & tenant administration', { exact: true })).toBeVisible();
 });
 
+test('REG-01 REG-02 REG-03: direct Tenant Admin route survives authorized reload and clears on role loss', async ({ page }) => {
+  await installCustomerDemoControlPlane(page, { persona: 'tenant_admin' });
+  await page.goto('/#tenant-admin/users');
+
+  await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toBeVisible();
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(0);
+
+  await page.getByLabel('Demo-Persona').selectOption('conference_manager');
+  const reloaded = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+  await reloaded;
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="manager"]')).toHaveCount(1);
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto('/#tenant-admin/users');
+  await expect(page.locator('[data-tenant-admin-shell]')).toHaveCount(0);
+  await expect(page.locator('#primaryNavigation button[data-view="tenantAdmin"]')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test('Customer Demo context failure invalidates controls and exposes an accessible error', async ({ page }) => {
   await installCustomerDemoControlPlane(page, { rejectContext: true });
   await page.goto('/');
@@ -397,6 +482,36 @@ test('Customer Demo context failure invalidates controls and exposes an accessib
   await expect(page.getByLabel('Demo-Persona')).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Demo-Kontext anwenden' })).toBeDisabled();
 });
+
+for (const [status, message] of [
+  [401, 'Ihre Sitzung ist nicht mehr gültig. Melden Sie sich erneut an.'],
+  [403, 'Sie sind für diese Aktion nicht berechtigt.'],
+]) {
+  test(`Customer Demo context switch ${status} clears the global authority projection`, async ({ page }) => {
+    await installCustomerDemoControlPlane(page);
+    await page.goto('/');
+    await page.route('**/api/v1/demo/session/context', async (route) => {
+      if (route.request().method() !== 'PUT') {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status,
+        json: { code: status === 401 ? 'UNAUTHENTICATED' : 'FORBIDDEN' },
+      });
+    });
+
+    await page.getByLabel('Demo-Persona').selectOption('conference_manager');
+    await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+
+    const authorityStatus = page.locator('[data-authority-invalid="true"]');
+    await expect(authorityStatus).toHaveText(message);
+    await expect(authorityStatus).toBeFocused();
+    await expect(page.locator('[data-demo-security]')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+    await expect(page.getByText('Demo Manager')).toHaveCount(0);
+  });
+}
 
 test('Customer Demo shell remains semantic, localized and contained', async ({ page }, testInfo) => {
   await installCustomerDemoControlPlane(page);

@@ -14,6 +14,23 @@ function appliesToRoom(entry, room) {
     && (!roomIds.length || roomIds.includes(room.id));
 }
 
+function byDisplayOrder(left, right) {
+  const leftOrder = Number.isSafeInteger(left?.order) ? left.order : Number.MAX_SAFE_INTEGER;
+  const rightOrder = Number.isSafeInteger(right?.order) ? right.order : Number.MAX_SAFE_INTEGER;
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+  if (left.id < right.id) return -1;
+  if (left.id > right.id) return 1;
+  return 0;
+}
+
+function applicableEditorOptions(entries, room, allowedIds = null) {
+  return Object.freeze((entries || [])
+    .filter((entry) => (
+      appliesToRoom(entry, room) && (!allowedIds?.size || allowedIds.has(entry.id))
+    ))
+    .sort(byDisplayOrder));
+}
+
 function allowedIdentifiers(catalog, rule) {
   const values = catalog?.bookingPolicy?.rules?.[rule];
   return new Set(Array.isArray(values) ? values : []);
@@ -43,17 +60,20 @@ export function roomSupportsParticipants(room, totalParticipants, policyMaximumP
 export function cateringEditorOptions(catalog, roomId) {
   const room = catalog?.rooms?.find((entry) => entry.id === roomId);
   return Object.freeze({
-    packages: Object.freeze((catalog?.cateringPackages || []).filter((entry) => appliesToRoom(entry, room))),
-    items: Object.freeze((catalog?.cateringItems || []).filter((entry) => appliesToRoom(entry, room))),
+    packages: applicableEditorOptions(catalog?.cateringPackages, room),
+    items: applicableEditorOptions(catalog?.cateringItems, room),
   });
 }
 
 export function serviceEditorOptions(catalog, roomId) {
   const room = catalog?.rooms?.find((entry) => entry.id === roomId);
   const allowedServices = allowedIdentifiers(catalog, 'allowedServiceIds');
-  return Object.freeze((catalog?.services || []).filter((entry) => (
-    appliesToRoom(entry, room) && (!allowedServices.size || allowedServices.has(entry.id))
-  )));
+  return applicableEditorOptions(catalog?.services, room, allowedServices);
+}
+
+export function equipmentEditorOptions(catalog, roomId) {
+  const room = catalog?.rooms?.find((entry) => entry.id === roomId);
+  return applicableEditorOptions(catalog?.equipment, room);
 }
 
 export function normalizeCateringEditorDraft({

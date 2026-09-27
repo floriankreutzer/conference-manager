@@ -7,6 +7,7 @@ import {
   productionRoomTimeZone,
 } from './production-booking-change.js';
 import { composeServerRequestDraft } from './production-request-draft.js';
+import { authorityFailureCode } from './authority-failure.js';
 
 function roomLabel(room) {
   const capacity = Number.isSafeInteger(Number(room?.capacity)) ? Number(room.capacity) : null;
@@ -37,6 +38,7 @@ export function openProductionBookingChangeDialog({
   persistence,
   refresh,
   errorMessage,
+  onAuthorityFailure,
   currentRoomContext,
 } = {}) {
   if (
@@ -45,6 +47,7 @@ export function openProductionBookingChangeDialog({
     || typeof persistence?.proposeBookingChange !== 'function'
     || typeof refresh !== 'function'
     || typeof errorMessage !== 'function'
+    || typeof onAuthorityFailure !== 'function'
     || !currentRoomContext
     || currentRoomContext.room?.id !== request.roomId
     || currentRoomContext.room?.siteId !== currentRoomContext.site?.id
@@ -186,12 +189,19 @@ export function openProductionBookingChangeDialog({
           defaultTitle: t('production.employee.title'),
         }),
       );
+      if (!dialog.isConnected) return;
       dialog.close();
       showToast(t(result.change.status === 'applied'
         ? 'production.bookingChange.applied'
         : 'production.bookingChange.proposed'));
       await refresh(request.id);
     } catch (caught) {
+      if (authorityFailureCode(caught)) {
+        onAuthorityFailure(caught);
+        if (dialog.isConnected) dialog.close();
+        return;
+      }
+      if (!dialog.isConnected) return;
       pending = false;
       submit.disabled = false;
       cancel.disabled = false;

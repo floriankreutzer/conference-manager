@@ -1,3 +1,5 @@
+import { authorityFailureCode } from './authority-failure.js';
+
 const MAX_CONCURRENT_LOOKUPS = 8;
 const LOOKUP_TIMEOUT_MS = 5_000;
 
@@ -8,11 +10,14 @@ function normalizedLookupTimeout(value) {
   return value;
 }
 
-async function loadBoundedBookingChange(persistence, requestId, timeoutMs) {
+async function loadBoundedBookingChange(persistence, request, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await persistence.loadBookingChange(requestId, { signal: controller.signal });
+    return await persistence.loadBookingChange(request.id, {
+      signal: controller.signal,
+      expectedRequest: request,
+    });
   } finally {
     globalThis.clearTimeout(timeoutId);
   }
@@ -43,10 +48,11 @@ export async function loadOpenBookingChanges(
       try {
         results[index] = await loadBoundedBookingChange(
           persistence,
-          requests[index].id,
+          requests[index],
           lookupTimeout,
         );
-      } catch {
+      } catch (error) {
+        if (authorityFailureCode(error)) throw error;
         results[index] = undefined;
       }
     }

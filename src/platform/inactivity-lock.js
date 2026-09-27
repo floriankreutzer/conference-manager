@@ -4,6 +4,7 @@ import {
   createInactivityPolicyController,
   inactivityTimeoutForRuntime,
 } from './inactivity-policy.js';
+import { closeDetachedPrintWindows } from '../shared/detached-print-window.js';
 import { PRODUCTION_AUTH_STATUS } from './production-session.js';
 
 const CHANNEL_NAME = 'conference-manager-customer-session-lock-v1';
@@ -67,6 +68,7 @@ export function installCustomerInactivityLock({
 
   function enforceLockedSurface() {
     if (!locked) return;
+    closeDetachedPrintWindows();
     if (documentRoot.documentElement.dataset.sessionLocked !== 'true') {
       documentRoot.documentElement.dataset.sessionLocked = 'true';
     }
@@ -103,6 +105,7 @@ export function installCustomerInactivityLock({
 
   function renderLocked() {
     locked = true;
+    closeDetachedPrintWindows();
     documentRoot.documentElement.dataset.sessionLocked = 'true';
     clearTransientFeedback(documentRoot, windowRoot);
     invalidateApplicationRenders?.();

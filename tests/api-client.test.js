@@ -16,6 +16,31 @@ function assertSecurityCode(error, code) {
   return true;
 }
 
+test('Room image upload stays same-origin, uses CSRF and never serializes raster into JSON', async () => {
+  const requests = [];
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    csrfTokenProvider: () => 'test-csrf-token-at-least-sixteen-bytes',
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return jsonResponse({ assetId: '11111111-1111-4111-8111-111111111111' }, { status: 201 });
+    },
+  });
+  const file = new File([new Uint8Array([1, 2, 3])], 'room.png', { type: 'image/png' });
+  await assert.rejects(() => client.uploadRoomImage('v1/tenant/rooms/../media', file),
+    (error) => assertSecurityCode(error, 'ROOM_MEDIA_INPUT_INVALID'));
+  await assert.rejects(() => client.uploadRoomImage('v1/tenant/rooms/room-a/media',
+    new File(['svg'], 'image.svg', { type: 'image/svg+xml' })),
+  (error) => assertSecurityCode(error, 'ROOM_MEDIA_INPUT_INVALID'));
+  assert.equal(requests.length, 0);
+  await client.uploadRoomImage('v1/tenant/rooms/room-a/media', file);
+  assert.equal(requests[0].url.href, 'https://conference.example/api/v1/tenant/rooms/room-a/media');
+  assert.equal(requests[0].options.credentials, 'same-origin');
+  assert.equal(requests[0].options.headers['X-CSRF-Token'], 'test-csrf-token-at-least-sixteen-bytes');
+  assert.equal(requests[0].options.headers['Content-Type'], 'image/png');
+  assert.equal(requests[0].options.body, file);
+});
+
 test('production API client requires HTTPS', () => {
   assert.throws(
     () => createApiClient({ origin: 'http://conference.example', fetchImpl: async () => jsonResponse() }),
@@ -103,6 +128,31 @@ test('unsafe API requests accept only a caller-generated UUID idempotency key', 
     () => client.request('platform-operation', { idempotencyKey: idempotencyId }),
     (error) => assertSecurityCode(error, 'INVALID_IDEMPOTENCY_KEY'),
   );
+});
+
+test('Request version preconditions use one strong If-Match tag and reject invalid transport intent', async () => {
+  const calls = [];
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    csrfTokenProvider: () => '0123456789abcdef0123456789abcdef',
+    fetchImpl: async (_url, options) => {
+      calls.push(options);
+      return jsonResponse({ ok: true });
+    },
+  });
+  await client.request('v1/requests/request-1/transitions', {
+    method: 'POST', body: { transition: 'cancel' }, ifMatchVersion: 3,
+  });
+  assert.equal(calls[0].headers['If-Match'], '"3"');
+  for (const [method, value] of [
+    ['GET', 3], ['PUT', 3], ['POST', 0], ['POST', -1], ['POST', 1.5],
+    ['POST', '3'], ['POST', '"3"'], ['POST', Number.MAX_SAFE_INTEGER],
+  ]) {
+    await assert.rejects(() => client.request('v1/requests/request-1/transitions', {
+      method, ifMatchVersion: value,
+    }), (error) => assertSecurityCode(error, 'INVALID_VERSION_PRECONDITION'));
+  }
+  assert.equal(calls.length, 1);
 });
 
 test('API responses must use JSON content types', async () => {

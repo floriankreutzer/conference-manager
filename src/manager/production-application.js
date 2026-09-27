@@ -1,4 +1,4 @@
-import { locale, t } from '../core/i18n.js';
+import { formatNumber, locale, t } from '../core/i18n.js';
 import { loadOpenBookingChanges } from '../shared/booking-change-loader.js';
 import { openProductionBookingChangeDialog } from '../shared/production-booking-change-editor.js';
 import {
@@ -7,12 +7,16 @@ import {
 } from '../shared/request-room-context-loader.js';
 import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
-import { roomPlanProjection, siteLocalIsoDate } from './server-room-plan.js';
+import { managerCockpitModel, filterManagerEntries } from './server-cockpit-model.js';
+import { renderManagerReports, renderManagerRoomPlan } from './server-analytics-view.js';
 import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
 import {
   managerCanProposeBookingChange,
   managerRequestActions,
 } from './production-request-actions.js';
+import { authorityFailureCode } from '../shared/authority-failure.js';
+import { createAuthoritySurfaceRegistry } from '../shared/authority-surface-registry.js';
+import { closeDetachedPrintWindows } from '../shared/detached-print-window.js';
 
 const REASON_TRANSITIONS = new Set(['reject', 'request_change']);
 const ACTION_LABEL = Object.freeze({
@@ -24,11 +28,16 @@ const ACTION_LABEL = Object.freeze({
 });
 
 function errorMessage(error) {
-  const causeCode = error?.cause?.code;
+  const causeCode = authorityFailureCode(error) || error?.cause?.code;
   if (causeCode === 'HTTP_401') return t('production.error.session');
   if (causeCode === 'HTTP_403') return t('production.error.forbidden');
   if (causeCode === 'HTTP_409') return t('production.error.conflict');
   return t('production.error.generic');
+}
+
+function attributionText(snapshot, key = 'manager.restore.actor') {
+  return t(key, { name: snapshot?.displayName || t('manager.restore.unavailableName'),
+    role: snapshot?.roleAtAction ? t(`manager.restore.role.${snapshot.roleAtAction}`) : t('manager.restore.unavailableName') });
 }
 
 function roomLabel(room) {
@@ -62,7 +71,7 @@ function requestSummary(request, catalog, currentRoomContext = null) {
     el('dt', { text: t('production.common.participants', { count: participants }) }),
     el('dd', { text: `${request.internalParticipants} / ${request.externalParticipants}` }),
     el('dt', { text: t('production.common.status') }),
-    el('dd', { text: ['pending', 'applying', 'applied', 'rejected'].includes(request.status)
+    el('dd', { text: ['pending', 'applying', 'applied', 'rejected', 'superseded'].includes(request.status)
       ? t(`production.bookingChange.status.${request.status}`)
       : t(`status.${request.status}`) }),
   ]);
@@ -74,6 +83,7 @@ export function createProductionManagerApplication({
   persistence,
   requestMutations = new Map(),
   onOpenBusinessSettings = null,
+  onAuthorityFailure = null,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_MANAGER_UI_REQUIRED');
   if (!(requestMutations instanceof Map)) {
@@ -81,6 +91,9 @@ export function createProductionManagerApplication({
   }
   if (onOpenBusinessSettings !== null && typeof onOpenBusinessSettings !== 'function') {
     throw new TypeError('PRODUCTION_MANAGER_SETTINGS_NAVIGATION_REQUIRED');
+  }
+  if (onAuthorityFailure !== null && typeof onAuthorityFailure !== 'function') {
+    throw new TypeError('PRODUCTION_MANAGER_AUTHORITY_HANDLER_REQUIRED');
   }
   if (
     !persistence
@@ -96,8 +109,9 @@ export function createProductionManagerApplication({
   ) {
     throw new TypeError('PRODUCTION_PERSISTENCE_REQUIRED');
   }
+  const authoritySurfaces = createAuthoritySurfaceRegistry();
 
-  function cancelRequestDialog(
+  function requestDecisionDialog(
     request,
     catalog,
     currentRoomContext,
@@ -105,9 +119,11 @@ export function createProductionManagerApplication({
     beginMutation,
     restoreMutationControls,
     isCurrent,
+    onAuthorityFailure,
+    transition = 'cancel',
   ) {
     const dismiss = button(t('common.cancel'));
-    const confirm = button(t('production.manager.cancel'), { className: 'danger' });
+    const confirm = button(t(ACTION_LABEL[transition]), { className: transition === 'cancel' ? 'danger' : 'primary' });
     const error = el('p', {
       className: 'field-error',
       attrs: { role: 'alert', 'aria-live': 'assertive' },
@@ -115,12 +131,13 @@ export function createProductionManagerApplication({
     const requestTitle = request.details?.title
       || t('production.common.requestId', { id: request.id });
     const dialog = openDialog({
-      title: t('production.manager.cancelTitle'),
-      description: t('production.manager.cancelDescription', { title: requestTitle }),
+      title: t(transition === 'cancel' ? 'production.manager.cancelTitle' : 'manager.restore.confirmTitle'),
+      description: t(transition === 'cancel' ? 'production.manager.cancelDescription' : 'manager.restore.confirmDescription', { title: requestTitle }),
       content: el('section', {}, [requestSummary(request, catalog, currentRoomContext), error]),
       actions: [dismiss, confirm],
-      labelledById: `managerCancelTitle-${request.id}`,
+      labelledById: `managerDecisionTitle-${request.id}`,
     });
+    authoritySurfaces.track(dialog);
     let pending = false;
     dialog.addEventListener('cancel', (event) => {
       if (!pending) return;
@@ -134,8 +151,10 @@ export function createProductionManagerApplication({
       confirm.disabled = true;
       dismiss.disabled = true;
       error.textContent = '';
-      const mutation = beginMutation('cancel', () => (
-        persistence.transitionRequest(request.id, { transition: 'cancel' })
+      const mutation = beginMutation(transition, () => (
+        transition === 'cancel'
+          ? persistence.transitionRequest(request.id, { transition: 'cancel' }, request)
+          : persistence.transitionRequest(request.id, { transition }, request)
       ));
       if (!mutation) {
         pending = false;
@@ -147,10 +166,14 @@ export function createProductionManagerApplication({
         await mutation.promise;
         dialog.close();
         if (!isCurrent()) return;
-        showToast(t('production.manager.cancelled'));
+        showToast(t(transition === 'cancel' ? 'production.manager.cancelled' : 'production.manager.transitioned'));
         mutation.refreshed = true;
         await refresh(request.id);
       } catch (caught) {
+        if (authorityFailureCode(caught)) {
+          onAuthorityFailure(caught);
+          return;
+        }
         pending = false;
         restoreMutationControls();
         confirm.disabled = false;
@@ -163,7 +186,15 @@ export function createProductionManagerApplication({
     });
   }
 
-  function reasonDialog(request, transition, refresh, beginMutation, restoreMutationControls, isCurrent) {
+  function reasonDialog(
+    request,
+    transition,
+    refresh,
+    beginMutation,
+    restoreMutationControls,
+    isCurrent,
+    onAuthorityFailure,
+  ) {
     const textarea = el('textarea', { attrs: { maxlength: '1000', required: 'required' } });
     const errorId = `productionReasonError-${request.id}`;
     textarea.setAttribute('aria-describedby', errorId);
@@ -186,6 +217,7 @@ export function createProductionManagerApplication({
       actions: [cancel, submit],
       labelledById: `productionReasonTitle-${request.id}`,
     });
+    authoritySurfaces.track(dialog);
     let pending = false;
     dialog.addEventListener('cancel', (event) => {
       if (!pending) return;
@@ -210,7 +242,7 @@ export function createProductionManagerApplication({
       submit.disabled = true;
       cancel.disabled = true;
       const mutation = beginMutation(transition, () => (
-        persistence.transitionRequest(request.id, { transition, reason })
+        persistence.transitionRequest(request.id, { transition, reason }, request)
       ));
       if (!mutation) {
         pending = false;
@@ -225,12 +257,16 @@ export function createProductionManagerApplication({
         showToast(t('production.manager.transitioned'));
         mutation.refreshed = true;
         await refresh(request.id);
-      } catch (error) {
+      } catch (caught) {
+        if (authorityFailureCode(caught)) {
+          onAuthorityFailure(caught);
+          return;
+        }
         pending = false;
         restoreMutationControls();
         submit.disabled = false;
         cancel.disabled = false;
-        if (isCurrent()) showToast(errorMessage(error));
+        if (isCurrent()) error.textContent = errorMessage(caught);
       }
     });
   }
@@ -256,6 +292,7 @@ export function createProductionManagerApplication({
       actions: [cancel, reject],
       labelledById: `changeRejectTitle-${change.id}`,
     });
+    authoritySurfaces.track(dialog);
     textarea.addEventListener('input', () => {
       textarea.removeAttribute('aria-invalid');
       error.textContent = '';
@@ -300,11 +337,14 @@ export function createProductionManagerApplication({
   let managerSearch = '';
   let managerStatus = 'ALL';
   let managerSite = 'ALL';
+  let managerQuick = 'ALL';
+  const roomPlanState = { siteId: null, date: null, view: 'LIST' };
+  const reportState = { siteId: null, date: null, period: 'YEAR' };
 
   async function renderManager() {
     clear(appRoot);
     setPageHeading(t('production.manager.title'), t('production.manager.subtitle'));
-    const root = el('section', { className: 'card' }, [
+    const root = el('section', { className: 'card manager-surface' }, [
       el('p', { className: 'muted', text: t('production.common.loading') }),
     ]);
     appRoot.appendChild(root);
@@ -312,9 +352,12 @@ export function createProductionManagerApplication({
     let hasCommittedProjection = false;
     let committedProjectionGeneration = 0;
     let interactiveProjectionGeneration = 0;
+    let pendingTabFocus = null;
+    let authorityProjectionInvalid = false;
     const isActiveSurface = () => (
       root.isConnected
       && document.documentElement.dataset.sessionLocked !== 'true'
+      && !authorityProjectionInvalid
     );
     const isCurrent = (generation) => (
       generation === refreshGeneration
@@ -324,6 +367,36 @@ export function createProductionManagerApplication({
       generation === interactiveProjectionGeneration
       && isActiveSurface()
     );
+    const invalidateAuthorityProjection = (error) => {
+      authorityProjectionInvalid = true;
+      refreshGeneration += 1;
+      requestMutations.clear();
+      hasCommittedProjection = false;
+      committedProjectionGeneration = 0;
+      interactiveProjectionGeneration = 0;
+      pendingTabFocus = null;
+      closeDetachedPrintWindows();
+      authoritySurfaces.closeAll();
+      if (onAuthorityFailure?.(error)) return true;
+      if (!root.isConnected) return false;
+      clear(root);
+      root.removeAttribute('aria-busy');
+      const status = el('p', {
+        className: 'error-box',
+        text: errorMessage(error),
+        attrs: { tabindex: '-1', role: 'status' },
+      });
+      root.appendChild(status);
+      requestAnimationFrame(() => {
+        if (authorityProjectionInvalid && root.isConnected) status.focus();
+      });
+      return true;
+    };
+    const handleAuthorityFailure = (error) => {
+      if (!authorityFailureCode(error)) return false;
+      invalidateAuthorityProjection(error);
+      return true;
+    };
 
     async function refresh(focusRequestId = null) {
       const generation = ++refreshGeneration;
@@ -346,6 +419,7 @@ export function createProductionManagerApplication({
           loadMissingRequestRoomContexts(requests, catalog, persistence),
         ]);
         if (!isCurrent(generation)) return;
+        authorityProjectionInvalid = false;
         clear(root);
         root.removeAttribute('aria-busy');
         hasCommittedProjection = true;
@@ -363,9 +437,11 @@ export function createProductionManagerApplication({
         ];
         tabDefinitions.forEach(([tabId, label], tabIndex) => {
           const tab = button(t(label), {
+            id: `managerTab-${tabId}`,
             dataset: { managerTab: tabId },
             attrs: {
               role: 'tab',
+              'aria-controls': 'managerWorkspacePanel',
               'aria-selected': String(activeTab === tabId),
               tabindex: activeTab === tabId ? '0' : '-1',
             },
@@ -373,6 +449,7 @@ export function createProductionManagerApplication({
           tab.addEventListener('click', () => {
             if (activeTab === tabId) return;
             activeTab = tabId;
+            pendingTabFocus = tabId;
             void refresh().then(() => {
               if (activeTab === tabId) root.querySelector(`[data-manager-tab="${tabId}"]`)?.focus();
             });
@@ -388,6 +465,7 @@ export function createProductionManagerApplication({
                   % tabDefinitions.length);
             const [nextTab] = tabDefinitions[nextIndex];
             activeTab = nextTab;
+            pendingTabFocus = nextTab;
             void refresh().then(() => {
               if (activeTab === nextTab) {
                 root.querySelector(`[data-manager-tab="${nextTab}"]`)?.focus();
@@ -397,282 +475,122 @@ export function createProductionManagerApplication({
           tabs.appendChild(tab);
         });
         root.appendChild(tabs);
+        if (pendingTabFocus === activeTab) requestAnimationFrame(() => {
+          if (!isCurrent(generation) || pendingTabFocus !== activeTab) return;
+          root.querySelector(`[data-manager-tab="${activeTab}"]`)?.focus();
+          pendingTabFocus = null;
+        });
 
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', () => { void refresh(); });
         root.appendChild(el('div', { className: 'button-row' }, [refreshButton]));
 
+        const panel = el('section', {
+          id: 'managerWorkspacePanel', className: 'manager-workspace-panel',
+          attrs: { role: 'tabpanel', 'aria-labelledby': `managerTab-${activeTab}`, tabindex: '0' },
+        });
+        root.appendChild(panel);
+        const openRequest = (id) => {
+          activeTab = 'BOOKINGS'; managerSearch = ''; managerStatus = 'ALL'; managerSite = 'ALL'; managerQuick = 'ALL';
+          void refresh(id);
+        };
         if (activeTab === 'ROOM_PLAN') {
-          const sites = catalog.sites.filter((site) => (
-            catalog.rooms.some((room) => room.siteId === site.id) && site.timeZone
-          ));
-          if (!sites.length) {
-            root.appendChild(el('p', {
-              className: 'error-box', text: t('production.employee.timeZoneUnavailable'),
-            }));
-            return;
-          }
-          const siteSelect = el('select');
-          sites.forEach((site) => siteSelect.appendChild(el('option', {
-            value: site.id,
-            text: site.name,
-          })));
-          const dateErrorId = 'productionRoomPlanDateError';
-          const date = el('input', {
-            attrs: {
-              type: 'date',
-              value: siteLocalIsoDate(Date.now(), sites[0].timeZone),
-              required: 'required',
-              'aria-describedby': dateErrorId,
-            },
-          });
-          const dateError = el('p', {
-            id: dateErrorId,
-            className: 'field-error',
-            attrs: { role: 'alert', 'aria-live': 'assertive' },
-          });
-          const tableRoot = el('section');
-          const renderTable = () => {
-            const site = sites.find((entry) => entry.id === siteSelect.value);
-            let projection;
-            try {
-              projection = roomPlanProjection({
-                catalog,
-                requests,
-                siteId: site.id,
-                date: date.value,
-              });
-            } catch (error) {
-              if (error instanceof Error && error.message === 'ROOM_PLAN_DATE_INVALID') {
-                date.setAttribute('aria-invalid', 'true');
-                dateError.textContent = t('validation.date');
-                tableRoot.replaceChildren();
-                return;
-              }
-              throw error;
-            }
-            date.removeAttribute('aria-invalid');
-            dateError.textContent = '';
-            const table = el('table', { className: 'data-table' });
-            table.appendChild(el('thead', {}, el('tr', {}, [
-              el('th', { text: t('production.employee.room') }),
-              el('th', { text: t('production.employee.start') }),
-              el('th', { text: t('schedule.title') }),
-              el('th', { text: t('production.common.status') }),
-            ])));
-            const body = el('tbody');
-            projection.forEach(({ room, requests: bookings }) => {
-              if (!bookings.length) {
-                body.appendChild(el('tr', {}, [
-                  el('td', { text: roomLabel(room) }),
-                  el('td', { text: '—' }),
-                  el('td', { text: '—' }),
-                  el('td', { text: t('room.available') }),
-                ]));
-                return;
-              }
-              bookings.forEach((request) => body.appendChild(el('tr', {}, [
-                el('td', { text: roomLabel(room) }),
-                el('td', { text: formattedRequestTime(request.startsAt, site.timeZone) }),
-                el('td', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-                el('td', { text: t(`status.${request.status}`) }),
-              ])));
-            });
-            table.appendChild(body);
-            tableRoot.replaceChildren(table);
-          };
-          siteSelect.addEventListener('change', () => {
-            const site = sites.find((entry) => entry.id === siteSelect.value);
-            date.value = siteLocalIsoDate(Date.now(), site.timeZone);
-            renderTable();
-          });
-          date.addEventListener('change', renderTable);
-          renderTable();
-          root.appendChild(el('section', {
-            className: 'manager-workspace-panel',
-            attrs: { role: 'tabpanel' },
-          }, [
-            el('h2', { text: t('manager.roomPlan') }),
-            el('p', { className: 'muted', text: t('manager.roomPlanDesc') }),
-              field({
-                id: 'productionRoomPlanSite',
-                label: t('schedule.location'),
-                control: siteSelect,
-              }),
-              field({
-                id: 'productionRoomPlanDate',
-                label: t('manager.referenceDate'),
-                control: date,
-                required: true,
-              }),
-              dateError,
-              tableRoot,
-          ]));
+          panel.append(el('h2', { text: t('manager.roomPlan') }), el('p', { className: 'muted', text: t('manager.roomPlanDesc') }));
+          renderManagerRoomPlan({ panel, catalog, requests, state: roomPlanState, openRequest });
           return;
         }
-
         if (activeTab === 'REPORTS') {
-          const reportPanel = el('section', {
-            className: 'manager-workspace-panel',
-            attrs: { role: 'tabpanel', 'aria-busy': 'true' },
-          }, [
-            el('h2', { text: t('manager.reports') }),
-            el('p', { className: 'muted', text: t('manager.reportDesc') }),
-          ]);
-          root.appendChild(reportPanel);
-          try {
-            const year = new Date().getUTCFullYear();
-            const report = await persistence.loadRequestReport(
-              `${year}-01-01T00:00:00.000Z`, `${year + 1}-01-01T00:00:00.000Z`,
-            );
-            if (!isCurrent(generation) || activeTab !== 'REPORTS') return;
-            const participants = report.requests.reduce((sum, entry) => (
-              sum + entry.internalParticipants + entry.externalParticipants
-            ), 0);
-            const hours = report.requests.reduce((sum, entry) => (
-              sum + (Date.parse(entry.endsAt) - Date.parse(entry.startsAt)) / 3_600_000
-            ), 0);
-            const confirmed = report.requests.filter((entry) => entry.status === 'Confirmed');
-            const catering = report.requests.filter((entry) => (
-              entry.details?.catering?.packageSelection
-              || entry.details?.catering?.itemQuantities?.some(({ quantity }) => quantity > 0)
-            ));
-            const serviceCounts = new Map();
-            report.requests.forEach((entry) => {
-              (entry.details?.serviceIds || []).forEach((id) => {
-                serviceCounts.set(id, (serviceCounts.get(id) || 0) + 1);
-              });
-            });
-            const metrics = el('section', { className: 'dashboard-grid' }, [
-              el('article', { className: 'kpi' }, [
-                el('strong', { text: String(report.requests.length) }),
-                el('span', { text: t('manager.bookings') }),
-              ]),
-              el('article', { className: 'kpi' }, [
-                el('strong', { text: String(participants) }),
-                el('span', { text: t('manager.totalParticipants') }),
-              ]),
-              el('article', { className: 'kpi' }, [
-                el('strong', { text: hours.toFixed(1) }),
-                el('span', { text: t('production.manager.roomHours') }),
-              ]),
-              el('article', { className: 'kpi' }, [
-                el('strong', { text: String(catering.length) }),
-                el('span', { text: t('manager.cateringBookings') }),
-              ]),
-            ]);
-            const breakdown = el('div', { className: 'report-grid' }, [
-              el('section', { className: 'card' }, [
-                el('h3', { text: t('production.manager.utilizationReport') }),
-                el('p', { text: t('production.manager.confirmedSummary', {
-                  confirmed: confirmed.length, total: report.requests.length,
-                }) }),
-              ]),
-              el('section', { className: 'card' }, [
-                el('h3', { text: t('production.manager.serviceReport') }),
-                serviceCounts.size
-                  ? el('ul', {}, [...serviceCounts].map(([id, count]) => el('li', {
-                    text: `${catalog.services?.find((entry) => entry.id === id)?.name || id}: ${count}`,
-                  })))
-                  : el('p', { text: t('manager.experience.noServices') }),
-              ]),
-              el('section', { className: 'card' }, [
-                el('h3', { text: t('production.manager.cateringReport') }),
-                el('p', { text: t('production.manager.cateringSummary', {
-                  catering: catering.length, total: report.requests.length,
-                }) }),
-              ]),
-            ]);
-            reportPanel.removeAttribute('aria-busy');
-            reportPanel.append(metrics, breakdown);
-          } catch (error) {
-            if (isCurrent(generation) && activeTab === 'REPORTS') {
-              reportPanel.removeAttribute('aria-busy');
-              reportPanel.appendChild(el('p', { className: 'error-box', text: errorMessage(error) }));
-            }
-          }
+          panel.append(el('h2', { text: t('manager.reports') }), el('p', { className: 'muted', text: t('manager.reportDesc') }));
+          await renderManagerReports({ panel, catalog, persistence: { loadRequestReport: (...range) => persistence.loadRequestReport(...range) }, state: reportState,
+            isCurrent: () => isCurrent(generation) && activeTab === 'REPORTS', errorMessage,
+            onAuthorityFailure: invalidateAuthorityProjection });
           return;
         }
-
         if (activeTab === 'ADMIN') {
+          const adminRoot = el('div');
           const openSettings = button(t('managerSettings.title'), { className: 'primary' });
           openSettings.disabled = onOpenBusinessSettings === null;
-          openSettings.addEventListener('click', () => onOpenBusinessSettings?.());
-          root.appendChild(el('section', {
-            className: 'manager-workspace-panel', attrs: { role: 'tabpanel' },
-          }, [
-            el('h2', { text: t('manager.admin') }),
+          openSettings.addEventListener('click', () => (
+            onOpenBusinessSettings?.(adminRoot, invalidateAuthorityProjection, { focusHeading: true })
+          ));
+          panel.append(el('h2', { text: t('manager.admin') }),
             el('p', { text: t('managerSettings.description') }),
-            el('div', { className: 'button-row' }, [openSettings]),
-          ]));
+            el('div', { className: 'button-row' }, [openSettings]), adminRoot);
+          onOpenBusinessSettings?.(adminRoot, invalidateAuthorityProjection);
           return;
         }
 
-        const openStatuses = new Set(['Submitted', 'In Review', 'Change Requested']);
-        const confirmedCount = requests.filter((entry) => entry.status === 'Confirmed').length;
-        const openCount = requests.filter((entry) => openStatuses.has(entry.status)).length;
-        const participantCount = requests.reduce((sum, entry) => (
-          sum + entry.internalParticipants + entry.externalParticipants
-        ), 0);
-        root.appendChild(el('section', { className: 'dashboard-grid' }, [
-          el('article', { className: 'kpi' }, [el('strong', { text: String(openCount) }), el('span', { text: t('manager.openRequests') })]),
-          el('article', { className: 'kpi' }, [el('strong', { text: String(confirmedCount) }), el('span', { text: t('manager.confirmedBookings') })]),
-          el('article', { className: 'kpi' }, [el('strong', { text: String(participantCount) }), el('span', { text: t('manager.totalParticipants') })]),
-        ]));
-
-        const filters = el('form', { className: 'manager-filters' });
-        filters.addEventListener('submit', (event) => event.preventDefault());
-        const search = el('input', {
-          value: managerSearch,
-          attrs: { type: 'search', placeholder: t('manager.search'), 'aria-label': t('manager.search') },
+        const model = managerCockpitModel({ requests, catalog, roomContexts, changes });
+        const quickDefinitions = [
+          ['ACTION', 'manager.operational.action', model.action.length],
+          ['TODAY', 'common.today', model.today.length],
+          ['NEXT_SEVEN', 'manager.operational.next7', model.nextSevenDays.length],
+          ['UPCOMING', 'manager.operational.upcomingFilter', model.upcoming.length],
+        ];
+        const metrics = el('section', { className: 'dashboard-grid' });
+        quickDefinitions.forEach(([quick, key, count]) => {
+          const control = button('', { className: 'kpi manager-parity-kpi', dataset: { managerQuick: quick }, attrs: { 'aria-pressed': String(managerQuick === quick) } });
+          control.append(el('strong', { text: formatNumber(count) }), el('span', { text: t(key) }));
+          control.addEventListener('click', () => { managerQuick = managerQuick === quick ? 'ALL' : quick; void refresh().then(() => root.querySelector(`[data-manager-quick="${quick}"]`)?.focus()); });
+          metrics.appendChild(control);
         });
-        const status = el('select', { attrs: { 'aria-label': t('manager.status') } });
+        panel.appendChild(metrics);
+        const summaries = el('section', { className: 'manager-overview-columns' });
+        for (const [entries, titleKey, emptyKey] of [
+          [model.action, 'manager.operational.workNow', 'manager.operational.noAction'],
+          [model.upcoming, 'manager.operational.upcoming', 'manager.operational.noUpcoming'],
+        ]) {
+          const summary = el('section', { className: 'manager-overview-card' }, [el('h3', { text: t(titleKey) })]);
+          entries.slice(0, 4).forEach(({ request, room, site }) => {
+            const open = button(t('manager.final.open'));
+            open.addEventListener('click', () => openRequest(request.id));
+            summary.appendChild(el('article', { className: 'manager-overview-row' }, [
+              el('div', {}, [el('strong', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+                el('small', { text: [room?.name, formattedRequestTime(request.startsAt, site?.timeZone), t(`status.${request.status}`)].filter(Boolean).join(' · ') })]), open,
+            ]));
+          });
+          if (!entries.length) summary.appendChild(el('p', { className: 'muted', text: t(emptyKey) }));
+          summaries.appendChild(summary);
+        }
+        panel.appendChild(summaries);
+        const filters = el('form', { className: 'manager-filters' });
+        const search = el('input', { value: managerSearch, attrs: { type: 'search', placeholder: t('manager.search') } });
+        const status = el('select');
         status.appendChild(el('option', { value: 'ALL', text: t('manager.allStatuses') }));
         status.appendChild(el('option', { value: 'OPEN', text: t('manager.ux.openRequests') }));
-        [...new Set(requests.map((entry) => entry.status))].forEach((value) => {
+        ['Submitted', 'In Review', 'Change Requested', 'Confirmed', 'Rejected', 'Cancelled'].forEach((value) => {
           status.appendChild(el('option', { value, text: t(`status.${value}`) }));
         });
         status.value = managerStatus;
-        const site = el('select', { attrs: { 'aria-label': t('manager.location') } });
+        const site = el('select');
         site.appendChild(el('option', { value: 'ALL', text: t('manager.allLocations') }));
         catalog.sites.forEach((entry) => site.appendChild(el('option', { value: entry.id, text: entry.name })));
         site.value = managerSite;
         const applyFilters = () => {
-          managerSearch = search.value.trim();
-          managerStatus = status.value;
-          managerSite = site.value;
-          void refresh();
+          const focusedId = document.activeElement?.id;
+          managerSearch = search.value.trim(); managerStatus = status.value; managerSite = site.value;
+          void refresh().then(() => {
+            if (['managerSearch', 'managerStatus', 'managerSite'].includes(focusedId)) root.querySelector(`#${focusedId}`)?.focus();
+          });
         };
+        filters.addEventListener('submit', (event) => { event.preventDefault(); applyFilters(); });
         search.addEventListener('change', applyFilters);
         status.addEventListener('change', applyFilters);
         site.addEventListener('change', applyFilters);
-        const openOnly = button(t('manager.ux.openRequests'));
-        openOnly.addEventListener('click', () => {
-          managerStatus = 'OPEN';
-          void refresh();
-        });
+        const openOnly = button(t('manager.ux.openRequests'), { attrs: { 'aria-pressed': String(managerStatus === 'OPEN') } });
+        openOnly.addEventListener('click', () => { managerStatus = 'OPEN'; void refresh(); });
         const reset = button(t('manager.ux.resetFilters'));
-        reset.addEventListener('click', () => {
-          managerSearch = '';
-          managerStatus = 'ALL';
-          managerSite = 'ALL';
-          void refresh();
-        });
-        filters.append(search, status, site, openOnly, reset);
-        root.appendChild(filters);
-
-        const normalizedSearch = managerSearch.toLocaleLowerCase(locale());
-        const visibleEntries = requests.map((request, index) => ({ request, index })).filter(({ request }) => {
-          const room = catalog.rooms.find((entry) => entry.id === request.roomId);
-          const title = request.details?.title || '';
-          return (managerStatus === 'ALL'
-              || (managerStatus === 'OPEN' ? openStatuses.has(request.status) : request.status === managerStatus))
-            && (managerSite === 'ALL' || room?.siteId === managerSite)
-            && (!normalizedSearch
-              || `${request.id} ${title}`.toLocaleLowerCase(locale()).includes(normalizedSearch));
-        });
+        reset.addEventListener('click', () => { managerSearch = ''; managerStatus = 'ALL'; managerSite = 'ALL'; managerQuick = 'ALL'; void refresh().then(() => root.querySelector('#managerSearch')?.focus()); });
+        filters.append(
+          field({ id: 'managerSearch', label: t('manager.search'), control: search }),
+          field({ id: 'managerStatus', label: t('manager.status'), control: status }),
+          field({ id: 'managerSite', label: t('manager.location'), control: site }), openOnly, reset,
+        );
+        panel.appendChild(filters);
+        const visibleEntries = filterManagerEntries(model.entries, { search: managerSearch, status: managerStatus, siteId: managerSite, quick: managerQuick, locale: locale() });
+        panel.appendChild(el('p', { className: 'manager-filter-count', attrs: { role: 'status' }, text: t('manager.operational.displayed', { shown: formatNumber(visibleEntries.length), total: formatNumber(requests.length) }) }));
         if (!visibleEntries.length) {
-          root.appendChild(el('p', { className: 'info-box', text: t('production.manager.none') }));
+          panel.appendChild(el('p', { className: 'info-box', text: t(requests.length ? 'manager.restore.noResults' : 'production.manager.none') }));
           return;
         }
         for (const { request, index } of visibleEntries) {
@@ -686,6 +604,7 @@ export function createProductionManagerApplication({
             request.details?.title
               ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
               : null,
+            el('p', { className: 'manager-requester', text: t('manager.restore.requester', { name: request.requesterAttribution?.displayName || t('manager.restore.unavailableName') }) }),
             requestSummary(request, catalog, roomContexts[index]),
           ]);
           const isActiveArticle = () => isActiveSurface() && article.isConnected;
@@ -707,7 +626,7 @@ export function createProductionManagerApplication({
             mutationControls.forEach((control) => { control.disabled = false; });
           };
           const beginMutation = (kind, operation) => {
-            if (mutationInFlight()) return null;
+            if (!isCurrentArticle() || mutationInFlight()) return null;
             const tracked = {
               kind, notified: false, refreshed: false, promise: null,
             };
@@ -731,18 +650,29 @@ export function createProductionManagerApplication({
             try {
               const history = await persistence.loadRequestHistory(request.id);
               if (!isCurrentInteraction() || !historyButton.isConnected) return;
+              const historicalRoom = catalog.rooms.find((entry) => entry.id === request.roomId) || roomContexts[index]?.room;
+              const timeZone = roomTimeZone(historicalRoom, catalog, roomContexts[index]);
               const content = history.length
-                ? history.map((entry) => el('p', {
-                  text: `${entry.version} · ${t(`timeline.operation.${entry.operation}`)} · ${formattedRequestTime(entry.capturedAt, 'UTC')}`,
-                }))
+                ? [el('ol', { className: 'manager-request-timeline' }, [...history].sort((a, b) => a.version - b.version).map((entry) => el('li', {}, [
+                  el('h3', { text: t(`timeline.operation.${entry.operation}`) }),
+                  el('p', { text: formattedRequestTime(entry.capturedAt, timeZone) }),
+                  el('p', { text: attributionText(entry.actorAttribution) }),
+                  el('p', { text: t(`status.${entry.request.status}`) }),
+                  entry.request.statusReason ? el('p', { text: entry.request.statusReason }) : null,
+                ])))]
                 : [el('p', { text: t('production.manager.historyEmpty') })];
               const close = button(t('common.close'));
               const dialog = openDialog({
                 title: t('production.manager.historyTab'), content: el('section', {}, content),
                 actions: [close], labelledById: `requestHistory-${request.id}`,
               });
+              authoritySurfaces.track(dialog);
               close.addEventListener('click', () => dialog.close());
+              dialog.addEventListener('close', () => {
+                if (isCurrentInteraction() && historyButton.isConnected) historyButton.focus();
+              });
             } catch (error) {
+              if (handleAuthorityFailure(error)) return;
               if (isCurrentInteraction()) showToast(errorMessage(error));
             } finally {
               if (isActiveArticle() && historyButton.isConnected) historyButton.disabled = false;
@@ -773,6 +703,7 @@ export function createProductionManagerApplication({
             await refresh(request.id);
           };
           const handleDecisionError = (tracked, caught) => {
+            if (handleAuthorityFailure(caught)) return;
             if (!isActiveSurface()) return;
             notifyDecision(tracked, errorMessage(caught));
             restoreMutationControls();
@@ -784,8 +715,10 @@ export function createProductionManagerApplication({
             }));
           } else if (bookingChange) {
             article.append(
-              el('h4', { text: t('production.bookingChange.pendingTitle') }),
+              el('h4', { text: t(bookingChange.status === 'pending' ? 'production.bookingChange.pendingTitle' : 'manager.restore.changeRecord') }),
               requestSummary(bookingChange, catalog),
+              el('p', { text: attributionText(bookingChange.initiatorAttribution, 'manager.restore.initiator') }),
+              el('p', { text: ['pending', 'applying'].includes(bookingChange.status) ? t('manager.restore.decisionPending') : attributionText(bookingChange.deciderAttribution, 'manager.restore.decider') }),
             );
             if (bookingChange.status === 'pending') {
               const approve = registerMutationControl(button(
@@ -823,7 +756,8 @@ export function createProductionManagerApplication({
               });
               article.appendChild(el('div', { className: 'button-row' }, [approve, reject]));
             }
-          } else if (managerCanProposeBookingChange(request.status, bookingChange)) {
+          }
+          if (managerCanProposeBookingChange(request.status, bookingChange)) {
             const proposeChange = registerMutationControl(button(t('production.bookingChange.propose')));
             proposeChange.addEventListener('click', async () => {
               const interactionGeneration = refreshGeneration;
@@ -846,7 +780,7 @@ export function createProductionManagerApplication({
                   return;
                 }
                 restoreMutationControls();
-                openProductionBookingChangeDialog({
+                const dialog = openProductionBookingChangeDialog({
                   request,
                   catalog: prepared.catalog,
                   currentRoomContext: prepared.currentRoomContext,
@@ -860,8 +794,11 @@ export function createProductionManagerApplication({
                   },
                   refresh,
                   errorMessage,
+                  onAuthorityFailure: invalidateAuthorityProjection,
                 });
+                if (dialog) authoritySurfaces.track(dialog);
               } catch (caught) {
+                if (handleAuthorityFailure(caught)) return;
                 if (!isCurrentInteraction()) return;
                 restoreMutationControls();
                 showToast(errorMessage(caught));
@@ -880,8 +817,8 @@ export function createProductionManagerApplication({
               }));
               control.addEventListener('click', async () => {
                 if (mutationInFlight()) return;
-                if (transition === 'cancel') {
-                  cancelRequestDialog(
+                if (['cancel', 'confirm'].includes(transition)) {
+                  requestDecisionDialog(
                     request,
                     catalog,
                     roomContexts[index],
@@ -889,6 +826,8 @@ export function createProductionManagerApplication({
                     beginMutation,
                     restoreMutationControls,
                     isActiveSurface,
+                    invalidateAuthorityProjection,
+                    transition,
                   );
                   return;
                 }
@@ -900,11 +839,12 @@ export function createProductionManagerApplication({
                     beginMutation,
                     restoreMutationControls,
                     isActiveSurface,
+                    invalidateAuthorityProjection,
                   );
                   return;
                 }
                 const mutation = beginMutation(transition, () => (
-                  persistence.transitionRequest(request.id, { transition })
+                  persistence.transitionRequest(request.id, { transition }, request)
                 ));
                 if (!mutation) return;
                 try {
@@ -914,6 +854,7 @@ export function createProductionManagerApplication({
                   mutation.refreshed = true;
                   await refresh(request.id);
                 } catch (error) {
+                  if (handleAuthorityFailure(error)) return;
                   if (!isActiveSurface()) return;
                   restoreMutationControls();
                   showToast(errorMessage(error));
@@ -936,10 +877,13 @@ export function createProductionManagerApplication({
                 activeMutation.refreshed = true;
                 void refresh(request.id);
               },
-              () => { restoreMutationControls(); },
+              (caught) => {
+                if (handleAuthorityFailure(caught)) return;
+                if (isActiveSurface()) restoreMutationControls();
+              },
             );
           }
-          root.appendChild(article);
+          panel.appendChild(article);
         }
         if (focusRequestId) {
           requestAnimationFrame(() => {
@@ -949,10 +893,12 @@ export function createProductionManagerApplication({
               ?.focus();
           });
         }
-      } catch {
+      } catch (caught) {
+        if (handleAuthorityFailure(caught)) return;
+        if (generation !== refreshGeneration || !root.isConnected) return;
         if (!isCurrent(generation)) return;
         root.removeAttribute('aria-busy');
-        if (hasCommittedProjection && focusRequestId === null) {
+        if (hasCommittedProjection && focusRequestId === null && !authorityFailureCode(caught)) {
           interactiveProjectionGeneration = committedProjectionGeneration;
           showToast(t('production.employee.loadError'));
           return;

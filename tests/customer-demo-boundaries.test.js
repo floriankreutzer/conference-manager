@@ -33,6 +33,19 @@ test('Customer Demo browser storage and retired local business authority are rej
   assert.ok(violations.some((item) => item.includes('retired browser authority')));
 });
 
+test('unreachable retired renderer source is rejected instead of treated as a dormant fallback', () => {
+  const violations = customerDemoBoundaryViolations({
+    'src/platform/demo-bootstrap.js': "import '../app.js';",
+    'src/platform/production-bootstrap.js': "import '../app.js';",
+    'src/app.js': 'export const app = true;',
+    'src/manager/application.js': 'export function createManagerApplication() {}',
+  });
+  assert.ok(violations.some((item) => (
+    item.startsWith('src/manager/application.js:')
+    && item.includes('must not be reintroduced')
+  )));
+});
+
 test('language preference storage remains a bounded non-authoritative exception', () => {
   const violations = customerDemoBoundaryViolations({
     'src/platform/demo-bootstrap.js': "import '../core/preferences.js';",

@@ -1,3 +1,4 @@
+import { normalizeGuestPresentation } from '../core/guest-presentation.js';
 import {
   adapterError,
   booleanValue,
@@ -63,14 +64,17 @@ function address(value) {
   });
 }
 
-function site(value, options) {
-  exactObject(value, ['id', 'name', 'active', 'timeZone', 'address'], 'TENANT_LOCATIONS_RESPONSE_INVALID');
+function site(value, options, schemaVersion) {
+  const keys = ['id', 'name', 'active', 'timeZone', 'address'];
+  if (schemaVersion === 2) keys.push('guestInformation');
+  exactObject(value, keys, 'TENANT_LOCATIONS_RESPONSE_INVALID');
   return Object.freeze({
     id: safeId(value.id, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     name: boundedText(value.name, { code: 'TENANT_LOCATIONS_RESPONSE_INVALID', maximum: 160 }),
     active: booleanValue(value.active, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     timeZone: timeZone(value.timeZone, options),
     address: address(value.address),
+    ...(schemaVersion === 2 ? { guestInformation: normalizeGuestPresentation(value.guestInformation) } : {}),
   });
 }
 
@@ -102,10 +106,10 @@ function room(value) {
   });
 }
 
-function configuration(value, options = { nullable: true }) {
+function configuration(value, options = { nullable: true }, schemaVersion = 1) {
   exactObject(value, ['sites', 'rooms'], 'TENANT_LOCATIONS_RESPONSE_INVALID');
   if (!Array.isArray(value.sites) || value.sites.length > 200 || !Array.isArray(value.rooms) || value.rooms.length > 2_000) invalid();
-  const sites = value.sites.map((entry) => site(entry, options));
+  const sites = value.sites.map((entry) => site(entry, options, schemaVersion));
   const rooms = value.rooms.map(room);
   if (new Set(sites.map((entry) => entry.id)).size !== sites.length || new Set(rooms.map((entry) => entry.id)).size !== rooms.length) invalid();
   const siteIds = new Set(sites.map((entry) => entry.id));
@@ -130,25 +134,25 @@ function provider(value) {
   });
 }
 
-function envelope(value) {
+function envelope(value, schemaVersion = 1) {
   exactObject(value, ['schemaVersion', 'revision', 'configuration', 'providerContext'], 'TENANT_LOCATIONS_RESPONSE_INVALID');
-  if (value.schemaVersion !== 1 || !Array.isArray(value.providerContext) || value.providerContext.length > 2_000) invalid();
-  const normalizedConfiguration = configuration(value.configuration);
+  if (value.schemaVersion !== schemaVersion || !Array.isArray(value.providerContext) || value.providerContext.length > 2_000) invalid();
+  const normalizedConfiguration = configuration(value.configuration, { nullable: true }, schemaVersion);
   const providerContext = value.providerContext.map(provider);
   if (new Set(providerContext.map((entry) => entry.roomId)).size !== providerContext.length) invalid();
   const roomIds = new Set(normalizedConfiguration.rooms.map((entry) => entry.id));
   if (providerContext.some((entry) => !roomIds.has(entry.roomId))) invalid();
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion,
     revision: positiveRevision(value.revision, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     configuration: normalizedConfiguration,
     providerContext: Object.freeze(providerContext),
   });
 }
 
-function wrapped(value) {
+function wrapped(value, schemaVersion = 1) {
   exactObject(value, ['locations'], 'TENANT_LOCATIONS_RESPONSE_INVALID');
-  return envelope(value.locations);
+  return envelope(value.locations, schemaVersion);
 }
 
 function history(value) {
@@ -166,6 +170,15 @@ function history(value) {
   return Object.freeze(entries);
 }
 
+function locationSchemaVersion(value) {
+  if (![1, 2].includes(value)) invalid('TENANT_LOCATIONS_SCHEMA_INVALID');
+  return value;
+}
+
+function versionedPath(path, schemaVersion) {
+  return schemaVersion === 2 ? `${path}?schemaVersion=2` : path;
+}
+
 export function createTenantLocationSettingsApi({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') throw new TypeError('TENANT_LOCATION_API_CLIENT_REQUIRED');
   const bulk = createTenantBulkSettingsApi({
@@ -176,18 +189,32 @@ export function createTenantLocationSettingsApi({ apiClient } = {}) {
   });
   return Object.freeze({
     ...bulk,
-    async loadLocations() {
-      try { return wrapped(await apiClient.request(CURRENT_PATH)); }
+    async uploadRoomMedia(roomId, file) {
+      if (typeof roomId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(roomId)
+        || typeof apiClient.uploadRoomImage !== 'function') invalid('TENANT_ROOM_MEDIA_UPLOAD_INVALID');
+      try {
+        const result = await apiClient.uploadRoomImage(`v1/tenant/rooms/${roomId}/media`, file);
+        exactObject(result, ['assetId'], 'TENANT_ROOM_MEDIA_RESPONSE_INVALID');
+        const assetId = internalUuid(result.assetId, 'TENANT_ROOM_MEDIA_RESPONSE_INVALID');
+        return assetId;
+      } catch (error) {
+        throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_ROOM_MEDIA_UPLOAD_FAILED');
+      }
+    },
+    async loadLocations({ schemaVersion = 1 } = {}) {
+      locationSchemaVersion(schemaVersion);
+      try { return wrapped(await apiClient.request(versionedPath(CURRENT_PATH, schemaVersion)), schemaVersion); }
       catch (error) { throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_LOCATIONS_UNAVAILABLE'); }
     },
-    async saveLocations({ expectedRevision, configuration: value } = {}) {
+    async saveLocations({ schemaVersion = 1, expectedRevision, configuration: value } = {}) {
+      locationSchemaVersion(schemaVersion);
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) invalid('TENANT_LOCATIONS_REVISION_INVALID');
       try {
-        const normalized = configuration(value, { nullable: false });
+        const normalized = configuration(value, { nullable: false }, schemaVersion);
         return wrapped(await apiClient.request(CURRENT_PATH, {
           method: 'PUT',
-          body: { schemaVersion: 1, expectedRevision, configuration: normalized },
-        }));
+          body: { schemaVersion, expectedRevision, configuration: normalized },
+        }), schemaVersion);
       } catch (error) {
         throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_LOCATIONS_UPDATE_FAILED');
       }
@@ -197,16 +224,17 @@ export function createTenantLocationSettingsApi({ apiClient } = {}) {
       try { return history(await apiClient.request(`${HISTORY_PATH}?limit=${limit}`)); }
       catch (error) { throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_LOCATIONS_HISTORY_UNAVAILABLE'); }
     },
-    async loadLocationRevision(revision) {
+    async loadLocationRevision(revision, { schemaVersion = 1 } = {}) {
+      locationSchemaVersion(schemaVersion);
       if (!Number.isSafeInteger(revision) || revision < 1) invalid('TENANT_LOCATIONS_REVISION_INVALID');
       try {
-        const payload = await apiClient.request(`${HISTORY_PATH}/${revision}`);
+        const payload = await apiClient.request(versionedPath(`${HISTORY_PATH}/${revision}`, schemaVersion));
         exactObject(payload, ['revision'], 'TENANT_LOCATIONS_HISTORY_RESPONSE_INVALID');
         const snapshot = payload.revision;
         exactObject(snapshot, ['revision', 'configuration', 'changedAt', 'actorUserId'], 'TENANT_LOCATIONS_HISTORY_RESPONSE_INVALID');
         return immutable({
           revision: positiveRevision(snapshot.revision, 'TENANT_LOCATIONS_HISTORY_RESPONSE_INVALID'),
-          configuration: configuration(snapshot.configuration),
+          configuration: configuration(snapshot.configuration, { nullable: true }, schemaVersion),
           changedAt: utcInstant(snapshot.changedAt, 'TENANT_LOCATIONS_HISTORY_RESPONSE_INVALID'),
           actorUserId: internalUuid(snapshot.actorUserId, 'TENANT_LOCATIONS_HISTORY_RESPONSE_INVALID'),
         });
@@ -214,15 +242,16 @@ export function createTenantLocationSettingsApi({ apiClient } = {}) {
         throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_LOCATIONS_HISTORY_UNAVAILABLE');
       }
     },
-    async rollbackLocations({ expectedRevision, sourceRevision } = {}) {
+    async rollbackLocations({ schemaVersion = 1, expectedRevision, sourceRevision } = {}) {
+      locationSchemaVersion(schemaVersion);
       if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1 || !Number.isSafeInteger(sourceRevision) || sourceRevision < 1) {
         invalid('TENANT_LOCATIONS_REVISION_INVALID');
       }
       try {
         return wrapped(await apiClient.request(ROLLBACK_PATH, {
           method: 'POST',
-          body: { schemaVersion: 1, expectedRevision, sourceRevision },
-        }));
+          body: { schemaVersion, expectedRevision, sourceRevision },
+        }), schemaVersion);
       } catch (error) {
         throw adapterError(TenantLocationSettingsApiError, error, 'TENANT_LOCATIONS_ROLLBACK_FAILED');
       }
