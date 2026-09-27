@@ -1462,24 +1462,15 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
     date: requestDate, internal: '2', external: '1',
   });
   await expect(page.getByText('Kapazität passend')).toBeVisible();
-  await expect(page.getByRole('img', {
-    name: 'Schematische Asset-Verfügbarkeitsanzeige für Room A. Medienreferenzen im Katalog: 1.',
-  })).toBeVisible();
+  await expect(page.getByText('Dieses Raumbild ist nicht verfügbar.', { exact: false }).first()).toBeVisible();
   await expect(page.getByText('Ausstattung: Display, Whiteboard')).toBeVisible();
-  const roomPreviewTrigger = page.getByRole('button', { name: 'Asset-Verfügbarkeit anzeigen' });
+  const roomPreviewTrigger = page.getByRole('button', { name: 'Raumbilder anzeigen' });
   await roomPreviewTrigger.click();
-  const previewDialog = page.getByRole('dialog', { name: 'Asset-Verfügbarkeit · Room A' });
+  const previewDialog = page.getByRole('dialog', { name: 'Raumbilder · Room A' });
   await expect(previewDialog).toBeVisible();
-  await expect(previewDialog.getByRole('heading', { name: 'Grundriss-Referenz im Katalog' })).toBeVisible();
-  await expect(previewDialog.getByRole('heading', { name: 'Medienreferenzen im Katalog' })).toBeVisible();
-  await expect(previewDialog.getByRole('img', {
-    name: 'Schematischer Platzhalter: Grundriss-Referenz für Room A ist im Katalog hinterlegt',
-  })).toBeVisible();
-  await expect(previewDialog.getByRole('img', {
-    name: 'Schematischer Platzhalter: Medienreferenz 1 von 1 für Room A ist im Katalog hinterlegt',
-  })).toBeVisible();
+  await expect(previewDialog.getByRole('img')).toHaveCount(0);
   await expect(previewDialog).toContainText(
-    'Der aktuelle Katalog liefert keine Asset-Dateien; Referenzen werden weder angezeigt noch als URL geladen.',
+    'Ältere Referenzen müssen erneut hochgeladen werden.',
   );
   await expect(previewDialog).not.toContainText('floorplan-room-a');
   await expect(previewDialog).not.toContainText('room-a-front');
@@ -1835,14 +1826,46 @@ test('EMP-03: Room preview exposes explicit empty and fail-closed catalog-error 
   await page.locator('[data-view="employee"]').click();
   await openEmployeeRoomStep(page);
   await expect(page.getByText(
-    'Für diesen Raum sind im aktuellen Katalog keine Grundriss- oder Medienreferenzen hinterlegt.',
+    'Für diesen Raum sind keine Bilder oder Grundrisse hinterlegt.',
   )).toBeVisible();
-  await page.getByRole('button', { name: 'Asset-Verfügbarkeit anzeigen' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Asset-Verfügbarkeit · Room A' });
+  await page.getByRole('button', { name: 'Raumbilder anzeigen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Raumbilder · Room A' });
   await expect(dialog.getByText(
-    'Für diesen Raum sind im aktuellen Katalog keine Grundriss- oder Medienreferenzen hinterlegt.',
+    'Für diesen Raum sind keine Bilder oder Grundrisse hinterlegt.',
   )).toBeVisible();
   await expect(dialog.getByRole('img')).toHaveCount(0);
+});
+
+test('EMP-03: managed Room images load from same-origin API and keep dialog focus', async ({ page }) => {
+  const id = '11111111-1111-4111-8111-111111111111';
+  const catalog = catalogPayload();
+  catalog.catalog.rooms[0].floorplanAssetId = id;
+  catalog.catalog.rooms[0].mediaAssetIds = [id];
+  await installProductionApplicationFixture(page, { catalog });
+  const imageRequests = [];
+  await page.route(`**/api/v1/tenant/rooms/room-a/media/${id}`, async (route) => {
+    imageRequests.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/webp',
+      headers: { 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' },
+      body: Buffer.from('UklGRjoAAABXRUJQVlA4IC4AAADwAQCdASoCAAMAAUAmJaACdLoB+AAETAAA/uLgv996A3k//72C+9APegH9fAAA', 'base64'),
+    });
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  const preview = page.getByRole('button', { name: 'Raumbilder anzeigen' });
+  await preview.click();
+  const dialog = page.getByRole('dialog', { name: 'Raumbilder · Room A' });
+  const floorplan = dialog.getByRole('img', { name: 'Grundriss des Raums Room A' });
+  await expect(floorplan).toBeVisible();
+  await expect.poll(() => floorplan.evaluate((image) => image.complete && image.naturalWidth)).toBe(2);
+  await expect(dialog.getByText('Bild wird geladen …')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Schließen' }).click();
+  await expect(preview).toBeFocused();
+  expect(imageRequests.length).toBeGreaterThan(0);
+  expect(imageRequests.every((url) => url.startsWith(`${ORIGIN}/api/v1/tenant/rooms/room-a/media/`))).toBe(true);
 });
 
 test('EMP-03: remote Room asset references fail the complete catalog projection closed', async ({ page }) => {
@@ -1852,7 +1875,7 @@ test('EMP-03: remote Room asset references fail the complete catalog projection 
   await page.goto(`${ORIGIN}/`);
   await expect(page.locator('#viewTitle')).toHaveText('Sichere Anmeldung nicht verfügbar');
   await expect(page.locator('[data-view="employee"]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Asset-Verfügbarkeit anzeigen' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Raumbilder anzeigen' })).toHaveCount(0);
 });
 
 test('EMP-13: session lock closes cancellation confirmation without a transition write', async ({ page }) => {
@@ -1890,17 +1913,13 @@ test('EMP-03 EMP-04: English asset placeholders, Service, and Equipment states a
   await page.locator('[data-view="employee"]').click();
   await fillEmployeeSchedule(page);
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page.getByRole('img', {
-    name: 'Schematic asset-availability indicator for Room A. Media references in the catalogue: 1.',
-  })).toBeVisible();
-  const assetAvailabilityTrigger = page.getByRole('button', { name: 'Show asset availability' });
+  await expect(page.getByText('This room image is unavailable.', { exact: false }).first()).toBeVisible();
+  const assetAvailabilityTrigger = page.getByRole('button', { name: 'Show room images' });
   await assetAvailabilityTrigger.click();
-  const assetAvailabilityDialog = page.getByRole('dialog', { name: 'Asset availability · Room A' });
-  await expect(assetAvailabilityDialog.getByRole('img', {
-    name: 'Schematic placeholder: a floor-plan reference for Room A is configured in the catalogue',
-  })).toBeVisible();
+  const assetAvailabilityDialog = page.getByRole('dialog', { name: 'Room images · Room A' });
+  await expect(assetAvailabilityDialog.getByRole('img')).toHaveCount(0);
   await expect(assetAvailabilityDialog).toContainText(
-    'The current catalogue provides no asset files; references are neither shown nor loaded as URLs.',
+    'Older references must be uploaded again.',
   );
   await assetAvailabilityDialog.getByRole('button', { name: 'Close' }).click();
   await expect(assetAvailabilityTrigger).toBeFocused();
