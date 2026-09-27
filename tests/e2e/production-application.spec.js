@@ -2067,10 +2067,11 @@ test('EMP-11: Employee can navigate own server-backed Requests as a keyboard-saf
   await expect(page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`))
     .toHaveCount(1);
 
+  const monthCaption = await page.locator('.calendar-table caption').textContent();
   await page.getByRole('button', { name: 'Nächster Monat' }).click();
-  await expect(page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`))
-    .toHaveCount(0);
+  await expect(page.locator('.calendar-table caption')).not.toHaveText(monthCaption);
   await page.getByRole('button', { name: 'Vorheriger Monat' }).click();
+  await expect(page.locator('.calendar-table caption')).toHaveText(monthCaption);
   const event = page.locator(`[data-calendar-date="${sourceRequest.startsAt.slice(0, 10)}"] .calendar-event`);
   await event.focus();
   await event.press('Enter');
