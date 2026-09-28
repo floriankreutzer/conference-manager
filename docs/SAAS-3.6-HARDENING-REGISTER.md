@@ -123,14 +123,31 @@ that attached asset (SHA-256
 `eef8435c8cf69ce2bc87ef7d05c00aad17a8ae61305724e24ab5c18c6812a51e`)
 and revision 2 after the public Demo was reset twice to the canonical checksum
 `9ca1e544799627b72e64b0e3420fb342e35214e14c3506cf508eb22b56e27605`,
-revision 1 and zero assets. This copy-on-write branch validates preserved bytes;
-it does not substitute for a snapshot restore or a retention operation. Neon
-rejected a new image-bearing snapshot because the project's one snapshot slot
-is occupied by preserved incident evidence `snap-empty-pond-b1qdacme`. Keep
-H-034 open for snapshot/retention operational proof. The prior Neon restore
-branch was reconciled against current business aggregates, schema and revision
-counts, with no differences in the compared objects; transient writes outside
-that scope are not proven absent.
+revision 1 and zero assets. The copy-on-write branch preserved image bytes. With the Product/Security Owner's
+authorization, the old incident snapshot `snap-empty-pond-b1qdacme` was deleted after
+the incident branch was checked (40 migrations, two Requests, zero media). Neon
+then created the root-branch PITR snapshot `snap-round-field-b1bkoiq4` at
+`2026-09-28T16:15:35Z` and restored it to `br-billowing-mouse-b1yzglz7`.
+The restored database contains the expected 74-byte WebP asset with SHA-256
+`eef8435c8cf69ce2bc87ef7d05c00aad17a8ae61305724e24ab5c18c6812a51e`
+and Locations revision 2 with the reference. This proves a provider snapshot
+and database-level byte recovery for the Demo. It does not prove isolated HTTP
+delivery, retention deletion, Production RPO/RTO or costs.
+
+Operational caveat: Neon `restore_snapshot(finalize: true)` reassigned the live
+compute/default branch to the restored branch. The original compute
+`ep-solitary-thunder-b1ydpuiq` was returned to the original Demo branch
+`br-summer-rice-b1f8voyp`, which was restored as default `production`.
+The temporary replacement endpoint was deleted. Two subsequent hosted reset
+runs reported seed version `saas-3.6-shared-demo-v5`, canonical checksum
+`9ca1e544799627b72e64b0e3420fb342e35214e14c3506cf508eb22b56e27605`
+and repeatability, with zero live Demo media. The restored evidence branch
+remains without a compute. Do not use `finalize: true` to test an isolated
+restore of a live branch; first verify the provider's target/compute semantics.
+Keep H-034 open for operational retention and remaining acceptance evidence.
+The earlier Neon restore branch comparison covered current business aggregates,
+schema and revision counts; transient writes outside that scope were not
+proven absent.
 Production PostgreSQL selection and Production-specific
 restore/RPO/RTO evidence belong to the eventual Production release and do not
 block this Demo source/deployment integration. #182 still needs the named manual
