@@ -67,6 +67,8 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
   expect(response.status()).toBe(200);
   expect((await rebootstrapPromise).status()).toBe(200);
   const session = await establishCustomer(page.context());
+  expect(session.tenant.id).toBe(tenantId);
+  expect(session.demo.persona).toBe(persona);
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
   await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
   return session;
