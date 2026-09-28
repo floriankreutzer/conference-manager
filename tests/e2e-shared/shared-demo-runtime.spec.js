@@ -207,6 +207,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     );
     expect(readiness.readiness.checks.microsoft365Connected).toBe(false);
     await customerPage.locator('[data-view="tenantAdmin"]').click();
+    await customerPage.locator('[data-tenant-admin-section="microsoft365"]').click();
     await expect(customerPage.locator('[data-onboarding-step="connection"]')).toBeVisible();
     customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'conference_manager');
     await customerPage.locator('[data-view="manager"]').click();
