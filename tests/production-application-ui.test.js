@@ -854,5 +854,5 @@ test('all Customer authority failures delegate to one shell and context invalida
   assert.match(bookingEditor, /catch \(caught\) \{\s*if \(authorityFailureCode\(caught\)\)[\s\S]*if \(!dialog\.isConnected\) return;/);
   assert.match(analytics, /catch \(caught\) \{\s*if \(authorityFailureCode\(caught\)\)[\s\S]*if \(!isCurrent\(\)/);
   assert.match(demoBootstrap, /onAuthorityFailure: application\.shell\.invalidateAuthorityProjection/);
-  assert.match(demoSecurity, /catch \(error\) \{\s*if \(authorityFailureCode\(error\) && onAuthorityFailure\?\.\(error\)\) return;/);
+  assert.match(demoSecurity, /catch \(error\) \{\s*delete documentRoot\.documentElement\.dataset\.demoContextSwitching;\s*if \(authorityFailureCode\(error\) && onAuthorityFailure\?\.\(error\)\) return;/);
 });
