@@ -10,6 +10,7 @@ export function createManagerWorkspaceApplication({
   persistence,
   locations,
   catalogue,
+  demoWorklistEnabled = false,
   onAuthorityFailure = null,
 } = {}) {
   if (onAuthorityFailure !== null && typeof onAuthorityFailure !== 'function') {
@@ -45,6 +46,7 @@ export function createManagerWorkspaceApplication({
     workspaceRoot.appendChild(operationalRoot);
     appRoot.replaceChildren(workspaceRoot);
     await operational.renderManager();
+    if (!demoWorklistEnabled) return;
     try {
       const [requests, locationSnapshot, catalogueSnapshot] = await Promise.all([
         persistence.listRequests(),
