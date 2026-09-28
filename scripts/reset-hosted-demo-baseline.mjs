@@ -4,15 +4,15 @@ const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
 const RESET_PATH = '/api/v1/platform/demo/reset';
-const PINNED_RUNTIME_REF = 'eb451bcb8aac59c2c68e0d0b96ff2076f85f5cfb';
+const PINNED_RUNTIME_REF = '9f3086a6a66d5aa87f5633a437fbced130efb1bd';
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const SESSION_TIMEOUT_MS = 20_000;
 const RESET_TIMEOUT_MS = 75_000;
 const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
-export const CANONICAL_DEMO_CHECKSUM = '2869d16d01b34eb284a9a84f964a8b83e720b8ea780c65b65ae467a2f4c29b5f';
+export const CANONICAL_DEMO_CHECKSUM = '9ca1e544799627b72e64b0e3420fb342e35214e14c3506cf508eb22b56e27605';
 const HOSTED_BASELINES = Object.freeze({
   [PINNED_RUNTIME_REF]: Object.freeze({
-    seedVersion: 'saas-3.5-shared-demo-v1',
+    seedVersion: 'saas-3.6-shared-demo-v5',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
 });

@@ -10,8 +10,8 @@ import { hostedResetRequestIdPath } from '../scripts/hosted-demo-run-context.mjs
 
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
-const FRONTEND_REF = '456a8137ef26dca1e18298a36565d0dc0f6e50ef';
-const RUNTIME_REF = 'eb451bcb8aac59c2c68e0d0b96ff2076f85f5cfb';
+const FRONTEND_REF = 'df69ba384af0444d3582bec9a7f748f8a9db90c4';
+const RUNTIME_REF = '9f3086a6a66d5aa87f5633a437fbced130efb1bd';
 const CHECKSUM = CANONICAL_DEMO_CHECKSUM;
 
 function jsonResponse(body, { status = 200, cookie = null } = {}) {
@@ -37,7 +37,7 @@ function successfulCleanupResponses(firstChecksum = CHECKSUM, secondChecksum = f
       { csrfToken: 'b'.repeat(32) },
       { cookie: 'cm_platform_session=security_admin_session_1234' },
     ),
-    jsonResponse({ seedVersion: 'saas-3.5-shared-demo-v1', checksum: firstChecksum }),
+    jsonResponse({ seedVersion: 'saas-3.6-shared-demo-v5', checksum: firstChecksum }),
     jsonResponse(
       { csrfToken: 'c'.repeat(32) },
       { cookie: 'cm_platform_session=bootstrap_session_0987654321' },
@@ -46,7 +46,7 @@ function successfulCleanupResponses(firstChecksum = CHECKSUM, secondChecksum = f
       { csrfToken: 'd'.repeat(32) },
       { cookie: 'cm_platform_session=security_admin_session_4321' },
     ),
-    jsonResponse({ seedVersion: 'saas-3.5-shared-demo-v1', checksum: secondChecksum }),
+    jsonResponse({ seedVersion: 'saas-3.6-shared-demo-v5', checksum: secondChecksum }),
   ];
 }
 
@@ -85,7 +85,7 @@ test('hosted Demo failure cleanup proves a repeatable deterministic baseline wit
   const result = await resetHostedDemoBaseline({ fetchImpl, origin: PLATFORM_ORIGIN });
 
   assert.deepEqual(result, {
-    seedVersion: 'saas-3.5-shared-demo-v1',
+    seedVersion: 'saas-3.6-shared-demo-v5',
     checksum: CHECKSUM,
   });
   assert.equal(Object.isFrozen(result), true);
