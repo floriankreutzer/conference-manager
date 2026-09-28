@@ -7,6 +7,9 @@
 10049-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
 10050-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
 10050-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
+# GitHub Pages cannot set repository-controlled HTTP CSP frame-ancestors; the static portal has no application authority.
+# This accepts framing of the public Demo launchpad only, not framing of either Render application.
+10055-13	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
 10063-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
 10098	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
 10098	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$

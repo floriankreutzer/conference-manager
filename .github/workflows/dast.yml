@@ -10,6 +10,8 @@ on:
       - scripts/run-zap-baseline.sh
       - scripts/verify-zap-evidence-files.mjs
       - scripts/validate-zap-report.mjs
+      - scripts/verify-hosted-demo-deployment.mjs
+      - .github/workflows/hosted-demo-acceptance.yml
   push:
     branches:
       - main
@@ -20,11 +22,17 @@ on:
       - scripts/run-zap-baseline.sh
       - scripts/verify-zap-evidence-files.mjs
       - scripts/validate-zap-report.mjs
+      - scripts/verify-hosted-demo-deployment.mjs
+      - .github/workflows/hosted-demo-acceptance.yml
   schedule:
     - cron: '41 4 * * 2'
 
 permissions:
   contents: read
+
+env:
+  EXPECTED_FRONTEND_REF: 2aef3d49fbc4e1aefe52b2b4fcb4e8a2c88d44a9
+  EXPECTED_RUNTIME_REF: 3e53dc0a63e7b02b87a4970984fdf5f4304166eb
 
 concurrency:
   group: zap-baseline-${{ github.event_name }}-${{ github.ref }}
@@ -94,6 +102,10 @@ jobs:
             sleep 5
           done
 
+      - name: Verify live candidate identity before DAST
+        if: matrix.surface != 'static-launchpad'
+        run: node scripts/verify-hosted-demo-deployment.mjs
+
       - name: Prepare exact-alert verification
         env:
           ZAP_AUTOMATION_PLAN_PATH: zap-evidence/zap.yaml
@@ -135,6 +147,10 @@ jobs:
             --network host \
             "$image_id" \
             bash /zap/wrk/run-zap-baseline.sh
+
+      - name: Verify live candidate identity after DAST
+        if: ${{ always() && matrix.surface != 'static-launchpad' }}
+        run: node scripts/verify-hosted-demo-deployment.mjs
 
       - name: Verify link-free ZAP evidence files
         id: evidence_boundary
