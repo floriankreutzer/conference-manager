@@ -219,7 +219,18 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   }
 
   const ownedRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_A}`);
-  await expectStatus(ownedRequest, 200);
+  const ownedBooking = await expectStatus(ownedRequest, 200);
+  if (SEED_VERSION.startsWith('saas-3.7')) {
+    expect(ownedBooking.request).toMatchObject({
+      schemaVersion: 3,
+      details: {
+        title: 'Strategieabstimmung',
+        equipmentIds: ['display-86', 'video-system'],
+        catering: { packageSelection: { packageId: 'coffee-break' } },
+      },
+      allocations: { entries: [{ costCenterId: 'cc-1000' }] },
+    });
+  }
   const crossTenantRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_B}`);
   const concealed = await expectStatus(crossTenantRequest, 404);
   expect(concealed.error.code).toBe('NOT_FOUND');
