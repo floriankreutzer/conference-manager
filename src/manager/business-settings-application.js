@@ -531,7 +531,7 @@ export function createManagerBusinessSettingsApplication({
           nameField.node,
           ...(controls.description ? [field({
             id: `manager-room-description-${index}`,
-            label: t('managerSettings.catalogue.descriptionField'),
+            label: t('managerSettings.room.description'),
             control: controls.description,
             optional: true,
           })] : []),
