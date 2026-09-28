@@ -1032,6 +1032,22 @@ export function normalizeProductionRequestRoomContextEnvelope(value, expectedSch
     ? ['id', 'siteId', 'name', 'capacity', 'active', 'floor', 'accessibility', 'floorplanAssetId', 'mediaAssetIds', ...(structuredProjection ? ['guestPublicValues'] : [])]
     : ['id', 'siteId', 'name', 'capacity', 'active'], code);
   const site = exactObject(context.site, ['id', 'name', 'active', 'timeZone'], code);
+  if (structuredProjection) {
+    if (room.floor !== null || !Array.isArray(room.accessibility) || room.accessibility.length !== 0) {
+      invalid(code);
+    }
+    if (context.guestPresentation !== null) {
+      const legacy = context.guestPresentation;
+      const withheld = [
+        'publicTransport', 'arrival', 'parking', 'reception', 'building',
+        'visitorNotes', 'accessibility', 'wifiNetworkName',
+      ];
+      if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)
+        || withheld.some((key) => !Object.hasOwn(legacy, key) || legacy[key] !== null)) {
+        invalid(code);
+      }
+    }
+  }
   if (typeof room.active !== 'boolean' || typeof site.active !== 'boolean') invalid(code);
   if (site.timeZone !== null && !isProductionTimeZone(site.timeZone)) invalid(code);
   let accessibility = Object.freeze([]);

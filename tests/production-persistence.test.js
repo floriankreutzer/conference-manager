@@ -1173,6 +1173,11 @@ test('unsafe Request identifiers fail before transport', async () => {
 test('structured Guest context negotiates v3 and rejects prose-shaped public values', async () => {
   const fixture = guestRoomContextEnvelope();
   fixture.schemaVersion = 3;
+  fixture.currentRoomContext.guestPresentation = {
+    ...guestPresentation(), publicTransport: null, arrival: null, parking: null,
+    reception: null, building: null, visitorNotes: null, accessibility: null,
+    wifiNetworkName: null,
+  };
   fixture.currentRoomContext.guestPublicValues = {
     publicTransport: 'available', parking: 'not_available', arrival: 'reception',
     accessibilityFeatures: ['step_free_entry'],
@@ -1188,6 +1193,18 @@ test('structured Guest context negotiates v3 and rejects prose-shaped public val
   assert.deepEqual(harness.calls, [{
     path: `v1/requests/${REQUEST_ID}/room-context?projection=guest&schemaVersion=3`, options: {},
   }]);
+  for (const [target, key, value] of [
+    ['guestPresentation', 'arrival', 'Unlabeled door combination 1234'],
+    ['guestPresentation', 'wifiNetworkName', 'Private network'],
+    ['room', 'floor', 'B1'],
+    ['room', 'accessibility', ['Private access instructions']],
+  ]) {
+    const leaked = structuredClone(fixture);
+    leaked.currentRoomContext[target][key] = value;
+    await assert.rejects(createProductionPersistence({ apiClient: api(() => leaked).client })
+      .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' }),
+    (error) => error.code === 'PRODUCTION_REQUEST_ROOM_CONTEXT_INVALID');
+  }
   fixture.currentRoomContext.guestPublicValues.arrival = 'Door code 1234';
   await assert.rejects(createProductionPersistence({ apiClient: api(() => fixture).client })
     .loadRequestRoomContext(REQUEST_ID, { projection: 'guest' }),

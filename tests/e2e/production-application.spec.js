@@ -1132,7 +1132,13 @@ async function installProductionApplicationFixture(page, {
               ...(responseSchemaVersion === 3 ? { guestPublicValues: currentRoomContext.room.guestPublicValues ?? null } : {}),
             },
             site: currentRoomContext.site,
-            guestPresentation: currentRoomContext.guestPresentation ?? null,
+            guestPresentation: responseSchemaVersion === 3 && currentRoomContext.guestPresentation
+              ? {
+                ...currentRoomContext.guestPresentation,
+                publicTransport: null, arrival: null, parking: null, reception: null,
+                building: null, visitorNotes: null, accessibility: null, wifiNetworkName: null,
+              }
+              : currentRoomContext.guestPresentation ?? null,
             ...(responseSchemaVersion === 3 ? { guestPublicValues: currentRoomContext.guestPublicValues ?? null } : {}),
           }
           : {
