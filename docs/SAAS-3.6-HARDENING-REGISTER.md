@@ -89,20 +89,22 @@ H-034 source implementation and H-035 structured-value source implementation are
 integrated; source integration alone does not prove the remaining operational or
 release acceptance criteria.
 
-The actual shared Neon Demo is PostgreSQL 18 on project `divine-shape-86658581`.
-API PR #83 merged as `3094dadce88f5400856a4f42bda30c3c10ba0f65`, pinning
-both Render services to frontend `986c8f99dbd72687e3e8b5a400eec536e87ee7f4`.
-Render Blueprint sync deployed Customer `dep-dat6vrbtqb8s73a16qrg` and Platform
-`dep-dat6vrbtqb8s73a16qq0`; both served deployment identity documents match this
-pair and both readiness endpoints returned HTTP 200. The direct identity verifier
-passed. PR #208 pins this pair for hosted acceptance and three-origin DAST;
-OWASP ZAP run `36432201461` succeeded for Pages, Customer and Platform, and
-Hosted Demo Acceptance `36432201469` passed the cross-role journey, bounded
-reset and post-run identity check. CI `36432201595` passed quality, shared PostgreSQL Demo and the full
-Chromium/WebKit browser matrix. PR #208 merged as
-`4026e2e78628fb42aaec92f65f824b678ff51116` after all configured gates
-were green. Live ZAP passive scanning
-is not authenticated API authorization or Production penetration evidence.
+The shared Neon Demo is PostgreSQL 18 on project `divine-shape-86658581`.
+API PR #84 repaired a reproduced P1 Room-media attachment failure and merged as
+`77008f3e8ecdb32a32303c09e3c01a588827cf38`. The runtime Demo role has
+SELECT/INSERT but no UPDATE on media; Locations no longer takes an unnecessary
+media row lock. The PostgreSQL 18 integration test exercises that exact privilege
+boundary. Render deployed Customer `dep-dat92r3ncjis73djj3u0` and Platform
+`dep-dat92pbncjis73djitfg`, still serving frontend
+`986c8f99dbd72687e3e8b5a400eec536e87ee7f4`. Both deployment identities
+were verified. Frontend PR #210 merged as
+`e73c7cd0c20be9e508f1a16add2ecc6050699173`; it pins API
+`77008f3e8ecdb32a32303c09e3c01a588827cf38` in CI, Hosted Acceptance,
+DAST and reset, and adds a real PNG attachment/WebP delivery journey. CI
+`36449323696` passed quality, full Chromium/WebKit and shared PostgreSQL Demo;
+Hosted Acceptance `36449324041` passed with repeatable reset; three-origin
+OWASP ZAP `36449323727` passed. These gates validate the Demo pair, not
+Production penetration or human UI acceptance.
 
 Product Owner Florian Kreutzer accepted the bounded ADR-012 residual risk in
 inherited public Site/Room names, address, route and contact on 28 September
@@ -113,10 +115,23 @@ accepted. Unmigrated Guest prose stays withheld in v3.
 The explicit Security Owner disposition for H-035 remains pending; assuming the
 role is not the recorded risk decision or named release acceptance.
 
-H-034 is still open for an image-bearing backup/restore, retention and authorization
-exercise with actual managed bytes. The Neon Demo snapshot restore on 28 September
-also needs bounded write reconciliation; the preserved restore branch has no
-active compute endpoint. Production PostgreSQL selection and Production-specific
+H-034 now has an actual image-bearing Hosted positive: a synthetic PNG uploaded
+with HTTP 201, schema-v3 Room attachment returned HTTP 200/revision 2, and an
+authenticated read delivered 74 bytes of metadata-stripped WebP with
+`private, no-store`. The isolated Neon clone `br-soft-fire-b1kb93nu` preserved
+that attached asset (SHA-256
+`eef8435c8cf69ce2bc87ef7d05c00aad17a8ae61305724e24ab5c18c6812a51e`)
+and revision 2 after the public Demo was reset twice to the canonical checksum
+`9ca1e544799627b72e64b0e3420fb342e35214e14c3506cf508eb22b56e27605`,
+revision 1 and zero assets. This copy-on-write branch validates preserved bytes;
+it does not substitute for a snapshot restore or a retention operation. Neon
+rejected a new image-bearing snapshot because the project's one snapshot slot
+is occupied by preserved incident evidence `snap-empty-pond-b1qdacme`. Keep
+H-034 open for snapshot/retention operational proof. The prior Neon restore
+branch was reconciled against current business aggregates, schema and revision
+counts, with no differences in the compared objects; transient writes outside
+that scope are not proven absent.
+Production PostgreSQL selection and Production-specific
 restore/RPO/RTO evidence belong to the eventual Production release and do not
 block this Demo source/deployment integration. #182 still needs the named manual
 mobile/200% zoom, keyboard/focus, print and real Room-media review. #172 needs
