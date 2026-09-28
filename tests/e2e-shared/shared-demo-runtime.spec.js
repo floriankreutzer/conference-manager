@@ -193,6 +193,21 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect(customerTenants.tenants.map(({ id }) => id).sort()).toEqual(SEED_VERSION.startsWith('saas-3.7')
     ? [TENANT_A, TENANT_B, TENANT_C] : [TENANT_A, TENANT_B]);
+  if (SEED_VERSION.startsWith('saas-3.7')) {
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_C, 'tenant_admin');
+    expect(customerSession.tenant).toEqual({ id: TENANT_C, status: 'onboarding' });
+    const readiness = await expectStatus(
+      await customerContext.request.get(
+        `${CUSTOMER_ORIGIN}/api/v1/integrations/microsoft365/pilot-readiness`,
+      ),
+      200,
+    );
+    expect(readiness.readiness.checks.microsoft365Connected).toBe(false);
+    await customerPage.locator('[data-view="tenantAdmin"]').click();
+    await expect(customerPage.locator('[data-onboarding-step="connection"]')).toBeVisible();
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_A, 'employee');
+  }
+
 
   const ownedRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_A}`);
   await expectStatus(ownedRequest, 200);
