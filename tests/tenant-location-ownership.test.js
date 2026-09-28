@@ -60,6 +60,16 @@ test('Conference Manager projection preserves Site and Room technical identity e
   assert.deepEqual(projected.rooms[0].equipment, ['screen', 'camera']);
 });
 
+test('Conference Manager can complete an optional Room description without changing technical identity', () => {
+  const current = configuration();
+  current.rooms[0].description = null;
+  const projected = projectRoomBusinessConfiguration(current, [
+    roomBusiness({ description: 'Raum für kleine Workshops.' }),
+  ]);
+  assert.equal(projected.rooms[0].description, 'Raum für kleine Workshops.');
+  assert.equal(projected.rooms[0].siteId, current.rooms[0].siteId);
+});
+
 test('Conference Manager projection rejects technical-field injection and scope changes', () => {
   const current = configuration();
   assert.throws(
