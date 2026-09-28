@@ -83,6 +83,9 @@ export function createAppShell({
   }
 
   function invalidateAuthorityProjection(error) {
+    if (context.isDemoRuntime() && document.documentElement.dataset.demoContextSwitching === 'true') {
+      return false;
+    }
     const code = authorityFailureCode(error);
     if (!code || !context.invalidateAuthority(error)) return false;
     invalidatePendingRender();
