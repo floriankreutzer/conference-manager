@@ -10,8 +10,8 @@ import { hostedResetRequestIdPath } from '../scripts/hosted-demo-run-context.mjs
 
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
-const FRONTEND_REF = 'df69ba384af0444d3582bec9a7f748f8a9db90c4';
-const RUNTIME_REF = '9f3086a6a66d5aa87f5633a437fbced130efb1bd';
+const FRONTEND_REF = '2aef3d49fbc4e1aefe52b2b4fcb4e8a2c88d44a9';
+const RUNTIME_REF = '3e53dc0a63e7b02b87a4970984fdf5f4304166eb';
 const CHECKSUM = CANONICAL_DEMO_CHECKSUM;
 
 function jsonResponse(body, { status = 200, cookie = null } = {}) {
