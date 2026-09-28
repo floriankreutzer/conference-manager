@@ -5,6 +5,7 @@ const CUSTOMER_ORIGIN = `https://customer.demo.test:${EDGE_PORT}`;
 const PLATFORM_ORIGIN = `https://platform.demo.test:${EDGE_PORT}`;
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const TENANT_B = '20000000-0000-4000-8000-000000000002';
+const TENANT_C = '40000000-0000-4000-8000-000000000004';
 const REQUEST_A = '12000000-0000-4000-8000-000000000001';
 const REQUEST_B = '22000000-0000-4000-8000-000000000002';
 const BASELINE_NAME_A = 'Northwind Demo';
@@ -189,7 +190,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/demo/tenants`),
     200,
   );
-  expect(customerTenants.tenants.map(({ id }) => id).sort()).toEqual([TENANT_A, TENANT_B]);
+  expect(customerTenants.tenants.map(({ id }) => id).sort()).toEqual([TENANT_A, TENANT_B, TENANT_C]);
 
   const ownedRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_A}`);
   await expectStatus(ownedRequest, 200);
