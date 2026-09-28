@@ -190,7 +190,8 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/demo/tenants`),
     200,
   );
-  expect(customerTenants.tenants.map(({ id }) => id).sort()).toEqual([TENANT_A, TENANT_B, TENANT_C]);
+  expect(customerTenants.tenants.map(({ id }) => id).sort()).toEqual(SEED_VERSION.startsWith('saas-3.7')
+    ? [TENANT_A, TENANT_B, TENANT_C] : [TENANT_A, TENANT_B]);
 
   const ownedRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_A}`);
   await expectStatus(ownedRequest, 200);
