@@ -185,6 +185,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const platformPage = await platformContext.newPage();
   await platformPage.goto(PLATFORM_ORIGIN);
   await expect(platformPage.getByLabel('Simulierte Operator-Rolle')).toBeVisible();
+  const initialDirectory = await platformDirectory(platformContext);
+  expect(initialDirectory.items.find(({ tenantId }) => tenantId === TENANT_A)?.displayName)
+    .toBe(BASELINE_NAME_A);
   await expect(platformPage.getByText(BASELINE_NAME_A, { exact: true }).first()).toBeVisible();
 
   const customerTenants = await expectStatus(
