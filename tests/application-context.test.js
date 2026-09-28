@@ -499,7 +499,6 @@ for (const serverCode of ['FORBIDDEN', 'TENANT_UNAVAILABLE', null]) {
         };
       },
     });
-    // TENANT_UNAVAILABLE from a nested non-HTTP error is not a lifecycle proof.
     assert.equal(context.isAuthenticated(), false);
     assert.equal(context.canSwitchRole(), serverCode === 'TENANT_UNAVAILABLE');
     assert.deepEqual(context.demoTenants(), serverCode === 'TENANT_UNAVAILABLE'
