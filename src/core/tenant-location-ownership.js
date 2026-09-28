@@ -48,7 +48,7 @@ function additiveSites(current, edits) {
 
 function businessFields(value) {
   const input = record(value, 'TENANT_ROOM_BUSINESS_EDIT_INVALID');
-  const allowed = new Set(['id', ...ROOM_BUSINESS_FIELDS, 'guestPublicValues']);
+  const allowed = new Set(['id', ...ROOM_BUSINESS_FIELDS, 'guestPublicValues', 'description']);
   if (Object.keys(input).some((key) => !allowed.has(key))) {
     throw new TypeError('TENANT_ROOM_BUSINESS_EDIT_INVALID');
   }
@@ -57,6 +57,7 @@ function businessFields(value) {
   }
   return {
     ...Object.fromEntries(ROOM_BUSINESS_FIELDS.map((field) => [field, input[field]])),
+    ...(Object.hasOwn(input, 'description') ? { description: input.description } : {}),
     ...(Object.hasOwn(input, 'guestPublicValues') ? { guestPublicValues: input.guestPublicValues } : {}),
   };
 }
