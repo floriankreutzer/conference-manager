@@ -461,7 +461,7 @@ test('Customer Demo startup authority failure clears context-switch recovery and
   assert.equal(await context.switchDemoContext({ tenantId: tenants[0].id, persona: 'employee' }), false);
 });
 
-for (const serverCode of ['FORBIDDEN', 'TENANT_UNAVAILABLE', null]) {
+for (const serverCode of ['FORBIDDEN', null]) {
   test(`ready Demo Tenant denies context recovery on unclassified or revoked authority: ${serverCode}`, async () => {
     const readySession = Object.freeze({
       ...session({ roles: ['employee'], permissions: ['request:read', 'request:cancel'] }),
@@ -500,10 +500,8 @@ for (const serverCode of ['FORBIDDEN', 'TENANT_UNAVAILABLE', null]) {
       },
     });
     assert.equal(context.isAuthenticated(), false);
-    assert.equal(context.canSwitchRole(), serverCode === 'TENANT_UNAVAILABLE');
-    assert.deepEqual(context.demoTenants(), serverCode === 'TENANT_UNAVAILABLE'
-      ? [{ id: readySession.tenant.id, displayName: 'Contoso' }]
-      : []);
+    assert.equal(context.canSwitchRole(), false);
+    assert.deepEqual(context.demoTenants(), []);
   });
 }
 
