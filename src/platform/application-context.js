@@ -7,6 +7,7 @@ import {
 import { createProductionPersistence } from './production-persistence.js';
 import {
   PRODUCTION_AUTH_STATUS,
+  PRODUCTION_TENANT_STATUS,
   PRODUCTION_PERMISSION,
   PRODUCTION_TENANT_ROLE,
 } from './production-session.js';
@@ -190,6 +191,9 @@ export function createApplicationContextFromState({
     isAuthenticated() {
       return Boolean(trustedSession);
     },
+    hasActiveTenant() {
+      return trustedSession?.tenant?.status === PRODUCTION_TENANT_STATUS.ACTIVE;
+    },
     canSwitchRole() {
       return canSwitchDemoContext();
     },
@@ -219,7 +223,8 @@ export function createApplicationContextFromState({
       return catalog;
     },
     async reloadReferenceData() {
-      if (!trustedSession || !serverPersistence) return catalog;
+      if (!trustedSession || !serverPersistence
+        || trustedSession.tenant.status !== PRODUCTION_TENANT_STATUS.ACTIVE) return catalog;
       const revision = catalogRefreshRevision + 1;
       catalogRefreshRevision = revision;
       const refreshed = await loadBoundedProjection(
@@ -236,7 +241,8 @@ export function createApplicationContextFromState({
       return requests;
     },
     async refreshRequests() {
-      if (!trustedSession || !serverPersistence) return requests;
+      if (!trustedSession || !serverPersistence
+        || trustedSession.tenant.status !== PRODUCTION_TENANT_STATUS.ACTIVE) return requests;
       const revision = requestRefreshRevision + 1;
       requestRefreshRevision = revision;
       const refreshed = immutableArray(await loadBoundedProjection(
@@ -247,7 +253,8 @@ export function createApplicationContextFromState({
       return requests;
     },
     async refreshNotifications() {
-      if (!trustedSession || !serverPersistence) return notifications;
+      if (!trustedSession || !serverPersistence
+        || trustedSession.tenant.status !== PRODUCTION_TENANT_STATUS.ACTIVE) return notifications;
       const revision = notificationRefreshRevision + 1;
       notificationRefreshRevision = revision;
       const refreshed = immutableArray(await loadBoundedProjection(
@@ -331,7 +338,10 @@ export async function createApplicationContext({
   if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED && !authentication?.runtime?.apiClient) {
     status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
     session = null;
-  } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
+  } else if (
+    status === PRODUCTION_AUTH_STATUS.AUTHENTICATED
+    && session?.tenant?.status === PRODUCTION_TENANT_STATUS.ACTIVE
+  ) {
     const persistence = createProductionPersistence({ apiClient: authentication.runtime.apiClient });
     try {
       const [required, optional] = await Promise.all([
