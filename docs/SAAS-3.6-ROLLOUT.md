@@ -1,5 +1,12 @@
 # SaaS 3.6 Request contract rollout
 
+> Historical rollout plan from 27 September 2026. The draft PRs, schema 38,
+> candidate hashes, pending migrations and deployment instructions below have
+> been superseded by the integrated status in
+> `SAAS-3.6-HARDENING-REGISTER.md` (schema 40 and deployed API/frontend pair).
+> Do not use this plan as the current release checklist; #170 and #182 track
+> the remaining validation and named acceptance gates.
+
 ## Current candidate state
 
 The last fully browser-executed frontend draft PR #201 head

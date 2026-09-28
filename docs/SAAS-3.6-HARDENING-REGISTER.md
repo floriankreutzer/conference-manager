@@ -1,6 +1,6 @@
 # SaaS 3.6 hardening register
 
-Status date: 2026-09-26
+Current disposition: 2026-09-28. Individual finding rows preserve their earlier candidate evidence; the current release evidence is below.
 Parent roadmap: #164
 Hardening work package: #171
 Security-regression work package: #168
@@ -68,71 +68,62 @@ misrepresented as Demo discoveries.
 | H-039 | High / P1 command authorization | Already-confirmed Request retry | security-relevant | An Employee who may read their own already Confirmed Request could submit the `confirm` command with the predecessor version and receive a success-equivalent response despite lacking the Manager `request:manage` entitlement; the confirmation service's already-target branch used read authorization. A direct transition correctly denied that same principal. | API `d5203d1` requires Manager `request:manage` reconciliation authority even on already-Confirmed state and fails predecessor-version commands closed; real-policy and HTTP Employee-denial/Manager-current-version tests are included. | **FIXED LOCALLY — 786/786 API gates passed; PostgreSQL 18/exact-head evidence pending** |
 | H-040 | High / P1 booking-provider race | Concurrent final confirmation and compensation | production-defect / security-relevant | Two final confirmations can share a deterministic provider event. A losing Room-compare-and-set compensation or a concurrent write-disabled pre-confirmation cleanup could delete that event before the write-enabled winner commits, leaving Confirmed without a live Calendar event. A held repro observed `providerEventActive=false` after winner success. | API `88dd4a0` fences compensation with the Request row, active reference and per-reference advisory lock. `f508b47` adds a dedicated version/status-fenced pre-confirm cleanup: `active→compensating→compensated` before the external Delete; after Room check the successful Confirm atomically records Request revision, cleanup/audit and `compensated→cancelled`. `e71b8e2` canonicalizes Revision-Watermark→Tenant-Audit lock order across all six Request writers, including pending-change supersede. Held unit races and barrier-based two-client PostgreSQL tests for both provider orderings and both tenant-wide advisory contention paths are committed, but the latter were not executed without PostgreSQL 18. Ordinary cancellation remains separate. | **FIXED LOCALLY — two-client PostgreSQL 18/provider integration, exact-head CI/review and deployed evidence required** |
 
-### Current repository-controlled disposition
+### Current repository-controlled disposition (28 September 2026)
 
-ADR-012 (`ADR-012-SAAS36-ROOM-MEDIA-AND-GUEST-PUBLIC-CONTENT.md`) accepts the H-034/H-035
-product direction. The managed-media and structured-public-content implementations and
-their operational, security and acceptance evidence remain open.
+The finding rows above preserve the diagnosis, severity, Production classification and
+candidate evidence at the time of each investigation. Statements such as “fixed locally”,
+“draft PR” and “merge pending” in those rows are historical and do not describe current
+integration status. Do not use an old status cell to infer that its later protected merge,
+deployment, hosted test or risk decision has occurred.
 
-The branch-progress wording in the earlier status cells is historical. The last fully
-browser-executed frontend draft PR #201 head was `5b47eb6bd544dac6fbfdebc14768f4fa005f4f96`;
-its successor includes the nested-form correction and this evidence update. API draft PR #78 points to
-`8c40290ae984433b8a69a7ef13ce842dea64c50e`. The frontend integrates Employee/Manager,
-Equipment, attribution, Guest, H-036 response binding and H-037 authority invalidation.
-The API candidate includes schema 38, H-038/H-039/H-040, known-label correction and
-a bounded H-034 image-decoding/re-encoding adapter.
-The adapter accepts PNG/JPEG/WebP up to 2 MiB and 4 megapixels, rejects format mismatch
-and animation, and emits metadata-free WebP. API `npm run check` (788/788 tests) and
-`npm run audit` (0 vulnerabilities) passed locally on 2026-09-26. API exact-pair CI
-`36265393728` passed its quality, PostgreSQL 18 migration/persistence/concurrency and
-shared-Demo browser jobs against the pinned frontend candidate of that run. Asset persistence,
-Tenant quota, attachment authorization, delivery and real frontend rendering do not yet exist.
-These are draft PR candidates, not final merged or deployed release references.
+ADR-012 accepts managed PostgreSQL Room media and credential-incapable structured Guest
+values. Frontend PR #202 merged as `986c8f99dbd72687e3e8b5a400eec536e87ee7f4`
+after quality/shared PostgreSQL Demo/Chromium/WebKit, Dependency Review and Secret Scan
+succeeded. Its final response adapter rejects non-null legacy Guest prose in schema-v3
+Room context. API PR #78 merged as `05bdc1d123dcfa163e1e3ce44599c937ffb2a3eb`
+with schema 039 Room media; API PR #80 merged as
+`9a473937383f382a8e106e22cbfa397edb5cf11a` with schema 040 structured Guest
+values. API PR #81 merged the bounded retention procedure and operations runbook.
+API #69–#71 and canonical enabling contracts #185–#187 are closed as implemented.
+H-034 source implementation and H-035 structured-value source implementation are
+integrated; source integration alone does not prove the remaining operational or
+release acceptance criteria.
 
-- The PR candidates contain the restored Employee, Manager, Equipment, attribution and Guest
-  Information implementations, but H-034 remains an unresolved repository-controlled EMP-03 gap.
-- H-033/H-036/H-037/H-038/H-039/H-040 and known H-035 label bypasses have candidate fixes;
-  the API two-client PostgreSQL 18 tests ran in CI `36265393728`. Product Owner
-  acceptance of the older public-field residual risk was recorded on 2026-09-28;
-  H-035 remains open for structured-values integration, Security Owner release
-  disposition and final evidence. No finite label scanner proves unlabeled secrets
-  absent. Protected review, final deployment and human acceptance remain absent.
-- FE CI `36269943540` passed quality/shared PostgreSQL Demo but failed two of 262
-  Chromium/WebKit cases (one mirrored Manager 320px form-reflow cause). The subsequent
-  frontend candidate constrains the nested Manager form track; exact-head CI is pending. API PR #78's
-  `render.yaml` still pins older frontend `7b17a2c`; a passing CI pair is not a deployed pair.
-  Render Customer and Platform Demo are both live on API `eb451bcb8aac59c2c68e0d0b96ff2076f85f5cfb`
-  (deploys `dep-dasfq1d9fdbs73d8h1mg` and `dep-dasfpqvpn0mc7387m4og`, 27 September 2026).
-  The release must
-  use an ordered compatibility handoff and record the exact pair through workflow inputs and
-  post-deployment identity; reciprocal commit-SHA pins cannot be fabricated as a hash cycle.
-- Draft PR publication and green candidate jobs are not release evidence. Protected review,
-  merges, deployments and Production migrations must follow the configured release workflows.
-- The public readiness markers remain `in-validation`; #182, #170 and the SaaS 3.6 milestone remain
-  open until H-034/H-035 and all outstanding H-040 external evidence, exact-head, deployment and
-  human-acceptance gates below are complete.
+The actual shared Neon Demo is PostgreSQL 18 on project `divine-shape-86658581`.
+API PR #83 merged as `3094dadce88f5400856a4f42bda30c3c10ba0f65`, pinning
+both Render services to frontend `986c8f99dbd72687e3e8b5a400eec536e87ee7f4`.
+Render Blueprint sync deployed Customer `dep-dat6vrbtqb8s73a16qrg` and Platform
+`dep-dat6vrbtqb8s73a16qq0`; both served deployment identity documents match this
+pair and both readiness endpoints returned HTTP 200. The direct identity verifier
+passed. PR #208 pins this pair for hosted acceptance and three-origin DAST;
+OWASP ZAP run `36432201461` succeeded for Pages, Customer and Platform, and
+Hosted Demo Acceptance `36432201469` passed the cross-role journey, bounded
+reset and post-run identity check. CI `36432201595` passed quality, shared PostgreSQL Demo and the full
+Chromium/WebKit browser matrix. PR #208 merged as
+`4026e2e78628fb42aaec92f65f824b678ff51116` after all configured gates
+were green. Live ZAP passive scanning
+is not authenticated API authorization or Production penetration evidence.
 
-## Current candidate evidence
+Product Owner Florian Kreutzer accepted the bounded ADR-012 residual risk in
+inherited public Site/Room names, address, route and contact on 28 September
+(Confluence ADR-012 v3, page 12451843). As the sole developer he also assumes
+Security Owner responsibility. The owning Tenant Admin/Conference Manager must
+withhold or correct unsafe legacy display values; known credentials are not
+accepted. Unmigrated Guest prose stays withheld in v3.
+The explicit Security Owner disposition for H-035 remains pending; assuming the
+role is not the recorded risk decision or named release acceptance.
 
-| Candidate | Local state | Evidence still required |
-| --- | --- | --- |
-| Frontend | Draft PR #201; preceding executable head `5b47eb6b` had exact-pair CI `36269943540`: quality/shared Demo green, 260/262 browser cases passed; nested Manager form correction pending CI | Green exact-head full browser matrix and protected review; H-034/H-035 real UI |
-| API | Draft PR #78 `8c40290a`, schema 38; exact-pair CI `36265393728` passed quality, PostgreSQL 18 and shared-Demo browsers | H-034/H-035 implementation with new database/browser evidence, protected review and deployment |
-| Paired release | Immutable CI pair available; live Customer/Platform Demo manually advanced to API `eb451bcb` on 27 September while retaining frontend `456a8137` | Reviewed compatibility-first handoff, exact deployment identities, protected review/merge, Hosted Acceptance and live three-surface DAST |
-| Product acceptance | Readiness is `in-validation` | Implement accepted ADR-012 managed media and structured public values; named human #182 acceptance for keyboard/focus, 200% reflow, responsive states, dialogs, print and real Room media |
-
-Local Node checks remain candidate diagnostics. Chromium/WebKit and PostgreSQL 18 evidence above
-is limited to the exact named CI runs; it cannot validate newer heads, missing product contracts,
-actual Render deployments or human acceptance. Record the final documentation successor SHA
-and its executed remote results before integration.
-
-The REG-01/02/03 browser titles now identify existing authorized Tenant Admin, Manager-absence and
-dual-role journeys. `e3d55a5` adds direct Tenant Admin entry, reload and Demo role-loss coverage;
-`ead50a7` adds Production reload role-loss and dual-role/Manager-absence checks. These cases ran
-on the prior PR head in both browser engines. Residual role-gate evidence is still required for other
-direct/deep entry and reload, live stale-capability removal after a Production role change, the
-complete Manager report/Room-price absence matrix and same-Tenant non-owner Request access.
-Backend authorization negatives remain complementary and do not substitute for those browser outcomes.
+H-034 is still open for an image-bearing backup/restore, retention and authorization
+exercise with actual managed bytes. The Neon Demo snapshot restore on 28 September
+also needs bounded write reconciliation; the preserved restore branch has no
+active compute endpoint. Production PostgreSQL selection and Production-specific
+restore/RPO/RTO evidence belong to the eventual Production release and do not
+block this Demo source/deployment integration. #182 still needs the named manual
+mobile/200% zoom, keyboard/focus, print and real Room-media review. #172 needs
+Product Owner acceptance. #169 must finish current GitHub/Confluence reconciliation,
+and #170 remains the final pre-SaaS-4 gate. Public readiness remains
+`in-validation`; do not close the milestone from a successful source merge or
+hosted CI run alone.
 
 ## Historical scanner and CI evidence (superseded for current candidates)
 
@@ -278,7 +269,13 @@ hosted evidence.
 - PR review findings are first-class hardening findings and are resolved only after fix + appropriate
   regression/progression/negative evidence.
 
-## Remaining delivery gates before #170
+## Historical delivery checklist (superseded)
+
+The numbered list below records the pre-merge plan. It is not the current
+release checklist. Use the integrated status above and the open issues #169,
+#170, #172 and #182 for remaining Demo gates, including the explicit H-035
+Security Owner disposition. The rollout document's draft-candidate instructions
+are historical as well.
 
 1. Execute both H-040 provider races and tenant-wide lock-order cases on PostgreSQL 18.
    Implement H-034 through the ADR-012 managed-media contract and UI; add safe-delivery
