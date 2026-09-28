@@ -209,12 +209,11 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     await customerPage.locator('[data-view="manager"]').click();
     const tasks = customerPage.locator('[data-demo-manager-task]');
     await expect(tasks).toHaveCount(7);
-    await expect(customerPage.locator('[data-demo-manager-task="pending-requests"]'))
-      .toContainText('3');
-    await expect(customerPage.locator('[data-demo-manager-task="room-description"]')).toBeVisible();
-    await expect(customerPage.locator('[data-demo-manager-task="room-price"]')).toBeVisible();
-    await expect(customerPage.locator('[data-demo-manager-task="room-media"]')).toBeVisible();
-    await expect(customerPage.locator('[data-demo-manager-task="catering"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task^="request:"]')).toHaveCount(3);
+    await expect(customerPage.locator('[data-demo-manager-task="room:description"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="room:price"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="room:image"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="catalogue:catering"]')).toBeVisible();
     customerSession = await switchCustomerThroughUi(customerPage, TENANT_A, 'employee');
     await expect(customerPage.locator('[data-demo-manager-tasks]')).toHaveCount(0);
   }
