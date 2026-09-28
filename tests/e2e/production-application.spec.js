@@ -120,7 +120,7 @@ function locationSettingsPayload() {
       configuration: {
         sites: [{
           id: 'berlin', name: 'Berlin', active: true, timeZone: 'Europe/Berlin', address: null,
-          guestInformation: null,
+          guestInformation: null, guestPublicValues: null,
         }],
         rooms: [{
           id: 'room-a',
@@ -134,7 +134,7 @@ function locationSettingsPayload() {
           serviceIds: [],
           cateringPackageIds: [],
           floorplanAssetId: null,
-          mediaAssetIds: [],
+          mediaAssetIds: [], guestPublicValues: null,
         }],
       },
       providerContext: [],
@@ -149,8 +149,17 @@ function locationSettingsProjection(settings, schemaVersion) {
     configuration: {
       ...settings.configuration,
       sites: settings.configuration.sites.map((site) => {
-        if (schemaVersion === 2) return structuredClone(site);
-        const { guestInformation: omitted, ...legacy } = site;
+        if (schemaVersion === 3) return structuredClone(site);
+        if (schemaVersion === 2) {
+          const { guestPublicValues: omitted, ...v2 } = site;
+          return v2;
+        }
+        const { guestInformation: omitted, guestPublicValues: omittedPublic, ...legacy } = site;
+        return legacy;
+      }),
+      rooms: settings.configuration.rooms.map((room) => {
+        if (schemaVersion === 3) return structuredClone(room);
+        const { guestPublicValues: omitted, ...legacy } = room;
         return legacy;
       }),
     },
@@ -458,7 +467,7 @@ async function installProductionApplicationFixture(page, {
     }
 
     if (url.pathname === '/api/v1/tenant/settings/locations' && request.method() === 'GET') {
-      const schemaVersion = url.searchParams.get('schemaVersion') === '2' ? 2 : 1;
+      const schemaVersion = Number(url.searchParams.get('schemaVersion') || 1);
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
@@ -488,13 +497,19 @@ async function installProductionApplicationFixture(page, {
       const guestBySite = new Map(locationSettings.configuration.sites.map((site) => [
         site.id, site.guestInformation,
       ]));
-      const configuration = body.schemaVersion === 2
+      const configuration = body.schemaVersion === 3
         ? body.configuration
         : {
           ...body.configuration,
           sites: body.configuration.sites.map((site) => ({
             ...site,
             guestInformation: guestBySite.get(site.id) ?? null,
+            guestPublicValues: locationSettings.configuration.sites
+              .find((existing) => existing.id === site.id)?.guestPublicValues ?? null,
+          })),
+          rooms: body.configuration.rooms.map((room) => ({
+            ...room, guestPublicValues: locationSettings.configuration.rooms
+              .find((existing) => existing.id === room.id)?.guestPublicValues ?? null,
           })),
         };
       locationSettings = {
@@ -1096,7 +1111,7 @@ async function installProductionApplicationFixture(page, {
         : requestRoomContext;
       const projection = url.searchParams.get('projection');
       const responseSchemaVersion = requestRoomContextSchemaVersion
-        ?? (projection === 'guest' ? 2 : 1);
+        ?? (projection === 'guest' ? 3 : 1);
       if (currentRoomContext !== null) {
         const commonRoom = {
           id: currentRoomContext.room.id,
@@ -1105,18 +1120,26 @@ async function installProductionApplicationFixture(page, {
           capacity: currentRoomContext.room.capacity,
           active: currentRoomContext.room.active,
         };
-        currentRoomContext = responseSchemaVersion === 2
+        currentRoomContext = responseSchemaVersion >= 2
           ? {
             locationsRevision: currentRoomContext.locationsRevision,
             room: {
               ...commonRoom,
-              floor: currentRoomContext.room.floor ?? null,
-              accessibility: currentRoomContext.room.accessibility ?? [],
+              floor: responseSchemaVersion === 3 ? null : currentRoomContext.room.floor ?? null,
+              accessibility: responseSchemaVersion === 3 ? [] : currentRoomContext.room.accessibility ?? [],
               floorplanAssetId: currentRoomContext.room.floorplanAssetId ?? null,
               mediaAssetIds: currentRoomContext.room.mediaAssetIds ?? [],
+              ...(responseSchemaVersion === 3 ? { guestPublicValues: currentRoomContext.room.guestPublicValues ?? null } : {}),
             },
             site: currentRoomContext.site,
-            guestPresentation: currentRoomContext.guestPresentation ?? null,
+            guestPresentation: responseSchemaVersion === 3 && currentRoomContext.guestPresentation
+              ? {
+                ...currentRoomContext.guestPresentation,
+                publicTransport: null, arrival: null, parking: null, reception: null,
+                building: null, visitorNotes: null, accessibility: null, wifiNetworkName: null,
+              }
+              : currentRoomContext.guestPresentation ?? null,
+            ...(responseSchemaVersion === 3 ? { guestPublicValues: currentRoomContext.guestPublicValues ?? null } : {}),
           }
           : {
             locationsRevision: currentRoomContext.locationsRevision,
@@ -2600,18 +2623,23 @@ test('confirmed inactive Room print uses the authoritative context label and tim
   await expect(popup.locator('body')).toContainText(expectedStart);
 });
 
-test('EMP-14 EMP-15 API-02 confirmed Request renders every safe Guest field in the dialog and detached print', async ({ page }) => {
+test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy prose', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
-    requestRoomContextSchemaVersion: 2,
+    requestRoomContextSchemaVersion: 3,
     requestRoomContext: {
       locationsRevision: 1,
       room: {
         id: 'room-a', siteId: 'berlin', name: 'Room A', capacity: 12, active: true,
         floor: '1', floorplanAssetId: null, mediaAssetIds: [],
         accessibility: ['Step-free access'],
+        guestPublicValues: { floorNumber: 1, accessibilityFeatures: ['step_free_entry'] },
       },
       site: {
         id: 'berlin', name: 'Berlin', active: true, timeZone: 'Europe/Berlin',
+      },
+      guestPublicValues: {
+        publicTransport: 'available', parking: 'available', arrival: 'reception',
+        accessibilityFeatures: ['lift'],
       },
       guestPresentation: {
         address: {
@@ -2644,16 +2672,19 @@ test('EMP-14 EMP-15 API-02 confirmed Request renders every safe Guest field in t
   await expect(dialog.getByText('Ende', { exact: true })).toBeVisible();
   await expect(dialog).not.toContainText(confirmedRequestFixture().startsAt);
   await expect(dialog).toContainText('Etage');
+  await expect(dialog).toContainText('Stufenloser Zugang');
+  await expect(dialog).toContainText('Aufzug');
+  await expect(dialog).toContainText('An der Rezeption anmelden');
   await expect(dialog).toContainText('1');
-  await expect(dialog).toContainText('Step-free access');
-  await expect(dialog).toContainText('S-Bahn Hauptbahnhof');
-  await expect(dialog).toContainText('Use the south entrance');
-  await expect(dialog).toContainText('Visitor parking P2');
-  await expect(dialog).toContainText('Show a photo ID at reception');
-  await expect(dialog).toContainText('Building B, second floor');
-  await expect(dialog).toContainText('Please arrive 15 minutes early');
+  await expect(dialog).not.toContainText('Step-free access');
+  await expect(dialog).not.toContainText('S-Bahn Hauptbahnhof');
+  await expect(dialog).not.toContainText('Use the south entrance');
+  await expect(dialog).not.toContainText('Visitor parking P2');
+  await expect(dialog).not.toContainText('Show a photo ID at reception');
+  await expect(dialog).not.toContainText('Building B, second floor');
+  await expect(dialog).not.toContainText('Please arrive 15 minutes early');
   await expect(dialog).toContainText('Zugangsdaten bei Ankunft');
-  await expect(dialog).toContainText('Conference Guest');
+  await expect(dialog).not.toContainText('Conference Guest');
   await expect(dialog).toContainText('events@example.test');
   await expect(dialog.getByRole('link', { name: 'Route öffnen' }))
     .toHaveAttribute('href', 'https://www.openstreetmap.org/');
@@ -2662,10 +2693,11 @@ test('EMP-14 EMP-15 API-02 confirmed Request renders every safe Guest field in t
   const popupPromise = page.waitForEvent('popup');
   await dialog.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
   const popup = await popupPromise;
-  await expect(popup.locator('body')).toContainText('Use the south entrance');
-  await expect(popup.locator('body')).toContainText('Building B, second floor');
-  await expect(popup.locator('body')).toContainText('Please arrive 15 minutes early');
-  await expect(popup.locator('body')).toContainText('Conference Guest');
+  await expect(popup.locator('body')).not.toContainText('Use the south entrance');
+  await expect(popup.locator('body')).not.toContainText('Building B, second floor');
+  await expect(popup.locator('body')).not.toContainText('Please arrive 15 minutes early');
+  await expect(popup.locator('body')).not.toContainText('Conference Guest');
+  await expect(popup.locator('body')).toContainText('An der Rezeption anmelden');
   await expect(popup.getByRole('link', { name: 'Route öffnen' }))
     .toHaveAttribute('href', 'https://www.openstreetmap.org/');
   await expect(popup.locator('body')).not.toContainText(/Passwort|provider/i);
@@ -2683,7 +2715,7 @@ test('EMP-14 EMP-15 API-02 confirmed Request renders every safe Guest field in t
 test('API-02 print popup is reserved inside the click before Guest context resolves', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     holdRoomContext: true,
-    requestRoomContextSchemaVersion: 2,
+    requestRoomContextSchemaVersion: 3,
     requestRoomContext: {
       locationsRevision: 1,
       room: {
@@ -3234,7 +3266,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   expect(fixture.locationWrites[0]).toMatchObject({
     csrf: CSRF_TOKEN,
     body: {
-      schemaVersion: 1,
+      schemaVersion: 3,
       expectedRevision: 1,
       configuration: {
         sites: [{
@@ -3311,7 +3343,7 @@ test('H-034 Conference Manager uploads a private Room floorplan and attaches it 
   }
   expect(fixture.locationWrites).toHaveLength(1);
   expect(fixture.locationWrites[0].body).toMatchObject({
-    schemaVersion: 1,
+    schemaVersion: 3,
     expectedRevision: 1,
     configuration: {
       rooms: [{
@@ -3427,7 +3459,7 @@ for (const [status, message] of [
 ]) {
   test(`Employee refresh ${status} clears Requests, Guest, Print and mutation authority`, async ({ page }) => {
     const fixture = await installProductionApplicationFixture(page, {
-      requestRoomContextSchemaVersion: 2,
+      requestRoomContextSchemaVersion: 3,
       requestRoomContext: {
         locationsRevision: 1,
         room: {

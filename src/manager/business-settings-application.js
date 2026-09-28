@@ -1,3 +1,4 @@
+import { createPublicGuestValueEditor } from '../core/public-guest-value-editor.js';
 import { projectRoomBusinessConfiguration } from '../core/tenant-location-ownership.js';
 import { currency as tenantCurrency, formatDateTime, t } from '../core/i18n.js';
 import { button, clear, el, field, showToast } from '../core/ui.js';
@@ -16,7 +17,7 @@ const COLLECTION_LIMITS = Object.freeze({
 const PACKAGE_VARIANT_LIMIT = 20;
 const ROOM_BUSINESS_FIELDS = Object.freeze([
   'name', 'capacity', 'active', 'floor', 'equipment', 'accessibility', 'serviceIds',
-  'cateringPackageIds', 'floorplanAssetId', 'mediaAssetIds',
+  'cateringPackageIds', 'floorplanAssetId', 'mediaAssetIds', 'guestPublicValues',
 ]);
 
 function validLocationsAdapter(value) {
@@ -472,7 +473,7 @@ export function createManagerBusinessSettingsApplication({
     let history;
     try {
       [snapshot, history] = await Promise.all([
-        locations.loadLocations(),
+        locations.loadLocations({ schemaVersion: 3 }),
         locations.listLocationsHistory({ limit: 20 }),
       ]);
     } catch (error) {
@@ -511,6 +512,7 @@ export function createManagerBusinessSettingsApplication({
         floorplanAssetId: textInput(room.floorplanAssetId, { maxlength: '128' }),
         mediaAssetIds: textInput(room.mediaAssetIds.join(', '), { maxlength: '4000' }),
       };
+      const publicGuest = createPublicGuestValueEditor(room.guestPublicValues, index, 'room');
       const site = siteById.get(room.siteId);
       const node = el('fieldset', { className: 'card', dataset: { managerRoomId: room.id } }, [
         el('legend', { text: room.name }),
@@ -534,6 +536,7 @@ export function createManagerBusinessSettingsApplication({
           field({ id: `manager-room-active-${index}`, label: t('managerSettings.room.active'), control: controls.active }),
         ]),
       ]);
+      node.appendChild(publicGuest.node);
       if (typeof locations.uploadRoomMedia === 'function') {
         const uploadPanel = el('section', { className: 'room-asset-panel' });
         uploadPanel.appendChild(el('h3', { text: t('managerSettings.room.mediaUploadHeading') }));
@@ -563,7 +566,7 @@ export function createManagerBusinessSettingsApplication({
                   : { mediaAssetIds: [...entry.mediaAssetIds, assetId] }) : {}),
               }));
               const configuration = projectRoomBusinessConfiguration(snapshot.configuration, edits);
-              await locations.saveLocations({ expectedRevision: snapshot.revision, configuration });
+              await locations.saveLocations({ schemaVersion: 3, expectedRevision: snapshot.revision, configuration });
               if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
               showToast(t('managerSettings.room.mediaUploaded'));
               await renderManagerSettings({ focusHeading: true });
@@ -584,7 +587,7 @@ export function createManagerBusinessSettingsApplication({
         }
         node.appendChild(uploadPanel);
       }
-      return { room, controls, nameField, node };
+      return { room, controls, nameField, publicGuest, node };
     });
     const form = el('form');
     editors.forEach((editor) => form.appendChild(editor.node));
@@ -596,7 +599,7 @@ export function createManagerBusinessSettingsApplication({
       if (!form.reportValidity()) return;
       save.disabled = true;
       try {
-        const roomEdits = editors.map(({ room, controls }) => {
+        const roomEdits = editors.map(({ room, controls, publicGuest }) => {
           const floorplanAssetId = controls.floorplanAssetId.value.trim();
           if (floorplanAssetId && !ASSET_ID.test(floorplanAssetId)) throw new TypeError('MANAGER_ROOM_ASSET_INVALID');
           return {
@@ -611,10 +614,11 @@ export function createManagerBusinessSettingsApplication({
             cateringPackageIds: commaList(controls.cateringPackageIds.value, { maximum: 200 }),
             floorplanAssetId: floorplanAssetId || null,
             mediaAssetIds: commaList(controls.mediaAssetIds.value, { maximum: 20, pattern: ASSET_ID }),
+            guestPublicValues: publicGuest.readValue(),
           };
         });
         const configuration = projectRoomBusinessConfiguration(snapshot.configuration, roomEdits);
-        await locations.saveLocations({ expectedRevision: snapshot.revision, configuration });
+        await locations.saveLocations({ schemaVersion: 3, expectedRevision: snapshot.revision, configuration });
         if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
         showToast(t('managerSettings.saved'));
         await renderManagerSettings({ focusHeading: true });

@@ -676,13 +676,13 @@ test('EMP-15: every print popup uses the shared detached, secret-free, lifecycle
   assert.equal(guestLoad > reservedWindow, true);
   for (const key of [
     'guest.arrival',
-    'guest.building',
-    'guest.visitorNotes',
-    'guest.network',
+    'guest.publicAvailability',
+    'guest.publicArrival',
+    'guest.publicFeature',
     'guest.route',
     'room.floor',
   ]) assert.match(employee, new RegExp(key.replace('.', '\\.')));
-  assert.match(employee, /guest\?\.wifiNetworkName/);
+  assert.doesNotMatch(productionPrint, /guest\?\.wifiNetworkName/);
   assert.match(employee, /route\.href = guest\.routeUrl/);
 });
 

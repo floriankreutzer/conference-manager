@@ -1,3 +1,4 @@
+import { publicRoomGuestValues, publicSiteGuestValues } from '../core/public-guest-values.js';
 import { normalizeGuestPresentation } from '../core/guest-presentation.js';
 import {
   adapterError,
@@ -66,7 +67,8 @@ function address(value) {
 
 function site(value, options, schemaVersion) {
   const keys = ['id', 'name', 'active', 'timeZone', 'address'];
-  if (schemaVersion === 2) keys.push('guestInformation');
+  if (schemaVersion >= 2) keys.push('guestInformation');
+  if (schemaVersion === 3) keys.push('guestPublicValues');
   exactObject(value, keys, 'TENANT_LOCATIONS_RESPONSE_INVALID');
   return Object.freeze({
     id: safeId(value.id, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
@@ -74,14 +76,16 @@ function site(value, options, schemaVersion) {
     active: booleanValue(value.active, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     timeZone: timeZone(value.timeZone, options),
     address: address(value.address),
-    ...(schemaVersion === 2 ? { guestInformation: normalizeGuestPresentation(value.guestInformation) } : {}),
+    ...(schemaVersion >= 2 ? { guestInformation: normalizeGuestPresentation(value.guestInformation) } : {}),
+    ...(schemaVersion === 3 ? { guestPublicValues: publicSiteGuestValues(value.guestPublicValues, 'TENANT_LOCATIONS_RESPONSE_INVALID') } : {}),
   });
 }
 
-function room(value) {
+function room(value, schemaVersion) {
   exactObject(value, [
     'id', 'siteId', 'name', 'capacity', 'active', 'floor', 'equipment', 'accessibility',
     'serviceIds', 'cateringPackageIds', 'floorplanAssetId', 'mediaAssetIds',
+    ...(schemaVersion === 3 ? ['guestPublicValues'] : []),
   ], 'TENANT_LOCATIONS_RESPONSE_INVALID');
   if (
     value.floorplanAssetId !== null
@@ -103,6 +107,7 @@ function room(value) {
     cateringPackageIds: safeIdList(value.cateringPackageIds, 'TENANT_LOCATIONS_RESPONSE_INVALID', 200),
     floorplanAssetId: value.floorplanAssetId,
     mediaAssetIds: Object.freeze([...value.mediaAssetIds]),
+    ...(schemaVersion === 3 ? { guestPublicValues: publicRoomGuestValues(value.guestPublicValues, 'TENANT_LOCATIONS_RESPONSE_INVALID') } : {}),
   });
 }
 
@@ -110,7 +115,7 @@ function configuration(value, options = { nullable: true }, schemaVersion = 1) {
   exactObject(value, ['sites', 'rooms'], 'TENANT_LOCATIONS_RESPONSE_INVALID');
   if (!Array.isArray(value.sites) || value.sites.length > 200 || !Array.isArray(value.rooms) || value.rooms.length > 2_000) invalid();
   const sites = value.sites.map((entry) => site(entry, options, schemaVersion));
-  const rooms = value.rooms.map(room);
+  const rooms = value.rooms.map((entry) => room(entry, schemaVersion));
   if (new Set(sites.map((entry) => entry.id)).size !== sites.length || new Set(rooms.map((entry) => entry.id)).size !== rooms.length) invalid();
   const siteIds = new Set(sites.map((entry) => entry.id));
   if (rooms.some((entry) => !siteIds.has(entry.siteId))) invalid();
@@ -171,12 +176,12 @@ function history(value) {
 }
 
 function locationSchemaVersion(value) {
-  if (![1, 2].includes(value)) invalid('TENANT_LOCATIONS_SCHEMA_INVALID');
+  if (![1, 2, 3].includes(value)) invalid('TENANT_LOCATIONS_SCHEMA_INVALID');
   return value;
 }
 
 function versionedPath(path, schemaVersion) {
-  return schemaVersion === 2 ? `${path}?schemaVersion=2` : path;
+  return schemaVersion >= 2 ? `${path}?schemaVersion=${schemaVersion}` : path;
 }
 
 export function createTenantLocationSettingsApi({ apiClient } = {}) {

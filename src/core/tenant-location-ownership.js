@@ -48,14 +48,17 @@ function additiveSites(current, edits) {
 
 function businessFields(value) {
   const input = record(value, 'TENANT_ROOM_BUSINESS_EDIT_INVALID');
-  const allowed = new Set(['id', ...ROOM_BUSINESS_FIELDS]);
+  const allowed = new Set(['id', ...ROOM_BUSINESS_FIELDS, 'guestPublicValues']);
   if (Object.keys(input).some((key) => !allowed.has(key))) {
     throw new TypeError('TENANT_ROOM_BUSINESS_EDIT_INVALID');
   }
   for (const field of ROOM_BUSINESS_FIELDS) {
     if (!Object.hasOwn(input, field)) throw new TypeError('TENANT_ROOM_BUSINESS_EDIT_INVALID');
   }
-  return Object.fromEntries(ROOM_BUSINESS_FIELDS.map((field) => [field, input[field]]));
+  return {
+    ...Object.fromEntries(ROOM_BUSINESS_FIELDS.map((field) => [field, input[field]])),
+    ...(Object.hasOwn(input, 'guestPublicValues') ? { guestPublicValues: input.guestPublicValues } : {}),
+  };
 }
 
 export function projectRoomBusinessConfiguration(currentValue, roomEdits) {

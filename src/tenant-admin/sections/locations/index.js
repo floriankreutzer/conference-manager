@@ -1,3 +1,4 @@
+import { createPublicGuestValueEditor } from '../../../core/public-guest-value-editor.js';
 import { createGuestInformationEditor } from './guest-information-editor.js';
 import { projectTechnicalLocationConfiguration } from '../../../core/tenant-location-ownership.js';
 import { formatDateTime, formatNumber, t } from '../../../core/i18n.js';
@@ -37,6 +38,7 @@ function siteOption(site) {
 
 function siteEditor(site, index) {
   const guest = createGuestInformationEditor(site.guestInformation, index);
+  const publicGuest = createPublicGuestValueEditor(site.guestPublicValues, index, 'site');
   const controls = {
     name: textInput(site.name, { required: 'required', maxlength: '160' }),
     active: checkbox(site.active),
@@ -61,8 +63,8 @@ function siteEditor(site, index) {
       field({ id: `tenant-site-active-${index}`, label: t('tenantSettings.common.active'), control: controls.active }),
     ]),
   ]);
-  node.appendChild(guest.node);
-  return { site, controls, node, guest };
+  node.append(guest.node, publicGuest.node);
+  return { site, controls, node, guest, publicGuest };
 }
 
 function roomTechnicalEditor(room, provider, index, sites) {
@@ -118,6 +120,7 @@ function siteValue(editor) {
   return {
     ...site,
     guestInformation: editor.guest.readValue(),
+    guestPublicValues: editor.publicGuest.readValue(),
     name: controls.name.value.trim(),
     active: controls.active.checked,
     timeZone: controls.timeZone.value.trim(),
@@ -156,7 +159,7 @@ export function createLocationsSection({ adapter = null } = {}) {
     let history;
     try {
       [snapshot, history] = await Promise.all([
-        adapter.loadLocations({ schemaVersion: 2 }),
+        adapter.loadLocations({ schemaVersion: 3 }),
         adapter.listLocationsHistory({ limit: 20 }),
       ]);
     } catch {
@@ -191,6 +194,7 @@ export function createLocationsSection({ adapter = null } = {}) {
         timeZone: 'Europe/Berlin',
         address: null,
         guestInformation: null,
+        guestPublicValues: null,
       };
       const editor = siteEditor(site, siteEditors.length);
       siteEditors.push(editor);
@@ -236,7 +240,7 @@ export function createLocationsSection({ adapter = null } = {}) {
           roomSites,
         });
         await adapter.saveLocations({
-          schemaVersion: 2,
+          schemaVersion: 3,
           expectedRevision: snapshot.revision,
           configuration,
         });

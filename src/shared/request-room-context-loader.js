@@ -50,7 +50,7 @@ async function loadBoundedCatalogAndContext(persistence, requestId, timeoutMs, p
 
 function expectedProjectionSchemaVersion(projection) {
   if (projection === null) return 1;
-  if (projection === 'guest') return 2;
+  if (projection === 'guest') return 3;
   return null;
 }
 
