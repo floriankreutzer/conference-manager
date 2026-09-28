@@ -461,6 +461,53 @@ test('Customer Demo startup authority failure clears context-switch recovery and
   assert.equal(await context.switchDemoContext({ tenantId: tenants[0].id, persona: 'employee' }), false);
 });
 
+for (const serverCode of ['FORBIDDEN', 'TENANT_UNAVAILABLE', null]) {
+  test(`ready Demo Tenant denies context recovery on unclassified or revoked authority: ${serverCode}`, async () => {
+    const readySession = Object.freeze({
+      ...session({ roles: ['employee'], permissions: ['request:read', 'request:cancel'] }),
+      tenant: Object.freeze({ id: '33333333-3333-4333-8333-333333333333', status: 'ready' }),
+      demo: Object.freeze({ persona: 'employee' }),
+    });
+    const context = await createApplicationContext({
+      runtimeMode: 'demo',
+      async authenticationBootstrap() {
+        return {
+          status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,
+          session: readySession,
+          tenants: [{ id: readySession.tenant.id, displayName: 'Contoso' }],
+          runtime: Object.freeze({
+            status() { return PRODUCTION_AUTH_STATUS.AUTHENTICATED; },
+            async selectContext() { throw new Error('CONTEXT_SWITCH_MUST_NOT_RUN'); },
+            apiClient: Object.freeze({
+              async request(path) {
+                if (path.startsWith('v1/application/requests?')) {
+                  throw Object.assign(new Error('denied'), {
+                    code: 'HTTP_403',
+                    ...(serverCode === null ? {} : { serverCode }),
+                  });
+                }
+                if (path === 'v1/application/profile') {
+                  return { schemaVersion: 1, profile: { displayName: 'Must be cleared' } };
+                }
+                if (path === 'v1/application/notifications') {
+                  return { schemaVersion: 1, notifications: [] };
+                }
+                return startupCatalogPage(new URLSearchParams(path.split('?')[1]).get('section'));
+              },
+            }),
+          }),
+        };
+      },
+    });
+    // TENANT_UNAVAILABLE from a nested non-HTTP error is not a lifecycle proof.
+    assert.equal(context.isAuthenticated(), false);
+    assert.equal(context.canSwitchRole(), serverCode === 'TENANT_UNAVAILABLE');
+    assert.deepEqual(context.demoTenants(), serverCode === 'TENANT_UNAVAILABLE'
+      ? [{ id: readySession.tenant.id, displayName: 'Contoso' }]
+      : []);
+  });
+}
+
 test('stalled optional startup projections are aborted without blocking authenticated rendering', async () => {
   const authenticatedSession = session({
     roles: ['employee'],
@@ -618,7 +665,10 @@ test('ready Demo Tenant denial retains only the validated context-switch snapsho
     apiClient: Object.freeze({
       async request(path) {
         if (path.startsWith('v1/application/requests?')) {
-          throw Object.assign(new Error('forbidden'), { code: 'HTTP_403' });
+          throw Object.assign(new Error('tenant unavailable'), {
+            code: 'HTTP_403',
+            serverCode: 'TENANT_UNAVAILABLE',
+          });
         }
         if (path === 'v1/application/profile') {
           return { schemaVersion: 1, profile: { displayName: 'Must not be exposed' } };
