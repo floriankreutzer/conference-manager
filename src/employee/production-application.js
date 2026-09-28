@@ -562,9 +562,10 @@ export function createProductionEmployeeApplication({
     let requestCatalog;
     try {
       requestCatalog = await persistence.loadCatalog();
-      demoMedia = await loadDemoMedia().catch(() => new Map());
       if (!isCurrentEditor()) return;
       catalog = requestCatalog;
+      demoMedia = await loadDemoMedia().catch(() => new Map());
+      if (!isCurrentEditor()) return;
     } catch (error) {
       if (authorityFailureCode(error)) {
         invalidateEditorAuthority(error);
