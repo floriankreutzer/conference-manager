@@ -56,7 +56,7 @@ export function createManagerWorkspaceApplication({
       if (!workspaceRoot.isConnected) return;
       const tasks = deriveDemoManagerTasks({
         requests,
-        locations: locationSnapshot.locations.configuration,
+        locations: locationSnapshot.configuration,
         catalogue: catalogueSnapshot.catalogue,
       });
       if (tasks.length === 0) return;
