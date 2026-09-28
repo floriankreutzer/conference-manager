@@ -11,7 +11,7 @@ import { hostedResetRequestIdPath } from '../scripts/hosted-demo-run-context.mjs
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const FRONTEND_REF = '986c8f99dbd72687e3e8b5a400eec536e87ee7f4';
-const RUNTIME_REF = '3094dadce88f5400856a4f42bda30c3c10ba0f65';
+const RUNTIME_REF = '77008f3e8ecdb32a32303c09e3c01a588827cf38';
 const CHECKSUM = CANONICAL_DEMO_CHECKSUM;
 
 function jsonResponse(body, { status = 200, cookie = null } = {}) {

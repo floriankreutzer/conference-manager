@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 1c909ef3927e010b7caa2a21f462566b8560448d
+          ref: 77008f3e8ecdb32a32303c09e3c01a588827cf38
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN }}
           persist-credentials: false
           path: api

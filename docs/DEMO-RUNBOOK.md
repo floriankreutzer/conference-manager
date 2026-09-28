@@ -4,7 +4,7 @@
 
 This runbook describes the current deterministic, server-backed Demo baseline after SaaS 3.6. It is an operating aid and hosted-Demo acceptance source; it is not Production/provider/penetration evidence. Use synthetic example data only.
 
-The canonical human entry point is the GitHub Pages launchpad published from `demo-portal/`. GitHub Pages is static navigation only. The actual applications remain separately hosted on Render:
+The canonical human entry point is `https://floriankreutzer.github.io/conference-manager/`, the GitHub Pages launchpad published from `demo-portal/`. GitHub Pages is static navigation only. The actual applications remain separately hosted on Render:
 
 - Customer Demo: `https://conference-manager-demo.onrender.com`
 - Platform Demo: `https://conference-manager-ops-demo.onrender.com`
@@ -164,7 +164,7 @@ Hosted acceptance must not be relabeled as Production/provider/penetration evide
 
 ## GitHub Pages acceptance
 
-The Pages workflow publishes only `demo-portal/` after a `main` change to that directory/workflow. The final milestone evidence records the actual deployment-generated Pages URL after a successful deployment. Before that run succeeds, repository documentation must not invent a Pages hostname.
+The Pages workflow publishes only `demo-portal/` after a `main` change to that directory/workflow. The published URL in `docs/DEMO-URLS.md` returned HTTP 200 on 28 September 2026 and was scanned in three-origin DAST run `36432201461`; recheck it during #170 acceptance.
 
 Pages acceptance verifies only the launchpad contract. Customer/Platform runtime security remains evidenced by the Render/shared-Demo gates.
 
