@@ -53,7 +53,10 @@ known bypasses, but product/security must choose credential-incapable structured
 editorial approval with explicit residual-risk acceptance; alternatively withhold public Guest copy
 until an approved contract exists. Passing unit tests do not prove free text contains no secret.
 ADR-012 also selects structured public values and explicitly withholds unmigrated legacy
-Guest prose. The inherited Site/Room public-field risk still needs evidence and review.
+Guest prose. The Product Owner accepted the residual risk of older public Site/Room
+display names, address, route and business contact on 2026-09-28 under the owning-role
+withhold/correct policy in ADR-012. This does not sign off the Security Owner release
+disposition or prove the H-035 candidate deployed; #182/#170 remain open.
 
 ## Compatibility contract
 

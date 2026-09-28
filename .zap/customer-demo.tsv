@@ -3,6 +3,7 @@
 
 10049-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
 10049-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260901-78$
+10049-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$
 10049-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
 10049-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260823-71$
 10049-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/feature-parity\.css\?v=20260825-01$
@@ -17,6 +18,7 @@
 # ZAP's crawler is not a browser and therefore does not send Fetch Metadata request headers.
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260901-78$
+90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260823-71$
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/feature-parity\.css\?v=20260825-01$
@@ -27,6 +29,7 @@
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/sitemap\.xml$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260901-78$
+90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260823-71$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/feature-parity\.css\?v=20260825-01$
@@ -37,6 +40,7 @@
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/sitemap\.xml$
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260901-78$
+90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260823-71$
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/feature-parity\.css\?v=20260825-01$
@@ -47,6 +51,7 @@
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/sitemap\.xml$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260901-78$
+90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260823-71$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/feature-parity\.css\?v=20260825-01$

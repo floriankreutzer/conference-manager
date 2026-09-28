@@ -104,7 +104,7 @@ export function button(label, options = {}) {
 
 export function field({ id, label, control, hint, required = false, optional = false }) {
   const wrapper = el('label', { className: 'field' });
-  const labelText = el('span', { className: 'field-label', text: `${label}${required ? ' *' : ''}` });
+  const labelText = el('span', { className: 'field-label', text: `${label}${required ? ' *' : ''}${optional ? ' ' : ''}` });
   if (optional) labelText.append(el('span', { className: 'optional-chip', text: t('common.optional') }));
   control.id = id;
   applyInputConstraints(control);

@@ -172,6 +172,14 @@ The launchpad's HTML meta CSP restricts resources, forms, objects and base-URL c
 does not provide repository-controlled response headers, and CSP `frame-ancestors` is ignored when
 delivered in a meta element. Acceptance must therefore record the deployed provider headers
 separately and must not represent the meta policy as clickjacking protection.
+The 2026-09-28 live DAST reported `10055-13` at the exact Pages launchpad URL because
+`frame-ancestors` requires an HTTP CSP header. The reviewed Demo-only disposition is
+bounded to that static, credential-free navigation page; its framing could mislead a
+visitor into choosing a Demo destination, so the risk is not described as eliminated.
+The two Render applications are outside this exception and retain their own framing
+protections. A future portal with application authority or a change in provider/header
+support requires a fresh review. This technical classification does not constitute
+Security Owner approval of the SaaS 3.6 release.
 
 ## Security regression register
 
