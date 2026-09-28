@@ -92,9 +92,11 @@ These are draft PR candidates, not final merged or deployed release references.
 - The PR candidates contain the restored Employee, Manager, Equipment, attribution and Guest
   Information implementations, but H-034 remains an unresolved repository-controlled EMP-03 gap.
 - H-033/H-036/H-037/H-038/H-039/H-040 and known H-035 label bypasses have candidate fixes;
-  the API two-client PostgreSQL 18 tests ran in CI `36265393728`, but H-035 remains open for
-  structured public values and inherited-field risk acceptance. No finite label scanner proves
-  unlabeled secrets absent. Protected review, final deployment and human acceptance remain absent.
+  the API two-client PostgreSQL 18 tests ran in CI `36265393728`. Product Owner
+  acceptance of the older public-field residual risk was recorded on 2026-09-28;
+  H-035 remains open for structured-values integration, Security Owner release
+  disposition and final evidence. No finite label scanner proves unlabeled secrets
+  absent. Protected review, final deployment and human acceptance remain absent.
 - FE CI `36269943540` passed quality/shared PostgreSQL Demo but failed two of 262
   Chromium/WebKit cases (one mirrored Manager 320px form-reflow cause). The subsequent
   frontend candidate constrains the nested Manager form track; exact-head CI is pending. API PR #78's
