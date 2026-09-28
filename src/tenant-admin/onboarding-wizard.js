@@ -455,12 +455,13 @@ export function createTenantOnboardingWizard({ runtime, onChanged } = {}) {
     clear(root);
     root.appendChild(loading());
     try {
-      const [sites, connection, mappings, readiness] = await Promise.all([
+      const [sites, connection, readiness] = await Promise.all([
         runtime.listSites(),
         runtime.getConnection(),
-        runtime.listMappings(),
         runtime.getReadiness(),
       ]);
+      const mappings = connection.state === 'connected' && connectionComplete(connection)
+        ? await runtime.listMappings() : [];
       if (currentGeneration !== generation) return;
       clear(root);
       const isActive = () => currentGeneration === generation && root.isConnected;
