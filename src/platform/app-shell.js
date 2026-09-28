@@ -125,6 +125,8 @@ export function createAppShell({
   function serverViewAllowed(nextView) {
     if (nextView === 'welcome') return true;
     if (!context.isAuthenticated()) return false;
+    if (!context.hasActiveTenant()) return nextView === 'tenantAdmin'
+      && context.canManageTenantUsers() && Boolean(tenantAdmin);
     if ((nextView === 'employee' || nextView === 'requests') && employee) return true;
     if (nextView === 'manager' && context.isManager() && manager) return true;
     if (nextView === 'tenantAdmin' && context.canManageTenantUsers() && tenantAdmin) return true;
@@ -187,13 +189,15 @@ export function createAppShell({
 
     if (context.isAuthenticated()) {
       list.append(navButton('nav.welcome', 'welcome'));
-      if (employee) {
+      if (employee && context.hasActiveTenant()) {
         list.append(
           navButton('nav.newRequest', 'employee'),
           navButton('nav.myRequests', 'requests'),
         );
       }
-      if (context.isManager() && manager) list.append(navButton('nav.manager', 'manager'));
+      if (context.hasActiveTenant() && context.isManager() && manager) {
+        list.append(navButton('nav.manager', 'manager'));
+      }
       if (context.canManageTenantUsers() && tenantAdmin) {
         list.append(navButton('nav.tenantAdmin', 'tenantAdmin'));
       }
@@ -247,6 +251,14 @@ export function createAppShell({
   }
 
   async function renderWelcome(revision) {
+    if (!context.hasActiveTenant()) {
+      setPageHeading(t('auth.production.tenantInactiveTitle'), t('auth.production.tenantInactiveText'));
+      appRoot.appendChild(el('section', { className: 'card', attrs: { role: 'status' } }, [
+        el('h2', { text: t('auth.production.tenantInactiveTitle') }),
+        el('p', { text: t('auth.production.tenantInactiveText') }),
+      ]));
+      return;
+    }
     setPageHeading(t('nav.welcome'), t('welcome.subtitle'));
     let currentRequests;
     const [requestResult, referenceResult, notificationResult] = await Promise.allSettled([
