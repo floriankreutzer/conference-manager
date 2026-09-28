@@ -1933,7 +1933,7 @@ test('EMP-03 EMP-04: English asset placeholders, Service, and Equipment states a
   await page.locator('[data-view="employee"]').click();
   await fillEmployeeSchedule(page);
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page.getByText('This room image is unavailable.', { exact: false }).first()).toBeVisible();
+  await expect(page.locator('.room-asset-empty:visible').filter({ hasText: 'This room image is unavailable.' })).toBeVisible();
   const assetAvailabilityTrigger = page.getByRole('button', { name: 'Show room images' });
   await assetAvailabilityTrigger.click();
   const assetAvailabilityDialog = page.getByRole('dialog', { name: 'Room images · Room A' });
