@@ -344,6 +344,43 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'conference_manager');
   const managerUserId = customerSession.user.id;
   expect(managerUserId).not.toBe(requestOwnerUserId);
+  const locationsBeforeMedia = (await expectStatus(
+    await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations?schemaVersion=3`),
+    200,
+  )).locations;
+  const mediaRoom = locationsBeforeMedia.configuration.rooms.find((room) => room.active);
+  expect(mediaRoom).toBeTruthy();
+  const imageBytes = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGOsWHCCgZaAiaamj1owasGoBaMWjFowasGoBaMWjFowasGoBVQEAEl4AiCcDJG+AAAAAElFTkSuQmCC',
+    'base64',
+  );
+  const mediaPath = `${CUSTOMER_ORIGIN}/api/v1/tenant/rooms/${mediaRoom.id}/media`;
+  const uploaded = await expectStatus(await customerContext.request.post(mediaPath, {
+    headers: { ...unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken), 'Content-Type': 'image/png' },
+    data: imageBytes,
+  }), 201);
+  expect(uploaded.assetId).toMatch(/^[0-9a-f-]{36}$/i);
+  const assetUrl = `${mediaPath}/${uploaded.assetId}`;
+  expect((await customerContext.request.get(assetUrl)).status()).toBe(404);
+  mediaRoom.mediaAssetIds.push(uploaded.assetId);
+  const attached = await expectStatus(await customerContext.request.put(
+    `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations`, {
+      headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
+      data: {
+        schemaVersion: 3,
+        expectedRevision: locationsBeforeMedia.revision,
+        configuration: locationsBeforeMedia.configuration,
+      },
+    },
+  ), 200);
+  expect(attached.locations.revision).toBe(locationsBeforeMedia.revision + 1);
+  expect(attached.locations.configuration.rooms.find((room) => room.id === mediaRoom.id).mediaAssetIds)
+    .toContain(uploaded.assetId);
+  const delivered = await customerContext.request.get(assetUrl);
+  expect(delivered.status()).toBe(200);
+  expect(delivered.headers()['content-type']).toBe('image/webp');
+  expect(delivered.headers()['cache-control']).toBe('private, no-store');
+  expect((await delivered.body()).subarray(0, 4).toString()).toBe('RIFF');
   await customerPage.locator('[data-view="manager"]').click();
   const managerCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
   await expect(managerCard).toBeVisible();
