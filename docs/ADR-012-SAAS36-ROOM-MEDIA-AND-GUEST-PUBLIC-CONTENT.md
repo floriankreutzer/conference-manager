@@ -95,6 +95,25 @@ unsafe value and correct it before public projection. The
 structured v2 change cannot certify all inherited public strings or a whole deployment
 free of secrets.
 
+### Inherited-field residual-risk acceptance — 2026-09-28
+
+The product owner, Florian Kreutzer, explicitly accepted the residual risk for the
+older public Site/Room display names, postal address, route and business contact in
+the SaaS 3.6 working conversation on 2026-09-28. These remain bounded public
+inputs under the existing Site Tenant Admin and Room Conference Manager ownership.
+This acceptance permits the approved structured Guest-values implementation to
+proceed; it does not authorize publishing a known credential or secret, reinstate
+unmigrated Guest prose, or declare all inherited public strings safe.
+
+The owning role must review these values before publication, withhold or correct
+an unsafe value when found, and repeat review when the value changes or an
+exposure is reported. An accidental disclosure requires withdrawal/correction,
+credential rotation where applicable, and security incident handling under the
+existing process. The label scanner remains defense in depth; unlabeled secrets
+remain possible. This records product risk acceptance, not an independent
+Security Owner sign-off or the named #182/#170 release acceptance. Those gates,
+including exact deployed-candidate and live security evidence, stay open.
+
 Alternative: keep bounded free text with an accountable editor/approver workflow and an
 explicitly accepted residual risk. Record approver identity, affected fields, publication
 and withdrawal events, review cadence and response to accidental disclosure. The current
@@ -108,15 +127,16 @@ prose rather than marking H-035 closed.
   rollback behavior, legacy stored-value concealment, log/print redaction and #185 tests.
 - Frontend editor, Guest dialog and detached print behavior in both browsers, with
   configured/missing/withdrawn states, keyboard/focus, DE/EN and no credential echo.
-- Documented product/security acceptance of the remaining inherited public-field risk,
-  then exact-head CI, deployment identity and named human #182 review.
+- Documented product acceptance of the remaining inherited public-field risk
+  (recorded above), Security Owner disposition, then exact-head CI, deployment
+  identity and named human #182 review.
 
 ## Decision record
 
 | Gate | Decision | Status |
 | --- | --- | --- |
 | H-034 | Bounded PostgreSQL private raster assets as above | Product direction accepted; implementation/operational evidence pending |
-| H-035 | Structured Guest-v2 values with legacy public text withheld | Product direction accepted; inherited public-field risk and implementation evidence pending |
+| H-035 | Structured Guest-v2 values with legacy public text withheld | Product direction and inherited-field residual risk accepted by Product Owner 2026-09-28; Security Owner release disposition and implementation evidence pending |
 
 Acceptance of this ADR authorizes its product direction only. The implementation,
 PostgreSQL/browser tests, protected review, deployment and named human acceptance remain
