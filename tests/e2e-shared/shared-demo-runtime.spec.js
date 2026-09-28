@@ -205,9 +205,19 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     expect(readiness.readiness.checks.microsoft365Connected).toBe(false);
     await customerPage.locator('[data-view="tenantAdmin"]').click();
     await expect(customerPage.locator('[data-onboarding-step="connection"]')).toBeVisible();
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'conference_manager');
+    await customerPage.locator('[data-view="manager"]').click();
+    const tasks = customerPage.locator('[data-demo-manager-task]');
+    await expect(tasks).toHaveCount(7);
+    await expect(customerPage.locator('[data-demo-manager-task="pending-requests"]'))
+      .toContainText('3');
+    await expect(customerPage.locator('[data-demo-manager-task="room-description"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="room-price"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="room-media"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="catering"]')).toBeVisible();
     customerSession = await switchCustomerThroughUi(customerPage, TENANT_A, 'employee');
+    await expect(customerPage.locator('[data-demo-manager-tasks]')).toHaveCount(0);
   }
-
 
   const ownedRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_A}`);
   await expectStatus(ownedRequest, 200);
