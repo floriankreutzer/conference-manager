@@ -115,8 +115,8 @@ export function renderDemoSecurityControl({
       status.textContent = msg.contextApplied;
       reload();
     } catch (error) {
-      delete documentRoot.documentElement.dataset.demoContextSwitching;
       if (authorityFailureCode(error) && onAuthorityFailure?.(error)) return;
+      delete documentRoot.documentElement.dataset.demoContextSwitching;
       status.textContent = msg.contextError;
       announce(msg.contextError, { assertive: true });
       const retryable = context.canSwitchRole();
