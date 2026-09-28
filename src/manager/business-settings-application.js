@@ -512,6 +512,10 @@ export function createManagerBusinessSettingsApplication({
         floorplanAssetId: textInput(room.floorplanAssetId, { maxlength: '128' }),
         mediaAssetIds: textInput(room.mediaAssetIds.join(', '), { maxlength: '4000' }),
       };
+      if (Object.hasOwn(room, 'description')) {
+        controls.description = el('textarea', { attrs: { maxlength: '1000' } });
+        controls.description.value = room.description ?? '';
+      }
       const publicGuest = createPublicGuestValueEditor(room.guestPublicValues, index, 'room');
       const site = siteById.get(room.siteId);
       const node = el('fieldset', { className: 'card', dataset: { managerRoomId: room.id } }, [
@@ -525,6 +529,12 @@ export function createManagerBusinessSettingsApplication({
         ]),
         el('div', { className: 'form-grid' }, [
           nameField.node,
+          ...(controls.description ? [field({
+            id: `manager-room-description-${index}`,
+            label: t('managerSettings.catalogue.descriptionField'),
+            control: controls.description,
+            optional: true,
+          })] : []),
           field({ id: `manager-room-capacity-${index}`, label: t('managerSettings.room.capacity'), control: controls.capacity, required: true }),
           field({ id: `manager-room-floor-${index}`, label: t('managerSettings.room.floor'), control: controls.floor, optional: true }),
           field({ id: `manager-room-equipment-${index}`, label: t('managerSettings.room.equipment'), control: controls.equipment, optional: true, hint: t('managerSettings.commaSeparated') }),
@@ -605,6 +615,7 @@ export function createManagerBusinessSettingsApplication({
           return {
             id: room.id,
             name: controls.name.value.trim(),
+            ...(controls.description ? { description: controls.description.value.trim() || null } : {}),
             capacity: Number(controls.capacity.value),
             active: controls.active.checked,
             floor: controls.floor.value.trim() || null,
