@@ -115,6 +115,8 @@ export async function bootstrapCustomerApplication({
       persistence: serverPersistence,
       locations: locationSettings,
       catalogue: catalogueSettings,
+      demoWorklistEnabled: context.isDemoRuntime()
+        && context.tenantId() === '20000000-0000-4000-8000-000000000002',
       onAuthorityFailure,
     })
     : null;
