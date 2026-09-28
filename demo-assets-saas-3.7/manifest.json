@@ -1,0 +1,243 @@
+{
+  "version": "saas-3.7-demo-media-v1",
+  "created": "2026-09-28",
+  "status": "prepared_not_integrated_into_seed",
+  "source": "AI-generated synthetic demonstration images; no actual property or catering products shown",
+  "planCaveat": "Illustrative seating diagrams, not measured layouts, accessibility or fire safety plans",
+  "deliberatelyAbsent": [
+    "contoso-paris-room-2 image and plan: open Conference Manager task",
+    "Fabrikam rooms: not yet imported at onboarding baseline"
+  ],
+  "assets": [
+    {
+      "assetKey": "northwind-room-01",
+      "name": "Berlin Forum",
+      "type": "room",
+      "file": "rooms/northwind-room-01.webp",
+      "sha256": "0e97d1b75e31955893dc8460a40b49190e9c9b91e3c53fead0fb7993afcde387",
+      "bytes": 225950,
+      "altText": "Illustratives Demobild: Berlin Forum",
+      "planFile": "rooms/northwind-room-01-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-02",
+      "name": "Spree Boardroom",
+      "type": "room",
+      "file": "rooms/northwind-room-02.webp",
+      "sha256": "24c659f53e141243a090be3128e8a45b2a04f166e123f677e2ac5ba3ee56fbd0",
+      "bytes": 238496,
+      "altText": "Illustratives Demobild: Spree Boardroom",
+      "planFile": "rooms/northwind-room-02-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-03",
+      "name": "Workshop Loft",
+      "type": "room",
+      "file": "rooms/northwind-room-03.webp",
+      "sha256": "c1c9ade4b2162c3c7a147ea10fa7f92e5cb1279041f5d50b82048cd4fb9cb589",
+      "bytes": 230970,
+      "altText": "Illustratives Demobild: Workshop Loft",
+      "planFile": "rooms/northwind-room-03-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-04",
+      "name": "Innovation Lab",
+      "type": "room",
+      "file": "rooms/northwind-room-04.webp",
+      "sha256": "5830a01f60e1609c085364b9cc7d60be59e35ea512aaba65e970cfa775a67af2",
+      "bytes": 202872,
+      "altText": "Illustratives Demobild: Innovation Lab",
+      "planFile": "rooms/northwind-room-04-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-05",
+      "name": "Focus One",
+      "type": "room",
+      "file": "rooms/northwind-room-05.webp",
+      "sha256": "85d837bbc8dcbbc04ecf36e044effaad8e4f06008c05c718457ccb5446271ea6",
+      "bytes": 192812,
+      "altText": "Illustratives Demobild: Focus One",
+      "planFile": "rooms/northwind-room-05-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-06",
+      "name": "Focus Two",
+      "type": "room",
+      "file": "rooms/northwind-room-06.webp",
+      "sha256": "d2fa0db2d251f1f313a1a4c575388e0df0534fdf74b26500e4c7434b2463a4cc",
+      "bytes": 199094,
+      "altText": "Illustratives Demobild: Focus Two",
+      "planFile": "rooms/northwind-room-06-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-07",
+      "name": "Training Campus",
+      "type": "room",
+      "file": "rooms/northwind-room-07.webp",
+      "sha256": "6af2d97d846039a27a96750844f0ecb27e83a3c920a84ce0bcb113d742323750",
+      "bytes": 199832,
+      "altText": "Illustratives Demobild: Training Campus",
+      "planFile": "rooms/northwind-room-07-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-08",
+      "name": "Executive Lounge",
+      "type": "room",
+      "file": "rooms/northwind-room-08.webp",
+      "sha256": "fefd5edb31626b4a5772bb46d670e0066778e3dcdebf401dd925be5b2959de48",
+      "bytes": 176664,
+      "altText": "Illustratives Demobild: Executive Lounge",
+      "planFile": "rooms/northwind-room-08-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-09",
+      "name": "Townhall Auditorium",
+      "type": "room",
+      "file": "rooms/northwind-room-09.webp",
+      "sha256": "c2edd44e096f47205ee94940693013648b359f933ab9ac4806ede28ddd71acc1",
+      "bytes": 143546,
+      "altText": "Illustratives Demobild: Townhall Auditorium",
+      "planFile": "rooms/northwind-room-09-plan.png"
+    },
+    {
+      "assetKey": "northwind-room-10",
+      "name": "Hybrid Studio",
+      "type": "room",
+      "file": "rooms/northwind-room-10.webp",
+      "sha256": "29a82bf0ab79d189f2a1cc576c8f30d868a998d5e01313560cfd8e41db9bb8d2",
+      "bytes": 172110,
+      "altText": "Illustratives Demobild: Hybrid Studio",
+      "planFile": "rooms/northwind-room-10-plan.png"
+    },
+    {
+      "assetKey": "contoso-paris-room-1",
+      "name": "Paris Atelier",
+      "type": "room",
+      "file": "rooms/contoso-paris-room-1.webp",
+      "sha256": "2014af4e798fd951b964b3e4ff923d3e014817ea94db167fbe26f06d2c438d5a",
+      "bytes": 188352,
+      "altText": "Illustratives Demobild: Paris Atelier",
+      "planFile": "rooms/contoso-paris-room-1-plan.png"
+    },
+    {
+      "assetKey": "coffee-break",
+      "name": "Kaffeepause",
+      "type": "catering",
+      "file": "catering/coffee-break.webp",
+      "sha256": "866d0253456f42a76cd16c2fe03b9e60ec22679924de520a8fe2a6af355ddf6a",
+      "bytes": 187128,
+      "altText": "Illustratives Demobild: Kaffeepause",
+      "planFile": null
+    },
+    {
+      "assetKey": "business-breakfast",
+      "name": "Business-Frühstück",
+      "type": "catering",
+      "file": "catering/business-breakfast.webp",
+      "sha256": "8fb3bcf1c8231f42415e482df65c163d22585845acdf0fcc08ae9afa93daa2d1",
+      "bytes": 258184,
+      "altText": "Illustratives Demobild: Business-Frühstück",
+      "planFile": null
+    },
+    {
+      "assetKey": "workshop-day",
+      "name": "Workshop-Tag",
+      "type": "catering",
+      "file": "catering/workshop-day.webp",
+      "sha256": "5e80d1b2ae57850dd2fc7ab252c542d23ac4ccd8362a0fae465bfdf75238ae73",
+      "bytes": 246504,
+      "altText": "Illustratives Demobild: Workshop-Tag",
+      "planFile": null
+    },
+    {
+      "assetKey": "vegan-day",
+      "name": "Veganer Konferenztag",
+      "type": "catering",
+      "file": "catering/vegan-day.webp",
+      "sha256": "8f7ce6d7249c419cff20571a6eda8f6ffe7b641090b9322f05c429d0ad3378cb",
+      "bytes": 260008,
+      "altText": "Illustratives Demobild: Veganer Konferenztag",
+      "planFile": null
+    },
+    {
+      "assetKey": "coffee-tea",
+      "name": "Kaffee und Tee",
+      "type": "catering",
+      "file": "catering/coffee-tea.webp",
+      "sha256": "00a7cdf0e9d018658728d7aef4386ff0e87f9272ec3bc785f908d027c4b4a6fa",
+      "bytes": 146026,
+      "altText": "Illustratives Demobild: Kaffee und Tee",
+      "planFile": null
+    },
+    {
+      "assetKey": "water-juice",
+      "name": "Wasser und Saft",
+      "type": "catering",
+      "file": "catering/water-juice.webp",
+      "sha256": "d890d3773fc81d548a4ab7804be83dbaa2dd8c4325de629edd9e14ba6b11ee78",
+      "bytes": 187934,
+      "altText": "Illustratives Demobild: Wasser und Saft",
+      "planFile": null
+    },
+    {
+      "assetKey": "fruit",
+      "name": "Obstauswahl",
+      "type": "catering",
+      "file": "catering/fruit.webp",
+      "sha256": "ca727f10dd85239e54cb0563e41170ff40463f8dfae6f1ca6f5945daf3f9461c",
+      "bytes": 236294,
+      "altText": "Illustratives Demobild: Obstauswahl",
+      "planFile": null
+    },
+    {
+      "assetKey": "pastry",
+      "name": "Gebäckauswahl",
+      "type": "catering",
+      "file": "catering/pastry.webp",
+      "sha256": "c27848277dbf9c2fc126571da6cc5dcccd51f53d464504f4736a4579827a3407",
+      "bytes": 288090,
+      "altText": "Illustratives Demobild: Gebäckauswahl",
+      "planFile": null
+    },
+    {
+      "assetKey": "sandwich-vegetarian",
+      "name": "Vegetarische Sandwiches",
+      "type": "catering",
+      "file": "catering/sandwich-vegetarian.webp",
+      "sha256": "7416c0ab54ba74957f2aa07a8f60495a1afc32886450e96a237ac7047c505ee1",
+      "bytes": 274060,
+      "altText": "Illustratives Demobild: Vegetarische Sandwiches",
+      "planFile": null
+    },
+    {
+      "assetKey": "lunch-vegan",
+      "name": "Veganes Lunch-Buffet",
+      "type": "catering",
+      "file": "catering/lunch-vegan.webp",
+      "sha256": "0acb3ac24d44500b1dc463269ec02ea3649560fe69f698faa41cdf7c850cfb05",
+      "bytes": 298930,
+      "altText": "Illustratives Demobild: Veganes Lunch-Buffet",
+      "planFile": null
+    },
+    {
+      "assetKey": "lunch-classic",
+      "name": "Klassisches Lunch-Buffet",
+      "type": "catering",
+      "file": "catering/lunch-classic.webp",
+      "sha256": "5d8e795e397bb2e8f62bb7cd7b330546fc5c97a04d2a78522d26f6a32e265fb7",
+      "bytes": 281512,
+      "altText": "Illustratives Demobild: Klassisches Lunch-Buffet",
+      "planFile": null
+    },
+    {
+      "assetKey": "afternoon-snack",
+      "name": "Nachmittagssnack",
+      "type": "catering",
+      "file": "catering/afternoon-snack.webp",
+      "sha256": "5ab9d811f774737a31b522f963efbc7b689b028bade4a6178fe825f2944508dc",
+      "bytes": 211610,
+      "altText": "Illustratives Demobild: Nachmittagssnack",
+      "planFile": null
+    }
+  ]
+}
