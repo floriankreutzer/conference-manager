@@ -1,10 +1,10 @@
 # Plugin-ID compatibility projection for the Automation Framework output summary.
-10055	INFO	^https://floriankreutzer\.github\.io/conference-manager/$
 10015	INFO	^https://floriankreutzer\.github\.io/conference-manager/$
 10020	INFO	^https://floriankreutzer\.github\.io/conference-manager/$
 10021	INFO	^(?:https://floriankreutzer\.github\.io/conference-manager/|https://floriankreutzer\.github\.io/conference-manager/styles\.css)$
 10049	INFO	^(?:https://floriankreutzer\.github\.io/conference-manager/|https://floriankreutzer\.github\.io/conference-manager/styles\.css)$
 10050	INFO	^(?:https://floriankreutzer\.github\.io/conference-manager/|https://floriankreutzer\.github\.io/conference-manager/styles\.css)$
+10055	INFO	^https://floriankreutzer\.github\.io/conference-manager/$
 10063	INFO	^https://floriankreutzer\.github\.io/conference-manager/$
 10098	INFO	^(?:https://floriankreutzer\.github\.io/conference-manager/|https://floriankreutzer\.github\.io/conference-manager/styles\.css)$
 90004	INFO	^https://floriankreutzer\.github\.io/conference-manager/$
