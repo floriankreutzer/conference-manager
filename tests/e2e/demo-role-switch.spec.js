@@ -166,6 +166,10 @@ async function installCustomerDemoControlPlane(page, initial = {}) {
         await route.fulfill({ status: 503, json: { error: { code: 'DEPENDENCY_UNAVAILABLE' } } });
         return;
       }
+      if (context.tenantId === TENANT_B && initial.lifecycleDenyReadyTenantRequests) {
+        await route.fulfill({ status: 403, json: { error: { code: 'TENANT_UNAVAILABLE' } } });
+        return;
+      }
       if (context.tenantId === TENANT_B && initial.revokeReadyTenantRequests) {
         await route.fulfill({ status: 403, json: { error: { code: 'FORBIDDEN' } } });
         return;
@@ -335,6 +339,25 @@ test('Customer Demo can leave a ready Tenant after its business projections fail
 
   await expect(page.locator('#viewTitle')).not.toHaveText('Sichere Anmeldung nicht verfügbar');
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(TENANT_A);
+});
+
+test('Customer Demo can switch away from a server-classified ready Tenant lifecycle denial', async ({ page }) => {
+  await installCustomerDemoControlPlane(page, { lifecycleDenyReadyTenantRequests: true });
+  await page.goto('/');
+  await page.getByLabel('Demo-Tenant').selectOption(TENANT_B);
+  const readyReload = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+  await readyReload;
+
+  await expect(page.locator('#viewTitle')).toHaveText('Sicher mit Microsoft anmelden');
+  await expect(page.getByLabel('Demo-Tenant')).toBeEnabled();
+  await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+  await page.getByLabel('Demo-Tenant').selectOption(TENANT_A);
+  const recoveredReload = page.waitForEvent('load');
+  await page.getByRole('button', { name: 'Demo-Kontext anwenden' }).click();
+  await recoveredReload;
+  await expect(page.getByLabel('Demo-Tenant')).toHaveValue(TENANT_A);
+  await expect(page.locator('#primaryNavigation button[data-view="employee"]')).toHaveCount(1);
 });
 
 test('Customer Demo revokes context controls after a forbidden business projection', async ({ page }) => {
