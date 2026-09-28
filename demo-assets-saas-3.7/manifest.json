@@ -1,7 +1,7 @@
 {
   "version": "saas-3.7-demo-media-v1",
   "created": "2026-09-28",
-  "status": "prepared_not_integrated_into_seed",
+  "status": "integrated_into_isolated_saas_3_7_demo_seed",
   "source": "AI-generated synthetic demonstration images; no actual property or catering products shown",
   "planCaveat": "Illustrative seating diagrams, not measured layouts, accessibility or fire safety plans",
   "deliberatelyAbsent": [
