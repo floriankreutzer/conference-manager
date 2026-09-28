@@ -203,6 +203,9 @@ export function createApplicationContextFromState({
     tenantId() {
       return trustedSession?.tenant?.id || recoverableDemoSession?.tenant?.id || '';
     },
+    tenantStatus() {
+      return trustedSession?.tenant?.status || recoverableDemoSession?.tenant?.status || null;
+    },
     demoPersona() {
       if (!isDemo) return null;
       return trustedSession?.demo?.persona || recoverableDemoSession?.demo?.persona || null;
