@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 const EDGE_PORT = 4443;
@@ -350,6 +351,20 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations?schemaVersion=3`),
     200,
   )).locations;
+  let seededMediaUrl = null;
+  let seededMediaHash = null;
+  if (SEED_VERSION.startsWith('saas-3.7')) {
+    const atelier = locationsBeforeMedia.configuration.rooms.find(({ id }) => id === 'contoso-paris-room-1');
+    const studio = locationsBeforeMedia.configuration.rooms.find(({ id }) => id === 'contoso-paris-room-2');
+    expect(atelier.mediaAssetIds).toHaveLength(1);
+    expect(studio.mediaAssetIds).toHaveLength(0);
+    seededMediaUrl = `${CUSTOMER_ORIGIN}/api/v1/tenant/rooms/${atelier.id}/media/${atelier.mediaAssetIds[0]}`;
+    const seededMedia = await customerContext.request.get(seededMediaUrl);
+    expect(seededMedia.status()).toBe(200);
+    seededMediaHash = createHash('sha256').update(await seededMedia.body()).digest('hex');
+    expect(seededMediaHash)
+      .toBe('2014af4e798fd951b964b3e4ff923d3e014817ea94db167fbe26f06d2c438d5a');
+  }
   const mediaRoom = locationsBeforeMedia.configuration.rooms.find((room) => room.active);
   expect(mediaRoom).toBeTruthy();
   const imageBytes = Buffer.from(
@@ -602,6 +617,12 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     metadata: { operation: 'reset' },
   }));
   expect(customerSession.tenant).toEqual({ id: TENANT_A, status: 'active' });
+  if (seededMediaUrl !== null) {
+    customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'conference_manager');
+    const restoredMedia = await customerContext.request.get(seededMediaUrl);
+    expect(restoredMedia.status()).toBe(200);
+    expect(createHash('sha256').update(await restoredMedia.body()).digest('hex')).toBe(seededMediaHash);
+  }
   const restoredDirectory = await platformDirectory(platformContext);
   expect(restoredDirectory.items.find(({ tenantId }) => tenantId === TENANT_A)?.displayName).toBe(BASELINE_NAME_A);
   expect(restoredDirectory.items.find(({ tenantId }) => tenantId === TENANT_B)?.displayName).toBe(BASELINE_NAME_B);
