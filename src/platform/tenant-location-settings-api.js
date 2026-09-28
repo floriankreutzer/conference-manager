@@ -86,6 +86,7 @@ function room(value, schemaVersion) {
     'id', 'siteId', 'name', 'capacity', 'active', 'floor', 'equipment', 'accessibility',
     'serviceIds', 'cateringPackageIds', 'floorplanAssetId', 'mediaAssetIds',
     ...(schemaVersion === 3 ? ['guestPublicValues'] : []),
+    ...(Object.hasOwn(value, 'description') ? ['description'] : []),
   ], 'TENANT_LOCATIONS_RESPONSE_INVALID');
   if (
     value.floorplanAssetId !== null
@@ -98,6 +99,9 @@ function room(value, schemaVersion) {
     id: safeId(value.id, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     siteId: safeId(value.siteId, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     name: boundedText(value.name, { code: 'TENANT_LOCATIONS_RESPONSE_INVALID', maximum: 160 }),
+    ...(Object.hasOwn(value, 'description') ? {
+      description: nullableText(value.description, 1000, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
+    } : {}),
     capacity: boundedInteger(value.capacity, 'TENANT_LOCATIONS_RESPONSE_INVALID', { minimum: 1, maximum: 100_000 }),
     active: booleanValue(value.active, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
     floor: nullableText(value.floor, 80, 'TENANT_LOCATIONS_RESPONSE_INVALID'),
