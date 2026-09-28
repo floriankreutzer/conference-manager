@@ -110,6 +110,8 @@ inherited public Site/Room names, address, route and contact on 28 September
 Security Owner responsibility. The owning Tenant Admin/Conference Manager must
 withhold or correct unsafe legacy display values; known credentials are not
 accepted. Unmigrated Guest prose stays withheld in v3.
+The explicit Security Owner disposition for H-035 remains pending; assuming the
+role is not the recorded risk decision or named release acceptance.
 
 H-034 is still open for an image-bearing backup/restore, retention and authorization
 exercise with actual managed bytes. The Neon Demo snapshot restore on 28 September
@@ -267,7 +269,13 @@ hosted evidence.
 - PR review findings are first-class hardening findings and are resolved only after fix + appropriate
   regression/progression/negative evidence.
 
-## Remaining delivery gates before #170
+## Historical delivery checklist (superseded)
+
+The numbered list below records the pre-merge plan. It is not the current
+release checklist. Use the integrated status above and the open issues #169,
+#170, #172 and #182 for remaining Demo gates, including the explicit H-035
+Security Owner disposition. The rollout document's draft-candidate instructions
+are historical as well.
 
 1. Execute both H-040 provider races and tenant-wide lock-order cases on PostgreSQL 18.
    Implement H-034 through the ADR-012 managed-media contract and UI; add safe-delivery
