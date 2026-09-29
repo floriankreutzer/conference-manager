@@ -177,7 +177,7 @@ export async function bootstrapCustomerApplication({
 
   let presentationRenderFrame = 0;
   let renderedPresentation = tenantPresentation.current();
-  tenantPresentation.subscribe((snapshot) => {
+  tenantPresentation.subscribe((snapshot, reason) => {
     const needsLocalizationRender = snapshot.presentation.defaultLocale
       !== renderedPresentation.presentation.defaultLocale
       || snapshot.presentation.defaultCurrency !== renderedPresentation.presentation.defaultCurrency;
@@ -185,7 +185,7 @@ export async function bootstrapCustomerApplication({
     if (!context.isAuthenticated()) return;
     // A background presentation refresh must not replace an in-progress settings form.
     applyTenantPresentationToDocument(document, snapshot);
-    if (!needsLocalizationRender) return;
+    if (reason === 'organization-write' || !needsLocalizationRender) return;
     if (presentationRenderFrame) cancelAnimationFrame(presentationRenderFrame);
     presentationRenderFrame = requestAnimationFrame(() => {
       presentationRenderFrame = 0;

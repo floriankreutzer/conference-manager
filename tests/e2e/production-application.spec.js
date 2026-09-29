@@ -4757,9 +4757,10 @@ test('MGR-10: reports retain a historical Site after its last Room moves elsewhe
 });
 
 test('Production onboarding opens Tenant Admin without loading unavailable business projections', async ({ page }) => {
-  const session = sessionPayload(['tenant_admin']);
+  const roles = ['employee', 'tenant_admin'];
+  const session = sessionPayload(roles);
   session.tenant.status = 'onboarding';
-  const fixture = await installProductionApplicationFixture(page, { session, roles: ['tenant_admin'] });
+  const fixture = await installProductionApplicationFixture(page, { session, roles });
   const businessReads = [];
   page.on('request', (request) => {
     if (request.url().includes('/api/v1/application/requests')) businessReads.push(request.url());
