@@ -176,12 +176,16 @@ export async function bootstrapCustomerApplication({
   }
 
   let presentationRenderFrame = 0;
-  tenantPresentation.subscribe((snapshot, reason) => {
+  let renderedPresentation = tenantPresentation.current();
+  tenantPresentation.subscribe((snapshot) => {
+    const needsLocalizationRender = snapshot.presentation.defaultLocale
+      !== renderedPresentation.presentation.defaultLocale
+      || snapshot.presentation.defaultCurrency !== renderedPresentation.presentation.defaultCurrency;
+    renderedPresentation = snapshot;
     if (!context.isAuthenticated()) return;
-    if (reason === 'organization-write') {
-      applyTenantPresentationToDocument(document, snapshot);
-      return;
-    }
+    // A background presentation refresh must not replace an in-progress settings form.
+    applyTenantPresentationToDocument(document, snapshot);
+    if (!needsLocalizationRender) return;
     if (presentationRenderFrame) cancelAnimationFrame(presentationRenderFrame);
     presentationRenderFrame = requestAnimationFrame(() => {
       presentationRenderFrame = 0;
