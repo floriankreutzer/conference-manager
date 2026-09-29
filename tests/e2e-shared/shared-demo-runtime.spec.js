@@ -683,9 +683,58 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     revision: 1,
   });
 
-  platformSession = await switchPlatform(platformContext, platformSession, 'security_admin');
-  const repeatedReset = await resetDemo(platformContext, platformSession);
-  expect(repeatedReset).toMatchObject({ seedVersion: reset.seedVersion, checksum: reset.checksum });
+  if (seededMediaUrl !== null) {
+    // Exercise a second complete mutation and restore cycle, not only an idempotent reset.
+    const secondLocations = (await expectStatus(
+      await customerContext.request.get(
+        `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations?schemaVersion=3`,
+      ),
+      200,
+    )).locations;
+    const secondRoom = secondLocations.configuration.rooms.find(({ id }) => id === 'contoso-paris-room-1');
+    const secondMediaPath = `${CUSTOMER_ORIGIN}/api/v1/tenant/rooms/${secondRoom.id}/media`;
+    const secondUploaded = await expectStatus(await customerContext.request.post(secondMediaPath, {
+      headers: { ...unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken), 'Content-Type': 'image/png' },
+      data: imageBytes,
+    }), 201);
+    secondRoom.mediaAssetIds.push(secondUploaded.assetId);
+    await expectStatus(await customerContext.request.put(
+      `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations`, {
+        headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
+        data: {
+          schemaVersion: 3,
+          expectedRevision: secondLocations.revision,
+          configuration: secondLocations.configuration,
+        },
+      },
+    ), 200);
+    const secondAssetUrl = `${secondMediaPath}/${secondUploaded.assetId}`;
+    expect((await customerContext.request.get(secondAssetUrl)).status()).toBe(200);
+
+    platformSession = await switchPlatform(platformContext, platformSession, 'security_admin');
+    const repeatedReset = await resetDemo(platformContext, platformSession);
+    expect(repeatedReset).toMatchObject({ seedVersion: reset.seedVersion, checksum: reset.checksum });
+    await customerContext.clearCookies();
+    customerSession = await establishCustomer(customerContext);
+    customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'conference_manager');
+    expect((await customerContext.request.get(secondAssetUrl)).status()).toBe(404);
+    const secondRestoredMedia = await customerContext.request.get(seededMediaUrl);
+    expect(secondRestoredMedia.status()).toBe(200);
+    expect(createHash('sha256').update(await secondRestoredMedia.body()).digest('hex'))
+      .toBe(seededMediaHash);
+    const finalLocations = (await expectStatus(
+      await customerContext.request.get(
+        `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations?schemaVersion=3`,
+      ),
+      200,
+    )).locations;
+    expect(finalLocations.configuration.rooms.find(({ id }) => id === secondRoom.id).mediaAssetIds)
+      .not.toContain(secondUploaded.assetId);
+  } else {
+    platformSession = await switchPlatform(platformContext, platformSession, 'security_admin');
+    const repeatedReset = await resetDemo(platformContext, platformSession);
+    expect(repeatedReset).toMatchObject({ seedVersion: reset.seedVersion, checksum: reset.checksum });
+  }
 
   await Promise.all([customerContext.close(), platformContext.close()]);
 });
