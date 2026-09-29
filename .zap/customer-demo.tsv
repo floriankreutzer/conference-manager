@@ -33,6 +33,8 @@
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260901-78$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
+# Informational request-header observation; run 36592014911, artifact 11044656472.
+90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/demo-security\.css\?v=20260830-77$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260823-71$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260919-92$
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/feature-parity\.css\?v=20260825-01$

@@ -381,7 +381,7 @@ test('Request list pagination binds one generation and rejects global duplicates
   const first = requestPage({
     schemaVersion: 3,
     requests: [attributedLegacyRequest()],
-    page: { limit: 10, complete: false, nextCursor: 'next_page' },
+    page: { limit: 10, complete: false, nextCursor: `next_page.${'A'.repeat(43)}` },
   });
   const downgraded = requestPage({
     requests: [legacyRequest({ id: 'request-2', startsAt: '2026-09-01T12:00:00.000Z', endsAt: '2026-09-01T13:00:00.000Z' })],
@@ -392,6 +392,8 @@ test('Request list pagination binds one generation and rejects global duplicates
       .listRequests(),
     (error) => error.code === 'PRODUCTION_REQUEST_LIST_INVALID',
   );
+
+  assert.equal(call, 2, 'Reach the downgraded second envelope before rejecting it');
 
   call = 0;
   await assert.rejects(
