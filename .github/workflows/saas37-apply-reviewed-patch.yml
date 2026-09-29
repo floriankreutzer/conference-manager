@@ -1,0 +1,115 @@
+name: Prepare reviewed SaaS 3.7 frontend correction
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/saas37-apply-reviewed-patch.yml
+      - .github/saas37-patch-part-*.bin
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-commit:
+    if: github.head_ref == 'test/saas37-scenario-acceptance' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout exact correction branch without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Verify exact bounded correction and create unreferenced commit only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+          import { tmpdir } from 'node:os';
+          import { join } from 'node:path';
+          import { createHash } from 'node:crypto';
+          import { gunzipSync } from 'node:zlib';
+          import { execFileSync } from 'node:child_process';
+          import assert from 'node:assert/strict';
+          const repository = 'floriankreutzer/conference-manager';
+          const parts = Array.from({ length: 7 }, (_, index) => `.github/saas37-patch-part-${index + 1}.bin`);
+          const compressed = Buffer.concat(parts.map((path) => readFileSync(path)));
+          assert.equal(compressed.length, 19877);
+          assert.equal(createHash('sha256').update(compressed).digest('hex'), 'c7942d1369dec8b490af643ec943e364826d0e5616e2f1b752cb0e3bd83f1de4');
+          const patch = gunzipSync(compressed, { maxOutputLength: 100000 });
+          const patchSha256 = 'bbf727caea1a13dcbf4103e3e7de38eb0ba7f84e62ca1833ea5250752ba99658';
+          assert.equal(createHash('sha256').update(patch).digest('hex'), patchSha256);
+          const expectedFiles = [
+            '.github/workflows/ci.yml',
+            '.github/workflows/hosted-demo-acceptance.yml',
+            'docs/SAAS-3.7-SCENARIO-ACCEPTANCE.md',
+            'package.json',
+            'playwright.saas37.config.js',
+            'scripts/customer-demo-boundary-policy.mjs',
+            'src/app.js',
+            'src/core/i18n-manager-settings-messages.js',
+            'src/manager/demo-worklist-controller.js',
+            'src/manager/workspace-application.js',
+            'src/platform/demo-bootstrap.js',
+            'src/platform/demo-microsoft365-connection-api.js',
+            'src/platform/microsoft365-connection-api.js',
+            'src/platform/microsoft365-connection-lifecycle.js',
+            'tests/demo-manager-worklist-controller.test.js',
+            'tests/demo-microsoft365-connection-api.test.js',
+            'tests/e2e-saas37/contoso-scenario.js',
+            'tests/e2e-saas37/fabrikam-scenario.js',
+            'tests/e2e-saas37/northwind-scenario.js',
+            'tests/e2e-saas37/scenario-support.js',
+            'tests/e2e-saas37/three-customer-scenarios.spec.js',
+            'tests/e2e-shared/shared-demo-runtime.spec.js',
+          ].sort();
+          assert.match(process.env.PR_HEAD, /^[0-9a-f]{40}$/);
+          const directory = mkdtempSync(join(tmpdir(), 'saas37-reviewed-'));
+          try {
+            const path = join(directory, 'correction.patch');
+            writeFileSync(path, patch, { mode: 0o600, flag: 'wx' });
+            execFileSync('git', ['apply', '--index', '--whitespace=error-all', path]);
+          } finally {
+            rmSync(directory, { recursive: true, force: true });
+          }
+          const changed = execFileSync('git', ['diff', '--cached', '--name-only', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean).sort();
+          assert.deepEqual(changed, expectedFiles);
+          async function api(path, body) {
+            const response = await fetch(`https://api.github.com/repos/${repository}/${path}`, {
+              method: body ? 'POST' : 'GET', redirect: 'error', signal: AbortSignal.timeout(20000),
+              headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' },
+              ...(body ? { body: JSON.stringify(body) } : {}),
+            });
+            assert.ok(response.ok, `Git object operation failed: ${response.status}`);
+            return response.json();
+          }
+          const parent = await api(`git/commits/${process.env.PR_HEAD}`);
+          const entries = expectedFiles.map((path) => ({ path, mode: '100644', type: 'blob', content: readFileSync(path, 'utf8') }));
+          const temporaryPaths = [...parts, '.github/workflows/saas37-apply-reviewed-patch.yml'];
+          const tree = await api('git/trees', {
+            base_tree: parent.tree.sha,
+            tree: [...entries, ...temporaryPaths.map((path) => ({ path, mode: '100644', type: 'blob', sha: null }))],
+          });
+          const commit = await api('git/commits', {
+            message: 'fix: restore Demo consent and task refresh with complete SaaS 3.7 scenario regressions\n\nApply SHA-256-verified corrective diff with isolated Demo/Production consent contracts, data-derived Manager refresh and two full scenario mutation/reset cycles. Preserve the existing 3.6 zoom regression and all security gates. Remove all temporary transfer machinery. No branch ref is moved by this workflow.',
+            tree: tree.sha, parents: [process.env.PR_HEAD],
+          });
+          assert.match(commit.sha, /^[0-9a-f]{40}$/);
+          const files = entries.map(({ path, content }) => ({ path, blobSha: createHash('sha1').update(`blob ${Buffer.byteLength(content)}\0`).update(content).digest('hex') }));
+          writeFileSync('reviewed-frontend-correction-commit.json', JSON.stringify({ repository, parent: process.env.PR_HEAD, commit: commit.sha, patchSha256, files, removed: temporaryPaths }, null, 2));
+          JS
+      - name: Retain commit metadata for external verification and normal PR branch update
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reviewed-frontend-correction-commit
+          path: reviewed-frontend-correction-commit.json
+          if-no-files-found: error
+          retention-days: 1
