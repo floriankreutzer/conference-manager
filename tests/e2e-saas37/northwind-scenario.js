@@ -131,7 +131,7 @@ export async function northwindBooking(page, cycle, baseline) {
 export async function unavailableIntegrationFailsClosed(page) {
   await selectContext(page, NORTHWIND, 'tenant_admin');
   await openAdmin(page, 'microsoft365');
-  await uiResponse(page, 'POST', `${INTEGRATION_PATH}/disconnect`,
+  await uiResponse(page, 'DELETE', INTEGRATION_PATH,
     () => page.getByRole('button', { name: 'Microsoft 365 trennen', exact: true }).click());
   await selectContext(page, NORTHWIND, 'employee');
   await page.locator('[data-view="employee"]').click();

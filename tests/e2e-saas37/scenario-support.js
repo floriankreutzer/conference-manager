@@ -53,7 +53,12 @@ export async function selectContext(page, tenantId, persona) {
   await page.getByLabel('Demo-Persona').selectOption(persona);
   const bootstrap = page.waitForResponse((response) => response.request().method() === 'GET'
     && new URL(response.url()).pathname === '/api/v1/demo/session');
-  await uiResponse(page, 'PUT', '/api/v1/demo/session/context', () => page.locator('[data-demo-security] button').click());
+  const switched = page.waitForResponse((response) => response.request().method() === 'PUT'
+    && new URL(response.url()).pathname === '/api/v1/demo/session/context');
+  await page.locator('[data-demo-security] button').click();
+  // The accepted switch intentionally reloads the document. Its old response
+  // body is no longer readable; verify status and the fresh server session.
+  expect((await switched).status()).toBe(200);
   expect((await bootstrap).status()).toBe(200);
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
   await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
