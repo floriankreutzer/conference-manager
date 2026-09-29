@@ -1,0 +1,62 @@
+# SaaS 3.7 scenario progression acceptance
+
+## Scope and defect corrections
+
+Frontend issue #215 remains the release gate. Passing the earlier shared journey
+only proved initial task/onboarding state, not the complete scenario progression.
+The dedicated `npm run test:e2e:saas37` suite exercises actual PostgreSQL state,
+normal authorized HTTP routes and visible UI. It does not mock provider or
+application routes, seed browser storage, bypass lifecycle, or edit database rows.
+
+Two cycles each create and confirm a rich Northwind booking, inspect its details
+and Manager plan with keyboard focus, complete Contoso's seven real pending
+items, progress Fabrikam consent/discovery/import/free-busy verification, exercise
+cross-Tenant/media/CSRF/role/lifecycle negatives, and reset all three scenarios.
+Post-reset checks require original content, task counts, empty Fabrikam imports,
+revoked independent sessions, removed new requests/media and original media bytes.
+Evidence is scoped to the actual browser, runtime and reset checksum tested.
+
+## Corrected contracts and ownership
+
+The Customer Demo bootstrap injects the Demo-only Microsoft 365 connection
+adapter. Its consent URL is restricted to the exact same HTTPS origin, fixed
+callback path and exact bounded state/Tenant/consent query. The Production
+factory remains fixed to Microsoft; no Demo adapter is reachable from Production
+entrypoints. Only shared lifecycle/envelope parsing is factored into one common
+module. The trusted backend still validates session, CSRF, one-time state,
+provider-Tenant binding and operator authority. No client check grants authority.
+
+The Manager worklist is a read projection, not a task engine. Its controller
+rereads normal server adapters after successful request, room, catalogue or bulk
+mutations. Generation/attachment/lock checks prevent stale UI resurrection;
+failed rereads show unavailable state, not false task completion or a failed
+committed write. Authority failures still invalidate the application. Existing
+DE/EN translations and Manager surface patterns are reused.
+
+The API correction makes Northwind healthy for its approved complete-booking
+scenario and provides Fabrikam-only external discovery candidates without
+pre-importing local rooms. Provider-unavailable unit tests remain, and the full
+browser suite verifies disconnected integration fails closed. These changes
+are documented in the API repository's corresponding correction record.
+
+## Baseline and validation boundaries
+
+Corrected seed contract: `saas-3.7-three-demo-customers-v1`.
+Corrected semantic checksum:
+`7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014`.
+
+An immutable corrected runtime/Frontend tuple, successful API quality/audit/DB
+gates, frontend quality/audit/Chromium/WebKit gates, hosted scenario tests and
+normal reviewed PR integration are required before closure. Historical hosted
+runs explicitly retain their historical provider-health expectation; they do not
+attest the corrected candidate. Run the new suite with corrected API code only.
+
+The isolated configuration uses the repository's fixed local TLS edge. Hosted
+scenario runs use only the two exact approved Render origins directly, so the
+same-origin consent callback is not rewritten by a test proxy. Hosted TLS is
+verified. Cleanup restores the canonical seed after a failed attempt and before
+success evidence is attached; failure to prove reset is a failed test.
+
+This is simulated Demo evidence, not live Microsoft, Production, formal WCAG or
+penetration-test approval. No temporary source-transfer workflow belongs in the
+final integrated tree.

@@ -14,6 +14,9 @@ const BASELINE_NAME_B = 'Contoso Demo';
 const MUTATED_NAME_B = 'Contoso Demo E2E';
 const SEED_VERSION = process.env.DEMO_SEED_VERSION || 'saas-3.6-shared-demo-v5';
 const REQUEST_TITLE = 'Shared Demo end-to-end request';
+const PROVIDER_HEALTH = process.env.DEMO_PROVIDER_HEALTH
+  || (SEED_VERSION.startsWith('saas-3.7') ? 'healthy' : 'degraded');
+if (!['healthy', 'degraded'].includes(PROVIDER_HEALTH)) throw new Error('DEMO_PROVIDER_HEALTH_INVALID');
 
 async function payload(response) {
   const contentType = response.headers()['content-type'] || '';
@@ -272,7 +275,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   const degradedTenant = degradedProviderEvidence.items.find(({ tenantId }) => tenantId === TENANT_A);
   expect(degradedTenant.capabilities.length).toBeGreaterThan(0);
-  expect(degradedTenant.capabilities.every(({ status }) => status === 'degraded')).toBe(true);
+  expect(degradedTenant.capabilities.every(({ status }) => status === PROVIDER_HEALTH)).toBe(true);
 
   const unauthorizedTransition = await platformContext.request.post(
     `${PLATFORM_ORIGIN}/api/v1/platform/tenants/${TENANT_B}/lifecycle/transitions`,

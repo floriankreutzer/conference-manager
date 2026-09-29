@@ -31,6 +31,8 @@ env:
   EXPECTED_FRONTEND_REF: 196bc6c8ed94bd154fa5c6b03a07bc31e66c4b63
   EXPECTED_RUNTIME_REF: 4c75825d10082cb3860c07485cf7c98c3b608233
   DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
+  # Historical live candidate until the corrected scenario build is released.
+  DEMO_PROVIDER_HEALTH: degraded
   HOSTED_JOB_BUDGET_SECONDS: '1800'
   HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '900'
   HOSTED_READINESS_BUDGET_SECONDS: '360'
