@@ -18,6 +18,7 @@ test('static launchpad reflows at a 200% equivalent desktop width and at phone w
     const layout = await page.evaluate(() => ({
       documentWidth: document.documentElement.scrollWidth,
       viewportWidth: window.innerWidth,
+      gridDisplay: getComputedStyle(document.querySelector('.launch-grid')).display,
       columns: getComputedStyle(document.querySelector('.launch-grid')).gridTemplateColumns.split(' ').length,
       actions: [...document.querySelectorAll('.launch-action')].map((link) => {
         const rect = link.getBoundingClientRect();
@@ -25,6 +26,7 @@ test('static launchpad reflows at a 200% equivalent desktop width and at phone w
       }),
     }));
     expect(layout.documentWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewportWidth + 1);
+    expect(layout.gridDisplay).toBe('grid');
     expect(layout.columns).toBe(1);
     for (const action of layout.actions) {
       expect(action.left).toBeGreaterThanOrEqual(0);
