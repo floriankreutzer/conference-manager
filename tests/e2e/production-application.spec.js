@@ -4767,7 +4767,7 @@ test('Production onboarding opens Tenant Admin without loading unavailable busin
   });
   await page.goto(`${ORIGIN}/`);
   await expect(page.locator('[data-view="tenantAdmin"]')).toHaveAttribute('aria-current', 'page');
-  await expect(page.locator('[data-tenant-onboarding]')).toBeVisible();
+  await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
   expect(fixture.catalogReads).toEqual([]);
   expect(businessReads).toEqual([]);
 });
