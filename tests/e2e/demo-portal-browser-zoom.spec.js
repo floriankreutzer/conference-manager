@@ -10,7 +10,8 @@ const CUSTOMER = 'https://conference-manager-demo.onrender.com';
 const PLATFORM = 'https://conference-manager-ops-demo.onrender.com';
 
 test('portal remains usable at actual Chromium browser zoom 200%', async ({}, testInfo) => {
-  test.skip(testInfo.project.name !== 'chromium-desktop', 'Chromium extension zoom acceptance');
+  test.skip(!process.env.CM_ACTUAL_BROWSER_ZOOM || testInfo.project.name !== 'chromium-desktop',
+    'Run in the headed Chromium zoom CI step');
   const profile = await mkdtemp(path.join(os.tmpdir(), 'cm-zoom-'));
   let context;
   try {
