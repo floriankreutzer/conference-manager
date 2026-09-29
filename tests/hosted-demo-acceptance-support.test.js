@@ -10,9 +10,13 @@ import { hostedResetRequestIdPath } from '../scripts/hosted-demo-run-context.mjs
 
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
-const FRONTEND_REF = '9d8f8565a2e847f680bc242d4d2f814f0e5d843f';
-const RUNTIME_REF = 'e52c4c23227deb8a48af0070c255a80431ed3c6e';
+const FRONTEND_REF = '196bc6c8ed94bd154fa5c6b03a07bc31e66c4b63';
+const RUNTIME_REF = '4c75825d10082cb3860c07485cf7c98c3b608233';
+const SEED_VERSION = 'saas-3.7-three-demo-customers-v1';
 const CHECKSUM = CANONICAL_DEMO_CHECKSUM;
+const LEGACY_RUNTIME_REF = 'e52c4c23227deb8a48af0070c255a80431ed3c6e';
+const LEGACY_SEED_VERSION = 'saas-3.6-shared-demo-v5';
+const LEGACY_CHECKSUM = '9ca1e544799627b72e64b0e3420fb342e35214e14c3506cf508eb22b56e27605';
 
 function jsonResponse(body, { status = 200, cookie = null } = {}) {
   const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });
@@ -27,7 +31,7 @@ function serviceNameFor(url) {
   throw new Error('TEST_HOSTED_DEMO_ORIGIN_INVALID');
 }
 
-function successfulCleanupResponses(firstChecksum = CHECKSUM, secondChecksum = firstChecksum) {
+function successfulCleanupResponses(firstChecksum = CHECKSUM, secondChecksum = firstChecksum, seedVersion = SEED_VERSION) {
   return [
     jsonResponse(
       { csrfToken: 'a'.repeat(32) },
@@ -37,7 +41,7 @@ function successfulCleanupResponses(firstChecksum = CHECKSUM, secondChecksum = f
       { csrfToken: 'b'.repeat(32) },
       { cookie: 'cm_platform_session=security_admin_session_1234' },
     ),
-    jsonResponse({ seedVersion: 'saas-3.6-shared-demo-v5', checksum: firstChecksum }),
+    jsonResponse({ seedVersion, checksum: firstChecksum }),
     jsonResponse(
       { csrfToken: 'c'.repeat(32) },
       { cookie: 'cm_platform_session=bootstrap_session_0987654321' },
@@ -46,7 +50,7 @@ function successfulCleanupResponses(firstChecksum = CHECKSUM, secondChecksum = f
       { csrfToken: 'd'.repeat(32) },
       { cookie: 'cm_platform_session=security_admin_session_4321' },
     ),
-    jsonResponse({ seedVersion: 'saas-3.6-shared-demo-v5', checksum: secondChecksum }),
+    jsonResponse({ seedVersion, checksum: secondChecksum }),
   ];
 }
 
@@ -85,7 +89,7 @@ test('hosted Demo failure cleanup proves a repeatable deterministic baseline wit
   const result = await resetHostedDemoBaseline({ fetchImpl, origin: PLATFORM_ORIGIN });
 
   assert.deepEqual(result, {
-    seedVersion: 'saas-3.6-shared-demo-v5',
+    seedVersion: SEED_VERSION,
     checksum: CHECKSUM,
   });
   assert.equal(Object.isFrozen(result), true);
@@ -106,6 +110,43 @@ test('hosted Demo failure cleanup proves a repeatable deterministic baseline wit
   assert.equal(calls[4].options.headers['X-CSRF-Token'], 'c'.repeat(32));
   assert.equal(calls[5].options.headers.Cookie, 'cm_platform_session=security_admin_session_4321');
   assert.equal(calls[5].options.headers['X-CSRF-Token'], 'd'.repeat(32));
+});
+
+test('hosted Demo cleanup retains the explicit historical SaaS 3.6 runtime binding', async () => {
+  const responses = successfulCleanupResponses(LEGACY_CHECKSUM, LEGACY_CHECKSUM, LEGACY_SEED_VERSION);
+  const result = await resetHostedDemoBaseline({
+    fetchImpl: async () => responses.shift(),
+    origin: PLATFORM_ORIGIN,
+    expectedRuntimeRef: LEGACY_RUNTIME_REF,
+  });
+  assert.deepEqual(result, { seedVersion: LEGACY_SEED_VERSION, checksum: LEGACY_CHECKSUM });
+  assert.equal(responses.length, 0);
+});
+
+test('hosted Demo cleanup rejects cross-version seed substitution in either direction', async () => {
+  for (const [runtimeRef, seedVersion, checksum] of [
+    [RUNTIME_REF, LEGACY_SEED_VERSION, LEGACY_CHECKSUM],
+    [LEGACY_RUNTIME_REF, SEED_VERSION, CHECKSUM],
+  ]) {
+    const responses = successfulCleanupResponses(checksum, checksum, seedVersion);
+    await assert.rejects(
+      resetHostedDemoBaseline({
+        fetchImpl: async () => responses.shift(),
+        origin: PLATFORM_ORIGIN,
+        expectedRuntimeRef: runtimeRef,
+      }),
+      /HOSTED_DEMO_RESET_RESULT_INVALID/,
+    );
+    assert.equal(responses.length, 3, 'Reject wrong seed before attempting a second reset');
+  }
+});
+
+test('hosted Demo cleanup rejects a historical checksum even with the current seed label', async () => {
+  const responses = successfulCleanupResponses(LEGACY_CHECKSUM);
+  await assert.rejects(
+    resetHostedDemoBaseline({ fetchImpl: async () => responses.shift(), origin: PLATFORM_ORIGIN }),
+    /HOSTED_DEMO_RESET_CANONICAL_CHECKSUM_INVALID/,
+  );
 });
 
 test('hosted Demo cleanup rejects a non-repeatable baseline checksum', async () => {

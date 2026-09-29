@@ -54,8 +54,8 @@ jobs:
           cache: npm
       - name: Install locked test dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
       - name: Wait for public Customer and Platform readiness
         shell: bash
         run: |
@@ -116,6 +116,9 @@ jobs:
         run: node scripts/read-hosted-demo-reset-evidence.mjs >> hosted-demo-evidence.txt
       - name: Restore public Demo baseline after failed journey
         if: always() && steps.hosted_journey.outcome == 'failure'
+        run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
+      - name: Verify canonical Demo baseline after successful journey
+        if: steps.hosted_journey.outcome == 'success'
         run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
       - name: Re-verify live deployment identity after journey and cleanup
         if: always() && steps.pre_identity.outcome == 'success' && steps.hosted_journey.outcome != 'skipped'

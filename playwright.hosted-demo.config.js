@@ -8,6 +8,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 180_000,
+  globalTimeout: 480_000,
+  maxFailures: 1,
   retries: 0,
   expect: { timeout: 15_000 },
   reporter: [['list'], ['html', { outputFolder: 'playwright-report-hosted-demo', open: 'never' }]],
@@ -21,6 +23,10 @@ export default defineConfig({
     {
       name: 'chromium-hosted-demo',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'webkit-hosted-demo',
+      use: { ...devices['Desktop Safari'] },
     },
   ],
   webServer: {
