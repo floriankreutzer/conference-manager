@@ -42,8 +42,12 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await page.locator('[data-demo-manager-task="room:description"] button').click();
   const studio = page.locator(`[data-manager-room-id="${STUDIO}"]`);
   await studio.locator('textarea[id^="manager-room-description-"]').fill(`Completed Studio description cycle ${cycle}`);
-  await uiResponse(page, 'PUT', LOCATIONS_PATH,
-    () => studio.locator('xpath=..').getByRole('button', { name: 'Speichern', exact: true }).click());
+  const roomsForm = studio.locator('xpath=..');
+  await expect(roomsForm.locator(':invalid')).toHaveCount(0);
+  await uiResponse(page, 'PUT', LOCATIONS_PATH, async () => {
+    await roomsForm.getByRole('button', { name: 'Speichern', exact: true }).click();
+    await expect(page.locator('#toast')).toHaveText('Business-Einstellungen wurden gespeichert.');
+  });
   await expect(page.locator('[data-demo-manager-task="room:description"]')).toHaveCount(0);
   await studio.locator('input[type="file"][id^="manager-room-media-upload-"]').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: PNG });
   await uiResponse(page, 'PUT', LOCATIONS_PATH,
