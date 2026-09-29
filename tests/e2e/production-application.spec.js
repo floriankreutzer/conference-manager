@@ -99,6 +99,7 @@ function catalogPayload(timeZone = 'Europe/Berlin') {
       sites: [{ id: 'berlin', name: 'Berlin', active: true, timeZone }],
       rooms: [{
         id: 'room-a', siteId: 'berlin', name: 'Room A', capacity: 12, active: true,
+        description: 'Tageslicht und variable Bestuhlung · <b>Nur Text</b>',
         price: { amountMinor: 0, currency: 'EUR' },
         equipment: ['Display', 'Whiteboard'],
         floorplanAssetId: 'floorplan-room-a',
@@ -1511,6 +1512,8 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   await roomPreviewTrigger.click();
   const previewDialog = page.getByRole('dialog', { name: 'Raumbilder · Room A' });
   await expect(previewDialog).toBeVisible();
+  await expect(previewDialog).toContainText('Tageslicht und variable Bestuhlung · <b>Nur Text</b>');
+  await expect(previewDialog.locator('b')).toHaveCount(0);
   await expect(previewDialog.getByRole('img')).toHaveCount(0);
   await expect(previewDialog).toContainText(
     'Ältere Referenzen müssen erneut hochgeladen werden.',

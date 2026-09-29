@@ -111,3 +111,24 @@ test('signed Request cursor syntax does not broaden the catalogue context or pag
     { ...catalogue, page: pagination(SIGNED_CURSOR) },
   ]) assert.throws(() => normalizeProductionCatalogPage(invalid), /PRODUCTION_CATALOG_PAGE_INVALID/);
 });
+
+test('room catalogue accepts only bounded description extensions and preserves legacy shape', () => {
+  const room = { id: 'room-1', siteId: 'site-1', name: 'Room', capacity: 10, active: true,
+    price: { amountMinor: 0, currency: 'EUR' }, equipment: [], floorplanAssetId: null, mediaAssetIds: [] };
+  const envelope = (entry) => ({ schemaVersion: 2,
+    configurationRevisions: { organization: 1, locations: 1, catalogue: 1, bookingPolicies: 1, costAllocation: 1 },
+    bookingPolicy: { policyVersionId: 'policy-1', effectiveFrom: '2026-01-01T00:00:00.000Z', evaluatedAt: NOW,
+      rules: { minimumLeadTimeMinutes: 0, maximumAdvanceMinutes: 527040,
+        cancellationWindowMinutes: 0, changeWindowMinutes: 0, maximumParticipants: 500,
+        allowedSiteIds: [], allowedRoomIds: [], allowedServiceIds: [] } },
+    organization: { defaultCurrency: 'EUR' }, costAllocation: { allocationRequired: false },
+    context: 'catalogue_context', section: 'rooms', entries: [entry], page: pagination(null) });
+  for (const description of [null, 'Daylight and flexible seating', 'x'.repeat(1000)]) {
+    assert.equal(normalizeProductionCatalogPage(envelope({ ...room, description })).entries[0].description, description);
+  }
+  assert.equal(Object.hasOwn(normalizeProductionCatalogPage(envelope(room)).entries[0], 'description'), false);
+  for (const description of ['', ' padded ', 'x'.repeat(1001), 'unsafe\u0000text', 5, {}]) {
+    assert.throws(() => normalizeProductionCatalogPage(envelope({ ...room, description })), /PRODUCTION_CATALOG_PAGE_INVALID/);
+  }
+  assert.throws(() => normalizeProductionCatalogPage(envelope({ ...room, description: 'Room', providerId: 'private' })), /PRODUCTION_CATALOG_PAGE_INVALID/);
+});

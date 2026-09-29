@@ -269,6 +269,7 @@ function catalogRoom(value, code) {
   const legacyKeys = ['id', 'siteId', 'name', 'capacity', 'active', 'price'];
   const presentationKeys = [
     ...legacyKeys, 'equipment', 'floorplanAssetId', 'mediaAssetIds',
+    ...(Object.hasOwn(value || {}, 'description') ? ['description'] : []),
   ];
   const actualKeys = value && typeof value === 'object' && !Array.isArray(value)
     ? Object.keys(value).sort()
@@ -311,6 +312,9 @@ function catalogRoom(value, code) {
     equipment: Object.freeze(equipment),
     floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
     mediaAssetIds: Object.freeze(mediaAssetIds),
+    ...(Object.hasOwn(room, 'description') ? {
+      description: responseText(room.description, { maximum: 1_000, nullable: true, code }),
+    } : {}),
   });
 }
 

@@ -60,3 +60,16 @@ success evidence is attached; failure to prove reset is a failed test.
 This is simulated Demo evidence, not live Microsoft, Production, formal WCAG or
 penetration-test approval. No temporary source-transfer workflow belongs in the
 final integrated tree.
+
+## Room-description correction found by the full journey
+
+The first corrected-cursor CI run reached the visible room-preview step and
+exposed a missing description projection. The API now projects the existing
+bounded public Room description from the same tenant-scoped catalogue read.
+The browser accepts that exact optional presentation field, retains legacy
+shapes, and renders it using the existing safe text-content DOM helper.
+No tenant/settings authorization, provider fields, persistence or pricing
+contract changes. Empty or malformed descriptions do not become authority.
+Regression coverage includes bounds, unknown fields, legacy envelopes and
+literal markup rendering without element creation; the real scenario requires
+all ten seeded descriptions in their visible preview dialogs.
