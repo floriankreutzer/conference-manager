@@ -22,13 +22,13 @@ export async function progressFabrikam(page, cycle) {
   await openAdmin(page, 'organization');
   await page.locator('#tenant-organization-display-name').fill(`Fabrikam onboarding cycle ${cycle}`);
   await uiResponse(page, 'PUT', '/api/v1/tenant/settings/organization',
-    () => page.locator('[data-tenant-settings-form="organization"]').getByRole('button', { name: 'Speichern', exact: true }).click());
+    () => page.locator('[data-tenant-settings-form="organization"]').getByRole('button', { name: 'Änderungen speichern', exact: true }).click());
   await page.locator('[data-tenant-admin-section="locations"]').click();
   await page.getByRole('button', { name: 'Standort hinzufügen', exact: true }).click();
   await page.locator('#tenant-site-name-0').fill('Fabrikam Acceptance Campus');
   await page.locator('#tenant-site-time-zone-0').fill('Europe/Berlin');
   await uiResponse(page, 'PUT', LOCATIONS_PATH,
-    () => page.locator('[data-tenant-settings-form="locations-technical"]').getByRole('button', { name: 'Speichern', exact: true }).click());
+    () => page.locator('[data-tenant-settings-form="locations-technical"]').getByRole('button', { name: 'Änderungen speichern', exact: true }).click());
   await page.locator('[data-tenant-admin-section="microsoft365"]').click();
   const connection = page.locator('[data-onboarding-step="connection"]');
   const callback = page.waitForResponse((response) => response.request().method() === 'GET'

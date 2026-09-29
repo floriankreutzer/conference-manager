@@ -66,10 +66,12 @@ export async function selectContext(page, tenantId, persona) {
 }
 
 export async function uiResponse(page, method, path, action, expected = 200) {
-  const responsePromise = page.waitForResponse((response) => response.request().method() === method
-    && new URL(response.url()).pathname === path);
-  await action();
-  return json(await responsePromise, expected);
+  const [response] = await Promise.all([
+    page.waitForResponse((result) => result.request().method() === method
+      && new URL(result.url()).pathname === path),
+    action(),
+  ]);
+  return json(response, expected);
 }
 
 export async function locations(context) {
