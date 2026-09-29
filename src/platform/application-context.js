@@ -367,7 +367,12 @@ export async function createApplicationContext({
         ? PRODUCTION_AUTH_STATUS.UNAUTHENTICATED
         : PRODUCTION_AUTH_STATUS.UNAVAILABLE;
       session = null;
-      if (authorityFailure) {
+      const readyDemoBusinessDenial = runtimeMode === RUNTIME_MODE.DEMO
+        && authorityFailureCode(error) === 'HTTP_403'
+        && error?.cause?.serverCode === 'TENANT_UNAVAILABLE'
+        && demoControlSession?.tenant?.status === 'ready'
+        && authentication.runtime.status?.() === PRODUCTION_AUTH_STATUS.AUTHENTICATED;
+      if (authorityFailure && !readyDemoBusinessDenial) {
         demoControlSession = null;
         demoTenants = EMPTY_REQUESTS;
       }

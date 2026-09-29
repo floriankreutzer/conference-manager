@@ -253,6 +253,17 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect((await expectStatus(platformMissingCsrf, 403)).error.code).toBe('PLATFORM_CSRF_INVALID');
 
+  if (!SEED_VERSION.startsWith('saas-3.7')) {
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
+    expect(customerSession.tenant.status).toBe('ready');
+    await expect(customerPage.getByRole('button', { name: 'Mit Microsoft anmelden' })).toBeVisible();
+    await expect(customerPage.getByLabel('Demo-Tenant')).toBeEnabled();
+    await expect(customerPage.locator('[data-view="employee"]')).toHaveCount(0);
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_A, 'employee');
+    expect(customerSession.tenant.status).toBe('active');
+    await expect(customerPage.getByRole('button', { name: 'Neue Anfrage' })).toBeVisible();
+  }
+
   const degradedProviderEvidence = await expectStatus(
     await platformContext.request.get(
       `${PLATFORM_ORIGIN}/api/v1/platform/microsoft365/health?limit=100`,
