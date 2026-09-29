@@ -147,12 +147,12 @@ test('hosted cleanup requires the runtime-bound canonical checksum twice', () =>
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const runtimeRef = workflow.match(/EXPECTED_RUNTIME_REF: ([0-9a-f]{40})/)?.[1];
 
-  assert.equal(runtimeRef, 'e52c4c23227deb8a48af0070c255a80431ed3c6e');
-  assert.match(workflow, /DEMO_SEED_VERSION: saas-3\.6-shared-demo-v5/);
+  assert.equal(runtimeRef, '4c75825d10082cb3860c07485cf7c98c3b608233');
+  assert.match(workflow, /DEMO_SEED_VERSION: saas-3\.7-three-demo-customers-v1/);
   assert.match(source, new RegExp(`const PINNED_RUNTIME_REF = '${runtimeRef}';`));
   assert.match(
     source,
-    /export const CANONICAL_DEMO_CHECKSUM = '9ca1e544799627b72e64b0e3420fb342e35214e14c3506cf508eb22b56e27605';/,
+    /export const CANONICAL_DEMO_CHECKSUM = '2a15426e761f6efb78409394888d6799e3f00c7e13500d8b937d1d0cece579f6';/,
   );
   assert.match(source, /const firstChecksum = await performReset\(fetchImpl, targetOrigin, baseline\);/);
   assert.match(source, /const secondChecksum = await performReset\(fetchImpl, targetOrigin, baseline\);/);
@@ -161,4 +161,31 @@ test('hosted cleanup requires the runtime-bound canonical checksum twice', () =>
   assert.match(source, /if \(secondChecksum !== baseline\.checksum\)/);
   assert.match(source, /HOSTED_DEMO_RESET_CANONICAL_CHECKSUM_INVALID/);
   assert.match(source, /cleanup_repeatable=true/);
+});
+
+test('hosted browser matrix includes Chromium and WebKit serially within the cleanup reserve', () => {
+  const config = readFileSync('playwright.hosted-demo.config.js', 'utf8');
+  const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+  assert.match(config, /name: 'chromium-hosted-demo'/);
+  assert.match(config, /name: 'webkit-hosted-demo'/);
+  assert.match(config, /devices\['Desktop Safari'\]/);
+  assert.match(config, /fullyParallel: false/);
+  assert.match(config, /workers: 1/);
+  assert.match(config, /globalTimeout: 480_000/);
+  assert.match(config, /maxFailures: 1/);
+  assert.match(config, /retries: 0/);
+  assert.match(workflow, /npx playwright install --with-deps chromium webkit/);
+  assert.match(workflow, /group: hosted-demo-acceptance\n\s+cancel-in-progress: false/);
+});
+
+test('successful hosted journeys also upload an independently pinned canonical reset checksum', () => {
+  const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+  const journeyIndex = workflow.indexOf('name: Run hosted cross-role Demo journey');
+  const baselineIndex = workflow.indexOf('name: Verify canonical Demo baseline after successful journey');
+  const postIdentityIndex = workflow.indexOf('name: Re-verify live deployment identity after journey and cleanup');
+  assert.ok(baselineIndex > journeyIndex && postIdentityIndex > baselineIndex);
+  assert.match(
+    workflow,
+    /name: Verify canonical Demo baseline after successful journey\n\s+if: steps\.hosted_journey\.outcome == 'success'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
+  );
 });
