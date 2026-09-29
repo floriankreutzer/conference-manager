@@ -30,6 +30,21 @@ jobs:
         run: npm run audit
       - name: Run syntax, SAST, secret and regression checks
         run: npm run check
+      - name: Package public frontend inputs for bounded offline QA
+        if: github.head_ref == 'test/saas37-scenario-acceptance'
+        run: |
+          git archive --format=tar HEAD | gzip > frontend-source.tar.gz
+          tar -czf frontend-locked-dependencies.tar.gz node_modules
+      - name: Upload public frontend QA inputs
+        if: github.head_ref == 'test/saas37-scenario-acceptance'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: public-frontend-qa-inputs
+          path: |
+            frontend-source.tar.gz
+            frontend-locked-dependencies.tar.gz
+          if-no-files-found: error
+          retention-days: 1
 
   e2e:
     runs-on: ubuntu-latest
@@ -95,7 +110,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 45f0498d7e0995118d92ad5c300cda332020ad61
+          ref: 4c75825d10082cb3860c07485cf7c98c3b608233
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN }}
           persist-credentials: false
           path: api
