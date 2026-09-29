@@ -67,7 +67,6 @@ test('portal remains usable at actual Chromium browser zoom 200%', async ({}, te
     await expect(page.getByRole('link', { name: 'Launch Customer Demo' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Launch Platform Demo' })).toBeFocused();
-    await page.screenshot({ path: testInfo.outputPath('portal-browser-zoom-200.png'), fullPage: true });
   } finally {
     await context?.close();
     await rm(profile, { recursive: true, force: true });
