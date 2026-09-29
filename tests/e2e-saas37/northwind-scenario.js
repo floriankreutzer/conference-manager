@@ -82,9 +82,11 @@ export async function northwindBooking(page, cycle, baseline) {
   await page.locator('#productionCateringParticipants').fill('4');
   await page.getByLabel('Menge für Obstauswahl', { exact: true }).fill('4');
   await next.click();
+  await page.getByRole('button', { name: 'Kostenstelle hinzufügen', exact: true }).click();
   const allocation = page.locator('#productionAllocationCenter-0');
   await expect(allocation.locator('option:not([value=""])')).toHaveCount(6);
   await allocation.selectOption('cc-1000');
+  await page.locator('#productionAllocationPercent-0').fill('100');
   await next.click();
   await expect(page.getByRole('button', { name: 'Anfrage absenden', exact: true })).toBeEnabled();
   const created = await uiResponse(page, 'POST', '/api/v1/application/requests',
