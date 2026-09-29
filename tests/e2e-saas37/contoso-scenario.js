@@ -28,6 +28,7 @@ export async function verifyContosoBaseline(page) {
 export async function completeContosoTasks(page, cycle, baseline) {
   await page.getByRole('tab', { name: 'Anfragen & Buchungen', exact: true }).click();
   const actions = ['Bestätigen', 'Ablehnen', 'Anfrage stornieren'];
+  const statuses = ['Bestätigt', 'Abgelehnt', 'Storniert'];
   for (let index = 0; index < baseline.pending.length; index += 1) {
     const request = baseline.pending[index];
     const card = page.locator(`[data-production-request-id="${request.id}"]`);
@@ -36,6 +37,9 @@ export async function completeContosoTasks(page, cycle, baseline) {
     if (index === 1) await dialog.getByLabel('Begründung').fill('Synthetic scenario rejection with retained history');
     await uiResponse(page, 'POST', `/api/v1/requests/${request.id}/transitions`,
       () => dialog.getByRole('button', { name: actions[index], exact: true }).click());
+    await expect(dialog).not.toBeVisible();
+    await expect(card).toContainText(statuses[index]);
+    await expect(page.locator('[data-demo-manager-task]')).toHaveCount(6 - index);
     await expect(page.locator(`[data-demo-manager-task="request:${request.id}"]`)).toHaveCount(0);
   }
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(4);
@@ -48,10 +52,15 @@ export async function completeContosoTasks(page, cycle, baseline) {
     await roomsForm.getByRole('button', { name: 'Speichern', exact: true }).click();
     await expect(page.locator('#toast')).toHaveText('Business-Einstellungen wurden gespeichert.');
   });
+  await expect(roomsForm.getByRole('button', { name: 'Speichern', exact: true })).toBeEnabled();
+  await expect(page.locator('[data-demo-manager-task]')).toHaveCount(3);
   await expect(page.locator('[data-demo-manager-task="room:description"]')).toHaveCount(0);
   await studio.locator('input[type="file"][id^="manager-room-media-upload-"]').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: PNG });
   await uiResponse(page, 'PUT', LOCATIONS_PATH,
     () => studio.getByRole('button', { name: 'Bild hochladen', exact: true }).click());
+  await expect(roomsForm.getByRole('button', { name: 'Speichern', exact: true })).toBeEnabled();
+  await expect(studio.locator('input[type="file"][id^="manager-room-media-upload-"]')).toHaveValue('');
+  await expect(page.locator('[data-demo-manager-task]')).toHaveCount(2);
   await expect(page.locator('[data-demo-manager-task="room:image"]')).toHaveCount(0);
   const uploadedStudio = (await locations(page.context())).configuration.rooms.find(({ id }) => id === STUDIO);
   expect(uploadedStudio.mediaAssetIds).toHaveLength(1);
