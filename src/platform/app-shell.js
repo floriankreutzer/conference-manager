@@ -59,6 +59,8 @@ export function createAppShell({
   const titleRoot = document.getElementById('viewTitle');
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
+  if (context.tenantStatus?.() === 'onboarding'
+    && context.canManageTenantUsers() && tenantAdmin) view = 'tenantAdmin';
   let renderRevision = 0;
 
   function closeAuthorityDialogs() {
@@ -81,6 +83,9 @@ export function createAppShell({
   }
 
   function invalidateAuthorityProjection(error) {
+    if (context.isDemoRuntime() && document.documentElement.dataset.demoContextSwitching === 'true') {
+      return false;
+    }
     const code = authorityFailureCode(error);
     if (!code || !context.invalidateAuthority(error)) return false;
     invalidatePendingRender();

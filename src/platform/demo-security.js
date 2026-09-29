@@ -106,6 +106,7 @@ export function renderDemoSecurityControl({
     personaSelect.disabled = true;
     status.textContent = msg.applyingContext;
     try {
+      documentRoot.documentElement.dataset.demoContextSwitching = 'true';
       closeDetachedPrintWindows();
       await context.switchDemoContext({
         tenantId: tenantSelect.value,
@@ -114,6 +115,7 @@ export function renderDemoSecurityControl({
       status.textContent = msg.contextApplied;
       reload();
     } catch (error) {
+      delete documentRoot.documentElement.dataset.demoContextSwitching;
       if (authorityFailureCode(error) && onAuthorityFailure?.(error)) return;
       status.textContent = msg.contextError;
       announce(msg.contextError, { assertive: true });

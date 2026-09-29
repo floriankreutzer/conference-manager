@@ -115,6 +115,8 @@ export async function bootstrapCustomerApplication({
       persistence: serverPersistence,
       locations: locationSettings,
       catalogue: catalogueSettings,
+      demoWorklistEnabled: context.isDemoRuntime()
+        && context.tenantId() === '20000000-0000-4000-8000-000000000002',
       onAuthorityFailure,
     })
     : null;
@@ -174,12 +176,16 @@ export async function bootstrapCustomerApplication({
   }
 
   let presentationRenderFrame = 0;
+  let renderedPresentation = tenantPresentation.current();
   tenantPresentation.subscribe((snapshot, reason) => {
+    const needsLocalizationRender = snapshot.presentation.defaultLocale
+      !== renderedPresentation.presentation.defaultLocale
+      || snapshot.presentation.defaultCurrency !== renderedPresentation.presentation.defaultCurrency;
+    renderedPresentation = snapshot;
     if (!context.isAuthenticated()) return;
-    if (reason === 'organization-write') {
-      applyTenantPresentationToDocument(document, snapshot);
-      return;
-    }
+    // A background presentation refresh must not replace an in-progress settings form.
+    applyTenantPresentationToDocument(document, snapshot);
+    if (reason === 'organization-write' || !needsLocalizationRender) return;
     if (presentationRenderFrame) cancelAnimationFrame(presentationRenderFrame);
     presentationRenderFrame = requestAnimationFrame(() => {
       presentationRenderFrame = 0;

@@ -46,6 +46,8 @@ import {
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { createAuthoritySurfaceRegistry } from '../shared/authority-surface-registry.js';
 import { managedRoomMedia } from './room-media.js';
+import { createApiClient } from '../core/api-client.js';
+import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 
 const CANCELLABLE_STATUSES = new Set(['Submitted', 'In Review', 'Change Requested', 'Confirmed']);
 const MAX_PARTICIPANTS = 500;
@@ -301,6 +303,25 @@ export function createProductionEmployeeApplication({
   }
 
   let catalog = Object.freeze({ rooms: Object.freeze([]) });
+  let demoMedia = new Map();
+  const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
+
+  async function loadDemoMedia() {
+    if (!demoRuntime) return new Map();
+    const response = await createApiClient().request('v1/demo/media');
+    if (!Array.isArray(response?.assets) || response.assets.length > 40) return new Map();
+    return new Map(response.assets.filter((entry) =>
+      ['catering_package', 'catering_item'].includes(entry?.ownerKind)
+      && typeof entry.ownerId === 'string'
+      && /^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/i.test(entry.url)
+      && typeof entry.altText === 'string'
+    ).map((entry) => [`${entry.ownerKind}:${entry.ownerId}`, entry]));
+  }
+
+  function cateringVisual(kind, id) {
+    const media = demoMedia.get(`${kind}:${id}`);
+    return media ? roomPreviewVisual(media.url, media.altText, 'catering-asset-visual') : null;
+  }
   let queuedRequest = null;
   let queuedResubmission = false;
   let submissionNotice = null;
@@ -543,6 +564,11 @@ export function createProductionEmployeeApplication({
       requestCatalog = await persistence.loadCatalog();
       if (!isCurrentEditor()) return;
       catalog = requestCatalog;
+      demoMedia = await loadDemoMedia().catch((error) => {
+        if (authorityFailureCode(error)) throw error;
+        return new Map();
+      });
+      if (!isCurrentEditor()) return;
     } catch (error) {
       if (authorityFailureCode(error)) {
         invalidateEditorAuthority(error);
@@ -878,6 +904,7 @@ export function createProductionEmployeeApplication({
           className: `option-card catering-variant-card${selected ? ' selected' : ''}`,
         }, [
           control,
+          cateringVisual('catering_package', packageEntry.id),
           el('span', {
             className: 'catering-card-title',
             text: `${packageEntry.name} · ${variant.name}`,
@@ -946,6 +973,7 @@ export function createProductionEmployeeApplication({
         const card = el('article', {
           className: `option-card catering-item-card${Number(quantity.value) > 0 ? ' selected' : ''}`,
         }, [
+          cateringVisual('catering_item', item.id),
           el('h3', { text: item.name }),
           item.description ? el('p', { className: 'muted', text: item.description }) : null,
           el('strong', {

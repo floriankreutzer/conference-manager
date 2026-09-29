@@ -8,7 +8,10 @@ export function roomMediaPath(roomId, assetId) {
 }
 
 export function managedRoomMedia(room) {
-  const floorplan = roomMediaPath(room?.id, room?.floorplanAssetId);
+  const floorplan = typeof room?.floorplanAssetId === 'string'
+    && /^52000000-0000-4000-8000-[0-9a-f]{12}$/i.test(room.floorplanAssetId)
+    ? `/api/v1/demo/media/${room.floorplanAssetId.toLowerCase()}`
+    : roomMediaPath(room?.id, room?.floorplanAssetId);
   const references = Array.isArray(room?.mediaAssetIds) && room.mediaAssetIds.length <= 20
     ? room.mediaAssetIds : [];
   return Object.freeze({

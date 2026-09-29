@@ -7,6 +7,7 @@ import {
 import { createProductionPersistence } from './production-persistence.js';
 import {
   PRODUCTION_AUTH_STATUS,
+  PRODUCTION_TENANT_STATUS,
   PRODUCTION_PERMISSION,
   PRODUCTION_TENANT_ROLE,
 } from './production-session.js';
@@ -202,6 +203,9 @@ export function createApplicationContextFromState({
     tenantId() {
       return trustedSession?.tenant?.id || recoverableDemoSession?.tenant?.id || '';
     },
+    tenantStatus() {
+      return trustedSession?.tenant?.status || recoverableDemoSession?.tenant?.status || null;
+    },
     demoPersona() {
       if (!isDemo) return null;
       return trustedSession?.demo?.persona || recoverableDemoSession?.demo?.persona || null;
@@ -331,6 +335,9 @@ export async function createApplicationContext({
   if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED && !authentication?.runtime?.apiClient) {
     status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
     session = null;
+  } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED
+    && session?.tenant?.status === PRODUCTION_TENANT_STATUS.ONBOARDING) {
+    // Onboarding has no bookable catalogue yet; keep its tenant-admin session authoritative.
   } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
     const persistence = createProductionPersistence({ apiClient: authentication.runtime.apiClient });
     try {

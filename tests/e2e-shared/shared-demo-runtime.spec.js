@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 const EDGE_PORT = 4443;
@@ -5,6 +6,7 @@ const CUSTOMER_ORIGIN = `https://customer.demo.test:${EDGE_PORT}`;
 const PLATFORM_ORIGIN = `https://platform.demo.test:${EDGE_PORT}`;
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const TENANT_B = '20000000-0000-4000-8000-000000000002';
+const TENANT_C = '40000000-0000-4000-8000-000000000004';
 const REQUEST_A = '12000000-0000-4000-8000-000000000001';
 const REQUEST_B = '22000000-0000-4000-8000-000000000002';
 const BASELINE_NAME_A = 'Northwind Demo';
@@ -65,6 +67,8 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
   expect(response.status()).toBe(200);
   expect((await rebootstrapPromise).status()).toBe(200);
   const session = await establishCustomer(page.context());
+  expect(session.tenant.id).toBe(tenantId);
+  expect(session.demo.persona).toBe(persona);
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
   await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
   return session;
@@ -183,16 +187,56 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const platformPage = await platformContext.newPage();
   await platformPage.goto(PLATFORM_ORIGIN);
   await expect(platformPage.getByLabel('Simulierte Operator-Rolle')).toBeVisible();
+  const initialDirectory = await platformDirectory(platformContext);
+  expect(initialDirectory.items.find(({ tenantId }) => tenantId === TENANT_A)?.displayName)
+    .toBe(BASELINE_NAME_A);
   await expect(platformPage.getByText(BASELINE_NAME_A, { exact: true }).first()).toBeVisible();
 
   const customerTenants = await expectStatus(
     await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/demo/tenants`),
     200,
   );
-  expect(customerTenants.tenants.map(({ id }) => id).sort()).toEqual([TENANT_A, TENANT_B]);
+  expect(customerTenants.tenants.map(({ id }) => id).sort()).toEqual(SEED_VERSION.startsWith('saas-3.7')
+    ? [TENANT_A, TENANT_B, TENANT_C] : [TENANT_A, TENANT_B]);
+  if (SEED_VERSION.startsWith('saas-3.7')) {
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_C, 'tenant_admin');
+    expect(customerSession.tenant).toEqual({ id: TENANT_C, status: 'onboarding' });
+    const readiness = await expectStatus(
+      await customerContext.request.get(
+        `${CUSTOMER_ORIGIN}/api/v1/integrations/microsoft365/pilot-readiness`,
+      ),
+      200,
+    );
+    expect(readiness.readiness.checks.microsoft365Connected).toBe(false);
+    await customerPage.locator('[data-view="tenantAdmin"]').click();
+    await customerPage.locator('[data-tenant-admin-section="microsoft365"]').click();
+    await expect(customerPage.locator('[data-onboarding-step="connection"]')).toBeVisible();
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'conference_manager');
+    await customerPage.locator('[data-view="manager"]').click();
+    const tasks = customerPage.locator('[data-demo-manager-task]');
+    await expect(tasks).toHaveCount(7);
+    await expect(customerPage.locator('[data-demo-manager-task^="request:"]')).toHaveCount(3);
+    await expect(customerPage.locator('[data-demo-manager-task="room:description"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="room:price"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="room:image"]')).toBeVisible();
+    await expect(customerPage.locator('[data-demo-manager-task="catalogue:catering"]')).toBeVisible();
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_A, 'employee');
+    await expect(customerPage.locator('[data-demo-manager-tasks]')).toHaveCount(0);
+  }
 
   const ownedRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_A}`);
-  await expectStatus(ownedRequest, 200);
+  const ownedBooking = await expectStatus(ownedRequest, 200);
+  if (SEED_VERSION.startsWith('saas-3.7')) {
+    expect(ownedBooking.request).toMatchObject({
+      schemaVersion: 3,
+      details: {
+        title: 'Strategieabstimmung',
+        equipmentIds: ['display-86', 'video-system'],
+        catering: { packageSelection: { packageId: 'coffee-break' } },
+      },
+      allocations: { entries: [{ costCenterId: 'cc-1000' }] },
+    });
+  }
   const crossTenantRequest = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/requests/${REQUEST_B}`);
   const concealed = await expectStatus(crossTenantRequest, 404);
   expect(concealed.error.code).toBe('NOT_FOUND');
@@ -209,14 +253,16 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   expect((await expectStatus(platformMissingCsrf, 403)).error.code).toBe('PLATFORM_CSRF_INVALID');
 
-  customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
-  expect(customerSession.tenant.status).toBe('ready');
-  await expect(customerPage.getByRole('button', { name: 'Mit Microsoft anmelden' })).toBeVisible();
-  await expect(customerPage.getByLabel('Demo-Tenant')).toBeEnabled();
-  await expect(customerPage.locator('[data-view="employee"]')).toHaveCount(0);
-  customerSession = await switchCustomerThroughUi(customerPage, TENANT_A, 'employee');
-  expect(customerSession.tenant.status).toBe('active');
-  await expect(customerPage.getByRole('button', { name: 'Neue Anfrage' })).toBeVisible();
+  if (!SEED_VERSION.startsWith('saas-3.7')) {
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_B, 'employee');
+    expect(customerSession.tenant.status).toBe('ready');
+    await expect(customerPage.getByRole('button', { name: 'Mit Microsoft anmelden' })).toBeVisible();
+    await expect(customerPage.getByLabel('Demo-Tenant')).toBeEnabled();
+    await expect(customerPage.locator('[data-view="employee"]')).toHaveCount(0);
+    customerSession = await switchCustomerThroughUi(customerPage, TENANT_A, 'employee');
+    expect(customerSession.tenant.status).toBe('active');
+    await expect(customerPage.getByRole('button', { name: 'Neue Anfrage' })).toBeVisible();
+  }
 
   const degradedProviderEvidence = await expectStatus(
     await platformContext.request.get(
@@ -357,6 +403,20 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations?schemaVersion=3`),
     200,
   )).locations;
+  let seededMediaUrl = null;
+  let seededMediaHash = null;
+  if (SEED_VERSION.startsWith('saas-3.7')) {
+    const atelier = locationsBeforeMedia.configuration.rooms.find(({ id }) => id === 'contoso-paris-room-1');
+    const studio = locationsBeforeMedia.configuration.rooms.find(({ id }) => id === 'contoso-paris-room-2');
+    expect(atelier.mediaAssetIds).toHaveLength(1);
+    expect(studio.mediaAssetIds).toHaveLength(0);
+    seededMediaUrl = `${CUSTOMER_ORIGIN}/api/v1/tenant/rooms/${atelier.id}/media/${atelier.mediaAssetIds[0]}`;
+    const seededMedia = await customerContext.request.get(seededMediaUrl);
+    expect(seededMedia.status()).toBe(200);
+    seededMediaHash = createHash('sha256').update(await seededMedia.body()).digest('hex');
+    expect(seededMediaHash)
+      .toBe('2014af4e798fd951b964b3e4ff923d3e014817ea94db167fbe26f06d2c438d5a');
+  }
   const mediaRoom = locationsBeforeMedia.configuration.rooms.find((room) => room.active);
   expect(mediaRoom).toBeTruthy();
   const imageBytes = Buffer.from(
@@ -609,6 +669,12 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     metadata: { operation: 'reset' },
   }));
   expect(customerSession.tenant).toEqual({ id: TENANT_A, status: 'active' });
+  if (seededMediaUrl !== null) {
+    customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'conference_manager');
+    const restoredMedia = await customerContext.request.get(seededMediaUrl);
+    expect(restoredMedia.status()).toBe(200);
+    expect(createHash('sha256').update(await restoredMedia.body()).digest('hex')).toBe(seededMediaHash);
+  }
   const restoredDirectory = await platformDirectory(platformContext);
   expect(restoredDirectory.items.find(({ tenantId }) => tenantId === TENANT_A)?.displayName).toBe(BASELINE_NAME_A);
   expect(restoredDirectory.items.find(({ tenantId }) => tenantId === TENANT_B)?.displayName).toBe(BASELINE_NAME_B);
@@ -617,9 +683,58 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     revision: 1,
   });
 
-  platformSession = await switchPlatform(platformContext, platformSession, 'security_admin');
-  const repeatedReset = await resetDemo(platformContext, platformSession);
-  expect(repeatedReset).toMatchObject({ seedVersion: reset.seedVersion, checksum: reset.checksum });
+  if (seededMediaUrl !== null) {
+    // Exercise a second complete mutation and restore cycle, not only an idempotent reset.
+    const secondLocations = (await expectStatus(
+      await customerContext.request.get(
+        `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations?schemaVersion=3`,
+      ),
+      200,
+    )).locations;
+    const secondRoom = secondLocations.configuration.rooms.find(({ id }) => id === 'contoso-paris-room-1');
+    const secondMediaPath = `${CUSTOMER_ORIGIN}/api/v1/tenant/rooms/${secondRoom.id}/media`;
+    const secondUploaded = await expectStatus(await customerContext.request.post(secondMediaPath, {
+      headers: { ...unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken), 'Content-Type': 'image/png' },
+      data: imageBytes,
+    }), 201);
+    secondRoom.mediaAssetIds.push(secondUploaded.assetId);
+    await expectStatus(await customerContext.request.put(
+      `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations`, {
+        headers: unsafeHeaders(CUSTOMER_ORIGIN, customerSession.csrfToken),
+        data: {
+          schemaVersion: 3,
+          expectedRevision: secondLocations.revision,
+          configuration: secondLocations.configuration,
+        },
+      },
+    ), 200);
+    const secondAssetUrl = `${secondMediaPath}/${secondUploaded.assetId}`;
+    expect((await customerContext.request.get(secondAssetUrl)).status()).toBe(200);
+
+    platformSession = await switchPlatform(platformContext, platformSession, 'security_admin');
+    const repeatedReset = await resetDemo(platformContext, platformSession);
+    expect(repeatedReset).toMatchObject({ seedVersion: reset.seedVersion, checksum: reset.checksum });
+    await customerContext.clearCookies();
+    customerSession = await establishCustomer(customerContext);
+    customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'conference_manager');
+    expect((await customerContext.request.get(secondAssetUrl)).status()).toBe(404);
+    const secondRestoredMedia = await customerContext.request.get(seededMediaUrl);
+    expect(secondRestoredMedia.status()).toBe(200);
+    expect(createHash('sha256').update(await secondRestoredMedia.body()).digest('hex'))
+      .toBe(seededMediaHash);
+    const finalLocations = (await expectStatus(
+      await customerContext.request.get(
+        `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/locations?schemaVersion=3`,
+      ),
+      200,
+    )).locations;
+    expect(finalLocations.configuration.rooms.find(({ id }) => id === secondRoom.id).mediaAssetIds)
+      .not.toContain(secondUploaded.assetId);
+  } else {
+    platformSession = await switchPlatform(platformContext, platformSession, 'security_admin');
+    const repeatedReset = await resetDemo(platformContext, platformSession);
+    expect(repeatedReset).toMatchObject({ seedVersion: reset.seedVersion, checksum: reset.checksum });
+  }
 
   await Promise.all([customerContext.close(), platformContext.close()]);
 });
