@@ -4755,3 +4755,18 @@ test('MGR-10: reports retain a historical Site after its last Room moves elsewhe
   await expect(page.locator('[data-report-content]')).not.toContainText('Room A now in New York');
   expect(fixture.writes).toHaveLength(0);
 });
+
+test('Production onboarding opens Tenant Admin without loading unavailable business projections', async ({ page }) => {
+  const session = sessionPayload(['tenant_admin']);
+  session.tenant.status = 'onboarding';
+  const fixture = await installProductionApplicationFixture(page, { session, roles: ['tenant_admin'] });
+  const businessReads = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/v1/application/requests')) businessReads.push(request.url());
+  });
+  await page.goto(`${ORIGIN}/`);
+  await expect(page.locator('[data-view="tenantAdmin"]')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('[data-tenant-onboarding]')).toBeVisible();
+  expect(fixture.catalogReads).toEqual([]);
+  expect(businessReads).toEqual([]);
+});

@@ -564,7 +564,10 @@ export function createProductionEmployeeApplication({
       requestCatalog = await persistence.loadCatalog();
       if (!isCurrentEditor()) return;
       catalog = requestCatalog;
-      demoMedia = await loadDemoMedia().catch(() => new Map());
+      demoMedia = await loadDemoMedia().catch((error) => {
+        if (authorityFailureCode(error)) throw error;
+        return new Map();
+      });
       if (!isCurrentEditor()) return;
     } catch (error) {
       if (authorityFailureCode(error)) {
