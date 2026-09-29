@@ -30,7 +30,8 @@ test('portal remains usable at actual Chromium browser zoom 200%', async ({}, te
     const page = await context.newPage();
     await page.goto('https://127.0.0.1:4173/demo-portal/');
     const zoom = await worker.evaluate(async (url) => {
-      const [tab] = await chrome.tabs.query({ url });
+      const tabs = await chrome.tabs.query({});
+      const tab = tabs.find((candidate) => candidate.url === url);
       if (!tab?.id) throw new Error('ZOOM_TEST_TAB_MISSING');
       await chrome.tabs.setZoom(tab.id, 2);
       return chrome.tabs.getZoom(tab.id);
