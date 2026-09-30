@@ -49,10 +49,10 @@ test('hosted evidence network requests remain bounded before or after cleanup', 
 test('hosted workflow reserves cleanup time before any destructive journey', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 
-  assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '1800'/);
-  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '900'/);
+  assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '3600'/);
+  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '2400'/);
   assert.match(workflow, /HOSTED_READINESS_BUDGET_SECONDS: '360'/);
-  assert.match(workflow, /timeout-minutes: 30/);
+  assert.match(workflow, /timeout-minutes: 60/);
   assert.match(
     workflow,
     /name: Record hosted job budget start[\s\S]*HOSTED_JOB_STARTED_EPOCH=\$\(date -u \+%s\)/,
@@ -128,7 +128,7 @@ test('hosted acceptance captures bounded reset evidence, restores, then performs
   assert.match(workflow, /node scripts\/read-hosted-demo-reset-evidence\.mjs >> hosted-demo-evidence\.txt/);
   assert.match(
     workflow,
-    /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
+    /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && \(steps\.hosted_journey\.outcome == 'failure' \|\| steps\.full_scenarios\.outcome == 'failure'\)\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
   );
   assert.match(
     workflow,
@@ -138,7 +138,7 @@ test('hosted acceptance captures bounded reset evidence, restores, then performs
   assert.match(workflow, /echo "deployment_identity_stable=true" >> hosted-demo-evidence\.txt/);
   assert.match(
     workflow,
-    /name: Enforce hosted journey result\n\s+if: always\(\) && steps\.hosted_journey\.outcome == 'failure'\n\s+run: exit 1/,
+    /name: Enforce hosted journey result\n\s+if: always\(\) && \(steps\.hosted_journey\.outcome == 'failure' \|\| steps\.full_scenarios\.outcome == 'failure'\)\n\s+run: exit 1/,
   );
 });
 
@@ -147,12 +147,12 @@ test('hosted cleanup requires the runtime-bound canonical checksum twice', () =>
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const runtimeRef = workflow.match(/EXPECTED_RUNTIME_REF: ([0-9a-f]{40})/)?.[1];
 
-  assert.equal(runtimeRef, '4c75825d10082cb3860c07485cf7c98c3b608233');
+  assert.equal(runtimeRef, '8e4dedd1a676a2dab26bc4ec812876eac98fc282');
   assert.match(workflow, /DEMO_SEED_VERSION: saas-3\.7-three-demo-customers-v1/);
   assert.match(source, new RegExp(`const PINNED_RUNTIME_REF = '${runtimeRef}';`));
   assert.match(
     source,
-    /export const CANONICAL_DEMO_CHECKSUM = '2a15426e761f6efb78409394888d6799e3f00c7e13500d8b937d1d0cece579f6';/,
+    /export const CANONICAL_DEMO_CHECKSUM = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';/,
   );
   assert.match(source, /const firstChecksum = await performReset\(fetchImpl, targetOrigin, baseline\);/);
   assert.match(source, /const secondChecksum = await performReset\(fetchImpl, targetOrigin, baseline\);/);
@@ -186,6 +186,6 @@ test('successful hosted journeys also upload an independently pinned canonical r
   assert.ok(baselineIndex > journeyIndex && postIdentityIndex > baselineIndex);
   assert.match(
     workflow,
-    /name: Verify canonical Demo baseline after successful journey\n\s+if: steps\.hosted_journey\.outcome == 'success'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
+    /name: Verify canonical Demo baseline after successful journey\n\s+if: steps\.hosted_journey\.outcome == 'success' && steps\.full_scenarios\.outcome == 'success'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
   );
 });

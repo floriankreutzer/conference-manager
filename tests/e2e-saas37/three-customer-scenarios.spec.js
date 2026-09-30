@@ -61,7 +61,7 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
           const foreignMedia = tenantId === CONTOSO
             ? `${ORIGINS.customer}/api/v1/tenant/rooms/${baseline.rooms[0].id}/media/${baseline.rooms[0].mediaAssetIds[0]}`
             : media.uploadedUrl;
-          expect((await observerContext.request.get(foreignMedia)).status()).toBe(expectedForeignStatus);
+          expect((await observerContext.request.get(foreignMedia)).status()).toBe(404);
           const noCsrf = await observerContext.request.put(`${ORIGINS.customer}/api/v1/demo/session/context`, {
             headers: { Origin: ORIGINS.customer }, data: { tenantId, persona },
           });

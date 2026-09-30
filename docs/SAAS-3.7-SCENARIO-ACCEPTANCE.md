@@ -73,3 +73,28 @@ contract changes. Empty or malformed descriptions do not become authority.
 Regression coverage includes bounds, unknown fields, legacy envelopes and
 literal markup rendering without element creation; the real scenario requires
 all ten seeded descriptions in their visible preview dialogs.
+
+## Corrected live release binding
+
+The existing Render services deployed API merge `8e4dedd1a676a2dab26bc4ec812876eac98fc282`
+with frontend `c1fee5e2c4f1d472174d194697dd635a5a9b0aef`. Subsequent frontend
+changes correct test sequencing and expectations; application code remains the
+same as that immutable deployed frontend. The isolated API pin, hosted identity
+checks and DAST now target the deployed API. Full hosted scenarios use real
+HTTPS origins directly, without a local edge or disabled certificate checks.
+
+Both browser suites run before independent canonical cleanup. The hosted job
+reserves 2400 seconds for their bounded execution, server rate windows, failure
+cleanup and post-journey identity verification. Scenario tests respect the real
+60-second rate window before each browser and between complete cycles. They do
+not raise limits, retry denials or reset limiter state.
+
+Original SaaS 3.7 and historical SaaS 3.6 reset bindings remain explicit. Each
+runtime must match its own source-validated seed/checksum; negative tests reject
+substitution, including the original and corrected 3.7 checksum under the same
+seed label. Active tenants must get 404 for foreign requests; unfinished
+Fabrikam is denied earlier by lifecycle with 403. Foreign media must return
+404 for all three tenants. This matches the existing authorization boundaries.
+
+Successful current-head isolated and live evidence is still required before
+closing #215 or the milestone; these configured gates alone are not acceptance.

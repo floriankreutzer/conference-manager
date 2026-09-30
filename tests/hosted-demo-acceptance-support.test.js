@@ -10,8 +10,10 @@ import { hostedResetRequestIdPath } from '../scripts/hosted-demo-run-context.mjs
 
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
-const FRONTEND_REF = '196bc6c8ed94bd154fa5c6b03a07bc31e66c4b63';
-const RUNTIME_REF = '4c75825d10082cb3860c07485cf7c98c3b608233';
+const FRONTEND_REF = 'c1fee5e2c4f1d472174d194697dd635a5a9b0aef';
+const RUNTIME_REF = '8e4dedd1a676a2dab26bc4ec812876eac98fc282';
+const ORIGINAL_RUNTIME_REF = '4c75825d10082cb3860c07485cf7c98c3b608233';
+const ORIGINAL_CHECKSUM = '2a15426e761f6efb78409394888d6799e3f00c7e13500d8b937d1d0cece579f6';
 const SEED_VERSION = 'saas-3.7-three-demo-customers-v1';
 const CHECKSUM = CANONICAL_DEMO_CHECKSUM;
 const LEGACY_RUNTIME_REF = 'e52c4c23227deb8a48af0070c255a80431ed3c6e';
@@ -110,6 +112,28 @@ test('hosted Demo failure cleanup proves a repeatable deterministic baseline wit
   assert.equal(calls[4].options.headers['X-CSRF-Token'], 'c'.repeat(32));
   assert.equal(calls[5].options.headers.Cookie, 'cm_platform_session=security_admin_session_4321');
   assert.equal(calls[5].options.headers['X-CSRF-Token'], 'd'.repeat(32));
+});
+
+test('hosted Demo cleanup retains the original SaaS 3.7 runtime binding', async () => {
+  const responses = successfulCleanupResponses(ORIGINAL_CHECKSUM);
+  const result = await resetHostedDemoBaseline({
+    fetchImpl: async () => responses.shift(), origin: PLATFORM_ORIGIN,
+    expectedRuntimeRef: ORIGINAL_RUNTIME_REF,
+  });
+  assert.deepEqual(result, { seedVersion: SEED_VERSION, checksum: ORIGINAL_CHECKSUM });
+  assert.equal(responses.length, 0);
+});
+
+test('corrected and original SaaS 3.7 runtimes reject each other\'s checksum', async () => {
+  for (const [expectedRuntimeRef, checksum] of [
+    [RUNTIME_REF, ORIGINAL_CHECKSUM], [ORIGINAL_RUNTIME_REF, CHECKSUM],
+  ]) {
+    const responses = successfulCleanupResponses(checksum);
+    await assert.rejects(resetHostedDemoBaseline({
+      fetchImpl: async () => responses.shift(), origin: PLATFORM_ORIGIN, expectedRuntimeRef,
+    }), /HOSTED_DEMO_RESET_CANONICAL_CHECKSUM_INVALID/);
+    assert.equal(responses.length, 0);
+  }
 });
 
 test('hosted Demo cleanup retains the explicit historical SaaS 3.6 runtime binding', async () => {

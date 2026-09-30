@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/workflows/hosted-demo-acceptance.yml'
       - 'playwright.hosted-demo.config.js'
+      - 'playwright.saas37.config.js'
+      - 'tests/e2e-saas37/**'
+      - 'tests/saas37-hosted-config.test.js'
       - 'scripts/serve-hosted-demo-e2e.mjs'
       - 'scripts/read-hosted-demo-reset-evidence.mjs'
       - 'scripts/reset-hosted-demo-baseline.mjs'
@@ -28,19 +31,19 @@ concurrency:
 env:
   SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
   SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
-  EXPECTED_FRONTEND_REF: 196bc6c8ed94bd154fa5c6b03a07bc31e66c4b63
-  EXPECTED_RUNTIME_REF: 4c75825d10082cb3860c07485cf7c98c3b608233
+  EXPECTED_FRONTEND_REF: c1fee5e2c4f1d472174d194697dd635a5a9b0aef
+  EXPECTED_RUNTIME_REF: 8e4dedd1a676a2dab26bc4ec812876eac98fc282
   DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
-  # Historical live candidate until the corrected scenario build is released.
-  DEMO_PROVIDER_HEALTH: degraded
-  HOSTED_JOB_BUDGET_SECONDS: '1800'
-  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '900'
+  DEMO_PROVIDER_HEALTH: healthy
+  # Both browser suites plus rate windows and bounded independent cleanup.
+  HOSTED_JOB_BUDGET_SECONDS: '3600'
+  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '2400'
   HOSTED_READINESS_BUDGET_SECONDS: '360'
 
 jobs:
   hosted-demo-acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Record hosted job budget start
         shell: bash
@@ -113,14 +116,19 @@ jobs:
         id: hosted_journey
         continue-on-error: true
         run: npm run test:e2e:hosted-demo
+      - name: Run full hosted three-customer and two-cycle scenario acceptance
+        id: full_scenarios
+        if: steps.hosted_journey.outcome == 'success'
+        continue-on-error: true
+        run: npm run test:e2e:saas37
       - name: Record bounded reset failure audit evidence
         if: always() && steps.hosted_journey.outcome == 'failure'
         run: node scripts/read-hosted-demo-reset-evidence.mjs >> hosted-demo-evidence.txt
       - name: Restore public Demo baseline after failed journey
-        if: always() && steps.hosted_journey.outcome == 'failure'
+        if: always() && (steps.hosted_journey.outcome == 'failure' || steps.full_scenarios.outcome == 'failure')
         run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
       - name: Verify canonical Demo baseline after successful journey
-        if: steps.hosted_journey.outcome == 'success'
+        if: steps.hosted_journey.outcome == 'success' && steps.full_scenarios.outcome == 'success'
         run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
       - name: Re-verify live deployment identity after journey and cleanup
         if: always() && steps.pre_identity.outcome == 'success' && steps.hosted_journey.outcome != 'skipped'
@@ -141,6 +149,14 @@ jobs:
           name: hosted-demo-playwright-report
           path: playwright-report-hosted-demo/
           if-no-files-found: ignore
+      - name: Upload full hosted scenario evidence and browser report
+        if: always() && steps.full_scenarios.outcome != 'skipped' && steps.full_scenarios.outcome != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-saas37-scenario-evidence
+          path: playwright-report-saas37/
+          if-no-files-found: error
+          retention-days: 30
       - name: Enforce hosted journey result
-        if: always() && steps.hosted_journey.outcome == 'failure'
+        if: always() && (steps.hosted_journey.outcome == 'failure' || steps.full_scenarios.outcome == 'failure')
         run: exit 1
