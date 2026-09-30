@@ -165,3 +165,12 @@ The SaaS 3.6 security regression baseline covers at least:
 14. static Pages launchpad checks proving no browser/application authority.
 
 See `docs/ROLE-MODEL.md`, `docs/SAAS-3.6-SECURITY-REGRESSION.md`, `docs/DEMO-RUNBOOK.md`, `docs/DEMO-URLS.md` and `docs/PRODUCTION-SECURITY.md` for the coordinated baseline.
+
+The versioned Manager stylesheet `/assets/manager-layout.css?v=20260919-92`
+also retains the existing public-static informational cache/Fetch Metadata
+classification at that exact Customer URL. Raw run `36680235260`, artifact
+`11080894385` (archive SHA-256
+`f5d7601c301194c75e6693fd0b14e09fb822d365a7c48e42c133720564be021a`)
+contains `10049-2` and `90005-1` through `90005-4`, all risk `0`, GET. Tests
+reject another version, origin, method, subtype or raised risk. API `no-store`
+and response-security-header requirements are unaffected.

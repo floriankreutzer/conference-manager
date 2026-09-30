@@ -46,3 +46,19 @@ test('the stylesheet observation never accepts other URLs, alert subtypes, metho
     { alertRef: '90005-1' }, { alertRef: '90005-5' }, { alertRef: '10049-3' }, { riskcode: '1' }, { riskcode: '2' }, { method: 'POST' },
   ]) assert.throws(() => validate(options));
 });
+
+test('the deployed Manager stylesheet accepts only its reviewed informational findings', () => {
+  const manager = `${TARGET}assets/manager-layout.css?v=20260919-92`;
+  const refs = ['10049-2', '90005-1', '90005-2', '90005-3', '90005-4'];
+  assert.deepEqual(rows.filter((row) => row.url === manager).map((row) => row.alertRef), refs);
+  for (const alertRef of refs) {
+    assert.deepEqual(validate({ uri: manager, alertRef }), { instanceCount: 1, surface: 'customer-demo' });
+    assert.throws(() => validate({ uri: manager, alertRef, riskcode: '1' }));
+    assert.throws(() => validate({ uri: manager, alertRef, method: 'POST' }));
+    assert.throws(() => validate({ uri: manager.replace('20260919-92', 'changed'), alertRef }));
+    assert.throws(() => validate({ uri: manager.replace('conference-manager-demo', 'conference-manager-ops-demo'), alertRef }));
+  }
+  for (const alertRef of ['10049-3', '90005-5', '10094-3', '10038']) {
+    assert.throws(() => validate({ uri: manager, alertRef }));
+  }
+});
