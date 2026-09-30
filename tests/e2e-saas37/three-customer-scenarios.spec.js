@@ -53,13 +53,15 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
         for (const [tenantId, persona] of [[NORTHWIND, 'employee'], [CONTOSO, 'employee'], [FABRIKAM, 'tenant_admin']]) {
           await contextFor(observerContext, tenantId, persona);
           const own = await customerSession(observerContext);
-          // All three identities are denied other-Tenant object/media access.
+          // Active booking identities get non-disclosing 404s. Fabrikam's
+          // unfinished Tenant Admin is denied earlier by lifecycle/role (403).
+          const expectedForeignStatus = tenantId === FABRIKAM ? 403 : 404;
           const foreignRequest = tenantId === NORTHWIND ? contosoBaseline.pending[0].id : requestId;
-          expect((await observerContext.request.get(`${ORIGINS.customer}/api/v1/requests/${foreignRequest}`)).status()).toBe(404);
+          expect((await observerContext.request.get(`${ORIGINS.customer}/api/v1/requests/${foreignRequest}`)).status()).toBe(expectedForeignStatus);
           const foreignMedia = tenantId === CONTOSO
             ? `${ORIGINS.customer}/api/v1/tenant/rooms/${baseline.rooms[0].id}/media/${baseline.rooms[0].mediaAssetIds[0]}`
             : media.uploadedUrl;
-          expect((await observerContext.request.get(foreignMedia)).status()).toBe(404);
+          expect((await observerContext.request.get(foreignMedia)).status()).toBe(expectedForeignStatus);
           const noCsrf = await observerContext.request.put(`${ORIGINS.customer}/api/v1/demo/session/context`, {
             headers: { Origin: ORIGINS.customer }, data: { tenantId, persona },
           });
