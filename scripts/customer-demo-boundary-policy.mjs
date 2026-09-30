@@ -7,6 +7,7 @@ const SERVER_DRAFT_MODULE = 'src/employee/server-draft-store.js';
 const DEMO_ONLY = Object.freeze([
   'src/platform/demo-bootstrap.js',
   'src/platform/demo-session.js',
+  'src/platform/demo-microsoft365-connection-api.js',
   'src/platform/demo-security.js',
   'src/platform/demo-tenant-presentation-api.js',
 ]);

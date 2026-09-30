@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import { createSaas37Config } from '../playwright.saas37.config.js';
+
+function loadConfig(origins = {}) {
+  const config = createSaas37Config(origins);
+  return {
+    webServer: Boolean(config.webServer), ignoreHTTPSErrors: config.use.ignoreHTTPSErrors,
+    workers: config.workers, retries: config.retries, projects: config.projects.map(({ name }) => name),
+  };
+}
+
+test('isolated SaaS 3.7 retains its fixed local TLS edge and serial browser matrix', () => {
+  assert.deepEqual(loadConfig(), {
+    webServer: true, ignoreHTTPSErrors: true, workers: 1, retries: 0,
+    projects: ['chromium-shared-demo', 'webkit-shared-demo'],
+  });
+});
+
+test('hosted SaaS 3.7 uses real HTTPS directly with certificate validation', () => {
+  const config = loadConfig({
+    SHARED_DEMO_CUSTOMER_ORIGIN: 'https://conference-manager-demo.onrender.com',
+    SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com',
+  });
+  assert.equal(config.webServer, false);
+  assert.equal(config.ignoreHTTPSErrors, false);
+  assert.equal(config.workers, 1);
+  assert.equal(config.retries, 0);
+});
+
+test('hosted scenario configuration rejects unknown or incomplete origin tuples before requests', () => {
+  for (const origins of [
+    { SHARED_DEMO_CUSTOMER_ORIGIN: 'https://example.invalid' },
+    { SHARED_DEMO_CUSTOMER_ORIGIN: 'https://conference-manager-demo.onrender.com' },
+    { SHARED_DEMO_CUSTOMER_ORIGIN: 'http://conference-manager-demo.onrender.com',
+      SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com' },
+  ]) assert.throws(() => loadConfig(origins), /SAAS37_SCENARIO_ORIGINS_INVALID/);
+});
+
+test('hosted full scenarios remain inside a reserved independent cleanup budget', () => {
+  const workflow = readFileSync('.github/workflows/hosted-demo-acceptance.yml', 'utf8');
+  assert.match(workflow, /id: full_scenarios\n\s+if: steps\.hosted_journey\.outcome == 'success'\n\s+continue-on-error: true\n\s+run: npm run test:e2e:saas37/);
+  assert.match(workflow, /name: Upload full hosted scenario evidence and browser report/);
+  assert.match(workflow, /name: hosted-saas37-scenario-evidence/);
+  const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);
+  // Existing suite 480s + hosted full suite 1500s + six cleanup requests + identity/audit margin.
+  assert.ok(reserve >= 480 + 1500 + 2 * (2 * 20 + 75) + 200);
+});
+
+test('measured hosted scenario budget does not relax isolated action or assertion limits', () => {
+  const local = createSaas37Config({});
+  const hosted = createSaas37Config({
+    SHARED_DEMO_CUSTOMER_ORIGIN: 'https://conference-manager-demo.onrender.com',
+    SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com',
+  });
+  assert.equal(local.timeout, 420_000);
+  assert.equal(local.globalTimeout, 900_000);
+  assert.equal(hosted.timeout, 660_000);
+  assert.equal(hosted.globalTimeout, 1_500_000);
+  assert.ok(hosted.globalTimeout > 2 * hosted.timeout);
+  for (const key of ['actionTimeout', 'navigationTimeout']) assert.equal(hosted.use[key], local.use[key]);
+  assert.deepEqual(hosted.expect, local.expect);
+  assert.equal(hosted.retries, 0);
+});

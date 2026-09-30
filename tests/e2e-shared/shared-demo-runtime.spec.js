@@ -14,6 +14,9 @@ const BASELINE_NAME_B = 'Contoso Demo';
 const MUTATED_NAME_B = 'Contoso Demo E2E';
 const SEED_VERSION = process.env.DEMO_SEED_VERSION || 'saas-3.6-shared-demo-v5';
 const REQUEST_TITLE = 'Shared Demo end-to-end request';
+const PROVIDER_HEALTH = process.env.DEMO_PROVIDER_HEALTH
+  || (SEED_VERSION.startsWith('saas-3.7') ? 'healthy' : 'degraded');
+if (!['healthy', 'degraded'].includes(PROVIDER_HEALTH)) throw new Error('DEMO_PROVIDER_HEALTH_INVALID');
 
 async function payload(response) {
   const contentType = response.headers()['content-type'] || '';
@@ -62,7 +65,9 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
       && url.origin === CUSTOMER_ORIGIN
       && url.pathname === '/api/v1/demo/session';
   });
+  const reloadedDocument = page.waitForEvent('domcontentloaded');
   await page.locator('[data-demo-security] button').click();
+  await reloadedDocument;
   const response = await responsePromise;
   expect(response.status()).toBe(200);
   expect((await rebootstrapPromise).status()).toBe(200);
@@ -76,16 +81,41 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
 
 async function expectUiResponseStatus(page, method, pathname, action, expectedStatus) {
   const pageOrigin = new URL(page.url()).origin;
-  const responsePromise = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return response.request().method() === method
-      && url.origin === pageOrigin
-      && url.pathname === pathname;
-  });
-  await action();
-  const response = await responsePromise;
+  const [response] = await Promise.all([
+    page.waitForResponse((candidate) => {
+      const url = new URL(candidate.url());
+      return candidate.request().method() === method
+        && url.origin === pageOrigin
+        && url.pathname === pathname;
+    }, { timeout: 30_000 }),
+    action(),
+  ]);
   expect(response.status()).toBe(expectedStatus);
   return response;
+}
+
+// A normal pointer click must not race an asynchronously prepended task card or
+// smooth scrolling. Observe geometry and hit testing only; never replay a write.
+async function waitForStableControl(control) {
+  await control.scrollIntoViewIfNeeded({ timeout: 15_000 });
+  let previousGeometry = null;
+  let stableSamples = 0;
+  await expect.poll(async () => {
+    const sample = await control.evaluate((element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      const hit = element.ownerDocument.elementFromPoint(x + width / 2, y + height / 2);
+      return {
+        geometry: [x, y, width, height],
+        receivesPointer: width > 0 && height > 0
+          && (hit === element || element.contains(hit)),
+      };
+    });
+    const geometry = JSON.stringify(sample.geometry);
+    stableSamples = sample.receivesPointer && geometry === previousGeometry
+      ? stableSamples + 1 : 0;
+    previousGeometry = geometry;
+    return stableSamples >= 2;
+  }, { timeout: 10_000, intervals: [100, 100, 250] }).toBe(true);
 }
 
 async function switchPlatformThroughUi(page, persona) {
@@ -152,6 +182,10 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
 
   const customerContext = await browser.newContext({ ignoreHTTPSErrors: true });
   const platformContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  for (const context of [customerContext, platformContext]) {
+    context.setDefaultTimeout(15_000);
+    context.setDefaultNavigationTimeout(30_000);
+  }
   let customerSession = await establishCustomer(customerContext);
   let platformSession = await establishPlatform(platformContext);
 
@@ -272,7 +306,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   );
   const degradedTenant = degradedProviderEvidence.items.find(({ tenantId }) => tenantId === TENANT_A);
   expect(degradedTenant.capabilities.length).toBeGreaterThan(0);
-  expect(degradedTenant.capabilities.every(({ status }) => status === 'degraded')).toBe(true);
+  expect(degradedTenant.capabilities.every(({ status }) => status === PROVIDER_HEALTH)).toBe(true);
 
   const unauthorizedTransition = await platformContext.request.post(
     `${PLATFORM_ORIGIN}/api/v1/platform/tenants/${TENANT_B}/lifecycle/transitions`,
@@ -453,12 +487,14 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('[data-view="manager"]').click();
   const managerCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
   await expect(managerCard).toBeVisible();
+  const startReviewControl = managerCard.getByRole('button', { name: 'Prüfung starten' });
+  await waitForStableControl(startReviewControl);
   const transitionPath = `/api/v1/requests/${createdRequestId}/transitions`;
   await expectUiResponseStatus(
     customerPage,
     'POST',
     transitionPath,
-    () => managerCard.getByRole('button', { name: 'Prüfung starten' }).click(),
+    () => startReviewControl.click(),
     200,
   );
   await expect(managerCard).toContainText('In Prüfung');

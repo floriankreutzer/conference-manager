@@ -4,6 +4,9 @@ import { isProductionTimeZone } from '../core/production-time.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
+// Request v3 uses the API's bounded payload.signature wire format. The browser
+// validates syntax only; the API verifies HMAC, expiry, Tenant and object scope.
+const SIGNED_REQUEST_CURSOR = /^[A-Za-z0-9_-]{1,3072}\.[A-Za-z0-9_-]{43}$/;
 const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const UNSAFE_DRAFT_TEXT = /[<>\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
@@ -183,14 +186,16 @@ function sameIdentifiers(left, right) {
   return left.length === right.length && left.every((entry, index) => entry === right[index]);
 }
 
-function page(value, maximumLimit, code) {
+function page(value, maximumLimit, code, cursorPattern = CURSOR) {
   const input = exactObject(value, ['limit', 'complete', 'nextCursor'], code);
   const limit = safeInteger(input.limit, 1, maximumLimit, code);
   if (typeof input.complete !== 'boolean') invalid(code);
   const nextCursor = input.nextCursor === null
     ? null
     : (() => {
-      if (typeof input.nextCursor !== 'string' || !CURSOR.test(input.nextCursor)) invalid(code);
+      if (typeof input.nextCursor !== 'string'
+        || input.nextCursor.trim() !== input.nextCursor
+        || !cursorPattern.test(input.nextCursor)) invalid(code);
       return input.nextCursor;
     })();
   if (input.complete !== (nextCursor === null)) invalid(code);
@@ -264,6 +269,7 @@ function catalogRoom(value, code) {
   const legacyKeys = ['id', 'siteId', 'name', 'capacity', 'active', 'price'];
   const presentationKeys = [
     ...legacyKeys, 'equipment', 'floorplanAssetId', 'mediaAssetIds',
+    ...(Object.hasOwn(value || {}, 'description') ? ['description'] : []),
   ];
   const actualKeys = value && typeof value === 'object' && !Array.isArray(value)
     ? Object.keys(value).sort()
@@ -306,6 +312,9 @@ function catalogRoom(value, code) {
     equipment: Object.freeze(equipment),
     floorplanAssetId: room.floorplanAssetId === null ? null : identifier(room.floorplanAssetId, code),
     mediaAssetIds: Object.freeze(mediaAssetIds),
+    ...(Object.hasOwn(room, 'description') ? {
+      description: responseText(room.description, { maximum: 1_000, nullable: true, code }),
+    } : {}),
   });
 }
 
@@ -889,7 +898,8 @@ export function normalizeProductionRequestListPage(value) {
   const code = 'PRODUCTION_REQUEST_LIST_INVALID';
   const input = exactObject(value, ['schemaVersion', 'asOf', 'requests', 'page'], code);
   if (![2, 3].includes(input.schemaVersion)) invalid(code);
-  const publicPage = page(input.page, 10, code);
+  const publicPage = page(input.page, 10, code,
+    input.schemaVersion === 3 ? SIGNED_REQUEST_CURSOR : CURSOR);
   const asOf = canonicalUtc(input.asOf, code);
   const requests = orderedRequests(input.requests, publicPage.limit, code, input.schemaVersion === 3, true);
   if (requests.some((entry) => entry.updatedAt > asOf)) invalid(code);
@@ -908,7 +918,8 @@ export function normalizeProductionRequestReportPage(value) {
   const toExclusive = canonicalUtc(rangeValue.toExclusive, code);
   const duration = Date.parse(toExclusive) - Date.parse(fromInclusive);
   if (duration <= 0 || duration > 366 * 86_400_000) invalid(code);
-  const publicPage = page(input.page, 10, code);
+  const publicPage = page(input.page, 10, code,
+    input.schemaVersion === 3 ? SIGNED_REQUEST_CURSOR : CURSOR);
   const requests = orderedRequests(input.requests, publicPage.limit, code, input.schemaVersion === 3);
   const asOf = canonicalUtc(input.asOf, code);
   if (requests.some((entry) => entry.startsAt < fromInclusive || entry.startsAt >= toExclusive
@@ -1248,7 +1259,8 @@ export function normalizeProductionRequestHistoryPage(value) {
   if (![2, 3].includes(input.schemaVersion)) invalid(code);
   identifier(input.requestId, code);
   const asOfVersion = positiveVersion(input.asOfVersion, code);
-  const publicPage = page(input.page, 10, code);
+  const publicPage = page(input.page, 10, code,
+    input.schemaVersion === 3 ? SIGNED_REQUEST_CURSOR : CURSOR);
   if (!Array.isArray(input.history) || input.history.length > publicPage.limit) invalid(code);
   const history = Object.freeze(input.history.map((entry) => normalizeProductionRequestHistoryEntry(entry, input.schemaVersion === 3)));
   if (history.some((entry, index) => (

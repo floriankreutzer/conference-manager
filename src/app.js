@@ -39,8 +39,12 @@ function normalizedOptionalProjectionTimeout(value) {
 export async function bootstrapCustomerApplication({
   runtimeMode,
   authenticationBootstrap,
+  microsoft365ConnectionFactory = createMicrosoft365ConnectionApi,
   optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
+  if (typeof microsoft365ConnectionFactory !== 'function') {
+    throw new TypeError('MICROSOFT365_CONNECTION_FACTORY_REQUIRED');
+  }
   const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   renderAppBootstrapLoading();
   const context = await createApplicationContext({
@@ -130,7 +134,7 @@ export async function bootstrapCustomerApplication({
     ? createTenantCapabilitiesApi({ apiClient: authentication.apiClient })
     : null;
   const microsoft365Connection = context.isTenantAdmin() && authentication
-    ? createMicrosoft365ConnectionApi({ apiClient: authentication.apiClient })
+    ? microsoft365ConnectionFactory({ apiClient: authentication.apiClient })
     : null;
   const onboardingRuntime = context.isTenantAdmin()
     ? createServerTenantAdminOnboardingRuntime({

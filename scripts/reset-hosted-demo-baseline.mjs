@@ -4,17 +4,22 @@ const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
 const RESET_PATH = '/api/v1/platform/demo/reset';
-const PINNED_RUNTIME_REF = '4c75825d10082cb3860c07485cf7c98c3b608233';
+const PINNED_RUNTIME_REF = '8e4dedd1a676a2dab26bc4ec812876eac98fc282';
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const SESSION_TIMEOUT_MS = 20_000;
 const RESET_TIMEOUT_MS = 75_000;
 const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
-// Source-validated seed/readback: conference-manager-api initialization run 36534239500.
-export const CANONICAL_DEMO_CHECKSUM = '2a15426e761f6efb78409394888d6799e3f00c7e13500d8b937d1d0cece579f6';
+// Corrected source fixture validated by API CI 36631986215 and scenario CI.
+export const CANONICAL_DEMO_CHECKSUM = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';
 const HOSTED_BASELINES = Object.freeze({
   [PINNED_RUNTIME_REF]: Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
+  // Original SaaS 3.7 initialization/readback: API run 36534239500.
+  '4c75825d10082cb3860c07485cf7c98c3b608233': Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: '2a15426e761f6efb78409394888d6799e3f00c7e13500d8b937d1d0cece579f6',
   }),
   // Historical binding is explicit; neither runtime accepts the other seed/checksum.
   e52c4c23227deb8a48af0070c255a80431ed3c6e: Object.freeze({

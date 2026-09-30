@@ -90,6 +90,9 @@ function openRoomPreview(room, trigger, previewIndex) {
   const assets = roomAssetPreviewState(room);
   const managed = managedRoomMedia(room);
   const content = el('section', { className: 'room-asset-dialog' });
+  if (room.description) {
+    content.appendChild(el('p', { text: room.description }));
+  }
   if (managed.floorplan) {
     content.appendChild(el('article', { className: 'room-asset-panel' }, [
       el('h3', { text: t('production.employee.roomFloorplanHeading') }),

@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 45f0498d7e0995118d92ad5c300cda332020ad61
+          ref: 8e4dedd1a676a2dab26bc4ec812876eac98fc282
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN }}
           persist-credentials: false
           path: api
@@ -163,6 +163,19 @@ jobs:
         env:
           DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
         run: npm run test:e2e:shared-demo
+      - name: Run full three-customer progression and two-cycle reset acceptance
+        working-directory: frontend
+        env:
+          DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
+        run: npm run test:e2e:saas37
+      - name: Upload scenario evidence and bounded browser report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: saas37-scenario-report
+          path: frontend/playwright-report-saas37/
+          if-no-files-found: error
+          retention-days: 30
       - name: Stop Demo API processes
         if: always()
         run: |
