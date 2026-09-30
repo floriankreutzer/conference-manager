@@ -454,7 +454,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const mediaRoom = locationsBeforeMedia.configuration.rooms.find((room) => room.active);
   expect(mediaRoom).toBeTruthy();
   const imageBytes = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGOsWHCCgZaAiaamj1b13d6c3e0b2ae69e2c9998fcd861af0c886f7565660c37744c41470c71e8f8jFowasGoBaMWjFowasGoBaMWjFowasGoBVQEAEl4AiCcDJG+AAAAAElFTkSuQmCC',
+    'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGOsWHCCgZaAiaamj1owasGoBaMWjFowasGoBaMWjFowasGoBVQEAEl4AiCcDJG+AAAAAElFTkSuQmCC',
     'base64',
   );
   const mediaPath = `${CUSTOMER_ORIGIN}/api/v1/tenant/rooms/${mediaRoom.id}/media`;
