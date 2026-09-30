@@ -50,7 +50,7 @@ test('hosted workflow reserves cleanup time before any destructive journey', () 
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 
   assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '3600'/);
-  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '2400'/);
+  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '2700'/);
   assert.match(workflow, /HOSTED_READINESS_BUDGET_SECONDS: '360'/);
   assert.match(workflow, /timeout-minutes: 60/);
   assert.match(

@@ -84,7 +84,7 @@ checks and DAST now target the deployed API. Full hosted scenarios use real
 HTTPS origins directly, without a local edge or disabled certificate checks.
 
 Both browser suites run before independent canonical cleanup. The hosted job
-reserves 2400 seconds for their bounded execution, server rate windows, failure
+reserves 2700 seconds for their bounded execution, server rate windows, failure
 cleanup and post-journey identity verification. Scenario tests respect the real
 60-second rate window before each browser and between complete cycles. They do
 not raise limits, retry denials or reset limiter state.
@@ -110,3 +110,12 @@ complete expected detail/allocation contract. An unavailable-provider UI check
 requires 503 and disabled progression; an independent non-mutating availability
 read with the exact UI query additionally verifies the error contract. No mutation
 is replayed, assertion skipped or denial retried to obtain a successful outcome.
+
+The initial live full run `36678365509` completed both customer mutations and
+reached cycle-two baseline restoration, but exceeded the local seven-minute test
+budget. Hosted-only budgets now allow eleven minutes per browser and twenty-five
+minutes globally; the isolated seven-/fifteen-minute limits remain unchanged. The
+hosted reserve includes the existing eight-minute suite, twenty-five-minute full
+suite, bounded independent resets and metadata margin. Action, navigation,
+assertion, TLS, retry, rate-limit and security controls are unchanged. The failed
+run's independent canonical cleanup succeeded; timeout is not acceptance.

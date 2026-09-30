@@ -44,6 +44,22 @@ test('hosted full scenarios remain inside a reserved independent cleanup budget'
   assert.match(workflow, /name: Upload full hosted scenario evidence and browser report/);
   assert.match(workflow, /name: hosted-saas37-scenario-evidence/);
   const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);
-  // Existing suite 480s + full suite 900s + six cleanup requests + identity/audit margin.
-  assert.ok(reserve >= 480 + 900 + 2 * (2 * 20 + 75) + 200);
+  // Existing suite 480s + hosted full suite 1500s + six cleanup requests + identity/audit margin.
+  assert.ok(reserve >= 480 + 1500 + 2 * (2 * 20 + 75) + 200);
+});
+
+test('measured hosted scenario budget does not relax isolated action or assertion limits', () => {
+  const local = createSaas37Config({});
+  const hosted = createSaas37Config({
+    SHARED_DEMO_CUSTOMER_ORIGIN: 'https://conference-manager-demo.onrender.com',
+    SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com',
+  });
+  assert.equal(local.timeout, 420_000);
+  assert.equal(local.globalTimeout, 900_000);
+  assert.equal(hosted.timeout, 660_000);
+  assert.equal(hosted.globalTimeout, 1_500_000);
+  assert.ok(hosted.globalTimeout > 2 * hosted.timeout);
+  for (const key of ['actionTimeout', 'navigationTimeout']) assert.equal(hosted.use[key], local.use[key]);
+  assert.deepEqual(hosted.expect, local.expect);
+  assert.equal(hosted.retries, 0);
 });
