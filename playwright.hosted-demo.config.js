@@ -7,8 +7,9 @@ export default defineConfig({
   testDir: './tests/e2e-shared',
   fullyParallel: false,
   workers: 1,
-  timeout: 180_000,
-  globalTimeout: 480_000,
+  // Cumulative cross-role navigation budget; individual UI waits stay bounded.
+  timeout: 300_000,
+  globalTimeout: 720_000,
   maxFailures: 1,
   retries: 0,
   expect: { timeout: 15_000 },

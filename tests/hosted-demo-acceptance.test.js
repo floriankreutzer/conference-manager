@@ -171,11 +171,25 @@ test('hosted browser matrix includes Chromium and WebKit serially within the cle
   assert.match(config, /devices\['Desktop Safari'\]/);
   assert.match(config, /fullyParallel: false/);
   assert.match(config, /workers: 1/);
-  assert.match(config, /globalTimeout: 480_000/);
+  assert.match(config, /timeout: 300_000/);
+  assert.match(config, /globalTimeout: 720_000/);
   assert.match(config, /maxFailures: 1/);
   assert.match(config, /retries: 0/);
   assert.match(workflow, /npx playwright install --with-deps chromium webkit/);
   assert.match(workflow, /group: hosted-demo-acceptance\n\s+cancel-in-progress: false/);
+});
+
+test('both hosted suite caps leave eight minutes for independent cleanup and evidence', () => {
+  const shared = readFileSync('playwright.hosted-demo.config.js', 'utf8');
+  const scenarios = readFileSync('playwright.saas37.config.js', 'utf8');
+  const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+  const sharedCap = Number(shared.match(/globalTimeout: ([\d_]+)/)?.[1].replaceAll('_', ''));
+  const scenarioCap = Number(scenarios.match(/globalTimeout: origins\.hosted \? ([\d_]+)/)?.[1].replaceAll('_', ''));
+  const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);
+  assert.equal(sharedCap, 720_000);
+  assert.equal(scenarioCap, 1_500_000);
+  assert.equal(reserve, 2700);
+  assert.ok(reserve - (sharedCap + scenarioCap) / 1000 >= 480);
 });
 
 test('successful hosted journeys also upload an independently pinned canonical reset checksum', () => {
