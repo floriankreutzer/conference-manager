@@ -16,6 +16,9 @@
 
 10055-12	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
 
+# Run 36676822685, artifact 11079942467: public function identifier, not encoded data.
+10094-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/demo-bootstrap\.js\?v=20260919-92$
+
 # ZAP's crawler is not a browser and therefore does not send Fetch Metadata request headers.
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
 90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260901-78$
@@ -67,3 +70,8 @@
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/tokens\.css\?v=20260825-01$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/robots\.txt$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/sitemap\.xml$
+
+# Additional raw informational stylesheet observations in run 36676822685.
+10049-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/demo-security\.css\?v=20260830-77$
+90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/demo-security\.css\?v=20260830-77$
+90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/demo-security\.css\?v=20260830-77$

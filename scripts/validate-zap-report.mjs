@@ -483,6 +483,13 @@ export const validateZapReport = ({
       if (instance?.method !== 'GET' || typeof instance.uri !== 'string') {
         throw new Error(`Alert ${alertRef} has an invalid public-static instance.`);
       }
+      // This reviewed Base64 false positive is only a public function identifier.
+      // Changed evidence remains blocking even at the same exact asset URL.
+      if (surface === 'customer-demo' && alertRef === '10094-3'
+          && (instance.evidence !== 'createDemoMicrosoft365ConnectionApi'
+            || instance.param !== '' || instance.attack !== '')) {
+        throw new Error(`Alert ${alertRef} changed its reviewed public identifier evidence.`);
+      }
       let instanceUrl;
       try {
         instanceUrl = new URL(instance.uri);

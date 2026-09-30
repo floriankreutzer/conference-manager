@@ -66,12 +66,14 @@ export async function selectContext(page, tenantId, persona) {
 }
 
 export async function uiResponse(page, method, path, action, expected = 200) {
-  const [response] = await Promise.all([
+  // Consume the browser body as soon as the response arrives, before the UI
+  // action can finish a document transition and retire its network resource.
+  const [body] = await Promise.all([
     page.waitForResponse((result) => result.request().method() === method
-      && new URL(result.url()).pathname === path),
+      && new URL(result.url()).pathname === path).then((response) => json(response, expected)),
     action(),
   ]);
-  return json(response, expected);
+  return body;
 }
 
 export async function locations(context) {

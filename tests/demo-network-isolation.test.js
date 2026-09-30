@@ -135,7 +135,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
 
   const uniqueRefs = (rules) => [...new Set(readPolicyRows(rules).map(({ alertRef }) => alertRef))];
   assert.deepEqual(uniqueRefs(customerRules), [
-    '10015', '10049-2', '10055-12', '90005-1', '90005-2', '90005-3', '90005-4',
+    '10015', '10049-2', '10055-12', '10094-3', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.deepEqual(uniqueRefs(platformRules), [
     '10015', '10049-2', '10055-12', '90005-1', '90005-2', '90005-3', '90005-4',
@@ -148,7 +148,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10003|10010|10011|10017|10019|10038|10054|10062|10105|10202)\t/m);
 
   assert.deepEqual(readSummaryPolicyRows(customerSummaryRules).map(({ pluginId }) => pluginId), [
-    '10015', '10049', '10055', '90005',
+    '10015', '10049', '10055', '10094', '90005',
   ]);
   assert.deepEqual(readSummaryPolicyRows(platformSummaryRules).map(({ pluginId }) => pluginId), [
     '10015', '10049', '10055', '90005',

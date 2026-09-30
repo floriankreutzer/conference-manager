@@ -79,6 +79,16 @@ cross-origin isolation headers. Cookie, anti-CSRF, CSP-absence, mixed-content, v
 information-disclosure and authentication findings remain blocking. These evidence-reviewed
 false-positive classifications are not permission to suppress a changed path or new scanner rule.
 
+The Customer-only `10094-3` observation from run `36676822685` (raw artifact
+`11079942467`, archive SHA-256 `3b6f4a849350a5caa692e8e7995252089d3b6854ac3f8f272427ff88e437c4dc`)
+misidentifies the public JavaScript function name `createDemoMicrosoft365ConnectionApi`
+as Base64. Source and raw evidence contain no encoded credential or private data.
+Its reviewed maximum risk is informational (`0`), restricted to GET of
+`/src/platform/demo-bootstrap.js?v=20260919-92` on the Customer origin. The raw
+validator additionally requires that exact evidence and empty attack/parameter;
+changed evidence, URL, subtype, method, risk or origin remains blocking. Other
+information-disclosure findings retain their existing fail-closed policy.
+
 The Demo must not be presented as an authenticated Production application and must not be used for real confidential, personal or regulated data.
 
 ## Role and ownership boundary
