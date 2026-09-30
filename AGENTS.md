@@ -198,24 +198,15 @@ Non-negotiable architecture rules:
 
 `docs/ARCHITECTURE.md` describes the current runtime structure and automated boundaries. It supports these canonical instructions; it does not override them.
 
+
 ## 12. Permanent Demo-customer release invariant
 
-The three SaaS 3.7 Demo customers are a permanent development baseline, not milestone-only test data. Every future change that can affect application behavior, Demo data, persistence, migrations, API contracts, roles/permissions, booking/request flows, Manager/Tenant Admin work, integrations, media, reset behavior, or deployment must preserve all three scenarios and the data needed to demonstrate them.
-
-Required scenarios:
-
-- Customer 1 / Northwind remains the rich active customer with ten usable rooms, equipment, cost centers, catering, room/media/detail content and the canonical set of approximately twenty existing booking/request examples.
-- Customer 2 / Contoso remains the smaller active customer with genuine state-derived open Conference Manager work. Tasks must come from authoritative request/catalogue/room state; they must not be hardcoded as completed/open UI fixtures.
-- Customer 3 / Fabrikam remains an onboarding customer with genuine Tenant Admin onboarding work and the data/provider-discovery state required to progress the onboarding scenario.
-
-Engineering rules:
-
-- Canonical seed/reset data for these scenarios must remain deterministic, versioned and reproducible. A development change that changes the canonical semantic data must update the seed version/checksum and all bound acceptance evidence in the same reviewed change.
-- Do not merge application/API/data/migration changes if required Demo scenario data is missing, stale, internally inconsistent, or cannot be restored by the supported reset path.
-- The full three-customer progression and two-cycle reset acceptance is a mandatory regression gate for relevant pull requests and before a release/milestone is declared complete. The CI workflow must continue to provision the canonical Demo data and execute `npm run test:e2e:saas37` against the pinned trusted API runtime in Chromium and WebKit.
-- A successful test must prove usable scenario state after reset, not merely that seed rows exist. It must cover role/tenant isolation, state-derived work, rich Customer 1 data, Customer 2 Manager tasks, Customer 3 onboarding progression, media and canonical reset integrity.
-- Tests, assertions, customer counts, task expectations, seed/reset checks, or browser coverage must not be weakened, skipped or removed to accommodate later development. Intentional scenario changes require an explicit product decision, updated canonical documentation/data and equivalent or stronger regression coverage.
-- If a future change spans `conference-manager` and `conference-manager-api`, both repositories must be validated together using immutable refs before merge. The repository containing the release gate must record the exact counterpart commit.
-- The existing Demo customers must be usable after every completed development increment. A change is not Definition-of-Done when its required Demo data or scenario progression is broken, even if unrelated unit tests are green.
-
-The binding scenario contract is `docs/SAAS-3.7-SCENARIO-ACCEPTANCE.md`. Future milestone work may extend the Demo baseline, but must not silently remove these three customers or their regression guarantees.
+The SaaS 3.7 Demo customers are a permanent development baseline, not milestone-only data. Every relevant application/API/data/persistence/migration/role/request/integration/media/reset/deployment change must preserve the data and workflows required by all three scenarios:
+- Northwind: active rich customer with ten usable rooms, equipment, cost centers, catering, media/detail content and the canonical approximately twenty existing booking/request examples.
+- Contoso: active smaller customer with genuine Conference Manager work derived from authoritative request/catalogue/room state, never hardcoded task fixtures.
+- Fabrikam: onboarding customer with genuine Tenant Admin work and the provider-discovery/import state required for onboarding progression.
+Canonical seed/reset data must remain deterministic, versioned and reproducible. Semantic changes require coordinated seed-version/checksum, documentation and acceptance-evidence updates.
+Relevant changes are not Definition-of-Done if required Demo data is missing/inconsistent, a scenario cannot progress through its role-owned workflow, tenant/CSRF boundaries regress, or supported reset cannot restore the canonical state.
+CI must continue to provision the canonical data and run the full three-customer progression and two-cycle reset acceptance in Chromium and WebKit against an immutable trusted API ref. Seed-row existence alone is insufficient evidence.
+Do not weaken, skip or remove customer/task/reset/browser assertions to unblock later work. Intentional scenario changes require an explicit product decision and equivalent or stronger regression coverage.
+Cross-repository changes must validate both repositories together with exact immutable counterpart commits. The binding contract is `docs/SAAS-3.7-SCENARIO-ACCEPTANCE.md`.
