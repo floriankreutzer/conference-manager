@@ -53,11 +53,11 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
         for (const [tenantId, persona] of [[NORTHWIND, 'employee'], [CONTOSO, 'employee'], [FABRIKAM, 'tenant_admin']]) {
           await contextFor(observerContext, tenantId, persona);
           const own = await customerSession(observerContext);
-          // Active booking identities get non-disclosing 404s. Fabrikam's
-          // unfinished Tenant Admin is denied earlier by lifecycle/role (403).
-          const expectedForeignStatus = tenantId === FABRIKAM ? 403 : 404;
+          // Requests require active lifecycle; media reads also support onboarding.
+          // Fabrikam is denied before request lookup; all media lookups hide foreign objects.
+          const expectedForeignRequestStatus = tenantId === FABRIKAM ? 403 : 404;
           const foreignRequest = tenantId === NORTHWIND ? contosoBaseline.pending[0].id : requestId;
-          expect((await observerContext.request.get(`${ORIGINS.customer}/api/v1/requests/${foreignRequest}`)).status()).toBe(expectedForeignStatus);
+          expect((await observerContext.request.get(`${ORIGINS.customer}/api/v1/requests/${foreignRequest}`)).status()).toBe(expectedForeignRequestStatus);
           const foreignMedia = tenantId === CONTOSO
             ? `${ORIGINS.customer}/api/v1/tenant/rooms/${baseline.rooms[0].id}/media/${baseline.rooms[0].mediaAssetIds[0]}`
             : media.uploadedUrl;
