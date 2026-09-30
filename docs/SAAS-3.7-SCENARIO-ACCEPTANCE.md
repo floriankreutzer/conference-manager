@@ -119,3 +119,10 @@ hosted reserve includes the existing eight-minute suite, twenty-five-minute full
 suite, bounded independent resets and metadata margin. Action, navigation,
 assertion, TLS, retry, rate-limit and security controls are unchanged. The failed
 run's independent canonical cleanup succeeded; timeout is not acceptance.
+
+
+## Permanent post-3.7 regression contract
+
+SaaS 3.7 closure does not retire these fixtures or tests. Northwind, Contoso and Fabrikam are permanent Demo baselines for subsequent milestones. Relevant development must continue to provision their canonical data and pass the full Chromium/WebKit three-customer progression plus two-cycle reset gate before it is complete.
+
+The gate verifies usable post-reset scenarios rather than fixture presence: Northwind rich booking/room/catalogue/media data, Contoso state-derived Conference Manager work, Fabrikam state-derived Tenant Admin onboarding, tenant/role/CSRF isolation, media integrity and canonical reset reproducibility. Cross-repository validation uses immutable counterpart commits. Any intentional semantic change to these scenarios requires coordinated seed-version/checksum, documentation and acceptance updates; silently dropping data, customers, tasks, reset assertions or browser coverage is prohibited.
