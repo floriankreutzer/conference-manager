@@ -65,7 +65,9 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
       && url.origin === CUSTOMER_ORIGIN
       && url.pathname === '/api/v1/demo/session';
   });
+  const reloadedDocument = page.waitForEvent('domcontentloaded');
   await page.locator('[data-demo-security] button').click();
+  await reloadedDocument;
   const response = await responsePromise;
   expect(response.status()).toBe(200);
   expect((await rebootstrapPromise).status()).toBe(200);

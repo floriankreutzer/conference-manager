@@ -55,7 +55,9 @@ export async function selectContext(page, tenantId, persona) {
     && new URL(response.url()).pathname === '/api/v1/demo/session');
   const switched = page.waitForResponse((response) => response.request().method() === 'PUT'
     && new URL(response.url()).pathname === '/api/v1/demo/session/context');
+  const reloadedDocument = page.waitForEvent('domcontentloaded');
   await page.locator('[data-demo-security] button').click();
+  await reloadedDocument;
   // The accepted switch intentionally reloads the document. Its old response
   // body is no longer readable; verify status and the fresh server session.
   expect((await switched).status()).toBe(200);
