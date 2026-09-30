@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import {
-  NORTHWIND, INTEGRATION_PATH, catalogue, requests, locations,
+  NORTHWIND, INTEGRATION_PATH, ORIGINS, catalogue, requests, locations,
+  json, headers, customerSession,
   selectContext, uiResponse, businessDate, openAdmin, imagesLoaded,
 } from './scenario-support.js';
 
@@ -89,9 +90,13 @@ export async function northwindBooking(page, cycle, baseline) {
   await page.locator('#productionAllocationPercent-0').fill('100');
   await next.click();
   await expect(page.getByRole('button', { name: 'Anfrage absenden', exact: true })).toBeEnabled();
-  const created = await uiResponse(page, 'POST', '/api/v1/application/requests',
+  await uiResponse(page, 'POST', '/api/v1/application/requests',
     () => page.getByRole('button', { name: 'Anfrage absenden', exact: true }).click(), 201);
-  const request = created.request;
+  const committedCard = page.locator('[data-production-request-id]').filter({ hasText: title });
+  await expect(committedCard).toHaveCount(1);
+  const committedId = await committedCard.getAttribute('data-production-request-id');
+  const request = (await json(await page.context().request.get(
+    `${ORIGINS.customer}/api/v1/requests/${committedId}`))).request;
   expect(request).toMatchObject({ schemaVersion: 3, roomId: 'northwind-berlin-room-1', details: {
     title, equipmentIds: ['display-86', 'video-system'],
     catering: { participantCount: 4, packageSelection: { packageId: 'coffee-break' } },
@@ -147,6 +152,13 @@ export async function unavailableIntegrationFailsClosed(page) {
   await page.locator('input[name="productionRoomChoice"][value="northwind-berlin-room-1"]').check();
   const result = await uiResponse(page, 'POST', '/api/v1/application/room-availability',
     () => page.getByRole('button', { name: 'Raumverfügbarkeit prüfen', exact: true }).click(), 503);
-  expect(result.error.code).toBe('ROOM_AVAILABILITY_UNAVAILABLE');
+  // Independently repeat this non-mutating availability read with the exact UI
+  // query. Both operations must fail closed; this is not a denial retry.
+  const independentlyUnavailable = await json(await page.context().request.post(
+    `${ORIGINS.customer}/api/v1/application/room-availability`, {
+      headers: headers(await customerSession(page.context())),
+      data: result.request().postDataJSON(),
+    }), 503);
+  expect(independentlyUnavailable.error.code).toBe('ROOM_AVAILABILITY_UNAVAILABLE');
   await expect(page.getByRole('button', { name: 'Weiter', exact: true })).toBeDisabled();
 }

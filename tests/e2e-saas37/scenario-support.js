@@ -66,14 +66,17 @@ export async function selectContext(page, tenantId, persona) {
 }
 
 export async function uiResponse(page, method, path, action, expected = 200) {
-  // Consume the browser body as soon as the response arrives, before the UI
-  // action can finish a document transition and retire its network resource.
-  const [body] = await Promise.all([
+  const [response] = await Promise.all([
     page.waitForResponse((result) => result.request().method() === method
-      && new URL(result.url()).pathname === path).then((response) => json(response, expected)),
+      && new URL(result.url()).pathname === path),
     action(),
   ]);
-  return body;
+  // Browser response bodies can be retired by document/context transitions.
+  // Verify the real UI operation here; scenario reads prove committed payloads
+  // through normal authenticated API reads and visible post-action state.
+  expect(response.status(), `HTTP status for ${path}`).toBe(expected);
+  expect(response.headers()['content-type']).toContain('application/json');
+  return response;
 }
 
 export async function locations(context) {

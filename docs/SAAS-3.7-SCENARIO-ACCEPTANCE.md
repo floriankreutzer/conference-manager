@@ -98,3 +98,15 @@ Fabrikam is denied earlier by lifecycle with 403. Foreign media must return
 
 Successful current-head isolated and live evidence is still required before
 closing #215 or the milestone; these configured gates alone are not acceptance.
+
+## Browser response lifetime
+
+The real UI action must return its exact expected HTTP status and JSON content
+type. Its Chromium network body can be retired during document/context changes;
+scenario tests do not treat that transient resource as committed-state evidence.
+New bookings are located in the visible UI by their unique scenario title, then
+read through the normal authenticated request endpoint and checked against the
+complete expected detail/allocation contract. An unavailable-provider UI check
+requires 503 and disabled progression; an independent non-mutating availability
+read with the exact UI query additionally verifies the error contract. No mutation
+is replayed, assertion skipped or denial retried to obtain a successful outcome.

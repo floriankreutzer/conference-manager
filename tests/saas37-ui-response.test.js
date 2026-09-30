@@ -2,31 +2,35 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { uiResponse } from './e2e-saas37/scenario-support.js';
 
-const response = (read) => ({
-  request: () => ({ method: () => 'POST' }),
-  url: () => 'https://customer.demo.test:4443/api/v1/application/room-availability',
-  status: () => 200,
-  headers: () => ({ 'content-type': 'application/json' }),
-  json: read,
+function response(status = 200, contentType = 'application/json') {
+  return {
+    request: () => ({ method: () => 'POST' }),
+    url: () => 'https://customer.demo.test:4443/api/v1/application/room-availability',
+    status: () => status,
+    headers: () => ({ 'content-type': contentType }),
+    json: async () => { throw new Error('retired browser body is not readable'); },
+  };
+}
+
+const pageFor = (result) => ({ waitForResponse: async (predicate) => {
+  assert.equal(predicate(result), true);
+  return result;
+} });
+
+test('UI response verification does not read retired browser payloads', async () => {
+  const result = response();
+  assert.equal(await uiResponse(pageFor(result), 'POST', '/api/v1/application/room-availability',
+    async () => {}), result);
 });
 
-test('UI response bodies are consumed before the triggering action finishes', async () => {
-  let bodyRead = false;
-  const result = response(async () => { bodyRead = true; return { available: true }; });
-  const page = { waitForResponse: async (predicate) => {
-    assert.equal(predicate(result), true);
-    return result;
-  } };
-  const body = await uiResponse(page, 'POST', '/api/v1/application/room-availability', async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-    assert.equal(bodyRead, true, 'the action can retire its browser response resource');
-  });
-  assert.deepEqual(body, { available: true });
+test('status and JSON content type remain mandatory for the real UI response', async () => {
+  for (const result of [response(403), response(429), response(500), response(200, 'text/html')]) {
+    await assert.rejects(uiResponse(pageFor(result), 'POST', '/api/v1/application/room-availability',
+      async () => {}));
+  }
 });
 
 test('UI action failure stays attached to the same awaited response operation', async () => {
-  const page = { waitForResponse: async () => response(async () => ({ available: true })) };
-  await assert.rejects(uiResponse(page, 'POST', '/api/v1/application/room-availability',
+  await assert.rejects(uiResponse(pageFor(response()), 'POST', '/api/v1/application/room-availability',
     async () => { throw new Error('visible UI action failed'); }), /visible UI action failed/);
 });
