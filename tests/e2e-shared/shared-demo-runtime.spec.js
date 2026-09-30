@@ -81,16 +81,41 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
 
 async function expectUiResponseStatus(page, method, pathname, action, expectedStatus) {
   const pageOrigin = new URL(page.url()).origin;
-  const responsePromise = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return response.request().method() === method
-      && url.origin === pageOrigin
-      && url.pathname === pathname;
-  });
-  await action();
-  const response = await responsePromise;
+  const [response] = await Promise.all([
+    page.waitForResponse((candidate) => {
+      const url = new URL(candidate.url());
+      return candidate.request().method() === method
+        && url.origin === pageOrigin
+        && url.pathname === pathname;
+    }, { timeout: 30_000 }),
+    action(),
+  ]);
   expect(response.status()).toBe(expectedStatus);
   return response;
+}
+
+// A normal pointer click must not race an asynchronously prepended task card or
+// smooth scrolling. Observe geometry and hit testing only; never replay a write.
+async function waitForStableControl(control) {
+  await control.scrollIntoViewIfNeeded({ timeout: 15_000 });
+  let previousGeometry = null;
+  let stableSamples = 0;
+  await expect.poll(async () => {
+    const sample = await control.evaluate((element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      const hit = element.ownerDocument.elementFromPoint(x + width / 2, y + height / 2);
+      return {
+        geometry: [x, y, width, height],
+        receivesPointer: width > 0 && height > 0
+          && (hit === element || element.contains(hit)),
+      };
+    });
+    const geometry = JSON.stringify(sample.geometry);
+    stableSamples = sample.receivesPointer && geometry === previousGeometry
+      ? stableSamples + 1 : 0;
+    previousGeometry = geometry;
+    return stableSamples >= 2;
+  }, { timeout: 10_000, intervals: [100, 100, 250] }).toBe(true);
 }
 
 async function switchPlatformThroughUi(page, persona) {
@@ -157,6 +182,10 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
 
   const customerContext = await browser.newContext({ ignoreHTTPSErrors: true });
   const platformContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  for (const context of [customerContext, platformContext]) {
+    context.setDefaultTimeout(15_000);
+    context.setDefaultNavigationTimeout(30_000);
+  }
   let customerSession = await establishCustomer(customerContext);
   let platformSession = await establishPlatform(platformContext);
 
@@ -425,7 +454,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const mediaRoom = locationsBeforeMedia.configuration.rooms.find((room) => room.active);
   expect(mediaRoom).toBeTruthy();
   const imageBytes = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGOsWHCCgZaAiaamj1owasGoBaMWjFowasGoBaMWjFowasGoBVQEAEl4AiCcDJG+AAAAAElFTkSuQmCC',
+    'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGOsWHCCgZaAiaamj1b13d6c3e0b2ae69e2c9998fcd861af0c886f7565660c37744c41470c71e8f8jFowasGoBaMWjFowasGoBaMWjFowasGoBVQEAEl4AiCcDJG+AAAAAElFTkSuQmCC',
     'base64',
   );
   const mediaPath = `${CUSTOMER_ORIGIN}/api/v1/tenant/rooms/${mediaRoom.id}/media`;
@@ -458,12 +487,14 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('[data-view="manager"]').click();
   const managerCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
   await expect(managerCard).toBeVisible();
+  const startReviewControl = managerCard.getByRole('button', { name: 'Prüfung starten' });
+  await waitForStableControl(startReviewControl);
   const transitionPath = `/api/v1/requests/${createdRequestId}/transitions`;
   await expectUiResponseStatus(
     customerPage,
     'POST',
     transitionPath,
-    () => managerCard.getByRole('button', { name: 'Prüfung starten' }).click(),
+    () => startReviewControl.click(),
     200,
   );
   await expect(managerCard).toContainText('In Prüfung');
