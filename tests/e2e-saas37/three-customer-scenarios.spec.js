@@ -23,6 +23,10 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
   let destructiveStarted = false;
   let cleanupVerified = false;
   try {
+    // Both suites and browser projects share the same source-IP rate bucket.
+    // Respect its real 60-second window; never raise limits or retry a denial.
+    await test.step('respect the server rate-limit window before the scenario',
+      () => new Promise((resolve) => setTimeout(resolve, 61_000)));
     destructiveStarted = true;
     await reset(platformContext);
     await customer.goto(ORIGINS.customer);
@@ -98,6 +102,10 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
       });
       evidence.cycles.push({ cycle, northwindRooms: 10, northwindSeedRequests: 20, contosoTasksCompleted: 7,
         fabrikamRoomsImported: importedRooms.length, allThreeRestored: true, checksum: result.checksum });
+      if (cycle === 1) {
+        await test.step('respect the server rate-limit window between complete cycles',
+          () => new Promise((resolve) => setTimeout(resolve, 61_000)));
+      }
     }
     // End with clean canonical state, not post-assertion sessions or changed data.
     await reset(platformContext);
