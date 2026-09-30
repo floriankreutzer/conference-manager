@@ -184,7 +184,7 @@ test('both hosted suite caps leave eight minutes for independent cleanup and evi
   const scenarios = readFileSync('playwright.saas37.config.js', 'utf8');
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const sharedCap = Number(shared.match(/globalTimeout: ([\d_]+)/)?.[1].replaceAll('_', ''));
-  const scenarioCap = Number(scenarios.match(/globalTimeout: hosted \? ([\d_]+)/)?.[1].replaceAll('_', ''));
+  const scenarioCap = Number(scenarios.match(/globalTimeout: origins\.hosted \? ([\d_]+)/)?.[1].replaceAll('_', ''));
   const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);
   assert.equal(sharedCap, 720_000);
   assert.equal(scenarioCap, 1_500_000);
