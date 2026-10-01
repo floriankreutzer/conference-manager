@@ -126,3 +126,19 @@ run's independent canonical cleanup succeeded; timeout is not acceptance.
 SaaS 3.7 closure does not retire these fixtures or tests. Northwind, Contoso and Fabrikam are permanent Demo baselines for subsequent milestones. Relevant development must continue to provision their canonical data and pass the full Chromium/WebKit three-customer progression plus two-cycle reset gate before it is complete.
 
 The gate verifies usable post-reset scenarios rather than fixture presence: Northwind rich booking/room/catalogue/media data, Contoso state-derived Conference Manager work, Fabrikam state-derived Tenant Admin onboarding, tenant/role/CSRF isolation, media integrity and canonical reset reproducibility. Cross-repository validation uses immutable counterpart commits. Any intentional semantic change to these scenarios requires coordinated seed-version/checksum, documentation and acceptance updates; silently dropping data, customers, tasks, reset assertions or browser coverage is prohibited.
+
+## Isolated WebKit aggregate execution budget
+
+API main CI run `36861249787` and API PR #100 run `36900079406`
+reproducibly exceeded the isolated 420-second aggregate budget during the
+second complete cycle. These failures predate the MSAL upgrade and occurred
+without a reported failed business assertion. This is not passing evidence.
+
+The complete isolated WebKit scenario now has the same bounded 660-second
+total budget already used for hosted scenarios. Isolated Chromium retains
+420 seconds. The 900-second isolated global limit, individual action,
+navigation and assertion limits, zero automatic retries, two 61-second rate
+windows, all three customers, every negative check and both full reset cycles
+remain unchanged. No application, seed, checksum, deployment or security
+contract changes. The API must pin an immutable counterpart containing this
+change and pass the complete scenario before merging.
