@@ -94,8 +94,8 @@ test('pointer guard requires repeated stationary geometry and an unobstructed hi
     { y: 50, hit: false },
     { y: 60, hit: true },
     { y: 65, hit: true },
-    { y: 65, hit: true },
-    { y: 65, hit: true },
+    { y: 65.25, hit: true },
+    { y: 64.9, hit: true },
   ]);
   const settle = helper('waitForStableControl', 'switchPlatformThroughUi', { expect: harness.expect });
   await settle(harness.control);

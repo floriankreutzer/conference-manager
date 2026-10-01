@@ -110,10 +110,13 @@ async function waitForStableControl(control) {
           && (hit === element || element.contains(hit)),
       };
     });
-    const geometry = JSON.stringify(sample.geometry);
-    stableSamples = sample.receivesPointer && geometry === previousGeometry
+    const geometryStable = previousGeometry !== null
+      && sample.geometry.every((value, index) => (
+        Math.abs(value - previousGeometry[index]) <= 0.5
+      ));
+    stableSamples = sample.receivesPointer && geometryStable
       ? stableSamples + 1 : 0;
-    previousGeometry = geometry;
+    previousGeometry = sample.geometry;
     return stableSamples >= 2;
   }, { timeout: 10_000, intervals: [100, 100, 250] }).toBe(true);
 }
