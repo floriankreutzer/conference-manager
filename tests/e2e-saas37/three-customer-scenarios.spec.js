@@ -95,7 +95,10 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
       await observerContext.clearCookies();
       await customer.goto(ORIGINS.customer);
       await test.step(`cycle ${cycle}: restore all baseline contents, tasks, imports and original media`, async () => {
-        await verifyNorthwindBaseline(customer);
+        await verifyNorthwindBaseline(customer, {
+          replaceCateringImage: false,
+          expectedCateringImageHash: baseline.cateringImage.originalHash,
+        });
         expect((await customerContext.request.get(`${ORIGINS.customer}/api/v1/requests/${requestId}`)).status()).toBe(404);
         await verifyContosoBaseline(customer);
         expect((await customerContext.request.get(media.uploadedUrl)).status()).toBe(404);

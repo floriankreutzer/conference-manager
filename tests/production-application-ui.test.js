@@ -625,6 +625,21 @@ test('MGR-01: Production Manager restores four server-backed cockpit workspaces'
   assert.match(workspace, /onOpenBusinessSettings:[\s\S]*renderManagerSettings/);
 });
 
+test('MGR-01: Demo Catering image replacement preserves unsaved catalogue drafts', async () => {
+  const businessSettings = await source(
+    new URL('../src/manager/business-settings-application.js', import.meta.url),
+  );
+  const imageEditor = businessSettings.slice(
+    businessSettings.indexOf('function demoCateringImage'),
+    businessSettings.indexOf('function isCurrentRender'),
+  );
+  assert.match(imageEditor, /await catalogue\.replaceDemoCatalogueImage/);
+  assert.match(imageEditor, /preview\.src = `\$\{media\.url\}\?updated=\$\{cacheKey\}`/);
+  assert.match(imageEditor, /picker\.value = ''/);
+  assert.match(imageEditor, /save\.disabled = false/);
+  assert.doesNotMatch(imageEditor, /renderManagerSettings/);
+});
+
 test('EMP-15: every print popup uses the shared detached, secret-free, lifecycle-bound surface', async () => {
   const [employee, helper, inactivity, demoSecurity, shell] = await Promise.all([
     source(EMPLOYEE_SOURCE),

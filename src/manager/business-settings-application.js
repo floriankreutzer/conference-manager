@@ -401,8 +401,11 @@ export function createManagerBusinessSettingsApplication({
       try {
         await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
         if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        const cacheKey = encodeURIComponent(String(Date.now()));
+        preview.src = `${media.url}?updated=${cacheKey}`;
+        picker.value = '';
+        save.disabled = false;
         showToast(t('managerSettings.catalogue.imageSaved'));
-        await renderManagerSettings({ focusHeading: true });
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;

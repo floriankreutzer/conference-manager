@@ -1,11 +1,24 @@
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 import {
   NORTHWIND, INTEGRATION_PATH, ORIGINS, catalogue, requests, locations,
   json, headers, customerSession,
-  selectContext, uiResponse, businessDate, openAdmin, imagesLoaded,
+  selectContext, uiResponse, businessDate, openAdmin, imagesLoaded, mediaHash,
 } from './scenario-support.js';
 
-export async function verifyNorthwindBaseline(page) {
+const REPLACEMENT_CATERING_IMAGE = new URL(
+  '../../demo-assets-saas-3.7/catering/afternoon-snack.webp', import.meta.url,
+);
+
+function sha256(buffer) {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
+export async function verifyNorthwindBaseline(page, {
+  replaceCateringImage = true,
+  expectedCateringImageHash = null,
+} = {}) {
   await selectContext(page, NORTHWIND, 'conference_manager');
   const context = page.context();
   const configuration = await locations(context);
@@ -44,17 +57,34 @@ export async function verifyNorthwindBaseline(page) {
   await packageImage.locator('img').scrollIntoViewIfNeeded();
   await imagesLoaded(packageImage);
   const imageUrl = await packageImage.locator('img').getAttribute('src');
-  const originalImage = await page.context().request.get(`${ORIGINS.customer}${imageUrl}`);
+  const absoluteImageUrl = new URL(imageUrl, ORIGINS.customer).href;
+  const originalImage = await page.context().request.get(absoluteImageUrl);
   expect(originalImage.status()).toBe(200);
-  await packageImage.locator('input[type="file"]').setInputFiles({
-    name: 'coffee-break.webp', mimeType: 'image/webp', buffer: await originalImage.body(),
-  });
-  await uiResponse(page, 'PUT', imageUrl,
-    () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
-  await expect(packageImage).toBeVisible();
-  await packageImage.locator('img').scrollIntoViewIfNeeded();
-  await imagesLoaded(packageImage);
-  return { rooms: configuration.configuration.rooms, catalog, seeded };
+  const originalHash = sha256(await originalImage.body());
+  if (expectedCateringImageHash !== null) expect(originalHash).toBe(expectedCateringImageHash);
+  if (replaceCateringImage) {
+    const replacement = await readFile(REPLACEMENT_CATERING_IMAGE);
+    const replacementHash = sha256(replacement);
+    expect(replacementHash).not.toBe(originalHash);
+    const unsavedName = page.locator('#manager-catalogue-package-coffee-break-name');
+    await unsavedName.fill('Ungespeicherter Kaffeepausen-Entwurf');
+    await packageImage.locator('input[type="file"]').setInputFiles({
+      name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement,
+    });
+    await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
+      () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+    await expect(packageImage).toBeVisible();
+    await packageImage.locator('img').scrollIntoViewIfNeeded();
+    await imagesLoaded(packageImage);
+    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(replacementHash);
+  }
+  return {
+    rooms: configuration.configuration.rooms,
+    catalog,
+    seeded,
+    cateringImage: { url: absoluteImageUrl, originalHash },
+  };
 }
 
 export async function northwindBooking(page, cycle, baseline) {

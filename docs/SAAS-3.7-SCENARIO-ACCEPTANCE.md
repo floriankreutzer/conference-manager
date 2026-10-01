@@ -76,12 +76,14 @@ all ten seeded descriptions in their visible preview dialogs.
 
 ## Corrected live release binding
 
-The existing Render services deployed API merge `8e4dedd1a676a2dab26bc4ec812876eac98fc282`
+The existing Render services deployed API merge `9c0f75c3d414968c18df9117214f3dc62be52c13`
 with frontend `c1fee5e2c4f1d472174d194697dd635a5a9b0aef`. Subsequent frontend
 changes correct test sequencing and expectations; application code remains the
-same as that immutable deployed frontend. The isolated API pin, hosted identity
-checks and DAST now target the deployed API. Full hosted scenarios use real
-HTTPS origins directly, without a local edge or disabled certificate checks.
+same as that immutable deployed frontend. The API change corrects the bounded
+public guest Room projection without changing the canonical seed. The isolated
+API pin, hosted identity checks and DAST now target the deployed API. Full
+hosted scenarios use real HTTPS origins directly, without a local edge or
+disabled certificate checks.
 
 Both browser suites run before independent canonical cleanup. The hosted job
 reserves 2700 seconds for their bounded execution, server rate windows, failure
