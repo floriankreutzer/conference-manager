@@ -40,6 +40,7 @@ export async function verifyNorthwindBaseline(page) {
   await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
   await page.getByRole('button', { name: 'Katalog & Preise', exact: true }).click();
   const packageImage = page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel');
+  await expect(packageImage).toBeVisible();
   await imagesLoaded(packageImage);
   const imageUrl = await packageImage.locator('img').getAttribute('src');
   const originalImage = await page.context().request.get(`${ORIGINS.customer}${imageUrl}`);
@@ -49,7 +50,8 @@ export async function verifyNorthwindBaseline(page) {
   });
   await uiResponse(page, 'PUT', imageUrl,
     () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
-  await imagesLoaded(page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel'));
+  await expect(packageImage).toBeVisible();
+  await imagesLoaded(packageImage);
   return { rooms: configuration.configuration.rooms, catalog, seeded };
 }
 
