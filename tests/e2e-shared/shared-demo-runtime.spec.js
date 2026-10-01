@@ -95,30 +95,11 @@ async function expectUiResponseStatus(page, method, pathname, action, expectedSt
 }
 
 // A normal pointer click must not race an asynchronously prepended task card or
-// smooth scrolling. Observe geometry and hit testing only; never replay a write.
+// smooth scrolling. Use Playwright's non-mutating actionability trial; never
+// force, dispatch or replay the actual write.
 async function waitForStableControl(control) {
   await control.scrollIntoViewIfNeeded({ timeout: 15_000 });
-  let previousGeometry = null;
-  let stableSamples = 0;
-  await expect.poll(async () => {
-    const sample = await control.evaluate((element) => {
-      const { x, y, width, height } = element.getBoundingClientRect();
-      const hit = element.ownerDocument.elementFromPoint(x + width / 2, y + height / 2);
-      return {
-        geometry: [x, y, width, height],
-        receivesPointer: width > 0 && height > 0
-          && (hit === element || element.contains(hit)),
-      };
-    });
-    const geometryStable = previousGeometry !== null
-      && sample.geometry.every((value, index) => (
-        Math.abs(value - previousGeometry[index]) <= 0.5
-      ));
-    stableSamples = sample.receivesPointer && geometryStable
-      ? stableSamples + 1 : 0;
-    previousGeometry = sample.geometry;
-    return stableSamples >= 2;
-  }, { timeout: 10_000, intervals: [100, 100, 250] }).toBe(true);
+  await control.click({ trial: true, timeout: 15_000 });
 }
 
 async function switchPlatformThroughUi(page, persona) {
