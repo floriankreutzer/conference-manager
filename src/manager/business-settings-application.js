@@ -4,6 +4,7 @@ import { currency as tenantCurrency, formatDateTime, t } from '../core/i18n.js';
 import { button, clear, el, field, showToast } from '../core/ui.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-bulk-transfer-panel.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
+import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -383,6 +384,38 @@ export function createManagerBusinessSettingsApplication({
   }
   let section = 'rooms';
   let renderRevision = 0;
+  const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
+
+  function demoCateringImage(editor, media, revision, renderRoot) {
+    if (!media || typeof catalogue.replaceDemoCatalogueImage !== 'function') return;
+    const surface = el('section', { className: 'room-asset-panel' });
+    const preview = el('img', {
+      className: 'room-asset-visual media',
+      attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+    });
+    const picker = el('input', { type: 'file', attrs: { accept: 'image/webp' } });
+    const save = button(t('managerSettings.catalogue.imageReplace'));
+    save.addEventListener('click', async () => {
+      if (!picker.files?.[0]) { picker.focus(); return; }
+      save.disabled = true;
+      try {
+        await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
+        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        showToast(t('managerSettings.catalogue.imageSaved'));
+        await renderManagerSettings({ focusHeading: true });
+      } catch (error) {
+        if (handleAuthorityFailure(error)) return;
+        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        save.disabled = false;
+        showToast(t('managerSettings.catalogue.imageError'));
+      }
+    });
+    surface.append(preview, field({
+      id: `manager-catering-image-${media.id}`,
+      label: t('managerSettings.catalogue.imageFile'), control: picker, optional: true,
+    }), save);
+    editor.node.appendChild(surface);
+  }
 
   function isCurrentRender(revision, renderRoot) {
     return revision === renderRevision
@@ -681,6 +714,23 @@ export function createManagerBusinessSettingsApplication({
       return;
     }
     if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+    let demoMedia = [];
+    if (demoRuntime && typeof catalogue.listDemoMedia === 'function') {
+      try {
+        const response = await catalogue.listDemoMedia();
+        if (!Array.isArray(response?.assets) || response.assets.length > 40) throw new TypeError('DEMO_MEDIA_INVALID');
+        demoMedia = response.assets.filter((asset) =>
+          ['catering_item', 'catering_package'].includes(asset?.ownerKind)
+          && typeof asset.ownerId === 'string'
+          && typeof asset.id === 'string' && /^[0-9a-f-]{36}$/i.test(asset.id)
+          && asset.url === `/api/v1/demo/media/${asset.id}`
+          && asset.contentType === 'image/webp' && typeof asset.altText === 'string');
+      } catch (error) {
+        if (handleAuthorityFailure(error)) return;
+        demoMedia = null;
+      }
+    }
+    if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
     clear(renderRoot);
     setPageHeading(t('managerSettings.catalogue.title'), t('managerSettings.catalogue.description'));
     renderRoot.appendChild(sectionNavigation());
@@ -697,6 +747,11 @@ export function createManagerBusinessSettingsApplication({
       const editors = snapshot.catalogue[collection].map((entry) => commonEntryEditor(entry, `manager-catalogue-${collection}`));
       editorsByCollection[collection] = editors;
       editors.forEach((editor) => surface.appendChild(editor.node));
+      if (collection === 'cateringItems' && demoMedia) {
+        for (const editor of editors) demoCateringImage(editor,
+          demoMedia.find((asset) => asset.ownerKind === 'catering_item' && asset.ownerId === editor.entry.id),
+          revision, renderRoot);
+      }
       const add = button(t('managerSettings.catalogue.addEntry'), {
         dataset: { addCatalogueEntry: collection },
       });
@@ -723,6 +778,14 @@ export function createManagerBusinessSettingsApplication({
     const packageEditors = snapshot.catalogue.cateringPackages.map(packageEditor);
     const packageSurface = el('div');
     packageEditors.forEach((editor) => packageSurface.appendChild(editor.node));
+    if (demoMedia) {
+      for (const editor of packageEditors) demoCateringImage(editor,
+        demoMedia.find((asset) => asset.ownerKind === 'catering_package' && asset.ownerId === editor.entry.id),
+        revision, renderRoot);
+    }
+    if (demoMedia === null) form.appendChild(el('p', {
+      className: 'error-box', text: t('managerSettings.catalogue.imageLoadError'),
+    }));
     const addPackage = button(t('managerSettings.catalogue.addEntry'), {
       dataset: { addCatalogueEntry: 'cateringPackages' },
     });
