@@ -36,6 +36,20 @@ export async function verifyNorthwindBaseline(page) {
   for (const request of seeded) {
     await expect(page.locator(`[data-production-request-id="${request.id}"]`)).toContainText(request.details.title);
   }
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  await page.getByRole('button', { name: 'Katalog & Preise', exact: true }).click();
+  const packageImage = page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel');
+  await imagesLoaded(packageImage);
+  const imageUrl = await packageImage.locator('img').getAttribute('src');
+  const originalImage = await page.context().request.get(`${ORIGINS.customer}${imageUrl}`);
+  expect(originalImage.status()).toBe(200);
+  await packageImage.locator('input[type="file"]').setInputFiles({
+    name: 'coffee-break.webp', mimeType: 'image/webp', buffer: await originalImage.body(),
+  });
+  await uiResponse(page, 'PUT', imageUrl,
+    () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+  await imagesLoaded(page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel'));
   return { rooms: configuration.configuration.rooms, catalog, seeded };
 }
 
@@ -58,6 +72,10 @@ export async function northwindBooking(page, cycle, baseline) {
     const card = page.locator(`article[data-room-id="${room.id}"]`);
     await expect(card).toContainText(room.name);
     await expect(card.locator('.price')).toBeVisible();
+    const [badgeBox, cardBox] = await Promise.all([
+      card.locator('.badge').boundingBox(), card.boundingBox(),
+    ]);
+    expect(badgeBox.width).toBeLessThan(cardBox.width * 0.85);
     await imagesLoaded(card);
     await card.locator('.room-preview-action').click();
     const preview = page.getByRole('dialog');
@@ -79,6 +97,9 @@ export async function northwindBooking(page, cycle, baseline) {
   await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(8);
   await imagesLoaded(page.locator('.catering-package-grid'));
   await imagesLoaded(page.locator('.catering-item-grid'));
+  for (const card of await page.locator('.catering-variant-card, .catering-item-card').all()) {
+    await imagesLoaded(card);
+  }
   await page.getByRole('radio', { name: 'Kaffeepause · Standard', exact: true }).check();
   await page.locator('#productionCateringParticipants').fill('4');
   await page.getByLabel('Menge für Obstauswahl', { exact: true }).fill('4');
@@ -132,6 +153,20 @@ export async function northwindBooking(page, cycle, baseline) {
   await expect(history.getByRole('list')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(card.getByRole('button', { name: 'Verlauf', exact: true })).toBeFocused();
+  await selectContext(page, NORTHWIND, 'employee');
+  await page.locator('[data-view="requests"]').click();
+  const confirmed = page.locator(`[data-production-request-id="${request.id}"]`);
+  await uiResponse(page, 'GET', `/api/v1/requests/${request.id}/room-context`,
+    () => confirmed.getByRole('button', { name: 'Gästeinformationen' }).click());
+  const guest = page.getByRole('dialog', { name: 'Gästeinformationen' });
+  await expect(guest).toBeVisible();
+  await expect(guest).not.toContainText('Door code');
+  const popupPromise = page.waitForEvent('popup');
+  await guest.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+  const popup = await popupPromise;
+  await expect(popup.locator('body')).toContainText(title);
+  await popup.close();
+  await guest.getByRole('button', { name: 'Schließen' }).click();
   return request.id;
 }
 
