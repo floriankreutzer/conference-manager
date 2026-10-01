@@ -156,6 +156,15 @@ export function createTenantCatalogueSettingsApi({ apiClient } = {}) {
   });
   return Object.freeze({
     ...bulk,
+    async listDemoMedia() {
+      return apiClient.request('v1/demo/media');
+    },
+    async replaceDemoCatalogueImage(assetId, file) {
+      if (typeof apiClient.replaceDemoCatalogueImage !== 'function') {
+        throw new TenantCatalogueSettingsApiError('DEMO_MEDIA_UNAVAILABLE');
+      }
+      return apiClient.replaceDemoCatalogueImage(assetId, file);
+    },
     async loadCatalogue() {
       try { return current(await apiClient.request(CURRENT_PATH)); }
       catch (error) { throw adapterError(TenantCatalogueSettingsApiError, error, 'TENANT_CATALOGUE_UNAVAILABLE'); }
