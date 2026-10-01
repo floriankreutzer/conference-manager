@@ -202,8 +202,10 @@ export async function northwindBooking(page, cycle, baseline) {
   const confirmed = page.locator(`[data-production-request-id="${request.id}"]`);
   await uiResponse(page, 'GET', `/api/v1/requests/${request.id}/room-context`,
     () => confirmed.getByRole('button', { name: 'Gästeinformationen' }).click());
-  const guest = page.getByRole('dialog', { name: 'Gästeinformationen' });
+  const guestTitle = `Willkommen zu „${title}“`;
+  const guest = page.getByRole('dialog', { name: guestTitle, exact: true });
   await expect(guest).toBeVisible();
+  await expect(guest.getByRole('heading', { name: guestTitle, exact: true })).toBeVisible();
   await expect(guest).not.toContainText('Door code');
   const popupPromise = page.waitForEvent('popup');
   await guest.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
