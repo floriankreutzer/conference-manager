@@ -131,7 +131,17 @@ export async function northwindBooking(page, cycle, baseline) {
   await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(8);
   await imagesLoaded(page.locator('.catering-package-grid'));
   await imagesLoaded(page.locator('.catering-item-grid'));
-  for (const card of await page.locator('.catering-variant-card, .catering-item-card').all()) {
+  // The explicit opt-out is not a product. Never filter real cards by image
+  // presence: a missing image on any of the twelve products must still fail.
+  const noPackage = page.locator('#productionCateringPackage-none');
+  const noPackageCard = page.locator('.catering-variant-card').filter({ has: noPackage });
+  await expect(noPackageCard).toHaveCount(1);
+  await expect(noPackageCard.getByRole('radio', { name: 'Kein Catering-Paket', exact: true })).toBeVisible();
+  await expect(noPackageCard.locator('img')).toHaveCount(0);
+  const productCards = page.locator('.catering-variant-card, .catering-item-card')
+    .filter({ hasNot: noPackage });
+  await expect(productCards).toHaveCount(12);
+  for (const card of await productCards.all()) {
     await imagesLoaded(card);
   }
   await page.getByRole('radio', { name: 'Kaffeepause · Standard', exact: true }).check();
