@@ -93,6 +93,11 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
       expect((await observerContext.request.get(`${ORIGINS.customer}/api/v1/application/profile`)).status()).toBe(401);
       await customerContext.clearCookies();
       await observerContext.clearCookies();
+      // The complete mutation/negative journey and all media restoration reads
+      // are separate rate-budget phases. Revocation was checked immediately;
+      // wait before any new session or baseline read, never after a denial.
+      await test.step(`cycle ${cycle}: respect the rate-limit window before restoration verification`,
+        () => new Promise((resolve) => setTimeout(resolve, 61_000)));
       await customer.goto(ORIGINS.customer);
       await test.step(`cycle ${cycle}: restore all baseline contents, tasks, imports and original media`, async () => {
         await verifyNorthwindBaseline(customer, {
