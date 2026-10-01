@@ -401,8 +401,12 @@ export function createManagerBusinessSettingsApplication({
       try {
         await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
         if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
-        const cacheKey = encodeURIComponent(String(Date.now()));
-        preview.src = `${media.url}?updated=${cacheKey}`;
+        // The private Demo media contract rejects query parameters and already
+        // returns Cache-Control: private, no-store. Reattach the same URL so the
+        // browser performs a fresh authenticated read without weakening that
+        // strict route contract.
+        preview.removeAttribute('src');
+        preview.src = media.url;
         picker.value = '';
         save.disabled = false;
         showToast(t('managerSettings.catalogue.imageSaved'));

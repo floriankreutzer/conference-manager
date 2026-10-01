@@ -634,7 +634,9 @@ test('MGR-01: Demo Catering image replacement preserves unsaved catalogue drafts
     businessSettings.indexOf('function isCurrentRender'),
   );
   assert.match(imageEditor, /await catalogue\.replaceDemoCatalogueImage/);
-  assert.match(imageEditor, /preview\.src = `\$\{media\.url\}\?updated=\$\{cacheKey\}`/);
+  assert.match(imageEditor, /preview\.removeAttribute\('src'\)/);
+  assert.match(imageEditor, /preview\.src = media\.url/);
+  assert.doesNotMatch(imageEditor, /\?updated=/);
   assert.match(imageEditor, /picker\.value = ''/);
   assert.match(imageEditor, /save\.disabled = false/);
   assert.doesNotMatch(imageEditor, /renderManagerSettings/);
