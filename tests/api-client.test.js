@@ -41,6 +41,32 @@ test('Room image upload stays same-origin, uses CSRF and never serializes raster
   assert.equal(requests[0].options.body, file);
 });
 
+test('Demo catalogue image replacement is bounded to same-origin WebP and CSRF', async () => {
+  const requests = [];
+  const client = createApiClient({
+    origin: 'https://conference.example',
+    csrfTokenProvider: () => 'test-csrf-token-at-least-sixteen-bytes',
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return jsonResponse({ id: '11111111-1111-4111-8111-111111111111' });
+    },
+  });
+  const file = new File([new Uint8Array(32)], 'catering.webp', { type: 'image/webp' });
+  await assert.rejects(() => client.replaceDemoCatalogueImage('../rooms', file),
+    (error) => assertSecurityCode(error, 'DEMO_MEDIA_INPUT_INVALID'));
+  await assert.rejects(() => client.replaceDemoCatalogueImage('11111111-1111-4111-8111-111111111111',
+    new File(['<svg/>'], 'bad.svg', { type: 'image/svg+xml' })),
+  (error) => assertSecurityCode(error, 'DEMO_MEDIA_INPUT_INVALID'));
+  assert.equal(requests.length, 0);
+  await client.replaceDemoCatalogueImage('11111111-1111-4111-8111-111111111111', file);
+  assert.equal(requests[0].url.href, 'https://conference.example/api/v1/demo/media/11111111-1111-4111-8111-111111111111');
+  assert.equal(requests[0].options.method, 'PUT');
+  assert.equal(requests[0].options.credentials, 'same-origin');
+  assert.equal(requests[0].options.headers['Content-Type'], 'image/webp');
+  assert.equal(requests[0].options.headers['X-CSRF-Token'], 'test-csrf-token-at-least-sixteen-bytes');
+  assert.equal(requests[0].options.body, file);
+});
+
 test('production API client requires HTTPS', () => {
   assert.throws(
     () => createApiClient({ origin: 'http://conference.example', fetchImpl: async () => jsonResponse() }),
