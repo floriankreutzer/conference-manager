@@ -54,7 +54,7 @@ test('measured hosted scenario budget does not relax isolated action or assertio
     SHARED_DEMO_CUSTOMER_ORIGIN: 'https://conference-manager-demo.onrender.com',
     SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com',
   });
-  assert.equal(local.timeout, 420_000);
+  assert.equal(local.timeout, 600_000);
   assert.equal(local.globalTimeout, 900_000);
   assert.equal(hosted.timeout, 660_000);
   assert.equal(hosted.globalTimeout, 1_500_000);

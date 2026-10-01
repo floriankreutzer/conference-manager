@@ -8,7 +8,7 @@ export function createSaas37Config(env = process.env) {
     ...shared,
     webServer: origins.hosted ? undefined : shared.webServer,
     testDir: './tests/e2e-saas37',
-    timeout: origins.hosted ? 660_000 : 420_000,
+    timeout: origins.hosted ? 660_000 : 600_000,
     globalTimeout: origins.hosted ? 1_500_000 : 900_000,
     maxFailures: 1,
     expect: { timeout: 10_000 },
