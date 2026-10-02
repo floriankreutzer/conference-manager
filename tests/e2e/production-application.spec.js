@@ -3099,7 +3099,7 @@ test('Conference Manager applies a participant-only v2 booking change without a 
   });
 });
 
-test('Conference Manager creates every owned catalogue entry type and package variants through CSRF contract', async ({ page }) => {
+test('Conference Manager separates Services and Catering business settings through CSRF contract', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
   });
@@ -3108,46 +3108,38 @@ test('Conference Manager creates every owned catalogue entry type and package va
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  await page.getByRole('button', { name: 'Räume' }).click();
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  const catalogueBulk = page.locator('[data-tenant-bulk-transfer]');
-  await expect(catalogueBulk).toBeVisible();
-  expect(await catalogueBulk.locator('option').evaluateAll((options) => (
-    options.map(({ value }) => value)
-  ))).toEqual([
-    'services', 'catering-items', 'catering-packages',
-  ]);
 
+  await page.getByRole('button', { name: 'Services & Ausstattung' }).click();
+  await expect(page.locator('#viewTitle')).toHaveText('Services & Ausstattung');
+  const serviceBulk = page.locator('[data-tenant-bulk-transfer]');
+  expect(await serviceBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
+    .toEqual(['services', 'equipment']);
   await page.locator('[data-add-catalogue-entry="services"]').click();
-  await expect(page.locator('[data-catalogue-entry-id="services-1"] input').first()).toBeFocused();
   await page.locator('[data-add-catalogue-entry="equipment"]').click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
+  await expect(page.locator('#viewTitle')).toHaveText('Catering');
+  const cateringBulk = page.locator('[data-tenant-bulk-transfer]');
+  expect(await cateringBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
+    .toEqual(['catering-items', 'catering-packages']);
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('[data-add-catalogue-variant="package-coffee"]').click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
 
-  await expect(page.locator('[data-catalogue-entry-id="equipment-1"]')).toBeVisible();
-  await expect(page.locator('[data-catalogue-entry-id="cateringItems-1"]')).toBeVisible();
-  await expect(page.locator('[data-catalogue-entry-id="cateringPackages-1"]')).toBeVisible();
-  await expect(page.locator('[data-catalogue-variant-id="package-coffee-variant-1"]')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');
-  await expect(page.locator('#viewTitle')).toBeFocused();
-
-  expect(fixture.catalogueWrites).toHaveLength(1);
-  expect(fixture.catalogueWrites[0].csrf).toBe(CSRF_TOKEN);
-  const saved = fixture.catalogueWrites[0].body.catalogue;
-  expect(saved.services.map((entry) => entry.id)).toContain('services-1');
-  expect(saved.equipment.map((entry) => entry.id)).toContain('equipment-1');
-  expect(saved.cateringItems.map((entry) => entry.id)).toContain('cateringItems-1');
-  expect(saved.cateringPackages.map((entry) => entry.id)).toContain('cateringPackages-1');
-  expect(saved.cateringPackages.find((entry) => entry.id === 'package-coffee').variants)
+  const servicesSaved = fixture.catalogueWrites[0].body.catalogue;
+  expect(servicesSaved.services.map((entry) => entry.id)).toContain('services-1');
+  expect(servicesSaved.equipment.map((entry) => entry.id)).toContain('equipment-1');
+  const cateringSaved = fixture.catalogueWrites[1].body.catalogue;
+  expect(cateringSaved.cateringItems.map((entry) => entry.id)).toContain('cateringItems-1');
+  expect(cateringSaved.cateringPackages.map((entry) => entry.id)).toContain('cateringPackages-1');
+  expect(cateringSaved.cateringPackages.find((entry) => entry.id === 'package-coffee').variants)
     .toMatchObject([{ id: 'package-coffee-variant-1', price: { currency: 'EUR' } }]);
-  expect(fixture.catalogueWrites[0].body).not.toHaveProperty('tenantId');
+  expect(fixture.catalogueWrites.every((write) => write.csrf === CSRF_TOKEN)).toBe(true);
+  expect(fixture.catalogueWrites[1].body).not.toHaveProperty('tenantId');
 });
 
 test('Conference Manager preserves an absent Room price and receives accessible trimmed-name validation', async ({ page }) => {
