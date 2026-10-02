@@ -10,7 +10,7 @@ export function supportsBulkTransfer(adapter) {
 }
 
 function downloadCsv(documentValue, filename) {
-  const blob = new Blob([tenantBulkDocumentToCsv(document)], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob([tenantBulkDocumentToCsv(documentValue)], { type: 'text/csv;charset=utf-8' });
   const objectUrl = URL.createObjectURL(blob);
   let link = null;
   try {
