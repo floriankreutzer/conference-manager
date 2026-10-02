@@ -9,6 +9,10 @@ export async function verifyContosoBaseline(page) {
   await selectContext(page, CONTOSO, 'conference_manager');
   await page.locator('[data-view="manager"]').click();
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(7);
+  const worklist = page.locator('[data-demo-manager-tasks]');
+  await expect(worklist.getByRole('heading', { name: 'Anfragen', exact: true })).toBeVisible();
+  await expect(worklist.getByRole('heading', { name: 'Einrichtung & Katalog', exact: true })).toBeVisible();
+  await expect(worklist.getByRole('button', { name: /^.+ öffnen$/ })).toHaveCount(7);
   const snapshot = await locations(page.context());
   const studio = snapshot.configuration.rooms.find(({ id }) => id === STUDIO);
   expect(studio.description).toBeNull();
