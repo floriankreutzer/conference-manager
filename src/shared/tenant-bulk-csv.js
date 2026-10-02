@@ -32,7 +32,7 @@ export function tenantBulkDocumentToCsv(documentValue) {
     || !Array.isArray(documentValue.rows)) throw new TypeError('TENANT_BULK_DOCUMENT_INVALID');
   const headers = headersFor(documentValue);
   return `${[
-    `# conference-manager-bulk-v1,type=${documentValue.type}`,
+    `# conference-manager-bulk-v1 type=${documentValue.type}`,
     headers.map(csvEscape).join(','),
     ...documentValue.rows.map((row) => headers.map((header) => csvEscape(cellValue(row[header]))).join(',')),
   ].join('\r\n')}\r\n`;
@@ -67,7 +67,7 @@ function decodeCell(value, header) {
 export function tenantBulkCsvToDocument(text, expectedType) {
   if (typeof text !== 'string' || text.length < 1 || text.length > MAX_BYTES) throw new TypeError('TENANT_BULK_CSV_INVALID');
   const rows = parseCsvRows(text);
-  const match = (rows.shift()?.[0] || '').match(/^# conference-manager-bulk-v1,type=([a-z-]+)$/);
+  const match = (rows.shift()?.[0] || '').match(/^# conference-manager-bulk-v1 type=([a-z-]+)$/);
   if (!match || match[1] !== expectedType) throw new TypeError('TENANT_BULK_CSV_INVALID');
   const headers = rows.shift();
   if (!headers?.length || headers[0] !== 'id' || new Set(headers).size !== headers.length
