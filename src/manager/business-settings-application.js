@@ -965,11 +965,11 @@ export function createManagerBusinessSettingsApplication({
         types: section === 'services'
           ? ['services'] : ['catering-items', 'catering-packages'],
         rerender: () => {
-          if (isCurrentRender(revision, renderRoot) && section === 'catalogue') {
+          if (isCurrentRender(revision, renderRoot) && ['services', 'catering'].includes(section)) {
             void renderManagerSettings({ focusHeading: true });
           }
         },
-        isCurrent: () => isCurrentRender(revision, renderRoot) && section === 'catalogue',
+        isCurrent: () => isCurrentRender(revision, renderRoot) && ['services', 'catering'].includes(section),
       }));
     }
     renderRoot.appendChild(renderHistory(historyPage.revisions || []));
