@@ -1,7 +1,7 @@
 import { t } from '../core/i18n.js';
 import { announce, button, el } from '../core/ui.js';
 
-const MAX_BYTES = 262_144;
+const MAX_BYTES = 65_536;
 const METHODS = ['loadBulkTemplate', 'exportBulk', 'validateBulk', 'applyBulk'];
 const DANGEROUS_CELL = /^[=+\-@]/;
 const JSON_CELL_PREFIX = 'json:';
