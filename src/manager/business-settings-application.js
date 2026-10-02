@@ -601,6 +601,7 @@ export function createManagerBusinessSettingsApplication({
     clear(renderRoot);
     setPageHeading(t('managerSettings.rooms.title'), t('managerSettings.rooms.description'));
     renderRoot.appendChild(sectionNavigation());
+    let roomCatalogueRevision = catalogueSnapshot.revision;
     const siteById = new Map(snapshot.configuration.sites.map((site) => [site.id, site]));
     const editors = snapshot.configuration.rooms.map((room, index) => {
       const nameField = requiredTrimmedTextField({
@@ -689,10 +690,12 @@ export function createManagerBusinessSettingsApplication({
           const roomPrices = catalogueSnapshot.catalogue.roomPrices
             .filter((entry) => entry.roomId !== room.id);
           if (nextPrice) roomPrices.push(nextPrice);
-          await catalogue.saveCatalogue({
-            expectedRevision: catalogueSnapshot.revision,
+          const savedPrice = await catalogue.saveCatalogue({
+            expectedRevision: roomCatalogueRevision,
             catalogue: { ...catalogueSnapshot.catalogue, roomPrices },
           });
+          roomCatalogueRevision = savedPrice.revision;
+          catalogueSnapshot = savedPrice;
           if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
           showToast(t('managerSettings.room.priceSaved'));
           savePrice.disabled = false;
