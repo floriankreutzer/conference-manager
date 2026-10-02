@@ -2636,7 +2636,7 @@ test('confirmed inactive Room print uses the authoritative context label and tim
   await expect(popup.locator('body')).toContainText(expectedStart);
 });
 
-test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy prose', async ({ page }) => {
+test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy prose', async ({ page }, testInfo) => {
   const fixture = await installProductionApplicationFixture(page, {
     requestRoomContextSchemaVersion: 3,
     requestRoomContext: {
@@ -2727,6 +2727,14 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
   await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
   expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await testInfo.attach('guest-welcome-screen', { body: await popup.screenshot({ fullPage: true }), contentType: 'image/png' });
+  if (testInfo.project.name === 'chromium-desktop') {
+    const pdf = await popup.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(pdf.length).toBeLessThan(1_048_576);
+    await testInfo.attach('guest-welcome-pdf', { body: pdf, contentType: 'application/pdf' });
+  }
+
   await popup.getByRole('button', { name: 'Drucken / Als PDF speichern' }).focus();
   await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeFocused();
   await popup.emulateMedia({ media: 'print' });

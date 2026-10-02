@@ -66,6 +66,8 @@ export async function completeContosoTasks(page, cycle, baseline) {
     await expect(dialog).not.toBeVisible();
     await expect(card).toContainText(statuses[index]);
     await expect(page.locator('[data-demo-manager-task]')).toHaveCount(6 - index);
+    await expect(page.locator('[data-demo-manager-tasks]')).toHaveAttribute('open', '');
+    await expect(page.locator('[data-demo-manager-task]').first()).toBeVisible();
     await expect(page.locator(`[data-demo-manager-task="request:${request.id}"]`)).toHaveCount(0);
   }
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(4);

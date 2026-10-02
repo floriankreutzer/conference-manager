@@ -17,6 +17,7 @@ export function createManagerWorkspaceApplication({
     throw new TypeError('MANAGER_WORKSPACE_AUTHORITY_HANDLER_REQUIRED');
   }
   let workspaceRoot = null;
+  let worklistExpanded = false;
   const requestMutations = new Map();
   const operationalRoot = el('div', { dataset: { managerOperationalRoot: 'true' } });
   const worklist = demoWorklistEnabled ? createDemoManagerWorklistController({
@@ -56,7 +57,8 @@ export function createManagerWorkspaceApplication({
 
   function presentWorklist(target, snapshot) {
     const previous = target.querySelector('[data-demo-manager-tasks]');
-    const expanded = previous?.open === true;
+    if (previous?.tagName === 'DETAILS') worklistExpanded = previous.open;
+    const expanded = worklistExpanded;
     previous?.remove();
     if (snapshot.status === 'ready' && snapshot.tasks.length === 0) return;
     const ready = snapshot.status === 'ready';

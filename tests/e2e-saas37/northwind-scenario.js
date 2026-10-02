@@ -119,6 +119,18 @@ export async function verifyNorthwindBaseline(page, {
     const firstAsset = await firstAttachment.json();
     await expect(newImage.getByRole('button', { name: 'Catering-Bild ersetzen' })).toBeEnabled();
     await expect(newImage.getByRole('button', { name: 'Catering-Bild entfernen' })).toBeEnabled();
+    await expect(newImage.locator('input[type="file"]')).toHaveAccessibleName('Bilddatei (WebP; 32 Byte bis 2 MiB) optional');
+    await newImage.locator('input[type="file"]').setInputFiles({
+      name: 'new-catering.webp', mimeType: 'image/webp', buffer: replacement,
+    });
+    const newReplacement = await uiResponse(page, 'PUT', firstAsset.url,
+      () => newImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    const newReplacementAsset = await newReplacement.json();
+    expect(newReplacementAsset.sha256).not.toBe(firstAsset.sha256);
+    await imagesLoaded(newImage);
+    expect(await mediaHash(page.context(), new URL(firstAsset.url, ORIGINS.customer).href))
+      .toBe(newReplacementAsset.sha256);
+
     await expect(newImage.locator('input[type="file"]')).toHaveValue('');
     await uiResponse(page, 'DELETE', firstAsset.url,
       () => newImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
@@ -133,9 +145,11 @@ export async function verifyNorthwindBaseline(page, {
 
 
   }
+  const currentCatalog = (await catalogue(page.context())).catalogue;
+  expect(currentCatalog.cateringItems).toHaveLength(replaceCateringImage ? 9 : 8);
   return {
     rooms: configuration.configuration.rooms,
-    catalog,
+    catalog: currentCatalog,
     seeded,
     cateringImage: { url: absoluteImageUrl, originalHash },
   };
@@ -182,11 +196,11 @@ export async function northwindBooking(page, cycle, baseline) {
   await page.locator('input[type="checkbox"][value="video-system"]').check();
   await next.click();
   await expect(page.locator('.catering-package-grid input[type="radio"]')).toHaveCount(5);
-  await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(8);
+  await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(baseline.catalog.cateringItems.length);
   await imagesLoaded(page.locator('.catering-package-grid'));
   await imagesLoaded(page.locator('.catering-item-grid'));
   // The explicit opt-out is not a product. Never filter real cards by image
-  // presence: a missing image on any of the twelve products must still fail.
+  // presence: a missing image on any seeded or newly created product must still fail.
   const noPackage = page.locator('#productionCateringPackage-none');
   const noPackageCard = page.locator('.catering-variant-card').filter({ has: noPackage });
   await expect(noPackageCard).toHaveCount(1);
@@ -194,7 +208,7 @@ export async function northwindBooking(page, cycle, baseline) {
   await expect(noPackageCard.locator('img')).toHaveCount(0);
   const productCards = page.locator('.catering-variant-card, .catering-item-card')
     .filter({ hasNot: noPackage });
-  await expect(productCards).toHaveCount(12);
+  await expect(productCards).toHaveCount(4 + baseline.catalog.cateringItems.length);
   for (const card of await productCards.all()) {
     await imagesLoaded(card);
   }
@@ -265,6 +279,16 @@ export async function northwindBooking(page, cycle, baseline) {
   await guest.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
   const popup = await popupPromise;
   await expect(popup.locator('body')).toContainText(title);
+  await expect(popup.locator('.print-action')).toBeEnabled();
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
+  await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
+  await expect(popup.locator('script, style, img')).toHaveCount(0);
+  expect(await popup.evaluate(() => window.opener)).toBeNull();
+  expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await popup.emulateMedia({ media: 'print' });
+  await expect(popup.locator('.print-action')).toBeHidden();
+
   await popup.close();
   await guest.getByRole('button', { name: 'Schließen' }).click();
   return request.id;
