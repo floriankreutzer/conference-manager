@@ -348,14 +348,20 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('[data-tenant-admin-section="organization"]').click();
   const organizationForm = customerPage.locator('[data-tenant-settings-form="organization"]');
   await expect(organizationForm.locator('#tenant-organization-display-name')).toHaveValue(BASELINE_NAME_B);
+  const saveOrganization = organizationForm.getByRole('button', { name: /speichern/i });
+  // Finish explicit-navigation focus/scroll before entering the draft, so the
+  // actual write cannot target a replacement editor with baseline values.
+  await waitForStableControl(saveOrganization);
   await organizationForm.locator('#tenant-organization-display-name').fill(MUTATED_NAME_B);
-  await expectUiResponseStatus(
+  await expect(organizationForm.locator('#tenant-organization-display-name')).toHaveValue(MUTATED_NAME_B);
+  const organizationWrite = await expectUiResponseStatus(
     customerPage,
     'PUT',
     '/api/v1/tenant/settings/organization',
-    () => organizationForm.getByRole('button', { name: /speichern/i }).click(),
+    () => saveOrganization.click(),
     200,
   );
+  expect(organizationWrite.request().postDataJSON().organization.displayName).toBe(MUTATED_NAME_B);
   await expect(customerPage.locator('#brandTitle')).toHaveText(MUTATED_NAME_B);
   const persistedOrganization = await customerContext.request.get(
     `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/organization`,
