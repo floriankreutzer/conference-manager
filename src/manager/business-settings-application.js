@@ -488,24 +488,21 @@ export function createManagerBusinessSettingsApplication({
   }
 
   function sectionNavigation() {
-    const row = el('div', { className: 'button-row', attrs: { role: 'navigation', 'aria-label': t('managerSettings.title') } });
-    const rooms = button(t('managerSettings.section.rooms'), {
-      className: section === 'rooms' ? 'primary' : '',
-      attrs: section === 'rooms' ? { 'aria-current': 'page' } : {},
+    const row = el('div', {
+      className: 'button-row manager-business-settings-nav',
+      attrs: { role: 'navigation', 'aria-label': t('managerSettings.title') },
     });
-    const catalog = button(t('managerSettings.section.catalogue'), {
-      className: section === 'catalogue' ? 'primary' : '',
-      attrs: section === 'catalogue' ? { 'aria-current': 'page' } : {},
-    });
-    rooms.addEventListener('click', () => {
-      section = 'rooms';
-      void renderManagerSettings({ focusHeading: true });
-    });
-    catalog.addEventListener('click', () => {
-      section = 'catalogue';
-      void renderManagerSettings({ focusHeading: true });
-    });
-    row.append(rooms, catalog);
+    for (const target of ['rooms', 'services', 'catering']) {
+      const control = button(t(`managerSettings.section.${target}`), {
+        className: section === target ? 'primary' : '',
+        attrs: section === target ? { 'aria-current': 'page' } : {},
+      });
+      control.addEventListener('click', () => {
+        section = target;
+        void renderManagerSettings({ focusHeading: true });
+      });
+      row.appendChild(control);
+    }
     return row;
   }
 
@@ -722,7 +719,9 @@ export function createManagerBusinessSettingsApplication({
   }
 
   async function renderCatalogue(revision, renderRoot, focusHeading) {
-    renderLoading(renderRoot, 'managerSettings.catalogue.title', 'managerSettings.catalogue.description');
+    renderLoading(renderRoot,
+      section === 'services' ? 'managerSettings.services.title' : 'managerSettings.catering.title',
+      section === 'services' ? 'managerSettings.services.description' : 'managerSettings.catering.description');
     let snapshot;
     let locationSnapshot;
     let historyPage;
@@ -744,7 +743,7 @@ export function createManagerBusinessSettingsApplication({
       }
       return;
     }
-    if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+    if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
     let demoMedia = [];
     if (demoRuntime && typeof catalogue.listDemoMedia === 'function') {
       try {
@@ -761,16 +760,20 @@ export function createManagerBusinessSettingsApplication({
         demoMedia = null;
       }
     }
-    if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+    if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
     clear(renderRoot);
-    setPageHeading(t('managerSettings.catalogue.title'), t('managerSettings.catalogue.description'));
+    setPageHeading(
+      t(section === 'services' ? 'managerSettings.services.title' : 'managerSettings.catering.title'),
+      t(section === 'services' ? 'managerSettings.services.description' : 'managerSettings.catering.description'),
+    );
     renderRoot.appendChild(sectionNavigation());
     const form = el('form');
-    const sections = [
-      ['services', 'managerSettings.catalogue.services'],
-      ['equipment', 'managerSettings.catalogue.equipment'],
-      ['cateringItems', 'managerSettings.catalogue.cateringItems'],
-    ];
+    const sections = section === 'services'
+      ? [
+        ['services', 'managerSettings.catalogue.services'],
+        ['equipment', 'managerSettings.catalogue.equipment'],
+      ]
+      : [['cateringItems', 'managerSettings.catalogue.cateringItems']];
     const editorsByCollection = {};
     const defaultCurrency = catalogueDefaultCurrency(snapshot.catalogue);
     sections.forEach(([collection, titleKey]) => {
@@ -805,7 +808,7 @@ export function createManagerBusinessSettingsApplication({
         el('div', { className: 'button-row' }, [add]),
       );
     });
-    form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
+    if (section === 'catering') form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
     const packageEditors = snapshot.catalogue.cateringPackages.map(packageEditor);
     const packageSurface = el('div');
     packageEditors.forEach((editor) => packageSurface.appendChild(editor.node));
@@ -833,57 +836,15 @@ export function createManagerBusinessSettingsApplication({
       addPackage.disabled = packageEditors.length >= COLLECTION_LIMITS.cateringPackages;
       editor.controls.name.focus();
     });
-    form.append(packageSurface, el('div', { className: 'button-row' }, [addPackage]));
+    if (section === 'catering') {
+      form.append(packageSurface, el('div', { className: 'button-row' }, [addPackage]));
+    }
 
-    form.appendChild(el('h3', { text: t('managerSettings.catalogue.roomPrices') }));
-    const priceByRoom = new Map(snapshot.catalogue.roomPrices.map((entry) => [entry.roomId, entry.price]));
-    const roomPriceEditors = locationSnapshot.configuration.rooms.map((room, index) => {
-      const configured = priceByRoom.has(room.id);
-      const controls = priceControls(
-        priceByRoom.get(room.id) || { amountMinor: '', currency: defaultCurrency },
-        { amountRequired: configured },
-      );
-      if (!configured) {
-        controls.currency.disabled = true;
-        controls.amountMinor.addEventListener('input', () => {
-          controls.currency.disabled = !controls.amountMinor.value.trim();
-        });
-      }
-      const unconfiguredHintId = `manager-room-price-not-configured-${index}`;
-      const unconfiguredHint = configured ? null : el('small', {
-        id: unconfiguredHintId,
-        className: 'field-hint',
-        text: t('managerSettings.catalogue.roomPriceNotConfigured'),
-      });
-      if (unconfiguredHint) {
-        controls.amountMinor.setAttribute('aria-describedby', unconfiguredHintId);
-        controls.currency.setAttribute('aria-describedby', unconfiguredHintId);
-      }
-      const amountField = field({
-        id: `manager-room-price-amount-${index}`,
-        label: t('managerSettings.catalogue.amountMinor'),
-        control: controls.amountMinor,
-        required: configured,
-        optional: !configured,
-      });
-      if (unconfiguredHint) amountField.appendChild(unconfiguredHint);
-      const node = el('fieldset', { className: 'card', dataset: { roomPriceId: room.id } }, [
-        el('legend', { text: room.name || room.id }),
-        el('div', { className: 'form-grid' }, [
-          amountField,
-          field({
-            id: `manager-room-price-currency-${index}`,
-            label: t('managerSettings.catalogue.currency'),
-            control: controls.currency,
-            required: configured,
-            optional: !configured,
-          }),
-        ]),
-      ]);
-      return { room, controls, node };
-    });
-    if (!roomPriceEditors.length) form.appendChild(el('p', { className: 'muted', text: t('managerSettings.catalogue.noRooms') }));
-    roomPriceEditors.forEach((editor) => form.appendChild(editor.node));
+    /* Room prices are edited with Rooms; preserve them here. */
+    const roomPriceEditors = [];
+    /* legacy room-price editor removed from Catalogue presentation */
+    const legacyRoomPriceSection = false;
+    if (legacyRoomPriceSection) form.appendChild(el('h3', { text: t('managerSettings.catalogue.roomPrices') }));
 
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
     form.appendChild(el('div', { className: 'button-row' }, [save]));
@@ -903,27 +864,23 @@ export function createManagerBusinessSettingsApplication({
       save.disabled = true;
       try {
         const next = {
-          services: editorsByCollection.services.map(commonEntryValue),
-          equipment: editorsByCollection.equipment.map(commonEntryValue),
-          cateringItems: editorsByCollection.cateringItems.map(commonEntryValue),
-          cateringPackages: packageEditors.map(packageValue),
-          roomPrices: roomPriceEditors
-            .map(({ room, controls }) => (
-              catalogueRoomPriceValue(
-                room.id,
-                controls.amountMinor.value,
-                controls.currency.value,
-              )
-            ))
-            .filter(Boolean),
+          services: section === 'services'
+            ? editorsByCollection.services.map(commonEntryValue) : snapshot.catalogue.services,
+          equipment: section === 'services'
+            ? editorsByCollection.equipment.map(commonEntryValue) : snapshot.catalogue.equipment,
+          cateringItems: section === 'catering'
+            ? editorsByCollection.cateringItems.map(commonEntryValue) : snapshot.catalogue.cateringItems,
+          cateringPackages: section === 'catering'
+            ? packageEditors.map(packageValue) : snapshot.catalogue.cateringPackages,
+          roomPrices: snapshot.catalogue.roomPrices,
         };
         await catalogue.saveCatalogue({ expectedRevision: snapshot.revision, catalogue: next });
-        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
         showToast(t('managerSettings.saved'));
         await renderManagerSettings({ focusHeading: true });
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
-        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
         save.disabled = false;
         showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
       }
@@ -932,7 +889,8 @@ export function createManagerBusinessSettingsApplication({
     if (supportsBulkTransfer(catalogue)) {
       renderRoot.appendChild(createBulkTransferPanel({
         adapter: authorityAwareBulkAdapter(catalogue),
-        types: ['services', 'catering-items', 'catering-packages'],
+        types: section === 'services'
+          ? ['services', 'equipment'] : ['catering-items', 'catering-packages'],
         rerender: () => {
           if (isCurrentRender(revision, renderRoot) && section === 'catalogue') {
             void renderManagerSettings({ focusHeading: true });
@@ -951,8 +909,8 @@ export function createManagerBusinessSettingsApplication({
     const renderRoot = el('section', { dataset: { managerBusinessSettingsRoot: String(revision) } });
     clear(appRoot);
     appRoot.appendChild(renderRoot);
-    if (section === 'catalogue') await renderCatalogue(revision, renderRoot, focusHeading);
-    else await renderRooms(revision, renderRoot, focusHeading);
+    if (section === 'rooms') await renderRooms(revision, renderRoot, focusHeading);
+    else await renderCatalogue(revision, renderRoot, focusHeading);
   }
 
   return Object.freeze({ renderManagerSettings });
