@@ -423,6 +423,8 @@ export function createManagerBusinessSettingsApplication({
             attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
           });
           surface.prepend(preview);
+          picker.accept = 'image/webp';
+          save.textContent = t('managerSettings.catalogue.imageReplace');
         }
         if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
         if (preview) {
