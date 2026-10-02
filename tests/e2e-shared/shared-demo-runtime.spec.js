@@ -235,6 +235,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     await customerPage.locator('[data-view="manager"]').click();
     const tasks = customerPage.locator('[data-demo-manager-task]');
     await expect(tasks).toHaveCount(7);
+    const taskDisclosure = customerPage.locator('[data-demo-manager-tasks] summary');
+    await expect(taskDisclosure).toContainText('7 offene Aufgaben');
+    await taskDisclosure.click();
     await expect(customerPage.locator('[data-demo-manager-task^="request:"]')).toHaveCount(3);
     await expect(customerPage.locator('[data-demo-manager-task="room:description"]')).toBeVisible();
     await expect(customerPage.locator('[data-demo-manager-task="room:price"]')).toBeVisible();

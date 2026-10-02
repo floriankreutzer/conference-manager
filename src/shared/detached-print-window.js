@@ -1,6 +1,7 @@
 const detachedPrintWindows = new Set();
 const lifecycleOwners = new WeakSet();
 const stylesheetReadiness = new WeakMap();
+const printDocumentUrl = new URL('./detached-print.html', import.meta.url).href;
 const printStylesheets = ['../../assets/tokens.css', '../../assets/employee-ux.css']
   .map((path) => new URL(path, import.meta.url).href);
 
@@ -84,8 +85,38 @@ export function registerDetachedPrintWindow(printWindow, { ownerWindow = globalT
 }
 
 export function openDetachedPrintWindow({ windowRoot = globalThis.window } = {}) {
-  const printWindow = windowRoot?.open?.('', '_blank');
+  const printWindow = windowRoot?.open?.(printDocumentUrl, '_blank');
   return printWindow ? registerDetachedPrintWindow(printWindow, { ownerWindow: windowRoot }) : null;
+}
+
+export function waitForDetachedPrintDocument(printWindow) {
+  return new Promise((resolve, reject) => {
+    let timeout;
+    const settle = (error) => {
+      globalThis.clearTimeout(timeout);
+      printWindow.removeEventListener('load', finish);
+      if (error) reject(error);
+      else resolve();
+    };
+    const finish = () => {
+      if (!detachedPrintWindows.has(printWindow) || printWindow.closed) {
+        settle(new Error('DETACHED_PRINT_DOCUMENT_CLOSED'));
+        return;
+      }
+      try {
+        if (printWindow.location.href !== printDocumentUrl
+          || printWindow.document.readyState !== 'complete') return;
+        settle();
+      } catch {
+        settle(new Error('DETACHED_PRINT_DOCUMENT_UNAVAILABLE'));
+      }
+    };
+    printWindow.addEventListener('load', finish);
+    timeout = globalThis.setTimeout(() => {
+      settle(new Error('DETACHED_PRINT_DOCUMENT_TIMEOUT'));
+    }, 15_000);
+    finish();
+  });
 }
 
 export function initializeDetachedPrintDocument(printWindow, {
@@ -100,9 +131,6 @@ export function initializeDetachedPrintDocument(printWindow, {
     || !title.trim()
   ) throw new TypeError('DETACHED_PRINT_DOCUMENT_INVALID');
   const doc = printWindow.document;
-  // Complete the initially empty document through the parser lifecycle without
-  // writing HTML, so stylesheet loading has an explicit document lifecycle.
-  doc.open();
   const head = doc.createElement('head');
   const body = doc.createElement('body');
   const charset = doc.createElement('meta');
@@ -141,6 +169,5 @@ export function initializeDetachedPrintDocument(printWindow, {
   // Register a handler immediately, including when a caller only reserves a surface.
   ready.catch(() => {});
   stylesheetReadiness.set(printWindow, ready);
-  doc.close();
   return doc;
 }

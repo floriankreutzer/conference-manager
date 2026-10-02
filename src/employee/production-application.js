@@ -41,6 +41,7 @@ import {
   closeDetachedPrintWindow,
   closeDetachedPrintWindows,
   initializeDetachedPrintDocument,
+  waitForDetachedPrintDocument,
   detachedPrintStylesReady,
   openDetachedPrintWindow,
 } from '../shared/detached-print-window.js';
@@ -388,7 +389,7 @@ export function createProductionEmployeeApplication({
     ].map(([term, value]) => [term, value || '—']);
   }
 
-  function printRequest(
+  async function printRequest(
     request,
     currentRoomContext = null,
     printWindow = openDetachedPrintWindow(),
@@ -399,13 +400,15 @@ export function createProductionEmployeeApplication({
     }
     let doc;
     try {
+      await waitForDetachedPrintDocument(printWindow);
       doc = initializeDetachedPrintDocument(printWindow, {
         lang: locale().split('-')[0],
         title: t('requests.pdf'),
       });
     } catch {
+      const reportFailure = !printWindow.closed;
       closeDetachedPrintWindow(printWindow);
-      showToast(t('guest.popupBlocked'));
+      if (reportFailure) showToast(t('guest.printUnavailable'));
       return false;
     }
     const room = catalog.rooms.find((entry) => entry.id === request.roomId)

@@ -427,6 +427,10 @@ async function installProductionApplicationFixture(page, {
   }
 
   // Detached windows have their own Page; static print resources share the context.
+  await page.context().route(`${ORIGIN}/src/shared/detached-print.html`, async (route) => {
+    await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8',
+      body: await readFile(path.join(ROOT, 'src/shared/detached-print.html'), 'utf8') });
+  });
   await page.context().route(`${ORIGIN}/assets/{tokens,employee-ux}.css`, async (route) => {
     const filePath = path.join(ROOT, new URL(route.request().url()).pathname);
     await route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body: await readFile(filePath) });
