@@ -114,6 +114,10 @@ export function initializeDetachedPrintDocument(printWindow, {
   csp.setAttribute('http-equiv', 'Content-Security-Policy');
   csp.setAttribute('content', DETACHED_PRINT_CSP);
   head.append(charset, viewport, referrer, csp);
+  body.className = 'guest-print-document';
+  doc.documentElement.replaceChildren(head, body);
+  doc.documentElement.lang = lang;
+  doc.title = title;
   const loads = printStylesheets.map((href) => {
     const link = doc.createElement('link');
     link.setAttribute('rel', 'stylesheet');
@@ -125,13 +129,14 @@ export function initializeDetachedPrintDocument(printWindow, {
     head.append(link);
     return loaded;
   });
-  const ready = Promise.all(loads);
+  let timeout;
+  const deadline = new Promise((_, reject) => {
+    timeout = printWindow.setTimeout(() => reject(new Error('DETACHED_PRINT_STYLE_TIMEOUT')), 15_000);
+  });
+  const ready = Promise.race([Promise.all(loads), deadline])
+    .finally(() => printWindow.clearTimeout(timeout));
   // Register a handler immediately, including when a caller only reserves a surface.
   ready.catch(() => {});
   stylesheetReadiness.set(printWindow, ready);
-  body.className = 'guest-print-document';
-  doc.documentElement.replaceChildren(head, body);
-  doc.documentElement.lang = lang;
-  doc.title = title;
   return doc;
 }

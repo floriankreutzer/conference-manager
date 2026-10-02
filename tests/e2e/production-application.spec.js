@@ -2746,6 +2746,28 @@ test('EMP-15 unavailable print styles close the detached surface with a recovera
   await expect(page.getByText('Die Druckansicht konnte nicht geladen werden. Bitte erneut versuchen.', { exact: true })).toBeVisible();
 });
 
+test('EMP-15 stalled print styles time out and close the unusable popup', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Gästeinformationen' }).click();
+  let release;
+  const stalled = new Promise((resolve) => { release = resolve; });
+  await page.context().route(`${ORIGIN}/assets/employee-ux.css`, async (route) => {
+    await stalled;
+    await route.abort();
+  });
+  try {
+    const popupPromise = page.waitForEvent('popup');
+    await page.getByRole('dialog').getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+    const popup = await popupPromise;
+    await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeDisabled();
+    await expect.poll(() => popup.isClosed(), { timeout: 20_000 }).toBe(true);
+    await expect(page.getByText('Die Druckansicht konnte nicht geladen werden. Bitte erneut versuchen.', { exact: true })).toBeVisible();
+  } finally { release(); }
+});
+
 test('API-02 print popup is reserved inside the click before Guest context resolves', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     holdRoomContext: true,

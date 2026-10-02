@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DETACHED_PRINT_CSP,
+  detachedPrintStylesReady,
   closeDetachedPrintWindow,
   closeDetachedPrintWindows,
   initializeDetachedPrintDocument,
@@ -60,6 +61,9 @@ function fakePrintWindow() {
     opener: {},
     document,
     closeCount: 0,
+    timeoutCallback: null,
+    setTimeout(callback, delay) { this.timeoutCallback = callback; this.timeoutDelay = delay; return 1; },
+    clearTimeout(id) { this.clearedTimer = id; },
     clearedBeforeClose: false,
     close() {
       this.closeCount += 1;
@@ -143,4 +147,18 @@ test('a popup that refuses opener detachment is closed without document access',
   assert.equal(registerDetachedPrintWindow(popup, { ownerWindow: fakeOwner() }), null);
   assert.equal(documentAccessed, false);
   assert.equal(closeCount, 1);
+});
+
+
+test('stalled print styles reject readiness within a bounded deadline', async () => {
+  closeDetachedPrintWindows();
+  const popup = fakePrintWindow();
+  registerDetachedPrintWindow(popup, { ownerWindow: fakeOwner() });
+  initializeDetachedPrintDocument(popup, { lang: 'en', title: 'Welcome' });
+  assert.equal(popup.timeoutDelay, 15_000);
+  const rejected = assert.rejects(detachedPrintStylesReady(popup), /DETACHED_PRINT_STYLE_TIMEOUT/);
+  popup.timeoutCallback();
+  await rejected;
+  assert.equal(popup.clearedTimer, 1);
+  closeDetachedPrintWindow(popup);
 });
