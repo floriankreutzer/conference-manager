@@ -7,7 +7,7 @@ const BOOLEAN_COLUMNS = new Set(['active']);
 function csvEscape(value) {
   let text = value === null || value === undefined ? '' : String(value);
   if (DANGEROUS_CELL.test(text)) text = `'${text}`;
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  return `"${text.replaceAll('"', '""')}"`;
 }
 function cellValue(value) {
   if (value === null || value === undefined) return '';
@@ -15,6 +15,7 @@ function cellValue(value) {
   return String(value);
 }
 const TYPE_HEADERS = Object.freeze({
+  sites: ['id', 'name', 'active', 'timeZone', 'guestPresentation'],
   rooms: ['id', 'name', 'description', 'capacity', 'active', 'floor', 'equipment', 'accessibility', 'serviceIds', 'cateringPackageIds', 'guestPublicValues'],
   services: ['id', 'name', 'description', 'price', 'active', 'order', 'siteIds', 'roomIds'],
   'catering-items': ['id', 'name', 'description', 'price', 'active', 'order', 'siteIds', 'roomIds'],
@@ -32,7 +33,6 @@ export function tenantBulkDocumentToCsv(documentValue) {
     || !Array.isArray(documentValue.rows)) throw new TypeError('TENANT_BULK_DOCUMENT_INVALID');
   const headers = headersFor(documentValue);
   return `${[
-    `# conference-manager-bulk-v1 type=${documentValue.type}`,
     headers.map(csvEscape).join(','),
     ...documentValue.rows.map((row) => headers.map((header) => csvEscape(cellValue(row[header]))).join(',')),
   ].join('\r\n')}\r\n`;
@@ -67,8 +67,6 @@ function decodeCell(value, header) {
 export function tenantBulkCsvToDocument(text, expectedType) {
   if (typeof text !== 'string' || text.length < 1 || text.length > MAX_BYTES) throw new TypeError('TENANT_BULK_CSV_INVALID');
   const rows = parseCsvRows(text);
-  const match = (rows.shift()?.[0] || '').match(/^# conference-manager-bulk-v1 type=([a-z-]+)$/);
-  if (!match || match[1] !== expectedType) throw new TypeError('TENANT_BULK_CSV_INVALID');
   const headers = rows.shift();
   if (!headers?.length || headers[0] !== 'id' || new Set(headers).size !== headers.length
     || headers.some((header) => !/^[A-Za-z][A-Za-z0-9]*$/.test(header))) throw new TypeError('TENANT_BULK_CSV_INVALID');
