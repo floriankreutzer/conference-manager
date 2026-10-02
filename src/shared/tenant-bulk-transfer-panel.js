@@ -22,9 +22,18 @@ function cellValue(value) {
   return value;
 }
 
-function headersFor(document) {
+const TYPE_HEADERS = Object.freeze({
+  rooms: ['id', 'name', 'description', 'capacity', 'active', 'floor', 'equipment', 'accessibility', 'serviceIds', 'cateringPackageIds', 'guestPublicValues'],
+  services: ['id', 'name', 'description', 'price', 'active', 'order', 'siteIds', 'roomIds'],
+  'catering-items': ['id', 'name', 'description', 'price', 'active', 'order', 'siteIds', 'roomIds'],
+  'catering-packages': ['id', 'name', 'description', 'price', 'active', 'order', 'siteIds', 'roomIds', 'itemIds', 'variants'],
+});
+
+function headersFor(documentValue) {
+  const configured = TYPE_HEADERS[documentValue.type];
+  if (configured) return configured;
   const keys = new Set(['id']);
-  for (const row of document.rows || []) Object.keys(row).forEach((key) => keys.add(key));
+  for (const row of documentValue.rows || []) Object.keys(row).forEach((key) => keys.add(key));
   return ['id', ...[...keys].filter((key) => key !== 'id').sort()];
 }
 
