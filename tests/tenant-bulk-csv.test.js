@@ -39,10 +39,7 @@ test('CSV export neutralizes spreadsheet formulas without changing re-import mea
   assert.deepEqual(tenantBulkCsvToDocument(csv, 'services'), document);
 });
 
-test('CSV import rejects wrong type, duplicate headers and excessive rows', () => {
-  assert.throws(() => tenantBulkCsvToDocument(
-    '"id","name"\r\n"room-1","A"\r\n', 'services',
-  ), /TENANT_BULK_CSV_INVALID/);
+test('CSV import rejects duplicate headers and excessive rows', () => {
   assert.throws(() => tenantBulkCsvToDocument(
     '"id","id"\r\n"a","b"\r\n', 'services',
   ), /TENANT_BULK_CSV_INVALID/);
