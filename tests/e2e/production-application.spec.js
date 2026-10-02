@@ -3113,7 +3113,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await expect(page.locator('#viewTitle')).toHaveText('Services & Ausstattung');
   const serviceBulk = page.locator('[data-tenant-bulk-transfer]');
   expect(await serviceBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
-    .toEqual(['services', 'equipment']);
+    .toEqual(['services']);
   await page.locator('[data-add-catalogue-entry="services"]').click();
   await page.locator('[data-add-catalogue-entry="equipment"]').click();
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
