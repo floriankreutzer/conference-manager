@@ -398,12 +398,11 @@ export function createManagerBusinessSettingsApplication({
     const canRemove = typeof catalogue.removeDemoCatalogueImage === 'function';
     if ((!media && !canCreate) || (media && !canReplace)) return;
     const surface = el('section', { className: 'room-asset-panel' });
-    if (media) {
-      surface.appendChild(el('img', {
-        className: 'room-asset-visual media',
-        attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
-      }));
-    }
+    const preview = media ? el('img', {
+      className: 'room-asset-visual media',
+      attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+    }) : null;
+    if (preview) surface.appendChild(preview);
     const picker = el('input', {
       type: 'file',
       attrs: { accept: media ? 'image/webp' : 'image/png,image/jpeg,image/webp' },
@@ -417,9 +416,17 @@ export function createManagerBusinessSettingsApplication({
       try {
         if (media) await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
         else await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
-        if (!isCurrentRender(revision, renderRoot) || !['services', 'catering', 'catalogue'].includes(section)) return;
-        showToast(t('managerSettings.catalogue.imageSaved'));
-        await renderManagerSettings({ focusHeading: true });
+        if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
+        if (preview) {
+          preview.removeAttribute('src');
+          preview.src = media.url;
+          picker.value = '';
+          save.disabled = false;
+          showToast(t('managerSettings.catalogue.imageSaved'));
+        } else {
+          showToast(t('managerSettings.catalogue.imageSaved'));
+          await renderManagerSettings({ focusHeading: true });
+        }
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot)) return;
@@ -439,8 +446,8 @@ export function createManagerBusinessSettingsApplication({
         try {
           await catalogue.removeDemoCatalogueImage(media.id);
           if (!isCurrentRender(revision, renderRoot)) return;
+          surface.remove();
           showToast(t('managerSettings.catalogue.imageRemoved'));
-          await renderManagerSettings({ focusHeading: true });
         } catch (error) {
           if (handleAuthorityFailure(error)) return;
           if (!isCurrentRender(revision, renderRoot)) return;
