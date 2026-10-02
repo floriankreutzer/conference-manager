@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 import {
-  NORTHWIND, INTEGRATION_PATH, ORIGINS, catalogue, requests, locations,
+  NORTHWIND, PNG, INTEGRATION_PATH, ORIGINS, catalogue, requests, locations,
   json, headers, customerSession,
   selectContext, uiResponse, businessDate, openAdmin, imagesLoaded, mediaHash,
 } from './scenario-support.js';
@@ -82,6 +82,54 @@ export async function verifyNorthwindBaseline(page, {
     await packageImage.locator('img').scrollIntoViewIfNeeded();
     await imagesLoaded(packageImage);
     expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(persistedReplacement.sha256);
+    // #226: removing an existing image must retain the uploader and the form draft.
+    await uiResponse(page, 'DELETE', new URL(imageUrl, ORIGINS.customer).pathname,
+      () => packageImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
+    await expect(packageImage.locator('img')).toHaveCount(0);
+    const picker = packageImage.locator('input[type="file"]');
+    await expect(picker).toBeVisible();
+    await expect(picker).toBeFocused();
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+    await picker.setInputFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: PNG });
+    const recreated = await uiResponse(page, 'POST', '/api/v1/demo/media/catering-package/coffee-break',
+      () => packageImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
+    const recreatedAsset = await recreated.json();
+    await expect(packageImage.getByRole('button', { name: 'Catering-Bild entfernen' })).toBeVisible();
+    await expect(packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' })).toBeEnabled();
+    await imagesLoaded(packageImage);
+    expect(await mediaHash(page.context(), new URL(recreatedAsset.url, ORIGINS.customer).href))
+      .toBe(recreatedAsset.sha256);
+    await picker.setInputFiles({ name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement });
+    await uiResponse(page, 'PUT', recreatedAsset.url,
+      () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+    await expect(picker).toHaveValue('');
+    // First attachment to a newly persisted owner must expose replace/remove immediately.
+    await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
+    const newItem = page.locator('[data-catalogue-entry-id="cateringItems-1"]');
+    await newItem.locator('input[id$="-name"]').fill('New Catering lifecycle acceptance');
+    const newImage = newItem.locator('.room-asset-panel');
+    await newImage.locator('input[type="file"]').setInputFiles({
+      name: 'new-catering.png', mimeType: 'image/png', buffer: PNG,
+    });
+    const firstAttachment = await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
+      () => newImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
+    const firstAsset = await firstAttachment.json();
+    await expect(newImage.getByRole('button', { name: 'Catering-Bild ersetzen' })).toBeEnabled();
+    await expect(newImage.getByRole('button', { name: 'Catering-Bild entfernen' })).toBeEnabled();
+    await expect(newImage.locator('input[type="file"]')).toHaveValue('');
+    await uiResponse(page, 'DELETE', firstAsset.url,
+      () => newImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
+    await expect(newImage.locator('input[type="file"]')).toBeFocused();
+    await newImage.locator('input[type="file"]').setInputFiles({
+      name: 'new-catering.png', mimeType: 'image/png', buffer: PNG,
+    });
+    await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
+      () => newImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
+    await imagesLoaded(newImage);
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+
+
   }
   return {
     rooms: configuration.configuration.rooms,

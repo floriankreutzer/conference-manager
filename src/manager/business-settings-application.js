@@ -410,15 +410,35 @@ export function createManagerBusinessSettingsApplication({
     const save = button(t(media
       ? 'managerSettings.catalogue.imageReplace'
       : 'managerSettings.catalogue.imageCreate'));
+    const remove = canRemove
+      ? button(t('managerSettings.catalogue.imageRemove'), { className: 'secondary' }) : null;
+    let imageField = null;
+    const syncImageControls = () => {
+      save.textContent = t(media
+        ? 'managerSettings.catalogue.imageReplace' : 'managerSettings.catalogue.imageCreate');
+      picker.accept = media ? 'image/webp' : 'image/png,image/jpeg,image/webp';
+      picker.value = '';
+      if (remove) remove.hidden = !media;
+      const label = imageField?.querySelector('label');
+      if (label) label.textContent = t(media
+        ? 'managerSettings.catalogue.imageFile' : 'managerSettings.catalogue.imageCreateFile');
+    };
+    const setImageBusy = (busy) => {
+      picker.disabled = busy;
+      save.disabled = busy;
+      if (remove) remove.disabled = busy;
+    };
+    syncImageControls();
     save.addEventListener('click', async () => {
       if (!picker.files?.[0]) { picker.focus(); return; }
-      save.disabled = true;
+      setImageBusy(true);
       try {
         if (media) await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
         else {
           // Media ownership is enforced against a persisted same-Tenant Catalogue owner.
           // Persist the new draft first; then attach the image to that authoritative owner.
           const current = await catalogue.loadCatalogue();
+          if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
           const collection = ownerKind === 'catering-item' ? 'cateringItems' : 'cateringPackages';
           const exists = current.catalogue[collection].some((entry) => entry.id === editor.entry.id);
           if (!exists) {
@@ -433,7 +453,9 @@ export function createManagerBusinessSettingsApplication({
             // The aggregate revision changed. Re-render after attaching the image so
             // a later form submit cannot overwrite the newer authoritative revision.
           }
+          if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
           const created = await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
+          if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
           media = { id: created.assetId, url: created.url, altText: editor.entry.name };
           preview = el('img', {
             className: 'room-asset-visual media',
@@ -442,6 +464,8 @@ export function createManagerBusinessSettingsApplication({
           surface.prepend(preview);
           picker.accept = 'image/webp';
           if (!exists) {
+            syncImageControls();
+            setImageBusy(false);
             showToast(t('managerSettings.catalogue.imageSaved'));
             // Keep the complete in-memory form draft. The persisted owner revision
             // is reconciled on the next explicit save/reload rather than rebuilding here.
@@ -454,38 +478,45 @@ export function createManagerBusinessSettingsApplication({
         if (preview) {
           preview.removeAttribute('src');
           preview.src = media.url;
-          picker.value = '';
+          syncImageControls();
+          setImageBusy(false);
           save.disabled = false;
           showToast(t('managerSettings.catalogue.imageSaved'));
         }
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot)) return;
-        save.disabled = false;
+        setImageBusy(false);
         showToast(t('managerSettings.catalogue.imageError'));
       }
     });
     const imageFileLabel = media
       ? t('managerSettings.catalogue.imageFile')
       : t('managerSettings.catalogue.imageCreateFile');
-    surface.append(field({
+    imageField = field({
       id: `manager-catering-image-${media?.id || editor.entry.id}`,
       label: imageFileLabel, control: picker, optional: true,
       hint: media ? undefined : t('managerSettings.catalogue.imageCreateHint'),
-    }), save);
-    if (media && canRemove) {
-      const remove = button(t('managerSettings.catalogue.imageRemove'), { className: 'secondary' });
+    });
+    surface.append(imageField, save);
+    if (remove) {
       remove.addEventListener('click', async () => {
-        remove.disabled = true;
+        if (!media) return;
+        setImageBusy(true);
         try {
           await catalogue.removeDemoCatalogueImage(media.id);
           if (!isCurrentRender(revision, renderRoot)) return;
-          surface.remove();
+          preview?.remove();
+          preview = null;
+          media = null;
+          syncImageControls();
+          setImageBusy(false);
+          picker.focus();
           showToast(t('managerSettings.catalogue.imageRemoved'));
         } catch (error) {
           if (handleAuthorityFailure(error)) return;
           if (!isCurrentRender(revision, renderRoot)) return;
-          remove.disabled = false;
+          setImageBusy(false);
           showToast(t('managerSettings.catalogue.imageError'));
         }
       });
