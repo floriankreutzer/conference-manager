@@ -67,8 +67,10 @@ export async function completeContosoTasks(page, cycle, baseline) {
   expect(uploadedStudio.description).toBe(`Completed Studio description cycle ${cycle}`);
   const uploadedUrl = `${ORIGINS.customer}/api/v1/tenant/rooms/${STUDIO}/media/${uploadedStudio.mediaAssetIds[0]}`;
   await mediaHash(page.context(), uploadedUrl);
-  await page.getByRole('button', { name: 'Katalog & Preise', exact: true }).click();
-  await page.locator(`[data-room-price-id="${STUDIO}"] input[type="number"]`).fill('3500');
+  await studio.locator('input[id^="manager-room-price-amount-"]').fill('35.00');
+  await uiResponse(page, 'PUT', CATALOGUE_PATH,
+    () => studio.getByRole('button', { name: 'Raumpreis speichern', exact: true }).click());
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-name').fill('Contoso Coffee');
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('300');
