@@ -77,7 +77,12 @@ export async function verifyNorthwindBaseline(page, {
     await expect(packageImage).toBeVisible();
     await packageImage.locator('img').scrollIntoViewIfNeeded();
     await imagesLoaded(packageImage);
-    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(replacementHash);
+    // The trusted processor decodes and re-encodes even WebP input. Read its
+    // committed bytes independently; identical input at another owner must
+    // later produce this same normalized persisted hash.
+    const persistedReplacementHash = await mediaHash(page.context(), absoluteImageUrl);
+    expect(persistedReplacementHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(persistedReplacementHash).not.toBe(originalHash);
     // #226: removing an existing image must retain the uploader and the form draft.
     await uiResponse(page, 'DELETE', new URL(imageUrl, ORIGINS.customer).pathname,
       () => packageImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
@@ -97,10 +102,12 @@ export async function verifyNorthwindBaseline(page, {
     const recreatedUrl = await packageImage.locator('img').getAttribute('src');
     expect(recreatedUrl).toMatch(/^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/);
     const recreatedHash = await mediaHash(page.context(), new URL(recreatedUrl, ORIGINS.customer).href);
-    expect(recreatedHash).not.toBe(replacementHash);
+    expect(recreatedHash).not.toBe(persistedReplacementHash);
     await picker.setInputFiles({ name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement });
     await uiResponse(page, 'PUT', recreatedUrl,
       () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    expect(await mediaHash(page.context(), new URL(recreatedUrl, ORIGINS.customer).href))
+      .toBe(persistedReplacementHash);
     await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
     await expect(picker).toHaveValue('');
     // First attachment to a newly persisted owner must expose replace/remove immediately.
@@ -125,10 +132,10 @@ export async function verifyNorthwindBaseline(page, {
     });
     await uiResponse(page, 'PUT', newImageUrl,
       () => newImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
-    expect(replacementHash).not.toBe(firstHash);
+    expect(persistedReplacementHash).not.toBe(firstHash);
     await imagesLoaded(newImage);
     expect(await mediaHash(page.context(), new URL(newImageUrl, ORIGINS.customer).href))
-      .toBe(replacementHash);
+      .toBe(persistedReplacementHash);
 
     await expect(newImage.locator('input[type="file"]')).toHaveValue('');
     await uiResponse(page, 'DELETE', newImageUrl,

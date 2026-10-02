@@ -1,6 +1,6 @@
 # SaaS 3.6 hardening register
 
-Current disposition: 2026-09-28. Individual finding rows preserve their earlier candidate evidence; the current release evidence is below.
+Current disposition: 2026-10-02. Individual finding rows preserve their earlier candidate evidence; the current release evidence is below.
 Parent roadmap: #164
 Hardening work package: #171
 Security-regression work package: #168
@@ -24,6 +24,34 @@ not originate in Demo are marked with the narrower relevant runtime/evidence sco
 misrepresented as Demo discoveries.
 
 ## Findings
+
+### Current release checkpoint — 2 October 2026
+
+Named #172/#182 Owner acceptance and #216 bounded Demo snapshot/retention disposition
+are accepted and closed. ADR-012's owning-role withhold/correct policy and exclusion
+of legacy public Guest prose remain binding. Accepted residuals are not executed
+isolated HTTP restore, retention-delete, alert or Production recovery proofs.
+The September finding rows and checkpoint below retain their historical diagnosis
+and evidence; their pending Owner statements are superseded by these decisions.
+
+New #256 is a shared Employee Guest print presentation defect: inherited CSP prevented
+the historical layout from loading. PR #257 uses a fixed script-free same-origin print
+document, only approved stylesheet URLs, null opener and bounded readiness/recovery.
+Authenticated minimized data and authority invalidation remain unchanged. The actual
+PDF has been rendered and visually reviewed as one clean A4 page; focused success,
+missing-CSS and stalled-CSS tests passed in Chromium and WebKit.
+
+New #226 is a Demo-only Catering editor lifecycle defect. The removed image no longer
+removes its uploader or unsaved form draft; accessible file requirements follow the
+server-supported creation/replacement state. Permanent acceptance uses actual
+create/replace/delete/recreate operations and independent authenticated byte reads.
+New #228 changes only state-derived task presentation; actual 200% Chromium tab zoom
+and the full three-customer/two-reset invariant are additional required evidence.
+
+PR #225 is integrated and #227 superseded. PR #257/API #104 remain in validation;
+protected paired checks, deployed identities, Hosted acceptance and DAST must pass.
+Independent #229 still contains business-reference selection/help and complete CSV
+acceptance gaps. #169/#170/#164 and SaaS 4's hard prerequisite remain open.
 
 | ID | Severity | Domain/runtime | Production relevance | Finding / evidence | Disposition | Status |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -68,7 +96,7 @@ misrepresented as Demo discoveries.
 | H-039 | High / P1 command authorization | Already-confirmed Request retry | security-relevant | An Employee who may read their own already Confirmed Request could submit the `confirm` command with the predecessor version and receive a success-equivalent response despite lacking the Manager `request:manage` entitlement; the confirmation service's already-target branch used read authorization. A direct transition correctly denied that same principal. | API `d5203d1` requires Manager `request:manage` reconciliation authority even on already-Confirmed state and fails predecessor-version commands closed; real-policy and HTTP Employee-denial/Manager-current-version tests are included. | **FIXED LOCALLY — 786/786 API gates passed; PostgreSQL 18/exact-head evidence pending** |
 | H-040 | High / P1 booking-provider race | Concurrent final confirmation and compensation | production-defect / security-relevant | Two final confirmations can share a deterministic provider event. A losing Room-compare-and-set compensation or a concurrent write-disabled pre-confirmation cleanup could delete that event before the write-enabled winner commits, leaving Confirmed without a live Calendar event. A held repro observed `providerEventActive=false` after winner success. | API `88dd4a0` fences compensation with the Request row, active reference and per-reference advisory lock. `f508b47` adds a dedicated version/status-fenced pre-confirm cleanup: `active→compensating→compensated` before the external Delete; after Room check the successful Confirm atomically records Request revision, cleanup/audit and `compensated→cancelled`. `e71b8e2` canonicalizes Revision-Watermark→Tenant-Audit lock order across all six Request writers, including pending-change supersede. Held unit races and barrier-based two-client PostgreSQL tests for both provider orderings and both tenant-wide advisory contention paths are committed, but the latter were not executed without PostgreSQL 18. Ordinary cancellation remains separate. | **FIXED LOCALLY — two-client PostgreSQL 18/provider integration, exact-head CI/review and deployed evidence required** |
 
-### Current repository-controlled disposition (28 September 2026)
+### Historical repository-controlled disposition (28 September 2026)
 
 The finding rows above preserve the diagnosis, severity, Production classification and
 candidate evidence at the time of each investigation. Statements such as “fixed locally”,

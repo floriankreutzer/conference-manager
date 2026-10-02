@@ -129,10 +129,10 @@ SaaS 3.7 closure does not retire these fixtures or tests. Northwind, Contoso and
 
 The gate verifies usable post-reset scenarios rather than fixture presence: Northwind rich booking/room/catalogue/media data, Contoso state-derived Conference Manager work, Fabrikam state-derived Tenant Admin onboarding, tenant/role/CSRF isolation, media integrity and canonical reset reproducibility. Cross-repository validation uses immutable counterpart commits. Any intentional semantic change to these scenarios requires coordinated seed-version/checksum, documentation and acceptance updates; silently dropping data, customers, tasks, reset assertions or browser coverage is prohibited.
 
-## Current aggregate budget correction (2026-10-02)
+## Historical aggregate budget correction before the Guest/media corrections (2026-10-02)
 
-The budget and deployment paragraphs above are historical evidence, not the
-current execution configuration. Current hosted identity remains frontend
+The budget and deployment paragraphs above are historical evidence. The deployed
+identity at this earlier checkpoint was frontend
 `c614f2bdb36c48199daacc2cc7bb0d0154b80f64` paired with API
 `62ad13bce72d3d99e02a39b5f96f1078fecc7e2f`.
 
@@ -159,3 +159,31 @@ reserve is unavailable. Action (15s), navigation (30s), assertion (10s), zero
 retries, TLS, all customer/negative/media/reset checks, rate limits and canonical
 seed/checksum are unchanged. This supersedes the isolated WebKit-only proposal
 in PR #227; successful current-head gates remain required before integration.
+
+## Current Guest/media/worklist acceptance correction (2026-10-02)
+
+PR #225 is integrated and #227 closed as superseded. PR #257 preserves every
+customer, authority, baseline-count and two-reset assertion, while adding actual
+Guest stylesheet/print layout checks and Catering create/replace/delete/recreate
+coverage. Post-mutation Northwind has nine Catering items; the initial and restored
+canonical baseline still has eight. The booking UI is checked against the actual
+independently loaded current catalogue rather than an obsolete pre-mutation count.
+
+Six mandatory 61-second rate windows now consume 366 seconds per browser. The
+provider-negative phase starts in its own real source-IP quota window, before any
+availability request, so the required 503 is not masked by the unrelated HTTP
+quota. No server limit is raised and no denial is retried. Existing isolated
+600-second/1320-second and hosted 780-second/1740-second test/suite caps remain.
+Mutation HTTP status and visible results are verified; persisted media bytes are
+read independently through normal authenticated GETs instead of relying on CDP
+response bodies that Chromium may retire during a long progression. Exact normalized
+WebP replacement hash across different owners, decoded newly created media and retained unsaved drafts remain
+required. No mutation is replayed to produce evidence.
+
+The existing full Chromium/WebKit suites remain mandatory. An additional headed
+Chromium step sets and reads the real tab zoom to 2, checks worklist reflow and
+44px actions, keyboard disclosure/navigation, and performs authorized reset cleanup.
+Equivalent 640px viewport tests alone are not described as actual browser zoom.
+API #104 promotes the matching immutable frontend and acceptance contract through
+the existing private Gitlink. Source/Live identity, paired CI and Hosted/DAST proof
+must be reconciled before closing #256/#226/#228 or the final milestone gates.

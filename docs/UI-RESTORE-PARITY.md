@@ -4,9 +4,11 @@
 
 This document is the source-controlled parity contract for GitHub issue #179 and the cleanup
 traceability record for #182. The matrices preserve the approved pre-implementation findings that
-governed #180 and #181; the final runtime disposition is recorded below. Milestone acceptance still
-requires the complete #182 automated and browser evidence, review and integration into the approved
-baseline. A local implementation or documentation change does not by itself close that gate.
+governed #180 and #181; the final runtime disposition is recorded below. Named #182
+acceptance is closed and remains binding. New #256/#226/#228/#229 findings have their
+own correction and regression gates; they do not reopen that accepted Owner decision.
+Milestone acceptance still requires their integration and exact deployed #170/#164
+evidence. A local implementation or documentation change does not close those gates.
 
 The comparison baseline is the exact parent tree of SaaS 3.5 commit
 `07f2896d56e6f66a9f8daf96457ab12c763adf80`: commit

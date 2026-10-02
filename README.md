@@ -7,9 +7,17 @@ Frontend application for Tenant-scoped conference requests with Employee, Confer
 - Employee UX: **in validation**
 - Conference Manager UX: **in validation** on desktop and mobile
 - Technical markers: `conference-end-user-readiness=in-validation` and `conference-manager-readiness=in-validation`
-- Regression coverage: dedicated Conference Manager readiness E2E test plus the complete existing Manager/Employee suite; the #182 parity gate and #170 release gate remain required before either marker may become `ready`
+- Regression coverage: dedicated Conference Manager readiness E2E test plus the complete existing Manager/Employee suite; the #182 parity gate and #170 release gate remain required before either marker may become `ready` (the named #182 acceptance is fulfilled; new #256/#226/#228/#229 findings have separate correction gates)
 
 The readiness status describes clarity, usability, responsive behavior, and regression coverage of the static MVP. `in-validation` is intentionally non-final: it explicitly does not replace the #182/#170 evidence, SSO, backend, authorization, audit, or calendar-integration measures required for production operation.
+
+Named Owner decisions in #172, #182 and #216 are accepted and closed. Their bounded
+Demo residual-risk dispositions do not imply executed Production recovery evidence.
+PR #225 is integrated; #227 is superseded. PR #257 corrects the new Guest PDF,
+Catering image lifecycle and compact manager worklist findings. API #104 promotes
+that immutable frontend through the private Gitlink delivery introduced by API #103.
+Full paired CI, exact live Hosted/DAST evidence and the independent #229 business
+selection/help/CSV work still control #169/#170/#164. SaaS 3.6 is not final.
 
 ## Feature scope
 
