@@ -3315,8 +3315,8 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
   await page.locator('[data-view="welcome"]').click();
 
@@ -4370,7 +4370,6 @@ test('REG-03: dual role restores direct Tenant Admin entry and keeps Manager rep
   await expect(page.locator('[data-report-content]')).toBeVisible();
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
   await expect(page.locator('#manager-room-price-amount-0')).toBeVisible();
 
   await page.locator('[data-view="tenantAdmin"]').click();
