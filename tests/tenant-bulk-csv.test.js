@@ -24,7 +24,7 @@ test('CSV bulk presentation round-trips bounded nested catalogue values', () => 
     }],
   };
   const csv = tenantBulkDocumentToCsv(document);
-  assert.match(csv, /^# conference-manager-bulk-v1 type=catering-packages\r\n/);
+  assert.match(csv, /^"id","name","description","price","active","order","siteIds","roomIds","itemIds","variants"\r\n/);
   assert.deepEqual(tenantBulkCsvToDocument(csv, 'catering-packages'), document);
 });
 
@@ -41,13 +41,13 @@ test('CSV export neutralizes spreadsheet formulas without changing re-import mea
 
 test('CSV import rejects wrong type, duplicate headers and excessive rows', () => {
   assert.throws(() => tenantBulkCsvToDocument(
-    '# conference-manager-bulk-v1 type=rooms\r\nid,name\r\nroom-1,A\r\n', 'services',
+    '"id","name"\r\n"room-1","A"\r\n', 'services',
   ), /TENANT_BULK_CSV_INVALID/);
   assert.throws(() => tenantBulkCsvToDocument(
-    '# conference-manager-bulk-v1 type=services\r\nid,id\r\na,b\r\n', 'services',
+    '"id","id"\r\n"a","b"\r\n', 'services',
   ), /TENANT_BULK_CSV_INVALID/);
   const rows = Array.from({ length: 1025 }, (_, index) => `s-${index},Name`).join('\r\n');
   assert.throws(() => tenantBulkCsvToDocument(
-    `# conference-manager-bulk-v1 type=services\r\nid,name\r\n${rows}\r\n`, 'services',
+    `"id","name"\r\n${rows}\r\n`, 'services',
   ), /TENANT_BULK_CSV_INVALID/);
 });
