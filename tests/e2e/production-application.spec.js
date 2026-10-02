@@ -3249,7 +3249,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.locator('#manager-room-name-0').fill('Conflicting Room');
-  const save = page.getByRole('button', { name: 'Speichern' });
+  const save = page.getByRole('button', { name: 'Speichern', exact: true });
   await save.click();
   await expect(page.locator('#toast')).toContainText('zwischenzeitlich geändert');
   await expect(save).toBeEnabled();
@@ -4271,6 +4271,7 @@ test('REG-02: direct Tenant Admin entry never loads Manager reports or Room pric
 });
 
 test('Tenant Admin bulk surfaces expose only owned types and apply a receipt-bound Room document', async ({ page }) => {
+  const documentValue = { schemaVersion: 1, type: 'rooms', rows: [] };
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'tenant_admin'],
   });
