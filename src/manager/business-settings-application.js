@@ -963,7 +963,7 @@ export function createManagerBusinessSettingsApplication({
       renderRoot.appendChild(createBulkTransferPanel({
         adapter: authorityAwareBulkAdapter(catalogue),
         types: section === 'services'
-          ? ['services', 'equipment'] : ['catering-items', 'catering-packages'],
+          ? ['services'] : ['catering-items', 'catering-packages'],
         rerender: () => {
           if (isCurrentRender(revision, renderRoot) && section === 'catalogue') {
             void renderManagerSettings({ focusHeading: true });
