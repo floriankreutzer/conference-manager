@@ -15,6 +15,15 @@ function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+function mediaPath(value) {
+  const url = new URL(value, ORIGINS.customer);
+  expect(url.origin).toBe(ORIGINS.customer);
+  expect(url.search).toBe('');
+  expect(url.hash).toBe('');
+  expect(url.pathname).toMatch(/^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/);
+  return url.pathname;
+}
+
 export async function verifyNorthwindBaseline(page, {
   replaceCateringImage = true,
   expectedCateringImageHash = null,
@@ -100,11 +109,11 @@ export async function verifyNorthwindBaseline(page, {
     await expect(picker).toHaveAccessibleName('Bilddatei (WebP; 32 Byte bis 2 MiB) optional');
     await imagesLoaded(packageImage);
     const recreatedUrl = await packageImage.locator('img').getAttribute('src');
-    expect(recreatedUrl).toMatch(/^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/);
+    const recreatedPath = mediaPath(recreatedUrl);
     const recreatedHash = await mediaHash(page.context(), new URL(recreatedUrl, ORIGINS.customer).href);
     expect(recreatedHash).not.toBe(persistedReplacementHash);
     await picker.setInputFiles({ name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement });
-    await uiResponse(page, 'PUT', recreatedUrl,
+    await uiResponse(page, 'PUT', recreatedPath,
       () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
     expect(await mediaHash(page.context(), new URL(recreatedUrl, ORIGINS.customer).href))
       .toBe(persistedReplacementHash);
@@ -125,12 +134,12 @@ export async function verifyNorthwindBaseline(page, {
     await expect(newImage.locator('input[type="file"]')).toHaveAccessibleName('Bilddatei (WebP; 32 Byte bis 2 MiB) optional');
     await imagesLoaded(newImage);
     const newImageUrl = await newImage.locator('img').getAttribute('src');
-    expect(newImageUrl).toMatch(/^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/);
+    const newImagePath = mediaPath(newImageUrl);
     const firstHash = await mediaHash(page.context(), new URL(newImageUrl, ORIGINS.customer).href);
     await newImage.locator('input[type="file"]').setInputFiles({
       name: 'new-catering.webp', mimeType: 'image/webp', buffer: replacement,
     });
-    await uiResponse(page, 'PUT', newImageUrl,
+    await uiResponse(page, 'PUT', newImagePath,
       () => newImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
     expect(persistedReplacementHash).not.toBe(firstHash);
     await imagesLoaded(newImage);
@@ -138,7 +147,7 @@ export async function verifyNorthwindBaseline(page, {
       .toBe(persistedReplacementHash);
 
     await expect(newImage.locator('input[type="file"]')).toHaveValue('');
-    await uiResponse(page, 'DELETE', newImageUrl,
+    await uiResponse(page, 'DELETE', newImagePath,
       () => newImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
     await expect(newImage.locator('input[type="file"]')).toBeFocused();
     await newImage.locator('input[type="file"]').setInputFiles({
