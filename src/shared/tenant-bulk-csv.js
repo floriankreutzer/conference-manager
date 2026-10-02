@@ -75,6 +75,5 @@ export function tenantBulkCsvToDocument(text, expectedType) {
   const dataRows = rows.filter((entry) => entry.some((cell) => cell !== ''));
   if (dataRows.length > 1_024 || dataRows.some((entry) => entry.length !== headers.length)) throw new TypeError('TENANT_BULK_CSV_INVALID');
   return { schemaVersion: 1, type: expectedType, rows: dataRows.map((entry) => Object.fromEntries(headers
-    .map((header, index) => [header, decodeCell(entry[index], header)])
-    .filter(([header, value]) => header === 'id' || value !== null))) };
+    .map((header, index) => [header, decodeCell(entry[index], header)]))) };
 }
