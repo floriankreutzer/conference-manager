@@ -71,13 +71,17 @@ export async function verifyNorthwindBaseline(page, {
     await packageImage.locator('input[type="file"]').setInputFiles({
       name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement,
     });
-    await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
+    const replacementResponse = await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
       () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    const persistedReplacement = await replacementResponse.json();
+    expect(persistedReplacement.assetId).toBeTruthy();
+    expect(persistedReplacement.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(persistedReplacement.sha256).not.toBe(originalHash);
     await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
     await expect(packageImage).toBeVisible();
     await packageImage.locator('img').scrollIntoViewIfNeeded();
     await imagesLoaded(packageImage);
-    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(replacementHash);
+    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(persistedReplacement.sha256);
   }
   return {
     rooms: configuration.configuration.rooms,
