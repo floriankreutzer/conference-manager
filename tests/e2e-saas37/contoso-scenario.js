@@ -98,14 +98,14 @@ export async function completeContosoTasks(page, cycle, baseline) {
     name: 'contoso-coffee.png', mimeType: 'image/png', buffer: PNG,
   });
   await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
-    () => itemEditor.getByRole('button', { name: 'Catering-Bild hochladen', exact: true }).click());
+    () => itemEditor.getByRole('button', { name: 'Catering-Bild hochladen', exact: true }).click(), 201);
   await expect(itemEditor.locator('img.room-asset-visual')).toBeVisible();
   const packageEditor = page.locator('[data-catalogue-entry-id="cateringPackages-1"]');
   await packageEditor.locator('input[type="file"]').setInputFiles({
     name: 'contoso-break.png', mimeType: 'image/png', buffer: PNG,
   });
   await uiResponse(page, 'POST', '/api/v1/demo/media/catering-package/cateringPackages-1',
-    () => packageEditor.getByRole('button', { name: 'Catering-Bild hochladen', exact: true }).click());
+    () => packageEditor.getByRole('button', { name: 'Catering-Bild hochladen', exact: true }).click(), 201);
   await expect(packageEditor.locator('img.room-asset-visual')).toBeVisible();
   await expect(page.locator('[data-demo-manager-tasks]')).toHaveCount(0);
   await page.reload();
