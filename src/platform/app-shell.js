@@ -145,7 +145,14 @@ export function createAppShell({
     onViewChange?.(nextView);
     view = nextView;
     render();
-    requestAnimationFrame(() => titleRoot?.focus());
+    const revision = renderRevision;
+    const focusOwner = document.activeElement;
+    requestAnimationFrame(() => {
+      // A newer control/dialog focus or render owns the interaction now.
+      if (revision !== renderRevision || sessionLocked()
+        || document.activeElement !== focusOwner) return;
+      titleRoot?.focus();
+    });
   }
 
   function navButton(key, targetView) {
