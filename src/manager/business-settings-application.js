@@ -424,11 +424,12 @@ export function createManagerBusinessSettingsApplication({
           if (!exists) {
             const entryValue = ownerKind === 'catering-item'
               ? commonEntryValue(editor) : packageValue(editor);
-            await catalogue.saveCatalogue({
+            const savedOwner = await catalogue.saveCatalogue({
               expectedRevision: current.revision,
               catalogue: { ...current.catalogue,
                 [collection]: [...current.catalogue[collection], entryValue] },
             });
+            catalogueRevision = savedOwner.revision;
             // The aggregate revision changed. Re-render after attaching the image so
             // a later form submit cannot overwrite the newer authoritative revision.
           }
@@ -756,6 +757,7 @@ export function createManagerBusinessSettingsApplication({
       }
       return { room, controls, nameField, publicGuest, node };
     });
+    let catalogueRevision = snapshot.revision;
     const form = el('form');
     editors.forEach((editor) => form.appendChild(editor.node));
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
@@ -975,7 +977,8 @@ export function createManagerBusinessSettingsApplication({
             ? packageEditors.map(packageValue) : snapshot.catalogue.cateringPackages,
           roomPrices: snapshot.catalogue.roomPrices,
         };
-        await catalogue.saveCatalogue({ expectedRevision: snapshot.revision, catalogue: next });
+        const saved = await catalogue.saveCatalogue({ expectedRevision: catalogueRevision, catalogue: next });
+        catalogueRevision = saved.revision;
         if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
         showToast(t('managerSettings.saved'));
         await renderManagerSettings({ focusHeading: true });
