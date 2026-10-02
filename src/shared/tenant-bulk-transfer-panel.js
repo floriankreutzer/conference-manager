@@ -28,7 +28,7 @@ function headersFor(document) {
   return ['id', ...[...keys].filter((key) => key !== 'id').sort()];
 }
 
-export function tenantBulkDocumentToCsv(document) {
+export function tenantBulkDocumentToCsv(documentValue) {
   if (!document || document.schemaVersion !== 1 || typeof document.type !== 'string'
     || !Array.isArray(document.rows)) throw new TypeError('TENANT_BULK_DOCUMENT_INVALID');
   const headers = headersFor(document);
@@ -99,7 +99,7 @@ export function tenantBulkCsvToDocument(text, expectedType) {
   };
 }
 
-function downloadCsv(document, filename) {
+function downloadCsv(documentValue, filename) {
   const blob = new Blob([tenantBulkDocumentToCsv(document)], { type: 'text/csv;charset=utf-8' });
   const objectUrl = URL.createObjectURL(blob);
   let link = null;
