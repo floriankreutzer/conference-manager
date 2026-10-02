@@ -3110,7 +3110,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await expect(page.locator('#viewTitle')).toBeFocused();
 
   await page.getByRole('button', { name: 'Services & Ausstattung' }).click();
-  await expect(page.locator('#viewTitle')).toHaveText('Services & Ausstattung');
+  await expect(page.getByRole('heading', { name: 'Services & Ausstattung', exact: true })).toBeVisible();
   const serviceBulk = page.locator('[data-tenant-bulk-transfer]');
   expect(await serviceBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
     .toEqual(['services']);
@@ -3120,7 +3120,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
 
   await page.getByRole('button', { name: 'Catering', exact: true }).click();
-  await expect(page.locator('#viewTitle')).toHaveText('Catering');
+  await expect(page.getByRole('heading', { name: 'Catering', exact: true })).toBeVisible();
   const cateringBulk = page.locator('[data-tenant-bulk-transfer]');
   expect(await cateringBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
     .toEqual(['catering-items', 'catering-packages']);
@@ -3198,7 +3198,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   const roomName = room.locator('#manager-room-name-0');
   const roomNameError = room.locator('#manager-room-name-0-error');
   await roomName.fill('   ');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   expect(fixture.locationWrites).toHaveLength(0);
   await expect(roomName).toBeFocused();
   await expect(roomName).toHaveAttribute('aria-invalid', 'true');
@@ -3209,7 +3209,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   await expect(roomName).not.toHaveAttribute('aria-invalid');
   await expect(roomNameError).toBeEmpty();
   await room.locator('#manager-room-capacity-0').fill('16');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');
   await expect(page.locator('#viewTitle')).toBeFocused();
 
@@ -3747,7 +3747,7 @@ test('Manager Business Settings save 403 clears forms, cockpit and cached shell 
   });
 
   await page.locator('#manager-room-name-0').fill('Must not remain editable');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
 
   const authorityStatus = page.locator('[data-authority-invalid="true"]');
   await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
@@ -3784,7 +3784,7 @@ test('detached Manager Business Settings save 403 still invalidates the newer sh
     });
   });
 
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await failureStarted;
   await page.locator('[data-view="welcome"]').click();
   await expect(page.locator('#welcomeHeading')).toBeVisible();
@@ -3858,7 +3858,7 @@ test('detached Tenant Admin save 403 cannot preserve Locations or Welcome author
     });
   });
 
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await failureStarted;
   await page.locator('[data-view="welcome"]').click();
   releaseFailure();
