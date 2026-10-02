@@ -102,9 +102,9 @@ export function tenantBulkCsvToDocument(text, expectedType) {
   return {
     schemaVersion: 1,
     type: expectedType,
-    rows: dataRows.map((entry) => Object.fromEntries(headers.map((header, index) => [
-      header, decodeCell(entry[index]),
-    ]))),
+    rows: dataRows.map((entry) => Object.fromEntries(headers
+      .map((header, index) => [header, decodeCell(entry[index])])
+      .filter(([header, value]) => header === 'id' || value !== null))),
   };
 }
 
