@@ -3784,7 +3784,8 @@ test('detached Manager Business Settings save 403 still invalidates the newer sh
     });
   });
 
-  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await page.locator('[data-tenant-settings-form="locations-technical"]')
+    .getByRole('button', { name: 'Änderungen speichern', exact: true }).click();
   await failureStarted;
   await page.locator('[data-view="welcome"]').click();
   await expect(page.locator('#welcomeHeading')).toBeVisible();
@@ -4293,7 +4294,7 @@ test('Tenant Admin bulk surfaces expose only owned types and apply a receipt-bou
     name: 'rooms.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(
-      '"id","name","description","capacity","active","floor","equipment","accessibility","serviceIds","cateringPackageIds","guestPublicValues"\\r\\n',
+      '"id","name","description","capacity","active","floor","equipment","accessibility","serviceIds","cateringPackageIds","guestPublicValues"\r\n',
     ),
   });
   await locationsBulk.getByRole('button', { name: 'Datei prüfen' }).click();
