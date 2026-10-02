@@ -3155,11 +3155,13 @@ test('Conference Manager edits normal Room prices with Rooms and validates Cater
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
 
-  const amount = page.locator('#manager-room-price-amount-0');
+  const roomCard = page.locator('[data-manager-business-settings-root] [data-manager-room-id="room-a"]');
+  const amount = roomCard.locator('input[id^="manager-room-price-amount-"]');
   await expect(amount).toHaveValue('');
   await expect(amount).not.toHaveAttribute('required');
   await amount.fill('12.50');
-  await page.getByRole('button', { name: 'Raumpreis speichern', exact: true }).first().click();
+  await expect(amount).toHaveValue('12.50');
+  await roomCard.getByRole('button', { name: 'Raumpreis speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
   expect(fixture.catalogueWrites[0].body.catalogue.roomPrices).toEqual([{
     roomId: 'room-a', price: { amountMinor: 1250, currency: 'EUR' },
