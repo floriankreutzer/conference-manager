@@ -442,7 +442,9 @@ export function createManagerBusinessSettingsApplication({
           picker.accept = 'image/webp';
           if (!exists) {
             showToast(t('managerSettings.catalogue.imageSaved'));
-            await renderManagerSettings({ focusHeading: true });
+            // Keep the complete in-memory form draft. The persisted owner revision
+            // is reconciled on the next explicit save/reload rather than rebuilding here.
+            save.disabled = false;
             return;
           }
           save.textContent = t('managerSettings.catalogue.imageReplace');
@@ -692,7 +694,7 @@ export function createManagerBusinessSettingsApplication({
           });
           if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
           showToast(t('managerSettings.room.priceSaved'));
-          await renderManagerSettings({ focusHeading: true });
+          savePrice.disabled = false;
         } catch (error) {
           if (handleAuthorityFailure(error)) return;
           if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
