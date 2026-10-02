@@ -1052,3 +1052,20 @@ main,
     min-width: 0;
   }
 }
+
+.manager-business-settings-nav {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--manager-control-gap);
+}
+.manager-business-settings-nav button {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height);
+  white-space: normal;
+}
+@media (max-width: 520px) {
+  .manager-business-settings-nav {
+    grid-template-columns: 1fr;
+  }
+}
