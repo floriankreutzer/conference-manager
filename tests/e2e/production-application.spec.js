@@ -2633,6 +2633,7 @@ test('confirmed inactive Room print uses the authoritative context label and tim
 });
 
 test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy prose', async ({ page }) => {
+  page.context().on('console', (message) => { if (/security|violat|refused|blocked/i.test(message.text())) console.log('PRINT_BROWSER_POLICY', message.text()); });
   const fixture = await installProductionApplicationFixture(page, {
     requestRoomContextSchemaVersion: 3,
     requestRoomContext: {
@@ -2718,6 +2719,7 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   );
   await expect(popup.locator('script, style, img')).toHaveCount(0);
   await expect(popup.locator('link[rel="stylesheet"]')).toHaveCount(2);
+  console.log('PRINT_DOCUMENT_DIAGNOSTIC', await popup.evaluate(() => ({ origin: location.origin, ready: document.readyState, base: document.baseURI, sheets: document.styleSheets.length, resources: performance.getEntriesByType('resource').map(({ name }) => name) })));
   await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeEnabled();
   await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
   await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
