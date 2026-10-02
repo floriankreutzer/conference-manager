@@ -260,6 +260,7 @@ test('Tenant Admin lifecycle is keyboard operable, server-authoritative, and res
   await search.fill('Casey');
   const applyFilters = page.locator('[data-tenant-user-filters] button[type="submit"]');
   await applyFilters.focus();
+  await expect(applyFilters).toBeFocused();
   await page.keyboard.press('Enter');
   await expect.poll(() => fixture.reads.at(-1)?.search).toBe('Casey');
 

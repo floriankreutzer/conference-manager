@@ -427,9 +427,9 @@ async function installProductionApplicationFixture(page, {
   }
 
   // Detached windows have their own Page; static print resources share the context.
+  const printShell = await readFile(path.join(ROOT, 'src/shared/detached-print.html'), 'utf8');
   await page.context().route(`${ORIGIN}/src/shared/detached-print.html`, async (route) => {
-    await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8',
-      body: await readFile(path.join(ROOT, 'src/shared/detached-print.html'), 'utf8') });
+    await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: printShell });
   });
   await page.context().route(`${ORIGIN}/assets/{tokens,employee-ux}.css`, async (route) => {
     const filePath = path.join(ROOT, new URL(route.request().url()).pathname);
@@ -2811,6 +2811,7 @@ test('API-02 print popup is reserved inside the click before Guest context resol
 test('API-02 downgraded Guest context clears and closes its reserved print popup', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     requestRoomContextSchemaVersion: 1,
+    holdRoomContext: true,
   });
   fixture.requests().push(confirmedRequestFixture());
   await page.goto(`${ORIGIN}/`);
@@ -2820,6 +2821,10 @@ test('API-02 downgraded Guest context clears and closes its reserved print popup
   await page.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
   const popup = await popupPromise;
 
+  // Deliver the invalid authority projection after the reserved shell loads,
+  // keeping route teardown separate from the required fail-closed assertion.
+  await popup.waitForLoadState('load');
+  fixture.releaseRoomContext();
   await expect.poll(() => popup.isClosed()).toBe(true);
   await expect(page.locator('#toast')).toContainText('Die Aktion konnte nicht sicher abgeschlossen werden.');
   expect(fixture.roomContextReads).toEqual([REQUEST_ID]);
@@ -3646,8 +3651,9 @@ for (const [status, message] of [
 
     const popupPromise = page.waitForEvent('popup');
     await page.evaluate(async () => {
-      const { openDetachedPrintWindow } = await import('/src/shared/detached-print-window.js');
+      const { openDetachedPrintWindow, waitForDetachedPrintDocument } = await import('/src/shared/detached-print-window.js');
       const popup = openDetachedPrintWindow();
+      await waitForDetachedPrintDocument(popup);
       popup.document.body.textContent = 'authority-bound print';
     });
     const popup = await popupPromise;

@@ -262,9 +262,10 @@ test('REG-04 Tenant/persona switch clears and closes detached print state', asyn
     trigger.type = 'button';
     trigger.dataset.testid = 'open-detached-print';
     trigger.textContent = 'Open detached print';
-    trigger.addEventListener('click', () => {
+    trigger.addEventListener('click', async () => {
       const popup = print.openDetachedPrintWindow();
       if (!popup) return;
+      await print.waitForDetachedPrintDocument(popup);
       const popupDocument = print.initializeDetachedPrintDocument(popup, {
         lang: 'de',
         title: 'Tenant A print',
