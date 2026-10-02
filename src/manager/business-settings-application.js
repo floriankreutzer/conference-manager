@@ -197,7 +197,7 @@ function priceControls(price, { amountRequired = true } = {}) {
 function minorUnitsFromAmount(value, code = 'MANAGER_PRICE_INVALID') {
   const raw = String(value ?? '').trim();
   if (!raw) return null;
-  if (!/^\\d{1,8}(?:\\.\\d{1,2})?$/.test(raw)) throw new TypeError(code);
+  if (!/^\d{1,8}(?:\.\d{1,2})?$/.test(raw)) throw new TypeError(code);
   const amountMinor = Math.round(Number(raw) * 100);
   if (!Number.isSafeInteger(amountMinor) || amountMinor < 0 || amountMinor > 1_000_000_000) {
     throw new TypeError(code);
