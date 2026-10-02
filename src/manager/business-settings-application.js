@@ -416,6 +416,20 @@ export function createManagerBusinessSettingsApplication({
       try {
         if (media) await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
         else {
+          // Media ownership is enforced against a persisted same-Tenant Catalogue owner.
+          // Persist the new draft first; then attach the image to that authoritative owner.
+          const current = await catalogue.loadCatalogue();
+          const collection = ownerKind === 'catering-item' ? 'cateringItems' : 'cateringPackages';
+          const exists = current.catalogue[collection].some((entry) => entry.id === editor.entry.id);
+          if (!exists) {
+            const entryValue = ownerKind === 'catering-item'
+              ? commonEntryValue(editor) : packageValue(editor);
+            await catalogue.saveCatalogue({
+              expectedRevision: current.revision,
+              catalogue: { ...current.catalogue,
+                [collection]: [...current.catalogue[collection], entryValue] },
+            });
+          }
           const created = await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
           media = { id: created.assetId, url: created.url, altText: editor.entry.name };
           preview = el('img', {
