@@ -532,10 +532,12 @@ export function createManagerBusinessSettingsApplication({
     renderLoading(renderRoot, 'managerSettings.rooms.title', 'managerSettings.rooms.description');
     let snapshot;
     let history;
+    let catalogueSnapshot;
     try {
-      [snapshot, history] = await Promise.all([
+      [snapshot, history, catalogueSnapshot] = await Promise.all([
         locations.loadLocations({ schemaVersion: 3 }),
         locations.listLocationsHistory({ limit: 20 }),
+        catalogue.loadCatalogue(),
       ]);
     } catch (error) {
       if (handleAuthorityFailure(error)) return;
@@ -579,6 +581,11 @@ export function createManagerBusinessSettingsApplication({
       }
       const publicGuest = createPublicGuestValueEditor(room.guestPublicValues, index, 'room');
       const site = siteById.get(room.siteId);
+      const existingRoomPrice = catalogueSnapshot.catalogue.roomPrices
+        .find((entry) => entry.roomId === room.id)?.price;
+      const roomPrice = priceControls(existingRoomPrice || {
+        amountMinor: '', currency: catalogueDefaultCurrency(catalogueSnapshot.catalogue),
+      }, { amountRequired: false });
       const node = el('fieldset', { className: 'card', dataset: { managerRoomId: room.id } }, [
         el('legend', { text: room.name }),
         el('p', { className: 'muted', text: t('managerSettings.room.internalId', { id: room.id }) }),
@@ -608,6 +615,50 @@ export function createManagerBusinessSettingsApplication({
         ]),
       ]);
       node.appendChild(publicGuest.node);
+      const roomPricePanel = el('section', { className: 'room-asset-panel' }, [
+        el('h3', { text: t('managerSettings.room.priceHeading') }),
+        el('p', { className: 'field-hint', text: t('managerSettings.room.priceHint') }),
+        el('div', { className: 'form-grid' }, [
+          field({
+            id: `manager-room-price-amount-${index}`,
+            label: t('managerSettings.catalogue.price'),
+            control: roomPrice.amountMinor,
+            optional: true,
+          }),
+          field({
+            id: `manager-room-price-currency-${index}`,
+            label: t('managerSettings.catalogue.currency'),
+            control: roomPrice.currency,
+            optional: true,
+          }),
+        ]),
+      ]);
+      const savePrice = button(t('managerSettings.room.savePrice'), { className: 'secondary' });
+      savePrice.addEventListener('click', async () => {
+        savePrice.disabled = true;
+        try {
+          const nextPrice = catalogueRoomPriceValue(
+            room.id, roomPrice.amountMinor.value, roomPrice.currency.value,
+          );
+          const roomPrices = catalogueSnapshot.catalogue.roomPrices
+            .filter((entry) => entry.roomId !== room.id);
+          if (nextPrice) roomPrices.push(nextPrice);
+          await catalogue.saveCatalogue({
+            expectedRevision: catalogueSnapshot.revision,
+            catalogue: { ...catalogueSnapshot.catalogue, roomPrices },
+          });
+          if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+          showToast(t('managerSettings.room.priceSaved'));
+          await renderManagerSettings({ focusHeading: true });
+        } catch (error) {
+          if (handleAuthorityFailure(error)) return;
+          if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+          savePrice.disabled = false;
+          showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
+        }
+      });
+      roomPricePanel.appendChild(savePrice);
+      node.appendChild(roomPricePanel);
       if (typeof locations.uploadRoomMedia === 'function') {
         const uploadPanel = el('section', { className: 'room-asset-panel' });
         uploadPanel.appendChild(el('h3', { text: t('managerSettings.room.mediaUploadHeading') }));
