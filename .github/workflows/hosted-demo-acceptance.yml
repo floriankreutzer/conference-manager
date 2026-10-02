@@ -36,14 +36,14 @@ env:
   DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
   DEMO_PROVIDER_HEALTH: healthy
   # Both browser suites plus rate windows and bounded independent cleanup.
-  HOSTED_JOB_BUDGET_SECONDS: '3900'
-  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3300'
+  HOSTED_JOB_BUDGET_SECONDS: '4200'
+  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3600'
   HOSTED_READINESS_BUDGET_SECONDS: '360'
 
 jobs:
   hosted-demo-acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 70
     steps:
       - name: Record hosted job budget start
         shell: bash

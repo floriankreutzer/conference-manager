@@ -10,6 +10,13 @@ import {
 
 const EXTENSION = fileURLToPath(new URL('../e2e/fixtures/browser-zoom-extension/', import.meta.url));
 
+async function captureZoomViewport(page, testInfo, name) {
+  // Full-page capture mixes CSS and physical extents under actual tab zoom.
+  // Capture the real viewport and verify its physical width instead.
+  const screenshot = await page.screenshot({ path: testInfo.outputPath(name), fullPage: false });
+  expect(screenshot.readUInt32BE(16)).toBe(page.viewportSize().width);
+}
+
 test('manager worklist remains operable at actual Chromium browser zoom 200%', async ({ browser }, testInfo) => {
   test.skip(!process.env.CM_ACTUAL_BROWSER_ZOOM || testInfo.project.name !== 'chromium-shared-demo',
     'Run in the dedicated headed Chromium zoom CI step');
@@ -68,7 +75,10 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
       expect(action.width).toBeGreaterThanOrEqual(44);
       expect(action.height).toBeGreaterThanOrEqual(44);
     }
-    await page.screenshot({ path: testInfo.outputPath('manager-worklist-200-percent.png'), fullPage: true });
+    await summary.scrollIntoViewIfNeeded();
+    await captureZoomViewport(page, testInfo, 'manager-worklist-200-percent.png');
+    await worklist.getByRole('button').last().scrollIntoViewIfNeeded();
+    await captureZoomViewport(page, testInfo, 'manager-worklist-last-action-200-percent.png');
     await page.keyboard.press('Tab');
     await expect(worklist.getByRole('button').first()).toBeFocused();
     const roomTask = worklist.locator('[data-demo-manager-task="room:description"] button');
@@ -76,7 +86,8 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-manager-room-id="contoso-paris-room-2"]')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath('manager-room-navigation-200-percent.png'), fullPage: true });
+    await page.locator('[data-manager-room-id="contoso-paris-room-2"]').scrollIntoViewIfNeeded();
+    await captureZoomViewport(page, testInfo, 'manager-room-navigation-200-percent.png');
     await writeFile(testInfo.outputPath('manager-worklist-zoom-evidence.json'),
       JSON.stringify({ actualTabZoom: zoom, ...layout, keyboardNavigation: true }, null, 2));
   } finally {

@@ -84,7 +84,7 @@ jobs:
   shared-demo-e2e:
     runs-on: ubuntu-latest
     needs: quality
-    timeout-minutes: 45
+    timeout-minutes: 50
     env:
       DEMO_RATE_LIMIT_MAX: '1000'
     services:

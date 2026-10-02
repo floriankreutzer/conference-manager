@@ -169,12 +169,16 @@ The expanded Chromium API journey passed both complete cycles in run
 `37075649131` (8.0 minutes). WebKit reached the second Northwind booking at the
 former 600-second aggregate cap; it reported no failed business/security
 assertion before that deadline, but its incomplete run is not acceptance.
-Six mandatory rate windows consume 366 seconds per browser. The bounded
-isolated budget is now 900 seconds per browser and 1920 seconds serially;
-hosted uses 960 and 2040 seconds. The hosted job permits 65 minutes and reserves
-55 minutes before destructive work: 12 for the cross-role suite, 34 for full
-scenarios and the same nine-minute cleanup/identity margin. The isolated CI job
-permits 45 minutes for setup, both suites, actual zoom and teardown. Action,
+Six mandatory rate windows consume 366 seconds per browser. The follow-up WebKit run `37077163740` completed both customer mutations,
+provider negatives and canonical resets, then exhausted 900s immediately before
+the second restoration check. Its first restoration took 14s; about 20s plus
+runner/cleanup margin remain necessary. An incomplete run is still not acceptance.
+The bounded
+isolated budget is now 1020 seconds per browser and 2160 seconds serially;
+hosted uses 1080 and 2280 seconds. The hosted job permits 70 minutes and reserves
+60 minutes before destructive work: 12 for the cross-role suite, 38 for full
+scenarios and a ten-minute cleanup/identity margin. The isolated CI job
+permits 50 minutes for setup, both suites, actual zoom and teardown. Action,
 navigation, assertion, retry, TLS, rate and security limits remain unchanged.
 The actual headed Chromium worklist zoom check runs before the full scenarios;
 the following scenario starts in its existing fresh rate window and resets the
