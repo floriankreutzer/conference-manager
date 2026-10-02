@@ -37,7 +37,7 @@ env:
   DEMO_PROVIDER_HEALTH: healthy
   # Both browser suites plus rate windows and bounded independent cleanup.
   HOSTED_JOB_BUDGET_SECONDS: '3600'
-  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '2700'
+  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3000'
   HOSTED_READINESS_BUDGET_SECONDS: '360'
 
 jobs:

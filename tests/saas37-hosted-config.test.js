@@ -44,8 +44,12 @@ test('hosted full scenarios remain inside a reserved independent cleanup budget'
   assert.match(workflow, /name: Upload full hosted scenario evidence and browser report/);
   assert.match(workflow, /name: hosted-saas37-scenario-evidence/);
   const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);
-  // Existing suite 480s + hosted full suite 1500s + six cleanup requests + identity/audit margin.
-  assert.ok(reserve >= 480 + 1500 + 2 * (2 * 20 + 75) + 200);
+  const hosted = createSaas37Config({
+    SHARED_DEMO_CUSTOMER_ORIGIN: 'https://conference-manager-demo.onrender.com',
+    SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com',
+  });
+  // Actual cross-role cap + full suite + six cleanup requests + identity/audit margin.
+  assert.ok(reserve >= 720 + hosted.globalTimeout / 1000 + 2 * (2 * 20 + 75) + 200);
 });
 
 test('measured hosted scenario budget does not relax isolated action or assertion limits', () => {
@@ -55,10 +59,14 @@ test('measured hosted scenario budget does not relax isolated action or assertio
     SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com',
   });
   assert.equal(local.timeout, 600_000);
-  assert.equal(local.globalTimeout, 900_000);
-  assert.equal(hosted.timeout, 660_000);
-  assert.equal(hosted.globalTimeout, 1_500_000);
-  assert.ok(hosted.globalTimeout > 2 * hosted.timeout);
+  assert.equal(local.globalTimeout, 1_320_000);
+  assert.equal(hosted.timeout, 780_000);
+  assert.equal(hosted.globalTimeout, 1_740_000);
+  for (const config of [local, hosted]) {
+    assert.ok(config.globalTimeout >= config.projects.length * config.timeout + 120_000);
+  }
+  const scenario = readFileSync('tests/e2e-saas37/three-customer-scenarios.spec.js', 'utf8');
+  assert.doesNotMatch(scenario, /test\.setTimeout\(/, 'The scenario must inherit the single configured budget');
   for (const key of ['actionTimeout', 'navigationTimeout']) assert.equal(hosted.use[key], local.use[key]);
   assert.deepEqual(hosted.expect, local.expect);
   assert.equal(hosted.retries, 0);

@@ -128,3 +128,34 @@ run's independent canonical cleanup succeeded; timeout is not acceptance.
 SaaS 3.7 closure does not retire these fixtures or tests. Northwind, Contoso and Fabrikam are permanent Demo baselines for subsequent milestones. Relevant development must continue to provision their canonical data and pass the full Chromium/WebKit three-customer progression plus two-cycle reset gate before it is complete.
 
 The gate verifies usable post-reset scenarios rather than fixture presence: Northwind rich booking/room/catalogue/media data, Contoso state-derived Conference Manager work, Fabrikam state-derived Tenant Admin onboarding, tenant/role/CSRF isolation, media integrity and canonical reset reproducibility. Cross-repository validation uses immutable counterpart commits. Any intentional semantic change to these scenarios requires coordinated seed-version/checksum, documentation and acceptance updates; silently dropping data, customers, tasks, reset assertions or browser coverage is prohibited.
+
+## Current aggregate budget correction (2026-10-02)
+
+The budget and deployment paragraphs above are historical evidence, not the
+current execution configuration. Current hosted identity remains frontend
+`c614f2bdb36c48199daacc2cc7bb0d0154b80f64` paired with API
+`62ad13bce72d3d99e02a39b5f96f1078fecc7e2f`.
+
+Hosted run `37042415907`, second attempt, passed both cross-role browsers but
+terminated Chromium at its eleven-minute aggregate cap during cycle-two
+restoration. It did not reproduce the first attempt's Contoso status assertion
+failure; that earlier failure is not explained or accepted by this correction.
+Independent cleanup and final deployment identity succeeded. Neither attempt
+is passing full-scenario evidence.
+
+Each full scenario now includes four mandatory 61-second rate windows (244
+seconds), including restoration phases. Hosted scenarios have a bounded
+thirteen-minute per-browser budget and twenty-nine-minute serial suite budget.
+Isolated scenarios retain ten minutes per browser, with the global cap corrected
+from fifteen to twenty-two minutes so both browsers and teardown can complete.
+The scenario inherits its config instead of overriding the timeout separately.
+Regression tests require the global cap to cover every configured browser plus
+at least two minutes for setup/teardown.
+
+The sixty-minute hosted job reserves fifty minutes before destructive work:
+twelve minutes for cross-role tests, twenty-nine for full scenarios, and nine
+for independent cleanup/identity/evidence. The start guard fails closed if that
+reserve is unavailable. Action (15s), navigation (30s), assertion (10s), zero
+retries, TLS, all customer/negative/media/reset checks, rate limits and canonical
+seed/checksum are unchanged. This supersedes the isolated WebKit-only proposal
+in PR #227; successful current-head gates remain required before integration.

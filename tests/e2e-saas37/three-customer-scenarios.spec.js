@@ -11,7 +11,6 @@ import { verifyFabrikamBaseline, progressFabrikam } from './fabrikam-scenario.js
 // Two complete cycles mutate ALL three Tenants. No route mocking, database
 // shortcuts, storage seeding, retries, optional assertions or test.skip paths.
 test('SaaS 3.7: three visible scenarios persist, isolate authority and restore twice', async ({ browser }, testInfo) => {
-  test.setTimeout(ORIGINS.hosted ? 660_000 : 600_000);
   const options = { ignoreHTTPSErrors: !ORIGINS.hosted, locale: 'de-DE' };
   const platformContext = await browser.newContext(options);
   const customerContext = await browser.newContext(options);
