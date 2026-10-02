@@ -1008,3 +1008,47 @@ main,
     grid-column: 1;
   }
 }
+
+
+/* Demo Manager work is a compact cockpit worklist, not a second navigation. */
+.demo-manager-task-summary {
+  margin-block: var(--space-2) var(--space-3);
+  color: var(--color-muted);
+}
+.demo-manager-task-group + .demo-manager-task-group {
+  margin-top: var(--space-4);
+}
+.demo-manager-task-group h3 {
+  margin-block: 0 var(--space-2);
+}
+.demo-manager-task-list {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.demo-manager-task-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.demo-manager-task-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.demo-manager-task-action {
+  min-width: var(--button-min-inline-size);
+}
+@media (max-width: 520px) {
+  .demo-manager-task-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2);
+  }
+  .demo-manager-task-action {
+    min-width: 0;
+  }
+}
