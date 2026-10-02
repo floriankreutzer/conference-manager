@@ -53,6 +53,8 @@ async function switchCustomer(context, session, tenantId, persona) {
 async function switchCustomerThroughUi(page, tenantId, persona) {
   await page.getByLabel('Demo-Tenant').selectOption(tenantId);
   await page.getByLabel('Demo-Persona').selectOption(persona);
+  const applyContext = page.locator('[data-demo-security] button');
+  await waitForStableControl(applyContext);
   const responsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.request().method() === 'PUT'
@@ -66,7 +68,7 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
       && url.pathname === '/api/v1/demo/session';
   });
   const reloadedDocument = page.waitForEvent('domcontentloaded');
-  await page.locator('[data-demo-security] button').click();
+  await applyContext.click();
   await reloadedDocument;
   const response = await responsePromise;
   expect(response.status()).toBe(200);
