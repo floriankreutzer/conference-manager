@@ -2,7 +2,7 @@ export const TENANT_SETTINGS_DOMAIN_MESSAGES = Object.freeze({
   de: Object.freeze({
     'tenantSettings.action.retry': 'Erneut versuchen',
     'tenantSettings.action.save': 'Änderungen speichern',
-    'tenantBulk.title': 'JSON-Massenimport und -export',
+    'tenantBulk.title': 'CSV-Massenimport und -export',
     'tenantBulk.description': 'Vorlage oder aktuellen Stand herunterladen, CSV-Datei prüfen und Änderungen erst nach erfolgreicher Prüfung anwenden.',
     'tenantBulk.type': 'Datentyp',
     'tenantBulk.file': 'CSV-Datei (UTF-8; höchstens 64 KiB und 1.024 Datenzeilen)',
@@ -170,7 +170,7 @@ export const TENANT_SETTINGS_DOMAIN_MESSAGES = Object.freeze({
   en: Object.freeze({
     'tenantSettings.action.retry': 'Try again',
     'tenantSettings.action.save': 'Save changes',
-    'tenantBulk.title': 'Bulk JSON import and export',
+    'tenantBulk.title': 'Bulk CSV import and export',
     'tenantBulk.description': 'Download a template or current revision, validate a CSV file, and apply changes only after validation succeeds.',
     'tenantBulk.type': 'Data type',
     'tenantBulk.file': 'CSV file (UTF-8; up to 64 KiB and 1,024 data rows)',
