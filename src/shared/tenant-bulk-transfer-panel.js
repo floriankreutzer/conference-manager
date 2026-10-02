@@ -9,6 +9,8 @@ export function supportsBulkTransfer(adapter) {
 }
 
 const CSV_HEADERS = Object.freeze({
+  sites: Object.freeze(['id', 'name', 'active', 'timeZone', 'guestPresentation']),
+  'cost-centers': Object.freeze(['id', 'code', 'name', 'active']),
   rooms: Object.freeze(['id', 'name', 'description', 'capacity', 'active', 'floor', 'equipment',
     'accessibility', 'serviceIds', 'cateringPackageIds', 'guestPublicValues']),
   services: Object.freeze(['id', 'name', 'description', 'price', 'active', 'order', 'siteIds', 'roomIds']),
