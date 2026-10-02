@@ -8,7 +8,7 @@ export function createSaas37Config(env = process.env) {
     ...shared,
     webServer: origins.hosted ? undefined : shared.webServer,
     testDir: './tests/e2e-saas37',
-    // Four real rate windows consume 244s per browser before UI/network work.
+    // Six real rate windows consume 366s per browser before UI/network work.
     // The serial suite cap also covers both complete browser budgets and teardown.
     timeout: origins.hosted ? 780_000 : 600_000,
     globalTimeout: origins.hosted ? 1_740_000 : 1_320_000,
