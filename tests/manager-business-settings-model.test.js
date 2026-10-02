@@ -18,7 +18,7 @@ test('Room price projection preserves absence and distinguishes an explicit zero
     roomId: 'room-a',
     price: { amountMinor: 0, currency: 'EUR' },
   });
-  assert.deepEqual(catalogueRoomPriceValue('room-a', '2500', 'CHF'), {
+  assert.deepEqual(catalogueRoomPriceValue('room-a', '25.00', 'CHF'), {
     roomId: 'room-a',
     price: { amountMinor: 2500, currency: 'CHF' },
   });
