@@ -882,7 +882,8 @@ export function createManagerBusinessSettingsApplication({
       );
     });
     if (section === 'catering') form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
-    const packageEditors = snapshot.catalogue.cateringPackages.map(packageEditor);
+    const packageEditors = section === 'catering'
+      ? snapshot.catalogue.cateringPackages.map(packageEditor) : [];
     const packageSurface = el('div');
     packageEditors.forEach((editor) => packageSurface.appendChild(editor.node));
     if (demoMedia) {
@@ -890,7 +891,7 @@ export function createManagerBusinessSettingsApplication({
         demoMedia.find((asset) => asset.ownerKind === 'catering_package' && asset.ownerId === editor.entry.id),
         'catering-package', revision, renderRoot);
     }
-    if (demoMedia === null) form.appendChild(el('p', {
+    if (section === 'catering' && demoMedia === null) form.appendChild(el('p', {
       className: 'error-box', text: t('managerSettings.catalogue.imageLoadError'),
     }));
     const addPackage = button(t('managerSettings.catalogue.addEntry'), {
