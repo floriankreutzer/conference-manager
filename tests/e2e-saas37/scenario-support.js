@@ -29,11 +29,7 @@ export const INTEGRATION_PATH = '/api/v1/integrations/microsoft365';
 export async function json(response, expected = 200) {
   // Never stringify a session or consent payload into failure output.
   expect(response.status(), `HTTP status for ${new URL(response.url()).pathname}`).toBe(expected);
-  if (expected === 204) {
-    expect(await response.body()).toHaveLength(0);
-  } else {
-    expect(response.headers()['content-type']).toContain('application/json');
-  }
+  expect(response.headers()['content-type']).toContain('application/json');
   return response.json();
 }
 
