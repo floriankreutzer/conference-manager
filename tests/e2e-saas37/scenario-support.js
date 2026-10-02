@@ -29,7 +29,11 @@ export const INTEGRATION_PATH = '/api/v1/integrations/microsoft365';
 export async function json(response, expected = 200) {
   // Never stringify a session or consent payload into failure output.
   expect(response.status(), `HTTP status for ${new URL(response.url()).pathname}`).toBe(expected);
-  expect(response.headers()['content-type']).toContain('application/json');
+  if (expected === 204) {
+    expect(await response.body()).toHaveLength(0);
+  } else {
+    expect(response.headers()['content-type']).toContain('application/json');
+  }
   return response.json();
 }
 
@@ -77,7 +81,11 @@ export async function uiResponse(page, method, path, action, expected = 200) {
   // Verify the real UI operation here; scenario reads prove committed payloads
   // through normal authenticated API reads and visible post-action state.
   expect(response.status(), `HTTP status for ${path}`).toBe(expected);
-  expect(response.headers()['content-type']).toContain('application/json');
+  if (expected === 204) {
+    expect(await response.body()).toHaveLength(0);
+  } else {
+    expect(response.headers()['content-type']).toContain('application/json');
+  }
   return response;
 }
 
