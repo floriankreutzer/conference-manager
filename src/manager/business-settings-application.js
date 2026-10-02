@@ -391,7 +391,7 @@ export function createManagerBusinessSettingsApplication({
   let renderRevision = 0;
   const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
 
-  function demoCateringImage(editor, media, ownerKind, revision, renderRoot) {
+  function demoCateringImage(editor, media, ownerKind, revision, renderRoot, onRevision = () => {}) {
     if (!demoRuntime) return;
     const canCreate = typeof catalogue.createDemoCatalogueImage === 'function';
     const canReplace = typeof catalogue.replaceDemoCatalogueImage === 'function';
@@ -429,7 +429,7 @@ export function createManagerBusinessSettingsApplication({
               catalogue: { ...current.catalogue,
                 [collection]: [...current.catalogue[collection], entryValue] },
             });
-            catalogueRevision = savedOwner.revision;
+            onRevision(savedOwner.revision);
             // The aggregate revision changed. Re-render after attaching the image so
             // a later form submit cannot overwrite the newer authoritative revision.
           }
@@ -882,7 +882,7 @@ export function createManagerBusinessSettingsApplication({
       if (collection === 'cateringItems' && demoMedia) {
         for (const editor of editors) demoCateringImage(editor,
           demoMedia.find((asset) => asset.ownerKind === 'catering_item' && asset.ownerId === editor.entry.id),
-          'catering-item', revision, renderRoot);
+          'catering-item', revision, renderRoot, (value) => { catalogueRevision = value; });
       }
       const add = button(t('managerSettings.catalogue.addEntry'), {
         dataset: { addCatalogueEntry: collection },
@@ -898,7 +898,7 @@ export function createManagerBusinessSettingsApplication({
         editors.push(editor);
         surface.appendChild(editor.node);
         if (collection === 'cateringItems') {
-          demoCateringImage(editor, null, 'catering-item', revision, renderRoot);
+          demoCateringImage(editor, null, 'catering-item', revision, renderRoot, (value) => { catalogueRevision = value; });
         }
         add.disabled = editors.length >= COLLECTION_LIMITS[collection];
         editor.controls.name.focus();
@@ -917,7 +917,7 @@ export function createManagerBusinessSettingsApplication({
     if (demoMedia) {
       for (const editor of packageEditors) demoCateringImage(editor,
         demoMedia.find((asset) => asset.ownerKind === 'catering_package' && asset.ownerId === editor.entry.id),
-        'catering-package', revision, renderRoot);
+        'catering-package', revision, renderRoot, (value) => { catalogueRevision = value; });
     }
     if (section === 'catering' && demoMedia === null) form.appendChild(el('p', {
       className: 'error-box', text: t('managerSettings.catalogue.imageLoadError'),
@@ -935,7 +935,7 @@ export function createManagerBusinessSettingsApplication({
       const editor = packageEditor(entry);
       packageEditors.push(editor);
       packageSurface.appendChild(editor.node);
-      demoCateringImage(editor, null, 'catering-package', revision, renderRoot);
+      demoCateringImage(editor, null, 'catering-package', revision, renderRoot, (value) => { catalogueRevision = value; });
       addPackage.disabled = packageEditors.length >= COLLECTION_LIMITS.cateringPackages;
       editor.controls.name.focus();
     });
