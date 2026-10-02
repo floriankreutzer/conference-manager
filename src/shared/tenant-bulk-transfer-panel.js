@@ -19,7 +19,7 @@ function csvEscape(value) {
 function cellValue(value) {
   if (value === null || value === undefined) return '';
   if (typeof value === 'object') return `${JSON_CELL_PREFIX}${JSON.stringify(value)}`;
-  return value;
+  return String(value);
 }
 
 const TYPE_HEADERS = Object.freeze({
