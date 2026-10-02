@@ -10,6 +10,28 @@ export async function verifyContosoBaseline(page) {
   await page.locator('[data-view="manager"]').click();
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(7);
   const worklist = page.locator('[data-demo-manager-tasks]');
+  const disclosure = worklist.locator('summary');
+  await expect(disclosure).toContainText('Offene Aufgaben');
+  await expect(disclosure).toContainText('7 offene Aufgaben');
+  await expect(worklist).not.toHaveAttribute('open');
+  expect(await worklist.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThan(150);
+  await disclosure.focus();
+  await expect(disclosure).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(worklist).toHaveAttribute('open', '');
+  const originalViewport = page.viewportSize();
+  for (const width of [320, 640, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const action of await worklist.getByRole('button').all()) {
+      const box = await action.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+  }
+  if (originalViewport) await page.setViewportSize(originalViewport);
+
   await expect(worklist.getByRole('heading', { name: 'Anfragen', exact: true })).toBeVisible();
   await expect(worklist.getByRole('heading', { name: 'Einrichtung & Katalog', exact: true })).toBeVisible();
   await expect(worklist.getByRole('button', { name: /^.+ öffnen$/ })).toHaveCount(7);

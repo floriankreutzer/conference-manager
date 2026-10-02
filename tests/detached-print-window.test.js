@@ -32,6 +32,10 @@ class FakeElement {
 function fakeDocument() {
   const document = {
     title: '',
+    openCount: 0,
+    closeCount: 0,
+    open() { this.openCount += 1; },
+    close() { this.closeCount += 1; },
     createElement: (tagName) => new FakeElement(tagName),
   };
   document.documentElement = new FakeElement('html');
@@ -85,6 +89,8 @@ test('detached print documents detach and allow only the fixed application style
     title: 'Besuchsinformation',
   });
   assert.equal(document.title, 'Besuchsinformation');
+  assert.equal(document.openCount, 1);
+  assert.equal(document.closeCount, 1);
   assert.equal(document.documentElement.lang, 'de');
   const csp = document.head.children.find(
     (node) => node.getAttribute('http-equiv') === 'Content-Security-Policy',

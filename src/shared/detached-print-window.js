@@ -100,6 +100,9 @@ export function initializeDetachedPrintDocument(printWindow, {
     || !title.trim()
   ) throw new TypeError('DETACHED_PRINT_DOCUMENT_INVALID');
   const doc = printWindow.document;
+  // Complete the initially empty document through the parser lifecycle without
+  // writing HTML, so stylesheet loading has an explicit document lifecycle.
+  doc.open();
   const head = doc.createElement('head');
   const body = doc.createElement('body');
   const charset = doc.createElement('meta');
@@ -138,5 +141,6 @@ export function initializeDetachedPrintDocument(printWindow, {
   // Register a handler immediately, including when a caller only reserves a surface.
   ready.catch(() => {});
   stylesheetReadiness.set(printWindow, ready);
+  doc.close();
   return doc;
 }

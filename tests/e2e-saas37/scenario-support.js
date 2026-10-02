@@ -77,7 +77,12 @@ export async function uiResponse(page, method, path, action, expected = 200) {
   // Verify the real UI operation here; scenario reads prove committed payloads
   // through normal authenticated API reads and visible post-action state.
   expect(response.status(), `HTTP status for ${path}`).toBe(expected);
-  expect(response.headers()['content-type']).toContain('application/json');
+  if (expected === 204) {
+    // HTTP 204 has no payload; Chromium does not expose a body for it.
+    expect(response.headers()['content-type']).toBeUndefined();
+  } else {
+    expect(response.headers()['content-type']).toContain('application/json');
+  }
   return response;
 }
 
