@@ -662,7 +662,9 @@ test('EMP-15: every print popup uses the shared detached, secret-free, lifecycle
   assert.match(helper, /script-src 'none'/);
   assert.match(helper, /img-src 'none'/);
   assert.match(helper, /connect-src 'none'/);
-  assert.match(helper, /url\\s\*\\\(|@import|@font-face/);
+  assert.match(helper, /assets\/tokens\.css/);
+  assert.match(helper, /assets\/employee-ux\.css/);
+  assert.doesNotMatch(helper, /createElement\(['"]style['"]\)|unsafe-inline/);
   assert.match(helper, /documentElement[\s\S]*replaceChildren/);
   assert.match(helper, /pagehide', closeDetachedPrintWindows/);
   assert.match(helper, /beforeunload', closeDetachedPrintWindows/);

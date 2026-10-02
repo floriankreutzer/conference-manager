@@ -426,6 +426,12 @@ async function installProductionApplicationFixture(page, {
     requests = nextRequests.map((entry) => structuredClone(entry));
   }
 
+  // Detached windows have their own Page; static print resources share the context.
+  await page.context().route(`${ORIGIN}/assets/{tokens,employee-ux}.css`, async (route) => {
+    const filePath = path.join(ROOT, new URL(route.request().url()).pathname);
+    await route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body: await readFile(filePath) });
+  });
+
   await page.route(`${ORIGIN}/**`, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -2710,9 +2716,34 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
     'content',
     /default-src 'none'.*script-src 'none'.*img-src 'none'.*connect-src 'none'/,
   );
-  await expect(popup.locator('script, link[rel="stylesheet"], img')).toHaveCount(0);
+  await expect(popup.locator('script, style, img')).toHaveCount(0);
+  await expect(popup.locator('link[rel="stylesheet"]')).toHaveCount(2);
+  await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeEnabled();
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
+  await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
+  expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await popup.getByRole('button', { name: 'Drucken / Als PDF speichern' }).focus();
+  await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeFocused();
+  await popup.emulateMedia({ media: 'print' });
+  await expect(popup.locator('.print-action')).toBeHidden();
+  await expect(popup.locator('.guest-print-grid')).toHaveCSS('display', 'grid');
   expect(await popup.evaluate(() => window.opener)).toBeNull();
   await popup.close();
+});
+
+test('EMP-15 unavailable print styles close the detached surface with a recoverable message', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Gästeinformationen' }).click();
+  await page.context().route(`${ORIGIN}/assets/employee-ux.css`, (route) => route.abort());
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('dialog').getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+  const popup = await popupPromise;
+  await expect.poll(() => popup.isClosed()).toBe(true);
+  await expect(page.getByText('Die Druckansicht konnte nicht geladen werden. Bitte erneut versuchen.', { exact: true })).toBeVisible();
 });
 
 test('API-02 print popup is reserved inside the click before Guest context resolves', async ({ page }) => {

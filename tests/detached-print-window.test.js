@@ -17,6 +17,8 @@ class FakeElement {
     this.textContent = '';
   }
 
+  addEventListener() {}
+
   append(...children) { this.children.push(...children); }
 
   replaceChildren(...children) { this.children = children; }
@@ -66,7 +68,7 @@ function fakePrintWindow() {
   };
 }
 
-test('detached print documents detach before access and install a restrictive inline-only surface', () => {
+test('detached print documents detach and allow only the fixed application stylesheets', () => {
   closeDetachedPrintWindows();
   const popup = fakePrintWindow();
   const owner = fakeOwner([popup]);
@@ -94,10 +96,15 @@ test('detached print documents detach before access and install a restrictive in
     "object-src 'none'",
     "form-action 'none'",
   ]) assert.match(csp.getAttribute('content'), new RegExp(directive.replaceAll("'", "\\'")));
-  const style = document.head.children.find((node) => node.tagName === 'STYLE');
-  assert.match(style.textContent, /--print-text:/);
-  assert.match(style.textContent, /@media print/);
-  assert.doesNotMatch(style.textContent, /url\s*\(|@import|https?:/iu);
+  const links = document.head.children.filter((node) => node.tagName === 'LINK');
+  assert.equal(links.length, 2);
+  assert.deepEqual(links.map((node) => node.getAttribute('href')), [
+    new URL('../assets/tokens.css', import.meta.url).href,
+    new URL('../assets/employee-ux.css', import.meta.url).href,
+  ]);
+  assert.equal(document.head.children.some((node) => node.tagName === 'STYLE'), false);
+  assert.equal(document.body.className, 'guest-print-document');
+  assert.doesNotMatch(DETACHED_PRINT_CSP, /unsafe-inline|https?:\/\/(?!127)/);
 
   owner.dispatch('pagehide');
   assert.equal(popup.closeCount, 1);

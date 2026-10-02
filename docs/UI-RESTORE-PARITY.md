@@ -380,3 +380,22 @@ record for the deleted implementation.
   active.
 - An automated repository test prevents accidental removal or weakening of this inventory.
 - No application runtime, persistence or authorization behavior is changed by #179.
+
+## Product Owner Guest-export correction — 2 October 2026
+
+Issue #256 records an actual iPhone/Safari export showing unstyled HTML. Text-only
+Guest assertions in #225 were insufficient visual parity evidence. The approved
+reference remains `b7c86e78add729dd8172a23af49fb1329e136b7c` /
+`src/employee/welcome-print.js`: dark welcome hero, Camel accent, schedule/Room facts
+and visit cards. The candidate restores that hierarchy using the canonical
+`assets/tokens.css` and scoped Guest rules in `assets/employee-ux.css`. The detached
+window loads only those two fixed same-origin stylesheets; it does not attempt to
+relax its inherited CSP through inline CSS. The print action waits for stylesheet
+load, and a failure clears/closes the document with DE/EN recovery feedback.
+
+The current minimized authenticated Guest projection, structured-public-values
+policy, no-secret/no-internal-ID output and lock/session/context invalidation remain
+authoritative. Historical Wi-Fi secrets, browser repositories and external QR
+sources are not restored. Exact-head Chromium/WebKit computed-style, reflow,
+keyboard, print-media and stylesheet-failure checks are required before #256 closes.
+This candidate is not a deployed or final #170/#164 acceptance claim.

@@ -41,6 +41,7 @@ import {
   closeDetachedPrintWindow,
   closeDetachedPrintWindows,
   initializeDetachedPrintDocument,
+  detachedPrintStylesReady,
   openDetachedPrintWindow,
 } from '../shared/detached-print-window.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
@@ -417,41 +418,67 @@ export function createProductionEmployeeApplication({
       ? [address.line1, address.line2, `${address.postalCode} ${address.city}`, address.countryCode]
         .filter(Boolean).join(', ')
       : t('guest.askOrganizer');
-    const heading = doc.createElement('h1');
-    heading.textContent = t('guest.welcome', {
+    const node = (tag, text = '', className = '') => {
+      const element = doc.createElement(tag);
+      element.textContent = text;
+      element.className = className;
+      return element;
+    };
+    const hero = node('header', '', 'guest-print-hero');
+    const heading = node('h1', t('guest.welcome', {
       title: request.details?.title || t('guest.title'),
-    });
-    const list = doc.createElement('dl');
+    }));
+    hero.append(node('small', t('app.title')), heading, node('p', t('guest.subtitle')));
+    const content = node('main', '', 'guest-print-content');
+    const details = guestPresentationDetails(guest, currentRoomContext);
+    const list = (rows) => {
+      const result = node('dl');
+      rows.forEach(([term, value]) => result.append(node('dt', term), node('dd', value)));
+      return result;
+    };
+    const card = (title, rows, className = '') => {
+      const section = node('section', '', `guest-print-card ${className}`);
+      section.append(node('h2', title), list(rows));
+      return section;
+    };
+    const facts = node('section', '', 'guest-print-facts');
     [
-      [t('production.employee.start'), formattedRequestValue(
-        request.startsAt, room, catalog, currentRoomContext,
-      )],
-      [t('production.employee.end'), formattedRequestValue(
-        request.endsAt, room, catalog, currentRoomContext,
-      )],
+      [t('production.employee.start'), formattedRequestValue(request.startsAt, room, catalog, currentRoomContext)],
+      [t('production.employee.end'), formattedRequestValue(request.endsAt, room, catalog, currentRoomContext)],
       [t('production.employee.room'), room ? roomLabel(room) : t('guest.askOrganizer')],
-      [t('guest.address'), formattedAddress],
-      ...guestPresentationDetails(guest, currentRoomContext),
-    ].forEach(([term, value]) => {
-      const dt = doc.createElement('dt');
-      const dd = doc.createElement('dd');
-      dt.textContent = term;
-      dd.textContent = value;
-      list.append(dt, dd);
+      [t('schedule.location'), site?.name || t('guest.askOrganizer')],
+    ].forEach((row) => {
+      const fact = node('article', '', 'guest-print-card');
+      fact.append(list([row]));
+      facts.append(fact);
     });
+    const grid = node('div', '', 'guest-print-grid');
+    const directions = card(t('guest.address'), [
+      [t('guest.address'), formattedAddress], details[1], details[2], details[3],
+    ]);
+    grid.append(directions, card(t('guest.contact'), [details[0], details[4], details[5]]));
+    content.append(facts, grid, card(t('guest.wifi'), [details[6]], 'guest-print-wifi'));
     const route = guest?.routeUrl ? doc.createElement('a') : null;
     if (route) {
       route.href = guest.routeUrl;
       route.target = '_blank';
       route.rel = 'noopener noreferrer';
       route.textContent = t('guest.route');
+      directions.append(route);
     }
     const print = doc.createElement('button');
     print.type = 'button';
     print.className = 'print-action';
     print.textContent = t('guest.print');
+    print.disabled = true;
     print.addEventListener('click', () => printWindow.print());
-    doc.body.append(heading, list, ...(route ? [route] : []), print);
+    doc.body.append(print, hero, content);
+    detachedPrintStylesReady(printWindow).then(() => {
+      if (!printWindow.closed && doc.body.contains(print)) print.disabled = false;
+    }).catch(() => {
+      closeDetachedPrintWindow(printWindow);
+      showToast(t('guest.printUnavailable'));
+    });
     printWindow.focus();
     return true;
   }
