@@ -4288,11 +4288,12 @@ test('Tenant Admin bulk surfaces expose only owned types and apply a receipt-bou
     options.map(({ value }) => value)
   ))).toEqual(['sites', 'rooms']);
   await locationsBulk.locator('select').selectOption('rooms');
-  const documentValue = { schemaVersion: 1, type: 'rooms', rows: [] };
   await locationsBulk.locator('input[type="file"]').setInputFiles({
-    name: 'rooms.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(documentValue)),
+    name: 'rooms.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(
+      '"id","name","description","capacity","active","floor","equipment","accessibility","serviceIds","cateringPackageIds","guestPublicValues"\\r\\n',
+    ),
   });
   await locationsBulk.getByRole('button', { name: 'Datei prüfen' }).click();
   await expect(locationsBulk.getByRole('status')).toContainText('gültig und enthält Änderungen');
