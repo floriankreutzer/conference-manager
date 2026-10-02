@@ -38,13 +38,13 @@ function headersFor(documentValue) {
 }
 
 export function tenantBulkDocumentToCsv(documentValue) {
-  if (!document || document.schemaVersion !== 1 || typeof document.type !== 'string'
-    || !Array.isArray(document.rows)) throw new TypeError('TENANT_BULK_DOCUMENT_INVALID');
-  const headers = headersFor(document);
+  if (!document || documentValue.schemaVersion !== 1 || typeof documentValue.type !== 'string'
+    || !Array.isArray(documentValue.rows)) throw new TypeError('TENANT_BULK_DOCUMENT_INVALID');
+  const headers = headersFor(documentValue);
   const lines = [
-    `# conference-manager-bulk-v1,type=${document.type}`,
+    `# conference-manager-bulk-v1,type=${documentValue.type}`,
     headers.map(csvEscape).join(','),
-    ...document.rows.map((row) => headers.map((header) => csvEscape(cellValue(row[header]))).join(',')),
+    ...documentValue.rows.map((row) => headers.map((header) => csvEscape(cellValue(row[header]))).join(',')),
   ];
   return `${lines.join('\r\n')}\r\n`;
 }
@@ -69,16 +69,18 @@ function parseCsvRows(text) {
   return rows;
 }
 
-function decodeCell(value) {
+const NUMBER_COLUMNS = new Set(['capacity', 'order']);
+const BOOLEAN_COLUMNS = new Set(['active']);
+
+function decodeCell(value, header) {
   if (value.startsWith(JSON_CELL_PREFIX)) return JSON.parse(value.slice(JSON_CELL_PREFIX.length));
   if (value.startsWith("'") && DANGEROUS_CELL.test(value.slice(1))) return value.slice(1);
   if (value === '') return null;
-  if (/^-?\d+$/.test(value)) {
+  if (NUMBER_COLUMNS.has(header) && /^-?\d+$/.test(value)) {
     const number = Number(value);
     if (Number.isSafeInteger(number)) return number;
   }
-  if (value === 'true') return true;
-  if (value === 'false') return false;
+  if (BOOLEAN_COLUMNS.has(header) && ['true', 'false'].includes(value)) return value === 'true';
   return value;
 }
 
@@ -103,7 +105,7 @@ export function tenantBulkCsvToDocument(text, expectedType) {
     schemaVersion: 1,
     type: expectedType,
     rows: dataRows.map((entry) => Object.fromEntries(headers
-      .map((header, index) => [header, decodeCell(entry[index])])
+      .map((header, index) => [header, decodeCell(entry[index], header)])
       .filter(([header, value]) => header === 'id' || value !== null))),
   };
 }
