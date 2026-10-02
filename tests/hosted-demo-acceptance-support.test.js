@@ -12,6 +12,7 @@ const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const FRONTEND_REF = 'c614f2bdb36c48199daacc2cc7bb0d0154b80f64';
 const RUNTIME_REF = '62ad13bce72d3d99e02a39b5f96f1078fecc7e2f';
+const PREVIOUS_RUNTIME_REF = '9c0f75c3d414968c18df9117214f3dc62be52c13';
 const ORIGINAL_RUNTIME_REF = '4c75825d10082cb3860c07485cf7c98c3b608233';
 const ORIGINAL_CHECKSUM = '2a15426e761f6efb78409394888d6799e3f00c7e13500d8b937d1d0cece579f6';
 const SEED_VERSION = 'saas-3.7-three-demo-customers-v1';
@@ -134,6 +135,16 @@ test('corrected and original SaaS 3.7 runtimes reject each other\'s checksum', a
     }), /HOSTED_DEMO_RESET_CANONICAL_CHECKSUM_INVALID/);
     assert.equal(responses.length, 0);
   }
+});
+
+test('hosted Demo cleanup retains the previous promoted SaaS 3.7 runtime binding', async () => {
+  const responses = successfulCleanupResponses(CHECKSUM);
+  const result = await resetHostedDemoBaseline({
+    fetchImpl: async () => responses.shift(), origin: PLATFORM_ORIGIN,
+    expectedRuntimeRef: PREVIOUS_RUNTIME_REF,
+  });
+  assert.deepEqual(result, { seedVersion: SEED_VERSION, checksum: CHECKSUM });
+  assert.equal(responses.length, 0);
 });
 
 test('hosted Demo cleanup retains the explicit historical SaaS 3.6 runtime binding', async () => {
