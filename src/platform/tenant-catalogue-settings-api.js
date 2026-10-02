@@ -151,13 +151,25 @@ export function createTenantCatalogueSettingsApi({ apiClient } = {}) {
   const bulk = createTenantBulkSettingsApi({
     apiClient,
     basePath: CURRENT_PATH,
-    types: ['services', 'catering-items', 'catering-packages'],
+    types: ['services', 'equipment', 'catering-items', 'catering-packages'],
     normalizeApplied: current,
   });
   return Object.freeze({
     ...bulk,
     async listDemoMedia() {
       return apiClient.request('v1/demo/media');
+    },
+    async createDemoCatalogueImage(ownerKind, ownerId, file) {
+      if (typeof apiClient.createDemoCatalogueImage !== 'function') {
+        throw new TenantCatalogueSettingsApiError('DEMO_MEDIA_UNAVAILABLE');
+      }
+      return apiClient.createDemoCatalogueImage(ownerKind, ownerId, file);
+    },
+    async removeDemoCatalogueImage(assetId) {
+      if (typeof apiClient.removeDemoCatalogueImage !== 'function') {
+        throw new TenantCatalogueSettingsApiError('DEMO_MEDIA_UNAVAILABLE');
+      }
+      return apiClient.removeDemoCatalogueImage(assetId);
     },
     async replaceDemoCatalogueImage(assetId, file) {
       if (typeof apiClient.replaceDemoCatalogueImage !== 'function') {
