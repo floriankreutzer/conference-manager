@@ -429,6 +429,8 @@ export function createManagerBusinessSettingsApplication({
               catalogue: { ...current.catalogue,
                 [collection]: [...current.catalogue[collection], entryValue] },
             });
+            // The aggregate revision changed. Re-render after attaching the image so
+            // a later form submit cannot overwrite the newer authoritative revision.
           }
           const created = await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
           media = { id: created.assetId, url: created.url, altText: editor.entry.name };
@@ -438,6 +440,11 @@ export function createManagerBusinessSettingsApplication({
           });
           surface.prepend(preview);
           picker.accept = 'image/webp';
+          if (!exists) {
+            showToast(t('managerSettings.catalogue.imageSaved'));
+            await renderManagerSettings({ focusHeading: true });
+            return;
+          }
           save.textContent = t('managerSettings.catalogue.imageReplace');
         }
         if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
