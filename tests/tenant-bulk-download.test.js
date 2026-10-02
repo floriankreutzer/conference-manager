@@ -134,7 +134,7 @@ function elementsByTag(root, tagName) {
   return result;
 }
 
-test('template and export buttons download trusted JSON blobs and revoke their object URLs', async (context) => {
+test('template and export buttons download trusted CSV blobs and revoke their object URLs', async (context) => {
   const previous = {
     HTMLInputElement: globalThis.HTMLInputElement,
     HTMLTextAreaElement: globalThis.HTMLTextAreaElement,
@@ -215,19 +215,20 @@ test('template and export buttons download trusted JSON blobs and revoke their o
   assert.deepEqual(document.downloads, [
     {
       connected: true,
-      download: 'sites-template.json',
+      download: 'sites-template.csv',
       href: 'blob:https://conference.test/download-1',
     },
     {
       connected: true,
-      download: 'sites-revision-7.json',
+      download: 'sites-revision-7.csv',
       href: 'blob:https://conference.test/download-2',
     },
   ]);
   assert.equal(document.body.childNodes.length, 0);
   assert.equal(created.length, 2);
-  assert.equal(await created[0].text(), `${JSON.stringify(templateDocument, null, 2)}\n`);
-  assert.equal(await created[1].text(), `${JSON.stringify(exportDocument, null, 2)}\n`);
+  assert.equal(await created[0].text(), '"id","name","active","timeZone","guestPresentation"\\r\\n');
+  assert.equal(await created[1].text(),
+    '"id","name","active","timeZone","guestPresentation"\\r\\n"site-a","Site A","","",""\\r\\n');
 
   await new Promise((resolve) => { setTimeout(resolve, 5); });
   assert.deepEqual(revoked, [
@@ -248,7 +249,7 @@ test('template and export buttons download trusted JSON blobs and revoke their o
   adapter.loadBulkTemplate = async () => { throw new Error('download failed'); };
   await templateButton.dispatch('click');
   assert.equal(templateButton.disabled, false);
-  assert.equal(elementsByTag(panel, 'p').at(-1).textContent, 'Die JSON-Datei konnte nicht sicher heruntergeladen werden.');
+  assert.equal(elementsByTag(panel, 'p').at(-1).textContent, 'Die CSV-Datei konnte nicht sicher heruntergeladen werden.');
 
   const deferred = () => {
     let resolve;
@@ -283,8 +284,8 @@ test('template and export buttons download trusted JSON blobs and revoke their o
   const [, , validate, apply] = elementsByTag(racePanel, 'button');
   const sitesDocument = { schemaVersion: 1, type: 'sites', rows: [] };
   const roomsDocument = { schemaVersion: 1, type: 'rooms', rows: [] };
-  const sitesFile = { size: 20, async text() { return JSON.stringify(sitesDocument); } };
-  const roomsFile = { size: 20, async text() { return JSON.stringify(roomsDocument); } };
+  const sitesFile = { size: 20, async text() { return '"id"\\r\\n'; } };
+  const roomsFile = { size: 20, async text() { return '"id"\\r\\n'; } };
 
   raceType.value = 'sites';
   raceFile.files = [sitesFile];
