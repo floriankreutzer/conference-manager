@@ -219,6 +219,9 @@ async function openTenantAdministration(page) {
   await expect(page.locator(
     '[data-tenant-admin-section-content="users"] .tenant-operations-result-status',
   )).toHaveText('2 Benutzer geladen.');
+  // Explicit section navigation completes its animation-frame heading focus
+  // before the keyboard user moves into the filter form.
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toBeFocused();
 }
 
 test('REG-01: Tenant Admin manages elevated roles through the production API with CSRF and keyboard focus', async ({ page }) => {

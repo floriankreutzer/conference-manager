@@ -52,7 +52,7 @@ test('shared Demo CI uses bounded request capacity only for the complete cross-b
   assert.equal(capacityDeclarations.length, 1);
   assert.match(
     workflow,
-    /shared-demo-e2e:[\s\S]*?timeout-minutes: 30\s+env:\s+DEMO_RATE_LIMIT_MAX: '1000'\s+services:/,
+    /shared-demo-e2e:[\s\S]*?timeout-minutes: 45\s+env:\s+DEMO_RATE_LIMIT_MAX: '1000'\s+services:/,
   );
   assert.doesNotMatch(
     workflow,

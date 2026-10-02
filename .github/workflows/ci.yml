@@ -69,6 +69,8 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Verify Guest print loading and recovery in both engines
         run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled"
+      - name: Verify Tenant Admin keyboard lifecycle after navigation focus
+        run: npx playwright test tests/e2e/tenant-role-administration.spec.js --grep "Tenant Admin lifecycle"
       - name: Run browser end-to-end tests
         run: npm run test:e2e
       - name: Upload browser report and Guest PDF evidence
@@ -82,7 +84,7 @@ jobs:
   shared-demo-e2e:
     runs-on: ubuntu-latest
     needs: quality
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       DEMO_RATE_LIMIT_MAX: '1000'
     services:
@@ -205,19 +207,6 @@ jobs:
         env:
           DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
         run: npm run test:e2e:shared-demo
-      - name: Run full three-customer progression and two-cycle reset acceptance
-        working-directory: frontend
-        env:
-          DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
-        run: npm run test:e2e:saas37
-      - name: Upload scenario evidence and bounded browser report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: saas37-scenario-report
-          path: frontend/playwright-report-saas37/
-          if-no-files-found: error
-          retention-days: 30
       - name: Verify manager worklist at actual 200 percent Chromium tab zoom
         working-directory: frontend
         env:
@@ -231,6 +220,19 @@ jobs:
           name: manager-worklist-browser-zoom-evidence
           path: frontend/test-results-worklist-zoom/
           if-no-files-found: ignore
+          retention-days: 30
+      - name: Run full three-customer progression and two-cycle reset acceptance
+        working-directory: frontend
+        env:
+          DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
+        run: npm run test:e2e:saas37
+      - name: Upload scenario evidence and bounded browser report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: saas37-scenario-report
+          path: frontend/playwright-report-saas37/
+          if-no-files-found: error
           retention-days: 30
       - name: Stop Demo API processes
         if: always()

@@ -2,8 +2,10 @@
 
 ## Scope and defect corrections
 
-Frontend issue #215 remains the release gate. Passing the earlier shared journey
-only proved initial task/onboarding state, not the complete scenario progression.
+Frontend issue #215 is closed; its accepted release evidence remains historical.
+The same complete journey is a permanent regression gate for subsequent changes.
+Passing the earlier shared journey only proved initial task/onboarding state,
+not the complete scenario progression.
 The dedicated `npm run test:e2e:saas37` suite exercises actual PostgreSQL state,
 normal authorized HTTP routes and visible UI. It does not mock provider or
 application routes, seed browser storage, bypass lifecycle, or edit database rows.
@@ -74,7 +76,7 @@ Regression coverage includes bounds, unknown fields, legacy envelopes and
 literal markup rendering without element creation; the real scenario requires
 all ten seeded descriptions in their visible preview dialogs.
 
-## Corrected live release binding
+## Historical live release binding before the current corrections
 
 The existing Render services deployed API merge `9c0f75c3d414968c18df9117214f3dc62be52c13`
 with frontend `c1fee5e2c4f1d472174d194697dd635a5a9b0aef`. Subsequent frontend
@@ -98,8 +100,9 @@ seed label. Active tenants must get 404 for foreign requests; unfinished
 Fabrikam is denied earlier by lifecycle with 403. Foreign media must return
 404 for all three tenants. This matches the existing authorization boundaries.
 
-Successful current-head isolated and live evidence is still required before
-closing #215 or the milestone; these configured gates alone are not acceptance.
+This historical checkpoint preceded #215 closure. Subsequent changes still need
+successful current-head isolated and live evidence; configured gates alone are
+not acceptance and do not reopen accepted historical milestone decisions.
 
 ## Browser response lifetime
 
@@ -161,6 +164,21 @@ seed/checksum are unchanged. This supersedes the isolated WebKit-only proposal
 in PR #227; successful current-head gates remain required before integration.
 
 ## Current Guest/media/worklist acceptance correction (2026-10-02)
+
+The expanded Chromium API journey passed both complete cycles in run
+`37075649131` (8.0 minutes). WebKit reached the second Northwind booking at the
+former 600-second aggregate cap; it reported no failed business/security
+assertion before that deadline, but its incomplete run is not acceptance.
+Six mandatory rate windows consume 366 seconds per browser. The bounded
+isolated budget is now 900 seconds per browser and 1920 seconds serially;
+hosted uses 960 and 2040 seconds. The hosted job permits 65 minutes and reserves
+55 minutes before destructive work: 12 for the cross-role suite, 34 for full
+scenarios and the same nine-minute cleanup/identity margin. The isolated CI job
+permits 45 minutes for setup, both suites, actual zoom and teardown. Action,
+navigation, assertion, retry, TLS, rate and security limits remain unchanged.
+The actual headed Chromium worklist zoom check runs before the full scenarios;
+the following scenario starts in its existing fresh rate window and resets the
+canonical baseline independently.
 
 PR #225 is integrated and #227 closed as superseded. PR #257 preserves every
 customer, authority, baseline-count and two-reset assertion, while adding actual
