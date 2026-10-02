@@ -182,35 +182,40 @@ function validateRequiredTrimmedText(fields) {
 }
 
 function priceControls(price, { amountRequired = true } = {}) {
-  const amountMinor = numberInput(price.amountMinor, { required: amountRequired });
+  const attrs = { min: '0', max: '10000000', step: '0.01', inputmode: 'decimal' };
+  if (amountRequired) attrs.required = 'required';
+  const amountMinor = el('input', {
+    type: 'number',
+    value: price.amountMinor === '' ? '' : (Number(price.amountMinor) / 100).toFixed(2),
+    attrs,
+  });
   const currency = el('select', {}, CURRENCIES.map((value) => el('option', { value, text: value })));
   currency.value = price.currency;
   return { amountMinor, currency };
 }
 
-function priceFromControls(controls) {
-  return {
-    amountMinor: Number(controls.amountMinor.value),
-    currency: controls.currency.value,
-  };
+function minorUnitsFromAmount(value, code = 'MANAGER_PRICE_INVALID') {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  if (!/^\\d{1,8}(?:\\.\\d{1,2})?$/.test(raw)) throw new TypeError(code);
+  const amountMinor = Math.round(Number(raw) * 100);
+  if (!Number.isSafeInteger(amountMinor) || amountMinor < 0 || amountMinor > 1_000_000_000) {
+    throw new TypeError(code);
+  }
+  return amountMinor;
 }
 
-export function catalogueRoomPriceValue(roomId, amountMinor, currency) {
-  const rawAmount = String(amountMinor ?? '').trim();
-  if (!rawAmount) return null;
-  const normalizedAmount = Number(rawAmount);
-  if (
-    !Number.isSafeInteger(normalizedAmount)
-    || normalizedAmount < 0
-    || normalizedAmount > 1_000_000_000
-    || !CURRENCIES.includes(currency)
-  ) {
-    throw new TypeError('MANAGER_ROOM_PRICE_INVALID');
-  }
-  return {
-    roomId,
-    price: { amountMinor: normalizedAmount, currency },
-  };
+function priceFromControls(controls) {
+  const amountMinor = minorUnitsFromAmount(controls.amountMinor.value);
+  if (amountMinor === null) throw new TypeError('MANAGER_PRICE_REQUIRED');
+  return { amountMinor, currency: controls.currency.value };
+}
+
+export function catalogueRoomPriceValue(roomId, amount, currency) {
+  const amountMinor = minorUnitsFromAmount(amount, 'MANAGER_ROOM_PRICE_INVALID');
+  if (amountMinor === null) return null;
+  if (!CURRENCIES.includes(currency)) throw new TypeError('MANAGER_ROOM_PRICE_INVALID');
+  return { roomId, price: { amountMinor, currency } };
 }
 
 function commonEntryEditor(entry, prefix) {
