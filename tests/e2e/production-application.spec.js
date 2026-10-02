@@ -3784,8 +3784,8 @@ test('detached Manager Business Settings save 403 still invalidates the newer sh
     });
   });
 
-  await page.locator('[data-tenant-settings-form="locations-technical"]')
-    .getByRole('button', { name: 'Änderungen speichern', exact: true }).click();
+  await page.locator('[data-manager-business-settings-root] form')
+    .getByRole('button', { name: 'Speichern', exact: true }).click();
   await failureStarted;
   await page.locator('[data-view="welcome"]').click();
   await expect(page.locator('#welcomeHeading')).toBeVisible();
@@ -3859,7 +3859,8 @@ test('detached Tenant Admin save 403 cannot preserve Locations or Welcome author
     });
   });
 
-  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await page.locator('[data-tenant-settings-form="locations-technical"]')
+    .getByRole('button', { name: 'Änderungen speichern', exact: true }).click();
   await failureStarted;
   await page.locator('[data-view="welcome"]').click();
   releaseFailure();
