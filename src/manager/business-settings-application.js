@@ -757,7 +757,6 @@ export function createManagerBusinessSettingsApplication({
       }
       return { room, controls, nameField, publicGuest, node };
     });
-    let catalogueRevision = snapshot.revision;
     const form = el('form');
     editors.forEach((editor) => form.appendChild(editor.node));
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
@@ -865,6 +864,7 @@ export function createManagerBusinessSettingsApplication({
       t(section === 'services' ? 'managerSettings.services.description' : 'managerSettings.catering.description'),
     );
     renderRoot.appendChild(sectionNavigation());
+    let catalogueRevision = snapshot.revision;
     const form = el('form');
     const sections = section === 'services'
       ? [
