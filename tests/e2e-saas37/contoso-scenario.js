@@ -86,9 +86,13 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const variant = page.locator('[data-catalogue-variant-id]');
   await variant.locator('input[id$="-name"]').fill('Standard');
   await variant.locator('input[id$="-amount"]').fill('9.00');
-  await uiResponse(page, 'PUT', CATALOGUE_PATH,
-    () => page.locator('form').filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') })
-      .getByRole('button', { name: 'Speichern', exact: true }).click());
+  const cateringForm = page.locator('form')
+    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
+  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
+  await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
+  // The response arrives before the submit listener's authoritative reload.
+  // Require the newly rendered enabled form before interacting with its media editors.
+  await expect(saveCatering).toBeEnabled();
   const itemEditor = page.locator('[data-catalogue-entry-id="cateringItems-1"]');
   await itemEditor.locator('input[type="file"]').setInputFiles({
     name: 'contoso-coffee.png', mimeType: 'image/png', buffer: PNG,
