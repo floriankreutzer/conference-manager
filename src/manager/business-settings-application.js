@@ -386,41 +386,65 @@ export function createManagerBusinessSettingsApplication({
   let renderRevision = 0;
   const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
 
-  function demoCateringImage(editor, media, revision, renderRoot) {
-    if (!media || typeof catalogue.replaceDemoCatalogueImage !== 'function') return;
+  function demoCateringImage(editor, media, ownerKind, revision, renderRoot) {
+    if (!demoRuntime) return;
+    const canCreate = typeof catalogue.createDemoCatalogueImage === 'function';
+    const canReplace = typeof catalogue.replaceDemoCatalogueImage === 'function';
+    const canRemove = typeof catalogue.removeDemoCatalogueImage === 'function';
+    if ((!media && !canCreate) || (media && !canReplace)) return;
     const surface = el('section', { className: 'room-asset-panel' });
-    const preview = el('img', {
-      className: 'room-asset-visual media',
-      attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+    if (media) {
+      surface.appendChild(el('img', {
+        className: 'room-asset-visual media',
+        attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+      }));
+    }
+    const picker = el('input', {
+      type: 'file',
+      attrs: { accept: media ? 'image/webp' : 'image/png,image/jpeg,image/webp' },
     });
-    const picker = el('input', { type: 'file', attrs: { accept: 'image/webp' } });
-    const save = button(t('managerSettings.catalogue.imageReplace'));
+    const save = button(t(media
+      ? 'managerSettings.catalogue.imageReplace'
+      : 'managerSettings.catalogue.imageCreate'));
     save.addEventListener('click', async () => {
       if (!picker.files?.[0]) { picker.focus(); return; }
       save.disabled = true;
       try {
-        await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
-        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
-        // The private Demo media contract rejects query parameters and already
-        // returns Cache-Control: private, no-store. Reattach the same URL so the
-        // browser performs a fresh authenticated read without weakening that
-        // strict route contract.
-        preview.removeAttribute('src');
-        preview.src = media.url;
-        picker.value = '';
-        save.disabled = false;
+        if (media) await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
+        else await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
+        if (!isCurrentRender(revision, renderRoot) || !['services', 'catering', 'catalogue'].includes(section)) return;
         showToast(t('managerSettings.catalogue.imageSaved'));
+        await renderManagerSettings({ focusHeading: true });
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
-        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        if (!isCurrentRender(revision, renderRoot)) return;
         save.disabled = false;
         showToast(t('managerSettings.catalogue.imageError'));
       }
     });
-    surface.append(preview, field({
-      id: `manager-catering-image-${media.id}`,
+    surface.append(field({
+      id: `manager-catering-image-${media?.id || editor.entry.id}`,
       label: t('managerSettings.catalogue.imageFile'), control: picker, optional: true,
+      hint: media ? undefined : t('managerSettings.catalogue.imageCreateHint'),
     }), save);
+    if (media && canRemove) {
+      const remove = button(t('managerSettings.catalogue.imageRemove'), { className: 'secondary' });
+      remove.addEventListener('click', async () => {
+        remove.disabled = true;
+        try {
+          await catalogue.removeDemoCatalogueImage(media.id);
+          if (!isCurrentRender(revision, renderRoot)) return;
+          showToast(t('managerSettings.catalogue.imageRemoved'));
+          await renderManagerSettings({ focusHeading: true });
+        } catch (error) {
+          if (handleAuthorityFailure(error)) return;
+          if (!isCurrentRender(revision, renderRoot)) return;
+          remove.disabled = false;
+          showToast(t('managerSettings.catalogue.imageError'));
+        }
+      });
+      surface.appendChild(remove);
+    }
     editor.node.appendChild(surface);
   }
 
@@ -757,7 +781,7 @@ export function createManagerBusinessSettingsApplication({
       if (collection === 'cateringItems' && demoMedia) {
         for (const editor of editors) demoCateringImage(editor,
           demoMedia.find((asset) => asset.ownerKind === 'catering_item' && asset.ownerId === editor.entry.id),
-          revision, renderRoot);
+          'catering-item', revision, renderRoot);
       }
       const add = button(t('managerSettings.catalogue.addEntry'), {
         dataset: { addCatalogueEntry: collection },
@@ -788,7 +812,7 @@ export function createManagerBusinessSettingsApplication({
     if (demoMedia) {
       for (const editor of packageEditors) demoCateringImage(editor,
         demoMedia.find((asset) => asset.ownerKind === 'catering_package' && asset.ownerId === editor.entry.id),
-        revision, renderRoot);
+        'catering-package', revision, renderRoot);
     }
     if (demoMedia === null) form.appendChild(el('p', {
       className: 'error-box', text: t('managerSettings.catalogue.imageLoadError'),
