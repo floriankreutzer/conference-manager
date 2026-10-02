@@ -872,6 +872,9 @@ export function createManagerBusinessSettingsApplication({
         const editor = commonEntryEditor(entry, `manager-catalogue-${collection}`);
         editors.push(editor);
         surface.appendChild(editor.node);
+        if (collection === 'cateringItems') {
+          demoCateringImage(editor, null, 'catering-item', revision, renderRoot);
+        }
         add.disabled = editors.length >= COLLECTION_LIMITS[collection];
         editor.controls.name.focus();
       });
@@ -907,6 +910,7 @@ export function createManagerBusinessSettingsApplication({
       const editor = packageEditor(entry);
       packageEditors.push(editor);
       packageSurface.appendChild(editor.node);
+      demoCateringImage(editor, null, 'catering-package', revision, renderRoot);
       addPackage.disabled = packageEditors.length >= COLLECTION_LIMITS.cateringPackages;
       editor.controls.name.focus();
     });
