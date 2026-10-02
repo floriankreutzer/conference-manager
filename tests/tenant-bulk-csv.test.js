@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   tenantBulkCsvToDocument,
   tenantBulkDocumentToCsv,
-} from '../src/shared/tenant-bulk-transfer-panel.js';
+} from '../src/shared/tenant-bulk-csv.js';
 
 test('CSV bulk presentation round-trips bounded nested catalogue values', () => {
   const document = {
