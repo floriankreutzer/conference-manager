@@ -398,7 +398,7 @@ export function createManagerBusinessSettingsApplication({
     const canRemove = typeof catalogue.removeDemoCatalogueImage === 'function';
     if ((!media && !canCreate) || (media && !canReplace)) return;
     const surface = el('section', { className: 'room-asset-panel' });
-    const preview = media ? el('img', {
+    let preview = media ? el('img', {
       className: 'room-asset-visual media',
       attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
     }) : null;
@@ -415,7 +415,15 @@ export function createManagerBusinessSettingsApplication({
       save.disabled = true;
       try {
         if (media) await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
-        else await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
+        else {
+          const created = await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
+          media = { id: created.assetId, url: created.url, altText: editor.entry.name };
+          preview = el('img', {
+            className: 'room-asset-visual media',
+            attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+          });
+          surface.prepend(preview);
+        }
         if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
         if (preview) {
           preview.removeAttribute('src');
@@ -423,9 +431,6 @@ export function createManagerBusinessSettingsApplication({
           picker.value = '';
           save.disabled = false;
           showToast(t('managerSettings.catalogue.imageSaved'));
-        } else {
-          showToast(t('managerSettings.catalogue.imageSaved'));
-          await renderManagerSettings({ focusHeading: true });
         }
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
