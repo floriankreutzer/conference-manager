@@ -53,63 +53,41 @@ test('a failed UI response waiter is surfaced without replaying the mutation', a
   assert.equal(actionCount, 1);
 });
 
-function geometryHarness(samples) {
-  let reads = 0;
+function actionabilityHarness({ blocked = false } = {}) {
+  let trials = 0;
   let scrolls = 0;
   const control = {
     async scrollIntoViewIfNeeded(options) {
       assert.equal(options.timeout, 15_000);
       scrolls += 1;
     },
-    async evaluate(read) {
-      const sample = samples[Math.min(reads, samples.length - 1)];
-      reads += 1;
-      const element = {
-        getBoundingClientRect: () => ({ x: 10, y: sample.y, width: 100, height: 30 }),
-        contains: () => false,
-        ownerDocument: { elementFromPoint: () => (sample.hit ? element : null) },
-      };
-      return read(element);
+    async click(options) {
+      assert.equal(options.trial, true);
+      assert.equal(options.timeout, 15_000);
+      assert.deepEqual(Object.keys(options).sort(), ['timeout', 'trial']);
+      trials += 1;
+      if (blocked) throw new Error('CONTROL_NOT_ACTIONABLE');
     },
   };
-  const expect = {
-    poll(read, options) {
-      assert.equal(options.timeout, 10_000);
-      assert.equal(Array.from(options.intervals).join(','), '100,100,250');
-      return {
-        async toBe(expected) {
-          for (let attempt = 0; attempt < 8; attempt += 1) {
-            if (await read() === expected) return;
-          }
-          throw new Error('CONTROL_NOT_STABLE');
-        },
-      };
-    },
-  };
-  return { control, expect, reads: () => reads, scrolls: () => scrolls };
+  return { control, trials: () => trials, scrolls: () => scrolls };
 }
 
-test('pointer guard requires repeated stationary geometry and an unobstructed hit target', async () => {
-  const harness = geometryHarness([
-    { y: 50, hit: false },
-    { y: 60, hit: true },
-    { y: 65, hit: true },
-    { y: 65, hit: true },
-    { y: 65, hit: true },
-  ]);
-  const settle = helper('waitForStableControl', 'switchPlatformThroughUi', { expect: harness.expect });
+test('pointer guard uses one non-mutating Playwright actionability trial', async () => {
+  const harness = actionabilityHarness();
+  const settle = helper('waitForStableControl', 'switchPlatformThroughUi', {});
   await settle(harness.control);
-  assert.equal(harness.reads(), 5);
+  assert.equal(harness.trials(), 1);
   assert.equal(harness.scrolls(), 1);
 });
 
 test('pointer guard rejects an obscured target instead of forcing a click', async () => {
-  const harness = geometryHarness([{ y: 65, hit: false }]);
-  const settle = helper('waitForStableControl', 'switchPlatformThroughUi', { expect: harness.expect });
-  await assert.rejects(settle(harness.control), /CONTROL_NOT_STABLE/);
+  const harness = actionabilityHarness({ blocked: true });
+  const settle = helper('waitForStableControl', 'switchPlatformThroughUi', {});
+  await assert.rejects(settle(harness.control), /CONTROL_NOT_ACTIONABLE/);
   assert.equal(harness.scrolls(), 1);
   const guard = source.slice(source.indexOf('async function waitForStableControl('), source.indexOf('async function switchPlatformThroughUi('));
-  assert.doesNotMatch(guard, /\.click\(|dispatchEvent|fetch\(|force\s*:/);
+  assert.match(guard, /\.click\(\{ trial: true, timeout: 15_000 \}\)/);
+  assert.doesNotMatch(guard, /dispatchEvent|fetch\(|force\s*:/);
   assert.match(source, /context\.setDefaultTimeout\(15_000\)/);
   assert.match(source, /context\.setDefaultNavigationTimeout\(30_000\)/);
   assert.match(source, /await waitForStableControl\(startReviewControl\);/);

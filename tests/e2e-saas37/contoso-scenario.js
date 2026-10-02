@@ -9,6 +9,10 @@ export async function verifyContosoBaseline(page) {
   await selectContext(page, CONTOSO, 'conference_manager');
   await page.locator('[data-view="manager"]').click();
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(7);
+  const worklist = page.locator('[data-demo-manager-tasks]');
+  await expect(worklist.getByRole('heading', { name: 'Anfragen', exact: true })).toBeVisible();
+  await expect(worklist.getByRole('heading', { name: 'Einrichtung & Katalog', exact: true })).toBeVisible();
+  await expect(worklist.getByRole('button', { name: /^.+ öffnen$/ })).toHaveCount(7);
   const snapshot = await locations(page.context());
   const studio = snapshot.configuration.rooms.find(({ id }) => id === STUDIO);
   expect(studio.description).toBeNull();
@@ -67,22 +71,42 @@ export async function completeContosoTasks(page, cycle, baseline) {
   expect(uploadedStudio.description).toBe(`Completed Studio description cycle ${cycle}`);
   const uploadedUrl = `${ORIGINS.customer}/api/v1/tenant/rooms/${STUDIO}/media/${uploadedStudio.mediaAssetIds[0]}`;
   await mediaHash(page.context(), uploadedUrl);
-  await page.getByRole('button', { name: 'Katalog & Preise', exact: true }).click();
-  await page.locator(`[data-room-price-id="${STUDIO}"] input[type="number"]`).fill('3500');
+  await studio.locator('input[id^="manager-room-price-amount-"]').fill('35.00');
+  await uiResponse(page, 'PUT', CATALOGUE_PATH,
+    () => studio.getByRole('button', { name: 'Raumpreis speichern', exact: true }).click());
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-name').fill('Contoso Coffee');
-  await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('300');
+  await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('3.00');
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('#manager-catalogue-package-cateringPackages-1-name').fill('Contoso Coffee Break');
-  await page.locator('#manager-catalogue-package-cateringPackages-1-amount').fill('900');
+  await page.locator('#manager-catalogue-package-cateringPackages-1-amount').fill('9.00');
   await page.locator('#manager-catalogue-package-cateringPackages-1-items').fill('cateringItems-1');
   await page.locator('[data-add-catalogue-variant="cateringPackages-1"]').click();
   const variant = page.locator('[data-catalogue-variant-id]');
   await variant.locator('input[id$="-name"]').fill('Standard');
-  await variant.locator('input[id$="-amount"]').fill('900');
-  await uiResponse(page, 'PUT', CATALOGUE_PATH,
-    () => page.locator('form').filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') })
-      .getByRole('button', { name: 'Speichern', exact: true }).click());
+  await variant.locator('input[id$="-amount"]').fill('9.00');
+  const cateringForm = page.locator('form')
+    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
+  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
+  await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
+  // The response arrives before the submit listener's authoritative reload.
+  // Require the newly rendered enabled form before interacting with its media editors.
+  await expect(saveCatering).toBeEnabled();
+  const itemEditor = page.locator('[data-catalogue-entry-id="cateringItems-1"]');
+  await itemEditor.locator('input[type="file"]').setInputFiles({
+    name: 'contoso-coffee.png', mimeType: 'image/png', buffer: PNG,
+  });
+  await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
+    () => itemEditor.getByRole('button', { name: 'Catering-Bild hochladen', exact: true }).click(), 201);
+  await expect(itemEditor.locator('img.room-asset-visual')).toBeVisible();
+  const packageEditor = page.locator('[data-catalogue-entry-id="cateringPackages-1"]');
+  await packageEditor.locator('input[type="file"]').setInputFiles({
+    name: 'contoso-break.png', mimeType: 'image/png', buffer: PNG,
+  });
+  await uiResponse(page, 'POST', '/api/v1/demo/media/catering-package/cateringPackages-1',
+    () => packageEditor.getByRole('button', { name: 'Catering-Bild hochladen', exact: true }).click(), 201);
+  await expect(packageEditor.locator('img.room-asset-visual')).toBeVisible();
   await expect(page.locator('[data-demo-manager-tasks]')).toHaveCount(0);
   await page.reload();
   await page.locator('[data-view="manager"]').click();

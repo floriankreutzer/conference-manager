@@ -1,11 +1,24 @@
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 import {
   NORTHWIND, INTEGRATION_PATH, ORIGINS, catalogue, requests, locations,
   json, headers, customerSession,
-  selectContext, uiResponse, businessDate, openAdmin, imagesLoaded,
+  selectContext, uiResponse, businessDate, openAdmin, imagesLoaded, mediaHash,
 } from './scenario-support.js';
 
-export async function verifyNorthwindBaseline(page) {
+const REPLACEMENT_CATERING_IMAGE = new URL(
+  '../../demo-assets-saas-3.7/catering/afternoon-snack.webp', import.meta.url,
+);
+
+function sha256(buffer) {
+  return createHash('sha256').update(buffer).digest('hex');
+}
+
+export async function verifyNorthwindBaseline(page, {
+  replaceCateringImage = true,
+  expectedCateringImageHash = null,
+} = {}) {
   await selectContext(page, NORTHWIND, 'conference_manager');
   const context = page.context();
   const configuration = await locations(context);
@@ -36,7 +49,46 @@ export async function verifyNorthwindBaseline(page) {
   for (const request of seeded) {
     await expect(page.locator(`[data-production-request-id="${request.id}"]`)).toContainText(request.details.title);
   }
-  return { rooms: configuration.configuration.rooms, catalog, seeded };
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
+  const packageImage = page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel');
+  await expect(packageImage).toBeVisible();
+  await packageImage.locator('img').scrollIntoViewIfNeeded();
+  await imagesLoaded(packageImage);
+  const imageUrl = await packageImage.locator('img').getAttribute('src');
+  const absoluteImageUrl = new URL(imageUrl, ORIGINS.customer).href;
+  const originalImage = await page.context().request.get(absoluteImageUrl);
+  expect(originalImage.status()).toBe(200);
+  const originalHash = sha256(await originalImage.body());
+  if (expectedCateringImageHash !== null) expect(originalHash).toBe(expectedCateringImageHash);
+  if (replaceCateringImage) {
+    const replacement = await readFile(REPLACEMENT_CATERING_IMAGE);
+    const replacementHash = sha256(replacement);
+    expect(replacementHash).not.toBe(originalHash);
+    const unsavedName = page.locator('#manager-catalogue-package-coffee-break-name');
+    await unsavedName.fill('Ungespeicherter Kaffeepausen-Entwurf');
+    await packageImage.locator('input[type="file"]').setInputFiles({
+      name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement,
+    });
+    const replacementResponse = await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
+      () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    const persistedReplacement = await replacementResponse.json();
+    expect(persistedReplacement.assetId).toBeTruthy();
+    expect(persistedReplacement.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(persistedReplacement.sha256).not.toBe(originalHash);
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+    await expect(packageImage).toBeVisible();
+    await packageImage.locator('img').scrollIntoViewIfNeeded();
+    await imagesLoaded(packageImage);
+    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(persistedReplacement.sha256);
+  }
+  return {
+    rooms: configuration.configuration.rooms,
+    catalog,
+    seeded,
+    cateringImage: { url: absoluteImageUrl, originalHash },
+  };
 }
 
 export async function northwindBooking(page, cycle, baseline) {
@@ -58,6 +110,10 @@ export async function northwindBooking(page, cycle, baseline) {
     const card = page.locator(`article[data-room-id="${room.id}"]`);
     await expect(card).toContainText(room.name);
     await expect(card.locator('.price')).toBeVisible();
+    const [badgeBox, cardBox] = await Promise.all([
+      card.locator('.badge').boundingBox(), card.boundingBox(),
+    ]);
+    expect(badgeBox.width).toBeLessThan(cardBox.width * 0.85);
     await imagesLoaded(card);
     await card.locator('.room-preview-action').click();
     const preview = page.getByRole('dialog');
@@ -79,6 +135,19 @@ export async function northwindBooking(page, cycle, baseline) {
   await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(8);
   await imagesLoaded(page.locator('.catering-package-grid'));
   await imagesLoaded(page.locator('.catering-item-grid'));
+  // The explicit opt-out is not a product. Never filter real cards by image
+  // presence: a missing image on any of the twelve products must still fail.
+  const noPackage = page.locator('#productionCateringPackage-none');
+  const noPackageCard = page.locator('.catering-variant-card').filter({ has: noPackage });
+  await expect(noPackageCard).toHaveCount(1);
+  await expect(noPackageCard.getByRole('radio', { name: 'Kein Catering-Paket', exact: true })).toBeVisible();
+  await expect(noPackageCard.locator('img')).toHaveCount(0);
+  const productCards = page.locator('.catering-variant-card, .catering-item-card')
+    .filter({ hasNot: noPackage });
+  await expect(productCards).toHaveCount(12);
+  for (const card of await productCards.all()) {
+    await imagesLoaded(card);
+  }
   await page.getByRole('radio', { name: 'Kaffeepause · Standard', exact: true }).check();
   await page.locator('#productionCateringParticipants').fill('4');
   await page.getByLabel('Menge für Obstauswahl', { exact: true }).fill('4');
@@ -132,6 +201,22 @@ export async function northwindBooking(page, cycle, baseline) {
   await expect(history.getByRole('list')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(card.getByRole('button', { name: 'Verlauf', exact: true })).toBeFocused();
+  await selectContext(page, NORTHWIND, 'employee');
+  await page.locator('[data-view="requests"]').click();
+  const confirmed = page.locator(`[data-production-request-id="${request.id}"]`);
+  await uiResponse(page, 'GET', `/api/v1/requests/${request.id}/room-context`,
+    () => confirmed.getByRole('button', { name: 'Gästeinformationen' }).click());
+  const guestTitle = `Willkommen zu „${title}“`;
+  const guest = page.getByRole('dialog', { name: guestTitle, exact: true });
+  await expect(guest).toBeVisible();
+  await expect(guest.getByRole('heading', { name: guestTitle, exact: true })).toBeVisible();
+  await expect(guest).not.toContainText('Door code');
+  const popupPromise = page.waitForEvent('popup');
+  await guest.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+  const popup = await popupPromise;
+  await expect(popup.locator('body')).toContainText(title);
+  await popup.close();
+  await guest.getByRole('button', { name: 'Schließen' }).click();
   return request.id;
 }
 

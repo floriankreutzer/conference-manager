@@ -196,6 +196,54 @@ export function createApiClient({
   const base = normalizeBaseUrl(baseUrl, origin);
 
   return Object.freeze({
+    async createDemoCatalogueImage(ownerKind, ownerId, file, { signal } = {}) {
+      if (!['catering-item', 'catering-package'].includes(ownerKind)
+        || typeof ownerId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(ownerId)
+        || !file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+        || !Number.isSafeInteger(file.size) || file.size < 1 || file.size > 2_097_152) {
+        throw new ApiSecurityError('DEMO_MEDIA_INPUT_INVALID');
+      }
+      const response = await fetchImpl(endpointUrl(base, `v1/demo/media/${ownerKind}/${ownerId}`), {
+        method: 'POST', credentials: 'same-origin', redirect: 'error', cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        headers: { Accept: 'application/json', 'Content-Type': file.type,
+          ...csrfHeader('POST', csrfTokenProvider) },
+        ...(signal === undefined ? {} : { signal: normalizedSignal(signal) }),
+        body: file,
+      });
+      if (!response.ok) throw await responseError(response);
+      return parseJsonResponse(response);
+    },
+    async removeDemoCatalogueImage(assetId, { signal } = {}) {
+      if (typeof assetId !== 'string' || !/^[0-9a-f-]{36}$/i.test(assetId)) {
+        throw new ApiSecurityError('DEMO_MEDIA_INPUT_INVALID');
+      }
+      const response = await fetchImpl(endpointUrl(base, `v1/demo/media/${assetId}`), {
+        method: 'DELETE', credentials: 'same-origin', redirect: 'error', cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        headers: { ...csrfHeader('DELETE', csrfTokenProvider) },
+        ...(signal === undefined ? {} : { signal: normalizedSignal(signal) }),
+      });
+      if (!response.ok) throw await responseError(response);
+      return null;
+    },
+    async replaceDemoCatalogueImage(assetId, file, { signal } = {}) {
+      if (typeof assetId !== 'string' || !/^[0-9a-f-]{36}$/i.test(assetId)
+        || !file || file.type !== 'image/webp'
+        || !Number.isSafeInteger(file.size) || file.size < 32 || file.size > 2_097_152) {
+        throw new ApiSecurityError('DEMO_MEDIA_INPUT_INVALID');
+      }
+      const response = await fetchImpl(endpointUrl(base, `v1/demo/media/${assetId}`), {
+        method: 'PUT', credentials: 'same-origin', redirect: 'error', cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        headers: { Accept: 'application/json', 'Content-Type': 'image/webp',
+          ...csrfHeader('PUT', csrfTokenProvider) },
+        ...(signal === undefined ? {} : { signal: normalizedSignal(signal) }),
+        body: file,
+      });
+      if (!response.ok) throw await responseError(response);
+      return parseJsonResponse(response);
+    },
     async uploadRoomImage(path, file, { signal } = {}) {
       if (!/^v1\/tenant\/rooms\/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}\/media$/.test(path)
         || !file || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)

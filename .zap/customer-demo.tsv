@@ -82,3 +82,6 @@
 90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/manager-layout\.css\?v=20260919-92$
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/manager-layout\.css\?v=20260919-92$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/manager-layout\.css\?v=20260919-92$
+
+# Run 36900433513, artifact 11180709197: missing crawler request header, risk 0 only.
+90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/demo-security\.css\?v=20260830-77$

@@ -31,13 +31,13 @@ concurrency:
 env:
   SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
   SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
-  EXPECTED_FRONTEND_REF: c1fee5e2c4f1d472174d194697dd635a5a9b0aef
-  EXPECTED_RUNTIME_REF: 8e4dedd1a676a2dab26bc4ec812876eac98fc282
+  EXPECTED_FRONTEND_REF: c614f2bdb36c48199daacc2cc7bb0d0154b80f64
+  EXPECTED_RUNTIME_REF: 62ad13bce72d3d99e02a39b5f96f1078fecc7e2f
   DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
   DEMO_PROVIDER_HEALTH: healthy
   # Both browser suites plus rate windows and bounded independent cleanup.
   HOSTED_JOB_BUDGET_SECONDS: '3600'
-  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '2700'
+  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3000'
   HOSTED_READINESS_BUDGET_SECONDS: '360'
 
 jobs:
@@ -59,6 +59,27 @@ jobs:
           cache: npm
       - name: Install locked test dependencies
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Prefer the official Ubuntu archive for browser prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The runner already trusts these mirrors. Change only their priority;
+          # retain all source suites, signing keys and package verification.
+          sudo python3 - <<'PY'
+          from pathlib import Path
+          path = Path('/etc/apt/apt-mirrors.txt')
+          if path.is_file():
+              original = path.read_text()
+              azure = 'http://azure.archive.ubuntu.com/ubuntu/\tpriority:1'
+              archive = 'https://archive.ubuntu.com/ubuntu/\tpriority:2'
+              if original.count(azure) == 1 and original.count(archive) == 1:
+                  updated = original.replace(azure, azure[:-1] + '2', 1)
+                  updated = updated.replace(archive, archive[:-1] + '1', 1)
+                  path.write_text(updated)
+                  print('Using the existing official Ubuntu HTTPS mirror first.')
+              else:
+                  print('Runner mirror layout changed; retaining its trusted defaults.')
+          PY
       - name: Install browser engines
         run: npx playwright install --with-deps chromium webkit
       - name: Wait for public Customer and Platform readiness

@@ -3099,7 +3099,7 @@ test('Conference Manager applies a participant-only v2 booking change without a 
   });
 });
 
-test('Conference Manager creates every owned catalogue entry type and package variants through CSRF contract', async ({ page }) => {
+test('Conference Manager separates Services and Catering business settings through CSRF contract', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
   });
@@ -3108,49 +3108,41 @@ test('Conference Manager creates every owned catalogue entry type and package va
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  await page.getByRole('button', { name: 'Räume' }).click();
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  const catalogueBulk = page.locator('[data-tenant-bulk-transfer]');
-  await expect(catalogueBulk).toBeVisible();
-  expect(await catalogueBulk.locator('option').evaluateAll((options) => (
-    options.map(({ value }) => value)
-  ))).toEqual([
-    'services', 'catering-items', 'catering-packages',
-  ]);
 
+  await page.getByRole('button', { name: 'Services & Ausstattung' }).click();
+  await expect(page.getByRole('heading', { name: 'Services & Ausstattung', exact: true })).toBeVisible();
+  const serviceBulk = page.locator('[data-tenant-bulk-transfer]');
+  expect(await serviceBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
+    .toEqual(['services']);
   await page.locator('[data-add-catalogue-entry="services"]').click();
-  await expect(page.locator('[data-catalogue-entry-id="services-1"] input').first()).toBeFocused();
   await page.locator('[data-add-catalogue-entry="equipment"]').click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Catering', exact: true })).toBeVisible();
+  const cateringBulk = page.locator('[data-tenant-bulk-transfer]');
+  expect(await cateringBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
+    .toEqual(['catering-items', 'catering-packages']);
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('[data-add-catalogue-variant="package-coffee"]').click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
 
-  await expect(page.locator('[data-catalogue-entry-id="equipment-1"]')).toBeVisible();
-  await expect(page.locator('[data-catalogue-entry-id="cateringItems-1"]')).toBeVisible();
-  await expect(page.locator('[data-catalogue-entry-id="cateringPackages-1"]')).toBeVisible();
-  await expect(page.locator('[data-catalogue-variant-id="package-coffee-variant-1"]')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');
-  await expect(page.locator('#viewTitle')).toBeFocused();
-
-  expect(fixture.catalogueWrites).toHaveLength(1);
-  expect(fixture.catalogueWrites[0].csrf).toBe(CSRF_TOKEN);
-  const saved = fixture.catalogueWrites[0].body.catalogue;
-  expect(saved.services.map((entry) => entry.id)).toContain('services-1');
-  expect(saved.equipment.map((entry) => entry.id)).toContain('equipment-1');
-  expect(saved.cateringItems.map((entry) => entry.id)).toContain('cateringItems-1');
-  expect(saved.cateringPackages.map((entry) => entry.id)).toContain('cateringPackages-1');
-  expect(saved.cateringPackages.find((entry) => entry.id === 'package-coffee').variants)
+  const servicesSaved = fixture.catalogueWrites[0].body.catalogue;
+  expect(servicesSaved.services.map((entry) => entry.id)).toContain('services-1');
+  expect(servicesSaved.equipment.map((entry) => entry.id)).toContain('equipment-1');
+  const cateringSaved = fixture.catalogueWrites[1].body.catalogue;
+  expect(cateringSaved.cateringItems.map((entry) => entry.id)).toContain('cateringItems-1');
+  expect(cateringSaved.cateringPackages.map((entry) => entry.id)).toContain('cateringPackages-1');
+  expect(cateringSaved.cateringPackages.find((entry) => entry.id === 'package-coffee').variants)
     .toMatchObject([{ id: 'package-coffee-variant-1', price: { currency: 'EUR' } }]);
-  expect(fixture.catalogueWrites[0].body).not.toHaveProperty('tenantId');
+  expect(fixture.catalogueWrites.every((write) => write.csrf === CSRF_TOKEN)).toBe(true);
+  expect(fixture.catalogueWrites[1].body).not.toHaveProperty('tenantId');
 });
 
-test('Conference Manager preserves an absent Room price and receives accessible trimmed-name validation', async ({ page }) => {
+test('Conference Manager edits normal Room prices with Rooms and validates Catering names', async ({ page }) => {
   const initialCatalogue = structuredClone(catalogueSettingsPayload().catalogue);
   initialCatalogue.roomPrices = [];
   const fixture = await installProductionApplicationFixture(page, {
@@ -3161,75 +3153,31 @@ test('Conference Manager preserves an absent Room price and receives accessible 
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
 
   const amount = page.locator('#manager-room-price-amount-0');
-  const currency = page.locator('#manager-room-price-currency-0');
   await expect(amount).toHaveValue('');
   await expect(amount).not.toHaveAttribute('required');
-  await expect(amount).toHaveAttribute(
-    'aria-describedby',
-    'manager-room-price-not-configured-0',
-  );
-  await expect(currency).toBeDisabled();
-  await expect(currency).toHaveAttribute(
-    'aria-describedby',
-    'manager-room-price-not-configured-0',
-  );
-  await expect(page.locator('#manager-room-price-not-configured-0')).toHaveText(
-    'Noch nicht konfiguriert. Ein leeres Feld bewahrt den Raum ohne Preis.',
-  );
+  await amount.fill('12.50');
+  await page.getByRole('button', { name: 'Raumpreis speichern', exact: true }).first().click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+  expect(fixture.catalogueWrites[0].body.catalogue.roomPrices).toEqual([{
+    roomId: 'room-a', price: { amountMinor: 1250, currency: 'EUR' },
+  }]);
 
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
   const catalogueName = page.locator('#manager-catalogue-cateringItems-item-coffee-name');
-  const catalogueNameError = page.locator(
-    '#manager-catalogue-cateringItems-item-coffee-name-error',
-  );
+  const catalogueNameError = page.locator('#manager-catalogue-cateringItems-item-coffee-name-error');
   await catalogueName.fill('   ');
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  expect(fixture.catalogueWrites).toHaveLength(0);
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect(catalogueName).toBeFocused();
-  await expect(catalogueName).toHaveAttribute('aria-invalid', 'true');
-  await expect(catalogueName).toHaveAttribute(
-    'aria-describedby',
-    'manager-catalogue-cateringItems-item-coffee-name-error',
-  );
-  await expect(catalogueNameError).toHaveText('Bitte geben Sie einen Namen ein.');
-
-  await catalogueName.fill('    ');
   await expect(catalogueName).toHaveAttribute('aria-invalid', 'true');
   await expect(catalogueNameError).toHaveText('Bitte geben Sie einen Namen ein.');
   await catalogueName.fill('Espresso');
   await expect(catalogueName).not.toHaveAttribute('aria-invalid');
-  await expect(catalogueNameError).toBeEmpty();
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
-  await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  expect(fixture.catalogueWrites[0].body.expectedRevision).toBe(1);
-  expect(fixture.catalogueWrites[0].body.catalogue).toMatchObject({
-    cateringItems: [{ id: 'item-coffee', name: 'Espresso' }],
-    roomPrices: [],
-  });
-
-  const explicitAmount = page.locator('#manager-room-price-amount-0');
-  const explicitCurrency = page.locator('#manager-room-price-currency-0');
-  await explicitAmount.fill('0');
-  await expect(explicitCurrency).toBeEnabled();
-  const explicitSaveResponse = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === '/api/v1/tenant/settings/catalogue'
-    && response.request().method() === 'PUT'
-  ));
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  await explicitSaveResponse;
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  await expect(page.locator('#manager-room-price-amount-0')).toHaveValue('0');
-  await expect(page.locator('#manager-room-price-amount-0')).toHaveAttribute('required', 'required');
-  expect(fixture.catalogueWrites[1].body.expectedRevision).toBe(2);
-  expect(fixture.catalogueWrites[1].body.catalogue.roomPrices).toEqual([{
-    roomId: 'room-a',
-    price: { amountMinor: 0, currency: 'EUR' },
-  }]);
+  expect(fixture.catalogueWrites[1].body.catalogue.cateringItems)
+    .toMatchObject([{ id: 'item-coffee', name: 'Espresso' }]);
 });
 
 test('Conference Manager updates complete Room business snapshots and surfaces revision conflicts', async ({ page }) => {
@@ -3250,7 +3198,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   const roomName = room.locator('#manager-room-name-0');
   const roomNameError = room.locator('#manager-room-name-0-error');
   await roomName.fill('   ');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   expect(fixture.locationWrites).toHaveLength(0);
   await expect(roomName).toBeFocused();
   await expect(roomName).toHaveAttribute('aria-invalid', 'true');
@@ -3261,7 +3209,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   await expect(roomName).not.toHaveAttribute('aria-invalid');
   await expect(roomNameError).toBeEmpty();
   await room.locator('#manager-room-capacity-0').fill('16');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');
   await expect(page.locator('#viewTitle')).toBeFocused();
 
@@ -3301,7 +3249,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
   await page.locator('#manager-room-name-0').fill('Conflicting Room');
-  const save = page.getByRole('button', { name: 'Speichern' });
+  const save = page.getByRole('button', { name: 'Speichern', exact: true });
   await save.click();
   await expect(page.locator('#toast')).toContainText('zwischenzeitlich geändert');
   await expect(save).toBeEnabled();
@@ -3367,8 +3315,8 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
   await page.locator('[data-view="welcome"]').click();
 
@@ -3799,7 +3747,7 @@ test('Manager Business Settings save 403 clears forms, cockpit and cached shell 
   });
 
   await page.locator('#manager-room-name-0').fill('Must not remain editable');
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
 
   const authorityStatus = page.locator('[data-authority-invalid="true"]');
   await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
@@ -3836,7 +3784,8 @@ test('detached Manager Business Settings save 403 still invalidates the newer sh
     });
   });
 
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.locator('[data-manager-business-settings-root] form')
+    .getByRole('button', { name: 'Speichern', exact: true }).click();
   await failureStarted;
   await page.locator('[data-view="welcome"]').click();
   await expect(page.locator('#welcomeHeading')).toBeVisible();
@@ -3910,7 +3859,8 @@ test('detached Tenant Admin save 403 cannot preserve Locations or Welcome author
     });
   });
 
-  await page.getByRole('button', { name: 'Speichern' }).click();
+  await page.locator('[data-tenant-settings-form="locations-technical"]')
+    .getByRole('button', { name: 'Änderungen speichern', exact: true }).click();
   await failureStarted;
   await page.locator('[data-view="welcome"]').click();
   releaseFailure();
@@ -4323,6 +4273,7 @@ test('REG-02: direct Tenant Admin entry never loads Manager reports or Room pric
 });
 
 test('Tenant Admin bulk surfaces expose only owned types and apply a receipt-bound Room document', async ({ page }) => {
+  const documentValue = { schemaVersion: 1, type: 'rooms', rows: [] };
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'tenant_admin'],
   });
@@ -4340,11 +4291,12 @@ test('Tenant Admin bulk surfaces expose only owned types and apply a receipt-bou
     options.map(({ value }) => value)
   ))).toEqual(['sites', 'rooms']);
   await locationsBulk.locator('select').selectOption('rooms');
-  const documentValue = { schemaVersion: 1, type: 'rooms', rows: [] };
   await locationsBulk.locator('input[type="file"]').setInputFiles({
-    name: 'rooms.json',
-    mimeType: 'application/json',
-    buffer: Buffer.from(JSON.stringify(documentValue)),
+    name: 'rooms.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(
+      '"id","name","description","capacity","active","floor","equipment","accessibility","serviceIds","cateringPackageIds","guestPublicValues"\r\n',
+    ),
   });
   await locationsBulk.getByRole('button', { name: 'Datei prüfen' }).click();
   await expect(locationsBulk.getByRole('status')).toContainText('gültig und enthält Änderungen');
@@ -4422,7 +4374,6 @@ test('REG-03: dual role restores direct Tenant Admin entry and keeps Manager rep
   await expect(page.locator('[data-report-content]')).toBeVisible();
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
   await expect(page.locator('#manager-room-price-amount-0')).toBeVisible();
 
   await page.locator('[data-view="tenantAdmin"]').click();

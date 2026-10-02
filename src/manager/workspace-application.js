@@ -73,15 +73,45 @@ export function createManagerWorkspaceApplication({
         section.appendChild(retry);
       }
     } else {
-      const list = el('ul', { className: 'demo-manager-task-list' });
-      for (const task of snapshot.tasks) {
-        const open = button(t(task.key, { title: task.title }), { className: 'secondary' });
-        open.addEventListener('click', () => {
-          operationalRoot.querySelector(`#managerTab-${task.target}`)?.click();
+      section.appendChild(el('p', {
+        className: 'demo-manager-task-summary',
+        text: t('demoManager.summary', { count: snapshot.tasks.length }),
+      }));
+      const groups = [
+        ['requests', snapshot.tasks.filter((task) => task.id.startsWith('request:'))],
+        ['setup', snapshot.tasks.filter((task) => !task.id.startsWith('request:'))],
+      ];
+      for (const [group, tasks] of groups) {
+        if (!tasks.length) continue;
+        const groupSection = el('section', {
+          className: 'demo-manager-task-group',
+          attrs: { 'aria-labelledby': `demo-manager-task-group-${group}` },
         });
-        list.appendChild(el('li', { dataset: { demoManagerTask: task.id } }, [open]));
+        groupSection.appendChild(el('h3', {
+          id: `demo-manager-task-group-${group}`,
+          text: t(`demoManager.group.${group}`),
+        }));
+        const list = el('ul', { className: 'demo-manager-task-list' });
+        for (const task of tasks) {
+          const copy = el('span', {
+            className: 'demo-manager-task-copy',
+            text: t(task.key, { title: task.title }),
+          });
+          const open = button(t('demoManager.open'), {
+            className: 'secondary demo-manager-task-action',
+            attrs: { 'aria-label': t('demoManager.openTask', { task: t(task.key, { title: task.title }) }) },
+          });
+          open.addEventListener('click', () => {
+            operationalRoot.querySelector(`#managerTab-${task.target}`)?.click();
+          });
+          list.appendChild(el('li', {
+            className: 'demo-manager-task-row',
+            dataset: { demoManagerTask: task.id },
+          }, [copy, open]));
+        }
+        groupSection.appendChild(list);
+        section.appendChild(groupSection);
       }
-      section.append(el('p', { className: 'muted', text: t('demoManager.description') }), list);
     }
     target.prepend(section);
   }

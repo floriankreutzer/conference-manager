@@ -53,6 +53,8 @@ async function switchCustomer(context, session, tenantId, persona) {
 async function switchCustomerThroughUi(page, tenantId, persona) {
   await page.getByLabel('Demo-Tenant').selectOption(tenantId);
   await page.getByLabel('Demo-Persona').selectOption(persona);
+  const applyContext = page.locator('[data-demo-security] button');
+  await waitForStableControl(applyContext);
   const responsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.request().method() === 'PUT'
@@ -66,7 +68,7 @@ async function switchCustomerThroughUi(page, tenantId, persona) {
       && url.pathname === '/api/v1/demo/session';
   });
   const reloadedDocument = page.waitForEvent('domcontentloaded');
-  await page.locator('[data-demo-security] button').click();
+  await applyContext.click();
   await reloadedDocument;
   const response = await responsePromise;
   expect(response.status()).toBe(200);
@@ -95,27 +97,11 @@ async function expectUiResponseStatus(page, method, pathname, action, expectedSt
 }
 
 // A normal pointer click must not race an asynchronously prepended task card or
-// smooth scrolling. Observe geometry and hit testing only; never replay a write.
+// smooth scrolling. Use Playwright's non-mutating actionability trial; never
+// force, dispatch or replay the actual write.
 async function waitForStableControl(control) {
   await control.scrollIntoViewIfNeeded({ timeout: 15_000 });
-  let previousGeometry = null;
-  let stableSamples = 0;
-  await expect.poll(async () => {
-    const sample = await control.evaluate((element) => {
-      const { x, y, width, height } = element.getBoundingClientRect();
-      const hit = element.ownerDocument.elementFromPoint(x + width / 2, y + height / 2);
-      return {
-        geometry: [x, y, width, height],
-        receivesPointer: width > 0 && height > 0
-          && (hit === element || element.contains(hit)),
-      };
-    });
-    const geometry = JSON.stringify(sample.geometry);
-    stableSamples = sample.receivesPointer && geometry === previousGeometry
-      ? stableSamples + 1 : 0;
-    previousGeometry = geometry;
-    return stableSamples >= 2;
-  }, { timeout: 10_000, intervals: [100, 100, 250] }).toBe(true);
+  await control.click({ trial: true, timeout: 15_000 });
 }
 
 async function switchPlatformThroughUi(page, persona) {
@@ -362,14 +348,20 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   await customerPage.locator('[data-tenant-admin-section="organization"]').click();
   const organizationForm = customerPage.locator('[data-tenant-settings-form="organization"]');
   await expect(organizationForm.locator('#tenant-organization-display-name')).toHaveValue(BASELINE_NAME_B);
+  const saveOrganization = organizationForm.getByRole('button', { name: /speichern/i });
+  // Finish explicit-navigation focus/scroll before entering the draft, so the
+  // actual write cannot target a replacement editor with baseline values.
+  await waitForStableControl(saveOrganization);
   await organizationForm.locator('#tenant-organization-display-name').fill(MUTATED_NAME_B);
-  await expectUiResponseStatus(
+  await expect(organizationForm.locator('#tenant-organization-display-name')).toHaveValue(MUTATED_NAME_B);
+  const organizationWrite = await expectUiResponseStatus(
     customerPage,
     'PUT',
     '/api/v1/tenant/settings/organization',
-    () => organizationForm.getByRole('button', { name: /speichern/i }).click(),
+    () => saveOrganization.click(),
     200,
   );
+  expect(organizationWrite.request().postDataJSON().organization.displayName).toBe(MUTATED_NAME_B);
   await expect(customerPage.locator('#brandTitle')).toHaveText(MUTATED_NAME_B);
   const persistedOrganization = await customerContext.request.get(
     `${CUSTOMER_ORIGIN}/api/v1/tenant/settings/organization`,

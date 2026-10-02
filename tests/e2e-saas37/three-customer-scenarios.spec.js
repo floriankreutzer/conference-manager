@@ -11,7 +11,6 @@ import { verifyFabrikamBaseline, progressFabrikam } from './fabrikam-scenario.js
 // Two complete cycles mutate ALL three Tenants. No route mocking, database
 // shortcuts, storage seeding, retries, optional assertions or test.skip paths.
 test('SaaS 3.7: three visible scenarios persist, isolate authority and restore twice', async ({ browser }, testInfo) => {
-  test.setTimeout(ORIGINS.hosted ? 660_000 : 420_000);
   const options = { ignoreHTTPSErrors: !ORIGINS.hosted, locale: 'de-DE' };
   const platformContext = await browser.newContext(options);
   const customerContext = await browser.newContext(options);
@@ -93,9 +92,17 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
       expect((await observerContext.request.get(`${ORIGINS.customer}/api/v1/application/profile`)).status()).toBe(401);
       await customerContext.clearCookies();
       await observerContext.clearCookies();
+      // The complete mutation/negative journey and all media restoration reads
+      // are separate rate-budget phases. Revocation was checked immediately;
+      // wait before any new session or baseline read, never after a denial.
+      await test.step(`cycle ${cycle}: respect the rate-limit window before restoration verification`,
+        () => new Promise((resolve) => setTimeout(resolve, 61_000)));
       await customer.goto(ORIGINS.customer);
       await test.step(`cycle ${cycle}: restore all baseline contents, tasks, imports and original media`, async () => {
-        await verifyNorthwindBaseline(customer);
+        await verifyNorthwindBaseline(customer, {
+          replaceCateringImage: false,
+          expectedCateringImageHash: baseline.cateringImage.originalHash,
+        });
         expect((await customerContext.request.get(`${ORIGINS.customer}/api/v1/requests/${requestId}`)).status()).toBe(404);
         await verifyContosoBaseline(customer);
         expect((await customerContext.request.get(media.uploadedUrl)).status()).toBe(404);

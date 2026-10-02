@@ -61,6 +61,12 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   font-size: var(--font-size-sm);
 }
 
+.room-option-fieldset .option-card > .badge {
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  align-self: start;
+}
+
 .catering-option-fieldset {
   min-inline-size: 0;
   padding: 0;

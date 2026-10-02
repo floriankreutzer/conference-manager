@@ -4,6 +4,7 @@ import { currency as tenantCurrency, formatDateTime, t } from '../core/i18n.js';
 import { button, clear, el, field, showToast } from '../core/ui.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-bulk-transfer-panel.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
+import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -181,35 +182,40 @@ function validateRequiredTrimmedText(fields) {
 }
 
 function priceControls(price, { amountRequired = true } = {}) {
-  const amountMinor = numberInput(price.amountMinor, { required: amountRequired });
+  const attrs = { min: '0', max: '10000000', step: '0.01', inputmode: 'decimal' };
+  if (amountRequired) attrs.required = 'required';
+  const amountMinor = el('input', {
+    type: 'number',
+    value: price.amountMinor === '' ? '' : (Number(price.amountMinor) / 100).toFixed(2),
+    attrs,
+  });
   const currency = el('select', {}, CURRENCIES.map((value) => el('option', { value, text: value })));
   currency.value = price.currency;
   return { amountMinor, currency };
 }
 
-function priceFromControls(controls) {
-  return {
-    amountMinor: Number(controls.amountMinor.value),
-    currency: controls.currency.value,
-  };
+function minorUnitsFromAmount(value, code = 'MANAGER_PRICE_INVALID') {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  if (!/^\d{1,8}(?:\.\d{1,2})?$/.test(raw)) throw new TypeError(code);
+  const amountMinor = Math.round(Number(raw) * 100);
+  if (!Number.isSafeInteger(amountMinor) || amountMinor < 0 || amountMinor > 1_000_000_000) {
+    throw new TypeError(code);
+  }
+  return amountMinor;
 }
 
-export function catalogueRoomPriceValue(roomId, amountMinor, currency) {
-  const rawAmount = String(amountMinor ?? '').trim();
-  if (!rawAmount) return null;
-  const normalizedAmount = Number(rawAmount);
-  if (
-    !Number.isSafeInteger(normalizedAmount)
-    || normalizedAmount < 0
-    || normalizedAmount > 1_000_000_000
-    || !CURRENCIES.includes(currency)
-  ) {
-    throw new TypeError('MANAGER_ROOM_PRICE_INVALID');
-  }
-  return {
-    roomId,
-    price: { amountMinor: normalizedAmount, currency },
-  };
+function priceFromControls(controls) {
+  const amountMinor = minorUnitsFromAmount(controls.amountMinor.value);
+  if (amountMinor === null) throw new TypeError('MANAGER_PRICE_REQUIRED');
+  return { amountMinor, currency: controls.currency.value };
+}
+
+export function catalogueRoomPriceValue(roomId, amount, currency) {
+  const amountMinor = minorUnitsFromAmount(amount, 'MANAGER_ROOM_PRICE_INVALID');
+  if (amountMinor === null) return null;
+  if (!CURRENCIES.includes(currency)) throw new TypeError('MANAGER_ROOM_PRICE_INVALID');
+  return { roomId, price: { amountMinor, currency } };
 }
 
 function commonEntryEditor(entry, prefix) {
@@ -235,11 +241,11 @@ function commonEntryEditor(entry, prefix) {
     el('div', { className: 'form-grid' }, [
       nameField.node,
       field({ id: `${prefix}-${entry.id}-description`, label: t('managerSettings.catalogue.descriptionField'), control: controls.description, optional: true }),
-      field({ id: `${prefix}-${entry.id}-amount`, label: t('managerSettings.catalogue.amountMinor'), control: controls.price.amountMinor, required: true }),
-      field({ id: `${prefix}-${entry.id}-currency`, label: t('managerSettings.catalogue.currency'), control: controls.price.currency, required: true }),
-      field({ id: `${prefix}-${entry.id}-order`, label: t('managerSettings.catalogue.order'), control: controls.order, required: true }),
-      field({ id: `${prefix}-${entry.id}-sites`, label: t('managerSettings.catalogue.siteIds'), control: controls.siteIds, optional: true, hint: t('managerSettings.commaSeparated') }),
-      field({ id: `${prefix}-${entry.id}-rooms`, label: t('managerSettings.catalogue.roomIds'), control: controls.roomIds, optional: true, hint: t('managerSettings.commaSeparated') }),
+      field({ id: `${prefix}-${entry.id}-amount`, label: t('managerSettings.catalogue.price'), control: controls.price.amountMinor, required: true, hint: t('managerSettings.help.price') }),
+      field({ id: `${prefix}-${entry.id}-currency`, label: t('managerSettings.catalogue.currency'), control: controls.price.currency, required: true, hint: t('managerSettings.help.currency') }),
+      field({ id: `${prefix}-${entry.id}-order`, label: t('managerSettings.catalogue.order'), control: controls.order, required: true, hint: t('managerSettings.help.order') }),
+      field({ id: `${prefix}-${entry.id}-sites`, label: t('managerSettings.catalogue.siteIds'), control: controls.siteIds, optional: true, hint: t('managerSettings.help.sites') }),
+      field({ id: `${prefix}-${entry.id}-rooms`, label: t('managerSettings.catalogue.roomIds'), control: controls.roomIds, optional: true, hint: t('managerSettings.help.rooms') }),
       field({ id: `${prefix}-${entry.id}-active`, label: t('managerSettings.catalogue.active'), control: controls.active }),
     ]),
   ]);
@@ -280,7 +286,7 @@ function variantEditor(variant, prefix) {
     el('div', { className: 'form-grid' }, [
       nameField.node,
       field({ id: `${prefix}-${variant.id}-description`, label: t('managerSettings.catalogue.descriptionField'), control: controls.description, optional: true }),
-      field({ id: `${prefix}-${variant.id}-amount`, label: t('managerSettings.catalogue.amountMinor'), control: controls.price.amountMinor, required: true }),
+      field({ id: `${prefix}-${variant.id}-amount`, label: t('managerSettings.catalogue.price'), control: controls.price.amountMinor, required: true }),
       field({ id: `${prefix}-${variant.id}-currency`, label: t('managerSettings.catalogue.currency'), control: controls.price.currency, required: true }),
       field({ id: `${prefix}-${variant.id}-order`, label: t('managerSettings.catalogue.order'), control: controls.order, required: true }),
       field({ id: `${prefix}-${variant.id}-active`, label: t('managerSettings.catalogue.active'), control: controls.active }),
@@ -383,6 +389,110 @@ export function createManagerBusinessSettingsApplication({
   }
   let section = 'rooms';
   let renderRevision = 0;
+  const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
+
+  function demoCateringImage(editor, media, ownerKind, revision, renderRoot, onRevision = () => {}) {
+    if (!demoRuntime) return;
+    const canCreate = typeof catalogue.createDemoCatalogueImage === 'function';
+    const canReplace = typeof catalogue.replaceDemoCatalogueImage === 'function';
+    const canRemove = typeof catalogue.removeDemoCatalogueImage === 'function';
+    if ((!media && !canCreate) || (media && !canReplace)) return;
+    const surface = el('section', { className: 'room-asset-panel' });
+    let preview = media ? el('img', {
+      className: 'room-asset-visual media',
+      attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+    }) : null;
+    if (preview) surface.appendChild(preview);
+    const picker = el('input', {
+      type: 'file',
+      attrs: { accept: media ? 'image/webp' : 'image/png,image/jpeg,image/webp' },
+    });
+    const save = button(t(media
+      ? 'managerSettings.catalogue.imageReplace'
+      : 'managerSettings.catalogue.imageCreate'));
+    save.addEventListener('click', async () => {
+      if (!picker.files?.[0]) { picker.focus(); return; }
+      save.disabled = true;
+      try {
+        if (media) await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
+        else {
+          // Media ownership is enforced against a persisted same-Tenant Catalogue owner.
+          // Persist the new draft first; then attach the image to that authoritative owner.
+          const current = await catalogue.loadCatalogue();
+          const collection = ownerKind === 'catering-item' ? 'cateringItems' : 'cateringPackages';
+          const exists = current.catalogue[collection].some((entry) => entry.id === editor.entry.id);
+          if (!exists) {
+            const entryValue = ownerKind === 'catering-item'
+              ? commonEntryValue(editor) : packageValue(editor);
+            const savedOwner = await catalogue.saveCatalogue({
+              expectedRevision: current.revision,
+              catalogue: { ...current.catalogue,
+                [collection]: [...current.catalogue[collection], entryValue] },
+            });
+            onRevision(savedOwner.revision);
+            // The aggregate revision changed. Re-render after attaching the image so
+            // a later form submit cannot overwrite the newer authoritative revision.
+          }
+          const created = await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
+          media = { id: created.assetId, url: created.url, altText: editor.entry.name };
+          preview = el('img', {
+            className: 'room-asset-visual media',
+            attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+          });
+          surface.prepend(preview);
+          picker.accept = 'image/webp';
+          if (!exists) {
+            showToast(t('managerSettings.catalogue.imageSaved'));
+            // Keep the complete in-memory form draft. The persisted owner revision
+            // is reconciled on the next explicit save/reload rather than rebuilding here.
+            save.disabled = false;
+            return;
+          }
+          save.textContent = t('managerSettings.catalogue.imageReplace');
+        }
+        if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
+        if (preview) {
+          preview.removeAttribute('src');
+          preview.src = media.url;
+          picker.value = '';
+          save.disabled = false;
+          showToast(t('managerSettings.catalogue.imageSaved'));
+        }
+      } catch (error) {
+        if (handleAuthorityFailure(error)) return;
+        if (!isCurrentRender(revision, renderRoot)) return;
+        save.disabled = false;
+        showToast(t('managerSettings.catalogue.imageError'));
+      }
+    });
+    const imageFileLabel = media
+      ? t('managerSettings.catalogue.imageFile')
+      : t('managerSettings.catalogue.imageCreateFile');
+    surface.append(field({
+      id: `manager-catering-image-${media?.id || editor.entry.id}`,
+      label: imageFileLabel, control: picker, optional: true,
+      hint: media ? undefined : t('managerSettings.catalogue.imageCreateHint'),
+    }), save);
+    if (media && canRemove) {
+      const remove = button(t('managerSettings.catalogue.imageRemove'), { className: 'secondary' });
+      remove.addEventListener('click', async () => {
+        remove.disabled = true;
+        try {
+          await catalogue.removeDemoCatalogueImage(media.id);
+          if (!isCurrentRender(revision, renderRoot)) return;
+          surface.remove();
+          showToast(t('managerSettings.catalogue.imageRemoved'));
+        } catch (error) {
+          if (handleAuthorityFailure(error)) return;
+          if (!isCurrentRender(revision, renderRoot)) return;
+          remove.disabled = false;
+          showToast(t('managerSettings.catalogue.imageError'));
+        }
+      });
+      surface.appendChild(remove);
+    }
+    editor.node.appendChild(surface);
+  }
 
   function isCurrentRender(revision, renderRoot) {
     return revision === renderRevision
@@ -424,24 +534,21 @@ export function createManagerBusinessSettingsApplication({
   }
 
   function sectionNavigation() {
-    const row = el('div', { className: 'button-row', attrs: { role: 'navigation', 'aria-label': t('managerSettings.title') } });
-    const rooms = button(t('managerSettings.section.rooms'), {
-      className: section === 'rooms' ? 'primary' : '',
-      attrs: section === 'rooms' ? { 'aria-current': 'page' } : {},
+    const row = el('div', {
+      className: 'button-row manager-business-settings-nav',
+      attrs: { role: 'navigation', 'aria-label': t('managerSettings.title') },
     });
-    const catalog = button(t('managerSettings.section.catalogue'), {
-      className: section === 'catalogue' ? 'primary' : '',
-      attrs: section === 'catalogue' ? { 'aria-current': 'page' } : {},
-    });
-    rooms.addEventListener('click', () => {
-      section = 'rooms';
-      void renderManagerSettings({ focusHeading: true });
-    });
-    catalog.addEventListener('click', () => {
-      section = 'catalogue';
-      void renderManagerSettings({ focusHeading: true });
-    });
-    row.append(rooms, catalog);
+    for (const target of ['rooms', 'services', 'catering']) {
+      const control = button(t(`managerSettings.section.${target}`), {
+        className: section === target ? 'primary' : '',
+        attrs: section === target ? { 'aria-current': 'page' } : {},
+      });
+      control.addEventListener('click', () => {
+        section = target;
+        void renderManagerSettings({ focusHeading: true });
+      });
+      row.appendChild(control);
+    }
     return row;
   }
 
@@ -471,10 +578,12 @@ export function createManagerBusinessSettingsApplication({
     renderLoading(renderRoot, 'managerSettings.rooms.title', 'managerSettings.rooms.description');
     let snapshot;
     let history;
+    let catalogueSnapshot;
     try {
-      [snapshot, history] = await Promise.all([
+      [snapshot, history, catalogueSnapshot] = await Promise.all([
         locations.loadLocations({ schemaVersion: 3 }),
         locations.listLocationsHistory({ limit: 20 }),
+        catalogue.loadCatalogue(),
       ]);
     } catch (error) {
       if (handleAuthorityFailure(error)) return;
@@ -492,6 +601,7 @@ export function createManagerBusinessSettingsApplication({
     clear(renderRoot);
     setPageHeading(t('managerSettings.rooms.title'), t('managerSettings.rooms.description'));
     renderRoot.appendChild(sectionNavigation());
+    let roomCatalogueRevision = catalogueSnapshot.revision;
     const siteById = new Map(snapshot.configuration.sites.map((site) => [site.id, site]));
     const editors = snapshot.configuration.rooms.map((room, index) => {
       const nameField = requiredTrimmedTextField({
@@ -518,6 +628,11 @@ export function createManagerBusinessSettingsApplication({
       }
       const publicGuest = createPublicGuestValueEditor(room.guestPublicValues, index, 'room');
       const site = siteById.get(room.siteId);
+      const existingRoomPrice = catalogueSnapshot.catalogue.roomPrices
+        .find((entry) => entry.roomId === room.id)?.price;
+      const roomPrice = priceControls(existingRoomPrice || {
+        amountMinor: '', currency: catalogueDefaultCurrency(catalogueSnapshot.catalogue),
+      }, { amountRequired: false });
       const node = el('fieldset', { className: 'card', dataset: { managerRoomId: room.id } }, [
         el('legend', { text: room.name }),
         el('p', { className: 'muted', text: t('managerSettings.room.internalId', { id: room.id }) }),
@@ -547,6 +662,52 @@ export function createManagerBusinessSettingsApplication({
         ]),
       ]);
       node.appendChild(publicGuest.node);
+      const roomPricePanel = el('section', { className: 'room-asset-panel' }, [
+        el('h3', { text: t('managerSettings.room.priceHeading') }),
+        el('p', { className: 'field-hint', text: t('managerSettings.room.priceHint') }),
+        el('div', { className: 'form-grid' }, [
+          field({
+            id: `manager-room-price-amount-${index}`,
+            label: t('managerSettings.catalogue.price'),
+            control: roomPrice.amountMinor,
+            optional: true,
+          }),
+          field({
+            id: `manager-room-price-currency-${index}`,
+            label: t('managerSettings.catalogue.currency'),
+            control: roomPrice.currency,
+            optional: true,
+          }),
+        ]),
+      ]);
+      const savePrice = button(t('managerSettings.room.savePrice'), { className: 'secondary' });
+      savePrice.addEventListener('click', async () => {
+        savePrice.disabled = true;
+        try {
+          const nextPrice = catalogueRoomPriceValue(
+            room.id, roomPrice.amountMinor.value, roomPrice.currency.value,
+          );
+          const roomPrices = catalogueSnapshot.catalogue.roomPrices
+            .filter((entry) => entry.roomId !== room.id);
+          if (nextPrice) roomPrices.push(nextPrice);
+          const savedPrice = await catalogue.saveCatalogue({
+            expectedRevision: roomCatalogueRevision,
+            catalogue: { ...catalogueSnapshot.catalogue, roomPrices },
+          });
+          roomCatalogueRevision = savedPrice.revision;
+          catalogueSnapshot = savedPrice;
+          if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+          showToast(t('managerSettings.room.priceSaved'));
+          savePrice.disabled = false;
+        } catch (error) {
+          if (handleAuthorityFailure(error)) return;
+          if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+          savePrice.disabled = false;
+          showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
+        }
+      });
+      roomPricePanel.appendChild(savePrice);
+      node.appendChild(roomPricePanel);
       if (typeof locations.uploadRoomMedia === 'function') {
         const uploadPanel = el('section', { className: 'room-asset-panel' });
         uploadPanel.appendChild(el('h3', { text: t('managerSettings.room.mediaUploadHeading') }));
@@ -658,7 +819,9 @@ export function createManagerBusinessSettingsApplication({
   }
 
   async function renderCatalogue(revision, renderRoot, focusHeading) {
-    renderLoading(renderRoot, 'managerSettings.catalogue.title', 'managerSettings.catalogue.description');
+    renderLoading(renderRoot,
+      section === 'services' ? 'managerSettings.services.title' : 'managerSettings.catering.title',
+      section === 'services' ? 'managerSettings.services.description' : 'managerSettings.catering.description');
     let snapshot;
     let locationSnapshot;
     let historyPage;
@@ -680,16 +843,38 @@ export function createManagerBusinessSettingsApplication({
       }
       return;
     }
-    if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+    if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
+    let demoMedia = [];
+    if (demoRuntime && typeof catalogue.listDemoMedia === 'function') {
+      try {
+        const response = await catalogue.listDemoMedia();
+        if (!Array.isArray(response?.assets) || response.assets.length > 40) throw new TypeError('DEMO_MEDIA_INVALID');
+        demoMedia = response.assets.filter((asset) =>
+          ['catering_item', 'catering_package'].includes(asset?.ownerKind)
+          && typeof asset.ownerId === 'string'
+          && typeof asset.id === 'string' && /^[0-9a-f-]{36}$/i.test(asset.id)
+          && asset.url === `/api/v1/demo/media/${asset.id}`
+          && asset.contentType === 'image/webp' && typeof asset.altText === 'string');
+      } catch (error) {
+        if (handleAuthorityFailure(error)) return;
+        demoMedia = null;
+      }
+    }
+    if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
     clear(renderRoot);
-    setPageHeading(t('managerSettings.catalogue.title'), t('managerSettings.catalogue.description'));
+    setPageHeading(
+      t(section === 'services' ? 'managerSettings.services.title' : 'managerSettings.catering.title'),
+      t(section === 'services' ? 'managerSettings.services.description' : 'managerSettings.catering.description'),
+    );
     renderRoot.appendChild(sectionNavigation());
+    let catalogueRevision = snapshot.revision;
     const form = el('form');
-    const sections = [
-      ['services', 'managerSettings.catalogue.services'],
-      ['equipment', 'managerSettings.catalogue.equipment'],
-      ['cateringItems', 'managerSettings.catalogue.cateringItems'],
-    ];
+    const sections = section === 'services'
+      ? [
+        ['services', 'managerSettings.catalogue.services'],
+        ['equipment', 'managerSettings.catalogue.equipment'],
+      ]
+      : [['cateringItems', 'managerSettings.catalogue.cateringItems']];
     const editorsByCollection = {};
     const defaultCurrency = catalogueDefaultCurrency(snapshot.catalogue);
     sections.forEach(([collection, titleKey]) => {
@@ -697,6 +882,11 @@ export function createManagerBusinessSettingsApplication({
       const editors = snapshot.catalogue[collection].map((entry) => commonEntryEditor(entry, `manager-catalogue-${collection}`));
       editorsByCollection[collection] = editors;
       editors.forEach((editor) => surface.appendChild(editor.node));
+      if (collection === 'cateringItems' && demoMedia) {
+        for (const editor of editors) demoCateringImage(editor,
+          demoMedia.find((asset) => asset.ownerKind === 'catering_item' && asset.ownerId === editor.entry.id),
+          'catering-item', revision, renderRoot, (value) => { catalogueRevision = value; });
+      }
       const add = button(t('managerSettings.catalogue.addEntry'), {
         dataset: { addCatalogueEntry: collection },
       });
@@ -710,6 +900,9 @@ export function createManagerBusinessSettingsApplication({
         const editor = commonEntryEditor(entry, `manager-catalogue-${collection}`);
         editors.push(editor);
         surface.appendChild(editor.node);
+        if (collection === 'cateringItems') {
+          demoCateringImage(editor, null, 'catering-item', revision, renderRoot, (value) => { catalogueRevision = value; });
+        }
         add.disabled = editors.length >= COLLECTION_LIMITS[collection];
         editor.controls.name.focus();
       });
@@ -719,10 +912,19 @@ export function createManagerBusinessSettingsApplication({
         el('div', { className: 'button-row' }, [add]),
       );
     });
-    form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
-    const packageEditors = snapshot.catalogue.cateringPackages.map(packageEditor);
+    if (section === 'catering') form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
+    const packageEditors = section === 'catering'
+      ? snapshot.catalogue.cateringPackages.map(packageEditor) : [];
     const packageSurface = el('div');
     packageEditors.forEach((editor) => packageSurface.appendChild(editor.node));
+    if (demoMedia) {
+      for (const editor of packageEditors) demoCateringImage(editor,
+        demoMedia.find((asset) => asset.ownerKind === 'catering_package' && asset.ownerId === editor.entry.id),
+        'catering-package', revision, renderRoot, (value) => { catalogueRevision = value; });
+    }
+    if (section === 'catering' && demoMedia === null) form.appendChild(el('p', {
+      className: 'error-box', text: t('managerSettings.catalogue.imageLoadError'),
+    }));
     const addPackage = button(t('managerSettings.catalogue.addEntry'), {
       dataset: { addCatalogueEntry: 'cateringPackages' },
     });
@@ -736,60 +938,19 @@ export function createManagerBusinessSettingsApplication({
       const editor = packageEditor(entry);
       packageEditors.push(editor);
       packageSurface.appendChild(editor.node);
+      demoCateringImage(editor, null, 'catering-package', revision, renderRoot, (value) => { catalogueRevision = value; });
       addPackage.disabled = packageEditors.length >= COLLECTION_LIMITS.cateringPackages;
       editor.controls.name.focus();
     });
-    form.append(packageSurface, el('div', { className: 'button-row' }, [addPackage]));
+    if (section === 'catering') {
+      form.append(packageSurface, el('div', { className: 'button-row' }, [addPackage]));
+    }
 
-    form.appendChild(el('h3', { text: t('managerSettings.catalogue.roomPrices') }));
-    const priceByRoom = new Map(snapshot.catalogue.roomPrices.map((entry) => [entry.roomId, entry.price]));
-    const roomPriceEditors = locationSnapshot.configuration.rooms.map((room, index) => {
-      const configured = priceByRoom.has(room.id);
-      const controls = priceControls(
-        priceByRoom.get(room.id) || { amountMinor: '', currency: defaultCurrency },
-        { amountRequired: configured },
-      );
-      if (!configured) {
-        controls.currency.disabled = true;
-        controls.amountMinor.addEventListener('input', () => {
-          controls.currency.disabled = !controls.amountMinor.value.trim();
-        });
-      }
-      const unconfiguredHintId = `manager-room-price-not-configured-${index}`;
-      const unconfiguredHint = configured ? null : el('small', {
-        id: unconfiguredHintId,
-        className: 'field-hint',
-        text: t('managerSettings.catalogue.roomPriceNotConfigured'),
-      });
-      if (unconfiguredHint) {
-        controls.amountMinor.setAttribute('aria-describedby', unconfiguredHintId);
-        controls.currency.setAttribute('aria-describedby', unconfiguredHintId);
-      }
-      const amountField = field({
-        id: `manager-room-price-amount-${index}`,
-        label: t('managerSettings.catalogue.amountMinor'),
-        control: controls.amountMinor,
-        required: configured,
-        optional: !configured,
-      });
-      if (unconfiguredHint) amountField.appendChild(unconfiguredHint);
-      const node = el('fieldset', { className: 'card', dataset: { roomPriceId: room.id } }, [
-        el('legend', { text: room.name || room.id }),
-        el('div', { className: 'form-grid' }, [
-          amountField,
-          field({
-            id: `manager-room-price-currency-${index}`,
-            label: t('managerSettings.catalogue.currency'),
-            control: controls.currency,
-            required: configured,
-            optional: !configured,
-          }),
-        ]),
-      ]);
-      return { room, controls, node };
-    });
-    if (!roomPriceEditors.length) form.appendChild(el('p', { className: 'muted', text: t('managerSettings.catalogue.noRooms') }));
-    roomPriceEditors.forEach((editor) => form.appendChild(editor.node));
+    /* Room prices are edited with Rooms; preserve them here. */
+    const roomPriceEditors = [];
+    /* legacy room-price editor removed from Catalogue presentation */
+    const legacyRoomPriceSection = false;
+    if (legacyRoomPriceSection) form.appendChild(el('h3', { text: t('managerSettings.catalogue.roomPrices') }));
 
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
     form.appendChild(el('div', { className: 'button-row' }, [save]));
@@ -809,27 +970,24 @@ export function createManagerBusinessSettingsApplication({
       save.disabled = true;
       try {
         const next = {
-          services: editorsByCollection.services.map(commonEntryValue),
-          equipment: editorsByCollection.equipment.map(commonEntryValue),
-          cateringItems: editorsByCollection.cateringItems.map(commonEntryValue),
-          cateringPackages: packageEditors.map(packageValue),
-          roomPrices: roomPriceEditors
-            .map(({ room, controls }) => (
-              catalogueRoomPriceValue(
-                room.id,
-                controls.amountMinor.value,
-                controls.currency.value,
-              )
-            ))
-            .filter(Boolean),
+          services: section === 'services'
+            ? editorsByCollection.services.map(commonEntryValue) : snapshot.catalogue.services,
+          equipment: section === 'services'
+            ? editorsByCollection.equipment.map(commonEntryValue) : snapshot.catalogue.equipment,
+          cateringItems: section === 'catering'
+            ? editorsByCollection.cateringItems.map(commonEntryValue) : snapshot.catalogue.cateringItems,
+          cateringPackages: section === 'catering'
+            ? packageEditors.map(packageValue) : snapshot.catalogue.cateringPackages,
+          roomPrices: snapshot.catalogue.roomPrices,
         };
-        await catalogue.saveCatalogue({ expectedRevision: snapshot.revision, catalogue: next });
-        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        const saved = await catalogue.saveCatalogue({ expectedRevision: catalogueRevision, catalogue: next });
+        catalogueRevision = saved.revision;
+        if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
         showToast(t('managerSettings.saved'));
         await renderManagerSettings({ focusHeading: true });
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
-        if (!isCurrentRender(revision, renderRoot) || section !== 'catalogue') return;
+        if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
         save.disabled = false;
         showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
       }
@@ -838,13 +996,14 @@ export function createManagerBusinessSettingsApplication({
     if (supportsBulkTransfer(catalogue)) {
       renderRoot.appendChild(createBulkTransferPanel({
         adapter: authorityAwareBulkAdapter(catalogue),
-        types: ['services', 'catering-items', 'catering-packages'],
+        types: section === 'services'
+          ? ['services'] : ['catering-items', 'catering-packages'],
         rerender: () => {
-          if (isCurrentRender(revision, renderRoot) && section === 'catalogue') {
+          if (isCurrentRender(revision, renderRoot) && ['services', 'catering'].includes(section)) {
             void renderManagerSettings({ focusHeading: true });
           }
         },
-        isCurrent: () => isCurrentRender(revision, renderRoot) && section === 'catalogue',
+        isCurrent: () => isCurrentRender(revision, renderRoot) && ['services', 'catering'].includes(section),
       }));
     }
     renderRoot.appendChild(renderHistory(historyPage.revisions || []));
@@ -857,8 +1016,8 @@ export function createManagerBusinessSettingsApplication({
     const renderRoot = el('section', { dataset: { managerBusinessSettingsRoot: String(revision) } });
     clear(appRoot);
     appRoot.appendChild(renderRoot);
-    if (section === 'catalogue') await renderCatalogue(revision, renderRoot, focusHeading);
-    else await renderRooms(revision, renderRoot, focusHeading);
+    if (section === 'rooms') await renderRooms(revision, renderRoot, focusHeading);
+    else await renderCatalogue(revision, renderRoot, focusHeading);
   }
 
   return Object.freeze({ renderManagerSettings });
