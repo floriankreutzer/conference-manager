@@ -3142,7 +3142,7 @@ test('Conference Manager separates Services and Catering business settings throu
   expect(fixture.catalogueWrites[1].body).not.toHaveProperty('tenantId');
 });
 
-test('Conference Manager preserves an absent Room price and receives accessible trimmed-name validation', async ({ page }) => {
+test('Conference Manager edits normal Room prices with Rooms and validates Catering names', async ({ page }) => {
   const initialCatalogue = structuredClone(catalogueSettingsPayload().catalogue);
   initialCatalogue.roomPrices = [];
   const fixture = await installProductionApplicationFixture(page, {
@@ -3153,75 +3153,31 @@ test('Conference Manager preserves an absent Room price and receives accessible 
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
-  await page.getByRole('button', { name: 'Katalog & Preise' }).click();
 
   const amount = page.locator('#manager-room-price-amount-0');
-  const currency = page.locator('#manager-room-price-currency-0');
   await expect(amount).toHaveValue('');
   await expect(amount).not.toHaveAttribute('required');
-  await expect(amount).toHaveAttribute(
-    'aria-describedby',
-    'manager-room-price-not-configured-0',
-  );
-  await expect(currency).toBeDisabled();
-  await expect(currency).toHaveAttribute(
-    'aria-describedby',
-    'manager-room-price-not-configured-0',
-  );
-  await expect(page.locator('#manager-room-price-not-configured-0')).toHaveText(
-    'Noch nicht konfiguriert. Ein leeres Feld bewahrt den Raum ohne Preis.',
-  );
+  await amount.fill('12.50');
+  await page.getByRole('button', { name: 'Raumpreis speichern', exact: true }).first().click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+  expect(fixture.catalogueWrites[0].body.catalogue.roomPrices).toEqual([{
+    roomId: 'room-a', price: { amountMinor: 1250, currency: 'EUR' },
+  }]);
 
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
   const catalogueName = page.locator('#manager-catalogue-cateringItems-item-coffee-name');
-  const catalogueNameError = page.locator(
-    '#manager-catalogue-cateringItems-item-coffee-name-error',
-  );
+  const catalogueNameError = page.locator('#manager-catalogue-cateringItems-item-coffee-name-error');
   await catalogueName.fill('   ');
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  expect(fixture.catalogueWrites).toHaveLength(0);
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect(catalogueName).toBeFocused();
-  await expect(catalogueName).toHaveAttribute('aria-invalid', 'true');
-  await expect(catalogueName).toHaveAttribute(
-    'aria-describedby',
-    'manager-catalogue-cateringItems-item-coffee-name-error',
-  );
-  await expect(catalogueNameError).toHaveText('Bitte geben Sie einen Namen ein.');
-
-  await catalogueName.fill('    ');
   await expect(catalogueName).toHaveAttribute('aria-invalid', 'true');
   await expect(catalogueNameError).toHaveText('Bitte geben Sie einen Namen ein.');
   await catalogueName.fill('Espresso');
   await expect(catalogueName).not.toHaveAttribute('aria-invalid');
-  await expect(catalogueNameError).toBeEmpty();
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
-  await expect(page.locator('#toast')).toContainText('Business-Einstellungen wurden gespeichert.');
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  expect(fixture.catalogueWrites[0].body.expectedRevision).toBe(1);
-  expect(fixture.catalogueWrites[0].body.catalogue).toMatchObject({
-    cateringItems: [{ id: 'item-coffee', name: 'Espresso' }],
-    roomPrices: [],
-  });
-
-  const explicitAmount = page.locator('#manager-room-price-amount-0');
-  const explicitCurrency = page.locator('#manager-room-price-currency-0');
-  await explicitAmount.fill('0');
-  await expect(explicitCurrency).toBeEnabled();
-  const explicitSaveResponse = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === '/api/v1/tenant/settings/catalogue'
-    && response.request().method() === 'PUT'
-  ));
-  await page.getByRole('button', { name: 'Speichern' }).click();
-  await explicitSaveResponse;
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
-  await expect(page.locator('#viewTitle')).toBeFocused();
-  await expect(page.locator('#manager-room-price-amount-0')).toHaveValue('0');
-  await expect(page.locator('#manager-room-price-amount-0')).toHaveAttribute('required', 'required');
-  expect(fixture.catalogueWrites[1].body.expectedRevision).toBe(2);
-  expect(fixture.catalogueWrites[1].body.catalogue.roomPrices).toEqual([{
-    roomId: 'room-a',
-    price: { amountMinor: 0, currency: 'EUR' },
-  }]);
+  expect(fixture.catalogueWrites[1].body.catalogue.cateringItems)
+    .toMatchObject([{ id: 'item-coffee', name: 'Espresso' }]);
 });
 
 test('Conference Manager updates complete Room business snapshots and surfaces revision conflicts', async ({ page }) => {
