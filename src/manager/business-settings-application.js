@@ -434,9 +434,12 @@ export function createManagerBusinessSettingsApplication({
         showToast(t('managerSettings.catalogue.imageError'));
       }
     });
+    const imageFileLabel = media
+      ? t('managerSettings.catalogue.imageFile')
+      : t('managerSettings.catalogue.imageCreateFile');
     surface.append(field({
       id: `manager-catering-image-${media?.id || editor.entry.id}`,
-      label: t('managerSettings.catalogue.imageFile'), control: picker, optional: true,
+      label: imageFileLabel, control: picker, optional: true,
       hint: media ? undefined : t('managerSettings.catalogue.imageCreateHint'),
     }), save);
     if (media && canRemove) {
