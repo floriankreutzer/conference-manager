@@ -218,6 +218,20 @@ jobs:
           path: frontend/playwright-report-saas37/
           if-no-files-found: error
           retention-days: 30
+      - name: Verify manager worklist at actual 200 percent Chromium tab zoom
+        working-directory: frontend
+        env:
+          CM_ACTUAL_BROWSER_ZOOM: '1'
+          DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
+        run: xvfb-run -a npx playwright test tests/e2e-shared/manager-worklist-browser-zoom.spec.js --config=playwright.shared-demo.config.js --project=chromium-shared-demo --output=test-results-worklist-zoom
+      - name: Upload actual manager browser zoom evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: manager-worklist-browser-zoom-evidence
+          path: frontend/test-results-worklist-zoom/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Stop Demo API processes
         if: always()
         run: |

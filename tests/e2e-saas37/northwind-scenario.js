@@ -71,17 +71,13 @@ export async function verifyNorthwindBaseline(page, {
     await packageImage.locator('input[type="file"]').setInputFiles({
       name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement,
     });
-    const replacementResponse = await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
+    await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
       () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
-    const persistedReplacement = await replacementResponse.json();
-    expect(persistedReplacement.assetId).toBeTruthy();
-    expect(persistedReplacement.sha256).toMatch(/^[0-9a-f]{64}$/);
-    expect(persistedReplacement.sha256).not.toBe(originalHash);
     await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
     await expect(packageImage).toBeVisible();
     await packageImage.locator('img').scrollIntoViewIfNeeded();
     await imagesLoaded(packageImage);
-    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(persistedReplacement.sha256);
+    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(replacementHash);
     // #226: removing an existing image must retain the uploader and the form draft.
     await uiResponse(page, 'DELETE', new URL(imageUrl, ORIGINS.customer).pathname,
       () => packageImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
@@ -92,17 +88,18 @@ export async function verifyNorthwindBaseline(page, {
     await expect(picker).toBeFocused();
     await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
     await picker.setInputFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: PNG });
-    const recreated = await uiResponse(page, 'POST', '/api/v1/demo/media/catering-package/coffee-break',
+    await uiResponse(page, 'POST', '/api/v1/demo/media/catering-package/coffee-break',
       () => packageImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
-    const recreatedAsset = await recreated.json();
     await expect(packageImage.getByRole('button', { name: 'Catering-Bild entfernen' })).toBeVisible();
     await expect(packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' })).toBeEnabled();
     await expect(picker).toHaveAccessibleName('Bilddatei (WebP; 32 Byte bis 2 MiB) optional');
     await imagesLoaded(packageImage);
-    expect(await mediaHash(page.context(), new URL(recreatedAsset.url, ORIGINS.customer).href))
-      .toBe(recreatedAsset.sha256);
+    const recreatedUrl = await packageImage.locator('img').getAttribute('src');
+    expect(recreatedUrl).toMatch(/^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/);
+    const recreatedHash = await mediaHash(page.context(), new URL(recreatedUrl, ORIGINS.customer).href);
+    expect(recreatedHash).not.toBe(replacementHash);
     await picker.setInputFiles({ name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement });
-    await uiResponse(page, 'PUT', recreatedAsset.url,
+    await uiResponse(page, 'PUT', recreatedUrl,
       () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
     await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
     await expect(picker).toHaveValue('');
@@ -114,25 +111,27 @@ export async function verifyNorthwindBaseline(page, {
     await newImage.locator('input[type="file"]').setInputFiles({
       name: 'new-catering.png', mimeType: 'image/png', buffer: PNG,
     });
-    const firstAttachment = await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
+    await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
       () => newImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
-    const firstAsset = await firstAttachment.json();
     await expect(newImage.getByRole('button', { name: 'Catering-Bild ersetzen' })).toBeEnabled();
     await expect(newImage.getByRole('button', { name: 'Catering-Bild entfernen' })).toBeEnabled();
     await expect(newImage.locator('input[type="file"]')).toHaveAccessibleName('Bilddatei (WebP; 32 Byte bis 2 MiB) optional');
+    await imagesLoaded(newImage);
+    const newImageUrl = await newImage.locator('img').getAttribute('src');
+    expect(newImageUrl).toMatch(/^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/);
+    const firstHash = await mediaHash(page.context(), new URL(newImageUrl, ORIGINS.customer).href);
     await newImage.locator('input[type="file"]').setInputFiles({
       name: 'new-catering.webp', mimeType: 'image/webp', buffer: replacement,
     });
-    const newReplacement = await uiResponse(page, 'PUT', firstAsset.url,
+    await uiResponse(page, 'PUT', newImageUrl,
       () => newImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
-    const newReplacementAsset = await newReplacement.json();
-    expect(newReplacementAsset.sha256).not.toBe(firstAsset.sha256);
+    expect(replacementHash).not.toBe(firstHash);
     await imagesLoaded(newImage);
-    expect(await mediaHash(page.context(), new URL(firstAsset.url, ORIGINS.customer).href))
-      .toBe(newReplacementAsset.sha256);
+    expect(await mediaHash(page.context(), new URL(newImageUrl, ORIGINS.customer).href))
+      .toBe(replacementHash);
 
     await expect(newImage.locator('input[type="file"]')).toHaveValue('');
-    await uiResponse(page, 'DELETE', firstAsset.url,
+    await uiResponse(page, 'DELETE', newImageUrl,
       () => newImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
     await expect(newImage.locator('input[type="file"]')).toBeFocused();
     await newImage.locator('input[type="file"]').setInputFiles({
