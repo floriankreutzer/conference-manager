@@ -51,7 +51,7 @@ export async function verifyNorthwindBaseline(page, {
   }
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
   await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
-  await page.getByRole('button', { name: 'Katalog & Preise', exact: true }).click();
+  await page.getByRole('button', { name: 'Catering', exact: true }).click();
   const packageImage = page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel');
   await expect(packageImage).toBeVisible();
   await packageImage.locator('img').scrollIntoViewIfNeeded();
