@@ -45,7 +45,7 @@ SAFE = '''function safe(element) {
 def scan(directory, config=CONFIG):
     completed = subprocess.run(
         ["semgrep", "scan", "--config", str(config), "--oss-only", "--error", "--strict",
-         "--disable-nosem", "--metrics=off", "--disable-version-check",
+         "--disable-nosem", "--optimizations", "none", "--metrics=off", "--disable-version-check",
          "--no-rewrite-rule-ids", "--json", str(directory)],
         cwd=directory, env=ENV, text=True, capture_output=True, timeout=60, check=False,
     )
@@ -99,13 +99,13 @@ def main():
         malformed.mkdir()
         (malformed / "broken.js").write_text("function broken( {\n")
         status, result = scan(malformed)
-        require(status not in (0, 1) and bool(result.get("errors")), "Malformed JavaScript must fail with scan errors, not pass or count as a policy finding.")
+        require(status not in (0, 1) and bool(result.get("errors")), f"Malformed JavaScript must fail with scan errors, not pass or count as a policy finding: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
         print("PASS: malformed JavaScript fails closed.")
 
         invalid = root / "invalid-rules.yml"
         invalid.write_text("rules: [\n")
         status, result = scan(clean, invalid)
-        require(status not in (0, 1) and bool(result.get("errors")), "Invalid rule configuration must fail closed.")
+        require(status not in (0, 1) and bool(result.get("errors")), f"Invalid rule configuration must fail closed: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
         print("PASS: invalid rule configuration fails closed.")
 
 

@@ -44,7 +44,7 @@ jobs:
           SEMGREP_ENABLE_VERSION_CHECK: '0'
         run: |
           test "$(semgrep --version | head -n 1)" = "1.179.0"
-          semgrep scan --config .semgrep.yml --oss-only --error --strict --disable-nosem --metrics=off --disable-version-check src
+          semgrep scan --config .semgrep.yml --oss-only --error --strict --disable-nosem --optimizations none --metrics=off --disable-version-check src
 
 
   e2e:
