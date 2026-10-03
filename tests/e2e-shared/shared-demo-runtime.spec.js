@@ -160,6 +160,10 @@ function futureBusinessWindow() {
 }
 
 test('shared Demo persists cross-surface state, isolates authority, and resets reproducibly', async ({ browser }) => {
+  // This journey intentionally includes a real 60-second rate-window boundary before
+  // exercising both customer and platform state. Keep the browser/API assertions strict
+  // while giving WebKit enough bounded time for the same sequence Chromium completes.
+  test.setTimeout(180_000);
   // The preceding five-type CSV journey uses the same real process-wide
   // 60-second rate-limit window. Start this independent scenario only after
   // that window has expired; do not raise or disable the server limit.
