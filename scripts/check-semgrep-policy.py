@@ -107,7 +107,21 @@ def main():
         invalid = root / "invalid-rules.yml"
         invalid.write_text("rules: [\n")
         status, result = scan(clean, invalid)
-        require(status != 0 and bool(result.get("errors")) and not result.get("results"), f"Invalid rule configuration must exit nonzero with structured errors and no policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
+        # Semgrep CE 1.179.0 represents invalid YAML as an Error result,
+        # not in the errors array. Require that exact configuration diagnostic.
+        diagnostics = result.get("results", [])
+        expected_diagnostic = f"Invalid YAML file {invalid}"
+        require(
+            status != 0
+            and bool(diagnostics)
+            and all(
+                item.get("check_id") == expected_diagnostic
+                and item.get("extra", {}).get("severity") == "Error"
+                and item.get("extra", {}).get("message", "").startswith(expected_diagnostic)
+                for item in diagnostics
+            ),
+            f"Invalid rule configuration must exit nonzero with its configuration diagnostic, not policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}",
+        )
         print("PASS: invalid rule configuration fails closed.")
 
 
