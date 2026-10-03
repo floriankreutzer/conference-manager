@@ -160,6 +160,10 @@ function futureBusinessWindow() {
 }
 
 test('shared Demo persists cross-surface state, isolates authority, and resets reproducibly', async ({ browser }) => {
+  // The preceding five-type CSV journey uses the same real process-wide
+  // 60-second rate-limit window. Start this independent scenario only after
+  // that window has expired; do not raise or disable the server limit.
+  await new Promise((resolve) => setTimeout(resolve, 61_000));
   const bootstrapContext = await browser.newContext({ ignoreHTTPSErrors: true });
   let bootstrapPlatform = await establishPlatform(bootstrapContext);
   bootstrapPlatform = await switchPlatform(bootstrapContext, bootstrapPlatform, 'security_admin');
