@@ -88,6 +88,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
     () => studio.getByRole('button', { name: 'Bild hochladen', exact: true }).click());
   await expect(roomsForm.getByRole('button', { name: 'Speichern', exact: true })).toBeEnabled();
   await expect(studio.locator('input[type="file"][id^="manager-room-media-upload-"]')).toHaveValue('');
+  await expect(page.locator('#viewTitle')).toBeFocused();
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(2);
   await expect(page.locator('[data-demo-manager-task="room:image"]')).toHaveCount(0);
   const uploadedStudio = (await locations(page.context())).configuration.rooms.find(({ id }) => id === STUDIO);
@@ -96,9 +97,17 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const uploadedUrl = `${ORIGINS.customer}/api/v1/tenant/rooms/${STUDIO}/media/${uploadedStudio.mediaAssetIds[0]}`;
   await mediaHash(page.context(), uploadedUrl);
   await studio.locator('input[id^="manager-room-price-amount-"]').fill('35.00');
+  await expect(studio.locator('input[id^="manager-room-price-amount-"]')).toHaveValue('35.00');
+  const saveRoomPrice = studio.getByRole('button', { name: 'Raumpreis speichern', exact: true });
   await uiResponse(page, 'PUT', CATALOGUE_PATH,
-    () => studio.getByRole('button', { name: 'Raumpreis speichern', exact: true }).click());
+    () => saveRoomPrice.click());
+  await expect(saveRoomPrice).toBeEnabled();
+  const priceSnapshot = (await catalogue(page.context())).catalogue;
+  expect(priceSnapshot.roomPrices.find(({ roomId }) => roomId === STUDIO).price.amountMinor).toBe(3500);
+  await expect(page.locator('[data-demo-manager-task="room:price"]')).toHaveCount(0);
+  await expect(page.locator('[data-demo-manager-task]')).toHaveCount(1);
   await page.getByRole('button', { name: 'Catering', exact: true }).click();
+  await expect(page.locator('#viewTitle')).toBeFocused();
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-name').fill('Contoso Coffee');
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('3.00');
