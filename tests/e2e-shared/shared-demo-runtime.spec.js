@@ -477,7 +477,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const delivered = await customerContext.request.get(assetUrl);
   expect(delivered.status()).toBe(200);
   expect(delivered.headers()['content-type']).toBe('image/webp');
-  expect(delivered.headers()['cache-control']).toBe('private, no-store');
+  expect(delivered.headers()['cache-control']).toBe('private, no-cache');
   expect((await delivered.body()).subarray(0, 4).toString()).toBe('RIFF');
   await customerPage.locator('[data-view="manager"]').click();
   const managerCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
