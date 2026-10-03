@@ -49,10 +49,9 @@ test('Demo automatic images and detached print cannot use a cross-origin network
   assert.equal(existsSync(new URL('../assets/demo/route-openstreetmap.svg', import.meta.url)), false);
 });
 
-test('GitHub Pages remains static while DAST covers every public Demo surface independently', () => {
+test('public website launchpad remains isolated while DAST covers every Demo surface', () => {
   const demoSecurity = read('docs/DEMO-SECURITY.md');
   const productionSecurity = read('docs/PRODUCTION-SECURITY.md');
-  const portal = read('demo-portal/index.html');
   const dast = read('.github/workflows/dast.yml');
   const planGenerator = read('scripts/generate-zap-plan.mjs');
   const staticRules = read('.zap/static-launchpad.tsv');
@@ -62,8 +61,8 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   const customerSummaryRules = read('.zap/customer-demo-summary.tsv');
   const platformSummaryRules = read('.zap/platform-demo-summary.tsv');
   for (const document of [demoSecurity, productionSecurity]) {
-    assert.match(document, /GitHub Pages/i);
-    assert.match(document, /static (?:GitHub Pages )?(?:Demo )?launchpad/i);
+    assert.match(document, /public website/i);
+    assert.match(document, /static (?:public website )?(?:Demo )?launchpad/i);
     assert.match(document, /Render/i);
   }
   assert.doesNotMatch(portal, /<script\b|<iframe\b|localStorage|sessionStorage|fetch\(/i);
