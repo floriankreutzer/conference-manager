@@ -2,15 +2,15 @@
 
 ## Scope
 
-This repository owns the Customer browser artifact for the shared server-backed Demo and the separate static GitHub Pages Demo launchpad. The operational Demo uses a dedicated Customer Demo API process and one isolated PostgreSQL Demo model shared with the separately authenticated Platform Demo. It has no real identity provider and is not Production authorization evidence.
+This repository owns the Customer browser artifact for the shared server-backed Demo and the separate static public website Demo launchpad. The operational Demo uses a dedicated Customer Demo API process and one isolated PostgreSQL Demo model shared with the separately authenticated Platform Demo. It has no real identity provider and is not Production authorization evidence.
 
 The Customer Tenant/persona selector submits allowlisted context intent only. The Demo server issues the effective synthetic Principal, roles and permissions. Every active Customer persona includes the Employee baseline. Conference Manager and Tenant Admin are independent elevated roles; `dual_role` is the exact derived union and is not an additional persisted authorization role.
 
 Requests, profile information, Room business data, Catalogue/Room prices, notifications, Tenant settings and role changes are server-backed Demo state. LocalStorage and sessionStorage are not business authorities. A missing or invalid API/session/schema renders the Demo unavailable and never activates browser fixtures or historical browser repositories.
 
-## GitHub Pages launchpad
+## public website launchpad
 
-`https://floriankreutzer.github.io/conference-manager/` is the static Demo launchpad published from `demo-portal/`.
+`https://floriankreutzer.github.io/conference-manager-website/en/demo/` is the static Demo launchpad owned and published by `conference-manager-website`.
 
 The Pages surface:
 
@@ -25,7 +25,7 @@ The Pages surface:
 
 Functional Demo acceptance and runtime security validation belong to the separately deployed Render origins and the PostgreSQL-backed shared-Demo browser journey. A clean ZAP scan of the Pages launchpad is not evidence for Customer or Platform application authorization, and a clean passive scan of either Render origin is not authenticated authorization/API or Production penetration evidence.
 
-GitHub Pages does not expose repository-controlled response-header configuration. The launchpad
+the public website does not expose repository-controlled response-header configuration. The launchpad
 therefore delivers its resource/form/base restrictions through an HTML meta CSP. CSP
 `frame-ancestors` is not valid in a meta-delivered policy, so this repository does not claim that the
 launchpad has response-header clickjacking protection. That provider-controlled response-header
@@ -69,7 +69,7 @@ but configures `maxAlertsPerRule: 0` so ZAP retains unlimited alert evidence for
 It is useful repeatable regression evidence, but it is not an exhaustive crawl, authenticated API
 authorization test or penetration test.
 
-The Pages policy is limited to cache behavior, response-header controls that GitHub Pages cannot
+The Pages policy is limited to cache behavior, response-header controls that the public website cannot
 configure, public-static CORS and GitHub account-root `404`/base64 observations. Its exact
 `10050-1` and `10050-2` entries distinguish an observed `X-Cache: HIT` from an observed valid
 `Age` header; both remain restricted to the enumerated public-static URLs. The Render policies
@@ -137,7 +137,7 @@ The Demo may implement analogous server controls for synthetic scenarios, but th
 
 Reset/reseed is a Demo-only server operation protected by Demo composition, authorization/CSRF for HTTP access and database locking. It restores only canonical synthetic Demo state, invalidates affected Demo sessions and returns deterministic seed evidence.
 
-The GitHub Pages launchpad cannot call or expose reset/reseed. Production artifacts do not contain the Demo reset route/runtime.
+The public website launchpad cannot call or expose reset/reseed. Production artifacts do not contain the Demo reset route/runtime.
 
 ## Outage behavior
 
