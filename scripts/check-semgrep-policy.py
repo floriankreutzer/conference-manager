@@ -99,13 +99,15 @@ def main():
         malformed.mkdir()
         (malformed / "broken.js").write_text("function broken( {\n")
         status, result = scan(malformed)
-        require(status not in (0, 1) and bool(result.get("errors")), f"Malformed JavaScript must fail with scan errors, not pass or count as a policy finding: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
+        # Semgrep CE may use exit 1 for strict parsing errors as well as findings.
+        # Distinguish them using JSON errors/results, never by assuming disjoint exit codes.
+        require(status != 0 and bool(result.get("errors")) and not result.get("results"), f"Malformed JavaScript must exit nonzero with structured scan errors and no policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
         print("PASS: malformed JavaScript fails closed.")
 
         invalid = root / "invalid-rules.yml"
         invalid.write_text("rules: [\n")
         status, result = scan(clean, invalid)
-        require(status not in (0, 1) and bool(result.get("errors")), f"Invalid rule configuration must fail closed: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
+        require(status != 0 and bool(result.get("errors")) and not result.get("results"), f"Invalid rule configuration must exit nonzero with structured errors and no policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
         print("PASS: invalid rule configuration fails closed.")
 
 
