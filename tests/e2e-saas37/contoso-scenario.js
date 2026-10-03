@@ -115,9 +115,21 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await page.locator('#manager-catalogue-package-cateringPackages-1-name').fill('Contoso Coffee Break');
   await page.locator('#manager-catalogue-package-cateringPackages-1-amount').fill('9.00');
   const packageItems = page.locator('#manager-catalogue-package-cateringPackages-1-items');
-  await expect(packageItems).toHaveAttribute('multiple', '');
-  await packageItems.selectOption('cateringItems-1');
-  await expect(packageItems).toHaveValues(['cateringItems-1']);
+  await expect(packageItems).toBeVisible();
+  // main 48c04ba uses comma-separated IDs; the immutable hosted frontend
+  // 02ea3ab uses PR #259's named multi-select. Both must persist the same IDs.
+  // Remove the text-input branch after #259 and the tested runtime refs converge.
+  const itemEditorContract = await packageItems.evaluate((node) => `${node.tagName}:${node.type}`);
+  expect(['INPUT:text', 'SELECT:select-multiple']).toContain(itemEditorContract);
+  if (itemEditorContract === 'SELECT:select-multiple') {
+    await expect(packageItems).toHaveAttribute('multiple', '');
+    await expect(packageItems.locator('option[value="cateringItems-1"]')).toHaveText('Contoso Coffee');
+    await packageItems.selectOption('cateringItems-1');
+    await expect(packageItems).toHaveValues(['cateringItems-1']);
+  } else {
+    await packageItems.fill('cateringItems-1');
+    await expect(packageItems).toHaveValue('cateringItems-1');
+  }
   await page.locator('[data-add-catalogue-variant="cateringPackages-1"]').click();
   const variant = page.locator('[data-catalogue-variant-id]');
   await variant.locator('input[id$="-name"]').fill('Standard');
@@ -150,6 +162,9 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const catalog = (await catalogue(page.context())).catalogue;
   expect(catalog.roomPrices.find(({ roomId }) => roomId === STUDIO).price.amountMinor).toBe(3500);
   expect(catalog.cateringPackages).toHaveLength(1);
+  expect(catalog.cateringPackages[0].id).toBe('cateringPackages-1');
+  expect(catalog.cateringPackages[0].itemIds).toEqual(['cateringItems-1']);
+  expect(catalog.cateringItems.find(({ id }) => id === 'cateringItems-1').name).toBe('Contoso Coffee');
   expect(catalog.cateringPackages[0].variants).toHaveLength(1);
   // Delete a seeded media association via its normal authorized editor. Reset
   // must restore it and the original bytes, not just remove the newly uploaded image.
