@@ -111,20 +111,23 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-name').fill('Contoso Coffee');
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('3.00');
+  const cateringForm = page.locator('form')
+    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
+  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
+  // Named choices come from saved, authoritative items, not unsaved draft IDs.
+  await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
+  await expect(saveCatering).toBeEnabled();
+  expect((await catalogue(page.context())).catalogue.cateringItems[0].name).toBe('Contoso Coffee');
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('#manager-catalogue-package-cateringPackages-1-name').fill('Contoso Coffee Break');
   await page.locator('#manager-catalogue-package-cateringPackages-1-amount').fill('9.00');
-  const packageItems = page.locator('#manager-catalogue-package-cateringPackages-1-items');
-  await expect(packageItems).toHaveAttribute('multiple', '');
-  await packageItems.selectOption('cateringItems-1');
-  await expect(packageItems).toHaveValues(['cateringItems-1']);
+  const itemChoices = page.locator('#manager-catalogue-package-cateringPackages-1-items');
+  await expect(itemChoices.getByRole('option', { name: 'Contoso Coffee', exact: true })).toHaveAttribute('value', 'cateringItems-1');
+  await itemChoices.selectOption('cateringItems-1');
   await page.locator('[data-add-catalogue-variant="cateringPackages-1"]').click();
   const variant = page.locator('[data-catalogue-variant-id]');
   await variant.locator('input[id$="-name"]').fill('Standard');
   await variant.locator('input[id$="-amount"]').fill('9.00');
-  const cateringForm = page.locator('form')
-    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
-  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
   await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
   // The response arrives before the submit listener's authoritative reload.
   // Require the newly rendered enabled form before interacting with its media editors.
@@ -150,14 +153,29 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const catalog = (await catalogue(page.context())).catalogue;
   expect(catalog.roomPrices.find(({ roomId }) => roomId === STUDIO).price.amountMinor).toBe(3500);
   expect(catalog.cateringPackages).toHaveLength(1);
+  expect(catalog.cateringPackages[0].itemIds).toEqual(['cateringItems-1']);
   expect(catalog.cateringPackages[0].variants).toHaveLength(1);
   // Delete a seeded media association via its normal authorized editor. Reset
   // must restore it and the original bytes, not just remove the newly uploaded image.
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  // The explicit editor navigation focuses the heading after its authoritative
+  // load, unlike the Administration tab's automatic, unfocused initial render.
+  await expect(page.locator('#viewTitle')).toBeFocused();
   const atelier = page.locator('[data-manager-room-id="contoso-paris-room-1"]');
-  await atelier.locator('input[id^="manager-room-media-"][type="text"]').fill('');
-  await uiResponse(page, 'PUT', LOCATIONS_PATH,
+  const mediaIds = atelier.locator('input[id^="manager-room-media-"][type="text"]');
+  await expect(mediaIds).toHaveValue(baseline.originalMediaUrl.split('/').at(-1));
+  await mediaIds.fill('');
+  await expect(mediaIds).toHaveValue('');
+  const detachResponse = await uiResponse(page, 'PUT', LOCATIONS_PATH,
     () => atelier.locator('xpath=..').getByRole('button', { name: 'Speichern', exact: true }).click());
+  const submittedRoom = detachResponse.request().postDataJSON().configuration.rooms
+    .find(({ id }) => id === 'contoso-paris-room-1');
+  expect(submittedRoom.mediaAssetIds).toEqual([]);
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  const detachedRoom = (await locations(page.context())).configuration.rooms
+    .find(({ id }) => id === 'contoso-paris-room-1');
+  expect(detachedRoom.mediaAssetIds).toEqual([]);
   expect((await page.context().request.get(baseline.originalMediaUrl)).status()).toBe(404);
   return { uploadedUrl, originalMediaUrl: baseline.originalMediaUrl, originalHash: baseline.originalHash };
 }
