@@ -56,7 +56,9 @@ function parseCsvRows(text) {
   let row = [], cell = '', state = 'start';
   const fail = (reason) => { throw new TenantBulkCsvError(reason, rows.length + 1, row.length + 1); };
   const finishCell = () => {
-    if (new TextEncoder().encode(cell).byteLength > MAX_FIELD_BYTES) fail('limit');
+    const header = rows[0]?.[row.length];
+    const fieldLimit = JSON_COLUMNS.has(header) ? MAX_BYTES : MAX_FIELD_BYTES;
+    if (new TextEncoder().encode(cell).byteLength > fieldLimit) fail('limit');
     row.push(cell); cell = ''; state = 'start';
   };
   const finishRow = () => {

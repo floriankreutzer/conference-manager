@@ -11,7 +11,8 @@ quoted cell are doubled. Line endings may be CRLF, LF or CR; quoted multiline va
 remain a single cell. Unquoted embedded quotes and trailing text after a closing quote
 are errors. Use the per-type template; preserve the header names and `id` first.
 
-Limits: 65,536 encoded bytes, 1,024 data rows, 16,384 encoded bytes per cell, JSON depth
+Limits: 65,536 encoded bytes, 1,024 data rows, 16,384 encoded bytes per plain cell
+(structured JSON cells share the 65,536-byte file bound), JSON depth
 eight and at most 32 keys per JSON object. Catalogue limits still apply on the server:
 200 Services, 200 Equipment, 300 Catering items, 100 packages, 20 variants per package,
 200 Site/Room references and 300 item references. Import and Apply remain separate.

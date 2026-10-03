@@ -29,6 +29,23 @@ test('CSV bulk presentation round-trips bounded nested catalogue values', () => 
   assert.deepEqual(tenantBulkCsvToDocument(csv, 'catering-packages'), document);
 });
 
+test('CSV round-trips all twenty full-length catering variants within the file bound', () => {
+  const document = {
+    schemaVersion: 1, type: 'catering-packages', rows: [{
+      id: 'package', name: 'Package', description: null,
+      price: { amountMinor: 1250, currency: 'EUR' }, active: true, order: 1,
+      siteIds: [], roomIds: [], itemIds: [],
+      variants: Array.from({ length: 20 }, (_, index) => ({
+        id: `variant-${index}`, name: `Variant ${index}`, description: 'x'.repeat(1000),
+        price: { amountMinor: 1500, currency: 'EUR' }, active: true, order: index,
+      })),
+    }],
+  };
+  const csv = tenantBulkDocumentToCsv(document);
+  assert.ok(new TextEncoder().encode(csv).byteLength > 16_384);
+  assert.deepEqual(tenantBulkCsvToDocument(csv, document.type), document);
+});
+
 test('CSV export neutralizes spreadsheet formulas without changing re-import meaning', () => {
   const document = {
     schemaVersion: 1, type: 'services',
