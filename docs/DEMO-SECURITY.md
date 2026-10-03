@@ -74,7 +74,7 @@ configure, public-static CORS and GitHub account-root `404`/base64 observations.
 `10050-1` and `10050-2` entries distinguish an observed `X-Cache: HIT` from an observed valid
 `Age` header; both remain restricted to the enumerated public-static URLs. The Render policies
 classify the public shell/static `no-cache` behavior and the equivalent header-plus-meta CSP only at
-the exact observed URLs. API responses retain `no-store`; both Render shells require the tested
+the exact observed URLs. State-changing and non-media API responses retain `no-store`. Authenticated same-origin Demo media GET responses are the explicit exception: they use `private, no-cache` with a server-issued content-digest ETag so a browser may retain a private representation only for conditional revalidation. Every media request remains authenticated, Tenant/relationship authorized and revalidated by the trusted API; `304 Not Modified` is returned only after a Tenant-scoped metadata lookup confirms the current digest. Media mutations and inaccessible/error responses remain non-cacheable. No response is public/shared-cacheable; both Render shells require the tested
 cross-origin isolation headers. Cookie, anti-CSRF, CSP-absence, mixed-content, vulnerable-library,
 information-disclosure and authentication findings remain blocking. These evidence-reviewed
 false-positive classifications are not permission to suppress a changed path or new scanner rule.
