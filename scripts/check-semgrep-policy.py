@@ -108,7 +108,8 @@ def main():
         invalid.write_text("rules: [\n")
         status, result = scan(clean, invalid)
         # Semgrep CE 1.179.0 represents invalid YAML as an Error result,
-        # not in the errors array. Require that exact configuration diagnostic.
+        # not in the errors array. Require its exact configuration identity.
+        # Native/Python CLIs differ in message wording, not this identity.
         diagnostics = result.get("results", [])
         expected_diagnostic = f"Invalid YAML file {invalid}"
         require(
@@ -117,7 +118,8 @@ def main():
             and all(
                 item.get("check_id") == expected_diagnostic
                 and str(item.get("extra", {}).get("severity", "")).upper() == "ERROR"
-                and item.get("extra", {}).get("message", "").startswith(expected_diagnostic)
+                and isinstance(item.get("extra", {}).get("message"), str)
+                and bool(item["extra"]["message"].strip())
                 for item in diagnostics
             ),
             f"Invalid rule configuration must exit nonzero with its configuration diagnostic, not policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}",
