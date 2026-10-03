@@ -16,6 +16,11 @@ const HOSTED_BASELINES = Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
+  // Previous pre-CI-reader runtime retained for bounded historical cleanup evidence.
+  'bec01b64d2038c0bbb6b9b74f076f9c5c791d7db': Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
   // Previously promoted SaaS 3.7 runtime retained for bounded historical cleanup evidence.
   '7adb670a03f1372c70dd1405c0e4b269daa0d9df': Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
