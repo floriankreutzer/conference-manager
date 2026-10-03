@@ -111,6 +111,14 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-name').fill('Contoso Coffee');
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('3.00');
+  const cateringForm = page.locator('form')
+    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
+  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
+  // Persist the item first so both supported editor contracts derive package choices
+  // from the same authoritative catalogue state rather than an unsaved draft ID.
+  await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
+  await expect(saveCatering).toBeEnabled();
+  expect((await catalogue(page.context())).catalogue.cateringItems[0].name).toBe('Contoso Coffee');
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('#manager-catalogue-package-cateringPackages-1-name').fill('Contoso Coffee Break');
   await page.locator('#manager-catalogue-package-cateringPackages-1-amount').fill('9.00');
@@ -134,9 +142,6 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const variant = page.locator('[data-catalogue-variant-id]');
   await variant.locator('input[id$="-name"]').fill('Standard');
   await variant.locator('input[id$="-amount"]').fill('9.00');
-  const cateringForm = page.locator('form')
-    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
-  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
   await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
   // The response arrives before the submit listener's authoritative reload.
   // Require the newly rendered enabled form before interacting with its media editors.
