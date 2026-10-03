@@ -49,10 +49,10 @@ test('hosted evidence network requests remain bounded before or after cleanup', 
 test('hosted workflow reserves cleanup time before any destructive journey', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 
-  assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '3600'/);
-  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3000'/);
+  assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '4200'/);
+  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3600'/);
   assert.match(workflow, /HOSTED_READINESS_BUDGET_SECONDS: '360'/);
-  assert.match(workflow, /timeout-minutes: 60/);
+  assert.match(workflow, /timeout-minutes: 70/);
   assert.match(
     workflow,
     /name: Record hosted job budget start[\s\S]*HOSTED_JOB_STARTED_EPOCH=\$\(date -u \+%s\)/,
@@ -147,7 +147,7 @@ test('hosted cleanup requires the runtime-bound canonical checksum twice', () =>
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const runtimeRef = workflow.match(/EXPECTED_RUNTIME_REF: ([0-9a-f]{40})/)?.[1];
 
-  assert.equal(runtimeRef, '62ad13bce72d3d99e02a39b5f96f1078fecc7e2f');
+  assert.equal(runtimeRef, '7adb670a03f1372c70dd1405c0e4b269daa0d9df');
   assert.match(workflow, /DEMO_SEED_VERSION: saas-3\.7-three-demo-customers-v1/);
   assert.match(source, new RegExp(`const PINNED_RUNTIME_REF = '${runtimeRef}';`));
   assert.match(
@@ -187,8 +187,8 @@ test('both hosted suite caps leave eight minutes for independent cleanup and evi
   const scenarioCap = Number(scenarios.match(/globalTimeout: origins\.hosted \? ([\d_]+)/)?.[1].replaceAll('_', ''));
   const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);
   assert.equal(sharedCap, 720_000);
-  assert.equal(scenarioCap, 1_740_000);
-  assert.equal(reserve, 3000);
+  assert.equal(scenarioCap, 2_280_000);
+  assert.equal(reserve, 3600);
   assert.ok(reserve - (sharedCap + scenarioCap) / 1000 >= 480);
 });
 

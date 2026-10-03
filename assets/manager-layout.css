@@ -1069,3 +1069,22 @@ main,
     grid-template-columns: 1fr;
   }
 }
+
+.demo-manager-worklist {
+  padding: var(--space-3);
+}
+.demo-manager-task-disclosure {
+  min-height: var(--control-height);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.demo-manager-task-disclosure span + span {
+  margin-inline-start: var(--space-3);
+}
+.demo-manager-task-disclosure:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}
+.demo-manager-worklist[open] .demo-manager-task-group {
+  margin-top: var(--space-3);
+}

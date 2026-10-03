@@ -84,6 +84,12 @@ test('SaaS 3.7: three visible scenarios persist, isolate authority and restore t
         expect(stale.status()).toBe(409);
         expect((await customerContext.request.get(`${ORIGINS.customer}/api/v1/platform/tenants?limit=10`)).status()).toBe(404);
       });
+      // The expanded media lifecycle adds real authenticated writes and reads.
+      // Start the provider-negative phase in a fresh source-IP rate window so
+      // its required 503 is not masked by the unrelated HTTP quota. Do not
+      // change server limits or retry a denied availability request.
+      await test.step(`cycle ${cycle}: respect the rate-limit window before provider negatives`,
+        () => new Promise((resolve) => setTimeout(resolve, 61_000)));
       await test.step(`cycle ${cycle}: unavailable integration remains fail-closed`,
         () => unavailableIntegrationFailsClosed(customer));
       const result = await test.step(`cycle ${cycle}: canonical reset and independent stale-session revocation`,

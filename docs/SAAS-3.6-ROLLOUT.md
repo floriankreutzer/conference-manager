@@ -4,8 +4,8 @@
 > candidate hashes, pending migrations and deployment instructions below have
 > been superseded by the integrated status in
 > `SAAS-3.6-HARDENING-REGISTER.md` (schema 40 and deployed API/frontend pair).
-> Do not use this plan as the current release checklist; #170 and #182 track
-> the remaining validation and named acceptance gates.
+> Do not use this plan as the current release checklist; #170 tracks remaining
+> validation. Named acceptance #182 is completed and must not be reopened.
 
 ## Current candidate state
 

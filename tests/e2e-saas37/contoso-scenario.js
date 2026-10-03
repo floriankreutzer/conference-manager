@@ -10,6 +10,28 @@ export async function verifyContosoBaseline(page) {
   await page.locator('[data-view="manager"]').click();
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(7);
   const worklist = page.locator('[data-demo-manager-tasks]');
+  const disclosure = worklist.locator('summary');
+  await expect(disclosure).toContainText('Offene Aufgaben');
+  await expect(disclosure).toContainText('7 offene Aufgaben');
+  await expect(worklist).not.toHaveAttribute('open');
+  expect(await worklist.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThan(150);
+  await disclosure.focus();
+  await expect(disclosure).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(worklist).toHaveAttribute('open', '');
+  const originalViewport = page.viewportSize();
+  for (const width of [320, 640, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const action of await worklist.getByRole('button').all()) {
+      const box = await action.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+  }
+  if (originalViewport) await page.setViewportSize(originalViewport);
+
   await expect(worklist.getByRole('heading', { name: 'Anfragen', exact: true })).toBeVisible();
   await expect(worklist.getByRole('heading', { name: 'Einrichtung & Katalog', exact: true })).toBeVisible();
   await expect(worklist.getByRole('button', { name: /^.+ öffnen$/ })).toHaveCount(7);
@@ -44,6 +66,8 @@ export async function completeContosoTasks(page, cycle, baseline) {
     await expect(dialog).not.toBeVisible();
     await expect(card).toContainText(statuses[index]);
     await expect(page.locator('[data-demo-manager-task]')).toHaveCount(6 - index);
+    await expect(page.locator('[data-demo-manager-tasks]')).toHaveAttribute('open', '');
+    await expect(page.locator('[data-demo-manager-task]').first()).toBeVisible();
     await expect(page.locator(`[data-demo-manager-task="request:${request.id}"]`)).toHaveCount(0);
   }
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(4);
@@ -64,6 +88,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
     () => studio.getByRole('button', { name: 'Bild hochladen', exact: true }).click());
   await expect(roomsForm.getByRole('button', { name: 'Speichern', exact: true })).toBeEnabled();
   await expect(studio.locator('input[type="file"][id^="manager-room-media-upload-"]')).toHaveValue('');
+  await expect(page.locator('#viewTitle')).toBeFocused();
   await expect(page.locator('[data-demo-manager-task]')).toHaveCount(2);
   await expect(page.locator('[data-demo-manager-task="room:image"]')).toHaveCount(0);
   const uploadedStudio = (await locations(page.context())).configuration.rooms.find(({ id }) => id === STUDIO);
@@ -72,9 +97,17 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const uploadedUrl = `${ORIGINS.customer}/api/v1/tenant/rooms/${STUDIO}/media/${uploadedStudio.mediaAssetIds[0]}`;
   await mediaHash(page.context(), uploadedUrl);
   await studio.locator('input[id^="manager-room-price-amount-"]').fill('35.00');
+  await expect(studio.locator('input[id^="manager-room-price-amount-"]')).toHaveValue('35.00');
+  const saveRoomPrice = studio.getByRole('button', { name: 'Raumpreis speichern', exact: true });
   await uiResponse(page, 'PUT', CATALOGUE_PATH,
-    () => studio.getByRole('button', { name: 'Raumpreis speichern', exact: true }).click());
+    () => saveRoomPrice.click());
+  await expect(saveRoomPrice).toBeEnabled();
+  const priceSnapshot = (await catalogue(page.context())).catalogue;
+  expect(priceSnapshot.roomPrices.find(({ roomId }) => roomId === STUDIO).price.amountMinor).toBe(3500);
+  await expect(page.locator('[data-demo-manager-task="room:price"]')).toHaveCount(0);
+  await expect(page.locator('[data-demo-manager-task]')).toHaveCount(1);
   await page.getByRole('button', { name: 'Catering', exact: true }).click();
+  await expect(page.locator('#viewTitle')).toBeFocused();
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-name').fill('Contoso Coffee');
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('3.00');

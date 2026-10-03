@@ -31,19 +31,19 @@ concurrency:
 env:
   SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
   SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
-  EXPECTED_FRONTEND_REF: c614f2bdb36c48199daacc2cc7bb0d0154b80f64
-  EXPECTED_RUNTIME_REF: 62ad13bce72d3d99e02a39b5f96f1078fecc7e2f
+  EXPECTED_FRONTEND_REF: c4eda7750933c2b3c5b561fae0926d36cdc53582
+  EXPECTED_RUNTIME_REF: 7adb670a03f1372c70dd1405c0e4b269daa0d9df
   DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
   DEMO_PROVIDER_HEALTH: healthy
   # Both browser suites plus rate windows and bounded independent cleanup.
-  HOSTED_JOB_BUDGET_SECONDS: '3600'
-  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3000'
+  HOSTED_JOB_BUDGET_SECONDS: '4200'
+  HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3600'
   HOSTED_READINESS_BUDGET_SECONDS: '360'
 
 jobs:
   hosted-demo-acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 70
     steps:
       - name: Record hosted job budget start
         shell: bash

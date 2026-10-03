@@ -2,8 +2,10 @@
 
 ## Scope and defect corrections
 
-Frontend issue #215 remains the release gate. Passing the earlier shared journey
-only proved initial task/onboarding state, not the complete scenario progression.
+Frontend issue #215 is closed; its accepted release evidence remains historical.
+The same complete journey is a permanent regression gate for subsequent changes.
+Passing the earlier shared journey only proved initial task/onboarding state,
+not the complete scenario progression.
 The dedicated `npm run test:e2e:saas37` suite exercises actual PostgreSQL state,
 normal authorized HTTP routes and visible UI. It does not mock provider or
 application routes, seed browser storage, bypass lifecycle, or edit database rows.
@@ -74,7 +76,7 @@ Regression coverage includes bounds, unknown fields, legacy envelopes and
 literal markup rendering without element creation; the real scenario requires
 all ten seeded descriptions in their visible preview dialogs.
 
-## Corrected live release binding
+## Historical live release binding before the current corrections
 
 The existing Render services deployed API merge `9c0f75c3d414968c18df9117214f3dc62be52c13`
 with frontend `c1fee5e2c4f1d472174d194697dd635a5a9b0aef`. Subsequent frontend
@@ -98,8 +100,9 @@ seed label. Active tenants must get 404 for foreign requests; unfinished
 Fabrikam is denied earlier by lifecycle with 403. Foreign media must return
 404 for all three tenants. This matches the existing authorization boundaries.
 
-Successful current-head isolated and live evidence is still required before
-closing #215 or the milestone; these configured gates alone are not acceptance.
+This historical checkpoint preceded #215 closure. Subsequent changes still need
+successful current-head isolated and live evidence; configured gates alone are
+not acceptance and do not reopen accepted historical milestone decisions.
 
 ## Browser response lifetime
 
@@ -129,10 +132,10 @@ SaaS 3.7 closure does not retire these fixtures or tests. Northwind, Contoso and
 
 The gate verifies usable post-reset scenarios rather than fixture presence: Northwind rich booking/room/catalogue/media data, Contoso state-derived Conference Manager work, Fabrikam state-derived Tenant Admin onboarding, tenant/role/CSRF isolation, media integrity and canonical reset reproducibility. Cross-repository validation uses immutable counterpart commits. Any intentional semantic change to these scenarios requires coordinated seed-version/checksum, documentation and acceptance updates; silently dropping data, customers, tasks, reset assertions or browser coverage is prohibited.
 
-## Current aggregate budget correction (2026-10-02)
+## Historical aggregate budget correction before the Guest/media corrections (2026-10-02)
 
-The budget and deployment paragraphs above are historical evidence, not the
-current execution configuration. Current hosted identity remains frontend
+The budget and deployment paragraphs above are historical evidence. The deployed
+identity at this earlier checkpoint was frontend
 `c614f2bdb36c48199daacc2cc7bb0d0154b80f64` paired with API
 `62ad13bce72d3d99e02a39b5f96f1078fecc7e2f`.
 
@@ -159,3 +162,68 @@ reserve is unavailable. Action (15s), navigation (30s), assertion (10s), zero
 retries, TLS, all customer/negative/media/reset checks, rate limits and canonical
 seed/checksum are unchanged. This supersedes the isolated WebKit-only proposal
 in PR #227; successful current-head gates remain required before integration.
+
+## Current Guest/media/worklist acceptance correction (2026-10-02)
+
+The expanded Chromium API journey passed both complete cycles in run
+`37075649131` (8.0 minutes). WebKit reached the second Northwind booking at the
+former 600-second aggregate cap; it reported no failed business/security
+assertion before that deadline, but its incomplete run is not acceptance.
+Six mandatory rate windows consume 366 seconds per browser. The follow-up WebKit run `37077163740` completed both customer mutations,
+provider negatives and canonical resets, then exhausted 900s immediately before
+the second restoration check. Its first restoration took 14s; about 20s plus
+runner/cleanup margin remain necessary. An incomplete run is still not acceptance.
+The bounded
+isolated budget is now 1020 seconds per browser and 2160 seconds serially;
+hosted uses 1080 and 2280 seconds. The hosted job permits 70 minutes and reserves
+60 minutes before destructive work: 12 for the cross-role suite, 38 for full
+scenarios and a ten-minute cleanup/identity margin. The isolated CI job
+permits 50 minutes for setup, both suites, actual zoom and teardown. Action,
+navigation, assertion, retry, TLS, rate and security limits remain unchanged.
+The actual headed Chromium worklist zoom check runs before the full scenarios;
+the following scenario starts in its existing fresh rate window and resets the
+canonical baseline independently.
+
+PR #225 is integrated and #227 closed as superseded. PR #257 preserves every
+customer, authority, baseline-count and two-reset assertion, while adding actual
+Guest stylesheet/print layout checks and Catering create/replace/delete/recreate
+coverage. Post-mutation Northwind has nine Catering items; the initial and restored
+canonical baseline still has eight. The booking UI is checked against the actual
+independently loaded current catalogue rather than an obsolete pre-mutation count.
+
+Six mandatory 61-second rate windows now consume 366 seconds per browser. The
+provider-negative phase starts in its own real source-IP quota window, before any
+availability request, so the required 503 is not masked by the unrelated HTTP
+quota. No server limit is raised and no denial is retried. Existing isolated
+600-second/1320-second and hosted 780-second/1740-second test/suite caps remain.
+Mutation HTTP status and visible results are verified; persisted media bytes are
+read independently through normal authenticated GETs instead of relying on CDP
+response bodies that Chromium may retire during a long progression. Exact normalized
+WebP replacement hash across different owners, decoded newly created media and retained unsaved drafts remain
+required. No mutation is replayed to produce evidence.
+
+The existing full Chromium/WebKit suites remain mandatory. An additional headed
+Chromium step sets and reads the real tab zoom to 2, checks worklist reflow and
+44px actions, keyboard disclosure/navigation, and performs authorized reset cleanup.
+Equivalent 640px viewport tests alone are not described as actual browser zoom.
+API #104 promotes the matching immutable frontend and acceptance contract through
+the existing private Gitlink. Source/Live identity, paired CI and Hosted/DAST proof
+must be reconciled before closing #256/#226/#228 or the final milestone gates.
+
+
+## Guest/media/worklist correction runtime binding — 3 October 2026
+
+API PR #104 merged as `7adb670a03f1372c70dd1405c0e4b269daa0d9df` and the existing
+private Gitlink delivery promotes frontend `c4eda7750933c2b3c5b561fae0926d36cdc53582`.
+Both public Render origins expose this immutable pair in their deployment metadata.
+API CI `37079291199` passed the full Chromium and WebKit three-customer journey and
+both canonical reset cycles. The seed version and semantic checksum are unchanged.
+
+Frontend PR #257 successors change only tests, workflow identity, reset evidence and
+documentation; their application source/assets are byteidentical to that deployed
+snapshot. Hosted/DAST expected identities and isolated trusted API checkout bind to
+the actual merge above, never a predicted merge SHA. Final current-head Hosted
+acceptance additionally proves the live full journey, stable identity and independent
+canonical cleanup; source-only API evidence is not substituted for that live gate.
+Explicit historical cleanup bindings for `62ad13b` and `96294cc` retain their exact
+canonical seed/checksum, while unknown runtimes remain rejected.

@@ -219,6 +219,9 @@ async function openTenantAdministration(page) {
   await expect(page.locator(
     '[data-tenant-admin-section-content="users"] .tenant-operations-result-status',
   )).toHaveText('2 Benutzer geladen.');
+  // Explicit section navigation completes its animation-frame heading focus
+  // before the keyboard user moves into the filter form.
+  await expect(page.locator('[data-tenant-admin-section-content="users"] h2')).toBeFocused();
 }
 
 test('REG-01: Tenant Admin manages elevated roles through the production API with CSRF and keyboard focus', async ({ page }) => {
@@ -260,6 +263,7 @@ test('Tenant Admin lifecycle is keyboard operable, server-authoritative, and res
   await search.fill('Casey');
   const applyFilters = page.locator('[data-tenant-user-filters] button[type="submit"]');
   await applyFilters.focus();
+  await expect(applyFilters).toBeFocused();
   await page.keyboard.press('Enter');
   await expect.poll(() => fixture.reads.at(-1)?.search).toBe('Casey');
 

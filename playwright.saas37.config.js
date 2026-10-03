@@ -8,10 +8,12 @@ export function createSaas37Config(env = process.env) {
     ...shared,
     webServer: origins.hosted ? undefined : shared.webServer,
     testDir: './tests/e2e-saas37',
-    // Four real rate windows consume 244s per browser before UI/network work.
-    // The serial suite cap also covers both complete browser budgets and teardown.
-    timeout: origins.hosted ? 780_000 : 600_000,
-    globalTimeout: origins.hosted ? 1_740_000 : 1_320_000,
+    // Six real rate windows consume 366s per browser before UI/network work.
+    // WebKit run 37077163740 passed both cycles/resets at 900s; its final
+    // restoration still needs about 20s plus bounded cleanup/runner margin.
+    // Include both complete UI journeys, six windows and bounded teardown.
+    timeout: origins.hosted ? 1_080_000 : 1_020_000,
+    globalTimeout: origins.hosted ? 2_280_000 : 2_160_000,
     maxFailures: 1,
     expect: { timeout: 10_000 },
     use: { ...shared.use, ignoreHTTPSErrors: !origins.hosted, actionTimeout: 15_000, navigationTimeout: 30_000 },

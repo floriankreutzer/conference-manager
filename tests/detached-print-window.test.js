@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DETACHED_PRINT_CSP,
+  detachedPrintStylesReady,
+  waitForDetachedPrintDocument,
   closeDetachedPrintWindow,
   closeDetachedPrintWindows,
   initializeDetachedPrintDocument,
@@ -17,6 +19,8 @@ class FakeElement {
     this.textContent = '';
   }
 
+  addEventListener() {}
+
   append(...children) { this.children.push(...children); }
 
   replaceChildren(...children) { this.children = children; }
@@ -29,6 +33,10 @@ class FakeElement {
 function fakeDocument() {
   const document = {
     title: '',
+    openCount: 0,
+    closeCount: 0,
+    open() { this.openCount += 1; },
+    close() { this.closeCount += 1; },
     createElement: (tagName) => new FakeElement(tagName),
   };
   document.documentElement = new FakeElement('html');
@@ -56,8 +64,15 @@ function fakePrintWindow() {
   const document = fakeDocument();
   return {
     opener: {},
+    location: { href: new URL('../src/shared/detached-print.html', import.meta.url).href },
     document,
+    listeners: new Map(),
+    addEventListener(type, handler) { this.listeners.set(type, handler); },
+    removeEventListener(type) { this.listeners.delete(type); },
     closeCount: 0,
+    timeoutCallback: null,
+    setTimeout(callback, delay) { this.timeoutCallback = callback; this.timeoutDelay = delay; return 1; },
+    clearTimeout(id) { this.clearedTimer = id; },
     clearedBeforeClose: false,
     close() {
       this.closeCount += 1;
@@ -66,7 +81,7 @@ function fakePrintWindow() {
   };
 }
 
-test('detached print documents detach before access and install a restrictive inline-only surface', () => {
+test('detached print documents detach and allow only the fixed application stylesheets', () => {
   closeDetachedPrintWindows();
   const popup = fakePrintWindow();
   const owner = fakeOwner([popup]);
@@ -94,10 +109,15 @@ test('detached print documents detach before access and install a restrictive in
     "object-src 'none'",
     "form-action 'none'",
   ]) assert.match(csp.getAttribute('content'), new RegExp(directive.replaceAll("'", "\\'")));
-  const style = document.head.children.find((node) => node.tagName === 'STYLE');
-  assert.match(style.textContent, /--print-text:/);
-  assert.match(style.textContent, /@media print/);
-  assert.doesNotMatch(style.textContent, /url\s*\(|@import|https?:/iu);
+  const links = document.head.children.filter((node) => node.tagName === 'LINK');
+  assert.equal(links.length, 2);
+  assert.deepEqual(links.map((node) => node.getAttribute('href')), [
+    new URL('../assets/tokens.css', import.meta.url).href,
+    new URL('../assets/employee-ux.css', import.meta.url).href,
+  ]);
+  assert.equal(document.head.children.some((node) => node.tagName === 'STYLE'), false);
+  assert.equal(document.body.className, 'guest-print-document');
+  assert.doesNotMatch(DETACHED_PRINT_CSP, /unsafe-inline|https?:\/\/(?!127)/);
 
   owner.dispatch('pagehide');
   assert.equal(popup.closeCount, 1);
@@ -136,4 +156,50 @@ test('a popup that refuses opener detachment is closed without document access',
   assert.equal(registerDetachedPrintWindow(popup, { ownerWindow: fakeOwner() }), null);
   assert.equal(documentAccessed, false);
   assert.equal(closeCount, 1);
+});
+
+
+test('stalled print styles reject readiness within a bounded deadline', async () => {
+  closeDetachedPrintWindows();
+  const popup = fakePrintWindow();
+  registerDetachedPrintWindow(popup, { ownerWindow: fakeOwner() });
+  initializeDetachedPrintDocument(popup, { lang: 'en', title: 'Welcome' });
+  assert.equal(popup.timeoutDelay, 15_000);
+  const rejected = assert.rejects(detachedPrintStylesReady(popup), /DETACHED_PRINT_STYLE_TIMEOUT/);
+  popup.timeoutCallback();
+  await rejected;
+  assert.equal(popup.clearedTimer, 1);
+  closeDetachedPrintWindow(popup);
+});
+
+
+test('print preparation waits for the fixed same-origin shell and removes its listener', async () => {
+  const popup = fakePrintWindow();
+  popup.document.readyState = 'complete';
+  registerDetachedPrintWindow(popup, { ownerWindow: fakeOwner() });
+  await waitForDetachedPrintDocument(popup);
+  assert.equal(popup.listeners.has('load'), false);
+  closeDetachedPrintWindow(popup);
+});
+
+test('print preparation rejects a closed authority-bound surface before publishing data', async () => {
+  const popup = fakePrintWindow();
+  registerDetachedPrintWindow(popup, { ownerWindow: fakeOwner() });
+  popup.closed = true;
+  await assert.rejects(waitForDetachedPrintDocument(popup), /DETACHED_PRINT_DOCUMENT_CLOSED/);
+  assert.equal(popup.listeners.has('load'), false);
+  closeDetachedPrintWindow(popup);
+});
+
+test('print preparation times out without publishing data into a different document', async (context) => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  const popup = fakePrintWindow();
+  popup.location.href = 'about:blank';
+  popup.document.readyState = 'complete';
+  registerDetachedPrintWindow(popup, { ownerWindow: fakeOwner() });
+  const preparation = waitForDetachedPrintDocument(popup);
+  context.mock.timers.tick(15_000);
+  await assert.rejects(preparation, /DETACHED_PRINT_DOCUMENT_TIMEOUT/);
+  assert.equal(popup.listeners.has('load'), false);
+  closeDetachedPrintWindow(popup);
 });

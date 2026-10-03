@@ -17,6 +17,7 @@ export function createManagerWorkspaceApplication({
     throw new TypeError('MANAGER_WORKSPACE_AUTHORITY_HANDLER_REQUIRED');
   }
   let workspaceRoot = null;
+  let worklistExpanded = false;
   const requestMutations = new Map();
   const operationalRoot = el('div', { dataset: { managerOperationalRoot: 'true' } });
   const worklist = demoWorklistEnabled ? createDemoManagerWorklistController({
@@ -55,13 +56,24 @@ export function createManagerWorkspaceApplication({
   });
 
   function presentWorklist(target, snapshot) {
-    target.querySelector('[data-demo-manager-tasks]')?.remove();
+    const previous = target.querySelector('[data-demo-manager-tasks]');
+    if (previous?.tagName === 'DETAILS') worklistExpanded = previous.open;
+    const expanded = worklistExpanded;
+    previous?.remove();
     if (snapshot.status === 'ready' && snapshot.tasks.length === 0) return;
-    const section = el('section', {
-      className: 'card',
+    const ready = snapshot.status === 'ready';
+    const section = el(ready ? 'details' : 'section', {
+      className: 'card demo-manager-worklist',
       dataset: { demoManagerTasks: 'true' },
       attrs: { 'aria-label': t('demoManager.title') },
-    }, [el('h2', { text: t('demoManager.title') })]);
+    });
+    if (ready) {
+      section.open = expanded;
+      section.appendChild(el('summary', { className: 'demo-manager-task-disclosure' }, [
+        el('span', { text: t('demoManager.title') }),
+        el('span', { className: 'muted', text: t('demoManager.summary', { count: snapshot.tasks.length }) }),
+      ]));
+    } else section.appendChild(el('h2', { text: t('demoManager.title') }));
     if (snapshot.status !== 'ready') {
       section.appendChild(el('p', {
         text: t(snapshot.status === 'error' ? 'demoManager.error' : 'demoManager.loading'),
@@ -73,10 +85,6 @@ export function createManagerWorkspaceApplication({
         section.appendChild(retry);
       }
     } else {
-      section.appendChild(el('p', {
-        className: 'demo-manager-task-summary',
-        text: t('demoManager.summary', { count: snapshot.tasks.length }),
-      }));
       const groups = [
         ['requests', snapshot.tasks.filter((task) => task.id.startsWith('request:'))],
         ['setup', snapshot.tasks.filter((task) => !task.id.startsWith('request:'))],

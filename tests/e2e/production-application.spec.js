@@ -426,6 +426,16 @@ async function installProductionApplicationFixture(page, {
     requests = nextRequests.map((entry) => structuredClone(entry));
   }
 
+  // Detached windows have their own Page; static print resources share the context.
+  const printShell = await readFile(path.join(ROOT, 'src/shared/detached-print.html'), 'utf8');
+  await page.context().route(`${ORIGIN}/src/shared/detached-print.html`, async (route) => {
+    await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: printShell });
+  });
+  await page.context().route(`${ORIGIN}/assets/{tokens,employee-ux}.css`, async (route) => {
+    const filePath = path.join(ROOT, new URL(route.request().url()).pathname);
+    await route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body: await readFile(filePath) });
+  });
+
   await page.route(`${ORIGIN}/**`, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -1833,7 +1843,9 @@ test('EMP-09: scoped session draft resumes the exact active wizard step and stat
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await page.getByRole('button', { name: 'Weiter' }).click();
   await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(page.getByRole('heading', { name: 'Bewirtung', exact: true })).toBeFocused();
   await page.locator('#productionCateringParticipants').fill('2');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('2');
   await page.getByLabel('Menge für Coffee').fill('2');
 
   await expect.poll(() => page.evaluate(() => JSON.parse(
@@ -2626,7 +2638,7 @@ test('confirmed inactive Room print uses the authoritative context label and tim
   await expect(popup.locator('body')).toContainText(expectedStart);
 });
 
-test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy prose', async ({ page }) => {
+test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy prose', async ({ page }, testInfo) => {
   const fixture = await installProductionApplicationFixture(page, {
     requestRoomContextSchemaVersion: 3,
     requestRoomContext: {
@@ -2710,9 +2722,64 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
     'content',
     /default-src 'none'.*script-src 'none'.*img-src 'none'.*connect-src 'none'/,
   );
-  await expect(popup.locator('script, link[rel="stylesheet"], img')).toHaveCount(0);
+  await expect(popup.locator('script, style, img')).toHaveCount(0);
+  await expect(popup.locator('link[rel="stylesheet"]')).toHaveCount(2);
+  await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeEnabled();
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
+  await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
+  expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await testInfo.attach('guest-welcome-screen', { body: await popup.screenshot({ fullPage: true }), contentType: 'image/png' });
+  if (testInfo.project.name === 'chromium-desktop') {
+    const pdf = await popup.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(pdf.length).toBeLessThan(1_048_576);
+    await testInfo.attach('guest-welcome-pdf', { body: pdf, contentType: 'application/pdf' });
+  }
+
+  await popup.getByRole('button', { name: 'Drucken / Als PDF speichern' }).focus();
+  await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeFocused();
+  await popup.emulateMedia({ media: 'print' });
+  await expect(popup.locator('.print-action')).toBeHidden();
+  await expect(popup.locator('.guest-print-grid')).toHaveCSS('display', 'grid');
   expect(await popup.evaluate(() => window.opener)).toBeNull();
   await popup.close();
+});
+
+test('EMP-15 unavailable print styles close the detached surface with a recoverable message', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Gästeinformationen' }).click();
+  await page.context().route(`${ORIGIN}/assets/employee-ux.css`, (route) => route.abort());
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('dialog').getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+  const popup = await popupPromise;
+  await expect.poll(() => popup.isClosed()).toBe(true);
+  await expect(page.getByText('Die Druckansicht konnte nicht geladen werden. Bitte erneut versuchen.', { exact: true })).toBeVisible();
+});
+
+test('EMP-15 stalled print styles time out and close the unusable popup', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Gästeinformationen' }).click();
+  let release;
+  const stalled = new Promise((resolve) => { release = resolve; });
+  await page.context().route(`${ORIGIN}/assets/employee-ux.css`, async (route) => {
+    await stalled;
+    await route.abort();
+  });
+  try {
+    const popupPromise = page.waitForEvent('popup');
+    await page.getByRole('dialog').getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+    const popup = await popupPromise;
+    await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeDisabled();
+    await expect.poll(() => popup.isClosed(), { timeout: 20_000 }).toBe(true);
+    await expect(page.getByText('Die Druckansicht konnte nicht geladen werden. Bitte erneut versuchen.', { exact: true })).toBeVisible();
+  } finally { release(); }
 });
 
 test('API-02 print popup is reserved inside the click before Guest context resolves', async ({ page }) => {
@@ -2746,6 +2813,7 @@ test('API-02 print popup is reserved inside the click before Guest context resol
 test('API-02 downgraded Guest context clears and closes its reserved print popup', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     requestRoomContextSchemaVersion: 1,
+    holdRoomContext: true,
   });
   fixture.requests().push(confirmedRequestFixture());
   await page.goto(`${ORIGIN}/`);
@@ -2755,6 +2823,10 @@ test('API-02 downgraded Guest context clears and closes its reserved print popup
   await page.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
   const popup = await popupPromise;
 
+  // Deliver the invalid authority projection after the reserved shell loads,
+  // keeping route teardown separate from the required fail-closed assertion.
+  await popup.waitForLoadState('load');
+  fixture.releaseRoomContext();
   await expect.poll(() => popup.isClosed()).toBe(true);
   await expect(page.locator('#toast')).toContainText('Die Aktion konnte nicht sicher abgeschlossen werden.');
   expect(fixture.roomContextReads).toEqual([REQUEST_ID]);
@@ -3581,8 +3653,9 @@ for (const [status, message] of [
 
     const popupPromise = page.waitForEvent('popup');
     await page.evaluate(async () => {
-      const { openDetachedPrintWindow } = await import('/src/shared/detached-print-window.js');
+      const { openDetachedPrintWindow, waitForDetachedPrintDocument } = await import('/src/shared/detached-print-window.js');
       const popup = openDetachedPrintWindow();
+      await waitForDetachedPrintDocument(popup);
       popup.document.body.textContent = 'authority-bound print';
     });
     const popup = await popupPromise;

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 import {
-  NORTHWIND, INTEGRATION_PATH, ORIGINS, catalogue, requests, locations,
+  NORTHWIND, PNG, INTEGRATION_PATH, ORIGINS, catalogue, requests, locations,
   json, headers, customerSession,
   selectContext, uiResponse, businessDate, openAdmin, imagesLoaded, mediaHash,
 } from './scenario-support.js';
@@ -13,6 +13,15 @@ const REPLACEMENT_CATERING_IMAGE = new URL(
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
+}
+
+function mediaPath(value) {
+  const url = new URL(value, ORIGINS.customer);
+  expect(url.origin).toBe(ORIGINS.customer);
+  expect(url.search).toBe('');
+  expect(url.hash).toBe('');
+  expect(url.pathname).toMatch(/^\/api\/v1\/demo\/media\/[0-9a-f-]{36}$/);
+  return url.pathname;
 }
 
 export async function verifyNorthwindBaseline(page, {
@@ -71,21 +80,91 @@ export async function verifyNorthwindBaseline(page, {
     await packageImage.locator('input[type="file"]').setInputFiles({
       name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement,
     });
-    const replacementResponse = await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
+    await uiResponse(page, 'PUT', new URL(imageUrl, ORIGINS.customer).pathname,
       () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
-    const persistedReplacement = await replacementResponse.json();
-    expect(persistedReplacement.assetId).toBeTruthy();
-    expect(persistedReplacement.sha256).toMatch(/^[0-9a-f]{64}$/);
-    expect(persistedReplacement.sha256).not.toBe(originalHash);
     await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
     await expect(packageImage).toBeVisible();
     await packageImage.locator('img').scrollIntoViewIfNeeded();
     await imagesLoaded(packageImage);
-    expect(await mediaHash(page.context(), absoluteImageUrl)).toBe(persistedReplacement.sha256);
+    // The trusted processor decodes and re-encodes even WebP input. Read its
+    // committed bytes independently; identical input at another owner must
+    // later produce this same normalized persisted hash.
+    const persistedReplacementHash = await mediaHash(page.context(), absoluteImageUrl);
+    expect(persistedReplacementHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(persistedReplacementHash).not.toBe(originalHash);
+    // #226: removing an existing image must retain the uploader and the form draft.
+    await uiResponse(page, 'DELETE', new URL(imageUrl, ORIGINS.customer).pathname,
+      () => packageImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
+    await expect(packageImage.locator('img')).toHaveCount(0);
+    const picker = packageImage.locator('input[type="file"]');
+    await expect(picker).toBeVisible();
+    await expect(picker).toHaveAccessibleName(/^Bilddatei \(PNG, JPEG oder WebP; bis 2 MiB\) optional/);
+    await expect(picker).toBeFocused();
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+    await picker.setInputFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: PNG });
+    await uiResponse(page, 'POST', '/api/v1/demo/media/catering-package/coffee-break',
+      () => packageImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
+    await expect(packageImage.getByRole('button', { name: 'Catering-Bild entfernen' })).toBeVisible();
+    await expect(packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' })).toBeEnabled();
+    await expect(picker).toHaveAccessibleName('Bilddatei (WebP; 32 Byte bis 2 MiB) optional');
+    await imagesLoaded(packageImage);
+    const recreatedUrl = await packageImage.locator('img').getAttribute('src');
+    const recreatedPath = mediaPath(recreatedUrl);
+    const recreatedHash = await mediaHash(page.context(), new URL(recreatedUrl, ORIGINS.customer).href);
+    expect(recreatedHash).not.toBe(persistedReplacementHash);
+    await picker.setInputFiles({ name: 'afternoon-snack.webp', mimeType: 'image/webp', buffer: replacement });
+    await uiResponse(page, 'PUT', recreatedPath,
+      () => packageImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    expect(await mediaHash(page.context(), new URL(recreatedUrl, ORIGINS.customer).href))
+      .toBe(persistedReplacementHash);
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+    await expect(picker).toHaveValue('');
+    // First attachment to a newly persisted owner must expose replace/remove immediately.
+    await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
+    const newItem = page.locator('[data-catalogue-entry-id="cateringItems-1"]');
+    await newItem.locator('input[id$="-name"]').fill('New Catering lifecycle acceptance');
+    const newImage = newItem.locator('.room-asset-panel');
+    await newImage.locator('input[type="file"]').setInputFiles({
+      name: 'new-catering.png', mimeType: 'image/png', buffer: PNG,
+    });
+    await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
+      () => newImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
+    await expect(newImage.getByRole('button', { name: 'Catering-Bild ersetzen' })).toBeEnabled();
+    await expect(newImage.getByRole('button', { name: 'Catering-Bild entfernen' })).toBeEnabled();
+    await expect(newImage.locator('input[type="file"]')).toHaveAccessibleName('Bilddatei (WebP; 32 Byte bis 2 MiB) optional');
+    await imagesLoaded(newImage);
+    const newImageUrl = await newImage.locator('img').getAttribute('src');
+    const newImagePath = mediaPath(newImageUrl);
+    const firstHash = await mediaHash(page.context(), new URL(newImageUrl, ORIGINS.customer).href);
+    await newImage.locator('input[type="file"]').setInputFiles({
+      name: 'new-catering.webp', mimeType: 'image/webp', buffer: replacement,
+    });
+    await uiResponse(page, 'PUT', newImagePath,
+      () => newImage.getByRole('button', { name: 'Catering-Bild ersetzen' }).click());
+    expect(persistedReplacementHash).not.toBe(firstHash);
+    await imagesLoaded(newImage);
+    expect(await mediaHash(page.context(), new URL(newImageUrl, ORIGINS.customer).href))
+      .toBe(persistedReplacementHash);
+
+    await expect(newImage.locator('input[type="file"]')).toHaveValue('');
+    await uiResponse(page, 'DELETE', newImagePath,
+      () => newImage.getByRole('button', { name: 'Catering-Bild entfernen' }).click(), 204);
+    await expect(newImage.locator('input[type="file"]')).toBeFocused();
+    await newImage.locator('input[type="file"]').setInputFiles({
+      name: 'new-catering.png', mimeType: 'image/png', buffer: PNG,
+    });
+    await uiResponse(page, 'POST', '/api/v1/demo/media/catering-item/cateringItems-1',
+      () => newImage.getByRole('button', { name: 'Catering-Bild hochladen' }).click(), 201);
+    await imagesLoaded(newImage);
+    await expect(unsavedName).toHaveValue('Ungespeicherter Kaffeepausen-Entwurf');
+
+
   }
+  const currentCatalog = (await catalogue(page.context())).catalogue;
+  expect(currentCatalog.cateringItems).toHaveLength(replaceCateringImage ? 9 : 8);
   return {
     rooms: configuration.configuration.rooms,
-    catalog,
+    catalog: currentCatalog,
     seeded,
     cateringImage: { url: absoluteImageUrl, originalHash },
   };
@@ -132,11 +211,11 @@ export async function northwindBooking(page, cycle, baseline) {
   await page.locator('input[type="checkbox"][value="video-system"]').check();
   await next.click();
   await expect(page.locator('.catering-package-grid input[type="radio"]')).toHaveCount(5);
-  await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(8);
+  await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(baseline.catalog.cateringItems.length);
   await imagesLoaded(page.locator('.catering-package-grid'));
   await imagesLoaded(page.locator('.catering-item-grid'));
   // The explicit opt-out is not a product. Never filter real cards by image
-  // presence: a missing image on any of the twelve products must still fail.
+  // presence: a missing image on any seeded or newly created product must still fail.
   const noPackage = page.locator('#productionCateringPackage-none');
   const noPackageCard = page.locator('.catering-variant-card').filter({ has: noPackage });
   await expect(noPackageCard).toHaveCount(1);
@@ -144,7 +223,7 @@ export async function northwindBooking(page, cycle, baseline) {
   await expect(noPackageCard.locator('img')).toHaveCount(0);
   const productCards = page.locator('.catering-variant-card, .catering-item-card')
     .filter({ hasNot: noPackage });
-  await expect(productCards).toHaveCount(12);
+  await expect(productCards).toHaveCount(4 + baseline.catalog.cateringItems.length);
   for (const card of await productCards.all()) {
     await imagesLoaded(card);
   }
@@ -215,6 +294,16 @@ export async function northwindBooking(page, cycle, baseline) {
   await guest.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
   const popup = await popupPromise;
   await expect(popup.locator('body')).toContainText(title);
+  await expect(popup.locator('.print-action')).toBeEnabled();
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
+  await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
+  await expect(popup.locator('script, style, img')).toHaveCount(0);
+  expect(await popup.evaluate(() => window.opener)).toBeNull();
+  expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await popup.emulateMedia({ media: 'print' });
+  await expect(popup.locator('.print-action')).toBeHidden();
+
   await popup.close();
   await guest.getByRole('button', { name: 'Schließen' }).click();
   return request.id;
