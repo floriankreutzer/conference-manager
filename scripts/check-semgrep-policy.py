@@ -76,14 +76,16 @@ def verify_syntax_gate(root):
 
     completed = check()
     require(completed.returncode == 0, "The existing syntax gate must accept valid JavaScript.")
-    # No SAST rule token: this must fail even if Semgrep prefilters the file.
-    (directory / "src" / "broken.js").write_text("function broken( {\n")
-    completed = check()
-    require(
-        completed.returncode != 0 and "SyntaxError" in completed.stderr,
-        "The existing syntax gate must reject malformed JavaScript independently of SAST rule selection.",
-    )
-    print("PASS: existing JavaScript syntax gate rejects malformed input without rule tokens.")
+    # Both fragments must fail the real syntax gate, independently of Semgrep's
+    # rule prefiltering or permissive recovery of incomplete JavaScript.
+    for fragment in ("function broken( {\n", "eval(\n"):
+        (directory / "src" / "broken.js").write_text(fragment)
+        completed = check()
+        require(
+            completed.returncode != 0 and "SyntaxError" in completed.stderr,
+            "The existing syntax gate must reject malformed JavaScript independently of SAST rule selection.",
+        )
+    print("PASS: existing JavaScript syntax gate rejects malformed input with and without rule tokens.")
 
 
 def main():
@@ -124,13 +126,23 @@ def main():
 
         malformed = root / "syntax-error"
         malformed.mkdir()
-        # Include the eval rule token so this exercises parsing, not prefiltering.
-        (malformed / "broken.js").write_text("eval(\n")
+        broken = malformed / "broken.js"
+        broken.write_text("eval(\n")
         status, result = scan(malformed)
-        # Semgrep CE may use exit 1 for strict parsing errors as well as findings.
-        # Distinguish them using JSON errors/results, never by assuming disjoint exit codes.
-        require(status != 0 and bool(result.get("errors")) and not result.get("results"), f"Malformed JavaScript must exit nonzero with structured scan errors and no policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}")
-        print("PASS: malformed JavaScript fails closed.")
+        # Semgrep can recover the incomplete AST and report the eval policy
+        # finding instead of a parser error. Either must block this input; the
+        # Node gate above, not Semgrep, provides complete syntax validation.
+        blocked_eval = any(
+            finding.get("check_id") == DYNAMIC
+            and Path(finding.get("path", "")) == broken
+            and not finding.get("extra", {}).get("is_ignored", False)
+            for finding in result.get("results", [])
+        )
+        require(
+            status != 0 and (bool(result.get("errors")) or blocked_eval),
+            f"Malformed eval input must be blocked by a scan error or its eval finding: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}",
+        )
+        print("PASS: malformed eval input remains blocked by Semgrep.")
 
         invalid = root / "invalid-rules.yml"
         invalid.write_text("rules: [\n")
