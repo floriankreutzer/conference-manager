@@ -137,7 +137,7 @@ test('public website launchpad remains isolated while DAST covers every Demo sur
     '10015', '10049-2', '10055-12', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.deepEqual(uniqueRefs(staticRules), [
-    '10015', '10020-1', '10021', '10038', '10049-3', '10050-1', '10063-1', '10098',
+    '10015', '10020-1', '10021', '10038-1', '10049-3', '10050-1', '10063-1', '10098',
     '90004-2', '90004-3', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10049|10055|90004|90005)\t/m);
