@@ -721,8 +721,8 @@ export function createManagerBusinessSettingsApplication({
           field({ id: `manager-room-accessibility-${index}`, label: t('managerSettings.room.accessibility'), control: controls.accessibility, optional: true, hint: t('managerSettings.commaSeparated') }),
           field({ id: `manager-room-services-${index}`, label: t('managerSettings.room.serviceIds'), control: controls.serviceIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
           field({ id: `manager-room-catering-${index}`, label: t('managerSettings.room.cateringPackageIds'), control: controls.cateringPackageIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
-          field({ id: `manager-room-floorplan-${index}`, label: t('managerSettings.room.floorplanAssetId'), control: controls.floorplanAssetId, optional: true }),
-          field({ id: `manager-room-media-${index}`, label: t('managerSettings.room.mediaAssetIds'), control: controls.mediaAssetIds, optional: true, hint: t('managerSettings.commaSeparated') }),
+          fieldHelp(field({ id: `manager-room-floorplan-${index}`, label: t('managerSettings.room.floorplanAssetId'), control: controls.floorplanAssetId, optional: true }), controls.floorplanAssetId, `manager-room-floorplan-${index}`, 'managerSettings.help.roomMedia'),
+          fieldHelp(field({ id: `manager-room-media-${index}`, label: t('managerSettings.room.mediaAssetIds'), control: controls.mediaAssetIds, optional: true, hint: t('managerSettings.commaSeparated') }), controls.mediaAssetIds, `manager-room-media-${index}`, 'managerSettings.help.roomMedia'),
           fieldHelp(field({ id: `manager-room-active-${index}`, label: t('managerSettings.room.active'), control: controls.active }), controls.active, `manager-room-active-${index}`, 'managerSettings.help.active'),
         ]),
       ]);
@@ -731,18 +731,18 @@ export function createManagerBusinessSettingsApplication({
         el('h3', { text: t('managerSettings.room.priceHeading') }),
         el('p', { className: 'field-hint', text: t('managerSettings.room.priceHint') }),
         el('div', { className: 'form-grid' }, [
-          field({
+          fieldHelp(field({
             id: `manager-room-price-amount-${index}`,
             label: t('managerSettings.catalogue.price'),
             control: roomPrice.amountMinor,
             optional: true,
-          }),
-          field({
+          }), roomPrice.amountMinor, `manager-room-price-amount-${index}`, 'managerSettings.help.price'),
+          fieldHelp(field({
             id: `manager-room-price-currency-${index}`,
             label: t('managerSettings.catalogue.currency'),
             control: roomPrice.currency,
             optional: true,
-          }),
+          }), roomPrice.currency, `manager-room-price-currency-${index}`, 'managerSettings.help.currency'),
         ]),
       ]);
       const savePrice = button(t('managerSettings.room.savePrice'), { className: 'secondary' });

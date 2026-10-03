@@ -1,6 +1,7 @@
 export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
   de: Object.freeze({
     'managerSettings.choice.inactive': '{name} (inaktiv)',
+    'managerSettings.help.roomMedia.details': 'Nutzen Sie die Upload-Felder unten: hochgeladene Bilder werden automatisch mit dem Raum verknüpft. Diese Referenzen identifizieren bereits gespeicherte Bilder, nicht URLs oder Dateinamen. Beispiel: Das Entfernen einer Bildreferenz löst die Verknüpfung; es löscht keine Buchung. Referenzen eines anderen Raums sind nicht zulässig.',
     'managerSettings.help.active.details': 'Aktive Angebote können für neue Anfragen ausgewählt werden. Deaktivieren blendet sie für neue Anfragen aus; bestehende Buchungen bleiben erhalten. Beispiel: ein saisonales Angebot vorübergehend deaktivieren.',
     'managerSettings.help.more': 'ⓘ Weitere Informationen',
     'managerSettings.help.forField': 'Weitere Informationen zu {field}',
@@ -58,8 +59,8 @@ export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
     'managerSettings.room.accessibility': 'Barrierefreiheit',
     'managerSettings.room.serviceIds': 'Verfügbare Services',
     'managerSettings.room.cateringPackageIds': 'Verfügbare Catering-Pakete',
-    'managerSettings.room.floorplanAssetId': 'Grundriss-Asset-ID',
-    'managerSettings.room.mediaAssetIds': 'Medien-Asset-IDs',
+    'managerSettings.room.floorplanAssetId': 'Verknüpfter Grundriss',
+    'managerSettings.room.mediaAssetIds': 'Verknüpfte Raumbilder',
     'managerSettings.room.mediaUploadHeading': 'Private Raumbilder hochladen',
     'managerSettings.room.file.floorplan': 'Grundrissdatei (PNG, JPEG oder WebP; bis 2 MiB)',
     'managerSettings.room.file.media': 'Bilddatei (PNG, JPEG oder WebP; bis 2 MiB)',
@@ -118,6 +119,7 @@ export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
   }),
   en: Object.freeze({
     'managerSettings.choice.inactive': '{name} (inactive)',
+    'managerSettings.help.roomMedia.details': 'Use the upload fields below: uploaded images are attached to the room automatically. These references identify stored images, not URLs or filenames. For example, removing an image reference detaches it; it does not delete a booking. References belonging to another room are not allowed.',
     'managerSettings.help.active.details': 'Active offers can be selected for new requests. Deactivating hides them for new requests; existing bookings remain unchanged. For example, temporarily deactivate a seasonal offer.',
     'managerSettings.help.more': 'ⓘ More information',
     'managerSettings.help.forField': 'More information about {field}',
@@ -175,8 +177,8 @@ export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
     'managerSettings.room.accessibility': 'Accessibility',
     'managerSettings.room.serviceIds': 'Available services',
     'managerSettings.room.cateringPackageIds': 'Available Catering packages',
-    'managerSettings.room.floorplanAssetId': 'Floorplan asset ID',
-    'managerSettings.room.mediaAssetIds': 'Media asset IDs',
+    'managerSettings.room.floorplanAssetId': 'Attached floorplan',
+    'managerSettings.room.mediaAssetIds': 'Attached room images',
     'managerSettings.room.mediaUploadHeading': 'Upload private room images',
     'managerSettings.room.file.floorplan': 'Floor plan file (PNG, JPEG or WebP; up to 2 MiB)',
     'managerSettings.room.file.media': 'Image file (PNG, JPEG or WebP; up to 2 MiB)',

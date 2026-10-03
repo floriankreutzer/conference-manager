@@ -89,7 +89,7 @@ export function createTenantCostAllocationSettingsApi({ apiClient } = {}) {
     apiClient,
     basePath: CURRENT_PATH,
     types: ['cost-centers'],
-    normalizeApplied: wrapped,
+    normalizeApplied: envelope,
   });
   return Object.freeze({
     ...bulk,

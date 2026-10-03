@@ -578,7 +578,7 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ locations: locationSettings }),
+        body: JSON.stringify(locationSettingsProjection(locationSettings, 1)),
       });
       return;
     }
