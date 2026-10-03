@@ -16,6 +16,11 @@ const HOSTED_BASELINES = Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
+  // Immediate predecessor retained for the previously supported rollback cleanup path.
+  '5294793a72e5569afe03d0855b3fcfdf3ec89832': Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
   // Previous Guest-print/Catering/worklist runtime retains historical cleanup binding.
   '7adb670a03f1372c70dd1405c0e4b269daa0d9df': Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
