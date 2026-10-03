@@ -47,8 +47,8 @@ jobs:
       matrix:
         include:
           - surface: static-launchpad
-            target: https://floriankreutzer.github.io/conference-manager-website/en/demo/
-            readiness: https://floriankreutzer.github.io/conference-manager-website/en/demo/
+            target: https://floriankreutzer.github.io/conference-manager/
+            readiness: https://floriankreutzer.github.io/conference-manager/
             exact_policy: .zap/static-launchpad.tsv
             summary_rules: .zap/static-launchpad-summary.tsv
           - surface: customer-demo

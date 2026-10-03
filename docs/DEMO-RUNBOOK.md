@@ -8,7 +8,7 @@ The current implementation, schema-42 migration and exact deployment evidence ar
 recorded in `SAAS-3.6-RELEASE-EVIDENCE.md`. Its pending gates remain pending until
 their complete remote outcomes and independent Live cleanup are recorded.
 
-The canonical human entry point is `https://floriankreutzer.github.io/conference-manager-website/en/demo/`, owned and published by `conference-manager-website`. The German route is `https://floriankreutzer.github.io/conference-manager-website/de/demo/`. These public website launch routes provide static navigation only. The actual applications remain separately hosted on Render:
+The canonical human entry point is `https://floriankreutzer.github.io/conference-manager/`, the GitHub Pages launchpad published from `demo-portal/`. GitHub Pages is static navigation only. The actual applications remain separately hosted on Render:
 
 - Customer Demo: `https://conference-manager-demo.onrender.com`
 - Platform Demo: `https://conference-manager-ops-demo.onrender.com`
@@ -115,7 +115,7 @@ An expired, revoked or security-version-stale server session therefore cannot re
 
 Expected Customer Demo application calls are same-origin `/api/*` requests. No real identity provider, Microsoft Graph, external image service or QR service is contacted automatically by the deterministic Demo baseline.
 
-The public website Demo launch routes must not call either Demo API or handle application credentials, sessions, Tenant selectors or reset endpoints. They link directly to the two Render application origins. Website implementation and static navigation tests belong to `conference-manager-website`, not to a duplicate application-repository portal.
+GitHub Pages does not call either Demo API. It contains no JavaScript, application credentials, sessions, Tenant selectors or reset endpoints and links directly to the two Render application origins.
 
 ## Required local/CI checks
 
@@ -168,15 +168,24 @@ Cleanup has priority after any destructive attempt. The workflow performs bounde
 
 Hosted acceptance must not be relabeled as Production/provider/penetration evidence. A Render cold-start run provides cold-start evidence only when the services were actually sleeping at the start of the run.
 
-## Public website launchpad acceptance
+## GitHub Pages acceptance
 
-SaaS 3.9 website PR #78 delivered the bilingual public Demo entry. Application PR #261 retired this repository's duplicate `demo-portal/`, Pages publication workflow and portal-only browser tests. The website repository owns publication and static navigation/accessibility checks; this repository retains the independently scoped launchpad DAST target.
+The Pages workflow publishes only `demo-portal/` after a `main` change to that directory/workflow. The published URL in `docs/DEMO-URLS.md` returned HTTP 200 on 28 September 2026 and was scanned in three-origin DAST run `36432201461`; recheck it during #170 acceptance.
 
-The old application-repository Pages URL returned HTTP 200 on 28 September 2026 and was scanned in run `36432201461`. That is historical evidence for the retired URL, not evidence for the current website routes. Final #170 acceptance requires the current website route and both direct Render destinations to be verified separately.
+Pages acceptance verifies only the launchpad contract. Customer/Platform runtime security remains evidenced by the Render/shared-Demo gates.
 
-Pages acceptance verifies only the launchpad contract. Customer/Platform runtime security remains evidenced by the Render/shared-Demo gates. Record the current deployed response headers and reviewed exact-URL ZAP findings; do not infer HTTP CSP or clickjacking protection from an HTML meta policy.
-
-The historical 2026-09-28 launchpad finding `10055-13` concerned meta-delivered `frame-ancestors`. The current website-owned route has its separately reviewed static CSP observation `10038-1` in `.zap/static-launchpad.tsv`. These exact-route, authority-free Demo dispositions are not transferred to either Render application. A future launchpad with application authority, a changed target or changed provider/header support requires a fresh review. Technical classification does not itself constitute Security Owner approval of the SaaS 3.6 release.
+The launchpad's HTML meta CSP restricts resources, forms, objects and base-URL changes. GitHub Pages
+does not provide repository-controlled response headers, and CSP `frame-ancestors` is ignored when
+delivered in a meta element. Acceptance must therefore record the deployed provider headers
+separately and must not represent the meta policy as clickjacking protection.
+The 2026-09-28 live DAST reported `10055-13` at the exact Pages launchpad URL because
+`frame-ancestors` requires an HTTP CSP header. The reviewed Demo-only disposition is
+bounded to that static, credential-free navigation page; its framing could mislead a
+visitor into choosing a Demo destination, so the risk is not described as eliminated.
+The two Render applications are outside this exception and retain their own framing
+protections. A future portal with application authority or a change in provider/header
+support requires a fresh review. This technical classification does not constitute
+Security Owner approval of the SaaS 3.6 release.
 
 ## Security regression register
 
