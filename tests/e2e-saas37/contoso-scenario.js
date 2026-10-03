@@ -14,7 +14,7 @@ export async function verifyContosoBaseline(page) {
   await expect(disclosure).toContainText('Offene Aufgaben');
   await expect(disclosure).toContainText('7 offene Aufgaben');
   await expect(worklist).not.toHaveAttribute('open');
-  expect(worklist && await worklist.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThan(150);
+  expect(await worklist.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThan(150);
   await disclosure.focus();
   await expect(disclosure).toBeFocused();
   await page.keyboard.press('Enter');
