@@ -694,6 +694,50 @@ server remains authoritative for Tenant lifecycle, session validity, CSRF and th
 context session. Exact merge, deployment and CI evidence is owned by
 `docs/SAAS-3.6-HARDENING-REGISTER.md`.
 
+### D-023 — Manager CSV parsing admitted malformed and excessive input
+
+Classification: `security-relevant`.
+
+The shared Manager CSV parser accepted embedded unquoted quotes, trailing text after
+closing quotes and oversized documents when called independently of the file picker.
+The same parser is reachable in the Production presentation. The existing backend
+schema, collection, Tenant, role, CSRF, receipt and revision checks still bounded
+authority; no server bypass was demonstrated.
+
+The correction uses fatal UTF-8 decoding, a strict state machine, encoded-byte,
+row/plain-cell and bounded JSON limits, exact headers and duplicate/empty-ID rejection.
+Structured cells retain the full supported twenty-variant package within the file
+bound. Formula-prefixed text and literal apostrophes round-trip without spreadsheet
+execution. `tests/tenant-bulk-csv.test.js` protects these positive and negative cases;
+`tests/e2e-shared/business-csv.spec.js` executes all five real PostgreSQL-backed types
+in Chromium and WebKit. Named reference controls and DE/EN disclosure help preserve
+server authorization and remove primary manual Site/Room/item-ID entry.
+
+### D-024 — Bulk Locations Apply reader expected the wrong response envelope
+
+Classification: `production-defect`.
+
+The normal Locations reader is wrapped, but the bulk Apply response is the bare
+Locations envelope. The frontend expected the wrapper, so a successful server write
+could be reported as an invalid response. The corrected adapter normalizes the
+documented bare envelope, retains exact field validation, and rejects extra fields.
+Contract tests and the real Room CSV Apply/reload journey verify the correction.
+Cost Allocation uses the same bare Apply rule; normal reads remain unchanged.
+
+### D-025 — Equipment lacked the coordinated receipt-bound bulk contract
+
+Classification: `shared-business-domain`.
+
+Equipment was an authoritative Catalogue collection but absent from the server bulk
+type allowlist. A frontend-only CSV option could not satisfy #229. The paired API
+adds Equipment to the existing template/export/validate/apply route and schema-42
+receipt type constraint. Role, Tenant, actor, hash, revision, expiry and CSRF checks
+remain authoritative. API regression covers replay and changed-payload, foreign-
+actor/Tenant, stale-revision and unauthorized-role rejection before writes.
+PostgreSQL tests cover canonical up/down/up, actor foreign keys and downgrade denial
+while any Equipment receipt is retained. The migration deletes no business data;
+historical rollback guards are preserved.
+
 ## Hardening traceability
 
 The hardening register owns mutable status and exact CI/merge evidence. This document owns the

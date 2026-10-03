@@ -158,8 +158,9 @@ export async function completeContosoTasks(page, cycle, baseline) {
   // Delete a seeded media association via its normal authorized editor. Reset
   // must restore it and the original bytes, not just remove the newly uploaded image.
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
-  // The navigation response can precede the completed authoritative render.
-  // Edit only after its heading focus confirms that the final controls exist.
+  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  // The explicit editor navigation focuses the heading after its authoritative
+  // load, unlike the Administration tab's automatic, unfocused initial render.
   await expect(page.locator('#viewTitle')).toBeFocused();
   const atelier = page.locator('[data-manager-room-id="contoso-paris-room-1"]');
   const mediaIds = atelier.locator('input[id^="manager-room-media-"][type="text"]');
