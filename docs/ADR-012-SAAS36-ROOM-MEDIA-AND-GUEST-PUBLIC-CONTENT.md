@@ -36,7 +36,7 @@ Tenant, including its floorplan during Room selection; a Manager can fetch media
 in their Tenant, including inactive Rooms needed for business administration. Guests and
 anonymous visitors cannot fetch bytes. Every read rechecks the current Room-to-asset
 relationship and returns a fixed safe content type with `X-Content-Type-Options: nosniff`,
-private `no-store` caching, and a generic concealed response for inaccessible IDs. Render
+private caching with mandatory revalidation (`Cache-Control: private, no-cache`) and a server-issued immutable-content digest ETag for successful authenticated GETs, and a generic concealed response for inaccessible IDs. A conditional `304 Not Modified` is permitted only after the trusted API has re-established the current authenticated Tenant/Room-to-asset relationship and confirmed the persisted digest; media mutations, inaccessible/error responses and any response without that proof remain `no-store`. Public/shared caching is prohibited. Render
 the real decoded raster in Room cards and an accessible preview/floorplan dialog, with
 bounded loading/error/empty states and descriptive localized text. A synthetic schematic
 is never counted as EMP-03 image evidence.
