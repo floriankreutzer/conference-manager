@@ -1,6 +1,7 @@
 export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
   de: Object.freeze({
     'managerSettings.choice.inactive': '{name} (inaktiv)',
+    'managerSettings.help.active.details': 'Aktive Angebote können für neue Anfragen ausgewählt werden. Deaktivieren blendet sie für neue Anfragen aus; bestehende Buchungen bleiben erhalten. Beispiel: ein saisonales Angebot vorübergehend deaktivieren.',
     'managerSettings.help.more': 'ⓘ Weitere Informationen',
     'managerSettings.help.forField': 'Weitere Informationen zu {field}',
     'managerSettings.help.items': 'Enthaltene Artikel auswählen. Neue Artikel zuerst speichern.',
@@ -117,6 +118,7 @@ export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
   }),
   en: Object.freeze({
     'managerSettings.choice.inactive': '{name} (inactive)',
+    'managerSettings.help.active.details': 'Active offers can be selected for new requests. Deactivating hides them for new requests; existing bookings remain unchanged. For example, temporarily deactivate a seasonal offer.',
     'managerSettings.help.more': 'ⓘ More information',
     'managerSettings.help.forField': 'More information about {field}',
     'managerSettings.help.items': 'Select included items. Save new items first.',
