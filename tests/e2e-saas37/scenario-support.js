@@ -155,7 +155,7 @@ export function businessDate() {
 export async function mediaHash(context, url) {
   const response = await context.request.get(url);
   expect(response.status()).toBe(200);
-  expect(response.headers()['cache-control']).toBe('private, no-store');
+  expect(response.headers()['cache-control']).toBe('private, no-cache');
   return createHash('sha256').update(await response.body()).digest('hex');
 }
 
