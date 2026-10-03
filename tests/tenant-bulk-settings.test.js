@@ -1,11 +1,36 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTenantLocationSettingsApi } from '../src/platform/tenant-location-settings-api.js';
+import { createTenantCostAllocationSettingsApi } from '../src/platform/tenant-cost-allocation-settings-api.js';
 import { createDemoLocationSettings } from '../src/tenant-admin/sections/locations/demo-adapter.js';
 
 const site = {
   id: 'site-a', name: 'Site A', active: true, timeZone: 'Europe/Berlin', address: null,
 };
+
+test('Locations and Cost Allocation bulk Apply accept the bare server envelope and reject extra fields', async () => {
+  const receiptId = '00000000-0000-4000-8000-000000000001';
+  for (const [factory, type, response] of [
+    [createTenantLocationSettingsApi, 'sites', {
+      schemaVersion: 1, revision: 2, configuration: { sites: [site], rooms: [] }, providerContext: [],
+    }],
+    [createTenantCostAllocationSettingsApi, 'cost-centers', {
+      schemaVersion: 1, revision: 2, configuration: { allocationRequired: false, costCenters: [] },
+    }],
+  ]) {
+    const value = { schemaVersion: 1, type, rows: [] };
+    let payload = response;
+    const api = factory({ apiClient: { async request(path, options) {
+      assert.ok(path.endsWith(`/bulk/${type}/apply`));
+      assert.equal(options.method, 'POST');
+      assert.deepEqual(options.body, { receiptId, document: value });
+      return payload;
+    } } });
+    assert.deepEqual(await api.applyBulk(type, value, receiptId), response);
+    payload = { ...response, tenantId: 'foreign' };
+    await assert.rejects(api.applyBulk(type, value, receiptId), /RESPONSE_INVALID/);
+  }
+});
 
 test('Production bulk adapter uses only aggregate-owned exact endpoints', async () => {
   const calls = [];

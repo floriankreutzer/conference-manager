@@ -1,6 +1,6 @@
 import { t } from '../core/i18n.js';
 import { announce, button, el } from '../core/ui.js';
-import { tenantBulkCsvToDocument, tenantBulkDocumentToCsv } from './tenant-bulk-csv.js';
+import { tenantBulkCsvBytesToDocument, TenantBulkCsvError, tenantBulkDocumentToCsv } from './tenant-bulk-csv.js';
 
 const MAX_BYTES = 65_536;
 const METHODS = ['loadBulkTemplate', 'exportBulk', 'validateBulk', 'applyBulk'];
@@ -45,7 +45,7 @@ export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } 
 
   const selectedDocument = async (selected, selectedType) => {
     if (!selected || selected.size > MAX_BYTES) throw new TypeError('TENANT_BULK_FILE_INVALID');
-    return tenantBulkCsvToDocument(await selected.text(), selectedType);
+    return tenantBulkCsvBytesToDocument(await selected.arrayBuffer(), selectedType);
   };
 
   const template = button(t('tenantBulk.template'), { className: 'secondary' });
@@ -95,9 +95,11 @@ export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } 
       status.textContent = result.valid
         ? t(result.changed ? 'tenantBulk.validChanged' : 'tenantBulk.validUnchanged') : t('tenantBulk.invalid');
       announce(status.textContent, { assertive: !result.valid });
-    } catch {
+    } catch (error) {
       if (generation !== current || !lifecycleCurrent()) return;
-      status.textContent = t('tenantBulk.fileInvalid'); announce(status.textContent, { assertive: true });
+      status.textContent = error instanceof TenantBulkCsvError
+        ? t(`tenantBulk.csvError.${error.reason}`, { row: error.row, column: error.column })
+        : t('tenantBulk.fileInvalid'); announce(status.textContent, { assertive: true });
     }
   });
   apply.addEventListener('click', async () => {

@@ -227,7 +227,7 @@ test('EMP-05: Catering uses native package choices and quantity cards without in
   assert.match(catering, /production\.employee\.cateringIncludedItems/);
   assert.match(catering, /production\.employee\.cateringQuantity/);
   assert.doesNotMatch(catering, /(?:src|href):\s*(?:item|packageEntry)/);
-  assert.match(css, /\.catering-variant-card:has\(input:focus-visible\)/);
+  assert.match(css, /\.catering-variant-card:focus-within/);
 });
 
 test('EMP-13: Employee cancellation is confirmation-gated, lock-safe, and never deletes a Request', async () => {

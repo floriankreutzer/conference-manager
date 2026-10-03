@@ -3,11 +3,13 @@
 > Historical rollout plan from 27 September 2026. The draft PRs, schema 38,
 > candidate hashes, pending migrations and deployment instructions below have
 > been superseded by the integrated status in
-> `SAAS-3.6-HARDENING-REGISTER.md` (schema 40 and deployed API/frontend pair).
-> Do not use this plan as the current release checklist; #170 tracks remaining
-> validation. Named acceptance #182 is completed and must not be reopened.
+> `SAAS-3.6-HARDENING-REGISTER.md` and `SAAS-3.6-RELEASE-EVIDENCE.md`.
+> Do not use this plan as the current release checklist. Named #172/#182 and
+> bounded Demo #216 acceptance are completed and must not be reopened.
+> The current release record distinguishes executed schema-42 evidence from
+> pending final gates and states the accepted operational evidence limits.
 
-## Current candidate state
+## Historical candidate state — 27 September 2026
 
 The last fully browser-executed frontend draft PR #201 head
 `5b47eb6bd544dac6fbfdebc14768f4fa005f4f96` contains the Equipment,
@@ -96,7 +98,7 @@ version/status and provider-reference state, and canonicalizes the Revision-Wate
 lock order across Request mutations. The committed two-client tests ran on PostgreSQL 18 in
 API CI `36265393728`; repeat on the final reviewed head after H-034/H-035 migrations.
 
-## Ordered release handoff
+## Historical ordered release handoff
 
 1. Preserve the passing H-040 PostgreSQL 18 evidence and implement H-034/H-035 under
    ADR-012; repeat migration, provider-event race and lock-order tests on the final API
@@ -121,7 +123,7 @@ API CI `36265393728`; repeat on the final reviewed head after H-034/H-035 migrat
 Until every gate is green on the integrated and deployed final heads, the public HTML readiness markers remain
 `in-validation`; local fixes, Node tests or Playwright discovery must not advance them to `ready`.
 
-## Required evidence
+## Historical required evidence
 
 | Surface | Required final evidence |
 | --- | --- |

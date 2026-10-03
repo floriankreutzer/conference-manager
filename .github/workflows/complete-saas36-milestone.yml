@@ -1,0 +1,52 @@
+name: Complete SaaS 3.6 milestone
+
+on:
+  issues:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: complete-saas36-milestone
+  cancel-in-progress: false
+
+jobs:
+  completion:
+    if: github.repository == 'floriankreutzer/conference-manager' && (github.event_name == 'workflow_dispatch' || github.event.issue.number == 164)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Require all completed release issues before closing milestone 10
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository=floriankreutzer/conference-manager
+          for issue in 164 165 166 167 168 169 170 171 172 179 180 181 182 216 226 228 229 256; do
+            state="$(gh api "repos/$repository/issues/$issue" --jq '[.state, .state_reason] | join(":")')"
+            if [[ "$state" != 'closed:completed' ]]; then
+              echo "SaaS 3.6 remains open: issue $issue is not completed."
+              exit 0
+            fi
+          done
+          milestone="$(gh api "repos/$repository/milestones/10")"
+          if [[ "$(jq -r '.number' <<< "$milestone")" != '10' ]] || [[ "$(jq -r '.title | startswith("SaaS 3.6")' <<< "$milestone")" != 'true' ]]; then
+            echo "The reviewed SaaS 3.6 milestone identity changed." >&2
+            exit 1
+          fi
+          if [[ "$(jq -r '.open_issues' <<< "$milestone")" != '0' ]]; then
+            echo "SaaS 3.6 remains open: milestone has additional unfinished work."
+            exit 0
+          fi
+          if [[ "$(jq -r '.state' <<< "$milestone")" == 'closed' ]]; then
+            echo "SaaS 3.6 milestone is already closed."
+            exit 0
+          fi
+          state="$(gh api --method PATCH "repos/$repository/milestones/10" -f state=closed --jq '.state')"
+          test "$state" = 'closed'
+          echo "SaaS 3.6 milestone 10 closed after all release issues were completed."

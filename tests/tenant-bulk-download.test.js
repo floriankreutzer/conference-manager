@@ -226,9 +226,9 @@ test('template and export buttons download trusted CSV blobs and revoke their ob
   ]);
   assert.equal(document.body.childNodes.length, 0);
   assert.equal(created.length, 2);
-  assert.equal(await created[0].text(), '"id","name","active","timeZone","guestPresentation"\r\n');
+  assert.equal(await created[0].text(), '"id","name","active","timeZone","address"\r\n');
   assert.equal(await created[1].text(),
-    '"id","name","active","timeZone","guestPresentation"\r\n"site-a","Site A","","",""\r\n');
+    '"id","name","active","timeZone","address"\r\n"site-a","Site A","","",""\r\n');
 
   await new Promise((resolve) => { setTimeout(resolve, 5); });
   assert.deepEqual(revoked, [
@@ -284,8 +284,8 @@ test('template and export buttons download trusted CSV blobs and revoke their ob
   const [, , validate, apply] = elementsByTag(racePanel, 'button');
   const sitesDocument = { schemaVersion: 1, type: 'sites', rows: [] };
   const roomsDocument = { schemaVersion: 1, type: 'rooms', rows: [] };
-  const sitesFile = { size: 20, async text() { return '"id"\r\n'; } };
-  const roomsFile = { size: 20, async text() { return '"id"\r\n'; } };
+  const sitesFile = { size: 20, async arrayBuffer() { return new TextEncoder().encode('"id"\r\n').buffer; } };
+  const roomsFile = { size: 20, async arrayBuffer() { return new TextEncoder().encode('"id"\r\n').buffer; } };
 
   raceType.value = 'sites';
   raceFile.files = [sitesFile];

@@ -1088,3 +1088,13 @@ main,
 .demo-manager-worklist[open] .demo-manager-task-group {
   margin-top: var(--space-3);
 }
+
+.manager-field-help summary {
+  min-block-size: var(--control-height);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.manager-field-help summary:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}

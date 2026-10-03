@@ -194,7 +194,7 @@ export function createTenantLocationSettingsApi({ apiClient } = {}) {
     apiClient,
     basePath: CURRENT_PATH,
     types: ['sites', 'rooms'],
-    normalizeApplied: wrapped,
+    normalizeApplied: envelope,
   });
   return Object.freeze({
     ...bulk,

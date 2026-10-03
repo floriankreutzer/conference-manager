@@ -49,7 +49,9 @@ test('hosted full scenarios remain inside a reserved independent cleanup budget'
     SHARED_DEMO_PLATFORM_ORIGIN: 'https://conference-manager-ops-demo.onrender.com',
   });
   // Actual cross-role cap + full suite + six cleanup requests + identity/audit margin.
-  assert.ok(reserve >= 720 + hosted.globalTimeout / 1000 + 2 * (2 * 20 + 75) + 200);
+  const crossRole = readFileSync('playwright.hosted-demo.config.js', 'utf8');
+  const crossRoleCap = Number(crossRole.match(/globalTimeout: ([\d_]+)/)?.[1].replaceAll('_', ''));
+  assert.ok(reserve >= crossRoleCap / 1000 + hosted.globalTimeout / 1000 + 2 * (2 * 20 + 75) + 200);
 });
 
 test('measured hosted scenario budget does not relax isolated action or assertion limits', () => {

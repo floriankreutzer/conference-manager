@@ -7,9 +7,10 @@ export default defineConfig({
   testDir: './tests/e2e-shared',
   fullyParallel: false,
   workers: 1,
-  // Cumulative cross-role navigation budget; individual UI waits stay bounded.
+  // Four serial CSV/cross-role cases retain 300 seconds each, plus two minutes
+  // for setup/teardown. The CSV addition exceeded the former 12-minute suite cap.
   timeout: 300_000,
-  globalTimeout: 720_000,
+  globalTimeout: 1_320_000,
   maxFailures: 1,
   retries: 0,
   expect: { timeout: 15_000 },

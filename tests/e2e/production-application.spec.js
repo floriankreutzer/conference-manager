@@ -578,7 +578,7 @@ async function installProductionApplicationFixture(page, {
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ locations: locationSettings }),
+        body: JSON.stringify(locationSettingsProjection(locationSettings, 1)),
       });
       return;
     }
@@ -3185,7 +3185,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await expect(page.getByRole('heading', { name: 'Services & Ausstattung', exact: true })).toBeVisible();
   const serviceBulk = page.locator('[data-tenant-bulk-transfer]');
   expect(await serviceBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
-    .toEqual(['services']);
+    .toEqual(['services', 'equipment']);
   await page.locator('[data-add-catalogue-entry="services"]').click();
   await page.locator('[data-add-catalogue-entry="equipment"]').click();
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
@@ -4369,7 +4369,7 @@ test('Tenant Admin bulk surfaces expose only owned types and apply a receipt-bou
     name: 'rooms.csv',
     mimeType: 'text/csv',
     buffer: Buffer.from(
-      '"id","name","description","capacity","active","floor","equipment","accessibility","serviceIds","cateringPackageIds","guestPublicValues"\r\n',
+      '"id","siteId","name","description","capacity","active","floor","equipment","accessibility","serviceIds","cateringPackageIds","floorplanAssetId","mediaAssetIds"\r\n',
     ),
   });
   await locationsBulk.getByRole('button', { name: 'Datei prüfen' }).click();
@@ -4798,4 +4798,49 @@ test('Production onboarding opens Tenant Admin without loading unavailable busin
   await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
   expect(fixture.catalogReads).toEqual([]);
   expect(businessReads).toEqual([]);
+});
+
+
+test('Manager business references use named selections and keyboard-accessible DE/EN help', async ({ page }) => {
+  const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
+  catalogueSettings.services = [{ id: 'service-support', name: 'Video support', description: null,
+    price: { amountMinor: 1250, currency: 'EUR' }, active: true, order: 1, siteIds: [], roomIds: [] }];
+  const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
+  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  const services = page.locator('#manager-room-services-0');
+  await expect(services).toHaveAttribute('multiple', 'multiple');
+  await expect(services.locator('option')).toHaveText(['Video support']);
+  await services.selectOption('service-support');
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(1);
+  expect(fixture.locationWrites[0].body.configuration.rooms[0].serviceIds).toEqual(['service-support']);
+  await page.getByRole('button', { name: 'Services & Ausstattung', exact: true }).click();
+  const sites = page.locator('#manager-catalogue-services-service-support-sites');
+  await expect(sites.locator('option')).toHaveText(['Berlin']);
+  await sites.selectOption('berlin');
+  await page.locator('#manager-catalogue-services-service-support-rooms').selectOption('room-a');
+  // Native summary has disclosure semantics, not an invented ARIA role.
+  const summary = page.locator('.manager-field-help summary').first();
+  await summary.focus(); await expect(summary).toBeFocused(); await page.keyboard.press('Enter');
+  await expect(summary.locator('..')).toHaveAttribute('open', '');
+  await expect(page.locator('#manager-catalogue-services-service-support-amount-help-description')).toBeVisible();
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+  expect(fixture.catalogueWrites[0].body.catalogue.services[0]).toMatchObject({ siteIds: ['berlin'], roomIds: ['room-a'] });
+  await expect(page.locator('#manager-catalogue-services-service-support-sites')).toHaveValues(['berlin']);
+  const bounds = await page.evaluate(() => ({ width: innerWidth, content: document.documentElement.scrollWidth }));
+  expect(bounds.content).toBeLessThanOrEqual(bounds.width + 1);
+  await page.evaluate(() => localStorage.setItem('conference_language_v1', 'en'));
+  await page.reload();
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration' }).click();
+  await page.getByRole('button', { name: 'Business settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Services & equipment', exact: true }).click();
+  const englishSummary = page.locator('.manager-field-help summary').first();
+  await expect(englishSummary).toHaveText('ⓘ More information');
+  await englishSummary.focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('#manager-catalogue-services-service-support-amount-help-description')).toContainText('12.50 EUR');
 });

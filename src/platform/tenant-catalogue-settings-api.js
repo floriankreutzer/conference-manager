@@ -151,7 +151,7 @@ export function createTenantCatalogueSettingsApi({ apiClient } = {}) {
   const bulk = createTenantBulkSettingsApi({
     apiClient,
     basePath: CURRENT_PATH,
-    types: ['services', 'catering-items', 'catering-packages'],
+    types: ['services', 'equipment', 'catering-items', 'catering-packages'],
     normalizeApplied: current,
   });
   return Object.freeze({

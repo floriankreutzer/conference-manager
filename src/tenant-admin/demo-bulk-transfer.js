@@ -3,6 +3,7 @@ const TYPE_COLLECTION = Object.freeze({
   sites: 'sites',
   rooms: 'rooms',
   services: 'services',
+  equipment: 'equipment',
   'catering-items': 'cateringItems',
   'catering-packages': 'cateringPackages',
   'cost-centers': 'costCenters',
