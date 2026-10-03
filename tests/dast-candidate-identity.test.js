@@ -29,11 +29,11 @@ test('reviewed website CSP observation stays scoped to the authority-free launch
   const rows = readPolicyRows(readFileSync(new URL('../.zap/static-launchpad.tsv', import.meta.url), 'utf8'));
   const summary = readSummaryPolicyRows(readFileSync(new URL('../.zap/static-launchpad-summary.tsv', import.meta.url), 'utf8'));
   const risks = JSON.parse(readFileSync(new URL('../.zap/reviewed-alert-risks.json', import.meta.url), 'utf8'));
-  const csp = rows.filter((row) => row.alertRef === '10038');
+  const csp = rows.filter((row) => row.alertRef === '10038-1');
   assert.deepEqual(csp.map((row) => row.url), ['https://floriankreutzer.github.io/conference-manager-website/en/demo/']);
-  assert.equal(risks.surfaces['static-launchpad'].maxRiskByAlertRef['10038'], 2);
+  assert.equal(risks.surfaces['static-launchpad'].maxRiskByAlertRef['10038-1'], 2);
   assert.equal(summary.find((row) => row.pluginId === '10038')?.pattern, exactUrlUnionPattern(csp.map((row) => row.url)));
   for (const surface of ['customer-demo', 'platform-demo']) {
-    assert.equal(risks.surfaces[surface].maxRiskByAlertRef['10038'], undefined);
+    assert.equal(risks.surfaces[surface].maxRiskByAlertRef['10038-1'], undefined);
   }
 });
