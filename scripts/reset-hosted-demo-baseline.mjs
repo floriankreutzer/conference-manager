@@ -4,7 +4,7 @@ const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
 const RESET_PATH = '/api/v1/platform/demo/reset';
-const PINNED_RUNTIME_REF = '7adb670a03f1372c70dd1405c0e4b269daa0d9df';
+const PINNED_RUNTIME_REF = 'bec01b64d2038c0bbb6b9b74f076f9c5c791d7db';
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const SESSION_TIMEOUT_MS = 20_000;
 const RESET_TIMEOUT_MS = 75_000;
@@ -13,6 +13,11 @@ const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
 export const CANONICAL_DEMO_CHECKSUM = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';
 const HOSTED_BASELINES = Object.freeze({
   [PINNED_RUNTIME_REF]: Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
+  // Previous Guest-print/Catering/worklist runtime retains historical cleanup binding.
+  '7adb670a03f1372c70dd1405c0e4b269daa0d9df': Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
