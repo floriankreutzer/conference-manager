@@ -116,7 +116,7 @@ def main():
             and bool(diagnostics)
             and all(
                 item.get("check_id") == expected_diagnostic
-                and item.get("extra", {}).get("severity") == "Error"
+                and str(item.get("extra", {}).get("severity", "")).upper() == "ERROR"
                 and item.get("extra", {}).get("message", "").startswith(expected_diagnostic)
                 for item in diagnostics
             ),
