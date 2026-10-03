@@ -49,10 +49,10 @@ test('hosted evidence network requests remain bounded before or after cleanup', 
 test('hosted workflow reserves cleanup time before any destructive journey', () => {
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 
-  assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '4200'/);
-  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '3600'/);
+  assert.match(workflow, /HOSTED_JOB_BUDGET_SECONDS: '4800'/);
+  assert.match(workflow, /HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '4200'/);
   assert.match(workflow, /HOSTED_READINESS_BUDGET_SECONDS: '360'/);
-  assert.match(workflow, /timeout-minutes: 70/);
+  assert.match(workflow, /timeout-minutes: 80/);
   assert.match(
     workflow,
     /name: Record hosted job budget start[\s\S]*HOSTED_JOB_STARTED_EPOCH=\$\(date -u \+%s\)/,
@@ -172,7 +172,7 @@ test('hosted browser matrix includes Chromium and WebKit serially within the cle
   assert.match(config, /fullyParallel: false/);
   assert.match(config, /workers: 1/);
   assert.match(config, /timeout: 300_000/);
-  assert.match(config, /globalTimeout: 720_000/);
+  assert.match(config, /globalTimeout: 1_320_000/);
   assert.match(config, /maxFailures: 1/);
   assert.match(config, /retries: 0/);
   assert.match(workflow, /npx playwright install --with-deps chromium webkit/);
@@ -186,9 +186,9 @@ test('both hosted suite caps leave eight minutes for independent cleanup and evi
   const sharedCap = Number(shared.match(/globalTimeout: ([\d_]+)/)?.[1].replaceAll('_', ''));
   const scenarioCap = Number(scenarios.match(/globalTimeout: origins\.hosted \? ([\d_]+)/)?.[1].replaceAll('_', ''));
   const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);
-  assert.equal(sharedCap, 720_000);
+  assert.equal(sharedCap, 1_320_000);
   assert.equal(scenarioCap, 2_280_000);
-  assert.equal(reserve, 3600);
+  assert.equal(reserve, 4200);
   assert.ok(reserve - (sharedCap + scenarioCap) / 1000 >= 480);
 });
 
