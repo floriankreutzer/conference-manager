@@ -290,9 +290,12 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
   await page.locator('[data-tenant-admin-section="organization"]').click();
+  // Complete the section-owned navigation focus before entering save-test data.
+  await expect(page.locator('[data-tenant-admin-section-content="organization"] h2')).toBeFocused();
   const form = page.locator('[data-tenant-settings-form="organization"]');
   await expect(form).toBeVisible();
   await form.locator('#tenant-organization-display-name').fill('After save');
+  await expect(form.locator('#tenant-organization-display-name')).toHaveValue('After save');
   await form.locator('#tenant-organization-currency').selectOption('USD');
   await form.locator('#tenant-organization-logo').selectOption(MANAGED_BRAND_REFERENCE);
   await form.getByRole('button', { name: /speichern/i }).click();
@@ -329,8 +332,11 @@ for (const status of [401, 403]) {
     await page.goto(`${ORIGIN}/`);
     await page.locator('[data-view="tenantAdmin"]').click();
     await page.locator('[data-tenant-admin-section="organization"]').click();
+    // Complete the section-owned navigation focus before entering save-test data.
+    await expect(page.locator('[data-tenant-admin-section-content="organization"] h2')).toBeFocused();
     const form = page.locator('[data-tenant-settings-form="organization"]');
     await form.locator('#tenant-organization-display-name').fill('Sensitive brand');
+    await expect(form.locator('#tenant-organization-display-name')).toHaveValue('Sensitive brand');
     await form.locator('#tenant-organization-currency').selectOption('USD');
     await form.getByRole('button', { name: /speichern/i }).click();
     await expect(page.locator('#brandTitle')).toHaveText('Sensitive brand');
@@ -359,8 +365,11 @@ test('stale Tenant Admin save cannot restore its detached settings shell', async
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
   await page.locator('[data-tenant-admin-section="organization"]').click();
+  // Complete the section-owned navigation focus before entering save-test data.
+  await expect(page.locator('[data-tenant-admin-section-content="organization"] h2')).toBeFocused();
   const form = page.locator('[data-tenant-settings-form="organization"]');
   await form.locator('#tenant-organization-display-name').fill('Detached save');
+  await expect(form.locator('#tenant-organization-display-name')).toHaveValue('Detached save');
   await form.getByRole('button', { name: /speichern/i }).click();
   await expect.poll(() => fixture.writes.length).toBe(1);
   await page.locator('[data-view="welcome"]').click();
