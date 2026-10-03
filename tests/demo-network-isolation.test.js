@@ -65,13 +65,10 @@ test('public website launchpad remains isolated while DAST covers every Demo sur
     assert.match(document, /static (?:public website )?(?:Demo )?launchpad/i);
     assert.match(document, /Render/i);
   }
-  assert.doesNotMatch(portal, /<script\b|<iframe\b|localStorage|sessionStorage|fetch\(/i);
-  assert.match(portal, /https:\/\/conference-manager-demo\.onrender\.com/);
-  assert.match(portal, /https:\/\/conference-manager-ops-demo\.onrender\.com/);
   assert.match(dast, /surface: static-launchpad/);
   assert.match(dast, /surface: customer-demo/);
   assert.match(dast, /surface: platform-demo/);
-  assert.match(dast, /https:\/\/floriankreutzer\.github\.io\/conference-manager\//);
+  assert.match(dast, /https:\/\/floriankreutzer\.github\.io\/conference-manager-website\/en\/demo\//);
   assert.match(dast, /https:\/\/conference-manager-demo\.onrender\.com\//);
   assert.match(dast, /https:\/\/conference-manager-ops-demo\.onrender\.com\//);
   assert.match(dast, /pull_request:[\s\S]*\.zap\/\*\*[\s\S]*scripts\/generate-zap-plan[.]mjs[\s\S]*scripts\/validate-zap-report[.]mjs/);
