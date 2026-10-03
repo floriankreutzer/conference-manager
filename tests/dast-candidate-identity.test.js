@@ -30,7 +30,7 @@ test('reviewed Pages framing observation stays scoped to the authority-free laun
   const summary = readSummaryPolicyRows(readFileSync(new URL('../.zap/static-launchpad-summary.tsv', import.meta.url), 'utf8'));
   const risks = JSON.parse(readFileSync(new URL('../.zap/reviewed-alert-risks.json', import.meta.url), 'utf8'));
   const framing = rows.filter((row) => row.alertRef === '10055-13');
-  assert.deepEqual(framing.map((row) => row.url), ['https://floriankreutzer.github.io/conference-manager/']);
+  assert.deepEqual(framing.map((row) => row.url), ['https://floriankreutzer.github.io/conference-manager-website/en/demo/']);
   assert.equal(risks.surfaces['static-launchpad'].maxRiskByAlertRef['10055-13'], 2);
   assert.equal(summary.find((row) => row.pluginId === '10055')?.pattern, exactUrlUnionPattern(framing.map((row) => row.url)));
   for (const surface of ['customer-demo', 'platform-demo']) {
