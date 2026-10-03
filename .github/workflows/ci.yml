@@ -33,13 +33,18 @@ jobs:
       - name: Install pinned Semgrep Community Edition
         run: python3 -m pip install --disable-pip-version-check --no-input 'semgrep==1.179.0'
       - name: Verify pinned Semgrep version
+        env:
+          SEMGREP_ENABLE_VERSION_CHECK: '0'
         run: semgrep --version
+      - name: Verify Semgrep rule coverage and fail-closed behavior
+        run: python3 scripts/check-semgrep-policy.py
       - name: Run repository-owned Semgrep SAST policy
         env:
           SEMGREP_SEND_METRICS: 'off'
+          SEMGREP_ENABLE_VERSION_CHECK: '0'
         run: |
           test "$(semgrep --version | head -n 1)" = "1.179.0"
-          semgrep scan --config .semgrep.yml --error --metrics=off --disable-version-check src
+          semgrep scan --config .semgrep.yml --oss-only --error --strict --disable-nosem --metrics=off --disable-version-check src
 
 
   e2e:
