@@ -4,7 +4,11 @@
 
 This runbook describes the current deterministic, server-backed Demo baseline during SaaS 3.6 validation. The milestone remains open under #170/#164. It is an operating aid and hosted-Demo acceptance source; it is not Production/provider/penetration evidence. Use synthetic example data only.
 
-The canonical human entry point is `https://floriankreutzer.github.io/conference-manager-website/en/demo/`, the public website launchpad owned and published by `conference-manager-website`. the public website is static navigation only. The actual applications remain separately hosted on Render:
+The current implementation, schema-42 migration and exact deployment evidence are
+recorded in `SAAS-3.6-RELEASE-EVIDENCE.md`. Its pending gates remain pending until
+their complete remote outcomes and independent Live cleanup are recorded.
+
+The canonical human entry point is `https://floriankreutzer.github.io/conference-manager-website/en/demo/`, owned and published by `conference-manager-website`. The German route is `https://floriankreutzer.github.io/conference-manager-website/de/demo/`. These public website launch routes provide static navigation only. The actual applications remain separately hosted on Render:
 
 - Customer Demo: `https://conference-manager-demo.onrender.com`
 - Platform Demo: `https://conference-manager-ops-demo.onrender.com`
@@ -48,7 +52,7 @@ A context change selects a deterministic server-owned fixture Principal and relo
 | --- | --- | --- |
 | Language | Valid `de`/`en` preference; German fallback | Non-authoritative browser preference |
 | Customer context | Server-issued seeded Tenant + persona session | Server session |
-| Customer Tenants | At least two stable isolated Tenants with distinct Users and business state | Shared Demo PostgreSQL |
+| Customer Tenants | Three stable isolated scenarios: Northwind, Contoso and Fabrikam, with distinct Users and business state | Shared Demo PostgreSQL |
 | Profile / Requests | Deterministic profiles, Requests, history and notifications | Shared Demo PostgreSQL |
 | Locations | Sites, Room technical assignment and Room business fields in one persisted aggregate with field-level authorization | Shared Demo PostgreSQL |
 | Catalogue | Services, equipment, catering and authoritative Room prices | Shared Demo PostgreSQL |
@@ -111,7 +115,7 @@ An expired, revoked or security-version-stale server session therefore cannot re
 
 Expected Customer Demo application calls are same-origin `/api/*` requests. No real identity provider, Microsoft Graph, external image service or QR service is contacted automatically by the deterministic Demo baseline.
 
-the public website does not call either Demo API. It contains no JavaScript, application credentials, sessions, Tenant selectors or reset endpoints and links directly to the two Render application origins.
+The public website Demo launch routes must not call either Demo API or handle application credentials, sessions, Tenant selectors or reset endpoints. They link directly to the two Render application origins. Website implementation and static navigation tests belong to `conference-manager-website`, not to a duplicate application-repository portal.
 
 ## Required local/CI checks
 
@@ -158,28 +162,21 @@ The journey then proves, within the deployed environment:
 - provider degradation is bounded/server-defined;
 - reset/reseed invalidates both session domains and restores the deterministic baseline.
 
+The hosted workflow uses one repository-wide concurrency group with `cancel-in-progress: false` and `queue: max`. All runs remain serial against the shared Live Demo; waiting PR runs can queue without the default single-pending replacement. Four serial CSV/cross-role cases retain their individual 300-second limits within a 1,320-second total cap. The full three-customer suite retains its 2,280-second cap. The 4,800-second job reserves 4,200 seconds before destructive work, leaving at least eight minutes beyond both suite caps for independent cleanup and evidence. Assertions, action/network limits, zero retries and checksum/identity controls are unchanged.
+
 Cleanup has priority after any destructive attempt. The workflow performs bounded repeatable reset/reseed validation and uploads non-secret evidence. A failed journey, failed cleanup, stale deployment identity or identity drift is failed acceptance.
 
 Hosted acceptance must not be relabeled as Production/provider/penetration evidence. A Render cold-start run provides cold-start evidence only when the services were actually sleeping at the start of the run.
 
 ## Public website launchpad acceptance
 
-The Pages workflow publishes only the approved public website artifact after a `main` change to that directory/workflow. The published URL in `docs/DEMO-URLS.md` returned HTTP 200 on 28 September 2026 and was scanned in three-origin DAST run `36432201461`; recheck it during #170 acceptance.
+SaaS 3.9 website PR #78 delivered the bilingual public Demo entry. Application PR #261 retired this repository's duplicate `demo-portal/`, Pages publication workflow and portal-only browser tests. The website repository owns publication and static navigation/accessibility checks; this repository retains the independently scoped launchpad DAST target.
 
-Pages acceptance verifies only the launchpad contract. Customer/Platform runtime security remains evidenced by the Render/shared-Demo gates.
+The old application-repository Pages URL returned HTTP 200 on 28 September 2026 and was scanned in run `36432201461`. That is historical evidence for the retired URL, not evidence for the current website routes. Final #170 acceptance requires the current website route and both direct Render destinations to be verified separately.
 
-The launchpad's HTML meta CSP restricts resources, forms, objects and base-URL changes. the public website
-does not provide repository-controlled response headers, and CSP `frame-ancestors` is ignored when
-delivered in a meta element. Acceptance must therefore record the deployed provider headers
-separately and must not represent the meta policy as clickjacking protection.
-The 2026-09-28 live DAST reported `10055-13` at the exact Pages launchpad URL because
-`frame-ancestors` requires an HTTP CSP header. The reviewed Demo-only disposition is
-bounded to that static, credential-free navigation page; its framing could mislead a
-visitor into choosing a Demo destination, so the risk is not described as eliminated.
-The two Render applications are outside this exception and retain their own framing
-protections. A future portal with application authority or a change in provider/header
-support requires a fresh review. This technical classification does not constitute
-Security Owner approval of the SaaS 3.6 release.
+Pages acceptance verifies only the launchpad contract. Customer/Platform runtime security remains evidenced by the Render/shared-Demo gates. Record the current deployed response headers and reviewed exact-URL ZAP findings; do not infer HTTP CSP or clickjacking protection from an HTML meta policy.
+
+The historical 2026-09-28 launchpad finding `10055-13` concerned meta-delivered `frame-ancestors`. The current website-owned route has its separately reviewed static CSP observation `10038-1` in `.zap/static-launchpad.tsv`. These exact-route, authority-free Demo dispositions are not transferred to either Render application. A future launchpad with application authority, a changed target or changed provider/header support requires a fresh review. Technical classification does not itself constitute Security Owner approval of the SaaS 3.6 release.
 
 ## Security regression register
 
