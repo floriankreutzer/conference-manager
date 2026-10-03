@@ -25,33 +25,48 @@ misrepresented as Demo discoveries.
 
 ## Findings
 
-### Current release checkpoint — 2 October 2026
+### Current correction delivery — 3 October 2026
 
 Named #172/#182 Owner acceptance and #216 bounded Demo snapshot/retention disposition
 are accepted and closed. ADR-012's owning-role withhold/correct policy and exclusion
 of legacy public Guest prose remain binding. Accepted residuals are not executed
 isolated HTTP restore, retention-delete, alert or Production recovery proofs.
-The September finding rows and checkpoint below retain their historical diagnosis
-and evidence; their pending Owner statements are superseded by these decisions.
+The September finding rows and checkpoints retain their historical diagnosis and
+evidence; their pending Owner statements are superseded by these decisions.
 
-New #256 is a shared Employee Guest print presentation defect: inherited CSP prevented
+#256 is a shared Employee Guest print presentation defect: inherited CSP prevented
 the historical layout from loading. PR #257 uses a fixed script-free same-origin print
 document, only approved stylesheet URLs, null opener and bounded readiness/recovery.
 Authenticated minimized data and authority invalidation remain unchanged. The actual
-PDF has been rendered and visually reviewed as one clean A4 page; focused success,
-missing-CSS and stalled-CSS tests passed in Chromium and WebKit.
+PDF was rendered and visually reviewed as one clean A4 page; focused success,
+missing-CSS and stalled-CSS tests passed in Chromium and WebKit. PDF evidence:
+[run 37077158751, artifact 11257760817](https://github.com/floriankreutzer/conference-manager/actions/runs/37077158751/artifacts/11257760817).
+No formal tagged-PDF or WCAG certification is inferred from this visual review.
 
-New #226 is a Demo-only Catering editor lifecycle defect. The removed image no longer
-removes its uploader or unsaved form draft; accessible file requirements follow the
-server-supported creation/replacement state. Permanent acceptance uses actual
-create/replace/delete/recreate operations and independent authenticated byte reads.
-New #228 changes only state-derived task presentation; actual 200% Chromium tab zoom
-and the full three-customer/two-reset invariant are additional required evidence.
+#226 is a Demo-only Catering editor lifecycle defect. Removing an image preserves
+its uploader and unsaved draft; accessible file requirements follow the existing
+server creation/replacement contracts. Permanent acceptance uses real new-object
+and seeded-object create/replace/delete/recreate operations plus independent
+normalized-byte reads. No general Production Catering-media contract is introduced.
+#228 changes only presentation of state-derived work: compact native disclosure,
+request/setup groups, preserved open state, keyboard navigation and bounded mobile
+layout. The seven genuine tasks must disappear after completion and return on reset.
 
-PR #225 is integrated and #227 superseded. PR #257/API #104 remain in validation;
-protected paired checks, deployed identities, Hosted acceptance and DAST must pass.
-Independent #229 still contains business-reference selection/help and complete CSV
-acceptance gaps. #169/#170/#164 and SaaS 4's hard prerequisite remain open.
+API PR #104 merged as `7adb670a03f1372c70dd1405c0e4b269daa0d9df`, promoting immutable
+frontend `c4eda7750933c2b3c5b561fae0926d36cdc53582` through the existing private Gitlink.
+Its source validation [CI 37079291199](https://github.com/floriankreutzer/conference-manager-api/actions/runs/37079291199)
+passed API/static/audit/HTTP-DAST, PostgreSQL and complete Chromium/WebKit three-customer
+progression with both reset cycles. Both Render services now expose this exact pair,
+verified through their separate deployment metadata. Subsequent PR #257 revisions
+change only test sequencing/evidence, workflow identity and documentation; `src/`
+and `assets/` remain byteidentical to the promoted application snapshot.
+
+Use [PR #257](https://github.com/floriankreutzer/conference-manager/pull/257) for its
+final protected integration and exact-head CI, actual tab-zoom, Hosted and ZAP evidence.
+The individual #256/#226/#228 issue dispositions record closure only after those gates.
+PR #225 is integrated and #227 superseded. Independent #229 still contains business
+reference selection/help and full CSV acceptance gaps, including a coordinated
+Equipment API contract. #169/#170/#164 and SaaS 4's hard prerequisite remain open.
 
 | ID | Severity | Domain/runtime | Production relevance | Finding / evidence | Disposition | Status |
 | --- | --- | --- | --- | --- | --- | --- |

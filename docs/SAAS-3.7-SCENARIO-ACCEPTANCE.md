@@ -209,3 +209,21 @@ Equivalent 640px viewport tests alone are not described as actual browser zoom.
 API #104 promotes the matching immutable frontend and acceptance contract through
 the existing private Gitlink. Source/Live identity, paired CI and Hosted/DAST proof
 must be reconciled before closing #256/#226/#228 or the final milestone gates.
+
+
+## Guest/media/worklist correction runtime binding — 3 October 2026
+
+API PR #104 merged as `7adb670a03f1372c70dd1405c0e4b269daa0d9df` and the existing
+private Gitlink delivery promotes frontend `c4eda7750933c2b3c5b561fae0926d36cdc53582`.
+Both public Render origins expose this immutable pair in their deployment metadata.
+API CI `37079291199` passed the full Chromium and WebKit three-customer journey and
+both canonical reset cycles. The seed version and semantic checksum are unchanged.
+
+Frontend PR #257 successors change only tests, workflow identity, reset evidence and
+documentation; their application source/assets are byteidentical to that deployed
+snapshot. Hosted/DAST expected identities and isolated trusted API checkout bind to
+the actual merge above, never a predicted merge SHA. Final current-head Hosted
+acceptance additionally proves the live full journey, stable identity and independent
+canonical cleanup; source-only API evidence is not substituted for that live gate.
+Explicit historical cleanup bindings for `62ad13b` and `96294cc` retain their exact
+canonical seed/checksum, while unknown runtimes remain rejected.

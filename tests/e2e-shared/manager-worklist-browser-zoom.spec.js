@@ -50,6 +50,9 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     await page.goto(ORIGINS.customer);
     await selectContext(page, CONTOSO, 'conference_manager');
     await page.locator('[data-view="manager"]').click();
+    await expect(page.getByRole('tab', { name: 'Anfragen & Buchungen', exact: true })).toBeVisible();
+    const worklist = page.locator('[data-demo-manager-tasks]');
+    await expect(worklist.locator('[data-demo-manager-task]')).toHaveCount(7);
     const zoom = await worker.evaluate(async (url) => {
       const tabs = await chrome.tabs.query({});
       const tab = tabs.find((entry) => entry.url === url);
@@ -59,7 +62,6 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     }, page.url());
     expect(zoom).toBe(2);
     await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(900);
-    const worklist = page.locator('[data-demo-manager-tasks]');
     await expect(worklist.locator('[data-demo-manager-task]')).toHaveCount(7);
     await expect(worklist).not.toHaveAttribute('open');
     const summary = worklist.locator('summary');
