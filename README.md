@@ -2,10 +2,7 @@
 
 ## SaaS 3.9 infrastructure and repository boundary
 
-SaaS 3.9 approves a controlled transition to private application source while preserving the public website and Developer Portal. The target state, work packages and cutover gates are defined in `docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md`. The current public GitHub Pages/anonymous hosted-Demo fetch remains operational until its owning SaaS 3.9 issues replace it; this README does not claim the cutover is complete.
-
-Frontend application for Tenant-scoped conference requests with Employee, Conference Manager and Tenant Admin capabilities plus a separately deployed Platform Operator surface.
-
+SaaS 3.9 approves a controlled transition to private application source while preserving the public website and Developer Portal. The target state, delivered prerequisites and cutover gates are defined in `docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md`. GitHub Pages remains public; hosted Demo preparation already uses the verified `vendor/demo-frontend` Gitlink from API #103. Repository visibility cutover remains gated by #254.
 
 Frontend application for Tenant-scoped conference requests with Employee, Conference Manager and Tenant Admin capabilities plus a separately deployed Platform Operator surface.
 

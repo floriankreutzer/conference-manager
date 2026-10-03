@@ -60,6 +60,11 @@ role, CSRF, domain limits and transitions; then it binds a short-lived receipt t
 actor, Tenant, aggregate, document hash and revision. A changed file/type, role change,
 expired receipt or concurrent revision cannot reuse the old validation authority.
 
+A large current-state export can exceed the bounded import size. Split it into files
+below 65,536 encoded bytes while retaining the header in each file; partial imports
+preserve omitted rows. Validate each file against the revision resulting from the
+previous Apply. The size limit is not bypassed for exported or previously trusted data.
+
 Parser errors report a bounded localized reason and row/column without echoing file
 contents. Backend validation errors never expose another Tenant's object existence.
 

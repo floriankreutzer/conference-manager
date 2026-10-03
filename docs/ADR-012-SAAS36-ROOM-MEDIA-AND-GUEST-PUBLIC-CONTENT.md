@@ -1,11 +1,19 @@
 # ADR-012 — SaaS 3.6 managed Room media and public Guest content
 
-Status: **ACCEPTED PRODUCT DIRECTION — implementation and release evidence pending**.
+Status: **IMPLEMENTED — bounded Demo Owner acceptance recorded in #172/#182/#216**.
 Decision date: 2026-09-26. Product owner approved the recommended H-034 and H-035 directions
 in the SaaS 3.6 working conversation. This decision does not change the frozen #179 parity
 contract, the current API schema, the public readiness marker, or the release requirements
 of #182/#170. Implementation heads and executed evidence remain in `SAAS-3.6-HARDENING-REGISTER.md` and
-`SAAS-3.6-ROLLOUT.md`.
+`SAAS-3.6-ROLLOUT.md` (historical rollout instructions).
+
+The product/security direction below remains binding. The implementation is merged and
+deployed; the original proof lists are preserved as acceptance criteria, not statements
+that the accepted Owner decisions remain pending. #216 explicitly accepts bounded Demo
+operational evidence limits: isolated authenticated HTTP restore, positive retention
+deletion, alert delivery and Production recovery/RPO/RTO are not claimed as executed.
+Known credentials are not accepted. Current correction/release delivery remains tracked
+separately by #169/#170/#164 and the hardening register.
 
 Published Confluence decision: https://acckreutzer-1733338800840.atlassian.net/wiki/spaces/~5de0302805eece0d0920638f/pages/12451843/04.1.5.2+ADR-012+SaaS+3.6+Room+Media+Public+Guest+Content
 
@@ -41,7 +49,7 @@ the real decoded raster in Room cards and an accessible preview/floorplan dialog
 bounded loading/error/empty states and descriptive localized text. A synthetic schematic
 is never counted as EMP-03 image evidence.
 
-A versioned migration would add a Tenant-composite asset registry, immutable content hash,
+The implemented versioned migration adds a Tenant-composite asset registry, immutable content hash,
 content type, length, creation/audit metadata and private bytes; the existing Room JSON IDs
 remain references, not URLs. The Locations transaction validates every new reference against
 that registry. Existing opaque IDs have no bytes: do not fabricate an image or silently resolve
@@ -110,9 +118,9 @@ an unsafe value when found, and repeat review when the value changes or an
 exposure is reported. An accidental disclosure requires withdrawal/correction,
 credential rotation where applicable, and security incident handling under the
 existing process. The label scanner remains defense in depth; unlabeled secrets
-remain possible. This records product risk acceptance, not an independent
-Security Owner sign-off or the named #182/#170 release acceptance. Those gates,
-including exact deployed-candidate and live security evidence, stay open.
+remain possible. The original product decision did not itself constitute Security
+Owner or named release acceptance. The later #172/#182/#216 decisions record those
+bounded Demo dispositions; new correction and final #170 evidence remain separate.
 
 Alternative: keep bounded free text with an accountable editor/approver workflow and an
 explicitly accepted residual risk. Record approver identity, affected fields, publication
@@ -135,8 +143,8 @@ prose rather than marking H-035 closed.
 
 | Gate | Decision | Status |
 | --- | --- | --- |
-| H-034 | Bounded PostgreSQL private raster assets as above | Product direction accepted; implementation/operational evidence pending |
-| H-035 | Structured Guest-v2 values with legacy public text withheld | Product direction and inherited-field residual risk accepted by Product Owner 2026-09-28; Security Owner release disposition and implementation evidence pending |
+| H-034 | Bounded PostgreSQL private raster assets as above | Implemented and deployed; #182/#216 bounded Demo acceptance complete, with the operational evidence limits stated above |
+| H-035 | Structured Guest-v2 values with legacy public text withheld | Implemented and deployed; owning-role withhold/correct policy and bounded inherited-field risk accepted; #182 named acceptance complete |
 
 Acceptance of this ADR authorizes its product direction only. The implementation,
 PostgreSQL/browser tests, protected review, deployment and named human acceptance remain
