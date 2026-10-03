@@ -2,7 +2,7 @@
 
 ## Status
 
-The repository contains distinct browser artifacts for the Customer application, Platform Operator application and a separate static GitHub Pages Demo launchpad. GitHub Pages is not a Customer or Platform application runtime. It publishes only `demo-portal/` and links directly to the separately hosted Render Demo origins.
+The repository contains distinct browser artifacts for the Customer application, Platform Operator application and a separate static public website Demo launchpad. the public website is not a Customer or Platform application runtime. It publishes only the approved public website artifact and links directly to the separately hosted Render Demo origins.
 
 The operational Customer Demo runs at `https://conference-manager-demo.onrender.com`; the operational Platform Demo runs at `https://conference-manager-ops-demo.onrender.com`. Their synthetic sessions, authorization and shared Demo persistence are Demo controls only and are not Production identity/provider/penetration acceptance evidence.
 
@@ -220,7 +220,7 @@ The Customer Production API is same-origin and HTTPS-only. Browser transport is 
 
 CORS should remain disabled for the normal same-origin path. The Platform application follows the same-origin principle independently at its own origin; Customer and Platform origins must not route each other's privileged APIs.
 
-The static GitHub Pages Demo launchpad does not call either API and therefore creates no CORS/session bridge between the Render origins.
+The static public website Demo launchpad does not call either API and therefore creates no CORS/session bridge between the Render origins.
 
 ## Server-side input validation
 
@@ -274,7 +274,7 @@ The repository currently provides the following controls and executable workflow
 - Chromium and WebKit/iPhone browser suites;
 - PostgreSQL-backed shared-Demo cross-surface E2E designed to run against explicit immutable frontend/API refs;
 - a hosted Render Demo acceptance workflow that requires deployment identity, destructive-journey and cleanup/reset evidence;
-- an independent OWASP ZAP passive-baseline workflow matrix for the static GitHub Pages launchpad,
+- an independent OWASP ZAP passive-baseline workflow matrix for the static public website launchpad,
   Customer Render Demo origin and Platform Render Demo origin.
 
 Each clean scan is evidence only for its exact unauthenticated public Demo surface. The three-target
@@ -299,7 +299,7 @@ references at
 reviewed URLs. A sibling reference, changed URL, risk escalation, filtered/wrong-origin or
 out-of-target-subtree report,
 unknown plugin or readiness failure remains a failed control. Broad exact-policy dispositions,
-ignores, wildcard exclusions and warning-tolerant execution are prohibited. GitHub Pages cache
+ignores, wildcard exclusions and warning-tolerant execution are prohibited. the public website cache
 evidence is retained only for exact `10050-1` findings inside the launchpad target subtree; prior
 account-root observations are not accepted by this control. Those Demo classifications do not
 transfer to a Production scan.

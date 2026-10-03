@@ -6,7 +6,7 @@ SaaS 3.9 is the approved infrastructure/security milestone between the SaaS 3.x 
 
 This document records the approved target state and the delivered prerequisites below. It does **not** claim that the repository-visibility cutover, public API content publication or final security gate is complete.
 
-Current delivery: #251 is implemented by API PR #103. Hosted preparation uses the reviewed `vendor/demo-frontend` Gitlink and verifies its HEAD against the immutable Render pins; anonymous source fetching has been removed. API PR #106 adds the fail-closed public API publication pipeline. These delivered mechanisms preserve Customer/Platform authority and do not perform the #254 repository-visibility cutover.
+Current delivery: #251 is implemented by API PR #103. Hosted preparation uses the reviewed `vendor/demo-frontend` Gitlink and verifies its HEAD against the immutable Render pins; anonymous source fetching has been removed. API PR #106 adds the fail-closed public API publication pipeline. Website PR #78 delivers the public EN/DE Demo entry; application PR #261 retires the duplicate application-repository Pages publication. These delivered mechanisms preserve Customer/Platform authority and do not perform the #254 repository-visibility cutover.
 
 ## Objectives
 
@@ -72,5 +72,4 @@ SaaS 3.9 is complete only when:
 - post-cutover CI, deployment, repository protections and public links are revalidated;
 - no unresolved critical/high security finding remains.
 
-Historical documentation of anonymous source fetching remains historical after #251. The supported public Demo entry is already delivered by #252 in the website's `/en/demo/` and `/de/demo/` routes (Website PR #78). Retirement of the legacy application-repository Pages workflow remains part of #254. New documentation must distinguish delivered prerequisites, the current live pair and the approved target state.
-
+Historical documentation of anonymous source fetching remains historical after #251. The supported public Demo entry is delivered by #252 in the website's `/en/demo/` and `/de/demo/` routes (Website PR #78). The duplicate application-repository Pages workflow, portal and portal-only tests were retired by merged PR #261 (`48c04ba4363e5250d5f00dd012f3df78dc428383`). SaaS 3.6 branch integration preserves this retirement while retaining its reviewed Business CSV and named-reference acceptance. Fresh combined CI and hosted acceptance remain required; retirement alone does not complete #254. New documentation must distinguish delivered prerequisites, the current live pair and the approved target state.

@@ -1,27 +1,16 @@
-# One canonical URL per provider-controlled observation; duplicate references are URL-specific.
-10015	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10020-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10021	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10021	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
-10049-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10049-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
-10050-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10050-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
-# GitHub Pages cannot set repository-controlled HTTP CSP frame-ancestors; the static portal has no application authority.
-# This accepts framing of the public Demo launchpad only, not framing of either Render application.
-10055-13	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10063-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10098	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-10098	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
-90004-2	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-90004-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-
+# Reviewed provider-controlled observations for the website-owned static Demo launch route.
+10015	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+10020-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+10021	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+10038-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+10049-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+10050-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+10063-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+10098	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+90004-2	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+90004-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
 # ZAP's crawler is not a browser and therefore does not send Fetch Metadata request headers.
-90005-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-90005-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
-90005-2	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-90005-2	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
-90005-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-90005-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
-90005-4	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/$
-90005-4	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager/styles\.css$
+90005-1	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+90005-2	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+90005-3	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$
+90005-4	OUTOFSCOPE	^https://floriankreutzer\.github\.io/conference-manager-website/en/demo/$

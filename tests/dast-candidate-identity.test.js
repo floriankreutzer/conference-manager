@@ -25,15 +25,15 @@ test('live DAST checks the exact hosted candidate before and after each Render s
   assert.match(dast, /push:[\s\S]*?- \.github\/workflows\/hosted-demo-acceptance\.yml[\s\S]*?schedule:/);
 });
 
-test('reviewed Pages framing observation stays scoped to the authority-free launchpad', () => {
+test('reviewed website CSP observation stays scoped to the authority-free launchpad', () => {
   const rows = readPolicyRows(readFileSync(new URL('../.zap/static-launchpad.tsv', import.meta.url), 'utf8'));
   const summary = readSummaryPolicyRows(readFileSync(new URL('../.zap/static-launchpad-summary.tsv', import.meta.url), 'utf8'));
   const risks = JSON.parse(readFileSync(new URL('../.zap/reviewed-alert-risks.json', import.meta.url), 'utf8'));
-  const framing = rows.filter((row) => row.alertRef === '10055-13');
-  assert.deepEqual(framing.map((row) => row.url), ['https://floriankreutzer.github.io/conference-manager/']);
-  assert.equal(risks.surfaces['static-launchpad'].maxRiskByAlertRef['10055-13'], 2);
-  assert.equal(summary.find((row) => row.pluginId === '10055')?.pattern, exactUrlUnionPattern(framing.map((row) => row.url)));
+  const csp = rows.filter((row) => row.alertRef === '10038-1');
+  assert.deepEqual(csp.map((row) => row.url), ['https://floriankreutzer.github.io/conference-manager-website/en/demo/']);
+  assert.equal(risks.surfaces['static-launchpad'].maxRiskByAlertRef['10038-1'], 2);
+  assert.equal(summary.find((row) => row.pluginId === '10038')?.pattern, exactUrlUnionPattern(csp.map((row) => row.url)));
   for (const surface of ['customer-demo', 'platform-demo']) {
-    assert.equal(risks.surfaces[surface].maxRiskByAlertRef['10055-13'], undefined);
+    assert.equal(risks.surfaces[surface].maxRiskByAlertRef['10038-1'], undefined);
   }
 });

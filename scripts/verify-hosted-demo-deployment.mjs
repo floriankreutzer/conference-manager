@@ -75,7 +75,11 @@ function assertMetadata(metadata, service, expectedRuntimeRef, expectedFrontendR
     || metadata.serviceName !== service.serviceName
     || metadata.runtimeRef !== expectedRuntimeRef
     || metadata.frontendRef !== expectedFrontendRef
-  ) throw new Error('HOSTED_DEMO_DEPLOYMENT_IDENTITY_MISMATCH');
+  ) {
+    throw new Error(
+      `HOSTED_DEMO_DEPLOYMENT_IDENTITY_MISMATCH:${service.serviceName}:runtime=${metadata.runtimeRef}:frontend=${metadata.frontendRef}`,
+    );
+  }
 }
 
 export async function verifyHostedDemoDeployment({
