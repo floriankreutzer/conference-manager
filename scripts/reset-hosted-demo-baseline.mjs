@@ -16,7 +16,12 @@ const HOSTED_BASELINES = Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
-  // Accepted role/media runtime and private-Gitlink successor retain their exact canonical binding.
+  // Previously promoted SaaS 3.7 runtime retained for bounded historical cleanup evidence.
+  '7adb670a03f1372c70dd1405c0e4b269daa0d9df': Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
+    // Accepted role/media runtime and private-Gitlink successor retain their exact canonical binding.
   '62ad13bce72d3d99e02a39b5f96f1078fecc7e2f': Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
