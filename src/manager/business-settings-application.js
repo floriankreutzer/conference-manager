@@ -590,12 +590,11 @@ export function createManagerBusinessSettingsApplication({
   }
 
   function focusCurrentHeading(revision, renderRoot, enabled) {
-    if (!enabled) return;
-    requestAnimationFrame(() => {
-      if (isCurrentRender(revision, renderRoot)) {
-        document.getElementById('viewTitle')?.focus();
-      }
-    });
+    if (!enabled || !isCurrentRender(revision, renderRoot)) return;
+    // The connected view is complete here. A later animation-frame callback
+    // can steal focus between a user's field selection and their next key.
+    // Complete navigation before exposing the view for further interaction.
+    document.getElementById('viewTitle')?.focus();
   }
 
   function sectionNavigation() {
