@@ -61,6 +61,31 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
+def is_configuration_failure(status, payload, config):
+    """Accept observed CE error schemas, never clean exits or policy findings."""
+    if status == 0:
+        return False
+    identity = f"Invalid YAML file {config}"
+    findings = payload.get("results", [])
+    # Native CLI variants report a configuration error in results. Python CLI
+    # variants report it in errors, followed by an invalid-configuration summary.
+    if findings:
+        return all(
+            item.get("check_id") == identity
+            and str(item.get("extra", {}).get("severity", "")).upper() == "ERROR"
+            and isinstance(item.get("extra", {}).get("message"), str)
+            and bool(item["extra"]["message"].strip())
+            for item in findings
+        )
+    return any(
+        item.get("type") == "SemgrepError"
+        and str(item.get("level", "")).lower() == "error"
+        and isinstance(item.get("message"), str)
+        and item["message"].startswith(identity + ":")
+        for item in payload.get("errors", [])
+    )
+
+
 def main():
     configured_ids = set(re.findall(r"^  - id: ([a-z0-9-]+)$", CONFIG.read_text(), re.MULTILINE))
     covered_ids = set().union(*(expected for _, expected in CASES.values()))
@@ -107,21 +132,8 @@ def main():
         invalid = root / "invalid-rules.yml"
         invalid.write_text("rules: [\n")
         status, result = scan(clean, invalid)
-        # Semgrep CE 1.179.0 represents invalid YAML as an Error result,
-        # not in the errors array. Require its exact configuration identity.
-        # Native/Python CLIs differ in message wording, not this identity.
-        diagnostics = result.get("results", [])
-        expected_diagnostic = f"Invalid YAML file {invalid}"
         require(
-            status != 0
-            and bool(diagnostics)
-            and all(
-                item.get("check_id") == expected_diagnostic
-                and str(item.get("extra", {}).get("severity", "")).upper() == "ERROR"
-                and isinstance(item.get("extra", {}).get("message"), str)
-                and bool(item["extra"]["message"].strip())
-                for item in diagnostics
-            ),
+            is_configuration_failure(status, result, invalid),
             f"Invalid rule configuration must exit nonzero with its configuration diagnostic, not policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}",
         )
         print("PASS: invalid rule configuration fails closed.")
