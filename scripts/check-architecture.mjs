@@ -423,7 +423,7 @@ for (const proof of [
   if (!dast.includes(proof)) fail(`.github/workflows/dast.yml: missing exact-alert proof ${proof}.`);
 }
 for (const target of [
-  'https://floriankreutzer.github.io/conference-manager/',
+  'https://floriankreutzer.github.io/conference-manager-website/en/demo/',
   'https://conference-manager-demo.onrender.com/',
   'https://conference-manager-ops-demo.onrender.com/',
 ]) {
