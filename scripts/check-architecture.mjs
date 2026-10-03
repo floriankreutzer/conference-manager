@@ -441,7 +441,7 @@ for (const readiness of [
 }
 const reviewedAlertRisks = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
 for (const [surface, policyPath, summaryPath, reviewedTarget] of [
-  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv', 'https://floriankreutzer.github.io/conference-manager/'],
+  ['static-launchpad', '.zap/static-launchpad.tsv', '.zap/static-launchpad-summary.tsv', 'https://floriankreutzer.github.io/conference-manager-website/en/demo/'],
   ['customer-demo', '.zap/customer-demo.tsv', '.zap/customer-demo-summary.tsv', 'https://conference-manager-demo.onrender.com/'],
   ['platform-demo', '.zap/platform-demo.tsv', '.zap/platform-demo-summary.tsv', 'https://conference-manager-ops-demo.onrender.com/'],
 ]) {
