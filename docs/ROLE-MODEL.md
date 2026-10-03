@@ -50,6 +50,7 @@ Room data is intentionally split by field ownership.
 Conference Manager owns business fields:
 
 - `name`
+- `description`
 - `capacity`
 - `active`
 - `floor`

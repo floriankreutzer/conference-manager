@@ -326,9 +326,9 @@ in both Chromium and WebKit/iPhone where the profile calls for browser coverage.
 6. **#169/#170 — documentation and release:** document exact merged behavior and accept SaaS 3.6
    only after #182 passes.
 
-Each API-dependent surface requires its named compatible server contract. Cleanup commits may be
-stacked locally for deterministic integration, but #182 and the milestone remain open until the
-combined Employee/Manager/Guest/Equipment runtime and required browser/CI evidence pass.
+Each API-dependent surface requires its named compatible server contract. The sequencing above
+records the implemented restoration; #179-#182 are completed and named #182 acceptance remains
+binding. Later corrections have their own gates and do not reopen that decision.
 
 ## Target active ownership
 

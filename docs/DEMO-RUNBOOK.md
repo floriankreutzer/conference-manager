@@ -48,7 +48,7 @@ A context change selects a deterministic server-owned fixture Principal and relo
 | --- | --- | --- |
 | Language | Valid `de`/`en` preference; German fallback | Non-authoritative browser preference |
 | Customer context | Server-issued seeded Tenant + persona session | Server session |
-| Customer Tenants | At least two stable isolated Tenants with distinct Users and business state | Shared Demo PostgreSQL |
+| Customer Tenants | Three stable isolated scenarios: Northwind, Contoso and Fabrikam, with distinct Users and business state | Shared Demo PostgreSQL |
 | Profile / Requests | Deterministic profiles, Requests, history and notifications | Shared Demo PostgreSQL |
 | Locations | Sites, Room technical assignment and Room business fields in one persisted aggregate with field-level authorization | Shared Demo PostgreSQL |
 | Catalogue | Services, equipment, catering and authoritative Room prices | Shared Demo PostgreSQL |

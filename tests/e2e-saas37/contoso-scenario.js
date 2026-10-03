@@ -158,10 +158,23 @@ export async function completeContosoTasks(page, cycle, baseline) {
   // Delete a seeded media association via its normal authorized editor. Reset
   // must restore it and the original bytes, not just remove the newly uploaded image.
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  // The navigation response can precede the completed authoritative render.
+  // Edit only after its heading focus confirms that the final controls exist.
+  await expect(page.locator('#viewTitle')).toBeFocused();
   const atelier = page.locator('[data-manager-room-id="contoso-paris-room-1"]');
-  await atelier.locator('input[id^="manager-room-media-"][type="text"]').fill('');
-  await uiResponse(page, 'PUT', LOCATIONS_PATH,
+  const mediaIds = atelier.locator('input[id^="manager-room-media-"][type="text"]');
+  await expect(mediaIds).toHaveValue(baseline.originalMediaUrl.split('/').at(-1));
+  await mediaIds.fill('');
+  await expect(mediaIds).toHaveValue('');
+  const detachResponse = await uiResponse(page, 'PUT', LOCATIONS_PATH,
     () => atelier.locator('xpath=..').getByRole('button', { name: 'Speichern', exact: true }).click());
+  const submittedRoom = detachResponse.request().postDataJSON().configuration.rooms
+    .find(({ id }) => id === 'contoso-paris-room-1');
+  expect(submittedRoom.mediaAssetIds).toEqual([]);
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  const detachedRoom = (await locations(page.context())).configuration.rooms
+    .find(({ id }) => id === 'contoso-paris-room-1');
+  expect(detachedRoom.mediaAssetIds).toEqual([]);
   expect((await page.context().request.get(baseline.originalMediaUrl)).status()).toBe(404);
   return { uploadedUrl, originalMediaUrl: baseline.originalMediaUrl, originalHash: baseline.originalHash };
 }
