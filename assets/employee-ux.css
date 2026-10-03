@@ -87,7 +87,7 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   cursor: pointer;
 }
 
-.catering-variant-card:has(input:focus-visible) {
+.catering-variant-card:focus-within {
   outline: var(--focus-width) solid var(--focus-color);
   outline-offset: 2px;
 }
