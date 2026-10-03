@@ -78,8 +78,9 @@ def is_configuration_failure(status, payload, config):
             for item in findings
         )
     return any(
-        item.get("type") == "SemgrepError"
-        and str(item.get("level", "")).lower() == "error"
+        # Diagnostic class names differ across CLI implementations; the
+        # explicit configuration path, error level and exit status are the contract.
+        str(item.get("level", "")).lower() == "error"
         and isinstance(item.get("message"), str)
         and item["message"].startswith(identity + ":")
         for item in payload.get("errors", [])
