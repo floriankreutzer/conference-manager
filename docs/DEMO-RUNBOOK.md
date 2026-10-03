@@ -4,6 +4,10 @@
 
 This runbook describes the current deterministic, server-backed Demo baseline during SaaS 3.6 validation. The milestone remains open under #170/#164. It is an operating aid and hosted-Demo acceptance source; it is not Production/provider/penetration evidence. Use synthetic example data only.
 
+The current implementation, schema-42 migration and exact deployment evidence are
+recorded in `SAAS-3.6-RELEASE-EVIDENCE.md`. Its pending gates remain pending until
+their complete remote outcomes and independent Live cleanup are recorded.
+
 The canonical human entry point is `https://floriankreutzer.github.io/conference-manager/`, the GitHub Pages launchpad published from `demo-portal/`. GitHub Pages is static navigation only. The actual applications remain separately hosted on Render:
 
 - Customer Demo: `https://conference-manager-demo.onrender.com`

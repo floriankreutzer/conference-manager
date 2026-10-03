@@ -72,5 +72,5 @@ SaaS 3.9 is complete only when:
 - post-cutover CI, deployment, repository protections and public links are revalidated;
 - no unresolved critical/high security finding remains.
 
-Historical documentation of anonymous source fetching remains historical after #251. The public GitHub Pages launchpad is still current until #252 replaces it. New documentation must distinguish delivered prerequisites, the current live pair and the approved target state.
+Historical documentation of anonymous source fetching remains historical after #251. The supported public Demo entry is already delivered by #252 in the website's `/en/demo/` and `/de/demo/` routes (Website PR #78). Retirement of the legacy application-repository Pages workflow remains part of #254. New documentation must distinguish delivered prerequisites, the current live pair and the approved target state.
 
