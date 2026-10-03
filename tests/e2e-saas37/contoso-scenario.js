@@ -111,17 +111,23 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-name').fill('Contoso Coffee');
   await page.locator('#manager-catalogue-cateringItems-cateringItems-1-amount').fill('3.00');
+  const cateringForm = page.locator('form')
+    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
+  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
+  // Named choices come from saved, authoritative items, not unsaved draft IDs.
+  await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
+  await expect(saveCatering).toBeEnabled();
+  expect((await catalogue(page.context())).catalogue.cateringItems[0].name).toBe('Contoso Coffee');
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('#manager-catalogue-package-cateringPackages-1-name').fill('Contoso Coffee Break');
   await page.locator('#manager-catalogue-package-cateringPackages-1-amount').fill('9.00');
-  await page.locator('#manager-catalogue-package-cateringPackages-1-items').fill('cateringItems-1');
+  const itemChoices = page.locator('#manager-catalogue-package-cateringPackages-1-items');
+  await expect(itemChoices.getByRole('option', { name: 'Contoso Coffee', exact: true })).toHaveAttribute('value', 'cateringItems-1');
+  await itemChoices.selectOption('cateringItems-1');
   await page.locator('[data-add-catalogue-variant="cateringPackages-1"]').click();
   const variant = page.locator('[data-catalogue-variant-id]');
   await variant.locator('input[id$="-name"]').fill('Standard');
   await variant.locator('input[id$="-amount"]').fill('9.00');
-  const cateringForm = page.locator('form')
-    .filter({ has: page.locator('[data-add-catalogue-entry="cateringPackages"]') });
-  const saveCatering = cateringForm.getByRole('button', { name: 'Speichern', exact: true });
   await uiResponse(page, 'PUT', CATALOGUE_PATH, () => saveCatering.click());
   // The response arrives before the submit listener's authoritative reload.
   // Require the newly rendered enabled form before interacting with its media editors.
@@ -147,6 +153,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const catalog = (await catalogue(page.context())).catalogue;
   expect(catalog.roomPrices.find(({ roomId }) => roomId === STUDIO).price.amountMinor).toBe(3500);
   expect(catalog.cateringPackages).toHaveLength(1);
+  expect(catalog.cateringPackages[0].itemIds).toEqual(['cateringItems-1']);
   expect(catalog.cateringPackages[0].variants).toHaveLength(1);
   // Delete a seeded media association via its normal authorized editor. Reset
   // must restore it and the original bytes, not just remove the newly uploaded image.
