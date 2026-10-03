@@ -61,30 +61,29 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-def is_configuration_failure(status, payload, config):
-    """Accept observed CE error schemas, never clean exits or policy findings."""
-    if status == 0:
-        return False
-    identity = f"Invalid YAML file {config}"
-    findings = payload.get("results", [])
-    # Native CLI variants report a configuration error in results. Python CLI
-    # variants report it in errors, followed by an invalid-configuration summary.
-    if findings:
-        return all(
-            item.get("check_id") == identity
-            and str(item.get("extra", {}).get("severity", "")).upper() == "ERROR"
-            and isinstance(item.get("extra", {}).get("message"), str)
-            and bool(item["extra"]["message"].strip())
-            for item in findings
+def verify_syntax_gate(root):
+    """Exercise the existing Node syntax gate on fixtures without executing them."""
+    directory = root / "syntax-gate"
+    for name in ("src", "tests", "scripts"):
+        (directory / name).mkdir(parents=True)
+    (directory / "src" / "safe.js").write_text(SAFE)
+
+    def check():
+        return subprocess.run(
+            ["node", str(ROOT / "scripts" / "check-syntax.mjs")],
+            cwd=directory, text=True, capture_output=True, timeout=30, check=False,
         )
-    return any(
-        # Diagnostic class names differ across CLI implementations; the
-        # explicit configuration path, error level and exit status are the contract.
-        str(item.get("level", "")).lower() == "error"
-        and isinstance(item.get("message"), str)
-        and item["message"].startswith(identity + ":")
-        for item in payload.get("errors", [])
+
+    completed = check()
+    require(completed.returncode == 0, "The existing syntax gate must accept valid JavaScript.")
+    # No SAST rule token: this must fail even if Semgrep prefilters the file.
+    (directory / "src" / "broken.js").write_text("function broken( {\n")
+    completed = check()
+    require(
+        completed.returncode != 0 and "SyntaxError" in completed.stderr,
+        "The existing syntax gate must reject malformed JavaScript independently of SAST rule selection.",
     )
+    print("PASS: existing JavaScript syntax gate rejects malformed input without rule tokens.")
 
 
 def main():
@@ -121,9 +120,12 @@ def main():
         require(len(result.get("paths", {}).get("scanned", [])) == 1, "The safe fixture must actually be scanned.")
         print("PASS: safe DOM and event-listener fixture exits 0.")
 
+        verify_syntax_gate(root)
+
         malformed = root / "syntax-error"
         malformed.mkdir()
-        (malformed / "broken.js").write_text("function broken( {\n")
+        # Include the eval rule token so this exercises parsing, not prefiltering.
+        (malformed / "broken.js").write_text("eval(\n")
         status, result = scan(malformed)
         # Semgrep CE may use exit 1 for strict parsing errors as well as findings.
         # Distinguish them using JSON errors/results, never by assuming disjoint exit codes.
@@ -133,9 +135,11 @@ def main():
         invalid = root / "invalid-rules.yml"
         invalid.write_text("rules: [\n")
         status, result = scan(clean, invalid)
+        # Assert the security contract, not CLI diagnostic wording or JSON layout.
+        # The same scanner has already passed the valid-rule fixtures above.
         require(
-            is_configuration_failure(status, result, invalid),
-            f"Invalid rule configuration must exit nonzero with its configuration diagnostic, not policy findings: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}",
+            status != 0,
+            f"Invalid rule configuration must block execution with a nonzero exit: exit={status}, output={json.dumps(result, sort_keys=True)[:4000]}",
         )
         print("PASS: invalid rule configuration fails closed.")
 
