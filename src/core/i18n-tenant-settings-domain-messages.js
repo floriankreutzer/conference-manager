@@ -1,5 +1,12 @@
 export const TENANT_SETTINGS_DOMAIN_MESSAGES = Object.freeze({
   de: Object.freeze({
+    'tenantBulk.csvError.header': 'Die Spaltenüberschriften passen nicht zum gewählten Datentyp. Verwenden Sie die zugehörige Vorlage.',
+    'tenantBulk.csvError.syntax': 'Zeile {row}, Spalte {column}: Ungültige CSV-Anführungszeichen oder Trennzeichen.',
+    'tenantBulk.csvError.limit': 'Zeile {row}, Spalte {column}: Die CSV-Datei überschreitet eine Größen- oder Mengenbegrenzung.',
+    'tenantBulk.csvError.encoding': 'Die CSV-Datei muss gültiges UTF-8 enthalten.',
+    'tenantBulk.csvError.identity': 'Zeile {row}, Spalte {column}: Die Kennung fehlt oder kommt mehrfach vor.',
+    'tenantBulk.csvError.value': 'Zeile {row}, Spalte {column}: Der Feldwert ist ungültig.',
+
     'tenantSettings.action.retry': 'Erneut versuchen',
     'tenantSettings.action.save': 'Änderungen speichern',
     'tenantBulk.title': 'CSV-Massenimport und -export',
@@ -168,6 +175,13 @@ export const TENANT_SETTINGS_DOMAIN_MESSAGES = Object.freeze({
     'tenantSettings.costAllocation.group': 'Gruppe',
   }),
   en: Object.freeze({
+    'tenantBulk.csvError.header': 'Column headers do not match the selected data type. Use its template.',
+    'tenantBulk.csvError.syntax': 'Row {row}, column {column}: Invalid CSV quotes or delimiters.',
+    'tenantBulk.csvError.limit': 'Row {row}, column {column}: The CSV file exceeds a size or collection limit.',
+    'tenantBulk.csvError.encoding': 'The CSV file must contain valid UTF-8.',
+    'tenantBulk.csvError.identity': 'Row {row}, column {column}: The identifier is missing or duplicated.',
+    'tenantBulk.csvError.value': 'Row {row}, column {column}: The field value is invalid.',
+
     'tenantSettings.action.retry': 'Try again',
     'tenantSettings.action.save': 'Save changes',
     'tenantBulk.title': 'Bulk CSV import and export',

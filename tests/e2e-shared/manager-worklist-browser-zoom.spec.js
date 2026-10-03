@@ -100,8 +100,17 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await page.locator('[data-manager-room-id="contoso-paris-room-2"]').scrollIntoViewIfNeeded();
     await captureZoomViewport(page, testInfo, 'manager-room-navigation-200-percent.png');
+    await page.getByRole('button', { name: 'Services & Ausstattung', exact: true }).click();
+    const fieldHelp = page.locator('.manager-field-help summary').first();
+    await fieldHelp.focus();
+    await page.keyboard.press('Enter');
+    await expect(fieldHelp.locator('..')).toHaveAttribute('open', '');
+    await expect(page.locator('select[multiple]').first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await fieldHelp.scrollIntoViewIfNeeded();
+    await captureZoomViewport(page, testInfo, 'manager-business-help-200-percent.png');
     await writeFile(testInfo.outputPath('manager-worklist-zoom-evidence.json'),
-      JSON.stringify({ actualTabZoom: zoom, ...layout, keyboardNavigation: true }, null, 2));
+      JSON.stringify({ actualTabZoom: zoom, ...layout, keyboardNavigation: true, businessHelpAt200Percent: true }, null, 2));
   } finally {
     try {
       if (started) await reset(platformContext);
