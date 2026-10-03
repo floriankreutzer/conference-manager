@@ -85,8 +85,9 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
   } finally {
     try {
       if (seeded) await reset(platform);
-      // The next scenario must receive the same unmodified request budget.
-      await new Promise((resolve) => setTimeout(resolve, 61_000));
+      // The following shared-runtime test owns the inter-test rate-window wait.
+      // Keeping it out of this five-type WebKit journey preserves the existing
+      // 300-second per-test cap without raising or disabling the real limit.
     }
     finally { await customer.close(); await platform.close(); }
   }
