@@ -24,6 +24,9 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
   const customer = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'de-DE' });
   let seeded = false;
   try {
+    // Each journey shares the real process-wide 60-second rate-limit window.
+    // Keep the CSV workload isolated without raising or disabling that limit.
+    await new Promise((resolve) => setTimeout(resolve, 61_000));
     await reset(platform); seeded = true;
     const session = await contextFor(customer, NORTHWIND, 'conference_manager');
     const page = await customer.newPage();
@@ -80,7 +83,11 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
       expect(invalid.valid).toBe(false); expect(invalid.receipt).toBeNull();
     }
   } finally {
-    try { if (seeded) await reset(platform); }
+    try {
+      if (seeded) await reset(platform);
+      // The next scenario must receive the same unmodified request budget.
+      await new Promise((resolve) => setTimeout(resolve, 61_000));
+    }
     finally { await customer.close(); await platform.close(); }
   }
 });
