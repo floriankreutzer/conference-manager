@@ -18,8 +18,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          fail-on-severity: high
-          deny-licenses: GPL-3.0, AGPL-3.0
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-fund
+      - name: Reject high or critical dependency vulnerabilities
+        run: npm audit --audit-level=high
+      - name: Enforce denied dependency licenses from the installed lock graph
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
+          const denied = new Set(['GPL-3.0', 'GPL-3.0-only', 'GPL-3.0-or-later', 'AGPL-3.0', 'AGPL-3.0-only', 'AGPL-3.0-or-later']);
+          const violations = Object.entries(lock.packages || {})
+            .filter(([path, metadata]) => path && denied.has(metadata?.license))
+            .map(([path, metadata]) => `${path}: ${metadata.license}`);
+          if (violations.length) {
+            console.error('Denied dependency licenses:\n' + violations.join('\n'));
+            process.exit(1);
+          }
+          console.log('No denied GPL-3.0/AGPL-3.0 package-lock licenses found.');
+          NODE
