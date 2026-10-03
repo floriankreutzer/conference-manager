@@ -114,7 +114,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('#manager-catalogue-package-cateringPackages-1-name').fill('Contoso Coffee Break');
   await page.locator('#manager-catalogue-package-cateringPackages-1-amount').fill('9.00');
-  await page.locator('#manager-catalogue-package-cateringPackages-1-items').fill('cateringItems-1');
+  await page.locator('#manager-catalogue-package-cateringPackages-1-items').selectOption('cateringItems-1');
   await page.locator('[data-add-catalogue-variant="cateringPackages-1"]').click();
   const variant = page.locator('[data-catalogue-variant-id]');
   await variant.locator('input[id$="-name"]').fill('Standard');
