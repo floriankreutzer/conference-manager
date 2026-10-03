@@ -176,7 +176,7 @@ test('hosted browser matrix includes Chromium and WebKit serially within the cle
   assert.match(config, /maxFailures: 1/);
   assert.match(config, /retries: 0/);
   assert.match(workflow, /npx playwright install --with-deps chromium webkit/);
-  assert.match(workflow, /group: hosted-demo-acceptance\n\s+cancel-in-progress: false/);
+  assert.match(workflow, /group: hosted-demo-acceptance\n\s+cancel-in-progress: false\n\s+queue: max/);
 });
 
 test('both hosted suite caps leave eight minutes for independent cleanup and evidence', () => {

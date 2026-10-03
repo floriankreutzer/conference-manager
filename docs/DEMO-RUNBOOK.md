@@ -158,6 +158,8 @@ The journey then proves, within the deployed environment:
 - provider degradation is bounded/server-defined;
 - reset/reseed invalidates both session domains and restores the deterministic baseline.
 
+The hosted workflow uses one repository-wide concurrency group with `cancel-in-progress: false` and `queue: max`. All runs remain serial against the shared Live Demo; waiting PR runs can queue without the default single-pending replacement. Four serial CSV/cross-role cases retain their individual 300-second limits within a 1,320-second total cap. The full three-customer suite retains its 2,280-second cap. The 4,800-second job reserves 4,200 seconds before destructive work, leaving at least eight minutes beyond both suite caps for independent cleanup and evidence. Assertions, action/network limits, zero retries and checksum/identity controls are unchanged.
+
 Cleanup has priority after any destructive attempt. The workflow performs bounded repeatable reset/reseed validation and uploads non-secret evidence. A failed journey, failed cleanup, stale deployment identity or identity drift is failed acceptance.
 
 Hosted acceptance must not be relabeled as Production/provider/penetration evidence. A Render cold-start run provides cold-start evidence only when the services were actually sleeping at the start of the run.

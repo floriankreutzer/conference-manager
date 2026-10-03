@@ -27,6 +27,7 @@ permissions:
 concurrency:
   group: hosted-demo-acceptance
   cancel-in-progress: false
+  queue: max
 
 env:
   SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
