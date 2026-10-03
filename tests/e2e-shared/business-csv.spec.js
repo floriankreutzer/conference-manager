@@ -53,7 +53,7 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
         && response.request().method() === 'POST');
       await panel.getByRole('button', { name: 'Geprüfte Änderungen anwenden', exact: true }).click();
       const applied = await applyResponse;
-      expect(applied.status(), `CSV Apply ${type}: ${await applied.text()}`).toBe(200);
+      expect(applied.status(), `CSV Apply ${type}`).toBe(200);
       await expect(page.locator('#viewTitle')).toBeFocused();
       const endpoint = `${ORIGINS.customer}/api/v1/tenant/settings/${aggregate}/bulk/${type}/export`;
       const persisted = await json(await customer.request.get(endpoint));

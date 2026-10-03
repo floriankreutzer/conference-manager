@@ -19,6 +19,10 @@ that immutable frontend through the private Gitlink delivery introduced by API #
 Full paired CI, exact live Hosted/DAST evidence and the independent #229 business
 selection/help/CSV work still control #169/#170/#164. SaaS 3.6 is not final.
 
+The final Business CSV contract is documented in `docs/MANAGER-BUSINESS-CSV.md`: named
+Site/Room/item selections, localized help, bounded strict UTF-8 CSV and the paired
+Equipment API migration. Required release evidence remains tracked in #229/#170.
+
 ## Feature scope
 
 - Six-step employee workflow: date/time → room → services → catering → cost allocation → review
