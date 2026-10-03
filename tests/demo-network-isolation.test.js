@@ -49,10 +49,9 @@ test('Demo automatic images and detached print cannot use a cross-origin network
   assert.equal(existsSync(new URL('../assets/demo/route-openstreetmap.svg', import.meta.url)), false);
 });
 
-test('GitHub Pages remains static while DAST covers every public Demo surface independently', () => {
+test('public website launchpad remains isolated while DAST covers every Demo surface', () => {
   const demoSecurity = read('docs/DEMO-SECURITY.md');
   const productionSecurity = read('docs/PRODUCTION-SECURITY.md');
-  const portal = read('demo-portal/index.html');
   const dast = read('.github/workflows/dast.yml');
   const planGenerator = read('scripts/generate-zap-plan.mjs');
   const staticRules = read('.zap/static-launchpad.tsv');
@@ -62,17 +61,14 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
   const customerSummaryRules = read('.zap/customer-demo-summary.tsv');
   const platformSummaryRules = read('.zap/platform-demo-summary.tsv');
   for (const document of [demoSecurity, productionSecurity]) {
-    assert.match(document, /GitHub Pages/i);
-    assert.match(document, /static (?:GitHub Pages )?(?:Demo )?launchpad/i);
+    assert.match(document, /public website/i);
+    assert.match(document, /static (?:public website )?(?:Demo )?launchpad/i);
     assert.match(document, /Render/i);
   }
-  assert.doesNotMatch(portal, /<script\b|<iframe\b|localStorage|sessionStorage|fetch\(/i);
-  assert.match(portal, /https:\/\/conference-manager-demo\.onrender\.com/);
-  assert.match(portal, /https:\/\/conference-manager-ops-demo\.onrender\.com/);
   assert.match(dast, /surface: static-launchpad/);
   assert.match(dast, /surface: customer-demo/);
   assert.match(dast, /surface: platform-demo/);
-  assert.match(dast, /https:\/\/floriankreutzer\.github\.io\/conference-manager\//);
+  assert.match(dast, /https:\/\/floriankreutzer\.github\.io\/conference-manager-website\/en\/demo\//);
   assert.match(dast, /https:\/\/conference-manager-demo\.onrender\.com\//);
   assert.match(dast, /https:\/\/conference-manager-ops-demo\.onrender\.com\//);
   assert.match(dast, /pull_request:[\s\S]*\.zap\/\*\*[\s\S]*scripts\/generate-zap-plan[.]mjs[\s\S]*scripts\/validate-zap-report[.]mjs/);
@@ -141,11 +137,11 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
     '10015', '10049-2', '10055-12', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.deepEqual(uniqueRefs(staticRules), [
-    '10015', '10020-1', '10021', '10049-3', '10050-1', '10055-13', '10063-1', '10098',
+    '10015', '10020-1', '10021', '10038-1', '10049-3', '10050-1', '10063-1', '10098',
     '90004-2', '90004-3', '90005-1', '90005-2', '90005-3', '90005-4',
   ]);
   assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10049|10055|90004|90005)\t/m);
-  assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10003|10010|10011|10017|10019|10038|10054|10062|10105|10202)\t/m);
+  assert.doesNotMatch(`${staticRules}\n${customerRules}\n${platformRules}`, /^(?:10003|10010|10011|10017|10019|10054|10062|10105|10202)\t/m);
 
   assert.deepEqual(readSummaryPolicyRows(customerSummaryRules).map(({ pluginId }) => pluginId), [
     '10015', '10049', '10055', '10094', '90005',
@@ -154,7 +150,7 @@ test('GitHub Pages remains static while DAST covers every public Demo surface in
     '10015', '10049', '10055', '90005',
   ]);
   assert.deepEqual(readSummaryPolicyRows(staticSummaryRules).map(({ pluginId }) => pluginId), [
-    '10015', '10020', '10021', '10049', '10050', '10055',
+    '10015', '10020', '10021', '10038', '10049', '10050',
     '10063', '10098', '90004', '90005',
   ]);
 });

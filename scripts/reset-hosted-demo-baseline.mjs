@@ -4,7 +4,7 @@ const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
 const RESET_PATH = '/api/v1/platform/demo/reset';
-const PINNED_RUNTIME_REF = '7adb670a03f1372c70dd1405c0e4b269daa0d9df';
+const PINNED_RUNTIME_REF = 'bec01b64d2038c0bbb6b9b74f076f9c5c791d7db';
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const SESSION_TIMEOUT_MS = 20_000;
 const RESET_TIMEOUT_MS = 75_000;
@@ -16,7 +16,12 @@ const HOSTED_BASELINES = Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
-  // Accepted role/media runtime and private-Gitlink successor retain their exact canonical binding.
+  // Previously promoted SaaS 3.7 runtime retained for bounded historical cleanup evidence.
+  '7adb670a03f1372c70dd1405c0e4b269daa0d9df': Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
+    // Accepted role/media runtime and private-Gitlink successor retain their exact canonical binding.
   '62ad13bce72d3d99e02a39b5f96f1078fecc7e2f': Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,

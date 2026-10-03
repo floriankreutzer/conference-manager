@@ -4,7 +4,7 @@
 
 This runbook describes the current deterministic, server-backed Demo baseline during SaaS 3.6 validation. The milestone remains open under #170/#164. It is an operating aid and hosted-Demo acceptance source; it is not Production/provider/penetration evidence. Use synthetic example data only.
 
-The canonical human entry point is `https://floriankreutzer.github.io/conference-manager/`, the GitHub Pages launchpad published from `demo-portal/`. GitHub Pages is static navigation only. The actual applications remain separately hosted on Render:
+The canonical human entry point is `https://floriankreutzer.github.io/conference-manager-website/en/demo/`, the public website launchpad owned and published by `conference-manager-website`. the public website is static navigation only. The actual applications remain separately hosted on Render:
 
 - Customer Demo: `https://conference-manager-demo.onrender.com`
 - Platform Demo: `https://conference-manager-ops-demo.onrender.com`
@@ -111,7 +111,7 @@ An expired, revoked or security-version-stale server session therefore cannot re
 
 Expected Customer Demo application calls are same-origin `/api/*` requests. No real identity provider, Microsoft Graph, external image service or QR service is contacted automatically by the deterministic Demo baseline.
 
-GitHub Pages does not call either Demo API. It contains no JavaScript, application credentials, sessions, Tenant selectors or reset endpoints and links directly to the two Render application origins.
+the public website does not call either Demo API. It contains no JavaScript, application credentials, sessions, Tenant selectors or reset endpoints and links directly to the two Render application origins.
 
 ## Required local/CI checks
 
@@ -162,13 +162,13 @@ Cleanup has priority after any destructive attempt. The workflow performs bounde
 
 Hosted acceptance must not be relabeled as Production/provider/penetration evidence. A Render cold-start run provides cold-start evidence only when the services were actually sleeping at the start of the run.
 
-## GitHub Pages acceptance
+## Public website launchpad acceptance
 
-The Pages workflow publishes only `demo-portal/` after a `main` change to that directory/workflow. The published URL in `docs/DEMO-URLS.md` returned HTTP 200 on 28 September 2026 and was scanned in three-origin DAST run `36432201461`; recheck it during #170 acceptance.
+The Pages workflow publishes only the approved public website artifact after a `main` change to that directory/workflow. The published URL in `docs/DEMO-URLS.md` returned HTTP 200 on 28 September 2026 and was scanned in three-origin DAST run `36432201461`; recheck it during #170 acceptance.
 
 Pages acceptance verifies only the launchpad contract. Customer/Platform runtime security remains evidenced by the Render/shared-Demo gates.
 
-The launchpad's HTML meta CSP restricts resources, forms, objects and base-URL changes. GitHub Pages
+The launchpad's HTML meta CSP restricts resources, forms, objects and base-URL changes. the public website
 does not provide repository-controlled response headers, and CSP `frame-ancestors` is ignored when
 delivered in a meta element. Acceptance must therefore record the deployed provider headers
 separately and must not represent the meta policy as clickjacking protection.
