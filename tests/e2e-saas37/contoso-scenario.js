@@ -14,7 +14,7 @@ export async function verifyContosoBaseline(page) {
   await expect(disclosure).toContainText('Offene Aufgaben');
   await expect(disclosure).toContainText('7 offene Aufgaben');
   await expect(worklist).not.toHaveAttribute('open');
-  expect(await worklist.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThan(150);
+  expect(worklist && await worklist.evaluate((node) => node.getBoundingClientRect().height)).toBeLessThan(150);
   await disclosure.focus();
   await expect(disclosure).toBeFocused();
   await page.keyboard.press('Enter');
@@ -122,7 +122,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
   const itemEditorContract = await packageItems.evaluate((node) => `${node.tagName}:${node.type}`);
   expect(['INPUT:text', 'SELECT:select-multiple']).toContain(itemEditorContract);
   if (itemEditorContract === 'SELECT:select-multiple') {
-    await expect(packageItems).toHaveAttribute('multiple', '');
+    await expect(packageItems).toHaveJSProperty('multiple', true);
     await expect(packageItems.locator('option[value="cateringItems-1"]')).toHaveText('Contoso Coffee');
     await packageItems.selectOption('cateringItems-1');
     await expect(packageItems).toHaveValues(['cateringItems-1']);
