@@ -2,7 +2,7 @@
 
 ## Purpose and status
 
-This runbook describes the current deterministic, server-backed Demo baseline after SaaS 3.6. It is an operating aid and hosted-Demo acceptance source; it is not Production/provider/penetration evidence. Use synthetic example data only.
+This runbook describes the current deterministic, server-backed Demo baseline during SaaS 3.6 validation. The milestone remains open under #170/#164. It is an operating aid and hosted-Demo acceptance source; it is not Production/provider/penetration evidence. Use synthetic example data only.
 
 The canonical human entry point is `https://floriankreutzer.github.io/conference-manager/`, the GitHub Pages launchpad published from `demo-portal/`. GitHub Pages is static navigation only. The actual applications remain separately hosted on Render:
 

@@ -11,10 +11,20 @@ import {
 const EXTENSION = fileURLToPath(new URL('../e2e/fixtures/browser-zoom-extension/', import.meta.url));
 
 async function captureZoomViewport(page, testInfo, name) {
-  // Full-page capture mixes CSS and physical extents under actual tab zoom.
-  // Capture the real viewport and verify its physical width instead.
-  const screenshot = await page.screenshot({ path: testInfo.outputPath(name), fullPage: false });
+  // Playwright supplies a CSS clip that Chromium interprets in physical units
+  // at real tab zoom. Let Chromium capture its visible surface without a clip.
+  const session = await page.context().newCDPSession(page);
+  let screenshot;
+  try {
+    const { data } = await session.send('Page.captureScreenshot', {
+      format: 'png', fromSurface: true, captureBeyondViewport: false,
+    });
+    screenshot = Buffer.from(data, 'base64');
+  } finally {
+    await session.detach();
+  }
   expect(screenshot.readUInt32BE(16)).toBe(page.viewportSize().width);
+  await writeFile(testInfo.outputPath(name), screenshot);
 }
 
 test('manager worklist remains operable at actual Chromium browser zoom 200%', async ({ browser }, testInfo) => {

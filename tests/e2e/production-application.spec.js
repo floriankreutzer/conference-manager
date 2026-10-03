@@ -1843,7 +1843,9 @@ test('EMP-09: scoped session draft resumes the exact active wizard step and stat
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await page.getByRole('button', { name: 'Weiter' }).click();
   await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(page.getByRole('heading', { name: 'Bewirtung', exact: true })).toBeFocused();
   await page.locator('#productionCateringParticipants').fill('2');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('2');
   await page.getByLabel('Menge für Coffee').fill('2');
 
   await expect.poll(() => page.evaluate(() => JSON.parse(
