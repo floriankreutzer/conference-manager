@@ -51,8 +51,13 @@ function executeGate({ incompleteIssue, issueState = 'open:', milestone = {}, pa
 
 test('SaaS 3.9 closure is restricted to its repository, release issue and least-privilege job', () => {
   assert.match(workflow, /github\.repository == 'floriankreutzer\/conference-manager'/);
-  assert.match(workflow, /github\.event\.issue\.number == 254/);
-  assert.match(workflow, /github\.event\.issue\.number == 164/);
+  const trigger = workflow.match(/contains\(fromJSON\('(\[[\d, ]+\])'\), github\.event\.issue\.number\)/);
+  assert.ok(trigger, 'Every scoped issue closure must evaluate completion');
+  const allowedIssueEvents = JSON.parse(trigger[1]);
+  assert.deepEqual(allowedIssueEvents, [164, 247, 248, 249, 250, 251, 252, 253, 254, 272]);
+  for (const number of [0, 163, 165, 246, 255, 271, 273, 999]) {
+    assert.equal(allowedIssueEvents.includes(number), false, 'Unrelated issue events stay excluded');
+  }
   assert.match(workflow, /permissions:\n  contents: read/);
   assert.match(workflow, /permissions:\n      issues: write/);
   assert.match(workflow, /cancel-in-progress: false/);

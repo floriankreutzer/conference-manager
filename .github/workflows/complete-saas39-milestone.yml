@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   completion:
-    if: github.repository == 'floriankreutzer/conference-manager' && (github.event_name == 'workflow_dispatch' || github.event.issue.number == 254 || github.event.issue.number == 164)
+    if: github.repository == 'floriankreutzer/conference-manager' && (github.event_name == 'workflow_dispatch' || contains(fromJSON('[164,247,248,249,250,251,252,253,254,272]'), github.event.issue.number))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
