@@ -2,8 +2,12 @@
 
 ## SaaS 3.9 infrastructure and repository boundary
 
-SaaS 3.9 delivers private application/API source, authenticated immutable hosted delivery and intentionally public Website/Developer publication. The supported static Demo entry is the website's EN/DE landing. Legacy application Pages is disabled and the private historical Archive is archived. Effective post-private security and release evidence are defined in `docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md`; #254 records final acceptance and milestone closure.
+SaaS 3.9 delivers private application/API source, authenticated immutable hosted delivery and intentionally public Website/Developer publication. The supported static Demo entry is the website's EN/DE landing. Legacy application Pages is disabled and the private historical Archive is archived. Effective post-private security and release evidence are defined in [SAAS-3.9-INFRASTRUCTURE-SECURITY.md](docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md); #254 records final acceptance and milestone closure.
 Frontend application for Tenant-scoped conference requests with Employee, Conference Manager and Tenant Admin capabilities plus a separately deployed Platform Operator surface.
+
+## Current release boundary
+
+As of 4 October 2026, SaaS 3.9 issue #254 and milestone 12 are closed. SaaS 3.6 final release issues #170/#164 remain open; PR #279 is an unmerged acceptance successor. Merged ready markers describe the scoped accepted Demo UX, not completion of those remaining final release gates. Read the current [release evidence](docs/SAAS-3.6-RELEASE-EVIDENCE.md) and [PR #279](https://github.com/floriankreutzer/conference-manager/pull/279) before inferring final acceptance.
 
 ## Readiness status
 
@@ -17,7 +21,7 @@ Owner decisions #172/#182 and bounded Demo disposition #216 remain binding.
 The final #229 correction is merged through #259; Guest PDF #256, Catering media
 #226 and compact worklist #228 are integrated through #257. Executed baseline
 evidence and the immutable live pair are recorded in
-`docs/SAAS-3.6-RELEASE-EVIDENCE.md`. #170 records the final protected promotion,
+[SAAS-3.6-RELEASE-EVIDENCE.md](docs/SAAS-3.6-RELEASE-EVIDENCE.md). #170 records the final protected promotion,
 live identity and closure; a branch marker alone never proves a deployed release.
 
 Readiness is scoped Demo UX acceptance. It does not certify Production, live
@@ -25,7 +29,7 @@ Microsoft/Entra/provider operation, formal WCAG, tagged PDF, penetration testing
 isolated HTTP recovery, retention deletion or Production RPO/RTO. Those independent
 evidence boundaries remain unchanged.
 
-The Business CSV contract in `docs/MANAGER-BUSINESS-CSV.md` covers authoritative
+The Business CSV contract in [MANAGER-BUSINESS-CSV.md](docs/MANAGER-BUSINESS-CSV.md) covers authoritative
 named Site/Room/item selections, localized help, bounded strict UTF-8 CSV and
 receipt-bound Equipment transfer at canonical schema 42.
 
@@ -51,7 +55,7 @@ Every active customer User receives the implicit Employee baseline. `conference_
 
 Conference Manager owns same-Tenant operational Request management, Room business fields, the Service/Equipment/Catering Catalogue, and authoritative Room prices. An eligible Conference Manager may decide a self-initiated operational change only with distinct server-derived initiator/decider audit evidence. Tenant Admin owns organization, booking policy, cost allocation, Users/elevated roles, Tenant audit, provider integration, Site configuration, stable Room identity, technical Room-to-Site assignment, and provider mapping. Provider-controlled identifiers remain immutable through normal business editing. A mixed Room mutation requires both elevated roles, and customer workflows cancel or archive referenced records instead of physically deleting historical Requests or provider-backed Rooms. SaaS 3.6 does not assign cost or cost-center reporting to a customer role.
 
-The complete canonical matrix, field split and security invariants are documented in `docs/ROLE-MODEL.md`. Server-side authorization in `conference-manager-api` remains authoritative; frontend visibility is not an access control.
+The complete canonical matrix, field split and security invariants are documented in [ROLE-MODEL.md](docs/ROLE-MODEL.md). Server-side authorization in `conference-manager-api` remains authoritative; frontend visibility is not an access control.
 
 This section records the approved SaaS 3.6 contract. GitHub issues, protected pull requests, final-head checks, merged commits and deployment evidence remain authoritative for delivery status; this README does not claim milestone, live-deployment or external-acceptance completion.
 
@@ -59,7 +63,7 @@ This section records the approved SaaS 3.6 contract. GitHub issues, protected pu
 
 `AGENTS.md` in the repository root is the mandatory canonical entry point for coding, architecture, refactoring, review, accessibility, security, i18n/l10n, UI/UX, and testing work.
 
-The complete engineering requirements are maintained in `docs/CODING-STANDARDS.md`. Agent-specific files must only import or point to the canonical `AGENTS.md` and must not create parallel rule sets.
+The complete engineering requirements are maintained in [CODING-STANDARDS.md](docs/CODING-STANDARDS.md). Agent-specific files must only import or point to the canonical `AGENTS.md` and must not create parallel rule sets.
 
 Current repository entry points:
 
@@ -145,11 +149,11 @@ New user-visible application copy belongs to the canonical Core localization mec
 
 The approved SaaS production topology keeps this repository as the browser application and places the trusted production backend in a dedicated `conference-manager-api` repository while exposing the customer browser and `/api/*` through one HTTPS origin. The accepted SaaS 3 extension adds a separately deployable Platform Operator artifact and operator origin backed by a Platform-only process in the same backend repository; it does not add Platform authority to Tenant Admin or existing customer `src/platform` modules.
 
-The accepted SaaS 3.5 architecture keeps Platform Operations source in those two application repositories while preserving the four separate browser/API artifacts and processes. It replaces browser-owned Demo business state with one isolated PostgreSQL-backed Demo model reached through separate Customer and Platform Demo session/API boundaries. SaaS 3.5 remains the topology and persistence baseline; its historical descriptions of Tenant Admin editing all Locations/Rooms/Catalogue data do not define current authorization. The approved SaaS 3.6 role model in `docs/ROLE-MODEL.md` and the current ownership matrix supersede only that earlier role allocation while preserving the accepted topology.
+The accepted SaaS 3.5 architecture keeps Platform Operations source in those two application repositories while preserving the four separate browser/API artifacts and processes. It replaces browser-owned Demo business state with one isolated PostgreSQL-backed Demo model reached through separate Customer and Platform Demo session/API boundaries. SaaS 3.5 remains the topology and persistence baseline; its historical descriptions of Tenant Admin editing all Locations/Rooms/Catalogue data do not define current authorization. The approved SaaS 3.6 role model in [ROLE-MODEL.md](docs/ROLE-MODEL.md) and the current ownership matrix supersede only that earlier role allocation while preserving the accepted topology.
 
-SaaS 3.9 places the static human Demo launchpad in the public website at `https://floriankreutzer.github.io/conference-manager-website/en/demo/` (German: `/de/demo/`) for the separate Render Customer and Platform application origins. It is not an application, identity, session, API, proxy, persistence or authorization layer. `docs/DEMO-URLS.md` records the canonical topology and live URL evidence.
+SaaS 3.9 places the static human Demo launchpad in the public website at `https://floriankreutzer.github.io/conference-manager-website/en/demo/` (German: `/de/demo/`) for the separate Render Customer and Platform application origins. It is not an application, identity, session, API, proxy, persistence or authorization layer. [DEMO-URLS.md](docs/DEMO-URLS.md) records the canonical topology and live URL evidence.
 
-See `docs/BASELINE.md`, `docs/ROLE-MODEL.md`, `docs/ARCHITECTURE.md`, `docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md`, `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`, `docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md`, `docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
+See [BASELINE.md](docs/BASELINE.md), [ROLE-MODEL.md](docs/ROLE-MODEL.md), [ARCHITECTURE.md](docs/ARCHITECTURE.md), [DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md](docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md), [SAAS-PRODUCTION-TOPOLOGY.md](docs/SAAS-PRODUCTION-TOPOLOGY.md), [SAAS3-PLATFORM-CONTROL-PLANE.md](docs/SAAS3-PLATFORM-CONTROL-PLANE.md), [ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md](docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md), [ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md](docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md) and [DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md) for details and maintenance rules.
 
 ## Feature flags
 
@@ -215,12 +219,12 @@ Production operation requires at least:
 - secure calendar integration, for example through Microsoft Graph
 - security controls appropriate to the backend architecture, including CSRF protection for cookie-based authentication
 
-The SaaS production topology fixes the trusted backend in `conference-manager-api` and keeps customer browser/API access same-origin under `/api/*`. `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` separately fixes the future operator artifact, origin, `/api/v1/platform/*` process, identity/session and audit boundaries. The repository implementation covers the customer production session, Employee/Conference Manager application API clients, Tenant administration, Microsoft 365 connection, and guided Pilot onboarding; the Platform Control Plane runtime is not claimed as implemented by that architecture decision. A deployable Pilot or Control Plane still requires the external infrastructure and acceptance evidence defined by the owning SaaS issues.
+The SaaS production topology fixes the trusted backend in `conference-manager-api` and keeps customer browser/API access same-origin under `/api/*`. [SAAS3-PLATFORM-CONTROL-PLANE.md](docs/SAAS3-PLATFORM-CONTROL-PLANE.md) defines the implemented separate operator artifact, origin, `/api/v1/platform/*` process, identity/session and audit boundaries. The repository implementation covers the customer production session, Employee/Conference Manager application API clients, Tenant administration, Microsoft 365 connection, guided Pilot onboarding and the separate Platform Control Plane. Repository implementation and accepted synthetic Demo evidence do not establish external Production acceptance. A deployable Pilot or Control Plane still requires the external infrastructure and acceptance evidence defined by the owning SaaS issues.
 
 Confirmed-booking changes remain server-authoritative: proposal lookups are concurrency-bounded and isolated per Request, unavailable state fails closed, and Conference Manager decision controls are exposed only for pending proposals.
 
-See `docs/DEMO-SECURITY.md`, `docs/PRODUCTION-SECURITY.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md` and `docs/SAAS3-PLATFORM-CONTROL-PLANE.md` for additional details.
+See [DEMO-SECURITY.md](docs/DEMO-SECURITY.md), [PRODUCTION-SECURITY.md](docs/PRODUCTION-SECURITY.md), [SAAS-PRODUCTION-TOPOLOGY.md](docs/SAAS-PRODUCTION-TOPOLOGY.md) and [SAAS3-PLATFORM-CONTROL-PLANE.md](docs/SAAS3-PLATFORM-CONTROL-PLANE.md) for additional details.
 
 ## Calendar integration
 
-The MVP simulates occupancy from stored requests. For Microsoft 365, suitable integration points include Microsoft Graph `getSchedule` or `calendarView` together with server-controlled event creation and updates.
+The synthetic Demo uses deterministic provider adapters and server-authoritative stored requests. The trusted backend implements the Microsoft 365 connection, Free/Busy and calendar create/update/cancel contracts. Real Microsoft tenant/Exchange acceptance remains an independent external gate; see [Microsoft 365 booking integration](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/BOOKING-INTEGRATION.md).
