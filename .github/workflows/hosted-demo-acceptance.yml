@@ -32,8 +32,8 @@ concurrency:
 env:
   SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
   SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
-  EXPECTED_FRONTEND_REF: 02ea3abce1c78798495519bbf4b5a50a44af961f
-  EXPECTED_RUNTIME_REF: 5294793a72e5569afe03d0855b3fcfdf3ec89832
+  EXPECTED_FRONTEND_REF: b4b755b6e1c74976fb1020a0fe98c68fce9304cb
+  EXPECTED_RUNTIME_REF: aab347c774042fe0c54b846fac018008e88d098c
   DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
   DEMO_PROVIDER_HEALTH: healthy
   # Both browser suites plus rate windows and bounded independent cleanup.

@@ -160,6 +160,14 @@ function futureBusinessWindow() {
 }
 
 test('shared Demo persists cross-surface state, isolates authority, and resets reproducibly', async ({ browser }) => {
+  // Hosted execution adds real network latency to the same mandatory 61-second
+  // rate-window boundary. Keep a bounded per-test budget that covers that fixed wait
+  // plus the complete cross-surface journey; no server limit or assertion is weakened.
+  test.setTimeout(300_000);
+  // The preceding five-type CSV journey uses the same real process-wide
+  // 60-second rate-limit window. Start this independent scenario only after
+  // that window has expired; do not raise or disable the server limit.
+  await new Promise((resolve) => setTimeout(resolve, 61_000));
   const bootstrapContext = await browser.newContext({ ignoreHTTPSErrors: true });
   let bootstrapPlatform = await establishPlatform(bootstrapContext);
   bootstrapPlatform = await switchPlatform(bootstrapContext, bootstrapPlatform, 'security_admin');

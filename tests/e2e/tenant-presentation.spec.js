@@ -95,6 +95,7 @@ async function installFixture(page, {
   presentationFailure = false,
   productDefaultAssetFailure = false,
   organizationSettings = false,
+  holdOrganizationLoad = false,
   holdOrganizationSave = false,
   holdPostSavePresentation = false,
   postSavePresentationFailureStatus = null,
@@ -103,6 +104,10 @@ async function installFixture(page, {
   let organization = organizationFromPresentation(presentation);
   const presentationReads = [];
   const writes = [];
+  let releaseOrganizationLoad = () => {};
+  const organizationLoadGate = holdOrganizationLoad
+    ? new Promise((resolve) => { releaseOrganizationLoad = resolve; })
+    : null;
   let releaseOrganizationSave = () => {};
   const organizationSaveGate = holdOrganizationSave
     ? new Promise((resolve) => { releaseOrganizationSave = resolve; })
@@ -146,6 +151,7 @@ async function installFixture(page, {
       defaultCurrency: presentation.presentation.defaultCurrency,
     })) return;
     if (organizationSettings && url.pathname === '/api/v1/tenant/settings/organization' && request.method() === 'GET') {
+      if (organizationLoadGate) await organizationLoadGate;
       await fulfillJson(route, { schemaVersion: 1, revision: presentation.revision, organization });
       return;
     }
@@ -213,6 +219,7 @@ async function installFixture(page, {
 
   return {
     presentationReads,
+    releaseOrganizationLoad,
     releaseOrganizationSave,
     releasePostSavePresentation,
     writes,
@@ -281,6 +288,7 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   const fixture = await installFixture(page, {
     roles: ['employee', 'tenant_admin'],
     organizationSettings: true,
+    holdOrganizationLoad: true,
     holdPostSavePresentation: true,
     initialPresentation: presentationPayload({
       displayName: 'Before save',
@@ -290,9 +298,13 @@ test('Tenant Admin organization save refreshes name, managed mark, revision, and
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
   await page.locator('[data-tenant-admin-section="organization"]').click();
+  // Hold initial data until navigation focus is consumed, then enter save-test data.
+  await expect(page.locator('[data-tenant-admin-section-content="organization"] h2')).toBeFocused();
+  fixture.releaseOrganizationLoad();
   const form = page.locator('[data-tenant-settings-form="organization"]');
   await expect(form).toBeVisible();
   await form.locator('#tenant-organization-display-name').fill('After save');
+  await expect(form.locator('#tenant-organization-display-name')).toHaveValue('After save');
   await form.locator('#tenant-organization-currency').selectOption('USD');
   await form.locator('#tenant-organization-logo').selectOption(MANAGED_BRAND_REFERENCE);
   await form.getByRole('button', { name: /speichern/i }).click();
@@ -322,6 +334,7 @@ for (const status of [401, 403]) {
     const fixture = await installFixture(page, {
       roles: ['employee', 'tenant_admin'],
       organizationSettings: true,
+      holdOrganizationLoad: true,
       holdPostSavePresentation: true,
       postSavePresentationFailureStatus: status,
       initialPresentation: presentationPayload({ displayName: 'Before save', defaultCurrency: 'GBP' }),
@@ -329,8 +342,12 @@ for (const status of [401, 403]) {
     await page.goto(`${ORIGIN}/`);
     await page.locator('[data-view="tenantAdmin"]').click();
     await page.locator('[data-tenant-admin-section="organization"]').click();
+    // Hold initial data until navigation focus is consumed, then enter save-test data.
+    await expect(page.locator('[data-tenant-admin-section-content="organization"] h2')).toBeFocused();
+    fixture.releaseOrganizationLoad();
     const form = page.locator('[data-tenant-settings-form="organization"]');
     await form.locator('#tenant-organization-display-name').fill('Sensitive brand');
+    await expect(form.locator('#tenant-organization-display-name')).toHaveValue('Sensitive brand');
     await form.locator('#tenant-organization-currency').selectOption('USD');
     await form.getByRole('button', { name: /speichern/i }).click();
     await expect(page.locator('#brandTitle')).toHaveText('Sensitive brand');
@@ -354,13 +371,18 @@ test('stale Tenant Admin save cannot restore its detached settings shell', async
   const fixture = await installFixture(page, {
     roles: ['employee', 'tenant_admin'],
     organizationSettings: true,
+    holdOrganizationLoad: true,
     holdOrganizationSave: true,
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="tenantAdmin"]').click();
   await page.locator('[data-tenant-admin-section="organization"]').click();
+  // Hold initial data until navigation focus is consumed, then enter save-test data.
+  await expect(page.locator('[data-tenant-admin-section-content="organization"] h2')).toBeFocused();
+  fixture.releaseOrganizationLoad();
   const form = page.locator('[data-tenant-settings-form="organization"]');
   await form.locator('#tenant-organization-display-name').fill('Detached save');
+  await expect(form.locator('#tenant-organization-display-name')).toHaveValue('Detached save');
   await form.getByRole('button', { name: /speichern/i }).click();
   await expect.poll(() => fixture.writes.length).toBe(1);
   await page.locator('[data-view="welcome"]').click();

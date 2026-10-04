@@ -1,0 +1,70 @@
+rules:
+  - id: cm-js-dynamic-eval
+    languages: [javascript]
+    severity: ERROR
+    message: Dynamic code execution is forbidden.
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)
+
+  - id: cm-js-unsafe-html-sink
+    languages: [javascript]
+    severity: ERROR
+    message: Unsafe HTML injection sink is forbidden; use safe DOM/text APIs.
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $VALUE
+          - pattern: $EL.outerHTML = $VALUE
+          - pattern: $EL.insertAdjacentHTML(...)
+
+  - id: cm-js-document-write
+    languages: [javascript]
+    severity: ERROR
+    message: document.write is forbidden.
+    pattern: document.write(...)
+
+  - id: cm-js-inline-handler
+    languages: [javascript]
+    severity: ERROR
+    message: Dynamic inline event-handler attributes are forbidden.
+    patterns:
+      - pattern: $EL.setAttribute($NAME, ...)
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: "['\"]on[a-zA-Z]+['\"]"
+
+  - id: cm-js-tainted-location-to-html
+    languages: [javascript]
+    severity: ERROR
+    message: Browser-controlled URL data must not flow into an HTML injection sink.
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: location.search
+          - pattern: location.hash
+          - pattern: location.href
+          - pattern: window.location.search
+          - pattern: window.location.hash
+          - pattern: window.location.href
+          - pattern: new URLSearchParams(...).get(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $SINK
+          - pattern: $EL.outerHTML = $SINK
+          - pattern: $EL.insertAdjacentHTML(..., $SINK)
+
+  - id: cm-js-tainted-storage-to-html
+    languages: [javascript]
+    severity: ERROR
+    message: Browser-storage data is untrusted and must not flow into an HTML injection sink.
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: localStorage.getItem(...)
+          - pattern: sessionStorage.getItem(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $SINK
+          - pattern: $EL.outerHTML = $SINK
+          - pattern: $EL.insertAdjacentHTML(..., $SINK)
