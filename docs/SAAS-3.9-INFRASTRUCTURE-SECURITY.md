@@ -4,23 +4,23 @@
 
 SaaS 3.9 is the approved infrastructure/security milestone between the SaaS 3.x Demo/product baseline and SaaS 4 integration expansion. GitHub milestone 12 and issues #247–#254 own implementation and acceptance evidence.
 
-This document records the approved target state and the delivered prerequisites below. It does **not** claim that the repository-visibility cutover, public API content publication or final security gate is complete.
+The approved repository boundary and delivery/publication mechanisms are implemented. Application and API are private, Website and Developer are public, and the inactive private Archive is archived. Final acceptance and administrative completion are recorded in #254 after executed current-pair gates. This mechanism does not publish an unreleased SaaS 4 API contract.
 
-Current delivery: #251 is implemented by API PR #103. Hosted preparation uses the reviewed `vendor/demo-frontend` Gitlink and verifies its HEAD against the immutable Render pins; anonymous source fetching has been removed. API PR #106 adds the fail-closed public API publication pipeline. Website PR #78 delivers the public EN/DE Demo entry; application PR #261 retires the duplicate application-repository Pages publication. These delivered mechanisms preserve Customer/Platform authority and do not perform the #254 repository-visibility cutover.
+Current delivery: #251 is implemented by API PR #103. Hosted preparation uses the reviewed `vendor/demo-frontend` Gitlink and verifies its HEAD against the immutable Render pins; anonymous source fetching has been removed. API PR #106 adds the fail-closed public API publication pipeline. Website PR #78 delivers the public EN/DE Demo entry; application PR #261 retires the duplicate application-repository Pages publication. These delivered mechanisms preserve Customer/Platform authority. #254 also records the completed owner-setting operations, legacy application Pages retirement and post-private validation.
 
 ## Objectives
 
 SaaS 3.9 establishes a deliberate public/private source boundary, removes public source availability as a Demo deployment dependency, creates a governed public integration-documentation surface, and performs the final private-source cutover only after technical evidence proves that all dependent workflows continue to operate.
 
-## Repository target state
+## Verified repository boundary — 4 October 2026
 
-| Repository | Target visibility | Responsibility |
+| Repository | Verified visibility | Responsibility |
 | --- | --- | --- |
 | `conference-manager` | Private | Authenticated browser application, application tests, architecture/security/governance documentation |
 | `conference-manager-api` | Private | Trusted backend, persistence, identity/authorization, provider adapters, canonical API contracts |
 | `conference-manager-developer` | Public | Approved external integration documentation, released API artifacts, synthetic examples and public changelog |
 | `conference-manager-website` | Public | Public unauthenticated website and approved public Demo landing surface |
-| `conference-manager-Archive` | Private + archived when confirmed inactive | Historical material only |
+| `conference-manager-Archive` | Private + archived | Historical material only |
 
 Repository visibility is not itself a security boundary. Secrets, credentials, customer data and private operational material are prohibited from source control regardless of visibility.
 
@@ -37,8 +37,8 @@ Repository visibility is not itself a security boundary. Secrets, credentials, c
 
 ## Non-negotiable cutover rules
 
-- `conference-manager` remains public until #254 and must not be made private merely because the target state is approved.
-- #251's replacement delivery is implemented; every subsequent release still requires a fresh hosted build and exact identity/acceptance evidence before #254.
+- The visibility cutover was performed only after the immutable authenticated delivery prerequisite passed; keep both application repositories private during final acceptance and recovery.
+- #251's replacement delivery is implemented; every subsequent release still requires a fresh hosted build and exact identity/acceptance evidence for #254's acceptance record.
 - Do not solve the private-source transition by placing an ad-hoc long-lived GitHub PAT or deploy key in Render.
 - The replacement delivery path must preserve an immutable frontend source ref, artifact integrity verification and fail-closed behavior.
 - Customer Demo and Platform Demo remain separate session/API security boundaries.
@@ -72,4 +72,13 @@ SaaS 3.9 is complete only when:
 - post-cutover CI, deployment, repository protections and public links are revalidated;
 - no unresolved critical/high security finding remains.
 
-Historical documentation of anonymous source fetching remains historical after #251. The supported public Demo entry is delivered by #252 in the website's `/en/demo/` and `/de/demo/` routes (Website PR #78). The duplicate application-repository Pages workflow, portal and portal-only tests were retired by merged PR #261 (`48c04ba4363e5250d5f00dd012f3df78dc428383`). SaaS 3.6 branch integration preserves this retirement while retaining its reviewed Business CSV and named-reference acceptance. Fresh combined CI and hosted acceptance remain required; retirement alone does not complete #254. New documentation must distinguish delivered prerequisites, the current live pair and the approved target state.
+Historical documentation of anonymous source fetching remains historical after #251. The supported public Demo entry is delivered by #252 in the website's `/en/demo/` and `/de/demo/` routes (Website PR #78). The duplicate application-repository Pages workflow, portal and portal-only tests were retired by merged PR #261 (`48c04ba4363e5250d5f00dd012f3df78dc428383`). SaaS 3.6 branch integration preserves this retirement while retaining its reviewed Business CSV and named-reference acceptance. Protected-main CI 37198302584, Secret Scan 37198302583, ZAP 37198302592 and reciprocal private-source API CI 37143600305 succeeded. The accepted functional/Hosted baseline and readiness publication sequence are recorded in `docs/SAAS-3.6-RELEASE-EVIDENCE.md`; #254/#170 record the final promoted pair and completed gate. Retirement alone is not the gate.
+
+
+## Effective post-private security controls
+
+Required `quality`, `e2e`, `dependency-review`, `gitleaks` and `shared-demo-e2e` checks remain strict, with resolved review threads, deletion/non-fast-forward protection and no bypass actors. Quality runs Semgrep CE 1.179.0, repository-owned rule self-tests and the full source scan. The shared conservative SPDX policy checks every lock entry and every nested AND/OR operand; unknown or missing licenses fail closed. The post-private dependency job uses a locked no-lifecycle-script install, audit and this policy. Gitleaks retains full-history scanning and required pull-request read permission.
+
+Private CodeQL is unavailable for the current repository entitlement. The owner reconciled only the unavailable platform rule after the replacement policy passed both PR and protected-main gates. This does not claim execution or identical full-query-suite coverage. The separate read-only CI Reader and sanitized publication Publisher remain narrowly scoped; no paid-plan workaround, source-public rollback, PAT or deploy-key broadening was introduced.
+
+Both public Website Demo routes and the Developer root returned anonymous HTTP 200 on 4 October 2026. Website links directly to the Customer and Platform HTTPS origins without acquiring session, authorization, API or persistence authority. No unresolved repository-controlled Critical/High finding is accepted by this documentation change; Production and external-provider evidence limits remain explicit.

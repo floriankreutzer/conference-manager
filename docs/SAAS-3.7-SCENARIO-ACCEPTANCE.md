@@ -175,9 +175,9 @@ the second restoration check. Its first restoration took 14s; about 20s plus
 runner/cleanup margin remain necessary. An incomplete run is still not acceptance.
 The bounded
 isolated budget is now 1020 seconds per browser and 2160 seconds serially;
-hosted uses 1080 and 2280 seconds. The hosted job permits 70 minutes and reserves
-60 minutes before destructive work: 12 for the cross-role suite, 38 for full
-scenarios and a ten-minute cleanup/identity margin. The isolated CI job
+hosted uses 1080 and 2280 seconds. The current hosted job permits 80 minutes and reserves
+70 minutes before destructive work, including the cross-role suite, 38-minute
+full-scenario cap and independent cleanup/identity margin. The isolated CI job
 permits 50 minutes for setup, both suites, actual zoom and teardown. Action,
 navigation, assertion, retry, TLS, rate and security limits remain unchanged.
 The actual headed Chromium worklist zoom check runs before the full scenarios;
@@ -194,8 +194,9 @@ independently loaded current catalogue rather than an obsolete pre-mutation coun
 Six mandatory 61-second rate windows now consume 366 seconds per browser. The
 provider-negative phase starts in its own real source-IP quota window, before any
 availability request, so the required 503 is not masked by the unrelated HTTP
-quota. No server limit is raised and no denial is retried. Existing isolated
-600-second/1320-second and hosted 780-second/1740-second test/suite caps remain.
+quota. No server limit is raised and no denial is retried. Earlier isolated 600-second/1320-second and hosted 780-second/1740-second
+caps are historical; current test/suite caps are the 1020/2160 and 1080/2280
+second bounds above.
 Mutation HTTP status and visible results are verified; persisted media bytes are
 read independently through normal authenticated GETs instead of relying on CDP
 response bodies that Chromium may retire during a long progression. Exact normalized
@@ -206,12 +207,13 @@ The existing full Chromium/WebKit suites remain mandatory. An additional headed
 Chromium step sets and reads the real tab zoom to 2, checks worklist reflow and
 44px actions, keyboard disclosure/navigation, and performs authorized reset cleanup.
 Equivalent 640px viewport tests alone are not described as actual browser zoom.
-API #104 promotes the matching immutable frontend and acceptance contract through
+API #104 historically promoted the matching immutable frontend and acceptance contract through
 the existing private Gitlink. Source/Live identity, paired CI and Hosted/DAST proof
-must be reconciled before closing #256/#226/#228 or the final milestone gates.
+must be reconciled before closing the correction or final milestone gates. #256/#226/#228 are now
+completed; that historical pair does not certify a successor.
 
 
-## Guest/media/worklist correction runtime binding — 3 October 2026
+## Historical Guest/media/worklist correction runtime binding — 3 October 2026
 
 API PR #104 merged as `7adb670a03f1372c70dd1405c0e4b269daa0d9df` and the existing
 private Gitlink delivery promotes frontend `c4eda7750933c2b3c5b561fae0926d36cdc53582`.
@@ -227,3 +229,15 @@ acceptance additionally proves the live full journey, stable identity and indepe
 canonical cleanup; source-only API evidence is not substituted for that live gate.
 Explicit historical cleanup bindings for `62ad13b` and `96294cc` retain their exact
 canonical seed/checksum, while unknown runtimes remain rejected.
+
+
+## Current final baseline and readiness promotion — 4 October 2026
+
+The executed protected-main, private-source and Hosted baseline is recorded in
+`docs/SAAS-3.6-RELEASE-EVIDENCE.md`. All three customers, Contoso's seven actual
+state-derived tasks, every role/CSRF/Tenant negative, both browser engines and
+both full reset cycles remain mandatory. Ready markers are scoped accepted Demo
+UX; final paired publication and exact live refs belong to #170. The unchanged
+schema/overlay is 42/7 and the seed/checksum above remains canonical. Final
+promotion updates the trusted immutable API checkout, Hosted/DAST identity and
+reset binding together; historical supported predecessor bindings are retained.
