@@ -27,18 +27,5 @@ jobs:
         run: npm ci --ignore-scripts --no-fund
       - name: Reject high or critical dependency vulnerabilities
         run: npm audit --audit-level=high
-      - name: Enforce denied dependency licenses from the installed lock graph
-        run: |
-          node --input-type=module <<'NODE'
-          import { readFileSync } from 'node:fs';
-          const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
-          const denied = new Set(['GPL-3.0', 'GPL-3.0-only', 'GPL-3.0-or-later', 'AGPL-3.0', 'AGPL-3.0-only', 'AGPL-3.0-or-later']);
-          const violations = Object.entries(lock.packages || {})
-            .filter(([path, metadata]) => path && denied.has(metadata?.license))
-            .map(([path, metadata]) => `${path}: ${metadata.license}`);
-          if (violations.length) {
-            console.error('Denied dependency licenses:\n' + violations.join('\n'));
-            process.exit(1);
-          }
-          console.log('No denied GPL-3.0/AGPL-3.0 package-lock licenses found.');
-          NODE
+      - name: Enforce reviewed dependency license policy
+        run: node scripts/check-dependency-licenses.mjs
