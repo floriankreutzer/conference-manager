@@ -1,6 +1,6 @@
 # SaaS 3.6 hardening register
 
-Current disposition: 2026-10-02. Individual finding rows preserve their earlier candidate evidence; the current release evidence is below.
+Current disposition: 2026-10-04. Accepted baseline, post-private security execution and readiness publication evidence are maintained in `SAAS-3.6-RELEASE-EVIDENCE.md` and #170. Individual finding rows and dated checkpoints below preserve their historical candidate evidence and pending statements; accepted #172/#182/#216 decisions are not reopened. No new critical/high finding is waived by readiness promotion.
 Parent roadmap: #164
 Hardening work package: #171
 Security-regression work package: #168
@@ -25,7 +25,7 @@ misrepresented as Demo discoveries.
 
 ## Findings
 
-### Current correction delivery — 3 October 2026
+### Historical Guest/Catering/worklist correction checkpoint — 3 October 2026
 
 Named #172/#182 Owner acceptance and #216 bounded Demo snapshot/retention disposition
 are accepted and closed. ADR-012's owning-role withhold/correct policy and exclusion

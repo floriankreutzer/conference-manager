@@ -2,30 +2,32 @@
 
 ## SaaS 3.9 infrastructure and repository boundary
 
-SaaS 3.9 approves a controlled transition to private application source while preserving the public website and Developer Portal. The target state, delivered prerequisites and cutover gates are defined in `docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md`. GitHub Pages remains public; hosted Demo preparation already uses the verified `vendor/demo-frontend` Gitlink from API #103. Repository visibility cutover remains gated by #254.
-
+SaaS 3.9 delivers private application/API source, authenticated immutable hosted delivery and intentionally public Website/Developer publication. The supported static Demo entry is the website's EN/DE landing. Legacy application Pages is disabled and the private historical Archive is archived. Effective post-private security and release evidence are defined in `docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md`; #254 records final acceptance and milestone closure.
 Frontend application for Tenant-scoped conference requests with Employee, Conference Manager and Tenant Admin capabilities plus a separately deployed Platform Operator surface.
 
 ## Readiness status
 
-- Employee UX: **in validation**
-- Conference Manager UX: **in validation** on desktop and mobile
-- Technical markers: `conference-end-user-readiness=in-validation` and `conference-manager-readiness=in-validation`
-- Regression coverage: dedicated Conference Manager readiness E2E test plus the complete existing Manager/Employee suite; the #182 parity gate and #170 release gate remain required before either marker may become `ready` (the named #182 acceptance is fulfilled; new #256/#226/#228/#229 findings have separate correction gates)
+- Employee UX: **ready** for the accepted SaaS 3.6 Demo scope
+- Conference Manager UX: **ready** on the tested desktop/mobile browser matrix
+- Technical markers: `conference-end-user-readiness=ready` and `conference-manager-readiness=ready`
+- Regression coverage: required quality/security, ordinary Chromium/WebKit, PostgreSQL cross-role/CSV, actual 200% tab zoom and permanent three-customer/two-reset acceptance.
 
-The readiness status describes clarity, usability, responsive behavior, and regression coverage of the static MVP. `in-validation` is intentionally non-final: it explicitly does not replace the #182/#170 evidence, SSO, backend, authorization, audit, or calendar-integration measures required for production operation.
+The #182 parity gate and #170 release gate control this promotion. Accepted named
+Owner decisions #172/#182 and bounded Demo disposition #216 remain binding.
+The final #229 correction is merged through #259; Guest PDF #256, Catering media
+#226 and compact worklist #228 are integrated through #257. Executed baseline
+evidence and the immutable live pair are recorded in
+`docs/SAAS-3.6-RELEASE-EVIDENCE.md`. #170 records the final protected promotion,
+live identity and closure; a branch marker alone never proves a deployed release.
 
-Named Owner decisions in #172, #182 and #216 are accepted and closed. Their bounded
-Demo residual-risk dispositions do not imply executed Production recovery evidence.
-PR #225 is integrated; #227 is superseded. PR #257 corrects the new Guest PDF,
-Catering image lifecycle and compact manager worklist findings. API #104 promotes
-that immutable frontend through the private Gitlink delivery introduced by API #103.
-Full paired CI, exact live Hosted/DAST evidence and the independent #229 business
-selection/help/CSV work still control #169/#170/#164. SaaS 3.6 is not final.
+Readiness is scoped Demo UX acceptance. It does not certify Production, live
+Microsoft/Entra/provider operation, formal WCAG, tagged PDF, penetration testing,
+isolated HTTP recovery, retention deletion or Production RPO/RTO. Those independent
+evidence boundaries remain unchanged.
 
-The final Business CSV contract is documented in `docs/MANAGER-BUSINESS-CSV.md`: named
-Site/Room/item selections, localized help, bounded strict UTF-8 CSV and the paired
-Equipment API migration. Required release evidence remains tracked in #229/#170.
+The Business CSV contract in `docs/MANAGER-BUSINESS-CSV.md` covers authoritative
+named Site/Room/item selections, localized help, bounded strict UTF-8 CSV and
+receipt-bound Equipment transfer at canonical schema 42.
 
 ## Feature scope
 
@@ -145,7 +147,7 @@ The approved SaaS production topology keeps this repository as the browser appli
 
 The accepted SaaS 3.5 architecture keeps Platform Operations source in those two application repositories while preserving the four separate browser/API artifacts and processes. It replaces browser-owned Demo business state with one isolated PostgreSQL-backed Demo model reached through separate Customer and Platform Demo session/API boundaries. SaaS 3.5 remains the topology and persistence baseline; its historical descriptions of Tenant Admin editing all Locations/Rooms/Catalogue data do not define current authorization. The approved SaaS 3.6 role model in `docs/ROLE-MODEL.md` and the current ownership matrix supersede only that earlier role allocation while preserving the accepted topology.
 
-SaaS 3.6 also bounds GitHub Pages to a static human Demo launchpad at `https://floriankreutzer.github.io/conference-manager/` for the separate Render Customer and Platform application origins. It is not an application, identity, session, API, proxy, persistence or authorization layer. `docs/DEMO-URLS.md` records the canonical topology and live URL evidence.
+SaaS 3.9 places the static human Demo launchpad in the public website at `https://floriankreutzer.github.io/conference-manager-website/en/demo/` (German: `/de/demo/`) for the separate Render Customer and Platform application origins. It is not an application, identity, session, API, proxy, persistence or authorization layer. `docs/DEMO-URLS.md` records the canonical topology and live URL evidence.
 
 See `docs/BASELINE.md`, `docs/ROLE-MODEL.md`, `docs/ARCHITECTURE.md`, `docs/DOMAIN-OWNERSHIP-AND-MODULE-BOUNDARIES.md`, `docs/SAAS-PRODUCTION-TOPOLOGY.md`, `docs/SAAS3-PLATFORM-CONTROL-PLANE.md`, `docs/ADR-009-PLATFORM-OPERATIONS-REPOSITORY-TOPOLOGY.md`, `docs/ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md` and `docs/DESIGN-SYSTEM.md` for details and maintenance rules.
 
@@ -189,7 +191,7 @@ The quality gate executes:
 7. Design-token validation against new hardcoded hex colors in component CSS
 8. Regression and progression tests using the Node.js test runner
 
-In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chromium and WebKit/iPhone profiles. Dependency Review and Gitleaks provide additional repository security gates. DAST remains a separate scheduled/manual control. CodeQL must only be reported when separately configured and executed.
+In addition, GitHub Actions runs `npm audit` and the Playwright E2E suite on Chromium and WebKit/iPhone profiles. Required quality also runs pinned Semgrep CE 1.179.0, repository rule self-tests and the full source scan. Dependency Review uses locked installation, vulnerability audit and the shared conservative SPDX license policy; Gitleaks remains required. Hosted acceptance and ZAP retain exact deployment binding. Private CodeQL is unavailable under the current entitlement and is not claimed; the scoped Semgrep policy is not identical to the complete CodeQL query suite.
 
 ## Accessibility and internationalization
 

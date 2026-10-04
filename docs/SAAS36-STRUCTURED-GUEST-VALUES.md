@@ -10,6 +10,9 @@ The new #256 Guest print defect is corrected by PR #257 through a fixed same-ori
 script-free print document, two CSP-permitted stylesheets and bounded document/CSS
 readiness. Historical dark/Camel layout, four facts, visit cards and A4 printing use
 the same minimized Guest projection. Actual Chromium PDF rendering and both browser
-engines are checked; paired integration, deployment and final #170/#164 evidence
-remain required. Keep public readiness at `in-validation` while these corrections
-and independent #229 business help/CSV acceptance remain open.
+engines are checked. The Guest/Catering/worklist and independent #229 business
+help/CSV corrections are integrated; their accepted baseline and executed final
+browser/Hosted evidence are recorded in `SAAS-3.6-RELEASE-EVIDENCE.md`.
+#170 records the normal protected readiness publication and actual final live pair.
+Demo UX readiness does not establish tagged-PDF, Production or external-provider
+certification, and the accepted ADR-012 evidence limits remain unchanged.

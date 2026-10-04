@@ -146,7 +146,7 @@ The change submission uses the version of the validated Request actually display
 
 ## Production activation boundary
 
-A valid Production session never activates Demo business views. The server-authoritative application API contract from issue #114 is complete. Production composition uses dedicated Employee and Conference Manager implementations backed only by `src/platform/production-persistence.js`; the demo implementations and LocalStorage path remain isolated to explicit Demo runtime composition.
+A valid Production session never activates Demo business views. The server-authoritative application API contract from issue #114 is complete. Production composition uses dedicated Employee and Conference Manager implementations backed only by `src/platform/production-persistence.js`; both explicit Demo and Production compositions inject their matching server-backed adapters into the canonical renderers. Historical local Demo and LocalStorage business paths are retired and cannot serve as either composition's fallback.
 
 This means:
 
@@ -230,11 +230,11 @@ Parameterized persistence is mandatory. User input must not construct SQL or arb
 
 ## Receipt-bound Tenant bulk transfer
 
-Bulk transfer is aggregate-specific and does not create a generic Tenant configuration permission. Conference Manager presentation exposes only the injected Room-business (`rooms`) and Catalogue (`services`, `catering-items`, `catering-packages`) aggregates. Tenant Admin presentation exposes only the injected technical Locations (`sites`, `rooms`) and Cost Allocation (`cost-centers`) aggregates. The trusted API still derives the Principal/Tenant, classifies Room properties, enforces each aggregate's exact permission and revision, and verifies the validation receipt on Apply.
+Bulk transfer is aggregate-specific and does not create a generic Tenant configuration permission. Conference Manager presentation exposes only the injected Room-business (`rooms`) and Catalogue (`services`, `equipment`, `catering-items`, `catering-packages`) aggregates. Tenant Admin presentation exposes only the injected technical Locations (`sites`, `rooms`) and Cost Allocation (`cost-centers`) aggregates. The trusted API still derives the Principal/Tenant, classifies Room properties, enforces each aggregate's exact permission and revision, and verifies the validation receipt on Apply.
 
 The shared browser panel is presentation, not authorization. Apply is bound to the exact type, selected file, parsed document and server receipt returned by the latest successful validation. A type/file change or newer validation invalidates earlier results; validation is disabled while Apply is pending. Downloads, announcements and rerenders are suppressed after navigation, DOM detachment or inactivity lock so a stale asynchronous completion cannot restore or export data in a later view.
 
-Template/export JSON uses a narrowly scoped Object URL created only from the already serialized in-memory document. That URL is assigned directly to a temporary download anchor and revoked after activation. This does not weaken the generic navigation sanitizer or authorize arbitrary `blob:` navigation.
+Manager template/export CSV uses a narrowly scoped Object URL created only from the already serialized, bounded and spreadsheet-safe in-memory document. Tenant Admin's normalized JSON transfer retains its own supported presentation contract. That URL is assigned directly to a temporary download anchor and revoked after activation. This does not weaken the generic navigation sanitizer or authorize arbitrary `blob:` navigation.
 
 ## Transactional Room/calendar booking
 

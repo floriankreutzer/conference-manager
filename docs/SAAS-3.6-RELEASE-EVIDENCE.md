@@ -1,5 +1,80 @@
 # SaaS 3.6 release evidence
 
+Status: **accepted SaaS 3.6 Demo baseline**, 4 October 2026.
+This source change promotes the previously accepted Employee/Manager Demo UX
+markers. Final protected publication/deployment and administrative closure are
+recorded in #170/#169/#164, not inferred from a candidate branch.
+
+## Executed functional and security acceptance
+
+| Evidence | Exact executed result |
+| --- | --- |
+| Protected frontend baseline | `e1ac8a52f0524901cfa09993d12ff95616f603fe` (#276); tree `c82d569ae5b6ce508c6d1652727c874ee4bbaa57` equals tested head `986473c9d7f98e064b8a1ee7179ac6986baac774` |
+| Live embedded frontend | `b4b755b6e1c74976fb1020a0fe98c68fce9304cb` (#259) |
+| Live API runtime | `aab347c774042fe0c54b846fac018008e88d098c` (API #110) |
+| Protected-main CI 37198302584 | SUCCESS: 579 native tests, audit, architecture/static/secret gates, Semgrep self-tests/full source scan, ordinary browsers, PostgreSQL CSV/cross-role journey, actual 200% zoom and complete three-customer/two-reset Chromium/WebKit acceptance |
+| Hosted 37193829601 (artifact 11301634874; acceptance source `9f5a61ba67f8abdcd0f7e4f71fecf26ed851e879`, same accepted complete tree) | SUCCESS: exact-head/live-pair cross-role journeys, complete three-customer/two-reset Chromium/WebKit scenarios, independent canonical cleanup and stable pre/post deployment identity |
+| Main ZAP 37198302592 / Secret Scan 37198302583 | SUCCESS |
+| API post-private CI 37143600305 | SUCCESS: quality, PostgreSQL, both browser projects and permanent scenarios/reset gates |
+| Public surfaces | Anonymous HTTP 200 on both Website Demo routes and Developer root on 4 October 2026; both launch routes contain the correct direct Render destinations |
+
+The accepted #229 behavior includes named business references, native DE/EN help,
+Room-local localized prices and bounded strict five-type UTF-8 CSV with
+receipt-bound validate/apply, reload, export and reimport. Equipment uses canonical
+migration 042; the applied migration is not repeated by this promotion.
+Guest PDF #256, Catering media lifecycle #226 and state-derived worklist #228
+retain their complete regression coverage and protected integration.
+
+## Readiness publication and completion
+
+The source markers are `conference-end-user-readiness=ready` and
+`conference-manager-readiness=ready` for accepted Demo UX only. #182's named
+Owner acceptance and bounded #172/#216 dispositions remain completed.
+This promotion changes no business rule, source of authorization, persistence,
+seed/checksum, schema, CSS, localization, provider integration or API contract.
+
+The readiness source must pass the normal protected frontend checks. The API
+must then pin that exact merged frontend in both its Gitlink and Render manifest,
+pass reciprocal acceptance and deliberately deploy both existing Demo services.
+Final Hosted/DAST verification must bind to the actual promoted pair; the
+independently checked metadata and final run links belong in #170. An old live
+marker or an unexecuted candidate is not final deployment evidence.
+
+#229/#169/#170/#164 and milestone 10 close only for completed scope after final
+paired publication, evidence reconciliation and the existing guarded closure.
+SaaS 4's prerequisite is then resolved; no SaaS 4 provider implementation or real
+orders are executed by this release.
+
+## Security and recovery boundaries
+
+Effective post-private frontend controls retain strict quality/e2e/dependency-review/
+gitleaks/shared-demo-e2e, resolved review threads, deletion/non-fast-forward
+protection and no bypass actors. Required quality executes Semgrep CE 1.179.0 and
+its repository-owned fail-closed policy. The conservative SPDX policy checks
+every lock entry and nested operand. Private CodeQL is unavailable; no execution
+or identical full-query-suite coverage is claimed. Historical CodeQL runs remain
+historical. Reader and Publisher identities remain separate and narrowly scoped.
+
+Canonical schema is 42, Demo overlay is 7, seed is
+`saas-3.7-three-demo-customers-v1`, semantic checksum is
+`7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014`.
+No migration, manual data repair or independent live reset is introduced.
+Retain compatible immutable releases; restore only through reviewed supported
+paths, preserve predecessor reset bindings and fail closed on unknown identities.
+
+This is scoped Demo evidence. It does not establish live Microsoft/Entra,
+Production deployment/security/provider acceptance, formal WCAG or tagged-PDF
+certification, penetration testing, positive retention deletion, isolated HTTP
+restore, alert delivery or Production RPO/RTO. Those accepted evidence limits and
+ADR-012 owning-role withhold/correct policy remain unchanged.
+
+## Historical records before final baseline acceptance
+
+The following dated record is retained as historical diagnosis and execution.
+Its old pending PRs, pins, quota incidents and readiness statements do not
+describe the accepted baseline above.
+
+
 Status: **in validation**, 3 October 2026. This record does not authorize readiness
 promotion or close #229/#169/#170/#164 until the remaining release gates pass.
 Named Owner acceptance #172/#182 and the bounded Demo disposition #216 remain
@@ -121,3 +196,4 @@ ownership are preserved. Visibility cutover #254 remains separate. SaaS 3.8
 runtime-efficiency work remains separately reviewed; this integration does
 not merge or deploy its pending API changes. Closing SaaS 3.6 resolves its
 prerequisite for SaaS 4; it does not authorize real provider orders.
+

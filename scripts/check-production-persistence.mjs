@@ -308,7 +308,8 @@ for (const required of [
   'src/employee/production-application.js',
   'src/manager/production-application.js',
   'have no browser-storage fallback',
-  'Existing demo Employee/Manager implementations remain reachable only',
+  'Explicit Shared Demo composition injects its own server/session/API adapters into those renderers',
+  'historical local-Demo implementations are retired and are not fallback paths',
 ]) {
   if (!productionSessionContract.includes(required)) {
     throw new Error(`Production session documentation is stale or incomplete: ${required}.`);
@@ -319,7 +320,8 @@ const productionSecurityContract = await readFile('docs/PRODUCTION-SECURITY.md',
 for (const required of [
   'The server-authoritative application API contract from issue #114 is complete.',
   'dedicated Employee and Conference Manager implementations',
-  'demo implementations and LocalStorage path remain isolated',
+  'both explicit Demo and Production compositions inject their matching server-backed adapters into the canonical renderers',
+  'Historical local Demo and LocalStorage business paths are retired',
   'authoritative IANA time zone',
   'changed room/window',
 ]) {

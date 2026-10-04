@@ -95,7 +95,7 @@ Production capability remains session- and role-bound:
 
 The Tenant Admin browser adapter follows the backend `nextAfterId` cursor until all bounded pages are loaded, rejects duplicate users/cursors and malformed page contracts, never accepts a Tenant selector, and sends only allowlisted elevated roles through the session-bound CSRF client.
 
-Signed-out and unavailable production states return before any production business view renders. Authenticated production renders only the dedicated production implementations allowed by the validated presentation capability. Existing demo Employee/Manager implementations remain reachable only when the document explicitly selects the demo runtime.
+Signed-out and unavailable production states return before any production business view renders. Authenticated Production renders only the canonical server-backed Employee/Manager implementations allowed by the validated presentation capability. Explicit Shared Demo composition injects its own server/session/API adapters into those renderers; historical local-Demo implementations are retired and are not fallback paths.
 
 ## Browser storage boundary
 

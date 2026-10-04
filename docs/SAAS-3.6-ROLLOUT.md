@@ -1,5 +1,15 @@
 # SaaS 3.6 Request contract rollout
 
+## Current readiness promotion — 4 October 2026
+
+The accepted baseline and executed gates are recorded in
+`SAAS-3.6-RELEASE-EVIDENCE.md`. Employee and Conference Manager Demo UX markers
+are promoted to `ready` through the normal protected source/API delivery path;
+final paired publication, live identity and closure evidence are recorded in #170.
+This is scoped Demo UX acceptance and does not authorize Production or external
+provider operation. The dated rollout and `in-validation` instructions below
+are historical records of their earlier candidate state.
+
 > Historical rollout plan from 27 September 2026. The draft PRs, schema 38,
 > candidate hashes, pending migrations and deployment instructions below have
 > been superseded by the integrated status in
