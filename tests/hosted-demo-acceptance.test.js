@@ -147,7 +147,7 @@ test('hosted cleanup requires the runtime-bound canonical checksum twice', () =>
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const runtimeRef = workflow.match(/EXPECTED_RUNTIME_REF: ([0-9a-f]{40})/)?.[1];
 
-  assert.equal(runtimeRef, 'bf9aeb03f3395a6efa64298d01b4e3637282fb0e');
+  assert.equal(runtimeRef, 'dccd86b3dc1eb208423407f104686aff347581ef');
   assert.match(workflow, /DEMO_SEED_VERSION: saas-3\.7-three-demo-customers-v1/);
   assert.match(source, new RegExp(`const PINNED_RUNTIME_REF = '${runtimeRef}';`));
   assert.match(

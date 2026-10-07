@@ -198,7 +198,6 @@ Non-negotiable architecture rules:
 
 `docs/ARCHITECTURE.md` describes the current runtime structure and automated boundaries. It supports these canonical instructions; it does not override them.
 
-
 ## 12. Permanent Demo-customer release invariant
 
 The SaaS 3.7 Demo customers are a permanent development baseline, not milestone-only data. Every relevant application/API/data/persistence/migration/role/request/integration/media/reset/deployment change must preserve the data and workflows required by all three scenarios:
@@ -210,3 +209,9 @@ Relevant changes are not Definition-of-Done if required Demo data is missing/inc
 CI must continue to provision the canonical data and run the full three-customer progression and two-cycle reset acceptance in Chromium and WebKit against an immutable trusted API ref. Seed-row existence alone is insufficient evidence.
 Do not weaken, skip or remove customer/task/reset/browser assertions to unblock later work. Intentional scenario changes require an explicit product decision and equivalent or stronger regression coverage.
 Cross-repository changes must validate both repositories together with exact immutable counterpart commits. The binding contract is `docs/SAAS-3.7-SCENARIO-ACCEPTANCE.md`.
+## Cost-constrained execution
+Work must remain within the owner's configured zero-additional-spend limits. Do not upgrade plans, increase paid quotas, change spending limits, or start billable runners or deployments without an explicit new owner decision. Prefer local validation, bundle related documentation changes, and avoid unnecessary workflow reruns and Hosted Demo traffic. Configured cost controls do not provide additional included capacity.
+
+Required reviews, security checks, regression/progression tests and release gates remain mandatory. Normally, local results do not substitute for required GitHub checks. Owner decision (2026-10-04): while the included Actions allowance is exhausted, temporary alternative acceptance is permitted only for fully executed equivalent checks, bound to exact commits with retained commands, environment, results and evidence. Unexecuted checks remain open; failed Actions statuses remain failed and must not be relabeled or forged. This exception does not authorize changes to enforced branch protections, public source disclosure, paid capacity or automatic release closure. User-reported settings must be distinguished from verified billing evidence.
+## Documentation status integrity
+Reconcile current documentation with the exact merged implementation and named deployment evidence. Distinguish current main, unmerged pull requests, deployed immutable counterparts, dated test evidence and planned behavior. Keep historical failures and accepted scope limits explicitly historical. A closed milestone does not prove every later change passed its own gates.

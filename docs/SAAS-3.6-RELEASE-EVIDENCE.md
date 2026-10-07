@@ -6,17 +6,64 @@ markers. Final protected publication/deployment and administrative closure are
 recorded in #170/#169/#164, not inferred from a candidate branch.
 
 
-## Current readiness publication pair — 4 October 2026
+## Historical readiness publication pair — 4 October 2026
 
 Protected readiness PR #278 is merged as `5d5102b4f9842ec704ff26441ebe96719324ddb0`. API #111 pins
 that exact frontend in both Render manifest entries and the private Gitlink;
 its actual merged runtime is `bf9aeb03f3395a6efa64298d01b4e3637282fb0e`. Both existing Render
-services deliberately deploy this immutable pair. Hosted/DAST expected refs,
+services deliberately deployed this immutable pair at that checkpoint. Hosted/DAST expected refs,
 isolated trusted API checkout and the reset binding now match those actual
-merges. The accepted baseline above remains executed evidence; this successor
-requires its own complete checks and live identity/cleanup proof. Final results,
-main CI links and administrative completion are recorded in #170/#254 and the
-canonical Confluence release records only after those gates finish successfully.
+merges. At the 4 October checkpoint, this successor still required its own
+complete checks and live identity/cleanup proof. The executed 7 October results
+below supersede that pending status for #279's scoped acceptance. Final release
+and security-remediation completion remain separate.
+
+## Executed #279 scoped acceptance — 7 October 2026
+
+PR #279 head `4713b632827c856069a12bde6d76298e8cf54e96` passed all required workflows
+and current-head review, then merged as `f9d0439c410d2e97a60984f6bf9a05216a6b3862`.
+Its live identity and reset expectations bind to the frontend/API pair above.
+The latest successful attempts are recorded below; earlier startup failures
+remain historical failures and were not relabeled as passing evidence.
+
+| Workflow | Executed result |
+| --- | --- |
+| [CI 37207420692](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420692) | SUCCESS: quality/audit/Semgrep, ordinary Chromium/WebKit, PostgreSQL CSV/cross-role journeys, actual 200% Chromium tab zoom and complete three-customer/two-reset acceptance |
+| [Hosted Acceptance 37207420722](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420722) | SUCCESS: live-pair browser/scenario acceptance and required independent cleanup/identity gates |
+| [OWASP ZAP 37207420804](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420804) | SUCCESS on the configured three surfaces |
+| [Dependency Review 37207420752](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420752) | SUCCESS: repository dependency audit and reviewed license policy |
+| [Secret Scan 37207420760](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420760) | SUCCESS: required full-history Gitleaks gate |
+
+The owner temporarily made Application/API source public on 7 October so Actions
+could run again. These successful attempts are scoped current-pair evidence;
+they do not certify restored private-source operation. #170/#164 remain open.
+The #279 merge does not certify the old runtime as vulnerability-free or complete
+a SaaS milestone. Final reconciled records and administrative completion remain
+owned by #170/#254 and Confluence.
+
+## Security-fixed current publication pair — 7 October 2026
+
+API #114 upgrades exact-pinned sharp to 0.35.5 and retains the fail-closed
+architecture dependency check. Its reviewed head `17124312bf11b6b5ac06a7f9708ebece970e1f88`
+passed [full CI 37572170121](https://github.com/floriankreutzer/conference-manager-api/actions/runs/37572170121),
+[Dependency Policy 37572170129](https://github.com/floriankreutzer/conference-manager-api/actions/runs/37572170129)
+and [Secret Scan 37572170086](https://github.com/floriankreutzer/conference-manager-api/actions/runs/37572170086).
+CI includes PostgreSQL 18 and both complete browser/customer/reset gates.
+
+It merged as `dccd86b3dc1eb208423407f104686aff347581ef`. Both existing Render Free
+services deliberately deployed that exact runtime: Customer
+`dep-db378m0m7kps73d9okvg`, Platform `dep-db378o60tbcc73fsrqu0`. Anonymous HTTP 200
+readiness and schema-v1 build-bound metadata from both origins independently
+confirm the runtime and unchanged frontend `5d5102b4f9842ec704ff26441ebe96719324ddb0`.
+No migration, seed/checksum, role, plan or spending-limit change is introduced.
+
+This successor updates isolated CI checkout, Hosted/DAST identity expectations
+and canonical reset bindings to the actually published runtime. Historical
+predecessor bindings remain explicit. Fresh current-head CI, Hosted Acceptance,
+ZAP, dependency/secret gates and review must pass before merge. The results above
+are API/deployment evidence; they are not unexecuted refreshed frontend/live
+acceptance. #170/#164 and private-source restoration remain separate open gates.
+
 
 ## Executed initial functional and security acceptance
 
