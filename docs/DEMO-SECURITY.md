@@ -91,6 +91,15 @@ information-disclosure findings retain their existing fail-closed policy.
 
 The Demo must not be presented as an authenticated Production application and must not be used for real confidential, personal or regulated data.
 
+The SaaS 3.8 isolated candidate intentionally changes only authorized Room and
+Catalogue image GETs to private mandatory revalidation with an opaque strong
+ETag and `Vary: Cookie`. Authentication, current Tenant/object ownership and
+verified bytes precede every 304; revoked sessions and missing/foreign media
+remain denied. Session, JSON API and mutation responses retain no-store. No
+shared cache or browser business/session authority is introduced. Existing
+deployed ZAP observations above remain historical until coordinated promotion
+and fresh exact-origin evidence; see `SAAS-3.7-SCENARIO-ACCEPTANCE.md`.
+
 ## Role and ownership boundary
 
 The server-enforced Demo role contract mirrors the Production Tenant policy:

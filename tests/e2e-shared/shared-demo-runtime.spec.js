@@ -485,8 +485,33 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const delivered = await customerContext.request.get(assetUrl);
   expect(delivered.status()).toBe(200);
   expect(delivered.headers()['content-type']).toBe('image/webp');
-  expect(delivered.headers()['cache-control']).toBe('private, no-store');
+  expect(delivered.headers()['cache-control']).toBe('private, no-cache, max-age=0, must-revalidate');
+  expect(delivered.headers().vary).toBe('Cookie');
+  const mediaEtag = delivered.headers().etag;
+  expect(mediaEtag).toMatch(/^"[0-9a-f]{64}"$/);
   expect((await delivered.body()).subarray(0, 4).toString()).toBe('RIFF');
+  const revalidated = await customerContext.request.get(assetUrl, {
+    headers: { 'If-None-Match': mediaEtag },
+  });
+  expect(revalidated.status()).toBe(304);
+  expect(revalidated.headers().etag).toBe(mediaEtag);
+  expect(revalidated.headers()['cache-control']).toBe(delivered.headers()['cache-control']);
+  expect(revalidated.headers().vary).toBe('Cookie');
+  expect(revalidated.headers()['content-length']).toBeUndefined();
+  expect((await revalidated.body()).length).toBe(0);
+  const independentCustomer = await browser.newContext({ ignoreHTTPSErrors: true });
+  try {
+    expect((await independentCustomer.request.get(assetUrl, {
+      headers: { 'If-None-Match': mediaEtag },
+    })).status()).toBe(401);
+    const independentSession = await establishCustomer(independentCustomer);
+    expect(independentSession.tenant.id).toBe(TENANT_A);
+    expect((await independentCustomer.request.get(assetUrl, {
+      headers: { 'If-None-Match': mediaEtag },
+    })).status()).toBe(404);
+  } finally {
+    await independentCustomer.close();
+  }
   await customerPage.locator('[data-view="manager"]').click();
   const managerCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
   await expect(managerCard).toBeVisible();
@@ -687,6 +712,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
 
   const invalidatedCustomer = await customerContext.request.get(`${CUSTOMER_ORIGIN}/api/v1/application/profile`);
   expect((await expectStatus(invalidatedCustomer, 401)).error.code).toBe('UNAUTHENTICATED');
+  expect((await customerContext.request.get(assetUrl, {
+    headers: { 'If-None-Match': mediaEtag },
+  })).status()).toBe(401);
   const invalidatedPlatform = await platformContext.request.get(`${PLATFORM_ORIGIN}/api/v1/platform/tenants?limit=100`);
   expect((await expectStatus(invalidatedPlatform, 401)).error.code).toBe('PLATFORM_UNAUTHENTICATED');
 
@@ -748,7 +776,10 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
       },
     ), 200);
     const secondAssetUrl = `${secondMediaPath}/${secondUploaded.assetId}`;
-    expect((await customerContext.request.get(secondAssetUrl)).status()).toBe(200);
+    const secondDelivered = await customerContext.request.get(secondAssetUrl);
+    expect(secondDelivered.status()).toBe(200);
+    const secondMediaEtag = secondDelivered.headers().etag;
+    expect(secondMediaEtag).toMatch(/^"[0-9a-f]{64}"$/);
 
     platformSession = await switchPlatform(platformContext, platformSession, 'security_admin');
     const repeatedReset = await resetDemo(platformContext, platformSession);
@@ -757,6 +788,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     customerSession = await establishCustomer(customerContext);
     customerSession = await switchCustomer(customerContext, customerSession, TENANT_B, 'conference_manager');
     expect((await customerContext.request.get(secondAssetUrl)).status()).toBe(404);
+    expect((await customerContext.request.get(secondAssetUrl, {
+      headers: { 'If-None-Match': secondMediaEtag },
+    })).status()).toBe(404);
     const secondRestoredMedia = await customerContext.request.get(seededMediaUrl);
     expect(secondRestoredMedia.status()).toBe(200);
     expect(createHash('sha256').update(await secondRestoredMedia.body()).digest('hex'))
