@@ -1,25 +1,8 @@
 name: Hosted Demo Acceptance
 
 on:
+  # PR regression runs against isolated PostgreSQL; public acceptance is deliberate.
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '.github/workflows/hosted-demo-acceptance.yml'
-      - 'playwright.hosted-demo.config.js'
-      - 'playwright.saas37.config.js'
-      - 'tests/e2e-saas37/**'
-      - 'tests/saas37-hosted-config.test.js'
-      - 'scripts/serve-hosted-demo-e2e.mjs'
-      - 'scripts/read-hosted-demo-reset-evidence.mjs'
-      - 'scripts/reset-hosted-demo-baseline.mjs'
-      - 'scripts/verify-hosted-demo-deployment.mjs'
-      - 'scripts/hosted-demo-run-context.mjs'
-      - 'tests/e2e-shared/**'
-      - 'tests/hosted-demo-acceptance-support.test.js'
-      - 'tests/hosted-demo-acceptance.test.js'
-      - 'package.json'
-      - '.github/workflows/ci.yml'
-      - 'docs/DEMO-RUNBOOK.md'
 
 permissions:
   contents: read

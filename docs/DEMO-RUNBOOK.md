@@ -143,6 +143,20 @@ The reciprocal API CI checks out the frontend at the immutable `DEMO_FRONTEND_RE
 
 `.github/workflows/hosted-demo-acceptance.yml` is the external acceptance gate for the public Render services. It does not start a local API and does not receive database credentials.
 
+SaaS 3.8 #268 separates routine PR regression from deployment acceptance. The
+Hosted Demo workflow is dispatch-only: a test, documentation or CI edit must not
+automatically mutate/reset the shared public Demo or consume its Render/Neon
+capacity. Normal PR CI retains isolated PostgreSQL, an immutable API reference,
+the complete cross-role journey and all three customer scenarios with two reset
+cycles in Chromium and WebKit. No scenario assertion or browser coverage is removed.
+
+After a deliberate deployment, run **Hosted Demo Acceptance** from Actions on the
+reviewed acceptance ref, after aligning the expected immutable frontend/runtime
+pair with that deployment. Successful isolated CI does not replace this deployed
+environment gate. Retain its identity, browser and canonical cleanup evidence
+before claiming hosted deployment acceptance or closing a release. A failed or
+unexecuted hosted run remains failed or pending; dispatch-only is not a waiver.
+
 Before destructive browser actions it verifies:
 
 - Customer and Platform readiness;
@@ -162,7 +176,7 @@ The journey then proves, within the deployed environment:
 - provider degradation is bounded/server-defined;
 - reset/reseed invalidates both session domains and restores the deterministic baseline.
 
-The hosted workflow uses one repository-wide concurrency group with `cancel-in-progress: false` and `queue: max`. All runs remain serial against the shared Live Demo; waiting PR runs can queue without the default single-pending replacement. Four serial CSV/cross-role cases retain their individual 300-second limits within a 1,320-second total cap. The full three-customer suite retains its 2,280-second cap. The 4,800-second job reserves 4,200 seconds before destructive work, leaving at least eight minutes beyond both suite caps for independent cleanup and evidence. Assertions, action/network limits, zero retries and checksum/identity controls are unchanged.
+The hosted workflow uses one repository-wide concurrency group with `cancel-in-progress: false` and `queue: max`. All runs remain serial against the shared Live Demo; deliberately dispatched runs can queue without the default single-pending replacement. Four serial CSV/cross-role cases retain their individual 300-second limits within a 1,320-second total cap. The full three-customer suite retains its 2,280-second cap. The 4,800-second job reserves 4,200 seconds before destructive work, leaving at least eight minutes beyond both suite caps for independent cleanup and evidence. Assertions, action/network limits, zero retries and checksum/identity controls are unchanged.
 
 Cleanup has priority after any destructive attempt. The workflow performs bounded repeatable reset/reseed validation and uploads non-secret evidence. A failed journey, failed cleanup, stale deployment identity or identity drift is failed acceptance.
 
