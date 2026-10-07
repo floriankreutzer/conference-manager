@@ -241,3 +241,26 @@ UX; final paired publication and exact live refs belong to #170. The unchanged
 schema/overlay is 42/7 and the seed/checksum above remains canonical. Final
 promotion updates the trusted immutable API checkout, Hosted/DAST identity and
 reset binding together; historical supported predecessor bindings are retained.
+
+## SaaS 3.8 private media revalidation contract — 7 October 2026
+
+The isolated frontend CI candidate binds to API
+`87719aaea146ade797273039e03e8406dbcc3e19`. Room and Catalogue image GETs now
+require `private, no-cache, max-age=0, must-revalidate`, `Vary: Cookie` and an
+opaque strong ETag. The full scenarios independently read and hash the media,
+then require a bodyless 304 for an authorized unchanged representation.
+The shared journey additionally requires 401 without authentication and after
+reset invalidates the session, 404 for a foreign Tenant with the same ETag, and
+404 for reset-removed media even with its former ETag. Every existing customer,
+role, CSRF, lifecycle, byte-integrity and two-cycle reset assertion remains.
+
+This intentional transport change leaves the canonical seed version and semantic
+checksum above unchanged. JSON API/session/mutation responses retain no-store;
+304 requires current server authorization and verified media, not cached authority.
+The new contract reduces response transfer; it does not claim avoided database or
+object-provider reads. No browser cache becomes a business/session source of truth.
+
+The existing Hosted identity/reset bindings remain historical deployed evidence.
+The changed full scenarios require a coordinated compatible API promotion before
+manual Hosted execution; this source candidate is not live acceptance or release
+closure. Immutable paired CI results must be recorded before integration.
