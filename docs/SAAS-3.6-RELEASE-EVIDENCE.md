@@ -13,10 +13,35 @@ that exact frontend in both Render manifest entries and the private Gitlink;
 its actual merged runtime is `bf9aeb03f3395a6efa64298d01b4e3637282fb0e`. Both existing Render
 services deliberately deploy this immutable pair. Hosted/DAST expected refs,
 isolated trusted API checkout and the reset binding now match those actual
-merges. The accepted baseline above remains executed evidence; this successor
-requires its own complete checks and live identity/cleanup proof. Final results,
-main CI links and administrative completion are recorded in #170/#254 and the
-canonical Confluence release records only after those gates finish successfully.
+merges. At the 4 October checkpoint, this successor still required its own
+complete checks and live identity/cleanup proof. The executed 7 October results
+below supersede that pending status for #279's scoped acceptance. Final release
+and security-remediation completion remain separate.
+
+## Executed #279 scoped acceptance — 7 October 2026
+
+PR #279 head `4713b632827c856069a12bde6d76298e8cf54e96` passed all required workflows
+and current-head review, then merged as `f9d0439c410d2e97a60984f6bf9a05216a6b3862`.
+Its live identity and reset expectations bind to the frontend/API pair above.
+The latest successful attempts are recorded below; earlier startup failures
+remain historical failures and were not relabeled as passing evidence.
+
+| Workflow | Executed result |
+| --- | --- |
+| [CI 37207420692](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420692) | SUCCESS: quality/audit/Semgrep, ordinary Chromium/WebKit, PostgreSQL CSV/cross-role journeys, actual 200% Chromium tab zoom and complete three-customer/two-reset acceptance |
+| [Hosted Acceptance 37207420722](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420722) | SUCCESS: live-pair browser/scenario acceptance and required independent cleanup/identity gates |
+| [OWASP ZAP 37207420804](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420804) | SUCCESS on the configured three surfaces |
+| [Dependency Review 37207420752](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420752) | SUCCESS: repository dependency audit and reviewed license policy |
+| [Secret Scan 37207420760](https://github.com/floriankreutzer/conference-manager/actions/runs/37207420760) | SUCCESS: required full-history Gitleaks gate |
+
+The owner temporarily made Application/API source public on 7 October so Actions
+could run again. These successful attempts are scoped current-pair evidence;
+they do not certify restored private-source operation. #170/#164 remain open.
+API #114 addresses the subsequently reported sharp/librsvg security finding;
+its accepted publication and refreshed immutable-counterpart/live evidence are
+still required. The #279 merge does not close that remediation, certify the old
+runtime as vulnerability-free, or complete a SaaS milestone. Final reconciled
+records and administrative completion remain owned by #170/#254 and Confluence.
 
 ## Executed initial functional and security acceptance
 
