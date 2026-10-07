@@ -6,6 +6,7 @@ const ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const PREDECESSOR = '5294793a72e5569afe03d0855b3fcfdf3ec89832';
 const CURRENT = 'aab347c774042fe0c54b846fac018008e88d098c';
 const PROMOTED = 'bf9aeb03f3395a6efa64298d01b4e3637282fb0e';
+const SECURITY_FIXED = 'dccd86b3dc1eb208423407f104686aff347581ef';
 const SEED = 'saas-3.7-three-demo-customers-v1';
 
 function cleanupFixture({ seed = SEED, checksums = [CANONICAL_DEMO_CHECKSUM, CANONICAL_DEMO_CHECKSUM] } = {}) {
@@ -37,7 +38,7 @@ function cleanupFixture({ seed = SEED, checksums = [CANONICAL_DEMO_CHECKSUM, CAN
   return { calls, fetchImpl };
 }
 
-for (const expectedRuntimeRef of [PREDECESSOR, CURRENT, PROMOTED]) {
+for (const expectedRuntimeRef of [PREDECESSOR, CURRENT, PROMOTED, SECURITY_FIXED]) {
   test(`reset retains the exact canonical binding for ${expectedRuntimeRef}`, async () => {
     const fixture = cleanupFixture();
     const result = await resetHostedDemoBaseline({ ...fixture, origin: ORIGIN, expectedRuntimeRef });

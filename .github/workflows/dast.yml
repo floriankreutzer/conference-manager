@@ -32,7 +32,7 @@ permissions:
 
 env:
   EXPECTED_FRONTEND_REF: 5d5102b4f9842ec704ff26441ebe96719324ddb0
-  EXPECTED_RUNTIME_REF: bf9aeb03f3395a6efa64298d01b4e3637282fb0e
+  EXPECTED_RUNTIME_REF: dccd86b3dc1eb208423407f104686aff347581ef
 
 concurrency:
   group: zap-baseline-${{ github.event_name }}-${{ github.ref }}
