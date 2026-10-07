@@ -2,12 +2,12 @@
 
 ## SaaS 3.9 infrastructure and repository boundary
 
-SaaS 3.9 delivers private application/API source, authenticated immutable hosted delivery and intentionally public Website/Developer publication. The supported static Demo entry is the website's EN/DE landing. Legacy application Pages is disabled and the private historical Archive is archived. Effective post-private security and release evidence are defined in [SAAS-3.9-INFRASTRUCTURE-SECURITY.md](docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md); #254 records final acceptance and milestone closure.
+The accepted SaaS 3.9 repository boundary uses private application/API source, authenticated immutable hosted delivery and intentionally public Website/Developer publication. On 7 October 2026, the owner temporarily made the Application and API repositories public to restore Actions execution; GitHub metadata confirmed both were public. This is a dated exception to the accepted private-source boundary, not a change to the authenticated delivery mechanism. The supported static Demo entry is the website's EN/DE landing. Legacy application Pages is disabled and the private historical Archive is archived. Effective post-private security and release evidence are defined in [SAAS-3.9-INFRASTRUCTURE-SECURITY.md](docs/SAAS-3.9-INFRASTRUCTURE-SECURITY.md); #254 records final acceptance and milestone closure.
 Frontend application for Tenant-scoped conference requests with Employee, Conference Manager and Tenant Admin capabilities plus a separately deployed Platform Operator surface.
 
 ## Current release boundary
 
-As of 4 October 2026, SaaS 3.9 issue #254 and milestone 12 are closed. SaaS 3.6 final release issues #170/#164 remain open; PR #279 is an unmerged acceptance successor. Merged ready markers describe the scoped accepted Demo UX, not completion of those remaining final release gates. Read the current [release evidence](docs/SAAS-3.6-RELEASE-EVIDENCE.md) and [PR #279](https://github.com/floriankreutzer/conference-manager/pull/279) before inferring final acceptance.
+As of 7 October 2026, SaaS 3.9 issue #254 records the historical accepted cutover. PR #279 is merged as `f9d0439c410d2e97a60984f6bf9a05216a6b3862` after successful CI (including both shared browsers, actual 200% zoom and three-customer/two-reset progression), Hosted Acceptance, ZAP, Dependency Review and full-history Secret Scan. SaaS 3.6 final release issues #170/#164 remain open. API PR #114 addresses a subsequently reported sharp/librsvg security finding and still requires accepted publication and refreshed counterpart evidence; the scoped #279 merge does not close that remediation. Merged ready markers describe the scoped accepted Demo UX, not completion of those remaining final release gates. Read the current [release evidence](docs/SAAS-3.6-RELEASE-EVIDENCE.md) and [PR #279](https://github.com/floriankreutzer/conference-manager/pull/279) before inferring final acceptance.
 
 ## Readiness status
 

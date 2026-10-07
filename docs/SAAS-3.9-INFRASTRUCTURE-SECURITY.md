@@ -8,6 +8,10 @@ The approved repository boundary and delivery/publication mechanisms are impleme
 
 Current delivery: #251 is implemented by API PR #103. Hosted preparation uses the reviewed `vendor/demo-frontend` Gitlink and verifies its HEAD against the immutable Render pins; anonymous source fetching has been removed. API PR #106 adds the fail-closed public API publication pipeline. Website PR #78 delivers the public EN/DE Demo entry; application PR #261 retires the duplicate application-repository Pages publication. These delivered mechanisms preserve Customer/Platform authority. #254 also records the completed owner-setting operations, legacy application Pages retirement and post-private validation.
 
+## Current owner exception — 7 October 2026
+
+The owner temporarily made `conference-manager` and `conference-manager-api` public so Actions could execute again after the included private-repository allowance was exhausted. GitHub repository metadata confirmed both were public on 7 October. The private visibility statements and table below describe the accepted 4 October cutover, not the current temporary setting. Authenticated immutable delivery, source-secret prohibitions and mandatory security/test gates remain unchanged. Restoring the accepted private-source boundary remains outstanding; current public-source runs do not constitute post-private acceptance. API PR #114 addresses a newly reported sharp/librsvg security finding; its accepted publication and refreshed counterpart validation remain separate from historical #254 closure.
+
 ## Objectives
 
 SaaS 3.9 establishes a deliberate public/private source boundary, removes public source availability as a Demo deployment dependency, creates a governed public integration-documentation surface, and performs the final private-source cutover only after technical evidence proves that all dependent workflows continue to operate.
