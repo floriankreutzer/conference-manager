@@ -5,7 +5,20 @@ This source change promotes the previously accepted Employee/Manager Demo UX
 markers. Final protected publication/deployment and administrative closure are
 recorded in #170/#169/#164, not inferred from a candidate branch.
 
-## Executed functional and security acceptance
+
+## Current readiness publication pair — 4 October 2026
+
+Protected readiness PR #278 is merged as `5d5102b4f9842ec704ff26441ebe96719324ddb0`. API #111 pins
+that exact frontend in both Render manifest entries and the private Gitlink;
+its actual merged runtime is `bf9aeb03f3395a6efa64298d01b4e3637282fb0e`. Both existing Render
+services deliberately deploy this immutable pair. Hosted/DAST expected refs,
+isolated trusted API checkout and the reset binding now match those actual
+merges. The accepted baseline above remains executed evidence; this successor
+requires its own complete checks and live identity/cleanup proof. Final results,
+main CI links and administrative completion are recorded in #170/#254 and the
+canonical Confluence release records only after those gates finish successfully.
+
+## Executed initial functional and security acceptance
 
 | Evidence | Exact executed result |
 | --- | --- |

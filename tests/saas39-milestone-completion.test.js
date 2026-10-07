@@ -51,7 +51,13 @@ function executeGate({ incompleteIssue, issueState = 'open:', milestone = {}, pa
 
 test('SaaS 3.9 closure is restricted to its repository, release issue and least-privilege job', () => {
   assert.match(workflow, /github\.repository == 'floriankreutzer\/conference-manager'/);
-  assert.match(workflow, /github\.event\.issue\.number == 254/);
+  const trigger = workflow.match(/contains\(fromJSON\('(\[[\d, ]+\])'\), github\.event\.issue\.number\)/);
+  assert.ok(trigger, 'Every scoped issue closure must evaluate completion');
+  const allowedIssueEvents = JSON.parse(trigger[1]);
+  assert.deepEqual(allowedIssueEvents, [164, 247, 248, 249, 250, 251, 252, 253, 254, 272]);
+  for (const number of [0, 163, 165, 246, 255, 271, 273, 999]) {
+    assert.equal(allowedIssueEvents.includes(number), false, 'Unrelated issue events stay excluded');
+  }
   assert.match(workflow, /permissions:\n  contents: read/);
   assert.match(workflow, /permissions:\n      issues: write/);
   assert.match(workflow, /cancel-in-progress: false/);
@@ -62,12 +68,12 @@ test('SaaS 3.9 closes only its exact milestone after every scoped issue is compl
   const result = executeGate();
   assert.equal(result.status, 0);
   assert.equal(result.patches.length, 1);
-  assert.equal(result.calls.filter((args) => args.some((arg) => arg.includes('/issues/'))).length, 8);
+  assert.equal(result.calls.filter((args) => args.some((arg) => arg.includes('/issues/'))).length, 9);
   assert.match(result.stdout, /closed after all release issues were completed/);
 });
 
 test('every unfinished or non-completed SaaS 3.9 issue prevents milestone mutation', () => {
-  for (const incompleteIssue of [247, 248, 249, 250, 251, 252, 253, 254]) {
+  for (const incompleteIssue of [247, 248, 249, 250, 251, 252, 253, 254, 272]) {
     for (const issueState of ['open:', 'closed:not_planned', 'closed:']) {
       const result = executeGate({ incompleteIssue, issueState });
       assert.equal(result.status, 0);
