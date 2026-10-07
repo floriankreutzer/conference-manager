@@ -1,12 +1,32 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { createSaas37Config } from '../playwright.saas37.config.js';
 
 const PROXY_PATH = 'scripts/serve-hosted-demo-e2e.mjs';
 const DIAGNOSTIC_PATH = 'scripts/read-hosted-demo-reset-evidence.mjs';
 const VERIFY_PATH = 'scripts/verify-hosted-demo-deployment.mjs';
 const RESET_PATH = 'scripts/reset-hosted-demo-baseline.mjs';
 const WORKFLOW_PATH = '.github/workflows/hosted-demo-acceptance.yml';
+
+test('routine PR regression cannot target the public Demo while deployment acceptance remains available', () => {
+  const hosted = readFileSync(WORKFLOW_PATH, 'utf8');
+  const triggers = hosted.slice(hosted.indexOf('\non:'), hosted.indexOf('\npermissions:'));
+  assert.match(triggers, /workflow_dispatch:/);
+  assert.doesNotMatch(triggers, /pull_request:|push:|schedule:|workflow_run:/);
+  const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.match(ci, /pull_request:/);
+  assert.match(ci, /image: postgres:18\.6-alpine/);
+  assert.match(ci, /ref: [0-9a-f]{40}/);
+  assert.match(ci, /node scripts\/provision-shared-demo-ci\.mjs/);
+  assert.match(ci, /npm run test:e2e:shared-demo/);
+  assert.match(ci, /npm run test:e2e:saas37/);
+  assert.doesNotMatch(ci, /conference-manager(?:-ops)?-demo\.onrender\.com/);
+  assert.deepEqual(createSaas37Config({}).projects.map(({ name }) => name),
+    ['chromium-shared-demo', 'webkit-shared-demo']);
+  const scenario = readFileSync('tests/e2e-saas37/three-customer-scenarios.spec.js', 'utf8');
+  assert.match(scenario, /cycle <= 2/);
+});
 
 test('hosted Demo proxy stays fixed-origin, outlives reset, and captures only failed reset correlation', () => {
   const source = readFileSync(PROXY_PATH, 'utf8');
@@ -112,7 +132,6 @@ test('hosted acceptance captures bounded reset evidence, restores, then performs
       && uploadIndex > postIdentityIndex
       && enforcementIndex > uploadIndex,
   );
-  assert.match(workflow, /- 'tests\/e2e-shared\/\*\*'/);
   assert.match(
     workflow,
     /name: Verify live deployment identity before journey\n\s+id: pre_identity\n\s+run: node scripts\/verify-hosted-demo-deployment\.mjs >> hosted-demo-evidence\.txt/,
