@@ -163,6 +163,8 @@ export async function imagesLoaded(root) {
   const images = root.locator('img');
   expect(await images.count()).toBeGreaterThan(0);
   for (const image of await images.all()) {
+    // Native lazy images in scrollable previews load when a user reaches them.
+    await image.scrollIntoViewIfNeeded();
     await expect(image).toBeVisible();
     await expect.poll(() => image.evaluate((element) => element.complete && element.naturalWidth > 0)).toBe(true);
     expect(await image.getAttribute('alt')).toBeTruthy();
