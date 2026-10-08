@@ -490,6 +490,13 @@ export const validateZapReport = ({
             || instance.param !== '' || instance.attack !== '')) {
         throw new Error(`Alert ${alertRef} changed its reviewed public identifier evidence.`);
       }
+      // Long-lived caching is reviewed only for exact public content fingerprints.
+      if (['customer-demo', 'platform-demo'].includes(surface) && alertRef === '10049-3'
+          && (instance.evidence !== 'max-age=31536000'
+            || instance.param !== '' || instance.attack !== ''
+            || !/\?sha256=[0-9a-f]{64}$/.test(instance.uri))) {
+        throw new Error(`Alert ${alertRef} changed its reviewed immutable asset evidence.`);
+      }
       let instanceUrl;
       try {
         instanceUrl = new URL(instance.uri);

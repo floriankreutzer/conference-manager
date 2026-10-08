@@ -281,3 +281,14 @@ and semantic checksum are unchanged. This is deployment/readiness evidence only;
 fresh full hosted Chromium/WebKit progression, two-cycle resets and DAST remain
 required before release acceptance. No provider-storage cutover or measured cost
 savings is claimed.
+
+ZAP run `37794011737` passed raw passive scanning and both live identity checks,
+but its exact policy rejected the new fingerprinted asset URLs. Artifacts
+`11557023939` (Customer) and `11557722499` (Platform) contain 30 and 29 raw
+instances respectively, all risk 0. The public function-identifier evidence is
+unchanged. Exact observed hashes now retain the crawler request-header review;
+`10049-3` additionally permits only the observed immutable public assets at risk 0
+with exact `max-age=31536000`, empty parameter/attack and a SHA-256 query.
+Unknown URLs/hashes, dynamic API URLs, altered evidence, methods or elevated
+risk remain blocking. Local replay of both complete raw reports passed under
+the revised policy; a fresh GitHub scan remains required.

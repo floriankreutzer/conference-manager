@@ -55,3 +55,18 @@
 90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/robots\.txt$
 90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/sitemap\.xml$
 90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?v=20260828-01$
+
+# Run 37794011737: reviewed risk-0 fingerprinted static assets; exact hashes only.
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg\?sha256=25e43eedfb8d4f1ad5bd81d415e22b9e7eab146ce45438c0b35ac5a99c5f20f0$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/styles\.css\?sha256=7be01db4df32f0b407c6cae746abdde922334d1a8e0171f9347dcf8070e5bafa$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg\?sha256=25e43eedfb8d4f1ad5bd81d415e22b9e7eab146ce45438c0b35ac5a99c5f20f0$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/styles\.css\?sha256=7be01db4df32f0b407c6cae746abdde922334d1a8e0171f9347dcf8070e5bafa$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg\?sha256=25e43eedfb8d4f1ad5bd81d415e22b9e7eab146ce45438c0b35ac5a99c5f20f0$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/styles\.css\?sha256=7be01db4df32f0b407c6cae746abdde922334d1a8e0171f9347dcf8070e5bafa$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg\?sha256=25e43eedfb8d4f1ad5bd81d415e22b9e7eab146ce45438c0b35ac5a99c5f20f0$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/styles\.css\?sha256=7be01db4df32f0b407c6cae746abdde922334d1a8e0171f9347dcf8070e5bafa$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg\?sha256=25e43eedfb8d4f1ad5bd81d415e22b9e7eab146ce45438c0b35ac5a99c5f20f0$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg\?sha256=58610cdb8b8517f2a801e9d60c16354553b6d3074ca6159f07cb3e9a6de06e8e$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/styles\.css\?sha256=7be01db4df32f0b407c6cae746abdde922334d1a8e0171f9347dcf8070e5bafa$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/tokens\.css\?sha256=af70604efe2b8c4c376e87befddd815ea9b47cec3733a0be8f6a0308bacccf08$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
