@@ -70,3 +70,28 @@
 10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/styles\.css\?sha256=7be01db4df32f0b407c6cae746abdde922334d1a8e0171f9347dcf8070e5bafa$
 10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/tokens\.css\?sha256=af70604efe2b8c4c376e87befddd815ea9b47cec3733a0be8f6a0308bacccf08$
 10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
+
+# Run 37796174030 plus direct live review of all root-referenced assets.
+# Every exact SHA-256 matches the HTTP 200 body; cache is public, immutable, one year.
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg\?sha256=58610cdb8b8517f2a801e9d60c16354553b6d3074ca6159f07cb3e9a6de06e8e$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg\?sha256=58610cdb8b8517f2a801e9d60c16354553b6d3074ca6159f07cb3e9a6de06e8e$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg\?sha256=58610cdb8b8517f2a801e9d60c16354553b6d3074ca6159f07cb3e9a6de06e8e$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg\?sha256=58610cdb8b8517f2a801e9d60c16354553b6d3074ca6159f07cb3e9a6de06e8e$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf\?sha256=d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf\?sha256=d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf\?sha256=d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf\?sha256=d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf\?sha256=d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=31877a84e76ed21ca8973e8b2efbd76b2b8a26b0c1e2421278f47ef3facef674$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=31877a84e76ed21ca8973e8b2efbd76b2b8a26b0c1e2421278f47ef3facef674$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=31877a84e76ed21ca8973e8b2efbd76b2b8a26b0c1e2421278f47ef3facef674$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=31877a84e76ed21ca8973e8b2efbd76b2b8a26b0c1e2421278f47ef3facef674$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=31877a84e76ed21ca8973e8b2efbd76b2b8a26b0c1e2421278f47ef3facef674$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/tokens\.css\?sha256=af70604efe2b8c4c376e87befddd815ea9b47cec3733a0be8f6a0308bacccf08$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/tokens\.css\?sha256=af70604efe2b8c4c376e87befddd815ea9b47cec3733a0be8f6a0308bacccf08$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/tokens\.css\?sha256=af70604efe2b8c4c376e87befddd815ea9b47cec3733a0be8f6a0308bacccf08$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/tokens\.css\?sha256=af70604efe2b8c4c376e87befddd815ea9b47cec3733a0be8f6a0308bacccf08$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$

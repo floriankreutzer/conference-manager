@@ -292,3 +292,15 @@ with exact `max-age=31536000`, empty parameter/attack and a SHA-256 query.
 Unknown URLs/hashes, dynamic API URLs, altered evidence, methods or elevated
 risk remain blocking. Local replay of both complete raw reports passed under
 the revised policy; a fresh GitHub scan remains required.
+
+Run `37796174030`, artifacts `11559095477` (Customer) and `11558368845`
+(Platform), exposed additional static-asset samples under the same reviewed
+informational rules; both raw reports again contain 30/29 risk-0 instances.
+The root pages directly reference ten Customer and seven Platform fingerprinted
+assets. All seventeen were independently fetched on 8 October: HTTP 200, the
+SHA-256 of each complete response body equals its exact URL query, and
+`Cache-Control` is `public, max-age=31536000, immutable`. Their exact URLs now
+cover the informational missing crawler Fetch Metadata headers and immutable
+cache observations without depending on which five instances ZAP samples.
+Both generations of complete reports replay successfully. Unknown hashes and
+risk elevations remain blocking; a fresh exact-head GitHub scan is still required.

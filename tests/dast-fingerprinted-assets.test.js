@@ -27,7 +27,9 @@ for (const surface of ['customer-demo', 'platform-demo']) {
   });
 
   test(`${surface} immutable cache review rejects changed content, evidence and authority`, () => {
-    assert.deepEqual(validate(), { instanceCount: 1, surface });
+    for (const row of policyRows.filter((candidate) => candidate.alertRef === '10049-3')) {
+      assert.deepEqual(validate({ uri: row.url }), { instanceCount: 1, surface });
+    }
     for (const changes of [
       { uri: uri.replace(/sha256=.{64}$/, `sha256=${'f'.repeat(64)}`) },
       { uri: uri.split('?')[0] }, { uri: `${target}api/v1/demo/session` },
