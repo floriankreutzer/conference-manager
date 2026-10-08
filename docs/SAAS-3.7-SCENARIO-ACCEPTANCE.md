@@ -264,3 +264,20 @@ The existing Hosted identity/reset bindings remain historical deployed evidence.
 The changed full scenarios require a coordinated compatible API promotion before
 manual Hosted execution; this source candidate is not live acceptance or release
 closure. Immutable paired CI results must be recorded before integration.
+
+
+## SaaS 3.8 hosted runtime promotion — 8 October 2026
+
+Protected initialization run `37792057793` completed migration and deterministic reset
+on API `c9f1e45565c268768c1b814b610bf5cab6b8650a`. Independent database
+readback confirmed canonical schema 44 and Demo overlay 9. Customer deployment
+`dep-db3qhil9fdbs73erk2n0` and Platform deployment `dep-db3qhc2j9qps738met1g`
+are live at that API with frontend `5d5102b4f9842ec704ff26441ebe96719324ddb0`.
+Both public build-bound identity artifacts and readiness endpoints returned HTTP 200.
+
+Hosted acceptance, DAST identity, canonical cleanup and isolated paired CI now
+target that exact API. Previous cleanup bindings remain explicit. The seed version
+and semantic checksum are unchanged. This is deployment/readiness evidence only;
+fresh full hosted Chromium/WebKit progression, two-cycle resets and DAST remain
+required before release acceptance. No provider-storage cutover or measured cost
+savings is claimed.
