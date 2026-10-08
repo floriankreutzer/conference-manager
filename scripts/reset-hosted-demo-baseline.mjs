@@ -4,7 +4,7 @@ const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
 const RESET_PATH = '/api/v1/platform/demo/reset';
-const PINNED_RUNTIME_REF = 'dccd86b3dc1eb208423407f104686aff347581ef';
+const PINNED_RUNTIME_REF = 'c9f1e45565c268768c1b814b610bf5cab6b8650a';
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const SESSION_TIMEOUT_MS = 20_000;
 const RESET_TIMEOUT_MS = 75_000;
@@ -13,6 +13,11 @@ const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
 export const CANONICAL_DEMO_CHECKSUM = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';
 const HOSTED_BASELINES = Object.freeze({
   [PINNED_RUNTIME_REF]: Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
+  // Previous sharp-security release retains its exact historical cleanup binding.
+  'dccd86b3dc1eb208423407f104686aff347581ef': Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
