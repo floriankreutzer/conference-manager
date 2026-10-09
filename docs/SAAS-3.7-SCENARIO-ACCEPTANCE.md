@@ -323,3 +323,34 @@ cover the informational missing crawler Fetch Metadata headers and immutable
 cache observations without depending on which five instances ZAP samples.
 Both generations of complete reports replay successfully. Unknown hashes and
 risk elevations remain blocking; a fresh exact-head GitHub scan is still required.
+
+## Cold static burst correction deployment — 9 October 2026
+
+Frontend PR #284 merged as `5f5e78ab20cba3ced4de1df14914d0292b625a07`.
+Exact-head CI `37936015400` passed quality, browser E2E and the complete
+Chromium/WebKit three-customer progression with two canonical reset cycles.
+API PR #132 merged as `356459004dbede11cc3cd17a93d4e6cf515d410b` after
+exact-head CI `37936151197` passed quality, PostgreSQL integration, and all four
+Chromium/WebKit × PostgreSQL/protocol-object-fixture browser rows. Secret and
+dependency checks passed in both repositories. Earlier failed runs remain failures.
+
+Customer deployment `dep-db4f202d0e5s73ep9ufg` and Platform deployment
+`dep-db4f21vlk1mc73fqvvu0` became live at 13:50 UTC. Both public readiness
+endpoints returned HTTP 200; the normal build-bound identity verifier confirmed
+API `356459004dbede11cc3cd17a93d4e6cf515d410b` and served frontend
+`5d5102b4f9842ec704ff26441ebe96719324ddb0` on both approved HTTPS origins.
+The served application snapshot is unchanged; #284 changes acceptance tests only.
+
+This promotion binds Hosted/DAST, isolated paired CI and default canonical cleanup
+to the actual merged and deployed API. The preceding `c9f1e455` cleanup binding
+remains explicit with its unchanged seed/checksum; unknown refs remain rejected.
+No seed, schema, rate limit, browser assertion, TLS policy, cleanup reserve or
+retry policy changes. The adapter retains eight active workers and uses a bounded
+64-request/five-second queue for cold modules, with safe 503 on overflow/expiry.
+
+Deployment and isolated tests do not replace fresh full Hosted and DAST evidence.
+Hosted #496 (`37819855064`) remains failed: five cold modules returned HTTP 500
+before the first import, while independent cleanup and final identity succeeded.
+Run a new manual acceptance on the integrated binding; do not rerun that historical
+workflow against a different runtime. Protocol-fixture tests are not real-Neon
+storage acceptance, cost-savings proof, or SaaS 3.8 milestone closure.
