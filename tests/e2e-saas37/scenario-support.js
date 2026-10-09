@@ -48,20 +48,29 @@ export async function contextFor(context, tenantId, persona) {
   }));
 }
 
+export async function applyContextThroughUi(page) {
+  const apply = page.locator('[data-demo-security] button');
+  // Establish real pointer actionability before starting the response deadlines.
+  // Never force/dispatch a click: an obstructed control must remain a failure.
+  await apply.click({ trial: true });
+  const [switched, bootstrap] = await Promise.all([
+    page.waitForResponse((response) => response.request().method() === 'PUT'
+      && new URL(response.url()).pathname === '/api/v1/demo/session/context'),
+    page.waitForResponse((response) => response.request().method() === 'GET'
+      && new URL(response.url()).pathname === '/api/v1/demo/session'),
+    page.waitForEvent('domcontentloaded'),
+    apply.click(),
+  ]);
+  // The accepted switch intentionally reloads the document. Its old response
+  // body is no longer readable; verify status and the fresh server session.
+  expect(switched.status()).toBe(200);
+  expect(bootstrap.status()).toBe(200);
+}
+
 export async function selectContext(page, tenantId, persona) {
   await page.getByLabel('Demo-Tenant').selectOption(tenantId);
   await page.getByLabel('Demo-Persona').selectOption(persona);
-  const bootstrap = page.waitForResponse((response) => response.request().method() === 'GET'
-    && new URL(response.url()).pathname === '/api/v1/demo/session');
-  const switched = page.waitForResponse((response) => response.request().method() === 'PUT'
-    && new URL(response.url()).pathname === '/api/v1/demo/session/context');
-  const reloadedDocument = page.waitForEvent('domcontentloaded');
-  await page.locator('[data-demo-security] button').click();
-  await reloadedDocument;
-  // The accepted switch intentionally reloads the document. Its old response
-  // body is no longer readable; verify status and the fresh server session.
-  expect((await switched).status()).toBe(200);
-  expect((await bootstrap).status()).toBe(200);
+  await applyContextThroughUi(page);
   await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
   await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
   return customerSession(page.context());

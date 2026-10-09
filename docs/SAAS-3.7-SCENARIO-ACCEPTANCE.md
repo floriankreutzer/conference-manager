@@ -293,6 +293,25 @@ Unknown URLs/hashes, dynamic API URLs, altered evidence, methods or elevated
 risk remain blocking. Local replay of both complete raw reports passed under
 the revised policy; a fresh GitHub scan remains required.
 
+## Persona-switch synchronization candidate — 9 October 2026
+
+API PR #132 candidate `a0bb54986c15388cebfc7958cd5d2eddb132e113`
+passed three browser/storage rows, quality and PostgreSQL integration. The
+WebKit/PostgreSQL row failed twice at the first Northwind persona switch:
+the post-reload session response waiter expired before the UI operation finished.
+These failed attempts remain failures; their artifacts do not prove the underlying
+pointer-actionability cause or a successful three-customer acceptance.
+
+The scenario helper now verifies pointer actionability with a trial click before
+starting the unchanged response deadlines, and awaits the actual click, both exact
+HTTP responses and document reload in one Promise.all. This prevents an unawaited
+response rejection from masking an unfinished click. No forced click, dispatched
+event, replay, retry, timeout increase or removed assertion is introduced. The
+same selected values, successful server switch/fresh bootstrap, independent
+session read, all customer/security/media checks and two resets remain mandatory.
+Isolated frontend CI binds to that unmerged API candidate; live identity bindings
+remain unchanged until reviewed integration and coordinated deployment.
+
 Run `37796174030`, artifacts `11559095477` (Customer) and `11558368845`
 (Platform), exposed additional static-asset samples under the same reviewed
 informational rules; both raw reports again contain 30/29 risk-0 instances.
