@@ -9,6 +9,7 @@ const PROMOTED = 'bf9aeb03f3395a6efa64298d01b4e3637282fb0e';
 const SECURITY_FIXED = 'dccd86b3dc1eb208423407f104686aff347581ef';
 const COST_OPTIMIZED = 'c9f1e45565c268768c1b814b610bf5cab6b8650a';
 const COLD_STATIC_FIXED = '356459004dbede11cc3cd17a93d4e6cf515d410b';
+const GATED_ACCEPTANCE_CANDIDATE = '566402fd098c298ff09ec3230ddd0b55d4ea91f6';
 const SEED = 'saas-3.7-three-demo-customers-v1';
 
 function cleanupFixture({ seed = SEED, checksums = [CANONICAL_DEMO_CHECKSUM, CANONICAL_DEMO_CHECKSUM] } = {}) {
@@ -40,7 +41,7 @@ function cleanupFixture({ seed = SEED, checksums = [CANONICAL_DEMO_CHECKSUM, CAN
   return { calls, fetchImpl };
 }
 
-for (const expectedRuntimeRef of [PREDECESSOR, CURRENT, PROMOTED, SECURITY_FIXED, COST_OPTIMIZED, COLD_STATIC_FIXED]) {
+for (const expectedRuntimeRef of [PREDECESSOR, CURRENT, PROMOTED, SECURITY_FIXED, COST_OPTIMIZED, COLD_STATIC_FIXED, GATED_ACCEPTANCE_CANDIDATE]) {
   test(`reset retains the exact canonical binding for ${expectedRuntimeRef}`, async () => {
     const fixture = cleanupFixture();
     const result = await resetHostedDemoBaseline({ ...fixture, origin: ORIGIN, expectedRuntimeRef });

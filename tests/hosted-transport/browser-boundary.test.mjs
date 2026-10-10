@@ -71,6 +71,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       const context = await browser.newContext({ ignoreHTTPSErrors: false,
         proxy: { server: fixture.proxy.server }, extraHTTPHeaders: { [HEADER]: fixture.token } });
       const page = await context.newPage(); await page.goto(ORIGIN);
+      const beforeWorker = fixture.proxy.evidence().connectAuthorityRejected;
       const workerDenied = await page.evaluate(async (other) => {
         await navigator.serviceWorker.register('/worker.js');
         const registration = await navigator.serviceWorker.ready;
@@ -82,12 +83,16 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
         });
       }, OTHER_ORIGIN);
       assert.equal(workerDenied, true);
+      assert.ok(fixture.proxy.evidence().connectAuthorityRejected > beforeWorker);
+      const beforeSocket = fixture.proxy.evidence().connectAuthorityRejected;
       const socketDenied = await page.evaluate((other) => new Promise((resolve) => {
         const socket = new WebSocket(other.replace('https:', 'wss:'));
         setTimeout(() => { socket.close(); resolve(false); }, 5_000);
         socket.onopen = () => { socket.close(); resolve(false); }; socket.onerror = () => resolve(true);
       }), OTHER_ORIGIN);
-      assert.equal(socketDenied, true); assert.equal(fixture.foreignEvents.length, 0);
+      assert.equal(socketDenied, true);
+      assert.ok(fixture.proxy.evidence().connectAuthorityRejected > beforeSocket);
+      assert.equal(fixture.foreignEvents.length, 0);
       await context.close();
     } finally { evidence(name, 'serviceworker-websocket', fixture); await browser?.close(); await fixture.close(); }
   });

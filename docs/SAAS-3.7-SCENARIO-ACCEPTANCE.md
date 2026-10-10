@@ -354,3 +354,36 @@ before the first import, while independent cleanup and final identity succeeded.
 Run a new manual acceptance on the integrated binding; do not rerun that historical
 workflow against a different runtime. Protocol-fixture tests are not real-Neon
 storage acceptance, cost-savings proof, or SaaS 3.8 milestone closure.
+
+
+## Gated acceptance candidate binding — 10 October 2026
+
+The next immutable cross-repository candidate is API PR #142 at
+`566402fd098c298ff09ec3230ddd0b55d4ea91f6` (tree
+`a61e102c979433d45198cee38dbc1eb5e657addd`). It pins frontend acceptance source
+`b2ef694d68632a41ab135ce8a23749a1b9f06c4b`. The six immutable Shared fixture files
+remain identical in this subsequent frontend runtime-binding change, avoiding a
+recursive counterpart-pin update. Fresh checks must bind to these exact sources;
+this document does not claim API PR #142 merged or either hosted service deployed.
+
+Isolated paired frontend CI, the deliberately selected Hosted acceptance and
+DAST identity checks, and the default canonical cleanup now bind to that exact
+candidate. The served frontend remains
+`5d5102b4f9842ec704ff26441ebe96719324ddb0`. The previously deployed
+`356459004dbede11cc3cd17a93d4e6cf515d410b` remains an explicit historical cleanup
+entry with the same seed version and canonical checksum. Unknown refs remain
+rejected before any reset request; both independent reset cycles and all
+seed/checksum checks remain required.
+
+This is a source binding for coordinated review and validation, not new hosted
+success evidence. The initial frontend transport CI attempt failed; its correction
+requires fresh exact-head checks, and failed runs remain failures. The fixture implementation and its existing
+browser, tenant, role, CSRF, media, CSV, rate-window and two-cycle reset assertions
+are unchanged by this binding. The gated runner's strict origin transport,
+absolute expiry, cleanup reserve and restricted evidence remain governed by
+`docs/HOSTED-ACCEPTANCE-TRANSPORT.md`.
+
+Fresh exact-head checks and coordinated deployment identity remain necessary.
+Until that deployment occurs, a DAST/Hosted identity check against the candidate
+must reject the older live runtime; a source pin cannot establish hosted readiness,
+real-Neon storage acceptance, or SaaS 3.8 milestone completion.
