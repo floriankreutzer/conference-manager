@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { createHostedAcceptanceFetch, runHostedOperationCli } from './support/hosted-acceptance-fetch.mjs';
 
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
@@ -166,13 +167,15 @@ export async function resetHostedDemoBaseline({
   fetchImpl = fetch,
   origin = process.env.SHARED_DEMO_PLATFORM_ORIGIN || PLATFORM_ORIGIN,
   expectedRuntimeRef = process.env.EXPECTED_RUNTIME_REF || PINNED_RUNTIME_REF,
+  env = process.env,
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('HOSTED_DEMO_RESET_FETCH_REQUIRED');
   const baseline = requireBaseline(expectedRuntimeRef);
   const targetOrigin = requireOrigin(origin);
+  const request = createHostedAcceptanceFetch({ origin: targetOrigin, fetchImpl, env });
 
-  const firstChecksum = await performReset(fetchImpl, targetOrigin, baseline);
-  const secondChecksum = await performReset(fetchImpl, targetOrigin, baseline);
+  const firstChecksum = await performReset(request, targetOrigin, baseline);
+  const secondChecksum = await performReset(request, targetOrigin, baseline);
   if (secondChecksum !== firstChecksum) {
     throw new Error('HOSTED_DEMO_RESET_REPEATABILITY_INVALID');
   }
@@ -188,8 +191,12 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  const result = await resetHostedDemoBaseline();
-  process.stdout.write(`cleanup_seed_version=${result.seedVersion}\n`);
-  process.stdout.write(`cleanup_checksum=${result.checksum}\n`);
-  process.stdout.write('cleanup_repeatable=true\n');
+  await runHostedOperationCli(() => resetHostedDemoBaseline(), {
+    failureCode: 'HOSTED_DEMO_RESET_FAILED',
+    onSuccess(result) {
+      process.stdout.write(`cleanup_seed_version=${result.seedVersion}\n`);
+      process.stdout.write(`cleanup_checksum=${result.checksum}\n`);
+      process.stdout.write('cleanup_repeatable=true\n');
+    },
+  });
 }

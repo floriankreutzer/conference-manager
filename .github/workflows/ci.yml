@@ -83,6 +83,10 @@ jobs:
           PY
       - name: Install browser engines
         run: npx playwright install --with-deps chromium webkit
+      - name: Install Chromium test CA trust utility
+        run: sudo apt-get install --no-install-recommends -y libnss3-tools
+      - name: Verify isolated acceptance transport in Chromium, WebKit and API requests
+        run: node scripts/test-hosted-transport.mjs --browsers
       - name: Verify Guest print loading and recovery in both engines
         run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled"
       - name: Verify Tenant Admin keyboard lifecycle after navigation focus
