@@ -366,12 +366,13 @@ remain identical in this subsequent frontend runtime-binding change, avoiding a
 recursive counterpart-pin update. Fresh checks must bind to these exact sources;
 this document does not claim API PR #142 merged or either hosted service deployed.
 
-Isolated paired frontend CI, the deliberately selected Hosted acceptance and
-DAST identity checks, and the default canonical cleanup now bind to that exact
-candidate. The served frontend remains
-`5d5102b4f9842ec704ff26441ebe96719324ddb0`. The previously deployed
-`356459004dbede11cc3cd17a93d4e6cf515d410b` remains an explicit historical cleanup
-entry with the same seed version and canonical checksum. Unknown refs remain
+Isolated paired frontend CI, the deliberately selected manual Hosted acceptance,
+and the default canonical cleanup bind to that exact candidate. Automatic DAST
+continues to bind to the deployed API
+`356459004dbede11cc3cd17a93d4e6cf515d410b`, independently of the candidate.
+Both bindings retain served frontend
+`5d5102b4f9842ec704ff26441ebe96719324ddb0`. The deployed API also remains an
+explicit supported cleanup entry with the same seed version and canonical checksum. Unknown refs remain
 rejected before any reset request; both independent reset cycles and all
 seed/checksum checks remain required.
 
@@ -383,7 +384,23 @@ are unchanged by this binding. The gated runner's strict origin transport,
 absolute expiry, cleanup reserve and restricted evidence remain governed by
 `docs/HOSTED-ACCEPTANCE-TRANSPORT.md`.
 
-Fresh exact-head checks and coordinated deployment identity remain necessary.
-Until that deployment occurs, a DAST/Hosted identity check against the candidate
-must reject the older live runtime; a source pin cannot establish hosted readiness,
-real-Neon storage acceptance, or SaaS 3.8 milestone completion.
+Provider readback on 10 October 2026 at 15:13:29 UTC confirmed the existing
+Customer deployment `dep-db4f202d0e5s73ep9ufg` and Platform deployment
+`dep-db4f21vlk1mc73fqvvu0` still live at `356459004dbede11cc3cd17a93d4e6cf515d410b`.
+The earlier [ZAP run `38062316573`](https://github.com/floriankreutzer/conference-manager/actions/runs/38062316573)
+succeeded against that fixed deployed pair. Frontend candidate
+`16a681c07863c464f636f73bcccd05b2f31f2862` incorrectly moved the automatic DAST
+expectation to the undeployed API candidate; its
+[ZAP run `38062935486`](https://github.com/floriankreutzer/conference-manager/actions/runs/38062935486)
+failed at the exact runtime identity check and remains failed. Restoring the
+explicit deployed DAST pin corrects that release-ordering error. All three scan
+targets, before/after identity checks, readiness requirements, exact alert/risk
+policies and evidence validation remain unchanged; a fresh exact-head ZAP run
+must pass before integration.
+
+Fresh candidate checks and coordinated deployment identity remain necessary.
+Until the candidate is actually deployed, its manual Hosted identity check must
+reject the older live runtime. DAST must continue rejecting any runtime other
+than its explicitly bound deployed version; update that binding only with actual
+deployment evidence. A source pin cannot establish hosted readiness, real-Neon
+storage acceptance, or SaaS 3.8 milestone completion.

@@ -27,8 +27,13 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       const api = await context.request.get(`${ORIGIN}/api`); assert.equal((await api.json()).cookiePresent, true);
       for (const path of ['/other', '/scheme', '/port']) {
         const before = fixture.events.length;
-        let denied = false; try { await page.goto(`${ORIGIN}${path}`, { timeout: 5_000 }); } catch { denied = true; }
+        const beforeRejected = fixture.proxy.evidence().rejected;
+        let denied = false;
+        try { denied = (await page.goto(`${ORIGIN}${path}`, { timeout: 5_000 }))?.status() === 403; }
+        catch { denied = true; }
         assert.equal(denied, true); assert.equal(fixture.events.filter(({ path: value }) => value === path).length, 1);
+        assert.ok(fixture.proxy.evidence().rejected > beforeRejected);
+        assert.equal(fixture.foreignEvents.length, 0);
         assert.ok(fixture.events.length >= before + 1);
       }
       await context.close();

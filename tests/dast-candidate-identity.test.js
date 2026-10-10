@@ -12,10 +12,11 @@ function pin(workflow, key) {
   return match[1];
 }
 
-test('live DAST checks the exact hosted candidate before and after each Render scan', () => {
-  for (const key of ['EXPECTED_FRONTEND_REF', 'EXPECTED_RUNTIME_REF']) {
-    assert.equal(pin(dast, key), pin(hosted, key));
-  }
+test('live DAST checks its exact deployed pair while manual Hosted acceptance binds the reviewed candidate', () => {
+  assert.equal(pin(dast, 'EXPECTED_FRONTEND_REF'), '5d5102b4f9842ec704ff26441ebe96719324ddb0');
+  assert.equal(pin(hosted, 'EXPECTED_FRONTEND_REF'), '5d5102b4f9842ec704ff26441ebe96719324ddb0');
+  assert.equal(pin(dast, 'EXPECTED_RUNTIME_REF'), '356459004dbede11cc3cd17a93d4e6cf515d410b');
+  assert.equal(pin(hosted, 'EXPECTED_RUNTIME_REF'), '566402fd098c298ff09ec3230ddd0b55d4ea91f6');
   const identityStep = dast.indexOf("if: matrix.surface != 'static-launchpad'\n        run: node scripts/verify-hosted-demo-deployment.mjs");
   const scanStep = dast.indexOf('- name: Run uncapped ZAP passive baseline');
   assert.ok(identityStep > 0 && scanStep > identityStep);
