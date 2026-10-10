@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { createHostedAcceptanceFetch, runHostedOperationCli } from './support/hosted-acceptance-fetch.mjs';
 
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
@@ -76,9 +77,7 @@ function assertMetadata(metadata, service, expectedRuntimeRef, expectedFrontendR
     || metadata.runtimeRef !== expectedRuntimeRef
     || metadata.frontendRef !== expectedFrontendRef
   ) {
-    throw new Error(
-      `HOSTED_DEMO_DEPLOYMENT_IDENTITY_MISMATCH:${service.serviceName}:runtime=${metadata.runtimeRef}:frontend=${metadata.frontendRef}`,
-    );
+    throw new Error('HOSTED_DEMO_DEPLOYMENT_IDENTITY_MISMATCH');
   }
 }
 
@@ -88,6 +87,7 @@ export async function verifyHostedDemoDeployment({
   platformOrigin = process.env.SHARED_DEMO_PLATFORM_ORIGIN || PLATFORM_ORIGIN,
   expectedRuntimeRef = process.env.EXPECTED_RUNTIME_REF,
   expectedFrontendRef = process.env.EXPECTED_FRONTEND_REF,
+  env = process.env,
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('HOSTED_DEMO_DEPLOYMENT_FETCH_REQUIRED');
   requireOrigins(customerOrigin, platformOrigin);
@@ -96,7 +96,8 @@ export async function verifyHostedDemoDeployment({
 
   const results = [];
   for (const service of SERVICES) {
-    const metadata = await readMetadata(fetchImpl, service);
+    const request = createHostedAcceptanceFetch({ origin: service.origin, fetchImpl, env });
+    const metadata = await readMetadata(request, service);
     assertMetadata(metadata, service, runtimeRef, frontendRef);
     results.push(Object.freeze({ ...metadata }));
   }
@@ -108,9 +109,13 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  const [customer, platform] = await verifyHostedDemoDeployment();
-  process.stdout.write(`verified_frontend_ref=${customer.frontendRef}\n`);
-  process.stdout.write(`verified_runtime_ref=${customer.runtimeRef}\n`);
-  process.stdout.write(`customer_service=${customer.serviceName}\n`);
-  process.stdout.write(`platform_service=${platform.serviceName}\n`);
+  await runHostedOperationCli(() => verifyHostedDemoDeployment(), {
+    failureCode: 'HOSTED_DEMO_DEPLOYMENT_VERIFICATION_FAILED',
+    onSuccess([customer, platform]) {
+      process.stdout.write(`verified_frontend_ref=${customer.frontendRef}\n`);
+      process.stdout.write(`verified_runtime_ref=${customer.runtimeRef}\n`);
+      process.stdout.write(`customer_service=${customer.serviceName}\n`);
+      process.stdout.write(`platform_service=${platform.serviceName}\n`);
+    },
+  });
 }

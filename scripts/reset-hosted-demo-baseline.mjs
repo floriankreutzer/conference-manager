@@ -1,10 +1,11 @@
 import { pathToFileURL } from 'node:url';
+import { createHostedAcceptanceFetch, runHostedOperationCli } from './support/hosted-acceptance-fetch.mjs';
 
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
 const PERSONA_PATH = '/api/v1/platform/demo/session/persona';
 const RESET_PATH = '/api/v1/platform/demo/reset';
-const PINNED_RUNTIME_REF = '356459004dbede11cc3cd17a93d4e6cf515d410b';
+const PINNED_RUNTIME_REF = '566402fd098c298ff09ec3230ddd0b55d4ea91f6';
 const COMMIT_REF_PATTERN = /^[0-9a-f]{40}$/;
 const SESSION_TIMEOUT_MS = 20_000;
 const RESET_TIMEOUT_MS = 75_000;
@@ -13,6 +14,11 @@ const CHECKSUM_PATTERN = /^[0-9a-f]{64}$/;
 export const CANONICAL_DEMO_CHECKSUM = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';
 const HOSTED_BASELINES = Object.freeze({
   [PINNED_RUNTIME_REF]: Object.freeze({
+    seedVersion: 'saas-3.7-three-demo-customers-v1',
+    checksum: CANONICAL_DEMO_CHECKSUM,
+  }),
+  // Previous cold-static runtime retains its exact historical cleanup binding.
+  '356459004dbede11cc3cd17a93d4e6cf515d410b': Object.freeze({
     seedVersion: 'saas-3.7-three-demo-customers-v1',
     checksum: CANONICAL_DEMO_CHECKSUM,
   }),
@@ -166,13 +172,15 @@ export async function resetHostedDemoBaseline({
   fetchImpl = fetch,
   origin = process.env.SHARED_DEMO_PLATFORM_ORIGIN || PLATFORM_ORIGIN,
   expectedRuntimeRef = process.env.EXPECTED_RUNTIME_REF || PINNED_RUNTIME_REF,
+  env = process.env,
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new TypeError('HOSTED_DEMO_RESET_FETCH_REQUIRED');
   const baseline = requireBaseline(expectedRuntimeRef);
   const targetOrigin = requireOrigin(origin);
+  const request = createHostedAcceptanceFetch({ origin: targetOrigin, fetchImpl, env });
 
-  const firstChecksum = await performReset(fetchImpl, targetOrigin, baseline);
-  const secondChecksum = await performReset(fetchImpl, targetOrigin, baseline);
+  const firstChecksum = await performReset(request, targetOrigin, baseline);
+  const secondChecksum = await performReset(request, targetOrigin, baseline);
   if (secondChecksum !== firstChecksum) {
     throw new Error('HOSTED_DEMO_RESET_REPEATABILITY_INVALID');
   }
@@ -188,8 +196,12 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  const result = await resetHostedDemoBaseline();
-  process.stdout.write(`cleanup_seed_version=${result.seedVersion}\n`);
-  process.stdout.write(`cleanup_checksum=${result.checksum}\n`);
-  process.stdout.write('cleanup_repeatable=true\n');
+  await runHostedOperationCli(() => resetHostedDemoBaseline(), {
+    failureCode: 'HOSTED_DEMO_RESET_FAILED',
+    onSuccess(result) {
+      process.stdout.write(`cleanup_seed_version=${result.seedVersion}\n`);
+      process.stdout.write(`cleanup_checksum=${result.checksum}\n`);
+      process.stdout.write('cleanup_repeatable=true\n');
+    },
+  });
 }

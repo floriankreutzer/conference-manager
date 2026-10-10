@@ -1,9 +1,12 @@
 import { defineConfig } from '@playwright/test';
 import shared from './playwright.shared-demo.config.js';
-import { scenarioOrigins } from './tests/e2e-saas37/scenario-support.js';
+import { scenarioOrigins } from './tests/support/demo-origins.js';
+import { acceptanceGateEnabled } from './tests/support/origin-context.mjs';
 
 export function createSaas37Config(env = process.env) {
   const origins = scenarioOrigins(env);
+  const gated = acceptanceGateEnabled(env);
+  if (gated && !origins.hosted) throw new TypeError('SAAS37_SCENARIO_ORIGINS_INVALID');
   return defineConfig({
     ...shared,
     webServer: origins.hosted ? undefined : shared.webServer,
@@ -16,7 +19,10 @@ export function createSaas37Config(env = process.env) {
     globalTimeout: origins.hosted ? 2_280_000 : 2_160_000,
     maxFailures: 1,
     expect: { timeout: 10_000 },
-    use: { ...shared.use, ignoreHTTPSErrors: !origins.hosted, actionTimeout: 15_000, navigationTimeout: 30_000 },
+    use: {
+      ...shared.use, ignoreHTTPSErrors: !origins.hosted, actionTimeout: 15_000, navigationTimeout: 30_000,
+      ...(gated ? { screenshot: 'off', video: 'off', trace: 'off' } : {}),
+    },
     reporter: [['list'], ['html', { outputFolder: 'playwright-report-saas37', open: 'never' }]],
   });
 }
