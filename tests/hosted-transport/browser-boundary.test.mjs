@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import { chromium, webkit } from '@playwright/test';
 import { localFixture, ORIGIN, OTHER_ORIGIN, HEADER } from './local-fixture.mjs';
 
+function evidence(engine, scenario, fixture) {
+  // Closed numeric counters only: no request/response headers, token or URL.
+  console.log('CM_TRANSPORT_EVIDENCE', JSON.stringify({ engine, scenario, counters: fixture.proxy.evidence(),
+    acceptedRequests: fixture.events.length, foreignRequests: fixture.foreignEvents.length,
+    foreignAuthorized: fixture.foreignEvents.filter((event) => event.authorized).length }));
+}
+
 for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
   test(`${name}: page and API requests share exact-origin TLS transport without disabling cache`, { timeout: 45_000 }, async () => {
     const fixture = await localFixture();
@@ -25,7 +32,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
         assert.ok(fixture.events.length >= before + 1);
       }
       await context.close();
-    } finally { await browser?.close(); await fixture.close(); }
+    } finally { evidence(name, 'cache-api-redirect', fixture); await browser?.close(); await fixture.close(); }
   });
 
   test(`${name}: cross-origin page fetches, subresources and direct loopback navigation never receive the header`, { timeout: 45_000 }, async () => {
@@ -44,12 +51,16 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       await page.evaluate((other) => new Promise((resolve) => {
         const image = new Image(); image.onload = () => resolve(false); image.onerror = () => resolve(true); image.src = `${other}/image`; document.body.append(image);
       }), OTHER_ORIGIN);
-      let denied = false; try { await page.goto(fixture.foreignUrl, { timeout: 5_000 }); } catch { denied = true; }
-      assert.equal(denied, true); assert.equal(fixture.events.length, before);
+      let denied = false;
+      try { denied = (await page.goto(fixture.foreignUrl, { timeout: 5_000 }))?.status() === 403; }
+      catch { denied = true; }
+      // HTTP 403 is a fulfilled page.goto, unlike a CONNECT/network failure.
+      // Both denials must still prove that no request reached the foreign server.
       assert.equal(fixture.foreignEvents.length, 0);
+      assert.equal(denied, true); assert.equal(fixture.events.length, before);
       assert.ok(fixture.proxy.evidence().rejected >= 3);
       await context.close();
-    } finally { await browser?.close(); await fixture.close(); }
+    } finally { evidence(name, 'foreign-loopback', fixture); await browser?.close(); await fixture.close(); }
   });
 
   test(`${name}: service worker and WebSocket traffic cannot escape the context boundary`, { timeout: 45_000 }, async () => {
@@ -78,7 +89,7 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       }), OTHER_ORIGIN);
       assert.equal(socketDenied, true); assert.equal(fixture.foreignEvents.length, 0);
       await context.close();
-    } finally { await browser?.close(); await fixture.close(); }
+    } finally { evidence(name, 'serviceworker-websocket', fixture); await browser?.close(); await fixture.close(); }
   });
 
   test(`${name}: invalid TLS remains a failure before an HTTP request`, { timeout: 45_000 }, async () => {
@@ -92,6 +103,6 @@ for (const [name, engine] of [['chromium', chromium], ['webkit', webkit]]) {
       let denied = false; try { await page.goto(ORIGIN, { timeout: 5_000 }); } catch { denied = true; }
       assert.equal(denied, true); assert.equal(fixture.events.length, 0);
       await context.close();
-    } finally { await browser?.close(); await fixture.close(); }
+    } finally { evidence(name, 'invalid-certificate', fixture); await browser?.close(); await fixture.close(); }
   });
 }

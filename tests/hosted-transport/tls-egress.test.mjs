@@ -45,12 +45,12 @@ test('Origin syntax rejects scheme, port, credentials, trailing slash and IP', (
   }
 });
 
-async function tunnel(proxy, authority = `${HOST}:443`) {
+async function tunnel(proxy, authority = `${HOST}:443`, host = authority) {
   const address = new URL(proxy.server);
   const socket = net.connect({ host: address.hostname, port: Number(address.port) });
   socket.on('error', () => {});
   await once(socket, 'connect');
-  socket.write(`CONNECT ${authority} HTTP/1.1\r\nHost: ${authority}\r\n\r\n`);
+  socket.write(`CONNECT ${authority} HTTP/1.1\r\nHost: ${host}\r\n\r\n`);
   return socket;
 }
 
@@ -60,6 +60,9 @@ test('Proxy rejects unauthorized destination before connecting, and normal HTTP 
   try {
     for (const authority of ['foreign.cm-transport.test:443', `${HOST}:444`, '127.0.0.1:443']) {
       const socket = await tunnel(proxy, authority); await once(socket, 'close');
+    }
+    for (const host of ['foreign.cm-transport.test', `${HOST}:444`, `${HOST}:0443`, `${HOST}.`, '127.0.0.1']) {
+      const socket = await tunnel(proxy, `${HOST}:443`, host); await once(socket, 'close');
     }
     const address = new URL(proxy.server);
     const socket = net.connect(Number(address.port), address.hostname); socket.on('error', () => {});
@@ -90,17 +93,18 @@ test('Proxy closes stalled handshakes and bounds memory before upstream connecti
   } finally { await proxy.close(); }
 });
 
-test('Proxy forwards the original complete TLS bytes only after exact SNI validation', async () => {
+for (const host of [`${HOST}:443`, HOST]) test(`Proxy forwards original TLS only after exact SNI with ${host.includes(':') ? 'explicit' : 'omitted'} default Host port`, async () => {
   const received = [];
   const upstream = net.createServer((socket) => { socket.on('data', (data) => received.push(data)); socket.on('error', () => {}); });
   upstream.listen(0, '127.0.0.1'); await once(upstream, 'listening');
   const proxy = await createTlsEgressProxy({ origin: ORIGIN,
     connectSocket: () => net.connect(upstream.address().port, '127.0.0.1') });
   try {
-    const socket = await tunnel(proxy); await once(socket, 'data');
+    const socket = await tunnel(proxy, `${HOST}:443`, host); await once(socket, 'data');
     const bytes = record(hello()); socket.write(bytes.subarray(0, 9)); socket.write(bytes.subarray(9));
     for (let count = 0; count < 100 && !received.length; count += 1) await new Promise((resolve) => setTimeout(resolve, 5));
     assert.deepEqual(Buffer.concat(received), bytes);
     assert.equal(proxy.evidence().upstreamConnections, 1); socket.destroy();
+    assert.equal(proxy.evidence().hostDefaultPortOmitted, host === HOST ? 1 : 0);
   } finally { await proxy.close(); await new Promise((resolve) => upstream.close(resolve)); }
 });

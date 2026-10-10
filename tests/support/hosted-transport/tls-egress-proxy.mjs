@@ -88,7 +88,9 @@ export async function createTlsEgressProxy({ origin, connectSocket = net.connect
     || !Number.isInteger(idleTimeout) || idleTimeout < handshakeTimeout || idleTimeout > SOCKET_IDLE_TIMEOUT) invalid();
   const authority = `${target.hostname}:443`;
   const sockets = new Set();
-  const counters = { rejected: 0, tlsAccepted: 0, upstreamConnections: 0 };
+  const counters = { rejected: 0, tlsAccepted: 0, upstreamConnections: 0,
+    connectAuthorityRejected: 0, connectHostRejected: 0, connectBodyRejected: 0,
+    hostDefaultPortOmitted: 0, clientHelloRejected: 0, handshakeTimeouts: 0, upstreamErrors: 0 };
   const server = http.createServer({ maxHeaderSize: 8192 }, (_request, response) => {
     counters.rejected += 1;
     response.writeHead(403, { Connection: 'close', 'Content-Length': '0' }); response.end();
@@ -111,26 +113,35 @@ export async function createTlsEgressProxy({ origin, connectSocket = net.connect
       if (!settled) counters.rejected += 1;
       settled = true; clearTimeout(timer); client.destroy(); upstream?.destroy();
     };
-    const timer = setTimeout(reject, handshakeTimeout); timer.unref();
-    if (request.url !== authority || request.headers.host !== authority
-      || request.headers['transfer-encoding'] || request.headers['content-length']) { reject(); return; }
+    const timer = setTimeout(() => { counters.handshakeTimeouts += 1; reject(); }, handshakeTimeout); timer.unref();
+    if (request.url !== authority) { counters.connectAuthorityRejected += 1; reject(); return; }
+    // libsoup 3.4.4 retains hostname:443 in CONNECT but omits default port 443
+    // from Host. These are exactly the same declared HTTPS authority; no other
+    // hostname/port is accepted and the ClientHello SNI is still checked below.
+    if (request.headers.host !== authority && request.headers.host !== target.hostname) {
+      counters.connectHostRejected += 1; reject(); return;
+    }
+    if (request.headers['transfer-encoding'] || request.headers['content-length']) {
+      counters.connectBodyRejected += 1; reject(); return;
+    }
+    if (request.headers.host === target.hostname) counters.hostDefaultPortOmitted += 1;
     client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
     const collect = (chunk) => {
       if (settled) return;
-      if (pending.length + chunk.length > MAX_HELLO) { reject(); return; }
+      if (pending.length + chunk.length > MAX_HELLO) { counters.clientHelloRejected += 1; reject(); return; }
       pending = Buffer.concat([pending, chunk]);
       try {
         if (!inspectClientHello(pending, target.hostname)) return;
-      } catch { reject(); return; }
+      } catch { counters.clientHelloRejected += 1; reject(); return; }
       settled = true;
       counters.tlsAccepted += 1;
       client.pause(); client.off('data', collect);
       // Only a validated ClientHello can reach this call. The dependency is a
       // local-test seam; production binds the built-in socket connector.
       try { upstream = connectSocket({ host: target.hostname, port: 443 }); }
-      catch { reject(); return; }
+      catch { counters.upstreamErrors += 1; reject(); return; }
       sockets.add(upstream);
-      upstream.on('error', () => { clearTimeout(timer); client.destroy(); upstream.destroy(); });
+      upstream.on('error', () => { counters.upstreamErrors += 1; clearTimeout(timer); client.destroy(); upstream.destroy(); });
       upstream.on('close', () => { sockets.delete(upstream); client.destroy(); });
       upstream.setTimeout(idleTimeout, () => upstream.destroy());
       upstream.once('connect', () => {
