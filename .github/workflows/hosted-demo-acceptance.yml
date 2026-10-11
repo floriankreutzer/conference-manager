@@ -3,6 +3,17 @@ name: Hosted Demo Acceptance
 on:
   # PR regression runs against isolated PostgreSQL; public acceptance is deliberate.
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Acceptance transport (gate requires the reviewed absolute deadline and two service tokens)
+        required: true
+        default: ordinary
+        type: choice
+        options: [ordinary, gate]
+      expires_at:
+        description: Existing shared gate expiry as canonical UTC ISO timestamp; never extended by this workflow
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -16,7 +27,7 @@ env:
   SHARED_DEMO_CUSTOMER_ORIGIN: https://conference-manager-demo.onrender.com
   SHARED_DEMO_PLATFORM_ORIGIN: https://conference-manager-ops-demo.onrender.com
   EXPECTED_FRONTEND_REF: 5d5102b4f9842ec704ff26441ebe96719324ddb0
-  EXPECTED_RUNTIME_REF: 356459004dbede11cc3cd17a93d4e6cf515d410b
+  EXPECTED_RUNTIME_REF: 566402fd098c298ff09ec3230ddd0b55d4ea91f6
   DEMO_SEED_VERSION: saas-3.7-three-demo-customers-v1
   DEMO_PROVIDER_HEALTH: healthy
   # Both browser suites plus rate windows and bounded independent cleanup.
@@ -32,6 +43,11 @@ jobs:
       - name: Record hosted job budget start
         shell: bash
         run: echo "HOSTED_JOB_STARTED_EPOCH=$(date -u +%s)" >> "$GITHUB_ENV"
+      - name: Validate acceptance mode
+        env:
+          ACCEPTANCE_MODE: ${{ inputs.mode }}
+          ACCEPTANCE_REF: ${{ github.ref }}
+        run: node -e "if (!['ordinary', 'gate'].includes(process.env.ACCEPTANCE_MODE) || (process.env.ACCEPTANCE_MODE === 'gate' && process.env.ACCEPTANCE_REF !== 'refs/heads/main')) process.exit(1)"
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -66,7 +82,16 @@ jobs:
           PY
       - name: Install browser engines
         run: npx playwright install --with-deps chromium webkit
+      - name: Run guarded hosted acceptance and independent cleanup
+        if: inputs.mode == 'gate' && github.ref == 'refs/heads/main'
+        env:
+          CM_DEMO_ACCEPTANCE_MODE: gate
+          CM_DEMO_ACCEPTANCE_EXPIRES_AT: ${{ inputs.expires_at }}
+          CM_DEMO_CUSTOMER_ACCEPTANCE_TOKEN: ${{ secrets.CM_DEMO_CUSTOMER_ACCEPTANCE_TOKEN }}
+          CM_DEMO_PLATFORM_ACCEPTANCE_TOKEN: ${{ secrets.CM_DEMO_PLATFORM_ACCEPTANCE_TOKEN }}
+        run: node scripts/run-hosted-acceptance-journey.mjs
       - name: Wait for public Customer and Platform readiness
+        if: inputs.mode != 'gate'
         shell: bash
         run: |
           set -euo pipefail
@@ -85,6 +110,7 @@ jobs:
           echo "Customer and Platform Demo did not become ready within the bounded cold-start window." >&2
           exit 1
       - name: Record hosted acceptance context
+        if: inputs.mode != 'gate'
         shell: bash
         run: |
           set -euo pipefail
@@ -101,9 +127,11 @@ jobs:
             echo "acceptance_started_at=$started_at"
           } > hosted-demo-evidence.txt
       - name: Verify live deployment identity before journey
+        if: inputs.mode != 'gate'
         id: pre_identity
         run: node scripts/verify-hosted-demo-deployment.mjs >> hosted-demo-evidence.txt
       - name: Require destructive cleanup reserve
+        if: inputs.mode != 'gate'
         shell: bash
         run: |
           set -euo pipefail
@@ -116,52 +144,68 @@ jobs:
           fi
           echo "cleanup_reserve_seconds=$HOSTED_DESTRUCTIVE_RESERVE_SECONDS" >> hosted-demo-evidence.txt
       - name: Add fixed acceptance hosts
+        if: inputs.mode != 'gate'
         run: echo "127.0.0.1 customer.demo.test platform.demo.test" | sudo tee -a /etc/hosts >/dev/null
       - name: Run hosted cross-role Demo journey
+        if: inputs.mode != 'gate'
         id: hosted_journey
         continue-on-error: true
         run: npm run test:e2e:hosted-demo
       - name: Run full hosted three-customer and two-cycle scenario acceptance
         id: full_scenarios
-        if: steps.hosted_journey.outcome == 'success'
+        if: steps.hosted_journey.outcome == 'success' && inputs.mode != 'gate'
         continue-on-error: true
         run: npm run test:e2e:saas37
       - name: Record bounded reset failure audit evidence
-        if: always() && steps.hosted_journey.outcome == 'failure'
+        if: always() && steps.hosted_journey.outcome == 'failure' && inputs.mode != 'gate'
         run: node scripts/read-hosted-demo-reset-evidence.mjs >> hosted-demo-evidence.txt
       - name: Restore public Demo baseline after failed journey
-        if: always() && (steps.hosted_journey.outcome == 'failure' || steps.full_scenarios.outcome == 'failure')
+        if: always() && (steps.hosted_journey.outcome == 'failure' || steps.full_scenarios.outcome == 'failure') && inputs.mode != 'gate'
         run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
       - name: Verify canonical Demo baseline after successful journey
-        if: steps.hosted_journey.outcome == 'success' && steps.full_scenarios.outcome == 'success'
+        if: steps.hosted_journey.outcome == 'success' && steps.full_scenarios.outcome == 'success' && inputs.mode != 'gate'
         run: node scripts/reset-hosted-demo-baseline.mjs >> hosted-demo-evidence.txt
       - name: Re-verify live deployment identity after journey and cleanup
-        if: always() && steps.pre_identity.outcome == 'success' && steps.hosted_journey.outcome != 'skipped'
+        if: always() && steps.pre_identity.outcome == 'success' && steps.hosted_journey.outcome != 'skipped' && inputs.mode != 'gate'
         run: |
           node scripts/verify-hosted-demo-deployment.mjs >/dev/null
           echo "deployment_identity_stable=true" >> hosted-demo-evidence.txt
       - name: Upload hosted Demo evidence
-        if: always()
+        if: always() && inputs.mode != 'gate'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hosted-demo-acceptance-evidence
           path: hosted-demo-evidence.txt
           if-no-files-found: error
       - name: Upload hosted Demo browser report on journey failure
-        if: always() && steps.hosted_journey.outcome == 'failure'
+        if: always() && steps.hosted_journey.outcome == 'failure' && inputs.mode != 'gate'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hosted-demo-playwright-report
           path: playwright-report-hosted-demo/
           if-no-files-found: ignore
       - name: Upload full hosted scenario evidence and browser report
-        if: always() && steps.full_scenarios.outcome != 'skipped' && steps.full_scenarios.outcome != ''
+        if: always() && steps.full_scenarios.outcome != 'skipped' && steps.full_scenarios.outcome != '' && inputs.mode != 'gate'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hosted-saas37-scenario-evidence
           path: playwright-report-saas37/
           if-no-files-found: error
           retention-days: 30
+      - name: Upload closed-schema guarded acceptance evidence
+        if: always() && inputs.mode == 'gate'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-gated-acceptance-evidence
+          path: |
+            acceptance-evidence-journey-*/summary.json
+            acceptance-evidence-journey-*/journey-phases.json
+            acceptance-evidence-journey-*/reset-audit.json
+            acceptance-evidence-journey-*/acceptance-evidence-*/summary.json
+            acceptance-evidence-journey-*/acceptance-evidence-*/scenario-*.json
+            acceptance-evidence-journey-*/acceptance-evidence-*/reset-correlation.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Enforce hosted journey result
-        if: always() && (steps.hosted_journey.outcome == 'failure' || steps.full_scenarios.outcome == 'failure')
+        if: always() && (steps.hosted_journey.outcome == 'failure' || steps.full_scenarios.outcome == 'failure') && inputs.mode != 'gate'
         run: exit 1

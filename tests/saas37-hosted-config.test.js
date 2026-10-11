@@ -40,7 +40,7 @@ test('hosted scenario configuration rejects unknown or incomplete origin tuples 
 
 test('hosted full scenarios remain inside a reserved independent cleanup budget', () => {
   const workflow = readFileSync('.github/workflows/hosted-demo-acceptance.yml', 'utf8');
-  assert.match(workflow, /id: full_scenarios\n\s+if: steps\.hosted_journey\.outcome == 'success'\n\s+continue-on-error: true\n\s+run: npm run test:e2e:saas37/);
+  assert.match(workflow, /id: full_scenarios\n\s+if: steps\.hosted_journey\.outcome == 'success' && inputs\.mode != 'gate'\n\s+continue-on-error: true\n\s+run: npm run test:e2e:saas37/);
   assert.match(workflow, /name: Upload full hosted scenario evidence and browser report/);
   assert.match(workflow, /name: hosted-saas37-scenario-evidence/);
   const reserve = Number(workflow.match(/HOSTED_DESTRUCTIVE_RESERVE_SECONDS: '(\d+)'/)?.[1]);

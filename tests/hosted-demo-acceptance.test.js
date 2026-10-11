@@ -99,7 +99,7 @@ test('hosted reset diagnostic correlates exact failed request and never logs ses
   assert.match(source, /const PLATFORM_ORIGIN = 'https:\/\/conference-manager-ops-demo\.onrender\.com';/);
   assert.match(source, /HOSTED_ACCEPTANCE_STARTED_AT/);
   assert.match(source, /hostedResetRequestIdPath\(\)/);
-  assert.match(source, /const resetRequestId = await expectedResetRequestId\(\);/);
+  assert.match(source, /const resetRequestId = requestId === undefined \? await expectedResetRequestId\(\) : requestId;/);
   assert.match(source, /platform\.recovery\.executed/);
   assert.match(source, /item\?\.metadata\?\.operation === 'reset'/);
   assert.match(source, /item\?\.correlationId === resetRequestId/);
@@ -134,11 +134,11 @@ test('hosted acceptance captures bounded reset evidence, restores, then performs
   );
   assert.match(
     workflow,
-    /name: Verify live deployment identity before journey\n\s+id: pre_identity\n\s+run: node scripts\/verify-hosted-demo-deployment\.mjs >> hosted-demo-evidence\.txt/,
+    /name: Verify live deployment identity before journey\n\s+if: inputs\.mode != 'gate'\n\s+id: pre_identity\n\s+run: node scripts\/verify-hosted-demo-deployment\.mjs >> hosted-demo-evidence\.txt/,
   );
   assert.match(
     workflow,
-    /name: Run hosted cross-role Demo journey\n\s+id: hosted_journey\n\s+continue-on-error: true/,
+    /name: Run hosted cross-role Demo journey\n\s+if: inputs\.mode != 'gate'\n\s+id: hosted_journey\n\s+continue-on-error: true/,
   );
   assert.match(
     workflow,
@@ -147,7 +147,7 @@ test('hosted acceptance captures bounded reset evidence, restores, then performs
   assert.match(workflow, /node scripts\/read-hosted-demo-reset-evidence\.mjs >> hosted-demo-evidence\.txt/);
   assert.match(
     workflow,
-    /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && \(steps\.hosted_journey\.outcome == 'failure' \|\| steps\.full_scenarios\.outcome == 'failure'\)\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
+    /name: Restore public Demo baseline after failed journey\n\s+if: always\(\) && \(steps\.hosted_journey\.outcome == 'failure' \|\| steps\.full_scenarios\.outcome == 'failure'\) && inputs\.mode != 'gate'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
   );
   assert.match(
     workflow,
@@ -157,7 +157,7 @@ test('hosted acceptance captures bounded reset evidence, restores, then performs
   assert.match(workflow, /echo "deployment_identity_stable=true" >> hosted-demo-evidence\.txt/);
   assert.match(
     workflow,
-    /name: Enforce hosted journey result\n\s+if: always\(\) && \(steps\.hosted_journey\.outcome == 'failure' \|\| steps\.full_scenarios\.outcome == 'failure'\)\n\s+run: exit 1/,
+    /name: Enforce hosted journey result\n\s+if: always\(\) && \(steps\.hosted_journey\.outcome == 'failure' \|\| steps\.full_scenarios\.outcome == 'failure'\) && inputs\.mode != 'gate'\n\s+run: exit 1/,
   );
 });
 
@@ -166,15 +166,16 @@ test('hosted cleanup requires the runtime-bound canonical checksum twice', () =>
   const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
   const runtimeRef = workflow.match(/EXPECTED_RUNTIME_REF: ([0-9a-f]{40})/)?.[1];
 
-  assert.equal(runtimeRef, '356459004dbede11cc3cd17a93d4e6cf515d410b');
+  assert.equal(runtimeRef, '566402fd098c298ff09ec3230ddd0b55d4ea91f6');
   assert.match(workflow, /DEMO_SEED_VERSION: saas-3\.7-three-demo-customers-v1/);
   assert.match(source, new RegExp(`const PINNED_RUNTIME_REF = '${runtimeRef}';`));
   assert.match(
     source,
     /export const CANONICAL_DEMO_CHECKSUM = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';/,
   );
-  assert.match(source, /const firstChecksum = await performReset\(fetchImpl, targetOrigin, baseline\);/);
-  assert.match(source, /const secondChecksum = await performReset\(fetchImpl, targetOrigin, baseline\);/);
+  assert.match(source, /const request = createHostedAcceptanceFetch\(\{ origin: targetOrigin, fetchImpl, env \}\);/);
+  assert.match(source, /const firstChecksum = await performReset\(request, targetOrigin, baseline\);/);
+  assert.match(source, /const secondChecksum = await performReset\(request, targetOrigin, baseline\);/);
   assert.match(source, /if \(secondChecksum !== firstChecksum\)/);
   assert.match(source, /HOSTED_DEMO_RESET_REPEATABILITY_INVALID/);
   assert.match(source, /if \(secondChecksum !== baseline\.checksum\)/);
@@ -219,6 +220,6 @@ test('successful hosted journeys also upload an independently pinned canonical r
   assert.ok(baselineIndex > journeyIndex && postIdentityIndex > baselineIndex);
   assert.match(
     workflow,
-    /name: Verify canonical Demo baseline after successful journey\n\s+if: steps\.hosted_journey\.outcome == 'success' && steps\.full_scenarios\.outcome == 'success'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
+    /name: Verify canonical Demo baseline after successful journey\n\s+if: steps\.hosted_journey\.outcome == 'success' && steps\.full_scenarios\.outcome == 'success' && inputs\.mode != 'gate'\n\s+run: node scripts\/reset-hosted-demo-baseline\.mjs >> hosted-demo-evidence\.txt/,
   );
 });

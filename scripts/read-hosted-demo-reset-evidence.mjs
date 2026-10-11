@@ -1,6 +1,10 @@
 import { readFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+import { createHostedAcceptanceFetch, runHostedOperationCli } from './support/hosted-acceptance-fetch.mjs';
 
 import { hostedResetRequestIdPath } from './hosted-demo-run-context.mjs';
+import { acceptanceGateEnabled } from '../tests/support/hosted-transport/acceptance-config.mjs';
+import { writeManagedResetAudit } from '../tests/support/hosted-transport/redaction-guard.mjs';
 
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
 const SESSION_PATH = '/api/v1/platform/demo/session';
@@ -34,8 +38,8 @@ function requireCsrf(value) {
   return value;
 }
 
-function acceptanceStartedAt() {
-  const value = process.env.HOSTED_ACCEPTANCE_STARTED_AT;
+function acceptanceStartedAt(env = process.env) {
+  const value = env.HOSTED_ACCEPTANCE_STARTED_AT;
   const epoch = typeof value === 'string' ? Date.parse(value) : Number.NaN;
   if (!Number.isFinite(epoch) || new Date(epoch).toISOString() !== value) {
     throw new Error('HOSTED_DEMO_DIAGNOSTIC_START_INVALID');
@@ -59,7 +63,11 @@ async function expectedResetRequestId() {
   return value;
 }
 
-function writeUnavailableEvidence() {
+function writeUnavailableEvidence(env) {
+  if (acceptanceGateEnabled(env)) {
+    writeManagedResetAudit({ reasonCode: null, correlationId: null, occurredAt: null });
+    return;
+  }
   process.stdout.write('reset_failure_reason=not_available\n');
   process.stdout.write('reset_failure_correlation_id=not_available\n');
   process.stdout.write('reset_failure_occurred_at=not_available\n');
@@ -72,62 +80,77 @@ function boundedRequestOptions(options = {}) {
   };
 }
 
-const resetRequestId = await expectedResetRequestId();
-if (resetRequestId === null) {
-  writeUnavailableEvidence();
-  process.exit(0);
+export async function readHostedDemoResetEvidence({ fetchImpl = fetch, env = process.env, requestId } = {}) {
+  const resetRequestId = requestId === undefined ? await expectedResetRequestId() : requestId;
+  if (resetRequestId !== null && !UUID_PATTERN.test(resetRequestId || '')) {
+    throw new Error('HOSTED_DEMO_DIAGNOSTIC_REQUEST_ID_INVALID');
+  }
+  if (resetRequestId === null) {
+    writeUnavailableEvidence(env);
+    return Object.freeze({ available: false });
+  }
+
+  const request = createHostedAcceptanceFetch({ origin: PLATFORM_ORIGIN, fetchImpl, env });
+  const establishedResponse = await request(
+    `${PLATFORM_ORIGIN}${SESSION_PATH}`,
+    boundedRequestOptions({ redirect: 'error' }),
+  );
+  const established = await jsonResponse(establishedResponse, 200);
+  let cookie = sessionCookie(establishedResponse);
+
+  const switchedResponse = await request(`${PLATFORM_ORIGIN}${PERSONA_PATH}`, boundedRequestOptions({
+    method: 'PUT',
+    redirect: 'error',
+    headers: {
+      Cookie: cookie,
+      Origin: PLATFORM_ORIGIN,
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': requireCsrf(established.csrfToken),
+    },
+    body: JSON.stringify({ persona: 'security_admin' }),
+  }));
+  await jsonResponse(switchedResponse, 200);
+  cookie = sessionCookie(switchedResponse);
+
+  const auditResponse = await request(`${PLATFORM_ORIGIN}${AUDIT_PATH}`, boundedRequestOptions({
+    redirect: 'error',
+    headers: { Cookie: cookie },
+  }));
+  const audit = await jsonResponse(auditResponse, 200);
+  if (!Array.isArray(audit.items) || audit.items.length > 100) {
+    throw new Error('HOSTED_DEMO_DIAGNOSTIC_AUDIT_INVALID');
+  }
+
+  const startedAt = acceptanceStartedAt(env);
+  const failure = audit.items.find((item) => (
+    item?.action === 'platform.recovery.executed'
+    && item?.outcome === 'failure'
+    && item?.metadata?.operation === 'reset'
+    && item?.correlationId === resetRequestId
+    && Number.isFinite(Date.parse(item.occurredAt))
+    && Date.parse(item.occurredAt) >= startedAt
+  ));
+
+  if (!failure) {
+    writeUnavailableEvidence(env);
+    return Object.freeze({ available: false });
+  }
+
+  const reasonCode = failure.metadata?.reasonCode;
+  if (!REASON_PATTERN.test(reasonCode || '') || !UUID_PATTERN.test(failure.correlationId || '')) {
+    throw new Error('HOSTED_DEMO_DIAGNOSTIC_AUDIT_EVIDENCE_INVALID');
+  }
+  const occurredAt = new Date(failure.occurredAt).toISOString();
+  if (acceptanceGateEnabled(env)) {
+    writeManagedResetAudit({ reasonCode, correlationId: failure.correlationId, occurredAt });
+    return Object.freeze({ available: true });
+  }
+  process.stdout.write(`reset_failure_reason=${reasonCode}\n`);
+  process.stdout.write(`reset_failure_correlation_id=${failure.correlationId}\n`);
+  process.stdout.write(`reset_failure_occurred_at=${occurredAt}\n`);
+  return Object.freeze({ available: true });
 }
 
-const establishedResponse = await fetch(
-  `${PLATFORM_ORIGIN}${SESSION_PATH}`,
-  boundedRequestOptions({ redirect: 'error' }),
-);
-const established = await jsonResponse(establishedResponse, 200);
-let cookie = sessionCookie(establishedResponse);
-
-const switchedResponse = await fetch(`${PLATFORM_ORIGIN}${PERSONA_PATH}`, boundedRequestOptions({
-  method: 'PUT',
-  redirect: 'error',
-  headers: {
-    Cookie: cookie,
-    Origin: PLATFORM_ORIGIN,
-    'Content-Type': 'application/json',
-    'X-CSRF-Token': requireCsrf(established.csrfToken),
-  },
-  body: JSON.stringify({ persona: 'security_admin' }),
-}));
-await jsonResponse(switchedResponse, 200);
-cookie = sessionCookie(switchedResponse);
-
-const auditResponse = await fetch(`${PLATFORM_ORIGIN}${AUDIT_PATH}`, boundedRequestOptions({
-  redirect: 'error',
-  headers: { Cookie: cookie },
-}));
-const audit = await jsonResponse(auditResponse, 200);
-if (!Array.isArray(audit.items) || audit.items.length > 100) {
-  throw new Error('HOSTED_DEMO_DIAGNOSTIC_AUDIT_INVALID');
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await runHostedOperationCli(() => readHostedDemoResetEvidence(), { failureCode: 'HOSTED_DEMO_DIAGNOSTIC_FAILED' });
 }
-
-const startedAt = acceptanceStartedAt();
-const failure = audit.items.find((item) => (
-  item?.action === 'platform.recovery.executed'
-  && item?.outcome === 'failure'
-  && item?.metadata?.operation === 'reset'
-  && item?.correlationId === resetRequestId
-  && Number.isFinite(Date.parse(item.occurredAt))
-  && Date.parse(item.occurredAt) >= startedAt
-));
-
-if (!failure) {
-  writeUnavailableEvidence();
-  process.exit(0);
-}
-
-const reasonCode = failure.metadata?.reasonCode;
-if (!REASON_PATTERN.test(reasonCode || '') || !UUID_PATTERN.test(failure.correlationId || '')) {
-  throw new Error('HOSTED_DEMO_DIAGNOSTIC_AUDIT_EVIDENCE_INVALID');
-}
-const occurredAt = new Date(failure.occurredAt).toISOString();
-process.stdout.write(`reset_failure_reason=${reasonCode}\n`);
-process.stdout.write(`reset_failure_correlation_id=${failure.correlationId}\n`);
-process.stdout.write(`reset_failure_occurred_at=${occurredAt}\n`);

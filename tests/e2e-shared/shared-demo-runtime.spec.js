@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { scenarioOrigins } from '../support/demo-origins.js';
+import { acceptanceGateEnabled, createOriginContext } from '../support/origin-context.mjs';
 
-const EDGE_PORT = 4443;
-const CUSTOMER_ORIGIN = `https://customer.demo.test:${EDGE_PORT}`;
-const PLATFORM_ORIGIN = `https://platform.demo.test:${EDGE_PORT}`;
+// The existing proxy remains the ungated default, including hosted workflow runs.
+const ORIGINS = scenarioOrigins(acceptanceGateEnabled() ? process.env : {});
+const CUSTOMER_ORIGIN = ORIGINS.customer;
+const PLATFORM_ORIGIN = ORIGINS.platform;
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const TENANT_B = '20000000-0000-4000-8000-000000000002';
 const TENANT_C = '40000000-0000-4000-8000-000000000004';
@@ -168,14 +171,14 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   // 60-second rate-limit window. Start this independent scenario only after
   // that window has expired; do not raise or disable the server limit.
   await new Promise((resolve) => setTimeout(resolve, 61_000));
-  const bootstrapContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  const bootstrapContext = await createOriginContext(browser, { origin: PLATFORM_ORIGIN, ignoreHTTPSErrors: !ORIGINS.hosted });
   let bootstrapPlatform = await establishPlatform(bootstrapContext);
   bootstrapPlatform = await switchPlatform(bootstrapContext, bootstrapPlatform, 'security_admin');
   const baselineReset = await resetDemo(bootstrapContext, bootstrapPlatform);
   await bootstrapContext.close();
 
-  const customerContext = await browser.newContext({ ignoreHTTPSErrors: true });
-  const platformContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  const customerContext = await createOriginContext(browser, { origin: CUSTOMER_ORIGIN, ignoreHTTPSErrors: !ORIGINS.hosted });
+  const platformContext = await createOriginContext(browser, { origin: PLATFORM_ORIGIN, ignoreHTTPSErrors: !ORIGINS.hosted });
   for (const context of [customerContext, platformContext]) {
     context.setDefaultTimeout(15_000);
     context.setDefaultNavigationTimeout(30_000);
@@ -191,9 +194,9 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
     `${CUSTOMER_ORIGIN}/api/v1/demo/session`,
     `${PLATFORM_ORIGIN}/api/v1/platform/demo/session`,
   ]);
-  expect(customerCookies.some(({ name, domain }) => name === 'cm_session' && domain === 'customer.demo.test')).toBe(true);
+  expect(customerCookies.some(({ name, domain }) => name === 'cm_session' && domain === new URL(CUSTOMER_ORIGIN).hostname)).toBe(true);
   expect(customerCookies.some(({ name }) => name === 'cm_platform_session')).toBe(false);
-  expect(platformCookies.some(({ name, domain }) => name === 'cm_platform_session' && domain === 'platform.demo.test')).toBe(true);
+  expect(platformCookies.some(({ name, domain }) => name === 'cm_platform_session' && domain === new URL(PLATFORM_ORIGIN).hostname)).toBe(true);
   expect(platformCookies.some(({ name }) => name === 'cm_session')).toBe(false);
 
   const customerPage = await customerContext.newPage();
@@ -499,7 +502,7 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   expect(revalidated.headers().vary).toBe('Cookie');
   expect(revalidated.headers()['content-length']).toBeUndefined();
   expect((await revalidated.body()).length).toBe(0);
-  const independentCustomer = await browser.newContext({ ignoreHTTPSErrors: true });
+  const independentCustomer = await createOriginContext(browser, { origin: CUSTOMER_ORIGIN, ignoreHTTPSErrors: !ORIGINS.hosted });
   try {
     expect((await independentCustomer.request.get(assetUrl, {
       headers: { 'If-None-Match': mediaEtag },

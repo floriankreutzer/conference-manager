@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { createOriginContext } from '../support/origin-context.mjs';
 import {
   ORIGINS, NORTHWIND, CONTOSO, FABRIKAM, LOCATIONS_PATH, PNG,
   SEMANTIC_CHECKSUM, SEED_VERSION, json, headers, selectContext, contextFor,
@@ -12,9 +13,9 @@ import { verifyFabrikamBaseline, progressFabrikam } from './fabrikam-scenario.js
 // shortcuts, storage seeding, retries, optional assertions or test.skip paths.
 test('SaaS 3.7: three visible scenarios persist, isolate authority and restore twice', async ({ browser }, testInfo) => {
   const options = { ignoreHTTPSErrors: !ORIGINS.hosted, locale: 'de-DE' };
-  const platformContext = await browser.newContext(options);
-  const customerContext = await browser.newContext(options);
-  const observerContext = await browser.newContext(options);
+  const platformContext = await createOriginContext(browser, { origin: ORIGINS.platform, ...options });
+  const customerContext = await createOriginContext(browser, { origin: ORIGINS.customer, ...options });
+  const observerContext = await createOriginContext(browser, { origin: ORIGINS.customer, ...options });
   const customer = await customerContext.newPage();
   const platform = await platformContext.newPage();
   const evidence = { schemaVersion: 1, browser: testInfo.project.name, seedVersion: SEED_VERSION,

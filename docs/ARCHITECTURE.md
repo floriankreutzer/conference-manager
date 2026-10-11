@@ -434,6 +434,18 @@ npm run test:e2e
 
 Run `npm run test:e2e` when browser/runtime/UI behavior could be affected. GitHub Actions executes the quality gate, high-severity dependency audit, Chromium/WebKit E2E coverage, Dependency Review and Secret Scan. DAST remains a separate scheduled/manual repository security control. CodeQL must not be claimed unless it is separately configured and executed.
 
+## Hosted acceptance test boundary
+
+The explicit origin fixture and guarded runner belong to test infrastructure,
+not the browser application or a capability's authorization model. Gate mode
+preserves normal session, CSRF and tenant checks while restricting transport and
+artifacts. `tests/shared-acceptance-copy.test.js` checks the actual ES-module graph
+of the immutable cross-repository copy contract for closure and cycles; native
+operation, orchestration and real TLS/browser canaries exercise the runtime
+boundary. `docs/HOSTED-ACCEPTANCE-TRANSPORT.md` records ordinary-mode compatibility,
+the two cookie-domain expectation changes, bounded cleanup, restricted evidence
+and the remaining release requirements.
+
 ## Pull-request discipline
 
 Architecture changes must remain reviewable. Do not combine unrelated runtime decomposition, localization consolidation, persistence migration, design-system changes, new features or feature-flag cleanup when they can be independently reviewed.

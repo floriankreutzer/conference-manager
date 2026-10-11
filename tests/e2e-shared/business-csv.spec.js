@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import { acceptanceGateEnabled, createOriginContext } from '../support/origin-context.mjs';
 import { tenantBulkCsvToDocument, tenantBulkDocumentToCsv } from '../../src/shared/tenant-bulk-csv.js';
 import { contextFor, headers, json, NORTHWIND, ORIGINS, reset } from '../e2e-saas37/scenario-support.js';
 
@@ -20,8 +21,8 @@ async function downloadCsv(panel, page, name) {
 
 test('Business CSV validates, applies, reloads and reimports every owned data type against PostgreSQL', async ({ browser }) => {
   test.setTimeout(300_000);
-  const platform = await browser.newContext({ ignoreHTTPSErrors: true });
-  const customer = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'de-DE' });
+  const platform = await createOriginContext(browser, { origin: ORIGINS.platform, ignoreHTTPSErrors: !acceptanceGateEnabled() });
+  const customer = await createOriginContext(browser, { origin: ORIGINS.customer, ignoreHTTPSErrors: !acceptanceGateEnabled(), locale: 'de-DE' });
   let seeded = false;
   try {
     // Chromium runs first and owns the initial process-wide rate-limit wait.

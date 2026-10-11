@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { chromium, expect, test } from '@playwright/test';
+import { acceptanceGateEnabled, createOriginContext, createOriginPersistentContext } from '../support/origin-context.mjs';
 import {
   activateContoso, CONTOSO, ORIGINS, reset, selectContext,
 } from '../e2e-saas37/scenario-support.js';
@@ -31,7 +32,7 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
   test.skip(!process.env.CM_ACTUAL_BROWSER_ZOOM || testInfo.project.name !== 'chromium-shared-demo',
     'Run in the dedicated headed Chromium zoom CI step');
   const profile = await mkdtemp(path.join(os.tmpdir(), 'cm-worklist-zoom-'));
-  const platformContext = await browser.newContext({ ignoreHTTPSErrors: true, locale: 'de-DE' });
+  const platformContext = await createOriginContext(browser, { origin: ORIGINS.platform, ignoreHTTPSErrors: !acceptanceGateEnabled(), locale: 'de-DE' });
   let customerContext;
   let started = false;
   try {
@@ -39,9 +40,10 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     started = true;
     const platform = await platformContext.newPage();
     await activateContoso(platform);
-    customerContext = await chromium.launchPersistentContext(profile, {
+    customerContext = await createOriginPersistentContext(chromium, profile, {
+      origin: ORIGINS.customer,
       channel: 'chromium', headless: false, locale: 'de-DE',
-      viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true,
+      viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: !acceptanceGateEnabled(),
       args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
     });
     const worker = customerContext.serviceWorkers()[0]
