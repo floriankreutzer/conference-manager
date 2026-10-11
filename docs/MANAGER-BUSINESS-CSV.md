@@ -72,3 +72,19 @@ The real PostgreSQL browser contract is `tests/e2e-shared/business-csv.spec.js` 
 Chromium and WebKit. Permanent three-customer/two-reset acceptance remains mandatory
 and unchanged. Equipment requires the paired API schema-42 migration before release;
 this document describes implementation, not an unexecuted release acceptance.
+
+## Isolated reload failure evidence
+
+The local PostgreSQL browser journey bounds the Manager-control wait after
+bootstrap to 15 seconds within its unchanged five-minute total budget, leaving
+time for canonical cleanup. Reset and both context closures are attempted
+independently; a cleanup failure cannot replace the original journey error or
+turn the result into success.
+
+On failure, the local journey retains a bounded JSON attachment for the latest
+bootstrap: fixed endpoint classes (including the seven known catalogue sections),
+request sequence, HTTP status, completion state and duration, plus fixed cleanup
+outcomes. It records no response bodies, headers, cookies, cursor/context values,
+unknown query values, object identifiers or raw network errors. This observer
+and attachment are disabled for Hosted and gated acceptance. No browser route
+is intercepted, mutation replayed, assertion removed or automatic retry added.
