@@ -22,7 +22,7 @@
     "test:e2e:saas37": "playwright test --config=playwright.saas37.config.js"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
+    "@playwright/test": "1.64.0",
     "es-module-lexer": "3.0.2"
   },
   "engines": {
