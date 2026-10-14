@@ -26,6 +26,9 @@ test('private Product/Delivery client uses only fixed bounded GET and preserves 
 
 test('wire schema rejects roles, customer content, arbitrary labels, malformed windows and fake zero states', () => {
   const mutations = [
+    (value) => { value.environment = 'production'; },
+    (value) => { value.product[0].reason = 'empty_denominator'; },
+    (value) => { value.delivery[0].buckets[0].metrics[1].reason = 'missing_start_clock'; },
     (value) => { value.ownerEmail = 'private@example.invalid'; },
     (value) => { value.accessMode = 'demo_role'; },
     (value) => { value.freshness = 'fresh'; },
