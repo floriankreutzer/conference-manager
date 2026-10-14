@@ -33,12 +33,11 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
   let primaryError;
   let diagnostics;
   try {
-    // Chromium runs first and owns the initial process-wide rate-limit wait.
-    // WebKit starts only after the preceding shared-runtime test has already
-    // waited for the same real 60-second window; do not raise or disable it.
-    if (browser.browserType().name() === 'chromium') {
-      await new Promise((resolve) => setTimeout(resolve, 61_000));
-    }
+    // Each engine starts in a fresh real process-wide rate-limit window.
+    // The preceding shared-runtime test waits before its own requests, not
+    // after them; its quota must not carry into the next engine's CSV journey.
+    // Do not raise limits, reset limiter state or retry a denied request.
+    await new Promise((resolve) => setTimeout(resolve, 61_000));
     await reset(platform); seeded = true;
     const session = await contextFor(customer, NORTHWIND, 'conference_manager');
     const page = await customer.newPage();
