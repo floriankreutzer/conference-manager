@@ -16,7 +16,8 @@ test('routine PR regression cannot target the public Demo while deployment accep
   assert.doesNotMatch(triggers, /pull_request:|push:|schedule:|workflow_run:/);
   const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
   assert.match(ci, /pull_request:/);
-  assert.match(ci, /image: postgres:18\.6-alpine/);
+  assert.equal(ci.match(/^        image: (.+)$/m)?.[1],
+    'docker.io/library/postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873');
   assert.match(ci, /ref: [0-9a-f]{40}/);
   assert.match(ci, /node scripts\/provision-shared-demo-ci\.mjs/);
   assert.match(ci, /npm run test:e2e:shared-demo/);
