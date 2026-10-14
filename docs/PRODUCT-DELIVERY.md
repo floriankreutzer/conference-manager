@@ -28,3 +28,16 @@ Controlled browser fixtures cover unknown/known snapshots, safe failures, langua
 keyboard changes, 200% text-size reflow and screenshots in both configured engines.
 They are synthetic test data, not real Pilot evidence. Native full browser and permanent
 three-customer/two-reset CI plus the exact API counterpart are required before acceptance.
+
+The Product/Operations owner reviews context, source semantics and coverage whenever
+major workflows or target roles change. Update the canonical calculation/source
+contract and its negative tests before enabling newly known values. Protected Pilot
+evidence stays in the authorized operator workflow; it is not copied into this view.
+
+The shared browser CI uses an immutable API candidate; acceptance requires that
+candidate's full gates/review and independently equal merge tree. This paired API
+reference is distinct from the later hosted API commit, whose only follow-up may
+align the embedded/CI frontend pin. That final runtime/frontend pair must independently
+pass API CI and hosted deployment metadata/readiness checks. The CI PostgreSQL image
+is pinned to the same independently verified 18.6-alpine OCI digest as the API suite,
+rather than a moving tag; no database-version, test or quota change is intended.
