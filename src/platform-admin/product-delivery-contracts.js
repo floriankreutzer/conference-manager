@@ -335,7 +335,9 @@ export function normalizeProductDelivery(value) {
     && productInstant(report.periodEnd) <= evaluated
     && (report.observedAt === null
       ? collectionMode === 'not_collected' && freshness === 'unknown'
+        && evaluated < productInstant(report.periodEnd) + DAY_MS
       : collectionMode === 'operator_snapshot' && productInstant(report.observedAt) <= evaluated
+        && evaluated - productInstant(report.observedAt) < 30 * DAY_MS
         && freshness === (evaluated - productInstant(report.observedAt) >= DAY_MS ? 'stale' : 'fresh')));
   return Object.freeze({ ...report, collectionMode, accessMode, evaluatedAt, freshness });
 }

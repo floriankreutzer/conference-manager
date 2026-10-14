@@ -60,3 +60,16 @@ test('known wire data rejects unsupported cohorts, impossible precision and obse
     assert.throws(() => normalizeProductDelivery(value));
   }
 });
+
+
+test('wire retention rejects an expired aggregate and an obsolete uncollected window', () => {
+  const known = JSON.parse(readFileSync(new URL('./support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  const expiry = Date.parse(known.observedAt) + 30 * 86_400_000;
+  known.freshness = 'stale'; known.evaluatedAt = new Date(expiry - 1).toISOString();
+  assert.equal(normalizeProductDelivery(known).freshness, 'stale');
+  known.evaluatedAt = new Date(expiry).toISOString();
+  assert.throws(() => normalizeProductDelivery(known));
+  const unknown = fixture();
+  unknown.evaluatedAt = new Date(Date.parse(unknown.periodEnd) + 86_400_000).toISOString();
+  assert.throws(() => normalizeProductDelivery(unknown));
+});
