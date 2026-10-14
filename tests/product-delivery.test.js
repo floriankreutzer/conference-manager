@@ -47,9 +47,16 @@ test('wire schema rejects roles, customer content, arbitrary labels, malformed w
 });
 
 
-test('known wire data rejects an unsupported decision duration cohort', () => {
-  const value = JSON.parse(readFileSync(new URL('./support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
-  value.product.find((item) => item.id === 'manager_decisions').value = 2;
-  value.provenance.eventCount = 5;
-  assert.throws(() => normalizeProductDelivery(value));
+test('known wire data rejects unsupported cohorts, impossible precision and observation-day drift', () => {
+  const original = JSON.parse(readFileSync(new URL('./support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  for (const mutate of [
+    (value) => { value.product.find((item) => item.id === 'manager_decisions').value = 2;
+      value.provenance.eventCount = 5; },
+    (value) => { value.delivery[1].buckets[3].metrics[0].value = 0.1; },
+    (value) => { value.delivery[1].buckets[3].metrics[4].value = 1e-12; },
+    (value) => { value.observedAt = '2026-10-16T00:00:00.000Z'; value.evaluatedAt = value.observedAt; },
+  ]) {
+    const value = JSON.parse(JSON.stringify(original)); mutate(value);
+    assert.throws(() => normalizeProductDelivery(value));
+  }
 });
