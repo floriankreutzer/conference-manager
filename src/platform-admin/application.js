@@ -313,8 +313,9 @@ export function createPlatformAdminApplication({
   async function loadFleetResource(view, { cursor = null, append = false, force = false } = {}) {
     if (view === 'directory') return;
     const existing = fleetResources.get(view);
-    if (!force && !cursor && existing?.status === 'ready') return;
-    fleetResources.set(view, { status: 'loading', data: append ? existing?.data : null });
+    if (!force && !cursor && ['ready', 'loading'].includes(existing?.status)) return;
+    const pending = { status: 'loading', data: append ? existing?.data : null };
+    fleetResources.set(view, pending);
     render();
     try {
       let data;
@@ -327,8 +328,10 @@ export function createPlatformAdminApplication({
       if (append && existing?.data && Array.isArray(data.items)) {
         data = Object.freeze({ ...data, items: Object.freeze([...existing.data.items, ...data.items]) });
       }
+      if (fleetResources.get(view) !== pending) return;
       fleetResources.set(view, { status: 'ready', data });
     } catch {
+      if (fleetResources.get(view) !== pending) return;
       fleetResources.set(view, { status: 'error', data: null });
     }
     render();
@@ -672,7 +675,7 @@ export function createPlatformAdminApplication({
     if (fleetView === 'product-delivery' && productDelivery) {
       setHeading(t('platformAdmin.productDelivery.title'), t('platformAdmin.productDelivery.subtitle'));
       return renderProductDelivery({ resource: fleetResources.get(fleetView),
-        onRetry: () => loadFleetResource(fleetView, { force: true }) });
+        onRetry: () => { focusHeading(); void loadFleetResource('product-delivery', { force: true }); } });
     }
     if (fleetView === 'providers' && providerUsage) {
       setHeading(t('platformAdmin.providers.title'), t('platformAdmin.providers.subtitle'));

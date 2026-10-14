@@ -443,7 +443,9 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await expect(page.locator('#viewTitle')).toHaveText('Product & delivery');
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unknown');
   report = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
-  await page.locator('[data-product-delivery-refresh]').click();
+  await page.locator('[data-product-delivery-refresh]').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#viewTitle')).toBeFocused();
   await expect(view).toBeVisible();
   expect(reads).toBe(2);
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('1');
@@ -470,7 +472,9 @@ test('private product failures and forged content fail closed and Production ref
   await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
   await expect(page.getByRole('heading', { name: 'Produktübersicht nicht verfügbar' })).toBeVisible();
   malformed = true;
-  await page.locator('[data-product-delivery-refresh]').click();
+  await page.locator('[data-product-delivery-refresh]').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#viewTitle')).toBeFocused();
   await expect(page.getByRole('heading', { name: 'Produktübersicht nicht verfügbar' })).toBeVisible();
   await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
   await expect(page.locator('#app')).not.toContainText('must-not-render-private-content');
@@ -481,4 +485,32 @@ test('private product failures and forged content fail closed and Production ref
     return null;
   });
   expect(refusal).toBe('PLATFORM_ADMIN_PRODUCT_DELIVERY_INVALID');
+});
+
+
+test('slow Product navigation deduplicates its pending read and retains keyboard focus across refresh', async ({ page }) => {
+  await installDemoRoutes(page);
+  const report = JSON.parse(readFileSync(new URL('../support/product-delivery-fixture.json', import.meta.url), 'utf8'));
+  let release;
+  const blocked = new Promise((resolve) => { release = resolve; });
+  let reads = 0;
+  await page.route('**/api/v1/platform/demo/product-delivery', async (route) => {
+    reads += 1;
+    await blocked;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  const product = page.locator('[data-platform-admin-fleet-view="product-delivery"]');
+  const request = page.waitForRequest('**/api/v1/platform/demo/product-delivery');
+  await product.click(); await request;
+  await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+  await product.click();
+  await expect(page.locator('#app [role="status"]')).toBeVisible();
+  expect(reads).toBe(1);
+  release();
+  await expect(page.locator('[data-product-delivery-report]')).toBeVisible();
+  await page.locator('[data-product-delivery-refresh]').focus(); await page.keyboard.press('Enter');
+  await expect(page.locator('[data-product-delivery-report]')).toBeVisible();
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  expect(reads).toBe(2);
 });
