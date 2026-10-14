@@ -62,13 +62,19 @@
     {
       "id": "recovery_completed",
       "unit": "count",
-      "value": 0,
+      "value": 3,
       "reason": "available"
     },
     {
       "id": "recovery_failed",
       "unit": "count",
-      "value": 0,
+      "value": 1,
+      "reason": "available"
+    },
+    {
+      "id": "recovery_failure_rate",
+      "unit": "ratio",
+      "value": 0.25,
       "reason": "available"
     }
   ],
@@ -595,8 +601,8 @@
   ],
   "provenance": {
     "mode": "operator_extract",
-    "sourceDigest": "1e786d5843cec0adfbbdc1af3374c97391bed812784429bbd990fc36bb6edee7",
-    "eventCount": 4
+    "sourceDigest": "5de805d51b5c51575227aa357e68730007536eef9a0a5e38da0fe4dd091322f2",
+    "eventCount": 8
   },
   "collectionMode": "operator_snapshot",
   "accessMode": "shared_owner_password",

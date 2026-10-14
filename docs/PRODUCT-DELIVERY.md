@@ -2,7 +2,9 @@
 
 The independent Operations view presents Product Outcomes, structured Pilot Feedback
 and four weekly DORA windows for application/API/website. Provider/FinOps and technical
-availability remain separate. It uses the trusted API's
+availability remain separate. Product recovery failure rate uses confirmed completed/failed
+recovery outcomes; it is independent from deployment change failure rate and stays
+unknown for missing coverage or an empty denominator. It uses the trusted API's
 [source and calculation contract](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/PRODUCT-DELIVERY.md).
 
 The browser only validates/renders the closed projection; it does not calculate

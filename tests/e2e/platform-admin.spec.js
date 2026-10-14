@@ -449,10 +449,12 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await expect(view).toBeVisible();
   expect(reads).toBe(2);
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('1');
+  await expect(view.locator('[data-product-metric="recovery_failure_rate"] strong')).toHaveText('25%');
   const api = view.locator('[data-product-delivery-component="api"]');
   await expect(api.locator('details').first().locator('[data-product-metric="change_lead_time"] strong')).toHaveText('0.5 s');
   await page.locator('select[aria-label="Language"]').selectOption('de');
   await expect(api.locator('details').first().locator('[data-product-metric="change_lead_time"] strong')).toHaveText('0,5 s');
+  await expect(view.locator('[data-product-metric="recovery_failure_rate"] strong')).toHaveText(/25\s%/u);
   const knownScreenshot = testInfo.outputPath('product-delivery-known-api.png');
   await api.screenshot({ path: knownScreenshot });
   await testInfo.attach('product-delivery-known-api', { path: knownScreenshot, contentType: 'image/png' });

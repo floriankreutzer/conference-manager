@@ -70,6 +70,12 @@
       "unit": "count",
       "value": null,
       "reason": "incomplete_source"
+    },
+    {
+      "id": "recovery_failure_rate",
+      "unit": "ratio",
+      "value": null,
+      "reason": "incomplete_source"
     }
   ],
   "feedback": {

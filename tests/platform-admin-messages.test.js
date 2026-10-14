@@ -12,7 +12,7 @@ const DYNAMIC_PLATFORM_ADMIN_KEYS = Object.freeze([
   ...['positive', 'neutral', 'negative'].map((id) => `platformAdmin.productDelivery.sentiment.${id}`),
   ...['onboarding_started', 'onboarding_completed', 'request_started', 'request_submitted',
     'request_abandoned', 'time_to_submit', 'manager_decisions', 'manager_decision_time',
-    'transition_failures', 'recovery_completed', 'recovery_failed', 'change_lead_time',
+    'transition_failures', 'recovery_completed', 'recovery_failed', 'recovery_failure_rate', 'change_lead_time',
     'deployment_frequency', 'failed_deployment_recovery_time', 'change_failure_rate',
     'deployment_rework_rate'].map((id) => `platformAdmin.productDelivery.metric.${id}`),
   ...['available', 'incomplete_source', 'missing_start_clock', 'empty_denominator',
