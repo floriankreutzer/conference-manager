@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { acceptanceGateEnabled, createOriginContext } from '../support/origin-context.mjs';
 import { tenantBulkCsvToDocument, tenantBulkDocumentToCsv } from '../../src/shared/tenant-bulk-csv.js';
@@ -107,9 +107,13 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
     let diagnosticFailed = false;
     if (diagnostics && csvTestFailure(primaryError, cleanup) !== undefined) {
       try {
+        // HTML reports retain file-backed JSON; an in-memory JSON body can
+        // otherwise leave only attachment metadata in the uploaded report.
+        const path = testInfo.outputPath('business-csv-bootstrap.json');
+        await writeFile(path, JSON.stringify({ schemaVersion: 1, ...diagnostics.snapshot(),
+          primaryFailed: primaryError !== undefined, cleanup }), { mode: 0o600 });
         await testInfo.attach('business-csv-bootstrap', {
-          body: Buffer.from(JSON.stringify({ schemaVersion: 1, ...diagnostics.snapshot(),
-            primaryFailed: primaryError !== undefined, cleanup })),
+          path,
           contentType: 'application/json',
         });
       } catch { diagnosticFailed = true; }
