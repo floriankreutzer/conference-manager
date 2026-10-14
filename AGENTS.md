@@ -123,6 +123,8 @@ Responsive behavior must avoid page-level horizontal overflow, preserve zoom/ref
 
 For every code change, run or require the applicable project gates after the final modification.
 
+Use the [canonical cross-repository test strategy](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/TEST-STRATEGY.md) for risk-based tests, evidence and flaky-test handling; these instructions, coding standards and permanent Demo gates remain authoritative.
+
 Baseline:
 
 ```bash
