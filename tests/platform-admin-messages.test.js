@@ -9,6 +9,23 @@ import { PLATFORM_ADMIN_MESSAGES } from '../src/core/i18n-platform-admin-message
 const PLATFORM_ADMIN_SOURCE_ROOT = fileURLToPath(new URL('../src/platform-admin/', import.meta.url));
 
 const DYNAMIC_PLATFORM_ADMIN_KEYS = Object.freeze([
+  ...['positive', 'neutral', 'negative'].map((id) => `platformAdmin.productDelivery.sentiment.${id}`),
+  ...['onboarding_started', 'onboarding_completed', 'request_started', 'request_submitted',
+    'request_abandoned', 'time_to_submit', 'manager_decisions', 'manager_decision_time',
+    'transition_failures', 'recovery_completed', 'recovery_failed', 'change_lead_time',
+    'deployment_frequency', 'failed_deployment_recovery_time', 'change_failure_rate',
+    'deployment_rework_rate'].map((id) => `platformAdmin.productDelivery.metric.${id}`),
+  ...['available', 'incomplete_source', 'missing_start_clock', 'empty_denominator',
+    'unresolved_recovery', 'missing_classification', 'not_configured']
+    .map((id) => `platformAdmin.productDelivery.reason.${id}`),
+  ...['fresh', 'stale', 'unknown'].map((id) => `platformAdmin.productDelivery.freshness.${id}`),
+  ...['application', 'api', 'website'].map((id) => `platformAdmin.productDelivery.component.${id}`),
+  ...['demo', 'production'].map((id) => `platformAdmin.productDelivery.environment.${id}`),
+  ...['not_collected', 'operator_snapshot'].map((id) => `platformAdmin.productDelivery.mode.${id}`),
+  ...['not_configured', 'protected_operator_registry'].map((id) => `platformAdmin.productDelivery.feedbackSource.${id}`),
+  ...['total', 'open', 'highSeverity'].map((id) => `platformAdmin.productDelivery.feedback.${id}`),
+  ...['usability', 'correctness', 'performance', 'accessibility', 'integration'].map((id) => `platformAdmin.productDelivery.category.${id}`),
+  ...['onboarding', 'request', 'manager', 'recovery'].map((id) => `platformAdmin.productDelivery.workflow.${id}`),
   ...['unverified', 'break_glass'].map((value) => `platformAdmin.assurance.${value}`),
   ...['directory', 'readiness', 'integration-health', 'platform-audit', 'runtime-status']
     .map((value) => `platformAdmin.fleetView.${value}.description`),

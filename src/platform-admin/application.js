@@ -33,6 +33,7 @@ import {
 } from './fleet-sections.js';
 import { platformRecoveryDefinition } from './resource-contracts.js';
 import { renderProviderUsage } from './provider-usage.js';
+import { renderProductDelivery } from './product-delivery.js';
 
 const LIFECYCLE_FILTERS = Object.freeze(['all', 'pending', 'onboarding', 'ready', 'active', 'suspended', 'archived']);
 const HEALTH_FILTERS = Object.freeze(['all', 'healthy', 'degraded', 'unavailable', 'not_configured']);
@@ -93,12 +94,16 @@ export function createPlatformAdminApplication({
   onStepUp = null,
   demoControls = null,
   providerUsage = null,
+  productDelivery = null,
   documentRef = globalThis.document,
   windowRef = globalThis.window,
 } = {}) {
   if (!['production', 'demo'].includes(runtime)) throw new TypeError('PLATFORM_ADMIN_RUNTIME_INVALID');
   if (providerUsage !== null && (runtime !== 'demo' || typeof providerUsage.load !== 'function')) {
     throw new TypeError('PLATFORM_ADMIN_PROVIDER_USAGE_INVALID');
+  }
+  if (productDelivery !== null && (runtime !== 'demo' || typeof productDelivery.load !== 'function')) {
+    throw new TypeError('PLATFORM_ADMIN_PRODUCT_DELIVERY_INVALID');
   }
   if (!['authenticated', 'unauthenticated', 'unavailable'].includes(sessionState)) {
     throw new TypeError('PLATFORM_ADMIN_SESSION_STATE_INVALID');
@@ -313,7 +318,8 @@ export function createPlatformAdminApplication({
     render();
     try {
       let data;
-      if (view === 'providers') data = await providerUsage.load();
+      if (view === 'product-delivery') data = await productDelivery.load();
+      else if (view === 'providers') data = await providerUsage.load();
       else if (view === 'readiness') data = await dataSource.loadReadiness({ limit: 50, cursor });
       else if (view === 'integration-health') data = await dataSource.loadMicrosoftHealth({ limit: 50, cursor });
       else if (view === 'platform-audit') data = await dataSource.loadAudit({ limit: 100, beforeSequence: cursor });
@@ -510,7 +516,8 @@ export function createPlatformAdminApplication({
     nodes.navigation.setAttribute('aria-label', t('platformAdmin.navigation.label'));
     const list = el('ul', { className: 'nav-list' });
     const views = [...PLATFORM_FLEET_VIEW_DEFINITIONS,
-      ...(providerUsage && currentOperator ? [{ id: 'providers', titleKey: 'platformAdmin.providers.title', permission: null }] : [])];
+      ...(providerUsage && currentOperator ? [{ id: 'providers', titleKey: 'platformAdmin.providers.title', permission: null }] : []),
+      ...(productDelivery && currentOperator ? [{ id: 'product-delivery', titleKey: 'platformAdmin.productDelivery.title', permission: null }] : [])];
     views
       .filter(({ permission }) => permission === null || currentOperator?.permissions.includes(permission))
       .forEach((definition) => {
@@ -662,6 +669,11 @@ export function createPlatformAdminApplication({
   }
 
   function renderSelectedFleetView() {
+    if (fleetView === 'product-delivery' && productDelivery) {
+      setHeading(t('platformAdmin.productDelivery.title'), t('platformAdmin.productDelivery.subtitle'));
+      return renderProductDelivery({ resource: fleetResources.get(fleetView),
+        onRetry: () => loadFleetResource(fleetView, { force: true }) });
+    }
     if (fleetView === 'providers' && providerUsage) {
       setHeading(t('platformAdmin.providers.title'), t('platformAdmin.providers.subtitle'));
       return renderProviderUsage({ resource: fleetResources.get(fleetView),

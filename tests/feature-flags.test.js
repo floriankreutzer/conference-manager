@@ -8,9 +8,11 @@ import {
 } from '../src/platform/feature-flags.js';
 
 test('regression: baseline remains independent of optional provider reporting', () => {
-  assert.deepEqual(FEATURE_FLAG_DEFAULTS, { 'platform.provider-usage': false });
+  assert.deepEqual(FEATURE_FLAG_DEFAULTS, { 'platform.provider-usage': false, 'platform.product-delivery': false });
   assert.equal(createFeatureFlagResolver().isEnabled('platform.provider-usage'), false);
   assert.equal(featureFlags.isEnabled('platform.provider-usage'), true);
+  assert.equal(createFeatureFlagResolver().isEnabled('platform.product-delivery'), false);
+  assert.equal(featureFlags.isEnabled('platform.product-delivery'), true);
   assert.equal(featureFlags.isEnabled('baseline.employee-request'), false);
   assert.equal(featureFlags.isEnabled('baseline.manager-cockpit'), false);
 });

@@ -39,6 +39,9 @@
     "src/platform-admin/provider-usage.js",
     "src/platform-admin/demo/provider-usage-api.js",
     "src/platform/feature-flags.js",
-    "src/platform-admin/provider-usage-contracts.js"
+    "src/platform-admin/provider-usage-contracts.js",
+    "src/platform-admin/product-delivery.js",
+    "src/platform-admin/demo/product-delivery-api.js",
+    "src/platform-admin/product-delivery-contracts.js"
   ]
 }
