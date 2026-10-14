@@ -152,8 +152,12 @@ export function createPlatformAdminApplication({
     monotonicNow: () => windowRef.performance.now(),
     onExpire(resource) {
       if (fleetResources.get('product-delivery') !== resource) return;
+      const selected = currentRoute().view === 'fleet' && fleetView === 'product-delivery';
       fleetResources.delete('product-delivery');
-      render();
+      if (selected) {
+        if (productViewIsVisible()) renderWithFocusHandoff();
+        else render();
+      }
       if (productViewIsVisible()) void loadFleetResource('product-delivery');
     },
   }) : null;
@@ -166,8 +170,9 @@ export function createPlatformAdminApplication({
 
   function revalidateProductCache() {
     productCache?.check();
-    if (productViewIsVisible() && !fleetResources.has('product-delivery')) {
-      void loadFleetResource('product-delivery');
+    if (productViewIsVisible()) {
+      if (!fleetResources.has('product-delivery')) void loadFleetResource('product-delivery');
+      if (documentRef.activeElement === documentRef.body) focusHeading();
     }
   }
 
@@ -183,6 +188,12 @@ export function createPlatformAdminApplication({
 
   function focusHeading() {
     windowRef.requestAnimationFrame(() => nodes.title.focus());
+  }
+
+  function renderWithFocusHandoff() {
+    const focused = documentRef.activeElement;
+    render();
+    if (focused && focused !== documentRef.body && focused.isConnected === false) focusHeading();
   }
 
   function navigate(hash, { replace = false } = {}) {
@@ -370,7 +381,10 @@ export function createPlatformAdminApplication({
       if (fleetResources.get(view) !== pending) return;
       fleetResources.set(view, { status: 'error', data: null });
     }
-    render();
+    if (currentRoute().view === 'fleet' && fleetView === view) {
+      if (view === 'product-delivery' && productViewIsVisible()) renderWithFocusHandoff();
+      else render();
+    }
   }
 
   async function tenantResourceData(tenant, sectionId) {
