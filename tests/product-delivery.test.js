@@ -52,6 +52,7 @@ test('known wire data rejects unsupported cohorts, impossible precision and obse
   for (const mutate of [
     (value) => { value.product.find((item) => item.id === 'manager_decisions').value = 2;
       value.provenance.eventCount += 1; },
+    (value) => { value.product.find((item) => item.id === 'manager_decision_time').value = 0.5; },
     (value) => { value.delivery[1].buckets[3].metrics[0].value = 0.1; },
     (value) => { value.delivery[1].buckets[3].metrics[4].value = 1e-12; },
     (value) => { value.observedAt = '2026-10-16T00:00:00.000Z'; value.evaluatedAt = value.observedAt; },
