@@ -45,3 +45,11 @@ test('wire schema rejects roles, customer content, arbitrary labels, malformed w
   ];
   for (const mutate of mutations) { const value = fixture(); mutate(value); assert.throws(() => normalizeProductDelivery(value)); }
 });
+
+
+test('known wire data rejects an unsupported decision duration cohort', () => {
+  const value = JSON.parse(readFileSync(new URL('./support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  value.product.find((item) => item.id === 'manager_decisions').value = 2;
+  value.provenance.eventCount = 5;
+  assert.throws(() => normalizeProductDelivery(value));
+});
