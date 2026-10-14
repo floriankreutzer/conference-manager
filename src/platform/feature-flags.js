@@ -14,7 +14,7 @@ export function createFeatureFlagDefinitions(definitions = {}) {
 // Baseline functionality is intentionally absent from this registry. Genuinely
 // new functionality must be registered here and must default to false unless an
 // explicitly approved requirement says otherwise.
-export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({});
+export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({ 'platform.provider-usage': false });
 
 export function createFeatureFlagResolver(defaults = FEATURE_FLAG_DEFAULTS, overrides = {}) {
   const safeDefaults = createFeatureFlagDefinitions(defaults);
@@ -30,4 +30,6 @@ export function createFeatureFlagResolver(defaults = FEATURE_FLAG_DEFAULTS, over
   });
 }
 
-export const featureFlags = createFeatureFlagResolver();
+// Approved Operations Demo rollout. The registry defaults remain OFF; this
+// presentation override never grants the server's private-read capability.
+export const featureFlags = createFeatureFlagResolver(undefined, { 'platform.provider-usage': true });

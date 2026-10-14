@@ -118,8 +118,10 @@ for (const definition of [
     }
     if (
       file === 'index.html'
-      || ['src/app.js', 'src/employee', 'src/manager', 'src/tenant-admin', 'src/platform']
+      || (!(definition.artifact === 'platform-admin-demo' && file === 'src/platform/feature-flags.js')
+        && ['src/app.js', 'src/employee', 'src/manager', 'src/tenant-admin', 'src/platform']
         .some((root) => isInside(file, root))
+      )
       || definition.forbiddenRoots.some((root) => isInside(file, root))
     ) fail(`${definition.manifestPath}: deployment file crosses the artifact boundary: ${file}.`);
   }

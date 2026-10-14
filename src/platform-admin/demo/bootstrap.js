@@ -1,6 +1,8 @@
 import { createApiClient } from '../../core/api-client.js';
 import { createPlatformAdminApplication } from '../index.js';
 import { createPlatformAdminApi } from '../platform-api.js';
+import { createProviderUsageApi } from './provider-usage-api.js';
+import { featureFlags } from '../../platform/feature-flags.js';
 import {
   PLATFORM_ADMIN_DEMO_PERSONAS,
   createPlatformDemoSessionApi,
@@ -23,6 +25,7 @@ async function bootstrapDemoPlatformAdmin() {
       sessionState: 'authenticated',
       operator: session.operator,
       dataSource: createPlatformAdminApi({ apiClient }),
+      providerUsage: featureFlags.isEnabled('platform.provider-usage') ? createProviderUsageApi({ apiClient }) : null,
       demoControls: Object.freeze({
         roleIds: PLATFORM_ADMIN_DEMO_PERSONAS,
         currentRoleId: () => session.persona,
