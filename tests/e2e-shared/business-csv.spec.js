@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { acceptanceGateEnabled, createOriginContext } from '../support/origin-context.mjs';
 import { tenantBulkCsvToDocument, tenantBulkDocumentToCsv } from '../../src/shared/tenant-bulk-csv.js';
@@ -33,12 +33,11 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
   let primaryError;
   let diagnostics;
   try {
-    // Chromium runs first and owns the initial process-wide rate-limit wait.
-    // WebKit starts only after the preceding shared-runtime test has already
-    // waited for the same real 60-second window; do not raise or disable it.
-    if (browser.browserType().name() === 'chromium') {
-      await new Promise((resolve) => setTimeout(resolve, 61_000));
-    }
+    // Each engine starts in a fresh real process-wide rate-limit window.
+    // The preceding shared-runtime test waits before its own requests, not
+    // after them; its quota must not carry into the next engine's CSV journey.
+    // Do not raise limits, reset limiter state or retry a denied request.
+    await new Promise((resolve) => setTimeout(resolve, 61_000));
     await reset(platform); seeded = true;
     const session = await contextFor(customer, NORTHWIND, 'conference_manager');
     const page = await customer.newPage();
@@ -107,9 +106,13 @@ test('Business CSV validates, applies, reloads and reimports every owned data ty
     let diagnosticFailed = false;
     if (diagnostics && csvTestFailure(primaryError, cleanup) !== undefined) {
       try {
+        // HTML reports retain file-backed JSON; an in-memory JSON body can
+        // otherwise leave only attachment metadata in the uploaded report.
+        const path = testInfo.outputPath('business-csv-bootstrap.json');
+        await writeFile(path, JSON.stringify({ schemaVersion: 1, ...diagnostics.snapshot(),
+          primaryFailed: primaryError !== undefined, cleanup }), { mode: 0o600 });
         await testInfo.attach('business-csv-bootstrap', {
-          body: Buffer.from(JSON.stringify({ schemaVersion: 1, ...diagnostics.snapshot(),
-            primaryFailed: primaryError !== undefined, cleanup })),
+          path,
           contentType: 'application/json',
         });
       } catch { diagnosticFailed = true; }
