@@ -344,3 +344,67 @@ test('Production directory survives ordinary renders and exposes every cursor pa
   await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(2);
   expect(directoryRequests).toEqual([null, 'next_page']);
 });
+
+test('private provider cards show dated usage, native meters, thresholds and unknown billing in both languages', async ({ page }) => {
+  await installDemoRoutes(page);
+  const report = {
+    schemaVersion: 1, collectionMode: 'operator_snapshot', accessMode: 'shared_owner_password',
+    evaluatedAt: '2026-10-17T00:00:00.000Z', observedAt: '2026-10-15T00:00:00.000Z',
+    periodStart: '2026-10-01T00:00:00.000Z', periodEnd: '2026-11-01T00:00:00.000Z', freshness: 'stale',
+    alertDelivery: 'not_configured', costState: 'unknown',
+    neon: { plan: 'launch_v3', source: 'neon_control_plane', referenceBasis: 'published_launch_model',
+      referenceObservedAt: '2026-10-01T00:00:00.000Z', usedBytes: 260_000_000_000,
+      referenceBytes: 500_000_000_000, projectedBytes: 575_714_285_715, utilizationPercent: 52,
+      projectedUtilizationPercent: 115.14, crossedThresholds: [50], projectedExhaustion: true,
+      anomalyState: 'insufficient_baseline' }, render: { usageState: 'unknown_monthly_usage' },
+    github: { usageState: 'unknown_billing_usage' },
+  };
+  let reads = 0;
+  await page.route('**/api/v1/platform/demo/provider-usage', async (route) => {
+    expect(route.request().method()).toBe('GET');
+    expect(new URL(route.request().url()).search).toBe('');
+    expect(route.request().postData()).toBeNull();
+    reads += 1;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  const open = page.locator('[data-platform-admin-fleet-view="providers"]');
+  await open.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-platform-provider-report]')).toBeVisible();
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  await expect(page.locator('meter')).toHaveAttribute('value', '260000000000');
+  await expect(page.locator('label[for="platformProviderNeonMeter"]')).toContainText('52');
+  await expect(page.locator('[data-platform-provider="neon"]')).toContainText('keine Ausgabensperre');
+  await expect(page.locator('[data-platform-provider="render"]')).toContainText('Unbekannt');
+  await expect(page.locator('[data-platform-provider="github"]')).toContainText('Unbekannt');
+  await expect(page.locator('.platform-admin-provider-thresholds [data-tone="critical"]')).toHaveCount(1);
+  await expect(page.locator('[data-platform-provider-report]')).toContainText('veraltet');
+  await expect(page.locator('[data-platform-provider-report]')).toContainText('keine Warn-E-Mails');
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await expect(page.locator('#viewTitle')).toHaveText('Providers & usage');
+  await expect(page.locator('[data-platform-provider="render"]')).toContainText('Unknown');
+  await expect(page.locator('[data-platform-provider-report]')).toContainText('Snapshot stale');
+  await page.locator('[data-platform-provider-refresh]').click();
+  await expect(page.locator('[data-platform-provider-report]')).toBeVisible();
+  expect(reads).toBe(2);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+});
+
+test('private provider failures retry safely and malformed provider payloads do not render', async ({ page }) => {
+  await installDemoRoutes(page);
+  let malformed = false;
+  await page.route('**/api/v1/platform/demo/provider-usage', (route) => route.fulfill({
+    status: malformed ? 200 : 404, contentType: 'application/json',
+    body: JSON.stringify(malformed ? { ownerEmail: 'private@example.invalid' } : { error: { code: 'PLATFORM_NOT_FOUND' } }),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  await expect(page.getByRole('heading', { name: 'Anbieterübersicht nicht verfügbar' })).toBeVisible();
+  malformed = true;
+  await page.locator('[data-platform-provider-refresh]').click();
+  await expect(page.getByRole('heading', { name: 'Anbieterübersicht nicht verfügbar' })).toBeVisible();
+  await expect(page.locator('meter')).toHaveCount(0);
+  await expect(page.locator('#app')).not.toContainText('private@example.invalid');
+});

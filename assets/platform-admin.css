@@ -343,3 +343,23 @@
     transition-duration: 0.01ms;
   }
 }
+.platform-admin-provider-grid {
+  display: grid;
+  gap: var(--app-section-gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  margin-block: var(--app-section-gap);
+}
+
+.platform-admin-provider-meter {
+  inline-size: 100%;
+  block-size: var(--space-6);
+  accent-color: var(--brand-primary);
+}
+
+.platform-admin-provider-thresholds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-control-gap);
+  padding: 0;
+  list-style: none;
+}

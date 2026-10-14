@@ -35,6 +35,10 @@
     "src/platform-admin/platform-api.js",
     "src/platform-admin/resource-contracts.js",
     "src/platform-admin/route.js",
-    "src/platform-admin/tenant-sections.js"
+    "src/platform-admin/tenant-sections.js",
+    "src/platform-admin/provider-usage.js",
+    "src/platform-admin/demo/provider-usage-api.js",
+    "src/platform/feature-flags.js",
+    "src/platform-admin/provider-usage-contracts.js"
   ]
 }

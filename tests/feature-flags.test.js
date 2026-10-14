@@ -7,8 +7,10 @@ import {
   featureFlags,
 } from '../src/platform/feature-flags.js';
 
-test('regression: baseline contains no feature flags and remains enabled independently', () => {
-  assert.deepEqual(FEATURE_FLAG_DEFAULTS, {});
+test('regression: baseline remains independent of optional provider reporting', () => {
+  assert.deepEqual(FEATURE_FLAG_DEFAULTS, { 'platform.provider-usage': false });
+  assert.equal(createFeatureFlagResolver().isEnabled('platform.provider-usage'), false);
+  assert.equal(featureFlags.isEnabled('platform.provider-usage'), true);
   assert.equal(featureFlags.isEnabled('baseline.employee-request'), false);
   assert.equal(featureFlags.isEnabled('baseline.manager-cockpit'), false);
 });

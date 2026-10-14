@@ -64,6 +64,7 @@ export function platformAdminBoundaryViolations(sourceEntries) {
         violations.push(violation(file, 'Customer and Tenant Admin graphs must not import Platform Admin authority.'));
       }
       if (isInside(file, PLATFORM_ADMIN_ROOT)
+        && !(file === `${DEMO_ROOT}/bootstrap.js` && dependency === 'src/platform/feature-flags.js')
         && CUSTOMER_CAPABILITY_ROOTS.some((root) => isInside(dependency, root))) {
         violations.push(violation(file, `Platform Admin must not depend on customer capability ${dependency}.`));
       }

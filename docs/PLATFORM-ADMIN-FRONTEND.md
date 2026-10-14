@@ -1,5 +1,31 @@
 # Platform Admin frontend
 
+## Private hosted Operations provider overview
+
+The Demo composition can inject the optional provider-usage adapter. Its registered
+`platform.provider-usage` flag defaults OFF centrally; its approved presentation
+override is also centralized. Only the Operations Demo bootstrap consumes the
+pure singleton from `src/platform/feature-flags.js`; other customer
+capability dependencies remain forbidden. Production cannot receive the provider
+adapter. The client flag and Demo role selector never authorize financial reads.
+
+The provider menu loads only the fixed same-origin, bodyless GET
+`/api/v1/platform/demo/provider-usage` on selection, with a bounded timeout. The API
+independently requires its request-bound owner password capability and explicit
+private server snapshot configuration. Public/default CI instances return unavailable,
+not synthetic finance data. Real values are never included in this repository or
+static artifact. The positive response schema rejects extra fields, unknown authority,
+unsafe amounts/times/models and unexpected sources before safe DOM presentation.
+
+`src/platform-admin/provider-usage.js` owns the contract, adapter and accessible
+provider cards; the shell only composes navigation/loading. Existing German/English
+messages, locale formatting, tokens, loading/error/retry patterns and native meter
+semantics are reused. The view shows dated manual collection, explicit staleness,
+the published Launch reference and separate linear projection. It never presents
+the reference as an account limit or spend cap, unknown usage as zero, or forecasts
+as invoice cost. Warning thresholds are report-only; automatic collection and email
+delivery are explicitly not configured. No email address or password is browser data.
+
 This document describes the browser implementation for the SaaS 3 Platform Control Plane. The accepted trust boundary and deployment topology remain authoritative in
 [`SAAS3-PLATFORM-CONTROL-PLANE.md`](./SAAS3-PLATFORM-CONTROL-PLANE.md).
 
