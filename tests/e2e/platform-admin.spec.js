@@ -516,3 +516,35 @@ test('slow Product navigation deduplicates its pending read and retains keyboard
   await expect(page.locator('#viewTitle')).toBeFocused();
   expect(reads).toBe(2);
 });
+
+
+test('Product cache ages on revisit and evicts retained data in a long-lived visible tab', async ({ page }) => {
+  const known = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  const expired = JSON.parse(readFileSync(new URL('../support/product-delivery-expired-fixture.json', import.meta.url), 'utf8'));
+  const start = Date.parse(known.evaluatedAt); const day = 86_400_000;
+  await page.clock.install({ time: new Date(start) });
+  await installDemoRoutes(page);
+  let serverTime = start; let reads = 0;
+  await page.route('**/api/v1/platform/demo/product-delivery', async (route) => {
+    reads += 1;
+    const report = serverTime - start >= 30 * day ? expired
+      : { ...known, evaluatedAt: new Date(serverTime).toISOString(),
+        freshness: serverTime - start >= day ? 'stale' : 'fresh' };
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  const product = page.locator('[data-platform-admin-fleet-view="product-delivery"]');
+  const view = page.locator('[data-product-delivery-report]');
+  await product.click(); await expect(view).toBeVisible(); expect(reads).toBe(1);
+  await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+  serverTime += day;
+  await page.clock.fastForward(day);
+  expect(reads).toBe(1);
+  await product.click(); await expect(view).toBeVisible(); expect(reads).toBe(2);
+  await expect(view.locator('[role="status"][data-tone="critical"]')).toBeVisible();
+  serverTime = start + 30 * day;
+  await page.clock.fastForward(29 * day);
+  await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unbekannt');
+  await expect(view.locator('[data-product-feedback]')).toContainText('noch nicht angebunden');
+  expect(reads).toBe(3);
+});

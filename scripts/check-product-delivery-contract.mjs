@@ -14,15 +14,15 @@ const { loadDemoProductDelivery } = await import(pathToFileURL(resolve(apiRoot,
 const source = JSON.parse(readFileSync(resolve(apiRoot,
   'tests/support/product-delivery-source-fixture.json'), 'utf8'));
 const now = Date.parse(source.observedAt);
-for (const [name, env] of [
-  ['product-delivery-fixture.json', {}],
-  ['product-delivery-known-fixture.json', {
-    DEMO_PRODUCT_DELIVERY_SNAPSHOT: JSON.stringify(compileProductDeliveryReport(source)),
-  }],
+const configured = { DEMO_PRODUCT_DELIVERY_SNAPSHOT: JSON.stringify(compileProductDeliveryReport(source)) };
+for (const [name, env, evaluatedAt] of [
+  ['product-delivery-fixture.json', {}, now],
+  ['product-delivery-known-fixture.json', configured, now],
+  ['product-delivery-expired-fixture.json', configured, now + 30 * 86_400_000],
 ]) {
   const fixture = JSON.parse(readFileSync(new URL(`../tests/support/${name}`, import.meta.url), 'utf8'));
-  const actual = loadDemoProductDelivery(env, { mode: 'password' }).read(now);
+  const actual = loadDemoProductDelivery(env, { mode: 'password' }).read(evaluatedAt);
   assert.deepEqual(fixture, actual, `Immutable API wire drift: ${name}`);
   assert.deepEqual(normalizeProductDelivery(actual), actual);
 }
-console.log('Both Product & Delivery browser fixtures match the immutable API compiler and private loader.');
+console.log('All three Product & Delivery browser fixtures match the immutable API compiler and private loader.');

@@ -43,3 +43,12 @@ align the embedded/CI frontend pin. That final runtime/frontend pair must indepe
 pass API CI and hosted deployment metadata/readiness checks. The CI PostgreSQL image
 is pinned to the same independently verified 18.6-alpine OCI digest as the API suite,
 rather than a moving tag; no database-version, test or quota change is intended.
+
+Product cache entries are revalidated at the next server-defined freshness, UTC-window
+or retention boundary. Timers stay below browser overflow; suspended tabs recheck
+on focus/visibility/pageshow and revisits test cache age. A stale/expired entry is
+evicted before reload; failures do not keep old data visible. Request-flight time is
+included conservatively, wall and monotonic elapsed time are both checked, and
+replacement/role reset/disposal cancel obsolete callbacks. This only reloads the
+private saved aggregate; it is not provider collection. The paired CI also verifies
+the actual API-generated exact-expiry wire fixture before browser acceptance.

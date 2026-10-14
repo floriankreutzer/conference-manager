@@ -37,6 +37,7 @@
     "src/platform-admin/route.js",
     "src/platform-admin/tenant-sections.js",
     "src/platform-admin/provider-usage.js",
-    "src/platform-admin/product-delivery.js"
+    "src/platform-admin/product-delivery.js",
+    "src/platform-admin/product-delivery-cache.js"
   ]
 }
