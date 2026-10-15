@@ -28,7 +28,7 @@ function metrics(items) {
 }
 
 function deliveryComponent(component) {
-  return el('article', { className: 'card platform-admin-record',
+  return el('article', { className: 'card platform-admin-record platform-admin-delivery-component',
     dataset: { productDeliveryComponent: component.component } }, [
     el('h3', { text: t(`platformAdmin.productDelivery.component.${component.component}`) }),
     ...[...component.buckets].reverse().map((bucket, index) => el('details', {

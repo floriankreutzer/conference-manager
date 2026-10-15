@@ -455,6 +455,9 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await page.locator('select[aria-label="Language"]').selectOption('de');
   await expect(api.locator('details').first().locator('[data-product-metric="change_lead_time"] strong')).toHaveText('0,5 s');
   await expect(view.locator('[data-product-metric="recovery_failure_rate"] strong')).toHaveText(/25\s%/u);
+  expect(await api.locator('details[open] .platform-admin-definition-list > div').evaluateAll((rows) =>
+    rows.every((row) => row.querySelector('dd').getBoundingClientRect().top
+      >= row.querySelector('dt').getBoundingClientRect().bottom))).toBe(true);
   const knownScreenshot = testInfo.outputPath('product-delivery-known-api.png');
   await api.screenshot({ path: knownScreenshot });
   await testInfo.attach('product-delivery-known-api', { path: knownScreenshot, contentType: 'image/png' });
