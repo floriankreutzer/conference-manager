@@ -33,6 +33,8 @@ import {
 } from './fleet-sections.js';
 import { platformRecoveryDefinition } from './resource-contracts.js';
 import { renderProviderUsage } from './provider-usage.js';
+import { renderProductDelivery } from './product-delivery.js';
+import { createProductDeliveryCache } from './product-delivery-cache.js';
 
 const LIFECYCLE_FILTERS = Object.freeze(['all', 'pending', 'onboarding', 'ready', 'active', 'suspended', 'archived']);
 const HEALTH_FILTERS = Object.freeze(['all', 'healthy', 'degraded', 'unavailable', 'not_configured']);
@@ -93,12 +95,16 @@ export function createPlatformAdminApplication({
   onStepUp = null,
   demoControls = null,
   providerUsage = null,
+  productDelivery = null,
   documentRef = globalThis.document,
   windowRef = globalThis.window,
 } = {}) {
   if (!['production', 'demo'].includes(runtime)) throw new TypeError('PLATFORM_ADMIN_RUNTIME_INVALID');
   if (providerUsage !== null && (runtime !== 'demo' || typeof providerUsage.load !== 'function')) {
     throw new TypeError('PLATFORM_ADMIN_PROVIDER_USAGE_INVALID');
+  }
+  if (productDelivery !== null && (runtime !== 'demo' || typeof productDelivery.load !== 'function')) {
+    throw new TypeError('PLATFORM_ADMIN_PRODUCT_DELIVERY_INVALID');
   }
   if (!['authenticated', 'unauthenticated', 'unavailable'].includes(sessionState)) {
     throw new TypeError('PLATFORM_ADMIN_SESSION_STATE_INVALID');
@@ -140,6 +146,36 @@ export function createPlatformAdminApplication({
   let fleetView = 'directory';
   const fleetResources = new Map();
   const tenantResources = new Map();
+  const productCache = productDelivery ? createProductDeliveryCache({
+    setTimer: (callback, delay) => windowRef.setTimeout(callback, delay),
+    clearTimer: (timer) => windowRef.clearTimeout(timer),
+    monotonicNow: () => windowRef.performance.now(),
+    onExpire(resource) {
+      if (fleetResources.get('product-delivery') !== resource) return;
+      const selected = currentRoute().view === 'fleet' && fleetView === 'product-delivery';
+      fleetResources.delete('product-delivery');
+      if (selected) {
+        if (productViewIsVisible()) renderWithFocusHandoff();
+        else render();
+      }
+      if (productViewIsVisible()) void loadFleetResource('product-delivery');
+    },
+  }) : null;
+
+  function productViewIsVisible() {
+    return productDelivery && sessionState === 'authenticated' && fleet
+      && currentRoute().view === 'fleet' && fleetView === 'product-delivery'
+      && documentRef.visibilityState !== 'hidden';
+  }
+
+  function revalidateProductCache() {
+    productCache?.check();
+    if (productViewIsVisible()) {
+      if (!fleetResources.has('product-delivery')) void loadFleetResource('product-delivery');
+      if (documentRef.activeElement === documentRef.body) focusHeading();
+    }
+  }
+
 
   function currentRoute() {
     return platformAdminRouteFromHash(windowRef.location.hash);
@@ -152,6 +188,12 @@ export function createPlatformAdminApplication({
 
   function focusHeading() {
     windowRef.requestAnimationFrame(() => nodes.title.focus());
+  }
+
+  function renderWithFocusHandoff() {
+    const focused = documentRef.activeElement;
+    render();
+    if (focused && focused !== documentRef.body && focused.isConnected === false) focusHeading();
   }
 
   function navigate(hash, { replace = false } = {}) {
@@ -226,6 +268,7 @@ export function createPlatformAdminApplication({
           currentOperator = nextOperator;
           actionError = false;
           fleetView = 'directory';
+          productCache?.forget();
           fleetResources.clear();
           tenantResources.clear();
           await loadFleet();
@@ -260,6 +303,7 @@ export function createPlatformAdminApplication({
             currentOperator = nextOperator;
             filters = normalizePlatformDirectoryQuery();
             fleetView = 'directory';
+            productCache?.forget();
             fleetResources.clear();
             tenantResources.clear();
             dialog.close();
@@ -308,12 +352,18 @@ export function createPlatformAdminApplication({
   async function loadFleetResource(view, { cursor = null, append = false, force = false } = {}) {
     if (view === 'directory') return;
     const existing = fleetResources.get(view);
-    if (!force && !cursor && existing?.status === 'ready') return;
-    fleetResources.set(view, { status: 'loading', data: append ? existing?.data : null });
+    if (!force && !cursor && (existing?.status === 'loading'
+      || (existing?.status === 'ready'
+        && (view !== 'product-delivery' || productCache?.isReusable(existing))))) return;
+    if (view === 'product-delivery') productCache.forget();
+    const pending = { status: 'loading', data: append ? existing?.data : null };
+    fleetResources.set(view, pending);
     render();
     try {
+      const productClock = view === 'product-delivery' ? productCache.capture() : null;
       let data;
-      if (view === 'providers') data = await providerUsage.load();
+      if (view === 'product-delivery') data = await productDelivery.load();
+      else if (view === 'providers') data = await providerUsage.load();
       else if (view === 'readiness') data = await dataSource.loadReadiness({ limit: 50, cursor });
       else if (view === 'integration-health') data = await dataSource.loadMicrosoftHealth({ limit: 50, cursor });
       else if (view === 'platform-audit') data = await dataSource.loadAudit({ limit: 100, beforeSequence: cursor });
@@ -321,11 +371,20 @@ export function createPlatformAdminApplication({
       if (append && existing?.data && Array.isArray(data.items)) {
         data = Object.freeze({ ...data, items: Object.freeze([...existing.data.items, ...data.items]) });
       }
-      fleetResources.set(view, { status: 'ready', data });
+      if (fleetResources.get(view) !== pending) return;
+      const ready = { status: 'ready', data };
+      if (view === 'product-delivery' && !productCache.retain(ready, productClock)) {
+        throw new TypeError('PLATFORM_PRODUCT_CACHE_EXPIRED');
+      }
+      fleetResources.set(view, ready);
     } catch {
+      if (fleetResources.get(view) !== pending) return;
       fleetResources.set(view, { status: 'error', data: null });
     }
-    render();
+    if (currentRoute().view === 'fleet' && fleetView === view) {
+      if (view === 'product-delivery' && productViewIsVisible()) renderWithFocusHandoff();
+      else render();
+    }
   }
 
   async function tenantResourceData(tenant, sectionId) {
@@ -510,7 +569,8 @@ export function createPlatformAdminApplication({
     nodes.navigation.setAttribute('aria-label', t('platformAdmin.navigation.label'));
     const list = el('ul', { className: 'nav-list' });
     const views = [...PLATFORM_FLEET_VIEW_DEFINITIONS,
-      ...(providerUsage && currentOperator ? [{ id: 'providers', titleKey: 'platformAdmin.providers.title', permission: null }] : [])];
+      ...(providerUsage && currentOperator ? [{ id: 'providers', titleKey: 'platformAdmin.providers.title', permission: null }] : []),
+      ...(productDelivery && currentOperator ? [{ id: 'product-delivery', titleKey: 'platformAdmin.productDelivery.title', permission: null }] : [])];
     views
       .filter(({ permission }) => permission === null || currentOperator?.permissions.includes(permission))
       .forEach((definition) => {
@@ -662,6 +722,11 @@ export function createPlatformAdminApplication({
   }
 
   function renderSelectedFleetView() {
+    if (fleetView === 'product-delivery' && productDelivery) {
+      setHeading(t('platformAdmin.productDelivery.title'), t('platformAdmin.productDelivery.subtitle'));
+      return renderProductDelivery({ resource: fleetResources.get(fleetView),
+        onRetry: () => { focusHeading(); void loadFleetResource('product-delivery', { force: true }); } });
+    }
     if (fleetView === 'providers' && providerUsage) {
       setHeading(t('platformAdmin.providers.title'), t('platformAdmin.providers.subtitle'));
       return renderProviderUsage({ resource: fleetResources.get(fleetView),
@@ -1177,6 +1242,9 @@ export function createPlatformAdminApplication({
     windowRef.addEventListener('hashchange', routeChanged);
     windowRef.addEventListener('popstate', routeChanged);
     windowRef.addEventListener('conference-language-changed', languageChanged);
+    windowRef.addEventListener('pageshow', revalidateProductCache);
+    windowRef.addEventListener('focus', revalidateProductCache);
+    documentRef.addEventListener('visibilitychange', revalidateProductCache);
     render();
     if (sessionState === 'authenticated') await loadFleet();
   }
@@ -1185,6 +1253,12 @@ export function createPlatformAdminApplication({
     windowRef.removeEventListener('hashchange', routeChanged);
     windowRef.removeEventListener('popstate', routeChanged);
     windowRef.removeEventListener('conference-language-changed', languageChanged);
+    windowRef.removeEventListener('pageshow', revalidateProductCache);
+    windowRef.removeEventListener('focus', revalidateProductCache);
+    documentRef.removeEventListener('visibilitychange', revalidateProductCache);
+    productCache?.forget();
+    fleetResources.delete('product-delivery');
+    if (productDelivery && fleetView === 'product-delivery' && currentRoute().view === 'fleet') clear(nodes.app);
   }
 
   if (PLATFORM_ADMIN_SECTION_DEFINITIONS.length !== PLATFORM_ADMIN_SECTIONS.length) {

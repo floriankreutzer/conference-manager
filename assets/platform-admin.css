@@ -363,3 +363,16 @@
   padding: 0;
   list-style: none;
 }
+
+.platform-admin-product-delivery {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-delivery-component {
+  display: block;
+}
+
+.platform-admin-delivery-component .platform-admin-definition-list > div {
+  grid-template-columns: 1fr;
+}

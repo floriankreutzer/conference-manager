@@ -112,7 +112,7 @@ jobs:
       DEMO_RATE_LIMIT_MAX: '1000'
     services:
       postgres:
-        image: postgres:18.6-alpine
+        image: docker.io/library/postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
         env:
           POSTGRES_DB: postgres
           POSTGRES_USER: postgres
@@ -142,7 +142,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 566402fd098c298ff09ec3230ddd0b55d4ea91f6
+          ref: b7b4e7fb8a0cd9c47063536aaaf4259101d19942
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN }}
           persist-credentials: false
           path: api
@@ -150,6 +150,8 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
+      - name: Verify Product and Delivery fixtures against immutable API
+        run: node frontend/scripts/check-product-delivery-contract.mjs api
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci --ignore-scripts --no-audit --no-fund
