@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { readPolicyRows, readSummaryPolicyRows, exactUrlUnionPattern } from '../scripts/validate-zap-report.mjs';
+import { readPolicyRows, readSummaryPolicyRows, exactUrlUnionPattern, validateZapReport } from '../scripts/validate-zap-report.mjs';
+import { generateZapAutomationPlan } from '../scripts/generate-zap-plan.mjs';
 
 const dast = readFileSync(new URL('../.github/workflows/dast.yml', import.meta.url), 'utf8');
 const hosted = readFileSync(new URL('../.github/workflows/hosted-demo-acceptance.yml', import.meta.url), 'utf8');
@@ -43,5 +44,35 @@ test('reviewed website CSP observation stays scoped to the authority-free launch
   assert.equal(summary.find((row) => row.pluginId === '10038')?.pattern, exactUrlUnionPattern(csp.map((row) => row.url)));
   for (const surface of ['customer-demo', 'platform-demo']) {
     assert.equal(risks.surfaces[surface].maxRiskByAlertRef['10038-1'], undefined);
+  }
+});
+
+test('authenticated non-storable observation remains exact-origin, exact-evidence and risk zero', () => {
+  const target = 'https://conference-manager-ops-demo.onrender.com/';
+  const policyRows = readPolicyRows(readFileSync('.zap/platform-demo.tsv', 'utf8'));
+  const summaryPolicyRows = readSummaryPolicyRows(readFileSync('.zap/platform-demo-summary.tsv', 'utf8'));
+  const riskPolicy = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
+  const urls = policyRows.filter(row => row.alertRef === '10049-1').map(row => row.url);
+  assert.deepEqual(urls, [target, `${target}robots.txt`, `${target}sitemap.xml`]);
+  assert.equal(riskPolicy.surfaces['platform-demo'].maxRiskByAlertRef['10049-1'], 0);
+  assert.equal(riskPolicy.surfaces['customer-demo'].maxRiskByAlertRef['10049-1'], undefined);
+  const check = (alert = {}, instance = {}) => validateZapReport({
+    target, surface: 'platform-demo', policyRows, summaryPolicyRows, riskPolicy,
+    automationPlan: generateZapAutomationPlan({ target, summaryPolicyRows }),
+    addonManifest: 'Beta\tpscanrulesBeta\tv1.0.0\tbeta\tRules\nAlpha\tpscanrulesAlpha\tv1.0.0\talpha\tRules',
+    report: { site: [{ '@name': target.slice(0, -1), '@host': new URL(target).hostname,
+      '@port': '443', '@ssl': 'true', alerts: [{ alertRef: '10049-1', pluginid: '10049',
+        riskcode: '0', confidence: '2', ...alert, instances: [{ uri: target, method: 'GET',
+          evidence: 'authorization:', param: '', attack: '', ...instance }] }] }] },
+  });
+  for (const uri of urls) assert.doesNotThrow(() => check({}, { uri }));
+  for (const uri of [`${target}api/v1/platform/session`, `${target}?query=1`,
+    target.replace('-ops-demo', '-demo'), `${target.slice(0, -1)}.evil.test/`]) {
+    assert.throws(() => check({}, { uri }));
+  }
+  assert.throws(() => check({ riskcode: '1' }), /exceeds its reviewed risk/);
+  assert.throws(() => check({ alertRef: '10049-9' }), /Unreviewed/);
+  for (const instance of [{ method: 'POST' }, { evidence: 'private' }, { param: 'x' }, { attack: 'x' }]) {
+    assert.throws(() => check({}, instance));
   }
 });

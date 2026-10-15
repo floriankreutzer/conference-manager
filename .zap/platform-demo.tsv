@@ -95,3 +95,20 @@
 90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
 90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
 90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=87dea62a25b3d053ad15e7f5ede7c5ef2b884425834ef80bf508bc21e7a62e2a$
+
+# Authenticated run 38767782541: risk-0 non-storable shell/crawler URLs.
+10049-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/$
+10049-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/robots\.txt$
+10049-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/sitemap\.xml$
+
+# Same run plus direct HTTP 200/body-hash review, 2026-10-15; exact static fingerprints only.
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=b93e486a2f7b755c16b3c0de996026dfd24ee57c284e4eb64ce06593dca92aa1$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=b93e486a2f7b755c16b3c0de996026dfd24ee57c284e4eb64ce06593dca92aa1$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=b93e486a2f7b755c16b3c0de996026dfd24ee57c284e4eb64ce06593dca92aa1$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=b93e486a2f7b755c16b3c0de996026dfd24ee57c284e4eb64ce06593dca92aa1$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/platform-admin\.css\?sha256=b93e486a2f7b755c16b3c0de996026dfd24ee57c284e4eb64ce06593dca92aa1$
+10049-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=27383ff119e7c5c248cb7a2de361c79031738abc6a7eb47f5cac4e385ccbdd3d$
+90005-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=27383ff119e7c5c248cb7a2de361c79031738abc6a7eb47f5cac4e385ccbdd3d$
+90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=27383ff119e7c5c248cb7a2de361c79031738abc6a7eb47f5cac4e385ccbdd3d$
+90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=27383ff119e7c5c248cb7a2de361c79031738abc6a7eb47f5cac4e385ccbdd3d$
+90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/src/platform-admin/demo/bootstrap\.js\?sha256=27383ff119e7c5c248cb7a2de361c79031738abc6a7eb47f5cac4e385ccbdd3d$

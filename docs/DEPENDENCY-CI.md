@@ -27,5 +27,7 @@ authentication is limited to the exact Operations metadata GET with redirects re
 Replacer rule adds the header only to the anchored HTTPS Operations origin. The generated plan
 contains no credential. Raw scanner console output remains in the disposable container; the
 six evidence files are checked for raw and Basic-encoded credentials before validation or
-upload. Any occurrence blocks upload without rewriting findings. No DAST alert policy or risk
-threshold is relaxed. Rotate or remove this CI secret when the temporary perimeter changes.
+upload. Any occurrence blocks upload without rewriting findings. No scanner rule is disabled and
+no risk limit is raised. The authenticated non-storable observation and updated exact static hashes
+are reviewed in `DEMO-SECURITY.md`, with negative regression protection. Rotate or remove this
+CI secret when the temporary perimeter changes.
