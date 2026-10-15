@@ -464,7 +464,7 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   const enlargedScreenshot = testInfo.outputPath('product-delivery-text-200.png');
-  await page.screenshot({ path: enlargedScreenshot, fullPage: true });
+  await api.screenshot({ path: enlargedScreenshot });
   await testInfo.attach('product-delivery-text-200', { path: enlargedScreenshot, contentType: 'image/png' });
 });
 
@@ -496,6 +496,14 @@ test('private product failures and forged content fail closed and Production ref
 });
 
 
+async function focusNavigationAfterTransition(page, navigation) {
+  // Navigation deliberately transfers focus on the next animation frame. Let
+  // that contract finish before simulating the user's subsequent focus move.
+  await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  await navigation.focus();
+}
+
 test('slow Product navigation deduplicates its pending read and retains keyboard focus across refresh', async ({ page }) => {
   await installDemoRoutes(page);
   const report = JSON.parse(readFileSync(new URL('../support/product-delivery-fixture.json', import.meta.url), 'utf8'));
@@ -515,7 +523,7 @@ test('slow Product navigation deduplicates its pending read and retains keyboard
   await directory.click(); await product.click();
   await expect(page.locator('#app [role="status"]')).toBeVisible();
   expect(reads).toBe(1);
-  await directory.click(); await directory.focus();
+  await directory.click(); await focusNavigationAfterTransition(page, directory);
   const response = page.waitForResponse('**/api/v1/platform/demo/product-delivery');
   release(); await (await response).finished();
   await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
@@ -549,7 +557,7 @@ test('Product cache ages on revisit and evicts retained data in a long-lived vis
   const view = page.locator('[data-product-delivery-report]');
   await product.click(); await expect(view).toBeVisible(); expect(reads).toBe(1);
   const directory = page.locator('[data-platform-admin-fleet-view="directory"]');
-  await directory.click(); await directory.focus();
+  await directory.click(); await focusNavigationAfterTransition(page, directory);
   serverTime += day;
   await page.clock.fastForward(day);
   expect(reads).toBe(1);
