@@ -528,6 +528,26 @@ test('protected operator sources retain provenance, unknown feedback, keyboard d
     .toBeLessThanOrEqual(1);
 });
 
+test('final optional source authority failure suppresses the already fetched protected report', async ({ page }) => {
+  await installDemoRoutes(page);
+  const automatic = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(automatic),
+  }));
+  let status = 401;
+  await page.route('**/api/v1/platform/demo/operations-sources', (route) => route.fulfill({
+    status, contentType: 'application/json', body: JSON.stringify({ error: { code: 'PLATFORM_FORBIDDEN' } }),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  await expect(page.getByRole('heading', { name: 'Produktübersicht nicht verfügbar' })).toBeVisible();
+  await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
+  status = 403;
+  await page.locator('[data-product-delivery-refresh]').click();
+  await expect(page.getByRole('heading', { name: 'Produktübersicht nicht verfügbar' })).toBeVisible();
+  await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
+});
+
 test('private product failures and forged content fail closed and Production refuses the Demo-only adapter', async ({ page }) => {
   await installDemoRoutes(page);
   let malformed = false;

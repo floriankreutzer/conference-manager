@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { normalizeOperationsSources, loadOptionalOperationsSources } from '../src/platform-admin/demo/operations-sources-api.js';
 import { createProductDeliveryCache } from '../src/platform-admin/product-delivery-cache.js';
+import { createProductDeliveryApi } from '../src/platform-admin/demo/product-delivery-api.js';
 
 const fixture = () => JSON.parse(readFileSync(new URL('./support/operations-sources-fixture.json', import.meta.url), 'utf8'));
 
@@ -21,6 +22,16 @@ test('protected operator wire accepts real compiler aggregates and retains empty
   assert.equal(loaded.sources.length, 2);
   assert.equal(await loadOptionalOperationsSources({ async request() { throw new Error('404'); } }), null);
   await assert.rejects(loadOptionalOperationsSources({ async request() { return { secret: 'must-not-pass' }; } }));
+  for (const code of ['HTTP_401', 'HTTP_403']) {
+    const failure = Object.assign(new Error('authority failure'), { code });
+    await assert.rejects(loadOptionalOperationsSources({ async request() { throw failure; } }), (error) => error === failure);
+    const daily = JSON.parse(readFileSync(new URL('./support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
+    const api = createProductDeliveryApi({ apiClient: { async request(path) {
+      if (path === 'demo/live-metrics') return daily;
+      throw failure;
+    } } });
+    await assert.rejects(api.load(), (error) => error === failure);
+  }
 });
 
 test('operator wire rejects leakage, unknown dimensions, forged freshness, future/expired clocks and fake completeness', () => {

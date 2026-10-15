@@ -38,6 +38,9 @@ export async function loadOptionalOperationsSources(apiClient) {
   let value;
   try {
     value = await apiClient.request('demo/operations-sources', { method: 'GET', signal: AbortSignal.timeout(10_000) });
-  } catch { return null; }
+  } catch (error) {
+    if (['HTTP_401', 'HTTP_403'].includes(error?.code)) throw error;
+    return null;
+  }
   return normalizeOperationsSources(value);
 }
