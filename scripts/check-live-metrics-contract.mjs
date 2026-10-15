@@ -14,6 +14,9 @@ const actual = await api.createDailyLiveMetrics({ clock: () => Date.parse(source
   storage: { read: async () => JSON.stringify(source) } }).read();
 const fixture = JSON.parse(readFileSync(new URL('../tests/support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
 assert.deepEqual(LIVE_METRICS, contract.LIVE_METRICS);
+assert.equal(readFileSync(new URL('../src/platform-admin/live-metrics-contracts.js', import.meta.url), 'utf8'),
+  readFileSync(resolve(apiRoot, 'src/observability/live-metrics-contract.js'), 'utf8')
+    .replace("'./product-delivery-contract.js'", "'./product-delivery-contracts.js'"), 'Closed measurement validation drift');
 assert.deepEqual(normalizeLiveMeasurements(actual.measurements, actual.observedAt), actual.measurements);
 assert.deepEqual(fixture, actual, 'Daily live snapshot drift from immutable API');
 assert.deepEqual(normalizeLiveMetrics(actual), actual);

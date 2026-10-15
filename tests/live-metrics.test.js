@@ -38,6 +38,7 @@ test('closed daily wire rejects leaked identities, fabricated zero, samples, per
     (x) => { x.measurements[0].tenantId = 'private'; },
     (x) => { x.measurements[1].sampleAt = '2026-10-16T00:00:00.000Z'; },
     (x) => { x.measurements[1].periodEnd = '2026-10-14T00:00:00.000Z'; },
+    (x) => { x.measurements[1].periodStart = '2020-01-01T00:00:00.000Z'; },
     (x) => { x.productDelivery.evaluatedAt = '2026-10-15T13:00:00.000Z'; },
     (x) => { x.sourceState = 'live_unverified'; },
     (x) => { x.freshness = 'stale'; },
