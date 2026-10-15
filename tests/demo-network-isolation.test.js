@@ -92,7 +92,7 @@ test('public website launchpad remains isolated while DAST covers every Demo sur
   assert.match(dast, /--volume "\$GITHUB_WORKSPACE\/zap-evidence:\/zap\/wrk\/:rw"/);
   assert.doesNotMatch(dast, /--volume "\$GITHUB_WORKSPACE:\/zap\/wrk\/:rw"/);
   assert.match(dast, /bash \/zap\/wrk\/run-zap-baseline[.]sh/);
-  assert.match(dast, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
+  assert.match(dast, /actions\/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9/);
   assert.match(dast, /ZAP_POLICY_PATH: \$\{\{ matrix\.exact_policy \}\}/);
   assert.match(dast, /ZAP_SUMMARY_POLICY_PATH: \$\{\{ matrix\.summary_rules \}\}/);
   assert.match(dast, /rm -rf -- zap-evidence[\s\S]*install -d -m 0777 zap-evidence/);
