@@ -52,3 +52,23 @@ included conservatively, wall and monotonic elapsed time are both checked, and
 replacement/role reset/disposal cancel obsolete callbacks. This only reloads the
 private saved aggregate; it is not provider collection. The paired CI also verifies
 the actual API-generated exact-expiry wire fixture before browser acceptance.
+
+## Optional daily connector feed
+
+Both Demo adapters now prefer the fixed `demo/live-metrics` GET. Its API-owned
+[closed daily source and storage contract](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/DAILY-LIVE-METRICS.md)
+keeps collection server-side behind the owner perimeter. No browser provider tokens,
+new runtime dependency or persistence is introduced. The old endpoint remains an
+explicit unavailable-feed rollout fallback, while malformed live success fails closed.
+The new neutral measurement contract/renderer is included in each reachable manifest;
+only the Demo manifest contains the live HTTP adapter. Immutable paired CI verifies
+its actual API-generated fixture and fixed measurement dimensions.
+
+Provider rows distinguish last hourly sample, query window, provider resets and
+workflow counts from invoice totals. Product rows show retained Demo stock including
+seed and today's retained updates/revisions/diagnostics; they do not establish Pilot
+outcomes, complete history across resets or audit verification. Unknowns remain unknown.
+Each row displays genuine source observation/period/sample clocks. Daily reports use
+24-hour stale and 30-day retention limits; existing view clocks remain authoritative.
+Refresh reads the latest collected report, not provider APIs. Deployment and an actually
+executed scheduled collection require separate operational evidence.

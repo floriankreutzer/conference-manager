@@ -1,5 +1,6 @@
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el } from '../core/ui.js';
+import { renderLiveMetrics } from './live-metrics.js';
 
 
 function amount(bytes) {
@@ -12,19 +13,8 @@ function detail(key, value) {
   return el('div', {}, [el('dt', { text: t(key) }), el('dd', { text: value })]);
 }
 
-export function renderProviderUsage({ resource, onRetry, isStale = false }) {
-  const refresh = button(t('platformAdmin.providers.refresh'), { className: 'secondary',
-    dataset: { platformProviderRefresh: 'true' } });
-  refresh.addEventListener('click', onRetry);
-  if (!resource || resource.status === 'loading') return el('section', { className: 'card', attrs: { role: 'status' } }, [
-    el('h2', { text: t('platformAdmin.resource.loadingTitle') }),
-  ]);
-  if (resource.status === 'error') return el('section', { className: 'card platform-admin-error', attrs: { role: 'alert' } }, [
-    el('h2', { text: t('platformAdmin.providers.unavailable') }),
-    el('p', { text: t('platformAdmin.providers.unavailableText') }), refresh,
-  ]);
-  const report = resource.data;
-  const freshness = isStale || report.freshness === 'stale' ? 'stale' : 'fresh';
+function renderNeonProvider(report) {
+  if (!report.neon) return null;
   const n = report.neon;
   const meterId = 'platformProviderNeonMeter';
   const thresholds = el('ul', { className: 'platform-admin-provider-thresholds' });
@@ -34,8 +24,10 @@ export function renderProviderUsage({ resource, onRetry, isStale = false }) {
     text: t(n.crossedThresholds.includes(threshold) ? 'platformAdmin.providers.thresholdReached'
       : 'platformAdmin.providers.thresholdBelow', { threshold: percent(threshold) }),
   })));
-  const neon = el('article', { className: 'card platform-admin-record', dataset: { platformProvider: 'neon' } }, [
+  return el('article', { className: 'card platform-admin-record', dataset: { platformProvider: 'neon' } }, [
     el('h3', { text: t('platformAdmin.providers.neon') }),
+    ...(report.liveMetrics ? [el('p', { className: 'platform-admin-data-note',
+      text: t('platformAdmin.liveMetrics.rowObserved', { time: formatDateTime(report.observedAt) }) })] : []),
     el('p', { text: t('platformAdmin.providers.plan', { plan: n.plan }) }),
     el('label', { text: t('platformAdmin.providers.utilization', { percent: percent(n.utilizationPercent) }),
       attrs: { for: meterId } }),
@@ -59,6 +51,22 @@ export function renderProviderUsage({ resource, onRetry, isStale = false }) {
     el('p', { text: t(`platformAdmin.providers.anomaly.${n.anomalyState}`) }),
     thresholds,
   ]);
+}
+
+export function renderProviderUsage({ resource, onRetry, isStale = false }) {
+  const refresh = button(t('platformAdmin.providers.refresh'), { className: 'secondary',
+    dataset: { platformProviderRefresh: 'true' } });
+  refresh.addEventListener('click', onRetry);
+  if (!resource || resource.status === 'loading') return el('section', { className: 'card', attrs: { role: 'status' } }, [
+    el('h2', { text: t('platformAdmin.resource.loadingTitle') }),
+  ]);
+  if (resource.status === 'error') return el('section', { className: 'card platform-admin-error', attrs: { role: 'alert' } }, [
+    el('h2', { text: t('platformAdmin.providers.unavailable') }),
+    el('p', { text: t('platformAdmin.providers.unavailableText') }), refresh,
+  ]);
+  const report = resource.data;
+  const freshness = isStale || (report.liveMetrics || report).freshness === 'stale' ? 'stale' : 'fresh';
+  const neon = renderNeonProvider(report);
   const unknown = ['render', 'github'].map((id) => el('article', {
     className: 'card platform-admin-record', dataset: { platformProvider: id },
   }, [el('h3', { text: t(`platformAdmin.providers.${id}`) }),
@@ -68,13 +76,15 @@ export function renderProviderUsage({ resource, onRetry, isStale = false }) {
     el('section', { className: 'card' }, [
       el('h2', { text: t('platformAdmin.providers.title') }),
       el('p', { text: t('platformAdmin.providers.privateNotice') }),
-      el('p', { text: t('platformAdmin.providers.snapshot', { time: formatDateTime(report.observedAt) }) }),
+      el('p', { text: t(report.liveMetrics ? 'platformAdmin.liveMetrics.mode' : 'platformAdmin.providers.snapshot',
+        { time: formatDateTime((report.liveMetrics || report).observedAt) }) }),
       el('p', { className: 'platform-admin-status', attrs: { role: 'status' },
         dataset: { tone: freshness === 'stale' ? 'critical' : 'neutral', platformProviderFreshness: freshness },
         text: t(`platformAdmin.providers.freshness.${freshness}`) }),
       refresh,
     ]),
-    el('div', { className: 'platform-admin-provider-grid' }, [neon, ...unknown]),
+    el('div', { className: 'platform-admin-provider-grid' }, [...(neon ? [neon] : []), ...(report.liveMetrics ? [] : unknown)]),
+    renderLiveMetrics(report.liveMetrics, 'providers', freshness === 'stale'),
     el('section', { className: 'card' }, [el('h2', { text: t('platformAdmin.providers.alerts') }),
       el('p', { text: t('platformAdmin.providers.deliveryNotConfigured') })]),
   ]);

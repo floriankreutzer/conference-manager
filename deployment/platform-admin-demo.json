@@ -45,6 +45,9 @@
     "src/platform-admin/provider-usage-freshness.js",
     "src/platform-admin/product-delivery-cache.js",
     "src/platform-admin/demo/product-delivery-api.js",
-    "src/platform-admin/product-delivery-contracts.js"
+    "src/platform-admin/product-delivery-contracts.js",
+    "src/platform-admin/demo/live-metrics-api.js",
+    "src/platform-admin/live-metrics-contracts.js",
+    "src/platform-admin/live-metrics.js"
   ]
 }

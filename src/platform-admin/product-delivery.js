@@ -1,5 +1,6 @@
 import { formatDate, formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el } from '../core/ui.js';
+import { renderLiveMetrics } from './live-metrics.js';
 
 function amount(value, unit = 'count') {
   if (value === null) return t('common.unknown');
@@ -64,7 +65,8 @@ export function renderProductDelivery({ resource, onRetry }) {
         definition(t('platformAdmin.productDelivery.period'), t('platformAdmin.productDelivery.window', {
           start: formatDate(report.periodStart, { timeZone: 'UTC' }), end: formatDate(report.periodEnd, { timeZone: 'UTC' }),
         })),
-        definition(t('platformAdmin.productDelivery.source'), t(`platformAdmin.productDelivery.mode.${report.collectionMode}`)),
+        definition(t('platformAdmin.productDelivery.source'), t(report.liveMetrics ? 'platformAdmin.liveMetrics.mode'
+          : `platformAdmin.productDelivery.mode.${report.collectionMode}`)),
         definition(t('platformAdmin.productDelivery.fingerprint'), report.provenance.sourceDigest === null
           ? t('common.unknown') : report.provenance.sourceDigest),
         definition(t('platformAdmin.productDelivery.sourceRecords'), report.collectionMode === 'not_collected'
@@ -74,6 +76,7 @@ export function renderProductDelivery({ resource, onRetry }) {
         dataset: { tone: report.freshness === 'stale' ? 'critical' : 'neutral' },
         text: t(`platformAdmin.productDelivery.freshness.${report.freshness}`) }), refresh,
     ]),
+    renderLiveMetrics(report.liveMetrics, 'product'),
     el('section', { className: 'card', dataset: { productOutcomes: 'true' } }, [
       el('h2', { text: t('platformAdmin.productDelivery.outcomes') }),
       el('p', { text: t('platformAdmin.productDelivery.outcomesNote') }), metrics(report.product),
