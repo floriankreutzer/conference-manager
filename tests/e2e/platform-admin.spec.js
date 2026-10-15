@@ -607,3 +607,38 @@ test('Product cache ages on revisit and evicts retained data in a long-lived vis
   await page.clock.runFor(20);
   await expect(page.locator('#viewTitle')).toBeFocused();
 });
+
+test('daily live metrics show actual stock and provider samples without inventing outcomes', async ({ page }, testInfo) => {
+  await installDemoRoutes(page);
+  const report = JSON.parse(readFileSync(new URL('../support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
+  let reads = 0;
+  await page.route('**/api/v1/platform/demo/live-metrics', async (route) => {
+    expect(route.request().method()).toBe('GET');
+    expect(new URL(route.request().url()).search).toBe('');
+    expect(route.request().postData()).toBeNull(); reads += 1;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').focus();
+  await page.keyboard.press('Enter');
+  const stock = page.locator('[data-live-metrics="product"]');
+  await expect(stock).toBeVisible();
+  await expect(stock).toContainText('23');
+  await expect(stock).toContainText('Seed');
+  await expect(page.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unbekannt');
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await expect(stock).toContainText('23');
+  await expect(stock).toContainText('seed');
+  await page.locator('[data-platform-admin-fleet-view="provider-usage"]').click();
+  const providers = page.locator('[data-live-metrics="providers"]');
+  await expect(providers).toBeVisible();
+  await expect(providers).toContainText('0.5');
+  await expect(providers).toContainText('Latest sample:');
+  await expect(providers).toContainText('start not supplied');
+  await expect(providers).toContainText('Unknown');
+  expect(reads).toBeGreaterThanOrEqual(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const screenshot = testInfo.outputPath('daily-live-provider-synthetic.png');
+  await page.screenshot({ path: screenshot, fullPage: true });
+  await testInfo.attach('daily-live-provider-synthetic', { path: screenshot, contentType: 'image/png' });
+});

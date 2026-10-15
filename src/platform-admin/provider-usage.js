@@ -1,5 +1,6 @@
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el } from '../core/ui.js';
+import { renderLiveMetrics } from './live-metrics.js';
 
 
 function amount(bytes) {
@@ -68,13 +69,15 @@ export function renderProviderUsage({ resource, onRetry, isStale = false }) {
     el('section', { className: 'card' }, [
       el('h2', { text: t('platformAdmin.providers.title') }),
       el('p', { text: t('platformAdmin.providers.privateNotice') }),
-      el('p', { text: t('platformAdmin.providers.snapshot', { time: formatDateTime(report.observedAt) }) }),
+      el('p', { text: t(report.liveMetrics ? 'platformAdmin.liveMetrics.mode' : 'platformAdmin.providers.snapshot',
+        { time: formatDateTime(report.observedAt) }) }),
       el('p', { className: 'platform-admin-status', attrs: { role: 'status' },
         dataset: { tone: freshness === 'stale' ? 'critical' : 'neutral', platformProviderFreshness: freshness },
         text: t(`platformAdmin.providers.freshness.${freshness}`) }),
       refresh,
     ]),
-    el('div', { className: 'platform-admin-provider-grid' }, [neon, ...unknown]),
+    el('div', { className: 'platform-admin-provider-grid' }, [neon, ...(report.liveMetrics ? [] : unknown)]),
+    renderLiveMetrics(report.liveMetrics, 'providers', freshness === 'stale'),
     el('section', { className: 'card' }, [el('h2', { text: t('platformAdmin.providers.alerts') }),
       el('p', { text: t('platformAdmin.providers.deliveryNotConfigured') })]),
   ]);
