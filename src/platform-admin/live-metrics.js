@@ -7,7 +7,7 @@ export function renderLiveMetrics(report, group, isStale = false) {
     el('p', { text: t('platformAdmin.liveMetrics.unavailable') }),
   ]);
   const rows = report.measurements.filter((row) => LIVE_METRICS[row.id][0] === group
-    && row.id !== 'neon_transfer');
+    && (row.id !== 'neon_transfer' || report.providerUsage === null));
   return el('section', { className: 'card', dataset: { liveMetrics: group } }, [
     el('h2', { text: t(`platformAdmin.liveMetrics.${group}`) }),
     el('p', { text: t('platformAdmin.liveMetrics.observed', { time: formatDateTime(report.observedAt) }) }),

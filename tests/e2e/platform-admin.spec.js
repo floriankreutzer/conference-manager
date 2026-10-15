@@ -629,7 +629,7 @@ test('daily live metrics show actual stock and provider samples without inventin
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
   await expect(stock).toContainText('23');
   await expect(stock).toContainText('seed');
-  await page.locator('[data-platform-admin-fleet-view="provider-usage"]').click();
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
   const providers = page.locator('[data-live-metrics="providers"]');
   await expect(providers).toBeVisible();
   await expect(providers).toContainText('0.5');

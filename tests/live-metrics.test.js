@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { normalizeLiveMetrics, loadOptionalLiveMetrics } from '../src/platform-admin/demo/live-metrics-api.js';
+import { createProviderUsageApi } from '../src/platform-admin/demo/provider-usage-api.js';
+import { createProviderUsageFreshness } from '../src/platform-admin/provider-usage-freshness.js';
 import { createProductDeliveryApi } from '../src/platform-admin/demo/product-delivery-api.js';
 
 const fixture = () => JSON.parse(readFileSync(new URL('./support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
@@ -42,4 +44,24 @@ test('closed daily wire rejects leaked identities, fabricated zero, samples, per
   ]) {
     const input = fixture(); mutate(input); assert.throws(() => normalizeLiveMetrics(input));
   }
+});
+
+test('valid daily-only providers need no legacy Neon endpoint and retain a bounded freshness clock', async () => {
+  const calls = [];
+  const api = createProviderUsageApi({ apiClient: { async request(path) {
+    calls.push(path); assert.equal(path, 'demo/live-metrics'); return fixture();
+  } } });
+  const report = await api.load();
+  assert.deepEqual(calls, ['demo/live-metrics']);
+  assert.equal(report.neon, undefined);
+  assert.equal(report.liveMetrics.providerUsage, null);
+  assert.equal(report.liveMetrics.measurements[1].value, 0.5);
+  let elapsed = 0; const expired = [];
+  const clock = createProviderUsageFreshness({ onExpire: (value) => expired.push(value),
+    wallNow: () => elapsed, monotonicNow: () => elapsed, setTimer: () => 1, clearTimer() {} });
+  const resource = { status: 'ready', data: report };
+  assert.equal(clock.retain(resource), true);
+  elapsed = 86_400_000 - 1; assert.equal(clock.isReusable(resource), true);
+  elapsed += 1; clock.check();
+  assert.equal(clock.isReusable(resource), false); assert.deepEqual(expired, [resource]);
 });
