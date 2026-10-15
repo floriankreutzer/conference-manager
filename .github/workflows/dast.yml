@@ -11,6 +11,9 @@ on:
       - scripts/verify-zap-evidence-files.mjs
       - scripts/validate-zap-report.mjs
       - scripts/verify-hosted-demo-deployment.mjs
+      - scripts/support/dast-operations-auth.mjs
+      - tests/dast-operations-auth.test.js
+      - tests/zap-evidence-files.test.js
       - .github/workflows/hosted-demo-acceptance.yml
   push:
     branches:
@@ -23,6 +26,9 @@ on:
       - scripts/verify-zap-evidence-files.mjs
       - scripts/validate-zap-report.mjs
       - scripts/verify-hosted-demo-deployment.mjs
+      - scripts/support/dast-operations-auth.mjs
+      - tests/dast-operations-auth.test.js
+      - tests/zap-evidence-files.test.js
       - .github/workflows/hosted-demo-acceptance.yml
   schedule:
     - cron: '41 4 * * 2'
@@ -31,8 +37,8 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_FRONTEND_REF: 5d5102b4f9842ec704ff26441ebe96719324ddb0
-  EXPECTED_RUNTIME_REF: 356459004dbede11cc3cd17a93d4e6cf515d410b
+  EXPECTED_FRONTEND_REF: ac0cd04281700636743e508335cd20c2325098a2
+  EXPECTED_RUNTIME_REF: 38a14b0435fb92bfacea319c5414c1fc10aab9eb
 
 concurrency:
   group: zap-baseline-${{ github.event_name }}-${{ github.ref }}
@@ -104,6 +110,9 @@ jobs:
 
       - name: Verify live candidate identity before DAST
         if: matrix.surface != 'static-launchpad'
+        env:
+          DAST_OPERATIONS_REQUIRED: '1'
+          DAST_OPERATIONS_PASSWORD: ${{ secrets.DAST_OPERATIONS_PASSWORD }}
         run: node scripts/verify-hosted-demo-deployment.mjs
 
       - name: Prepare exact-alert verification
@@ -137,6 +146,8 @@ jobs:
       - name: Run uncapped ZAP passive baseline (${{ matrix.surface }})
         env:
           ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable
+          ZAP_TARGET: ${{ matrix.target }}
+          DAST_OPERATIONS_PASSWORD: ${{ matrix.surface == 'platform-demo' && secrets.DAST_OPERATIONS_PASSWORD || '' }}
         run: |
           set -euo pipefail
           docker pull --quiet "$ZAP_IMAGE"
@@ -145,16 +156,24 @@ jobs:
           docker run --rm \
             --volume "$GITHUB_WORKSPACE/zap-evidence:/zap/wrk/:rw" \
             --network host \
+            --env ZAP_TARGET \
+            --env DAST_OPERATIONS_PASSWORD \
             "$image_id" \
             bash /zap/wrk/run-zap-baseline.sh
 
       - name: Verify live candidate identity after DAST
         if: ${{ always() && matrix.surface != 'static-launchpad' }}
+        env:
+          DAST_OPERATIONS_REQUIRED: '1'
+          DAST_OPERATIONS_PASSWORD: ${{ secrets.DAST_OPERATIONS_PASSWORD }}
         run: node scripts/verify-hosted-demo-deployment.mjs
 
       - name: Verify link-free ZAP evidence files
         id: evidence_boundary
         if: always()
+        env:
+          DAST_OPERATIONS_PASSWORD: ${{ matrix.surface == 'platform-demo' && secrets.DAST_OPERATIONS_PASSWORD || '' }}
+          DAST_OPERATIONS_REQUIRED: ${{ matrix.surface == 'platform-demo' && '1' || '0' }}
         run: node scripts/verify-zap-evidence-files.mjs
 
       - name: Verify exact alert references and reviewed risk

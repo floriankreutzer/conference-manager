@@ -35,6 +35,30 @@ test('ZAP evidence boundary accepts only the reviewed regular files', () => {
   }
 });
 
+test('ZAP evidence rejects raw and Basic-encoded credentials in every uploaded file', () => {
+  const password = 'A'.repeat(43);
+  const env = { DAST_OPERATIONS_PASSWORD: password, DAST_OPERATIONS_REQUIRED: '1' };
+  const value = fixture();
+  try {
+    assert.equal(verifyZapEvidenceFiles({ workspace: value.workspace, env }).files.length, 6);
+    for (const name of ZAP_EVIDENCE_FILES) {
+      for (const secret of [password, Buffer.from(`ops:${password}`).toString('base64')]) {
+        writeFileSync(join(value.evidence, name), `prefix ${secret} suffix`);
+        assert.throws(() => verifyZapEvidenceFiles({ workspace: value.workspace, env }), (error) => {
+          assert.match(error.message, /DAST_CREDENTIAL_IN_EVIDENCE/);
+          assert.equal(error.message.includes(secret), false);
+          return true;
+        });
+      }
+      writeFileSync(join(value.evidence, name), name);
+    }
+    for (const credential of ['', 'invalid']) {
+      assert.throws(() => verifyZapEvidenceFiles({ workspace: value.workspace,
+        env: { ...env, DAST_OPERATIONS_PASSWORD: credential } }), /CREDENTIAL_INVALID/);
+    }
+  } finally { rmSync(value.workspace, { recursive: true, force: true }); }
+});
+
 test('ZAP evidence boundary rejects a container-created file symlink', () => {
   const value = fixture();
   try {

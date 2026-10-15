@@ -13,15 +13,22 @@ function pin(workflow, key) {
 }
 
 test('live DAST checks its exact deployed pair while manual Hosted acceptance binds the reviewed candidate', () => {
-  assert.equal(pin(dast, 'EXPECTED_FRONTEND_REF'), '5d5102b4f9842ec704ff26441ebe96719324ddb0');
+  assert.equal(pin(dast, 'EXPECTED_FRONTEND_REF'), 'ac0cd04281700636743e508335cd20c2325098a2');
   assert.equal(pin(hosted, 'EXPECTED_FRONTEND_REF'), '5d5102b4f9842ec704ff26441ebe96719324ddb0');
-  assert.equal(pin(dast, 'EXPECTED_RUNTIME_REF'), '356459004dbede11cc3cd17a93d4e6cf515d410b');
+  assert.equal(pin(dast, 'EXPECTED_RUNTIME_REF'), '38a14b0435fb92bfacea319c5414c1fc10aab9eb');
   assert.equal(pin(hosted, 'EXPECTED_RUNTIME_REF'), '566402fd098c298ff09ec3230ddd0b55d4ea91f6');
-  const identityStep = dast.indexOf("if: matrix.surface != 'static-launchpad'\n        run: node scripts/verify-hosted-demo-deployment.mjs");
+  const identityStep = dast.indexOf('- name: Verify live candidate identity before DAST');
   const scanStep = dast.indexOf('- name: Run uncapped ZAP passive baseline');
   assert.ok(identityStep > 0 && scanStep > identityStep);
-  const finalIdentityStep = dast.indexOf("if: ${{ always() && matrix.surface != 'static-launchpad' }}\n        run: node scripts/verify-hosted-demo-deployment.mjs");
+  const finalIdentityStep = dast.indexOf('- name: Verify live candidate identity after DAST');
   assert.ok(finalIdentityStep > scanStep);
+  for (const step of [dast.slice(identityStep, dast.indexOf('\n      - name:', identityStep)),
+    dast.slice(finalIdentityStep, dast.indexOf('\n      - name:', finalIdentityStep))]) {
+    assert.match(step, /if: .*matrix.surface != 'static-launchpad'/);
+    assert.match(step, /DAST_OPERATIONS_REQUIRED: '1'/);
+    assert.match(step, /DAST_OPERATIONS_PASSWORD: \$\{\{ secrets.DAST_OPERATIONS_PASSWORD \}\}/);
+    assert.match(step, /run: node scripts\/verify-hosted-demo-deployment.mjs/);
+  }
   assert.match(dast, /pull_request:[\s\S]*?- \.github\/workflows\/hosted-demo-acceptance\.yml[\s\S]*?push:/);
   assert.match(dast, /push:[\s\S]*?- \.github\/workflows\/hosted-demo-acceptance\.yml[\s\S]*?schedule:/);
 });
