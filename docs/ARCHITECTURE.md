@@ -481,3 +481,17 @@ Each row displays genuine source observation/period/sample clocks. Daily reports
 24-hour stale and 30-day retention limits; existing view clocks remain authoritative.
 Refresh reads the latest collected report, not provider APIs. Deployment and an actually
 executed scheduled collection require separate operational evidence.
+
+## Protected Operations source provenance
+
+Application #319 adds a Demo-only fixed GET adapter for the API-owned, protected
+manual metric facts and minimized feedback register. The Product/Delivery view
+keeps automatic daily observations separate from independently compiled operator
+sources; per-metric labels distinguish automatic, operator-confirmed, unknown and
+stale data. Independent source clocks bound the presentation cache. Only minimized
+compiler aggregates reach the browser, never register records, provider versions,
+Object Storage credentials or direct bucket access. Missing optional endpoints are
+explicitly unavailable; a malformed successful response fails closed. The existing
+Production and Customer composition boundaries remain unchanged. Canonical storage,
+conditional writes, source bounds and retention are documented in the API repository
+under `docs/OPERATIONS-SOURCE-REGISTERS.md`. Actual Pilot feedback remains #316.

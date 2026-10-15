@@ -498,6 +498,36 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await testInfo.attach('product-delivery-text-200', { path: enlargedScreenshot, contentType: 'image/png' });
 });
 
+test('protected operator sources retain provenance, unknown feedback, keyboard details, locale and reflow', async ({ page }) => {
+  await installDemoRoutes(page);
+  const automatic = JSON.parse(readFileSync(new URL('../support/product-delivery-fixture.json', import.meta.url), 'utf8'));
+  const sources = JSON.parse(readFileSync(new URL('../support/operations-sources-fixture.json', import.meta.url), 'utf8'));
+  await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(automatic),
+  }));
+  await page.route('**/api/v1/platform/demo/operations-sources', (route) => {
+    expect(route.request().method()).toBe('GET'); expect(route.request().postData()).toBeNull();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sources) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  const manual = page.locator('[data-operator-source="manual"]');
+  const feedback = page.locator('[data-operator-source="feedback"]');
+  await expect(manual).toContainText('Vom Betreiber bestätigt');
+  await expect(feedback).toContainText('Unbekannt / unvollständig');
+  await expect(feedback.locator('dd').first()).toHaveText('Unbekannt');
+  const older = manual.locator('[data-product-delivery-component="api"] details').nth(1);
+  await older.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(older).toHaveAttribute('open', '');
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await expect(manual).toContainText('Operator-confirmed');
+  await expect(feedback.locator('dd').first()).toHaveText('Unknown');
+  await expect(page.locator('#app')).not.toContainText('synthetic-owner');
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    .toBeLessThanOrEqual(1);
+});
+
 test('private product failures and forged content fail closed and Production refuses the Demo-only adapter', async ({ page }) => {
   await installDemoRoutes(page);
   let malformed = false;
