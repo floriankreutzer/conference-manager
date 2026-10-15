@@ -70,6 +70,10 @@ function operatorSources(report) {
         el('p', { attrs: { role: 'status' },
           text: t(`platformAdmin.operatorSources.${row.snapshot === null ? 'unknown' : mode}`) }),
         ...(row.snapshot === null ? [] : [
+          el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.productDelivery.window', {
+            start: formatDate(row.snapshot.periodStart, { timeZone: 'UTC' }),
+            end: formatDate(row.snapshot.periodEnd, { timeZone: 'UTC' }),
+          }) }),
           el('p', { className: 'platform-admin-data-note',
             text: t('platformAdmin.operatorSources.observed', { time: formatDateTime(row.observedAt) }) }),
           ...(row.sourceState === 'last_good' ? [el('p', { attrs: { role: 'status' },
