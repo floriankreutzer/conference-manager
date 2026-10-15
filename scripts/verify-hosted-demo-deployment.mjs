@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { createHostedAcceptanceFetch, runHostedOperationCli } from './support/hosted-acceptance-fetch.mjs';
+import { createDastMetadataFetch } from './support/dast-operations-auth.mjs';
 
 const CUSTOMER_ORIGIN = 'https://conference-manager-demo.onrender.com';
 const PLATFORM_ORIGIN = 'https://conference-manager-ops-demo.onrender.com';
@@ -96,7 +97,8 @@ export async function verifyHostedDemoDeployment({
 
   const results = [];
   for (const service of SERVICES) {
-    const request = createHostedAcceptanceFetch({ origin: service.origin, fetchImpl, env });
+    const acceptanceFetch = createHostedAcceptanceFetch({ origin: service.origin, fetchImpl, env });
+    const request = createDastMetadataFetch({ origin: service.origin, fetchImpl: acceptanceFetch, env });
     const metadata = await readMetadata(request, service);
     assertMetadata(metadata, service, runtimeRef, frontendRef);
     results.push(Object.freeze({ ...metadata }));

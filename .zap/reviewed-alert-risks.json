@@ -37,6 +37,7 @@
     "platform-demo": {
       "origin": "https://conference-manager-ops-demo.onrender.com",
       "maxRiskByAlertRef": {
+        "10049-1": 0,
         "10015": 0,
         "10049-2": 0,
         "10055-12": 0,

@@ -91,6 +91,22 @@ information-disclosure findings retain their existing fail-closed policy.
 
 The Demo must not be presented as an authenticated Production application and must not be used for real confidential, personal or regulated data.
 
+The authenticated Operations passive scan `38767782541` (artifact `11989368116`, archive
+SHA-256 `dfca232a3c3b2b08cf11a92454365da7679036739f43d422546a732564d17979`) reported
+`10049-1` (Non-Storable Content) at `/`, `/robots.txt` and `/sitemap.xml`. ZAP identifies the
+request's `authorization:` header as the reason shared caches cannot store these responses.
+This is expected with the temporary Basic perimeter, not a request to make protected content
+publicly cacheable. Only those three exact Operations GET URLs, informational risk (`0`), empty
+parameter/attack and exact `authorization:` evidence are classified. Customer-origin instances,
+new paths, different evidence, sibling alert references and risk escalation remain blocking.
+See [ZAP's rule definition](https://www.zaproxy.org/docs/alerts/10049-1/).
+
+The same report observed updated fingerprinted Platform CSS and bootstrap JavaScript. Direct
+authenticated HTTP reads on 2026-10-15 returned `200`, `public, max-age=31536000, immutable`,
+and body hashes matching their exact query fingerprints (`b93e486a…92aa1` and
+`27383ff1…bdd3d`). The exact policies enumerate these full hashes for existing risk-zero
+static-cache and crawler Fetch Metadata observations. No business/API response is included.
+
 The SaaS 3.8 isolated candidate intentionally changes only authorized Room and
 Catalogue image GETs to private mandatory revalidation with an opaque strong
 ETag and `Vary: Cookie`. Authentication, current Tenant/object ownership and

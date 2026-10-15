@@ -490,6 +490,12 @@ export const validateZapReport = ({
             || instance.param !== '' || instance.attack !== '')) {
         throw new Error(`Alert ${alertRef} changed its reviewed public identifier evidence.`);
       }
+      // The temporary Operations perimeter prevents shared caching of these GETs.
+      if (surface === 'platform-demo' && alertRef === '10049-1'
+          && (instance.evidence !== 'authorization:'
+            || instance.param !== '' || instance.attack !== '')) {
+        throw new Error(`Alert ${alertRef} changed its reviewed authenticated non-storable evidence.`);
+      }
       // Long-lived caching is reviewed only for exact public content fingerprints.
       if (['customer-demo', 'platform-demo'].includes(surface) && alertRef === '10049-3'
           && (instance.evidence !== 'max-age=31536000'
