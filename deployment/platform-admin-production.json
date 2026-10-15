@@ -40,6 +40,9 @@
     "src/platform-admin/product-delivery.js",
     "src/platform-admin/observed-resource-clock.js",
     "src/platform-admin/provider-usage-freshness.js",
-    "src/platform-admin/product-delivery-cache.js"
+    "src/platform-admin/product-delivery-cache.js",
+    "src/platform-admin/live-metrics.js",
+    "src/platform-admin/live-metrics-contracts.js",
+    "src/platform-admin/product-delivery-contracts.js"
   ]
 }

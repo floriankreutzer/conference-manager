@@ -32,15 +32,17 @@ test('shared Demo cookie isolation inspects the cookies on their bounded API pat
   assert.doesNotMatch(journey, /context\.cookies\(\[CUSTOMER_ORIGIN, PLATFORM_ORIGIN\]\)/);
 });
 
-test('shared Demo CI pins the private API and fails closed without checkout authority', async () => {
+test('shared Demo CI pins the API and uses read-only checkout authority for public or private sources', async () => {
   const workflow = await readFile(workflowUrl, 'utf8');
   const apiCheckout = workflow.match(
-    /repository: floriankreutzer\/conference-manager-api\s+ref: ([a-f0-9]{40})\s+token: \$\{\{ secrets\.SHARED_DEMO_API_READ_TOKEN \}\}\s+persist-credentials: false/,
+    /repository: floriankreutzer\/conference-manager-api\s+ref: ([a-f0-9]{40})\s+token: \$\{\{ secrets\.SHARED_DEMO_API_READ_TOKEN \|\| github\.token \}\}\s+persist-credentials: false/,
   );
 
-  assert.ok(apiCheckout, 'expected an immutable authenticated API checkout');
+  assert.ok(apiCheckout, 'expected an immutable API checkout with bounded credential fallback');
   assert.doesNotMatch(apiCheckout[1], /^(?:0{40}|f{40})$/);
-  assert.match(workflow, /if \[\[ -z "\$SHARED_DEMO_API_READ_TOKEN" \]\]; then/);
+  assert.match(workflow, /permissions:\s+contents: read/);
+  assert.doesNotMatch(workflow, /continue-on-error:|pull_request_target:/);
+  assert.doesNotMatch(workflow, /name: Checkout immutable API commit\s+if:/);
   assert.match(workflow, /if \[\[ -f api\/customer-demo-api\.pid \]\]/);
   assert.doesNotMatch(workflow, /name: Stop Demo API processes\s+if: always\(\)\s+working-directory:/);
 });

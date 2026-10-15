@@ -1,10 +1,12 @@
 import {
   lstatSync,
+  readFileSync,
   readdirSync,
   realpathSync,
 } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { dastCredentialVariants } from './support/dast-operations-auth.mjs';
 
 export const ZAP_EVIDENCE_FILES = Object.freeze([
   'addons.txt',
@@ -31,7 +33,8 @@ function fail(message) {
   throw new Error(`ZAP evidence boundary violation: ${message}`);
 }
 
-export function verifyZapEvidenceFiles({ workspace = process.cwd() } = {}) {
+export function verifyZapEvidenceFiles({ workspace = process.cwd(), env = process.env } = {}) {
+  const credentials = dastCredentialVariants(env);
   const canonicalWorkspace = realpathSync(workspace);
   const evidenceDirectory = resolve(canonicalWorkspace, 'zap-evidence');
   const directoryMetadata = lstatSync(evidenceDirectory);
@@ -66,6 +69,15 @@ export function verifyZapEvidenceFiles({ workspace = process.cwd() } = {}) {
     }
     if (realpathSync(expectedPath) !== expectedPath) {
       fail(`${name} escaped the canonical evidence directory.`);
+    }
+  }
+
+  // Inspect only after the complete link, inventory and size boundary passed.
+  // Fail closed rather than rewriting findings or uploading secret-bearing reports.
+  for (const name of actualNames) {
+    const content = readFileSync(resolve(evidenceDirectory, name));
+    if (credentials.some((credential) => content.includes(Buffer.from(credential)))) {
+      fail('DAST_CREDENTIAL_IN_EVIDENCE');
     }
   }
 
