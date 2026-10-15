@@ -53,7 +53,7 @@ export function createObservedResourceClock({ lifetimeOf, onExpire, wallNow = Da
       if (age(state) >= state.lifetime) return false;
       entry = state;
       arm(state);
-      return true;
+      return entry === state;
     },
     isReusable(resource) { return entry !== null && entry.resource === resource && age(entry) < entry.lifetime; },
     check() {
