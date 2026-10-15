@@ -407,7 +407,7 @@ test('Provider snapshots age across navigation without automatic reads and retai
   const status = page.locator('[data-platform-provider-freshness]');
   await providers.click(); await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
   const directory = page.locator('[data-platform-admin-fleet-view="directory"]');
-  await directory.click(); await focusNavigationAfterTransition(page, directory);
+  await directory.click(); await focusAfterNavigationTransition(page, directory);
   await page.clock.fastForward(43_200_001);
   await expect(directory).toBeFocused(); expect(reads).toBe(1);
   await providers.click(); await expect(status).toHaveAttribute('data-platform-provider-freshness', 'stale');
@@ -415,7 +415,7 @@ test('Provider snapshots age across navigation without automatic reads and retai
   // A separately saved newer operator extract becomes available before a manual reload.
   report = JSON.parse(readFileSync(new URL('../support/provider-usage-refreshed-fixture.json', import.meta.url), 'utf8'));
   const refresh = page.locator('[data-platform-provider-refresh]');
-  await refresh.focus(); await page.keyboard.press('Enter');
+  await focusAfterNavigationTransition(page, refresh); await page.keyboard.press('Enter');
   await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
   await expect(page.locator('#viewTitle')).toBeFocused(); expect(reads).toBe(2);
   await refresh.focus(); await page.clock.fastForward(86_400_001); await page.clock.runFor(20);
@@ -526,7 +526,7 @@ test('private product failures and forged content fail closed and Production ref
 });
 
 
-async function focusNavigationAfterTransition(page, navigation) {
+async function focusAfterNavigationTransition(page, navigation) {
   // Navigation deliberately transfers focus on the next animation frame. Let
   // that contract finish before simulating the user's subsequent focus move.
   await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
@@ -553,7 +553,7 @@ test('slow Product navigation deduplicates its pending read and retains keyboard
   await directory.click(); await product.click();
   await expect(page.locator('#app [role="status"]')).toBeVisible();
   expect(reads).toBe(1);
-  await directory.click(); await focusNavigationAfterTransition(page, directory);
+  await directory.click(); await focusAfterNavigationTransition(page, directory);
   const response = page.waitForResponse('**/api/v1/platform/demo/product-delivery');
   release(); await (await response).finished();
   await page.evaluate(async () => { await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame); });
@@ -587,7 +587,7 @@ test('Product cache ages on revisit and evicts retained data in a long-lived vis
   const view = page.locator('[data-product-delivery-report]');
   await product.click(); await expect(view).toBeVisible(); expect(reads).toBe(1);
   const directory = page.locator('[data-platform-admin-fleet-view="directory"]');
-  await directory.click(); await focusNavigationAfterTransition(page, directory);
+  await directory.click(); await focusAfterNavigationTransition(page, directory);
   serverTime += day;
   await page.clock.fastForward(day);
   expect(reads).toBe(1);
