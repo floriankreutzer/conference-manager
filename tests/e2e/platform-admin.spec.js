@@ -460,6 +460,9 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await testInfo.attach('product-delivery-known-api', { path: knownScreenshot, contentType: 'image/png' });
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  const enlargedScreenshot = testInfo.outputPath('product-delivery-text-200.png');
+  await page.screenshot({ path: enlargedScreenshot, fullPage: true });
+  await testInfo.attach('product-delivery-text-200', { path: enlargedScreenshot, contentType: 'image/png' });
 });
 
 test('private product failures and forged content fail closed and Production refuses the Demo-only adapter', async ({ page }) => {
@@ -551,8 +554,12 @@ test('Product cache ages on revisit and evicts retained data in a long-lived vis
   await product.click(); await expect(view).toBeVisible(); expect(reads).toBe(2);
   await expect(view.locator('[role="status"][data-tone="critical"]')).toBeVisible();
   await view.locator('[data-product-delivery-refresh]').focus();
-  serverTime = start + 30 * day;
-  await page.clock.fastForward(29 * day);
+  // The browser clock accepts bounded signed-32-bit durations. Advance each
+  // daily cache wake-up without wrapping a single 29-day duration into the past.
+  for (let remainingDays = 29; remainingDays > 0; remainingDays -= 1) {
+    serverTime += day;
+    await page.clock.fastForward(day);
+  }
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unbekannt');
   await expect(view.locator('[data-product-feedback]')).toContainText('noch nicht angebunden');
   expect(reads).toBe(3);

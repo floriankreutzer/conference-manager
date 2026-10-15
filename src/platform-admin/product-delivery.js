@@ -53,7 +53,7 @@ export function renderProductDelivery({ resource, onRetry }) {
   }, [el('h2', { text: t('platformAdmin.productDelivery.unavailable') }),
     el('p', { text: t('platformAdmin.productDelivery.unavailableText') }), refresh]);
   const report = resource.data;
-  return el('section', { dataset: { productDeliveryReport: 'true' } }, [
+  return el('section', { className: 'platform-admin-product-delivery', dataset: { productDeliveryReport: 'true' } }, [
     el('section', { className: 'card' }, [
       el('h2', { text: t('platformAdmin.productDelivery.title') }),
       el('p', { text: t('platformAdmin.productDelivery.privateNotice') }),

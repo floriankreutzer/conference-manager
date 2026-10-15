@@ -363,3 +363,8 @@
   padding: 0;
   list-style: none;
 }
+
+.platform-admin-product-delivery {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
