@@ -1,20 +1,12 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { normalizeProviderUsage } from '../src/platform-admin/provider-usage-contracts.js';
 import { createProviderUsageApi } from '../src/platform-admin/demo/provider-usage-api.js';
 import { platformAdminBoundaryViolations } from '../scripts/platform-admin-boundary-policy.mjs';
 
 function fixture() {
-  return { schemaVersion: 1, collectionMode: 'operator_snapshot', accessMode: 'shared_owner_password',
-    evaluatedAt: '2026-10-15T12:00:00.000Z', observedAt: '2026-10-15T00:00:00.000Z',
-    periodStart: '2026-10-01T00:00:00.000Z', periodEnd: '2026-11-01T00:00:00.000Z', freshness: 'fresh',
-    alertDelivery: 'not_configured', costState: 'unknown',
-    neon: { plan: 'launch_v3', source: 'neon_control_plane', referenceBasis: 'published_launch_model',
-      referenceObservedAt: '2026-10-01T00:00:00.000Z', usedBytes: 10_000_000_000,
-      referenceBytes: 500_000_000_000, projectedBytes: 22_142_857_143, utilizationPercent: 2,
-      projectedUtilizationPercent: 4.43, crossedThresholds: [], projectedExhaustion: false,
-      anomalyState: 'insufficient_baseline' }, render: { usageState: 'unknown_monthly_usage' },
-    github: { usageState: 'unknown_billing_usage' } };
+  return JSON.parse(readFileSync(new URL('./support/provider-usage-fixture.json', import.meta.url), 'utf8'));
 }
 
 test('provider client retains unknowns and uses only a fixed bounded GET', async () => {
@@ -41,6 +33,19 @@ test('provider response rejects unknown fields, authority, amounts, periods, thr
     { neon: { ...fixture().neon, crossedThresholds: [70, 50] } },
     { render: { usageState: 'zero' } }, { github: { usageState: 'unknown_billing_usage', token: 'secret' } },
   ]) assert.throws(() => normalizeProviderUsage({ ...fixture(), ...change }), /PLATFORM_PROVIDER_USAGE_INVALID/);
+});
+
+test('Provider wire freshness follows the server clock and cannot contradict its observation/window', () => {
+  const value = fixture();
+  value.evaluatedAt = '2026-10-16T00:00:00.000Z';
+  assert.equal(normalizeProviderUsage(value).freshness, 'fresh');
+  value.evaluatedAt = '2026-10-16T00:00:00.001Z';
+  assert.throws(() => normalizeProviderUsage(value));
+  value.freshness = 'stale'; assert.equal(normalizeProviderUsage(value).freshness, 'stale');
+  value.evaluatedAt = value.observedAt; assert.throws(() => normalizeProviderUsage(value));
+  value.periodEnd = value.observedAt; value.freshness = 'fresh';
+  assert.throws(() => normalizeProviderUsage(value));
+  value.freshness = 'stale'; assert.equal(normalizeProviderUsage(value).freshness, 'stale');
 });
 
 test('only Demo composition may consume the pure central flag resolver', () => {

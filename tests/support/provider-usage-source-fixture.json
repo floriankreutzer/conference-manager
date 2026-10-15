@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "plan": "launch_v3",
+  "referenceObservedAt": "2026-10-01T00:00:00.000Z",
+  "finops": {
+    "schemaVersion": 1,
+    "current": {
+      "schemaVersion": 1,
+      "periodStart": "2026-10-01T00:00:00.000Z",
+      "periodEnd": "2026-11-01T00:00:00.000Z",
+      "observedAt": "2026-10-15T00:00:00.000Z",
+      "measurements": [
+        {
+          "source": "database_transfer",
+          "unit": "bytes",
+          "used": 10000000000,
+          "limit": 500000000000
+        }
+      ]
+    },
+    "history": [],
+    "rates": []
+  }
+}

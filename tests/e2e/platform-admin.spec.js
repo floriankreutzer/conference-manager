@@ -393,6 +393,36 @@ test('private provider cards show dated usage, native meters, thresholds and unk
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
+test('Provider snapshots age across navigation without automatic reads and retain expiry/refresh focus', async ({ page }) => {
+  let report = JSON.parse(readFileSync(new URL('../support/provider-usage-fixture.json', import.meta.url), 'utf8'));
+  await page.clock.install({ time: new Date(report.evaluatedAt) });
+  await installDemoRoutes(page);
+  let reads = 0;
+  await page.route('**/api/v1/platform/demo/provider-usage', async (route) => {
+    reads += 1;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  const providers = page.locator('[data-platform-admin-fleet-view="providers"]');
+  const status = page.locator('[data-platform-provider-freshness]');
+  await providers.click(); await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
+  const directory = page.locator('[data-platform-admin-fleet-view="directory"]');
+  await directory.click(); await focusNavigationAfterTransition(page, directory);
+  await page.clock.fastForward(43_200_001);
+  await expect(directory).toBeFocused(); expect(reads).toBe(1);
+  await providers.click(); await expect(status).toHaveAttribute('data-platform-provider-freshness', 'stale');
+  expect(reads).toBe(1);
+  // A separately saved newer operator extract becomes available before a manual reload.
+  report = JSON.parse(readFileSync(new URL('../support/provider-usage-refreshed-fixture.json', import.meta.url), 'utf8'));
+  const refresh = page.locator('[data-platform-provider-refresh]');
+  await refresh.focus(); await page.keyboard.press('Enter');
+  await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
+  await expect(page.locator('#viewTitle')).toBeFocused(); expect(reads).toBe(2);
+  await refresh.focus(); await page.clock.fastForward(86_400_001); await page.clock.runFor(20);
+  await expect(status).toHaveAttribute('data-platform-provider-freshness', 'stale');
+  await expect(page.locator('#viewTitle')).toBeFocused(); expect(reads).toBe(2);
+});
+
 test('private provider failures retry safely and malformed provider payloads do not render', async ({ page }) => {
   await installDemoRoutes(page);
   let malformed = false;

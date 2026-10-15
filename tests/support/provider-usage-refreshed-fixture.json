@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "collectionMode": "operator_snapshot",
+  "accessMode": "shared_owner_password",
+  "evaluatedAt": "2026-10-16T00:00:00.001Z",
+  "observedAt": "2026-10-16T00:00:00.001Z",
+  "periodStart": "2026-10-01T00:00:00.000Z",
+  "periodEnd": "2026-11-01T00:00:00.000Z",
+  "freshness": "fresh",
+  "alertDelivery": "not_configured",
+  "costState": "unknown",
+  "neon": {
+    "plan": "launch_v3",
+    "source": "neon_control_plane",
+    "referenceBasis": "published_launch_model",
+    "referenceObservedAt": "2026-10-01T00:00:00.000Z",
+    "usedBytes": 10000000000,
+    "referenceBytes": 500000000000,
+    "projectedBytes": 20666666651,
+    "utilizationPercent": 2,
+    "projectedUtilizationPercent": 4.13,
+    "crossedThresholds": [],
+    "projectedExhaustion": false,
+    "anomalyState": "insufficient_baseline"
+  },
+  "render": {
+    "usageState": "unknown_monthly_usage"
+  },
+  "github": {
+    "usageState": "unknown_billing_usage"
+  }
+}
