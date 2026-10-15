@@ -12,7 +12,7 @@ function detail(key, value) {
   return el('div', {}, [el('dt', { text: t(key) }), el('dd', { text: value })]);
 }
 
-export function renderProviderUsage({ resource, onRetry }) {
+export function renderProviderUsage({ resource, onRetry, isStale = false }) {
   const refresh = button(t('platformAdmin.providers.refresh'), { className: 'secondary',
     dataset: { platformProviderRefresh: 'true' } });
   refresh.addEventListener('click', onRetry);
@@ -24,6 +24,7 @@ export function renderProviderUsage({ resource, onRetry }) {
     el('p', { text: t('platformAdmin.providers.unavailableText') }), refresh,
   ]);
   const report = resource.data;
+  const freshness = isStale || report.freshness === 'stale' ? 'stale' : 'fresh';
   const n = report.neon;
   const meterId = 'platformProviderNeonMeter';
   const thresholds = el('ul', { className: 'platform-admin-provider-thresholds' });
@@ -69,8 +70,8 @@ export function renderProviderUsage({ resource, onRetry }) {
       el('p', { text: t('platformAdmin.providers.privateNotice') }),
       el('p', { text: t('platformAdmin.providers.snapshot', { time: formatDateTime(report.observedAt) }) }),
       el('p', { className: 'platform-admin-status', attrs: { role: 'status' },
-        dataset: { tone: report.freshness === 'stale' ? 'critical' : 'neutral' },
-        text: t(`platformAdmin.providers.freshness.${report.freshness}`) }),
+        dataset: { tone: freshness === 'stale' ? 'critical' : 'neutral', platformProviderFreshness: freshness },
+        text: t(`platformAdmin.providers.freshness.${freshness}`) }),
       refresh,
     ]),
     el('div', { className: 'platform-admin-provider-grid' }, [neon, ...unknown]),

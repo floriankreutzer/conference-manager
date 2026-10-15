@@ -22,6 +22,9 @@ export function normalizeProviderUsage(value) {
     || Date.parse(value.periodStart) >= Date.parse(value.observedAt)
     || Date.parse(value.observedAt) > Date.parse(value.periodEnd)
     || Date.parse(value.observedAt) > Date.parse(value.evaluatedAt)) throw new TypeError('PLATFORM_PROVIDER_USAGE_INVALID');
+  const stale = Date.parse(value.evaluatedAt) - Date.parse(value.observedAt) > 86_400_000
+    || Date.parse(value.evaluatedAt) >= Date.parse(value.periodEnd);
+  if (value.freshness !== (stale ? 'stale' : 'fresh')) throw new TypeError('PLATFORM_PROVIDER_USAGE_INVALID');
   const n = value.neon;
   exact(n, ['plan', 'source', 'referenceBasis', 'referenceObservedAt', 'usedBytes', 'referenceBytes',
     'projectedBytes', 'utilizationPercent', 'projectedUtilizationPercent', 'crossedThresholds',

@@ -35,6 +35,7 @@ import { platformRecoveryDefinition } from './resource-contracts.js';
 import { renderProviderUsage } from './provider-usage.js';
 import { renderProductDelivery } from './product-delivery.js';
 import { createProductDeliveryCache } from './product-delivery-cache.js';
+import { createProviderUsageFreshness } from './provider-usage-freshness.js';
 
 const LIFECYCLE_FILTERS = Object.freeze(['all', 'pending', 'onboarding', 'ready', 'active', 'suspended', 'archived']);
 const HEALTH_FILTERS = Object.freeze(['all', 'healthy', 'degraded', 'unavailable', 'not_configured']);
@@ -146,6 +147,14 @@ export function createPlatformAdminApplication({
   let fleetView = 'directory';
   const fleetResources = new Map();
   const tenantResources = new Map();
+  const providerFreshness = providerUsage ? createProviderUsageFreshness({
+    setTimer: (callback, delay) => windowRef.setTimeout(callback, delay),
+    clearTimer: (timer) => windowRef.clearTimeout(timer),
+    monotonicNow: () => windowRef.performance.now(),
+    onExpire(resource) {
+      if (fleetResources.get('providers') === resource && providerViewIsVisible()) renderWithFocusHandoff();
+    },
+  }) : null;
   const productCache = productDelivery ? createProductDeliveryCache({
     setTimer: (callback, delay) => windowRef.setTimeout(callback, delay),
     clearTimer: (timer) => windowRef.clearTimeout(timer),
@@ -168,7 +177,18 @@ export function createPlatformAdminApplication({
       && documentRef.visibilityState !== 'hidden';
   }
 
-  function revalidateProductCache() {
+  function providerViewIsVisible() {
+    return providerUsage && sessionState === 'authenticated' && fleet
+      && currentRoute().view === 'fleet' && fleetView === 'providers'
+      && documentRef.visibilityState !== 'hidden';
+  }
+
+  function revalidateProjectionClocks() {
+    providerFreshness?.check();
+    const provider = fleetResources.get('providers');
+    if (providerViewIsVisible() && provider?.status === 'ready'
+      && !providerFreshness.isReusable(provider)
+      && nodes.app.querySelector('[data-platform-provider-freshness="fresh"]')) renderWithFocusHandoff();
     productCache?.check();
     if (productViewIsVisible()) {
       if (!fleetResources.has('product-delivery')) void loadFleetResource('product-delivery');
@@ -269,6 +289,7 @@ export function createPlatformAdminApplication({
           actionError = false;
           fleetView = 'directory';
           productCache?.forget();
+          providerFreshness?.forget();
           fleetResources.clear();
           tenantResources.clear();
           await loadFleet();
@@ -304,6 +325,7 @@ export function createPlatformAdminApplication({
             filters = normalizePlatformDirectoryQuery();
             fleetView = 'directory';
             productCache?.forget();
+            providerFreshness?.forget();
             fleetResources.clear();
             tenantResources.clear();
             dialog.close();
@@ -356,11 +378,14 @@ export function createPlatformAdminApplication({
       || (existing?.status === 'ready'
         && (view !== 'product-delivery' || productCache?.isReusable(existing))))) return;
     if (view === 'product-delivery') productCache.forget();
+    if (view === 'providers') providerFreshness.forget();
     const pending = { status: 'loading', data: append ? existing?.data : null };
     fleetResources.set(view, pending);
-    render();
+    if (view === 'providers') renderWithFocusHandoff();
+    else render();
     try {
-      const productClock = view === 'product-delivery' ? productCache.capture() : null;
+      const requestClock = view === 'product-delivery' ? productCache.capture()
+        : view === 'providers' ? providerFreshness.capture() : null;
       let data;
       if (view === 'product-delivery') data = await productDelivery.load();
       else if (view === 'providers') data = await providerUsage.load();
@@ -373,16 +398,18 @@ export function createPlatformAdminApplication({
       }
       if (fleetResources.get(view) !== pending) return;
       const ready = { status: 'ready', data };
-      if (view === 'product-delivery' && !productCache.retain(ready, productClock)) {
+      if (view === 'product-delivery' && !productCache.retain(ready, requestClock)) {
         throw new TypeError('PLATFORM_PRODUCT_CACHE_EXPIRED');
       }
+      if (view === 'providers') providerFreshness.retain(ready, requestClock);
       fleetResources.set(view, ready);
     } catch {
       if (fleetResources.get(view) !== pending) return;
       fleetResources.set(view, { status: 'error', data: null });
     }
     if (currentRoute().view === 'fleet' && fleetView === view) {
-      if (view === 'product-delivery' && productViewIsVisible()) renderWithFocusHandoff();
+      if ((view === 'product-delivery' && productViewIsVisible())
+        || (view === 'providers' && providerViewIsVisible())) renderWithFocusHandoff();
       else render();
     }
   }
@@ -730,6 +757,7 @@ export function createPlatformAdminApplication({
     if (fleetView === 'providers' && providerUsage) {
       setHeading(t('platformAdmin.providers.title'), t('platformAdmin.providers.subtitle'));
       return renderProviderUsage({ resource: fleetResources.get(fleetView),
+        isStale: !providerFreshness.isReusable(fleetResources.get(fleetView)),
         onRetry: () => loadFleetResource(fleetView, { force: true }) });
     }
     const definition = PLATFORM_FLEET_VIEW_DEFINITIONS.find(({ id }) => id === fleetView);
@@ -1242,9 +1270,9 @@ export function createPlatformAdminApplication({
     windowRef.addEventListener('hashchange', routeChanged);
     windowRef.addEventListener('popstate', routeChanged);
     windowRef.addEventListener('conference-language-changed', languageChanged);
-    windowRef.addEventListener('pageshow', revalidateProductCache);
-    windowRef.addEventListener('focus', revalidateProductCache);
-    documentRef.addEventListener('visibilitychange', revalidateProductCache);
+    windowRef.addEventListener('pageshow', revalidateProjectionClocks);
+    windowRef.addEventListener('focus', revalidateProjectionClocks);
+    documentRef.addEventListener('visibilitychange', revalidateProjectionClocks);
     render();
     if (sessionState === 'authenticated') await loadFleet();
   }
@@ -1253,12 +1281,15 @@ export function createPlatformAdminApplication({
     windowRef.removeEventListener('hashchange', routeChanged);
     windowRef.removeEventListener('popstate', routeChanged);
     windowRef.removeEventListener('conference-language-changed', languageChanged);
-    windowRef.removeEventListener('pageshow', revalidateProductCache);
-    windowRef.removeEventListener('focus', revalidateProductCache);
-    documentRef.removeEventListener('visibilitychange', revalidateProductCache);
+    windowRef.removeEventListener('pageshow', revalidateProjectionClocks);
+    windowRef.removeEventListener('focus', revalidateProjectionClocks);
+    documentRef.removeEventListener('visibilitychange', revalidateProjectionClocks);
     productCache?.forget();
+    providerFreshness?.forget();
+    fleetResources.delete('providers');
     fleetResources.delete('product-delivery');
-    if (productDelivery && fleetView === 'product-delivery' && currentRoute().view === 'fleet') clear(nodes.app);
+    if (((productDelivery && fleetView === 'product-delivery') || (providerUsage && fleetView === 'providers'))
+      && currentRoute().view === 'fleet') clear(nodes.app);
   }
 
   if (PLATFORM_ADMIN_SECTION_DEFINITIONS.length !== PLATFORM_ADMIN_SECTIONS.length) {

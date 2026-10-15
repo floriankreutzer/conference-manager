@@ -41,6 +41,8 @@
     "src/platform/feature-flags.js",
     "src/platform-admin/provider-usage-contracts.js",
     "src/platform-admin/product-delivery.js",
+    "src/platform-admin/observed-resource-clock.js",
+    "src/platform-admin/provider-usage-freshness.js",
     "src/platform-admin/product-delivery-cache.js",
     "src/platform-admin/demo/product-delivery-api.js",
     "src/platform-admin/product-delivery-contracts.js"

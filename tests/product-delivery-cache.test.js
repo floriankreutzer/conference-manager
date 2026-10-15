@@ -53,3 +53,15 @@ test('replacement and disposal cancel obsolete callbacks; wall-clock rollback do
   h.cache.forget(); disposed(); assert.equal(h.expired.length, 1); assert.equal(h.timers.size, 0);
   assert.equal(h.cache.isReusable(undefined), false);
 });
+
+test('an observation expiring during retention cannot be published as reusable', () => {
+  let elapsed = 0; const expired = [];
+  const cache = createProductDeliveryCache({ onExpire: (value) => expired.push(value),
+    wallNow: () => 0, monotonicNow: () => elapsed++, setTimer: () => 1, clearTimer() {},
+  });
+  const ending = resource();
+  ending.data.evaluatedAt = new Date(Date.parse(ending.data.observedAt) + DAY - 2).toISOString();
+  assert.equal(cache.retain(ending), false);
+  assert.equal(cache.isReusable(ending), false);
+  assert.deepEqual(expired, [ending]);
+});

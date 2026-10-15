@@ -150,8 +150,10 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
-      - name: Verify Product and Delivery fixtures against immutable API
-        run: node frontend/scripts/check-product-delivery-contract.mjs api
+      - name: Verify private projection fixtures against immutable API
+        run: |
+          node frontend/scripts/check-product-delivery-contract.mjs api
+          node frontend/scripts/check-provider-usage-contract.mjs api
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci --ignore-scripts --no-audit --no-fund

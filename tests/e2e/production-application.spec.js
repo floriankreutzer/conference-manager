@@ -1771,8 +1771,10 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   const packageGroup = page.getByRole('group', { name: 'Catering-Pakete und Varianten' });
   const itemGroup = page.getByRole('group', { name: 'Einzeloptionen' });
   const packageChoice = packageGroup.getByRole('radio', { name: 'Workshop package · Standard' });
+  await expect(page.getByRole('heading', { name: 'Bewirtung', exact: true })).toBeFocused();
   await packageChoice.focus();
   await packageChoice.press('Space');
+  await expect(packageChoice).toBeFocused();
   await expect(packageChoice).toBeChecked();
   await expect(packageChoice.locator('..')).toHaveClass(/\bselected\b/);
   await expect(packageChoice.locator('..')).toHaveCSS('outline-style', 'solid');
