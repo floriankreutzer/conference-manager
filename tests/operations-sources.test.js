@@ -20,9 +20,13 @@ test('protected operator wire accepts real compiler aggregates and retains empty
   } });
   assert.deepEqual(calls, ['demo/operations-sources']);
   assert.equal(loaded.sources.length, 2);
-  assert.equal(await loadOptionalOperationsSources({ async request() { throw new Error('404'); } }), null);
+  for (const code of ['HTTP_404', 'HTTP_503']) {
+    assert.equal(await loadOptionalOperationsSources({ async request() {
+      throw Object.assign(new Error('optional source unavailable'), { code });
+    } }), null);
+  }
   await assert.rejects(loadOptionalOperationsSources({ async request() { return { secret: 'must-not-pass' }; } }));
-  for (const code of ['HTTP_401', 'HTTP_403']) {
+  for (const code of ['HTTP_401', 'HTTP_403', 'INVALID_JSON_RESPONSE', 'UNEXPECTED_CONTENT_TYPE']) {
     const failure = Object.assign(new Error('authority failure'), { code });
     await assert.rejects(loadOptionalOperationsSources({ async request() { throw failure; } }), (error) => error === failure);
     const daily = JSON.parse(readFileSync(new URL('./support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));

@@ -170,7 +170,9 @@ export async function mediaHash(context, url) {
 
 export async function imagesLoaded(root) {
   const images = root.locator('img');
-  expect(await images.count()).toBeGreaterThan(0);
+  // The mutation response can finish before its asynchronous UI render. Wait for
+  // the same required positive image count; do not retry writes or relax it.
+  await expect.poll(() => images.count()).toBeGreaterThan(0);
   for (const image of await images.all()) {
     // Native lazy images in scrollable previews load when a user reaches them.
     await image.scrollIntoViewIfNeeded();

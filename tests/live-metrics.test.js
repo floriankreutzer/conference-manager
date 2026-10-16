@@ -12,7 +12,7 @@ test('daily live client uses only the bounded fixed GET and retains actual stock
   const calls = [];
   const api = createProductDeliveryApi({ apiClient: { async request(path, options) {
     calls.push(path); assert.equal(options.method, 'GET'); assert.equal(options.body, undefined);
-    if (path === 'demo/operations-sources') throw new Error('PLATFORM_NOT_FOUND');
+    if (path === 'demo/operations-sources') throw Object.assign(new Error('PLATFORM_NOT_FOUND'), { code: 'HTTP_404' });
     assert.equal(typeof options.signal.addEventListener, 'function'); return fixture();
   } } });
   const report = await api.load();

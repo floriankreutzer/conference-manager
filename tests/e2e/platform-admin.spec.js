@@ -467,8 +467,16 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await expect(older).toHaveAttribute('open', '');
   await expect(older.locator('[data-product-metric="change_failure_rate"] strong')).toHaveText('Unbekannt');
   const screenshot = testInfo.outputPath('product-delivery-overview.png');
-  await page.screenshot({ path: screenshot, fullPage: true });
+  // WebKit limits a single image dimension to 32767px. Keep a viewport overview
+  // and every metric card separately so the expanded mobile report is covered.
+  await page.screenshot({ path: screenshot });
   await testInfo.attach('product-delivery-overview', { path: screenshot, contentType: 'image/png' });
+  const evidenceCards = view.locator(':scope > section.card, [data-product-delivery-component]');
+  for (let index = 0; index < await evidenceCards.count(); index += 1) {
+    const path = testInfo.outputPath(`product-delivery-card-${index}.png`);
+    await evidenceCards.nth(index).screenshot({ path });
+    await testInfo.attach(`product-delivery-card-${index}`, { path, contentType: 'image/png' });
+  }
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
   await expect(page.locator('#viewTitle')).toHaveText('Product & delivery');
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unknown');
