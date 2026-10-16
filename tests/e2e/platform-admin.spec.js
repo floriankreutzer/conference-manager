@@ -467,8 +467,16 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   await expect(older).toHaveAttribute('open', '');
   await expect(older.locator('[data-product-metric="change_failure_rate"] strong')).toHaveText('Unbekannt');
   const screenshot = testInfo.outputPath('product-delivery-overview.png');
-  await page.screenshot({ path: screenshot, fullPage: true });
+  // WebKit limits a single image dimension to 32767px. Keep a viewport overview
+  // and every metric card separately so the expanded mobile report is covered.
+  await page.screenshot({ path: screenshot });
   await testInfo.attach('product-delivery-overview', { path: screenshot, contentType: 'image/png' });
+  const evidenceCards = view.locator(':scope > section.card, [data-product-delivery-component]');
+  for (let index = 0; index < await evidenceCards.count(); index += 1) {
+    const path = testInfo.outputPath(`product-delivery-card-${index}.png`);
+    await evidenceCards.nth(index).screenshot({ path });
+    await testInfo.attach(`product-delivery-card-${index}`, { path, contentType: 'image/png' });
+  }
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
   await expect(page.locator('#viewTitle')).toHaveText('Product & delivery');
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unknown');
@@ -496,6 +504,56 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   const enlargedScreenshot = testInfo.outputPath('product-delivery-text-200.png');
   await api.screenshot({ path: enlargedScreenshot });
   await testInfo.attach('product-delivery-text-200', { path: enlargedScreenshot, contentType: 'image/png' });
+});
+
+test('protected operator sources retain provenance, unknown feedback, keyboard details, locale and reflow', async ({ page }) => {
+  await installDemoRoutes(page);
+  const automatic = JSON.parse(readFileSync(new URL('../support/product-delivery-fixture.json', import.meta.url), 'utf8'));
+  const sources = JSON.parse(readFileSync(new URL('../support/operations-sources-fixture.json', import.meta.url), 'utf8'));
+  await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(automatic),
+  }));
+  await page.route('**/api/v1/platform/demo/operations-sources', (route) => {
+    expect(route.request().method()).toBe('GET'); expect(route.request().postData()).toBeNull();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(sources) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  const manual = page.locator('[data-operator-source="manual"]');
+  const feedback = page.locator('[data-operator-source="feedback"]');
+  await expect(manual).toContainText('Vom Betreiber bestätigt');
+  await expect(feedback).toContainText('Unbekannt / unvollständig');
+  await expect(feedback.locator('dd').first()).toHaveText('Unbekannt');
+  const older = manual.locator('[data-product-delivery-component="api"] details').nth(1);
+  await older.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(older).toHaveAttribute('open', '');
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await expect(manual).toContainText('Operator-confirmed');
+  await expect(feedback.locator('dd').first()).toHaveText('Unknown');
+  await expect(page.locator('#app')).not.toContainText('synthetic-owner');
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    .toBeLessThanOrEqual(1);
+});
+
+test('final optional source authority failure suppresses the already fetched protected report', async ({ page }) => {
+  await installDemoRoutes(page);
+  const automatic = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(automatic),
+  }));
+  let status = 401;
+  await page.route('**/api/v1/platform/demo/operations-sources', (route) => route.fulfill({
+    status, contentType: 'application/json', body: JSON.stringify({ error: { code: 'PLATFORM_FORBIDDEN' } }),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  await expect(page.getByRole('heading', { name: 'Produktübersicht nicht verfügbar' })).toBeVisible();
+  await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
+  status = 403;
+  await page.locator('[data-product-delivery-refresh]').click();
+  await expect(page.getByRole('heading', { name: 'Produktübersicht nicht verfügbar' })).toBeVisible();
+  await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
 });
 
 test('private product failures and forged content fail closed and Production refuses the Demo-only adapter', async ({ page }) => {

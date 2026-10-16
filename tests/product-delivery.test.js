@@ -11,7 +11,9 @@ function fixture() {
 test('private Product/Delivery client uses only fixed bounded GET and preserves actual unknowns', async () => {
   let observed;
   const api = createProductDeliveryApi({ apiClient: { async request(path, options) {
-    if (path === 'demo/live-metrics') throw new Error('PLATFORM_NOT_FOUND');
+    if (['demo/live-metrics', 'demo/operations-sources'].includes(path)) {
+      throw Object.assign(new Error('PLATFORM_NOT_FOUND'), { code: 'HTTP_404' });
+    }
     observed = { path, options }; return fixture();
   } } });
   const report = await api.load();

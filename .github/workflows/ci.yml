@@ -134,7 +134,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 9eea6b77b03512191b3a4cf51a5624c9074bc98a
+          ref: 285713f56f944efce1e6b98998e5ce451f7f2a76
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -147,6 +147,7 @@ jobs:
           node frontend/scripts/check-product-delivery-contract.mjs api
           node frontend/scripts/check-provider-usage-contract.mjs api
           node frontend/scripts/check-live-metrics-contract.mjs api
+          node frontend/scripts/check-operations-sources-contract.mjs api
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci --ignore-scripts --no-audit --no-fund
