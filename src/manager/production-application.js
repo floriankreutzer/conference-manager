@@ -475,11 +475,12 @@ export function createProductionManagerApplication({
           tabs.appendChild(tab);
         });
         root.appendChild(tabs);
-        if (pendingTabFocus === activeTab) requestAnimationFrame(() => {
-          if (!isCurrent(generation) || pendingTabFocus !== activeTab) return;
+        if (pendingTabFocus === activeTab && isCurrent(generation)) {
+          // Finish keyboard navigation before exposing the next editable panel.
+          // A delayed frame must not steal focus from its first field interaction.
           root.querySelector(`[data-manager-tab="${activeTab}"]`)?.focus();
           pendingTabFocus = null;
-        });
+        }
 
         const refreshButton = button(t('production.common.refresh'));
         refreshButton.addEventListener('click', () => { void refresh(); });
