@@ -16,7 +16,7 @@ This repository contains the browser application. Authentication, authorization 
 - Employee UX: **ready** for the accepted Demo scope.
 - Conference Manager UX: **ready** for the accepted Demo scope.
 
-The #182 parity gate and #170 release gate control this promotion. Demo acceptance does not certify Production. Browser navigation reflects the validated server session but never establishes authorization. The [release evidence](docs/SAAS-3.6-RELEASE-EVIDENCE.md) defines the acceptance scope and remaining limits.
+The #182 parity gate and #170 release gate control this promotion. Demo acceptance does not certify Production. Browser navigation reflects the validated server session but never establishes authorization. The [release evidence](docs/SAAS-3.6-RELEASE-EVIDENCE.md) defines the acceptance scope and remaining limits. Its successor deployment still requires refreshed frontend/hosted acceptance; the historical UX readiness markers do not establish acceptance of the currently deployed frontend/API pair. Version-specific CI, Hosted Acceptance, ZAP, dependency/secret checks and review remain separate release gates.
 
 ## Requirements
 
