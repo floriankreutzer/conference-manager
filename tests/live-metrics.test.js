@@ -24,12 +24,54 @@ test('daily live client uses only the bounded fixed GET and retains actual stock
 });
 
 test('unavailable endpoint permits legacy compatibility but malformed success never silently downgrades', async () => {
-  assert.equal(await loadOptionalLiveMetrics({ request: async () => { throw new Error('404'); } }), null);
+  for (const code of ['HTTP_404', 'HTTP_408', 'HTTP_429', 'HTTP_500', 'HTTP_502', 'HTTP_503', 'HTTP_504']) {
+    assert.equal(await loadOptionalLiveMetrics({ async request() {
+      throw Object.assign(new Error('Optional feed unavailable'), { code });
+    } }), null);
+  }
+  for (const name of ['AbortError', 'TimeoutError']) {
+    assert.equal(await loadOptionalLiveMetrics({ async request() { throw new DOMException('Request stopped', name); } }), null);
+  }
   let calls = 0;
   await assert.rejects(loadOptionalLiveMetrics({ async request() {
     calls += 1; return { ...fixture(), secret: 'must-not-pass' };
   } }));
   assert.equal(calls, 1);
+});
+
+test('authority, response-security and programming failures never become an optional missing daily feed', async () => {
+  const failures = ['HTTP_400', 'HTTP_401', 'HTTP_403', 'HTTP_405', 'HTTP_409',
+    'INVALID_JSON_RESPONSE', 'UNEXPECTED_CONTENT_TYPE', 'RESPONSE_TOO_LARGE', 'API_PATH_ESCAPE']
+    .map((code) => Object.assign(new Error('Closed request failure'), { code }));
+  failures.push(new TypeError('Invalid client contract'), new Error('404'),
+    Object.assign(new Error('Authorization cannot be a timeout'), { code: 'HTTP_401', name: 'TimeoutError' }));
+  for (const failure of failures) {
+    await assert.rejects(loadOptionalLiveMetrics({ async request() { throw failure; } }), (error) => error === failure);
+    for (const createApi of [createProviderUsageApi, createProductDeliveryApi]) {
+      const calls = [];
+      const api = createApi({ apiClient: { async request(path) { calls.push(path); throw failure; } } });
+      await assert.rejects(api.load(), (error) => error === failure);
+      assert.deepEqual(calls, ['demo/live-metrics']);
+    }
+  }
+});
+
+test('genuinely missing daily feed still loads each validated legacy projection', async () => {
+  for (const [createApi, endpoint, filename] of [
+    [createProviderUsageApi, 'demo/provider-usage', 'provider-usage-fixture.json'],
+    [createProductDeliveryApi, 'demo/product-delivery', 'product-delivery-fixture.json'],
+  ]) {
+    const calls = [];
+    const api = createApi({ apiClient: { async request(path) {
+      calls.push(path);
+      if (path === endpoint) return JSON.parse(readFileSync(new URL(`./support/${filename}`, import.meta.url), 'utf8'));
+      throw Object.assign(new Error('Optional endpoint missing'), { code: 'HTTP_404' });
+    } } });
+    const report = await api.load();
+    assert.equal(report.liveMetrics, null);
+    assert.deepEqual(calls, endpoint === 'demo/provider-usage'
+      ? ['demo/live-metrics', endpoint] : ['demo/live-metrics', endpoint, 'demo/operations-sources']);
+  }
 });
 
 test('closed daily wire rejects leaked identities, fabricated zero, samples, periods and conflicting clocks', () => {
@@ -62,8 +104,13 @@ test('valid daily-only providers need no legacy Neon endpoint and retain a bound
   const clock = createProviderUsageFreshness({ onExpire: (value) => expired.push(value),
     wallNow: () => elapsed, monotonicNow: () => elapsed, setTimer: () => 1, clearTimer() {} });
   const resource = { status: 'ready', data: report };
+  const original = structuredClone(report);
   assert.equal(clock.retain(resource), true);
-  elapsed = 86_400_000 - 1; assert.equal(clock.isReusable(resource), true);
+  elapsed = 23 * 3_600_000 - 1; assert.equal(clock.isReusable(resource), true);
   elapsed += 1; clock.check();
   assert.equal(clock.isReusable(resource), false); assert.deepEqual(expired, [resource]);
+  elapsed = 86_400_000; clock.check();
+  assert.equal(clock.isReusable(resource), false); assert.deepEqual(expired, [resource, resource]);
+  elapsed += 86_400_000; clock.check();
+  assert.equal(expired.length, 2); assert.deepEqual(report, original);
 });

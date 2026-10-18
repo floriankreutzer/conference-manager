@@ -7,6 +7,14 @@ const DAY = 86_400_000;
 function resource(name = 'product-delivery-known-fixture.json') {
   return { status: 'ready', data: JSON.parse(readFileSync(new URL(`./support/${name}`, import.meta.url), 'utf8')) };
 }
+function withDailyFeed(value, { age, freshness }) {
+  const evaluated = Date.parse(value.data.evaluatedAt);
+  value.data.liveMetrics = {
+    observedAt: new Date(evaluated - age).toISOString(), evaluatedAt: value.data.evaluatedAt,
+    freshness, sourceState: 'available',
+  };
+  return value;
+}
 function harness() {
   let wall = 0; let monotonic = 0; let sequence = 0;
   const timers = new Map(); const expired = [];
@@ -64,4 +72,59 @@ test('an observation expiring during retention cannot be published as reusable',
   assert.equal(cache.retain(ending), false);
   assert.equal(cache.isReusable(ending), false);
   assert.deepEqual(expired, [ending]);
+});
+
+test('daily freshness bounds the Product cache independently from an older stale Product report', () => {
+  const h = harness(); const value = resource();
+  value.data.observedAt = new Date(Date.parse(value.data.evaluatedAt) - 2 * DAY).toISOString();
+  value.data.freshness = 'stale';
+  withDailyFeed(value, { age: DAY - 1000, freshness: 'fresh' });
+  assert.equal(h.cache.retain(value), true);
+  assert.equal(h.latest().delay, 1000);
+  h.advance(999); assert.equal(h.cache.isReusable(value), true);
+  h.advance(1); h.cache.check();
+  assert.equal(h.cache.isReusable(value), false);
+  assert.deepEqual(h.expired, [value]);
+  assert.equal(h.timers.size, 0);
+});
+
+test('an already stale daily feed retains a positive bounded lifetime without immediate reload callbacks', () => {
+  const h = harness(); const value = resource();
+  value.data.evaluatedAt = new Date(Date.parse(value.data.observedAt) + DAY).toISOString();
+  value.data.freshness = 'stale';
+  withDailyFeed(value, { age: DAY, freshness: 'stale' });
+  value.data.liveMetrics.sourceState = 'last_good';
+  assert.equal(h.cache.retain(value), true);
+  for (let index = 0; index < 5; index += 1) h.cache.check();
+  assert.equal(h.cache.isReusable(value), true);
+  assert.deepEqual(h.expired, []);
+  assert.equal(h.timers.size, 1);
+  assert.equal(h.latest().delay, DAY);
+});
+
+test('stale daily retention expires before the independent unknown Product UTC window', () => {
+  const h = harness(); const value = withDailyFeed(resource('product-delivery-fixture.json'), {
+    age: 30 * DAY - 1000, freshness: 'stale',
+  });
+  assert.equal(h.cache.retain(value), true);
+  assert.equal(h.latest().delay, 1000);
+  h.advance(1000); h.cache.check(); h.cache.check();
+  assert.deepEqual(h.expired, [value]);
+  assert.equal(h.timers.size, 0);
+  const expired = withDailyFeed(resource('product-delivery-fixture.json'), { age: 30 * DAY, freshness: 'stale' });
+  assert.throws(() => h.cache.retain(expired), /PLATFORM_PRODUCT_CACHE_INVALID/);
+  assert.equal(h.cache.isReusable(expired), false);
+  assert.equal(h.timers.size, 0);
+});
+
+test('request flight cannot keep a daily feed past its own boundary or arm an expired reload timer', () => {
+  const h = harness(); const value = resource();
+  value.data.observedAt = new Date(Date.parse(value.data.evaluatedAt) - 2 * DAY).toISOString();
+  value.data.freshness = 'stale';
+  withDailyFeed(value, { age: DAY - 1000, freshness: 'fresh' });
+  const started = h.cache.capture(); h.advance(1000);
+  assert.equal(h.cache.retain(value, started), false);
+  h.cache.check();
+  assert.equal(h.timers.size, 0);
+  assert.deepEqual(h.expired, []);
 });

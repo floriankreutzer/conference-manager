@@ -376,3 +376,294 @@
 .platform-admin-delivery-component .platform-admin-definition-list > div {
   grid-template-columns: 1fr;
 }
+
+.platform-admin-status[data-tone="warning"] {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.platform-admin-insights-report,
+.platform-admin-insights,
+.platform-admin-insights-panel {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-insights [hidden] {
+  display: none;
+}
+
+.platform-admin-insights-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  margin-block-end: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.platform-admin-insights-tab {
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+  min-block-size: var(--control-height);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-ink-soft);
+  font-weight: var(--font-weight-medium);
+  white-space: normal;
+}
+
+.platform-admin-insights-tab:hover {
+  background: var(--brand-secondary-surface);
+}
+
+.platform-admin-insights-tab[aria-selected="true"] {
+  border-color: var(--brand-primary);
+  background: var(--color-surface);
+  color: var(--brand-primary-hover);
+  box-shadow: inset 0 -3px var(--brand-primary);
+}
+
+.platform-admin-insights :focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}
+
+.platform-admin-insights-heading,
+.platform-admin-insights-report > .platform-admin-insights-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.platform-admin-insights-header h2 {
+  margin-block: 0 var(--space-2);
+}
+
+.platform-admin-insights-header p {
+  margin-block: var(--space-2);
+}
+
+.platform-admin-insights-clock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-4);
+  margin-block: var(--space-5);
+}
+
+.platform-admin-insights-clock-grid dt,
+.platform-admin-insights-timestamp,
+.platform-admin-insights-eyebrow {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-insights-clock-grid dd {
+  margin: var(--space-1) 0 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.platform-admin-insights-provider-card {
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--space-4);
+  border-block-start: var(--space-1) solid var(--brand-secondary);
+}
+
+.platform-admin-insights-provider-card h3,
+.platform-admin-insights-provider-card header p {
+  margin-block: 0 var(--space-2);
+}
+
+.platform-admin-insights-primary-value {
+  margin-block: var(--space-5) var(--space-1);
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-admin-insights-value-label {
+  margin-block: 0 var(--space-4);
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-insights-card-values {
+  display: grid;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
+.platform-admin-insights-card-values dt,
+.platform-admin-insights-provider-card label,
+.platform-admin-insights-provider-card .platform-admin-data-note {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-insights-card-values dd {
+  margin: var(--space-1) 0 0;
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-admin-insights-quota {
+  margin-block: var(--space-4);
+}
+
+.platform-admin-insights-details,
+.platform-admin-insights-week {
+  min-inline-size: 0;
+  margin-block-start: var(--space-4);
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--color-border-soft);
+}
+
+.platform-admin-insights-details > summary,
+.platform-admin-insights-week > summary {
+  min-block-size: var(--control-height);
+  padding-block: var(--space-3);
+  cursor: pointer;
+  color: var(--brand-primary-hover);
+  font-weight: var(--font-weight-medium);
+}
+
+.platform-admin-insights-details > summary:hover,
+.platform-admin-insights-week > summary:hover {
+  text-decoration: underline;
+}
+
+.platform-admin-insights-source-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  margin-block: var(--space-3) var(--space-5);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-insights-source-label {
+  font-weight: var(--font-weight-medium);
+}
+
+.platform-admin-insights-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.platform-admin-insights-metric-grid > div {
+  display: block;
+  min-inline-size: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.platform-admin-insights-metric-grid > div:last-child {
+  padding-block-end: var(--space-4);
+  border-block-end: 1px solid var(--color-border-soft);
+}
+
+.platform-admin-insights-metric-grid dt {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.platform-admin-insights-metric-grid dd {
+  margin: var(--space-3) 0 0;
+}
+
+.platform-admin-insights-metric-grid strong {
+  display: block;
+  margin-block-end: var(--space-2);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-admin-insights-metric-grid small {
+  display: block;
+}
+
+.platform-admin-insights-chart-control {
+  display: grid;
+  gap: var(--space-2);
+  margin-block: var(--space-4);
+}
+
+.platform-admin-insights-chart-control select {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--control-height);
+}
+
+.platform-admin-insights-trend {
+  margin: 0;
+}
+
+.platform-admin-insights-trend figcaption {
+  margin-block-end: var(--space-3);
+  font-weight: var(--font-weight-medium);
+}
+
+.platform-admin-insights-trend-table {
+  inline-size: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-insights-trend-table th,
+.platform-admin-insights-trend-table td {
+  padding: var(--space-2);
+  border-block-end: 1px solid var(--color-border-soft);
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-insights-trend-value strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.platform-admin-insights-trend-meter {
+  display: block;
+  inline-size: 100%;
+  block-size: var(--space-5);
+  accent-color: var(--brand-primary);
+}
+
+.platform-admin-insights-trend > p {
+  font-size: var(--font-size-sm);
+}
+
+@media (min-width: 640px) {
+  .platform-admin-insights-report .platform-admin-provider-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .platform-admin-insights-report .platform-admin-provider-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .platform-admin-insights-observations[data-live-metrics="product"] .platform-admin-insights-metric-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .platform-admin-product-delivery .platform-admin-provider-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

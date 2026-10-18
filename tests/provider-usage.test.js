@@ -12,7 +12,7 @@ function fixture() {
 test('provider client retains unknowns and uses only a fixed bounded GET', async () => {
   let observed;
   const api = createProviderUsageApi({ apiClient: { async request(path, options) {
-    if (path === 'demo/live-metrics') throw new Error('PLATFORM_NOT_FOUND');
+    if (path === 'demo/live-metrics') throw Object.assign(new Error('Not found'), { code: 'HTTP_404' });
     observed = { path, options }; return fixture();
   } } });
   const report = await api.load();
