@@ -9,22 +9,28 @@ pure singleton from `src/platform/feature-flags.js`; other customer
 capability dependencies remain forbidden. Production cannot receive the provider
 adapter. The client flag and Demo role selector never authorize financial reads.
 
-The provider menu loads only the fixed same-origin, bodyless GET
-`/api/v1/platform/demo/provider-usage` on selection, with a bounded timeout. The API
+The provider and product views prefer the fixed same-origin, bodyless GET
+`/api/v1/platform/demo/live-metrics`, with a bounded timeout and explicit unavailable-feed
+fallbacks to their stored snapshot endpoints. Product also reads the separate fixed
+`/api/v1/platform/demo/operations-sources` projection. The API
 independently requires its request-bound owner password capability and explicit
 private server snapshot configuration. Public/default CI instances return unavailable,
 not synthetic finance data. Real values are never included in this repository or
 static artifact. The positive response schema rejects extra fields, unknown authority,
 unsafe amounts/times/models and unexpected sources before safe DOM presentation.
 
-`src/platform-admin/provider-usage.js` owns the contract, adapter and accessible
-provider cards; the shell only composes navigation/loading. Existing German/English
+`src/platform-admin/provider-usage.js` owns the accessible provider presentation;
+the contract and Demo HTTP adapter have their own modules. The shell composes navigation,
+bounded revalidation and loading. Existing German/English
 messages, locale formatting, tokens, loading/error/retry patterns and native meter
-semantics are reused. The view shows dated manual collection, explicit staleness,
+semantics are reused. The view shows dated daily or stored observations, explicit staleness,
 the published Launch reference and separate linear projection. It never presents
 the reference as an account limit or spend cap, unknown usage as zero, or forecasts
-as invoice cost. Warning thresholds are report-only; automatic collection and email
-delivery are explicitly not configured. No email address or password is browser data.
+as invoice cost. Warning thresholds are report-only. The independently scheduled daily
+collector and separate email-delivery process require their own operational evidence;
+the browser performs neither operation. No email address or password is report data.
+The selected compact cards, thematic tabs, independent source clocks and missing-data
+disclosures are specified in [`PROVIDER-USAGE.md`](./PROVIDER-USAGE.md).
 
 This document describes the browser implementation for the SaaS 3 Platform Control Plane. The accepted trust boundary and deployment topology remain authoritative in
 [`SAAS3-PLATFORM-CONTROL-PLANE.md`](./SAAS3-PLATFORM-CONTROL-PLANE.md).
@@ -36,11 +42,11 @@ The Platform Admin browser is a separate artifact from the customer application 
 | Runtime | Entrypoint | Composition root | Data authority |
 | --- | --- | --- | --- |
 | Production | `platform-admin/index.html` | `src/platform-admin/production/bootstrap.js` | Same-origin `/api/v1/platform/*` only |
-| Isolated Demo | `platform-admin-demo/index.html` | `src/platform-admin/demo/bootstrap.js` | Synthetic local Demo adapter only |
+| Isolated Demo | `platform-admin-demo/index.html` | `src/platform-admin/demo/bootstrap.js` | Same-origin Demo API with server-owned persona/session and shared PostgreSQL state; separately protected Operations projections when configured |
 
 Shared presentation, routing, localization, and defensive response contracts live in `src/platform-admin/`. Production and Demo adapters may import that shared code, but neither runtime may import the other adapter. The customer `src/app.js`, `src/platform/`, customer capability modules, and Tenant Admin do not import Platform Admin code or receive Platform authority.
 
-The Production composition root never imports fixtures, reads browser storage as authority, or falls back to Demo when a session or response is unavailable. Its Content Security Policy limits connections to the operator origin. The Demo Content Security Policy uses `connect-src 'none'`.
+The Production composition root never imports fixtures, reads browser storage as authority, or falls back to Demo when a session or response is unavailable. Its Content Security Policy limits connections to the operator origin. The Demo Content Security Policy uses `connect-src 'self'` and prohibits direct browser connections to providers or storage.
 
 ## Production session and step-up
 
@@ -84,7 +90,10 @@ Readiness, entitlement, integration-health, diagnostics, Platform-audit, recover
 - `src/platform-admin/contracts.js`: exact role, permission, assurance, directory, mutation, and Demo view-model validation.
 - `src/platform-admin/application.js` and `tenant-sections.js`: accessible shell, directory, detail sections, confirmations, and transient delivery result.
 - `src/platform-admin/production/`: Production session and API adapters plus composition root.
-- `src/platform-admin/demo/`: isolated fixtures, role simulation, storage, reset, and composition root.
+- `src/platform-admin/demo/`: bounded server-backed Demo session/persona, reset and private report adapters, and composition root.
+- `src/platform-admin/insight-tabs.js`: keyboard-accessible thematic tabs; selected view state remains in the application.
+- `src/platform-admin/live-metrics-freshness.js`: source observation, sample and window deadlines for presentation; the mirrored wire contract remains unchanged.
+- `src/platform-admin/product-delivery-trend.js`: supplied weekly series and locale-aware metric presentation, with unknowns preserved.
 - `src/core/i18n-platform-admin-messages.js`: canonical German and English messages.
 - `assets/platform-admin.css`: Platform Admin presentation using repository design tokens.
 - `scripts/check-platform-admin-boundaries.mjs`: topology, import, storage, network, CSP, and composition-root gate.

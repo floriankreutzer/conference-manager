@@ -137,6 +137,28 @@ function demoRoleSelect(page) {
   return page.locator('select[aria-label]').filter({ has: page.locator('option[value="tenant_operator"]') });
 }
 
+function insightsTab(page, area, id) {
+  return page.locator(`[data-insights-tabs="${area}-insights"] [data-insights-tab="${id}"]`);
+}
+
+async function selectedInsightsPanel(page, area, id) {
+  const tab = insightsTab(page, area, id);
+  await expect(tab).toHaveAttribute('role', 'tab');
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(tab).toHaveAttribute('tabindex', '0');
+  const panel = page.locator(`[id="${await tab.getAttribute('aria-controls')}"]`);
+  await expect(panel).toHaveAttribute('role', 'tabpanel');
+  await expect(panel).toHaveAttribute('aria-labelledby', await tab.getAttribute('id'));
+  await expect(panel).toHaveAttribute('data-insights-panel', id);
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+async function selectInsightsTab(page, area, id) {
+  await insightsTab(page, area, id).click();
+  return selectedInsightsPanel(page, area, id);
+}
+
 test('Demo bootstraps from the server session and fleet without browser authority', async ({ page }) => {
   const state = await installDemoRoutes(page);
   await page.addInitScript(() => {
@@ -374,18 +396,37 @@ test('private provider cards show dated usage, native meters, thresholds and unk
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-platform-provider-report]')).toBeVisible();
   await expect(page.locator('#viewTitle')).toBeFocused();
-  await expect(page.locator('meter')).toHaveAttribute('value', '260000000000');
+  const overview = await selectedInsightsPanel(page, 'provider', 'overview');
+  await expect(overview.locator('[data-platform-provider]')).toHaveCount(4);
+  expect(await overview.locator('[data-platform-provider]').evaluateAll((cards) =>
+    cards.map((card) => card.dataset.platformProvider))).toEqual(['neon', 'render', 'resend', 'github']);
+  await expect(page.locator('#platformProviderNeonMeter')).toBeVisible();
+  await expect(page.locator('#platformProviderNeonMeter')).toHaveAttribute('value', '260000000000');
   await expect(page.locator('label[for="platformProviderNeonMeter"]')).toContainText('52');
+  const neonDetails = overview.locator('[data-platform-provider="neon"] details');
+  await expect(neonDetails).not.toHaveAttribute('open');
+  await neonDetails.locator(':scope > summary').focus(); await page.keyboard.press('Enter');
+  await expect(neonDetails).toHaveAttribute('open', '');
   await expect(page.locator('[data-platform-provider="neon"]')).toContainText('keine Ausgabensperre');
   await expect(page.locator('[data-platform-provider="render"]')).toContainText('Unbekannt');
   await expect(page.locator('[data-platform-provider="github"]')).toContainText('Unbekannt');
+  await selectInsightsTab(page, 'provider', 'usage');
+  await expect(page.locator('[data-provider-neon-details]')).toBeVisible();
   await expect(page.locator('.platform-admin-provider-thresholds [data-tone="critical"]')).toHaveCount(1);
   await expect(page.locator('[data-platform-provider-report]')).toContainText('veraltet');
+  const sources = await selectInsightsTab(page, 'provider', 'sources');
+  const alerts = sources.locator('details').filter({ has: page.getByText('Warnungen', { exact: true }) });
+  await expect(alerts).not.toHaveAttribute('open');
+  await alerts.locator(':scope > summary').click();
+  await expect(alerts).toHaveAttribute('open', '');
   await expect(page.locator('[data-platform-provider-report]')).toContainText('keine Warn-E-Mails');
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
   await expect(page.locator('#viewTitle')).toHaveText('Providers & usage');
+  await selectedInsightsPanel(page, 'provider', 'sources');
+  await selectInsightsTab(page, 'provider', 'overview');
   await expect(page.locator('[data-platform-provider="render"]')).toContainText('Unknown');
-  await expect(page.locator('[data-platform-provider-report]')).toContainText('Snapshot stale');
+  await expect(page.locator('[data-platform-provider-freshness]')).toContainText('observation is stale');
+  await selectInsightsTab(page, 'provider', 'usage');
   await page.locator('[data-platform-provider-refresh]').click();
   await expect(page.locator('[data-platform-provider-report]')).toBeVisible();
   expect(reads).toBe(2);
@@ -393,34 +434,186 @@ test('private provider cards show dated usage, native meters, thresholds and unk
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
-test('Provider snapshots age across navigation without automatic reads and retain expiry/refresh focus', async ({ page }) => {
+test('Provider revisits and visible expiry read the latest stored report once without polling or mutations', async ({ page }) => {
   let report = JSON.parse(readFileSync(new URL('../support/provider-usage-fixture.json', import.meta.url), 'utf8'));
   await page.clock.install({ time: new Date(report.evaluatedAt) });
   await installDemoRoutes(page);
   let reads = 0;
   await page.route('**/api/v1/platform/demo/provider-usage', async (route) => {
+    expect(route.request().method()).toBe('GET');
+    expect(new URL(route.request().url()).search).toBe('');
+    expect(route.request().postData()).toBeNull();
     reads += 1;
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
   });
   await page.goto('/platform-admin-demo/');
   const providers = page.locator('[data-platform-admin-fleet-view="providers"]');
   const status = page.locator('[data-platform-provider-freshness]');
+  const meter = page.locator('#platformProviderNeonMeter');
   await providers.click(); await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
+  await expect(meter).toHaveAttribute('value', String(report.neon.usedBytes));
   const directory = page.locator('[data-platform-admin-fleet-view="directory"]');
   await directory.click(); await focusAfterNavigationTransition(page, directory);
   await page.clock.fastForward(43_200_001);
   await expect(directory).toBeFocused(); expect(reads).toBe(1);
-  await providers.click(); await expect(status).toHaveAttribute('data-platform-provider-freshness', 'stale');
-  expect(reads).toBe(1);
-  // A separately saved newer operator extract becomes available before a manual reload.
+  // Returning reads the separately saved new report; it never starts collection.
   report = JSON.parse(readFileSync(new URL('../support/provider-usage-refreshed-fixture.json', import.meta.url), 'utf8'));
+  await providers.click(); await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
+  await expect(meter).toHaveAttribute('value', String(report.neon.usedBytes));
+  expect(reads).toBe(2);
   const refresh = page.locator('[data-platform-provider-refresh]');
   await focusAfterNavigationTransition(page, refresh); await page.keyboard.press('Enter');
   await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
-  await expect(page.locator('#viewTitle')).toBeFocused(); expect(reads).toBe(2);
+  await expect(page.locator('#viewTitle')).toBeFocused(); expect(reads).toBe(3);
+  report = { ...report, freshness: 'stale',
+    evaluatedAt: new Date(Date.parse(report.observedAt) + 86_400_001).toISOString() };
   await refresh.focus(); await page.clock.fastForward(86_400_001); await page.clock.runFor(20);
   await expect(status).toHaveAttribute('data-platform-provider-freshness', 'stale');
-  await expect(page.locator('#viewTitle')).toBeFocused(); expect(reads).toBe(2);
+  await expect(page.locator('#viewTitle')).toBeFocused(); expect(reads).toBe(4);
+  await page.clock.fastForward(300_001);
+  expect(reads).toBe(4);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(() => reads).toBe(5);
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'));
+    window.dispatchEvent(new Event('pageshow'));
+  });
+  await page.clock.runFor(20);
+  expect(reads).toBe(5);
+});
+
+test('a fresh daily envelope cannot label an old provider observation current or start a read loop', async ({ page }) => {
+  const report = JSON.parse(readFileSync(new URL('../support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
+  report.evaluatedAt = report.productDelivery.evaluatedAt = '2026-10-16T00:00:00.000Z';
+  Object.assign(report.measurements.find((row) => row.id === 'render_customer_bandwidth'), {
+    observedAt: '2026-10-14T23:00:00.000Z', periodStart: '2026-10-13T23:00:00.000Z',
+    periodEnd: '2026-10-14T23:00:00.000Z', sampleAt: '2026-10-14T22:00:00.000Z',
+  });
+  await page.clock.install({ time: new Date(report.evaluatedAt) });
+  await installDemoRoutes(page);
+  let reads = 0;
+  await page.route('**/api/v1/platform/demo/live-metrics', (route) => {
+    reads += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  const status = page.locator('[data-platform-provider-freshness]');
+  const render = page.locator('[data-platform-provider="render"] > header .platform-admin-status');
+  const resend = page.locator('[data-platform-provider="resend"] > header .platform-admin-status');
+  await expect(status).toHaveAttribute('data-platform-provider-freshness', 'stale');
+  await expect(render).toHaveText('Quelle veraltet');
+  await expect(resend).toHaveText('Daten teilweise vorhanden');
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await expect(render).toHaveText('Source stale');
+  await expect(status).toContainText('observation is stale');
+  await page.clock.fastForward(300_001);
+  expect(reads).toBe(1);
+  // An already stale row must not disable the later deadline of another source.
+  report.evaluatedAt = report.productDelivery.evaluatedAt = '2026-10-16T12:00:00.000Z';
+  report.freshness = report.productDelivery.freshness = 'stale';
+  await page.clock.fastForward(43_200_000 - 300_001);
+  await expect.poll(() => reads).toBe(2);
+  await expect(resend).toHaveText('Source stale');
+  await page.clock.fastForward(300_001);
+  expect(reads).toBe(2);
+});
+
+test('Neon card and summary expire together before the bounded stored-report retry', async ({ page }) => {
+  let report = JSON.parse(readFileSync(new URL('../support/provider-usage-fixture.json', import.meta.url), 'utf8'));
+  report.evaluatedAt = '2026-10-15T23:58:00.000Z';
+  const start = Date.parse(report.evaluatedAt);
+  await page.clock.install({ time: new Date(start) });
+  await installDemoRoutes(page);
+  let reads = 0;
+  await page.route('**/api/v1/platform/demo/provider-usage', (route) => {
+    reads += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  const status = page.locator('[data-platform-provider-freshness]');
+  const neon = page.locator('[data-platform-provider="neon"] > header .platform-admin-status');
+  await expect(status).toHaveAttribute('data-platform-provider-freshness', 'fresh');
+  await expect(neon).toHaveText('Quelle aktuell');
+  await page.clock.fastForward(120_001);
+  await expect(status).toHaveAttribute('data-platform-provider-freshness', 'stale');
+  await expect(neon).toHaveText('Quelle veraltet');
+  expect(reads).toBe(1);
+  report = { ...report, evaluatedAt: new Date(start + 300_002).toISOString(), freshness: 'stale' };
+  await page.clock.fastForward(180_001);
+  await expect.poll(() => reads).toBe(2);
+  await expect(neon).toHaveText('Quelle veraltet');
+  await page.clock.fastForward(300_001);
+  expect(reads).toBe(2);
+});
+
+test('returning before five minutes repaints a provider sample that expired while hidden without another read', async ({ page }) => {
+  const report = JSON.parse(readFileSync(new URL('../support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
+  const neon = JSON.parse(readFileSync(new URL('../support/provider-usage-fixture.json', import.meta.url), 'utf8'));
+  report.evaluatedAt = report.productDelivery.evaluatedAt = neon.evaluatedAt = '2026-10-16T10:58:00.000Z';
+  neon.freshness = 'stale';
+  report.providerUsage = neon;
+  await page.clock.install({ time: new Date(report.evaluatedAt) });
+  await installDemoRoutes(page);
+  let reads = 0;
+  await page.route('**/api/v1/platform/demo/live-metrics', (route) => {
+    reads += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  const summary = page.locator('[data-platform-provider-freshness]');
+  const render = page.locator('[data-platform-provider="render"] > header .platform-admin-status');
+  await expect(summary).toHaveAttribute('data-platform-provider-freshness', 'stale');
+  await expect(render).toHaveText('Daten teilweise vorhanden');
+  // Supply the browser lifecycle state explicitly so both headless engines
+  // exercise the same hidden-expiry and visible-return event sequence.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.clock.fastForward(120_001);
+  expect(reads).toBe(1);
+  await page.evaluate(() => {
+    delete document.visibilityState;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(summary).toHaveAttribute('data-platform-provider-freshness', 'stale');
+  await expect(render).toHaveText('Quelle veraltet');
+  await selectInsightsTab(page, 'provider', 'usage');
+  await expect(page.locator('[data-live-metric="render_customer_bandwidth"] .platform-admin-status'))
+    .toHaveText('Messpunkt älter als 24 Stunden');
+  expect(reads).toBe(1);
+});
+
+test('Resend quota meters require complete matching windows while retaining the reported amounts', async ({ page }) => {
+  const report = JSON.parse(readFileSync(new URL('../support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
+  const sent = report.measurements.find((row) => row.id === 'resend_monthly_sent');
+  const limit = report.measurements.find((row) => row.id === 'resend_monthly_limit');
+  Object.assign(limit, { ...sent, id: limit.id, value: 100 });
+  await installDemoRoutes(page);
+  await page.route('**/api/v1/platform/demo/live-metrics', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(report),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  const resend = page.locator('[data-platform-provider="resend"]');
+  const meter = resend.locator('#provider-resend-monthly-meter');
+  await expect(resend.locator('.platform-admin-insights-primary-value')).toHaveText('2');
+  await expect(resend.locator(':scope > .platform-admin-insights-card-values')).toContainText('100');
+  await expect(meter).toHaveCount(0);
+  sent.periodStart = limit.periodStart = '2026-10-15T00:00:00.000Z';
+  await page.locator('[data-platform-provider-refresh]').click();
+  await expect(meter).toBeVisible();
+  await expect(meter).toHaveAttribute('value', '2');
+  await expect(meter).toHaveAttribute('max', '100');
+  limit.periodEnd = '2026-11-13T12:00:00.000Z';
+  await page.locator('[data-platform-provider-refresh]').click();
+  await expect(resend).toBeVisible();
+  await expect(meter).toHaveCount(0);
+  await expect(resend.locator('.platform-admin-insights-primary-value')).toHaveText('2');
+  await expect(resend.locator(':scope > .platform-admin-insights-card-values')).toContainText('100');
 });
 
 test('private provider failures retry safely and malformed provider payloads do not render', async ({ page }) => {
@@ -458,12 +651,16 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   const view = page.locator('[data-product-delivery-report]');
   await expect(view).toBeVisible();
   await expect(page.locator('#viewTitle')).toBeFocused();
+  await selectInsightsTab(page, 'product', 'usage');
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unbekannt');
-  await expect(view.locator('[data-product-feedback]')).toContainText('noch nicht angebunden');
-  await expect(view.locator('[data-product-delivery-component]')).toHaveCount(3);
-  await expect(view.locator('[data-product-delivery-component="api"] details')).toHaveCount(4);
-  const older = view.locator('[data-product-delivery-component="api"] details').nth(1);
-  await older.locator('summary').focus(); await page.keyboard.press('Enter');
+  await selectInsightsTab(page, 'product', 'feedback');
+  await expect(view.locator('[data-product-feedback]')).toContainText('Noch keine auswertbaren Feedbackdaten');
+  await selectInsightsTab(page, 'product', 'delivery');
+  const delivery = view.locator('[data-product-delivery-source="stored"]');
+  await expect(delivery.locator('[data-product-delivery-component]')).toHaveCount(3);
+  await expect(delivery.locator('[data-product-delivery-component="api"] [data-product-delivery-window]')).toHaveCount(4);
+  const older = delivery.locator('[data-product-delivery-component="api"] [data-product-delivery-window]').nth(1);
+  await older.locator(':scope > summary').focus(); await page.keyboard.press('Enter');
   await expect(older).toHaveAttribute('open', '');
   await expect(older.locator('[data-product-metric="change_failure_rate"] strong')).toHaveText('Unbekannt');
   const screenshot = testInfo.outputPath('product-delivery-overview.png');
@@ -471,7 +668,7 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   // and every metric card separately so the expanded mobile report is covered.
   await page.screenshot({ path: screenshot });
   await testInfo.attach('product-delivery-overview', { path: screenshot, contentType: 'image/png' });
-  const evidenceCards = view.locator(':scope > section.card, [data-product-delivery-component]');
+  const evidenceCards = delivery.locator('[data-product-delivery-component]');
   for (let index = 0; index < await evidenceCards.count(); index += 1) {
     const path = testInfo.outputPath(`product-delivery-card-${index}.png`);
     await evidenceCards.nth(index).screenshot({ path });
@@ -479,6 +676,8 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   }
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
   await expect(page.locator('#viewTitle')).toHaveText('Product & delivery');
+  await selectedInsightsPanel(page, 'product', 'delivery');
+  await selectInsightsTab(page, 'product', 'usage');
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unknown');
   report = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
   await page.locator('[data-product-delivery-refresh]').focus();
@@ -488,12 +687,15 @@ test('private product and delivery shows genuine unknowns, weekly trends, keyboa
   expect(reads).toBe(2);
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('1');
   await expect(view.locator('[data-product-metric="recovery_failure_rate"] strong')).toHaveText('25%');
-  const api = view.locator('[data-product-delivery-component="api"]');
-  await expect(api.locator('details').first().locator('[data-product-metric="change_lead_time"] strong')).toHaveText('0.5 s');
+  await selectInsightsTab(page, 'product', 'delivery');
+  const api = delivery.locator('[data-product-delivery-component="api"]');
+  await expect(api.locator('[data-product-delivery-window]').first().locator('[data-product-metric="change_lead_time"] strong')).toHaveText('0.5 s');
   await page.locator('select[aria-label="Language"]').selectOption('de');
-  await expect(api.locator('details').first().locator('[data-product-metric="change_lead_time"] strong')).toHaveText('0,5 s');
+  await expect(api.locator('[data-product-delivery-window]').first().locator('[data-product-metric="change_lead_time"] strong')).toHaveText('0,5 s');
+  await selectInsightsTab(page, 'product', 'usage');
   await expect(view.locator('[data-product-metric="recovery_failure_rate"] strong')).toHaveText(/25\s%/u);
-  expect(await api.locator('details[open] .platform-admin-definition-list > div').evaluateAll((rows) =>
+  await selectInsightsTab(page, 'product', 'delivery');
+  expect(await api.locator('[data-product-delivery-window][open] > .platform-admin-definition-list > div').evaluateAll((rows) =>
     rows.every((row) => row.querySelector('dd').getBoundingClientRect().top
       >= row.querySelector('dt').getBoundingClientRect().bottom))).toBe(true);
   const knownScreenshot = testInfo.outputPath('product-delivery-known-api.png');
@@ -519,19 +721,33 @@ test('protected operator sources retain provenance, unknown feedback, keyboard d
   });
   await page.goto('/platform-admin-demo/');
   await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  await selectInsightsTab(page, 'product', 'delivery');
   const manual = page.locator('[data-operator-source="manual"]');
   const feedback = page.locator('[data-operator-source="feedback"]');
+  await expect(manual).not.toHaveAttribute('open');
+  await manual.locator(':scope > summary').focus(); await page.keyboard.press('Enter');
+  await expect(manual).toHaveAttribute('open', '');
   await expect(manual).toContainText('Vom Betreiber bestätigt');
-  await expect(feedback).toContainText('Unbekannt / unvollständig');
-  await expect(feedback.locator('dd').first()).toHaveText('Unbekannt');
-  const older = manual.locator('[data-product-delivery-component="api"] details').nth(1);
-  await older.locator('summary').focus(); await page.keyboard.press('Enter');
+  await selectInsightsTab(page, 'product', 'feedback');
+  await expect(feedback).toContainText('Register vorhanden, Quellenabdeckung unvollständig');
+  await expect(page.locator('[data-product-feedback]')).not.toContainText('noch nicht angebunden');
+  for (const id of ['total', 'open', 'highSeverity']) {
+    await expect(feedback.locator(`[data-product-feedback-metric="${id}"] strong`)).toHaveText('Unbekannt');
+  }
+  await selectInsightsTab(page, 'product', 'delivery');
+  const older = manual.locator('[data-product-delivery-component="api"] [data-product-delivery-window]').nth(1);
+  await older.locator(':scope > summary').focus(); await page.keyboard.press('Enter');
   await expect(older).toHaveAttribute('open', '');
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
   await expect(manual).toContainText('Operator-confirmed');
+  await selectInsightsTab(page, 'product', 'feedback');
   await expect(feedback.locator('dd').first()).toHaveText('Unknown');
   await expect(page.locator('#app')).not.toContainText('synthetic-owner');
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    .toBeLessThanOrEqual(1);
+  await selectInsightsTab(page, 'product', 'delivery');
+  await manual.locator(':scope > summary').click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
     .toBeLessThanOrEqual(1);
 });
@@ -651,7 +867,8 @@ test('Product cache ages on revisit and evicts retained data in a long-lived vis
   expect(reads).toBe(1);
   await expect(directory).toBeFocused();
   await product.click(); await expect(view).toBeVisible(); expect(reads).toBe(2);
-  await expect(view.locator('[role="status"][data-tone="critical"]')).toBeVisible();
+  await selectInsightsTab(page, 'product', 'usage');
+  await expect(view.locator('[data-product-outcomes] [data-product-source-freshness="stale"][role="status"]')).toBeVisible();
   await view.locator('[data-product-delivery-refresh]').focus();
   // The browser clock accepts bounded signed-32-bit durations. Advance each
   // daily cache wake-up without wrapping a single 29-day duration into the past.
@@ -660,10 +877,11 @@ test('Product cache ages on revisit and evicts retained data in a long-lived vis
     await page.clock.fastForward(day);
   }
   await expect(view.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unbekannt');
-  await expect(view.locator('[data-product-feedback]')).toContainText('noch nicht angebunden');
   expect(reads).toBe(3);
   await page.clock.runFor(20);
   await expect(page.locator('#viewTitle')).toBeFocused();
+  await selectInsightsTab(page, 'product', 'feedback');
+  await expect(view.locator('[data-product-feedback]')).toContainText('Noch keine auswertbaren Feedbackdaten');
 });
 
 test('daily live metrics show actual stock and provider samples without inventing outcomes', async ({ page }, testInfo) => {
@@ -683,20 +901,208 @@ test('daily live metrics show actual stock and provider samples without inventin
   await expect(stock).toBeVisible();
   await expect(stock).toContainText('23');
   await expect(stock).toContainText('Seed');
+  await selectInsightsTab(page, 'product', 'usage');
   await expect(page.locator('[data-product-metric="request_submitted"] strong')).toHaveText('Unbekannt');
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await selectInsightsTab(page, 'product', 'overview');
   await expect(stock).toContainText('23');
   await expect(stock).toContainText('seed');
   await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  await selectInsightsTab(page, 'provider', 'usage');
   const providers = page.locator('[data-live-metrics="providers"]');
   await expect(providers).toBeVisible();
   await expect(providers).toContainText('0.5');
   await expect(providers).toContainText('Latest sample:');
   await expect(providers).toContainText('start not supplied');
   await expect(providers).toContainText('Unknown');
-  expect(reads).toBeGreaterThanOrEqual(2);
+  expect(reads).toBe(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const screenshot = testInfo.outputPath('daily-live-provider-synthetic.png');
   await page.screenshot({ path: screenshot, fullPage: true });
   await testInfo.attach('daily-live-provider-synthetic', { path: screenshot, contentType: 'image/png' });
+});
+
+for (const { area, fleetView, tabs } of [
+  { area: 'provider', fleetView: 'providers', tabs: ['overview', 'usage', 'sources'] },
+  { area: 'product', fleetView: 'product-delivery', tabs: ['overview', 'usage', 'delivery', 'feedback'] },
+]) {
+  test(`${area} insight tabs preserve keyboard semantics and the selected section across report refresh, locale and revisit`, async ({ page }) => {
+    await installDemoRoutes(page);
+    const report = JSON.parse(readFileSync(new URL('../support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
+    await page.clock.install({ time: new Date(report.evaluatedAt) });
+    let reads = 0;
+    await page.route('**/api/v1/platform/demo/live-metrics', async (route) => {
+      expect(route.request().method()).toBe('GET');
+      expect(route.request().postData()).toBeNull();
+      reads += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(report) });
+    });
+    await page.goto('/platform-admin-demo/');
+    const navigation = page.locator(`[data-platform-admin-fleet-view="${fleetView}"]`);
+    await navigation.click();
+    const insights = page.locator(`[data-insights-tabs="${area}-insights"]`);
+    const tablist = insights.getByRole('tablist');
+    await expect(tablist).toHaveAttribute('role', 'tablist');
+    await expect(tablist.getByRole('tab')).toHaveCount(tabs.length);
+    await selectedInsightsPanel(page, area, 'overview');
+    await focusAfterNavigationTransition(page, insightsTab(page, area, 'overview'));
+    for (const [key, selected] of [
+      ['ArrowRight', 'usage'], ['End', tabs.at(-1)], ['ArrowRight', 'overview'],
+      ['ArrowLeft', tabs.at(-1)], ['Home', 'overview'], ['End', tabs.at(-1)],
+    ]) {
+      await page.keyboard.press(key);
+      await selectedInsightsPanel(page, area, selected);
+      await expect(insightsTab(page, area, selected)).toBeFocused();
+      await expect(tablist.locator('[aria-selected="true"]')).toHaveCount(1);
+      await expect(tablist.locator('[tabindex="0"]')).toHaveCount(1);
+      await expect(page.locator('[data-insights-panel]:visible')).toHaveCount(1);
+    }
+    const selected = tabs.at(-1);
+    await page.locator('select[aria-label="Sprache"]').selectOption('en');
+    await selectedInsightsPanel(page, area, selected);
+    await insightsTab(page, area, selected).focus();
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.clock.runFor(20);
+    await expect(insightsTab(page, area, selected)).toBeFocused();
+    expect(reads).toBe(1);
+    const refresh = page.locator(area === 'provider'
+      ? '[data-platform-provider-refresh]' : '[data-product-delivery-refresh]');
+    await refresh.focus(); await page.keyboard.press('Enter');
+    await selectedInsightsPanel(page, area, selected);
+    await expect.poll(() => reads).toBe(2);
+    await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+    await navigation.click();
+    await selectedInsightsPanel(page, area, selected);
+    expect(reads).toBe(2);
+    await page.locator('select[aria-label="Language"]').selectOption('de');
+    await selectedInsightsPanel(page, area, selected);
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    for (const id of tabs) {
+      await selectInsightsTab(page, area, id);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+        .toBeLessThanOrEqual(1);
+    }
+  });
+
+  test(`${area} insight reads fail closed on daily-feed authority and JSON failures without legacy fallback`, async ({ page }) => {
+    await installDemoRoutes(page);
+    const legacyName = area === 'provider' ? 'provider-usage-fixture.json' : 'product-delivery-known-fixture.json';
+    const legacy = JSON.parse(readFileSync(new URL(`../support/${legacyName}`, import.meta.url), 'utf8'));
+    let legacyReads = 0;
+    await page.route(area === 'provider' ? '**/api/v1/platform/demo/provider-usage' : '**/api/v1/platform/demo/product-delivery', (route) => {
+      legacyReads += 1;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(legacy) });
+    });
+    let sourceReads = 0;
+    await page.route('**/api/v1/platform/demo/operations-sources', (route) => {
+      sourceReads += 1;
+      return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    });
+    const failures = [
+      { status: 401, body: JSON.stringify({ error: { code: 'PLATFORM_UNAUTHORIZED' } }) },
+      { status: 403, body: JSON.stringify({ error: { code: 'PLATFORM_FORBIDDEN' } }) },
+      { status: 200, body: '{"privateText":"must-not-render-private-content",' },
+      { status: 200, body: JSON.stringify({ privateText: 'must-not-render-private-content' }) },
+    ];
+    let response = failures[0]; let reads = 0;
+    await page.route('**/api/v1/platform/demo/live-metrics', (route) => {
+      expect(route.request().method()).toBe('GET');
+      reads += 1;
+      return route.fulfill({ ...response, contentType: 'application/json' });
+    });
+    await page.goto('/platform-admin-demo/');
+    await page.locator(`[data-platform-admin-fleet-view="${fleetView}"]`).click();
+    const report = page.locator(area === 'provider' ? '[data-platform-provider-report]' : '[data-product-delivery-report]');
+    const refresh = page.locator(area === 'provider' ? '[data-platform-provider-refresh]' : '[data-product-delivery-refresh]');
+    const heading = area === 'provider' ? 'Anbieterübersicht nicht verfügbar' : 'Produktübersicht nicht verfügbar';
+    for (let index = 0; index < failures.length; index += 1) {
+      if (index > 0) { response = failures[index]; await refresh.click(); }
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+      await expect(report).toHaveCount(0);
+      await expect(page.locator('#app')).not.toContainText('must-not-render-private-content');
+      expect(reads).toBe(index + 1);
+      expect(legacyReads).toBe(0);
+      expect(sourceReads).toBe(0);
+    }
+  });
+}
+
+test('a fresh daily envelope cannot retain an expired embedded Product snapshot or move tab focus', async ({ page }) => {
+  const live = JSON.parse(readFileSync(new URL('../support/daily-live-metrics-fixture.json', import.meta.url), 'utf8'));
+  const known = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  const expired = JSON.parse(readFileSync(new URL('../support/product-delivery-expired-fixture.json', import.meta.url), 'utf8'));
+  const start = Date.parse(expired.evaluatedAt);
+  const expiry = start + 6 * 60_000;
+  known.observedAt = new Date(Date.parse(known.observedAt) + 6 * 60_000).toISOString();
+  const shift = start - Date.parse(live.observedAt);
+  // Keep the daily measurements recent and internally consistent while the
+  // independently observed Product snapshot approaches its retention limit.
+  for (const row of live.measurements) {
+    for (const clock of ['observedAt', 'sampleAt', 'periodStart', 'periodEnd']) {
+      if (row[clock] !== null) row[clock] = new Date(Date.parse(row[clock]) + shift).toISOString();
+    }
+  }
+  let serverTime = start; let reads = 0;
+  await page.clock.install({ time: new Date(start) });
+  await installDemoRoutes(page);
+  await page.route('**/api/v1/platform/demo/live-metrics', (route) => {
+    reads += 1;
+    const evaluatedAt = new Date(serverTime).toISOString();
+    const productDelivery = serverTime >= expiry ? { ...expired, evaluatedAt }
+      : { ...known, evaluatedAt, freshness: 'stale' };
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      ...live, observedAt: new Date(start).toISOString(), evaluatedAt, productDelivery,
+    }) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  await selectInsightsTab(page, 'product', 'usage');
+  const submitted = page.locator('[data-product-metric="request_submitted"] strong');
+  await expect(submitted).toHaveText('1');
+  expect(reads).toBe(1);
+  await insightsTab(page, 'product', 'usage').focus();
+  serverTime = expiry;
+  await page.clock.fastForward(6 * 60_000);
+  await expect.poll(() => reads).toBe(2);
+  await expect(submitted).toHaveText('Unbekannt');
+  await selectedInsightsPanel(page, 'product', 'usage');
+  await expect(insightsTab(page, 'product', 'usage')).toBeFocused();
+});
+
+test('delivery charts contain only the four source periods and never draw unknown values as zero', async ({ page }) => {
+  await installDemoRoutes(page);
+  const report = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(report),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  await selectInsightsTab(page, 'product', 'delivery');
+  const stored = page.locator('[data-product-delivery-source="stored"]');
+  for (const component of report.delivery) {
+    const section = stored.locator(`[data-product-delivery-component="${component.component}"]`);
+    const select = section.locator('[data-product-delivery-chart-select]');
+    await expect(select).toHaveValue('deployment_frequency');
+    const periods = component.buckets.map((bucket) => bucket.periodStart);
+    for (const metric of component.buckets[0].metrics) {
+      await select.selectOption(metric.id);
+      const series = section.locator(`[data-product-delivery-series="${metric.id}"]`);
+      await expect(series).toBeVisible();
+      await expect(section.locator('[data-product-delivery-series]:visible')).toHaveCount(1);
+      const rows = series.locator('[data-product-delivery-period]');
+      await expect(rows).toHaveCount(4);
+      expect(await rows.evaluateAll((nodes) => nodes.map((node) => node.dataset.productDeliveryPeriod))).toEqual(periods);
+      for (const bucket of component.buckets) {
+        const row = series.locator(`[data-product-delivery-period="${bucket.periodStart}"]`);
+        const value = bucket.metrics.find((entry) => entry.id === metric.id).value;
+        await expect(row).toHaveAttribute('data-product-delivery-period-end', bucket.periodEnd);
+        await expect(row.locator('th')).toHaveAttribute('scope', 'row');
+        await expect(row.locator('meter')).toHaveCount(value === null ? 0 : 1);
+        if (value === null) await expect(row).toContainText('Unbekannt');
+        else await expect(row.locator('meter')).toHaveAttribute('value', String(value));
+      }
+    }
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    .toBeLessThanOrEqual(1);
 });

@@ -39,6 +39,7 @@ import { createProviderUsageFreshness } from './provider-usage-freshness.js';
 
 const LIFECYCLE_FILTERS = Object.freeze(['all', 'pending', 'onboarding', 'ready', 'active', 'suspended', 'archived']);
 const HEALTH_FILTERS = Object.freeze(['all', 'healthy', 'degraded', 'unavailable', 'not_configured']);
+const PROJECTION_REVALIDATION_MS = 5 * 60 * 1000;
 
 function requiredNode(documentRef, id) {
   const node = documentRef.getElementById(id);
@@ -145,14 +146,21 @@ export function createPlatformAdminApplication({
   let actionError = false;
   let fleetRequestGeneration = 0;
   let fleetView = 'directory';
+  let providerTab = 'overview';
+  let productTab = 'overview';
+  let stopped = false;
   const fleetResources = new Map();
   const tenantResources = new Map();
+  const projectionReadClocks = new Map();
+  const projectionRefreshTimers = new Map();
   const providerFreshness = providerUsage ? createProviderUsageFreshness({
     setTimer: (callback, delay) => windowRef.setTimeout(callback, delay),
     clearTimer: (timer) => windowRef.clearTimeout(timer),
     monotonicNow: () => windowRef.performance.now(),
     onExpire(resource) {
-      if (fleetResources.get('providers') === resource && providerViewIsVisible()) renderWithFocusHandoff();
+      if (fleetResources.get('providers') !== resource || !providerViewIsVisible()) return;
+      renderWithFocusHandoff();
+      revalidateExpiredProjection('providers');
     },
   }) : null;
   const productCache = productDelivery ? createProductDeliveryCache({
@@ -162,37 +170,85 @@ export function createPlatformAdminApplication({
     onExpire(resource) {
       if (fleetResources.get('product-delivery') !== resource) return;
       const selected = currentRoute().view === 'fleet' && fleetView === 'product-delivery';
+      const restoreTab = focusedInsightTab();
       fleetResources.delete('product-delivery');
       if (selected) {
         if (productViewIsVisible()) renderWithFocusHandoff();
         else render();
       }
-      if (productViewIsVisible()) void loadFleetResource('product-delivery');
+      if (productViewIsVisible()) revalidateExpiredProjection('product-delivery', restoreTab);
     },
   }) : null;
 
   function productViewIsVisible() {
-    return productDelivery && sessionState === 'authenticated' && fleet
+    return !stopped && productDelivery && sessionState === 'authenticated' && fleet
       && currentRoute().view === 'fleet' && fleetView === 'product-delivery'
       && documentRef.visibilityState !== 'hidden';
   }
 
   function providerViewIsVisible() {
-    return providerUsage && sessionState === 'authenticated' && fleet
+    return !stopped && providerUsage && sessionState === 'authenticated' && fleet
       && currentRoute().view === 'fleet' && fleetView === 'providers'
       && documentRef.visibilityState !== 'hidden';
   }
 
+  function projectionClock(view) {
+    return view === 'providers' ? providerFreshness : view === 'product-delivery' ? productCache : null;
+  }
+
+  function projectionViewIsVisible(view) {
+    return view === 'providers' ? providerViewIsVisible() : productViewIsVisible();
+  }
+
+  function projectionRevalidationDelay(view) {
+    const completed = projectionReadClocks.get(view);
+    if (!completed) return 0;
+    const now = projectionClock(view).capture();
+    const elapsed = Math.max(0, now.wall - completed.wall, now.monotonic - completed.monotonic);
+    return Math.max(0, Math.ceil(PROJECTION_REVALIDATION_MS - elapsed));
+  }
+
+  function clearProjectionRefreshTimer(view) {
+    const timer = projectionRefreshTimers.get(view);
+    if (timer !== undefined) windowRef.clearTimeout(timer);
+    projectionRefreshTimers.delete(view);
+  }
+
+  function revalidateExpiredProjection(view, restoreTab = null) {
+    if (!projectionViewIsVisible(view) || fleetResources.get(view)?.status === 'loading') return;
+    const delay = projectionRevalidationDelay(view);
+    if (delay === 0) {
+      void loadFleetResource(view, { restoreTab });
+      return;
+    }
+    if (projectionRefreshTimers.has(view)) return;
+    // One deferred expiry read, never periodic polling or a stale-response loop.
+    const timer = windowRef.setTimeout(() => {
+      if (projectionRefreshTimers.get(view) !== timer) return;
+      projectionRefreshTimers.delete(view);
+      if (projectionViewIsVisible(view)) void loadFleetResource(view, { restoreTab });
+    }, delay);
+    projectionRefreshTimers.set(view, timer);
+  }
+
+  function clearProjectionState() {
+    productCache?.forget();
+    providerFreshness?.forget();
+    for (const view of projectionRefreshTimers.keys()) clearProjectionRefreshTimer(view);
+    projectionReadClocks.clear();
+    providerTab = 'overview';
+    productTab = 'overview';
+  }
+
   function revalidateProjectionClocks() {
+    if (stopped) return;
     providerFreshness?.check();
     const provider = fleetResources.get('providers');
     if (providerViewIsVisible() && provider?.status === 'ready'
-      && !providerFreshness.isReusable(provider)
-      && nodes.app.querySelector('[data-platform-provider-freshness="fresh"]')) renderWithFocusHandoff();
+      && !providerFreshness.isReusable(provider)) renderWithFocusHandoff();
     productCache?.check();
-    if (productViewIsVisible()) {
-      if (!fleetResources.has('product-delivery')) void loadFleetResource('product-delivery');
-      if (documentRef.activeElement === documentRef.body) focusHeading();
+    for (const view of ['providers', 'product-delivery']) {
+      if (projectionViewIsVisible(view)) void loadFleetResource(view);
     }
   }
 
@@ -207,12 +263,31 @@ export function createPlatformAdminApplication({
   }
 
   function focusHeading() {
-    windowRef.requestAnimationFrame(() => nodes.title.focus());
+    const focused = documentRef.activeElement;
+    windowRef.requestAnimationFrame(() => {
+      if (!stopped && (documentRef.activeElement === focused || documentRef.activeElement === documentRef.body)) {
+        nodes.title.focus();
+      }
+    });
   }
 
-  function renderWithFocusHandoff() {
+  function focusedInsightTab() {
     const focused = documentRef.activeElement;
+    const group = focused?.closest?.('[data-insights-tabs]');
+    if (!nodes.app.contains(focused) || !focused?.dataset?.insightsTab || !group) return null;
+    return { group: group.dataset.insightsTabs, tab: focused.dataset.insightsTab };
+  }
+
+  function renderWithFocusHandoff({ restoreTab = null } = {}) {
+    const focused = documentRef.activeElement;
+    const tab = focusedInsightTab() || ((focused === nodes.title || focused === documentRef.body) ? restoreTab : null);
     render();
+    if (tab) {
+      const replacement = [...nodes.app.querySelectorAll('[data-insights-tab]')].find((control) =>
+        control.dataset.insightsTab === tab.tab
+        && control.closest('[data-insights-tabs]')?.dataset.insightsTabs === tab.group);
+      if (replacement) { replacement.focus(); return; }
+    }
     if (focused && focused !== documentRef.body && focused.isConnected === false) focusHeading();
   }
 
@@ -288,8 +363,7 @@ export function createPlatformAdminApplication({
           currentOperator = nextOperator;
           actionError = false;
           fleetView = 'directory';
-          productCache?.forget();
-          providerFreshness?.forget();
+          clearProjectionState();
           fleetResources.clear();
           tenantResources.clear();
           await loadFleet();
@@ -324,8 +398,7 @@ export function createPlatformAdminApplication({
             currentOperator = nextOperator;
             filters = normalizePlatformDirectoryQuery();
             fleetView = 'directory';
-            productCache?.forget();
-            providerFreshness?.forget();
+            clearProjectionState();
             fleetResources.clear();
             tenantResources.clear();
             dialog.close();
@@ -371,21 +444,23 @@ export function createPlatformAdminApplication({
     if (tenant) navigate(platformAdminTenantHash(tenant.id));
   }
 
-  async function loadFleetResource(view, { cursor = null, append = false, force = false } = {}) {
-    if (view === 'directory') return;
+  async function loadFleetResource(view, { cursor = null, append = false, force = false, restoreTab = null } = {}) {
+    if (stopped || view === 'directory') return;
     const existing = fleetResources.get(view);
-    if (!force && !cursor && (existing?.status === 'loading'
-      || (existing?.status === 'ready'
-        && (view !== 'product-delivery' || productCache?.isReusable(existing))))) return;
+    const observedClock = projectionClock(view);
+    if (observedClock) {
+      if (existing?.status === 'loading' || (!force && projectionRevalidationDelay(view) > 0)) return;
+      clearProjectionRefreshTimer(view);
+    } else if (!force && !cursor && (existing?.status === 'loading' || existing?.status === 'ready')) return;
+    const priorTabFocus = focusedInsightTab() || restoreTab;
     if (view === 'product-delivery') productCache.forget();
     if (view === 'providers') providerFreshness.forget();
     const pending = { status: 'loading', data: append ? existing?.data : null };
     fleetResources.set(view, pending);
-    if (view === 'providers') renderWithFocusHandoff();
+    if (observedClock) renderWithFocusHandoff();
     else render();
     try {
-      const requestClock = view === 'product-delivery' ? productCache.capture()
-        : view === 'providers' ? providerFreshness.capture() : null;
+      const requestClock = observedClock?.capture();
       let data;
       if (view === 'product-delivery') data = await productDelivery.load();
       else if (view === 'providers') data = await providerUsage.load();
@@ -397,7 +472,10 @@ export function createPlatformAdminApplication({
         data = Object.freeze({ ...data, items: Object.freeze([...existing.data.items, ...data.items]) });
       }
       if (fleetResources.get(view) !== pending) return;
-      const ready = { status: 'ready', data };
+      const completed = observedClock?.capture();
+      if (completed) projectionReadClocks.set(view, completed);
+      const ready = { status: 'ready', data,
+        ...(completed ? { loadedAt: new Date(completed.wall).toISOString(), requestClock } : {}) };
       if (view === 'product-delivery' && !productCache.retain(ready, requestClock)) {
         throw new TypeError('PLATFORM_PRODUCT_CACHE_EXPIRED');
       }
@@ -405,11 +483,12 @@ export function createPlatformAdminApplication({
       fleetResources.set(view, ready);
     } catch {
       if (fleetResources.get(view) !== pending) return;
+      if (observedClock) projectionReadClocks.set(view, observedClock.capture());
       fleetResources.set(view, { status: 'error', data: null });
     }
     if (currentRoute().view === 'fleet' && fleetView === view) {
       if ((view === 'product-delivery' && productViewIsVisible())
-        || (view === 'providers' && providerViewIsVisible())) renderWithFocusHandoff();
+        || (view === 'providers' && providerViewIsVisible())) renderWithFocusHandoff({ restoreTab: priorTabFocus });
       else render();
     }
   }
@@ -466,9 +545,13 @@ export function createPlatformAdminApplication({
   }
 
   async function ensureVisibleResource() {
-    if (!fleet || sessionState !== 'authenticated') return;
+    if (stopped || !fleet || sessionState !== 'authenticated') return;
     const route = currentRoute();
     if (route.view === 'fleet') {
+      if (projectionClock(fleetView)) {
+        revalidateProjectionClocks();
+        return;
+      }
       await loadFleetResource(fleetView);
       return;
     }
@@ -752,13 +835,19 @@ export function createPlatformAdminApplication({
     if (fleetView === 'product-delivery' && productDelivery) {
       setHeading(t('platformAdmin.productDelivery.title'), t('platformAdmin.productDelivery.subtitle'));
       return renderProductDelivery({ resource: fleetResources.get(fleetView),
-        onRetry: () => { focusHeading(); void loadFleetResource('product-delivery', { force: true }); } });
+        activeTab: productTab, onTabChange: (value) => { productTab = value; },
+        onRetry: () => loadFleetResource('product-delivery', { force: true }) });
     }
     if (fleetView === 'providers' && providerUsage) {
       setHeading(t('platformAdmin.providers.title'), t('platformAdmin.providers.subtitle'));
-      return renderProviderUsage({ resource: fleetResources.get(fleetView),
+      const resource = fleetResources.get(fleetView);
+      const now = providerFreshness.capture();
+      const elapsedMs = resource?.requestClock ? Math.max(0,
+        now.wall - resource.requestClock.wall, now.monotonic - resource.requestClock.monotonic) : 0;
+      return renderProviderUsage({ resource, elapsedMs,
+        activeTab: providerTab, onTabChange: (value) => { providerTab = value; },
         isStale: !providerFreshness.isReusable(fleetResources.get(fleetView)),
-        onRetry: () => loadFleetResource(fleetView, { force: true }) });
+        onRetry: () => loadFleetResource('providers', { force: true }) });
     }
     const definition = PLATFORM_FLEET_VIEW_DEFINITIONS.find(({ id }) => id === fleetView);
     setHeading(t(definition.titleKey), t(`platformAdmin.fleetView.${fleetView}.description`));
@@ -1255,7 +1344,7 @@ export function createPlatformAdminApplication({
   }
 
   function languageChanged() {
-    render();
+    renderWithFocusHandoff();
   }
 
   function routeChanged() {
@@ -1266,6 +1355,7 @@ export function createPlatformAdminApplication({
   }
 
   async function start() {
+    stopped = false;
     if (!windowRef.location.hash) windowRef.history.replaceState(null, '', platformAdminFleetHash());
     windowRef.addEventListener('hashchange', routeChanged);
     windowRef.addEventListener('popstate', routeChanged);
@@ -1278,14 +1368,15 @@ export function createPlatformAdminApplication({
   }
 
   function stop() {
+    stopped = true;
+    fleetRequestGeneration += 1;
     windowRef.removeEventListener('hashchange', routeChanged);
     windowRef.removeEventListener('popstate', routeChanged);
     windowRef.removeEventListener('conference-language-changed', languageChanged);
     windowRef.removeEventListener('pageshow', revalidateProjectionClocks);
     windowRef.removeEventListener('focus', revalidateProjectionClocks);
     documentRef.removeEventListener('visibilitychange', revalidateProjectionClocks);
-    productCache?.forget();
-    providerFreshness?.forget();
+    clearProjectionState();
     fleetResources.delete('providers');
     fleetResources.delete('product-delivery');
     if (((productDelivery && fleetView === 'product-delivery') || (providerUsage && fleetView === 'providers'))

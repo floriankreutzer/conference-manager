@@ -1,13 +1,21 @@
 import { createObservedResourceClock, DAY_MS } from './observed-resource-clock.js';
 
+function observationLifetime(source, evaluatedAt) {
+  return Date.parse(source.observedAt) + (source.freshness === 'fresh' ? DAY_MS : 30 * DAY_MS)
+    - Date.parse(evaluatedAt);
+}
+
 function remainingLifetime(report) {
-  const observed = report.observedAt === null ? null : Date.parse(report.observedAt);
-  const boundary = observed === null ? Date.parse(report.periodEnd) + DAY_MS
-    : observed + (report.freshness === 'fresh' ? DAY_MS : 30 * DAY_MS);
+  const reportLifetime = report.observedAt === null
+    ? Date.parse(report.periodEnd) + DAY_MS - Date.parse(report.evaluatedAt)
+    : observationLifetime(report, report.evaluatedAt);
   const sourceLifetimes = (report.operatorSources?.sources || []).filter((row) => row.observedAt !== null)
-    .map((row) => Date.parse(row.observedAt) + (row.freshness === 'fresh' ? DAY_MS : 30 * DAY_MS)
-      - Date.parse(report.operatorSources.evaluatedAt));
-  const lifetime = Math.min(boundary - Date.parse(report.evaluatedAt), ...sourceLifetimes);
+    .map((row) => observationLifetime(row, report.operatorSources.evaluatedAt));
+  // The daily feed ages independently of its embedded Product report. Already
+  // stale data expires at retention, not immediately on every successful reload.
+  const dailyLifetime = report.liveMetrics
+    ? observationLifetime(report.liveMetrics, report.liveMetrics.evaluatedAt) : Infinity;
+  const lifetime = Math.min(reportLifetime, dailyLifetime, ...sourceLifetimes);
   if (!Number.isFinite(lifetime) || lifetime <= 0 || lifetime > 30 * DAY_MS) {
     throw new TypeError('PLATFORM_PRODUCT_CACHE_INVALID');
   }
