@@ -30,7 +30,7 @@ SaaS 3 must turn those operations into a scalable browser control plane without:
 - making a terminal, direct database access, or an unrestricted support console the normal operating path;
 - weakening the customer origin, session, CSRF, CORS, or Tenant-isolation boundary.
 
-The 2026-Q3 Technology Stack Review says to evolve the current portable application architecture selectively rather than re-platform it. The linked cloud decision remains at technical-PoC stage and Confluence ADR-005 remains `Proposed`. This ADR is therefore provider-neutral and does not claim a selected cloud, region, edge product, or deployed production environment.
+Retain the current portable application architecture and evolve it selectively rather than re-platforming it. Cloud-provider decisions require technical proof of concept before acceptance; proposed infrastructure decisions do not establish an accepted deployment. This ADR is therefore provider-neutral and does not claim a selected cloud, region, edge product, or deployed production environment.
 
 ## Decision summary
 
