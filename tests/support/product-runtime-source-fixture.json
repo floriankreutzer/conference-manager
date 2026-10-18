@@ -1,0 +1,230 @@
+{
+  "observedAt": "2026-10-18T13:00:00.000Z",
+  "sourceEpoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "epochStartedAt": "2026-10-18T12:55:00.000Z",
+  "tenant": {
+    "state": "available",
+    "events": [
+      {
+        "id": "1",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "tenant.identity.claimed",
+        "targetType": "tenant_identity",
+        "targetId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "previousState": null,
+        "newState": {
+          "status": "active"
+        },
+        "occurredAt": "2026-10-18T08:00:00.000Z",
+        "outcome": "success",
+        "metadata": {
+          "onboardingStarted": true
+        },
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000001"
+      },
+      {
+        "id": "2",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.created",
+        "targetType": "request",
+        "targetId": "legacy",
+        "previousState": null,
+        "newState": {
+          "status": "Submitted"
+        },
+        "occurredAt": "2026-10-18T09:00:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000002"
+      },
+      {
+        "id": "3",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.started",
+        "targetType": "request",
+        "targetId": "flow-a",
+        "previousState": null,
+        "newState": {
+          "status": "started"
+        },
+        "occurredAt": "2026-10-18T10:00:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000003"
+      },
+      {
+        "id": "4",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.created",
+        "targetType": "request",
+        "targetId": "flow-a",
+        "previousState": null,
+        "newState": {
+          "status": "Submitted"
+        },
+        "occurredAt": "2026-10-18T10:05:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000004"
+      },
+      {
+        "id": "5",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.transition",
+        "targetType": "request",
+        "targetId": "flow-a",
+        "previousState": {
+          "status": "Submitted"
+        },
+        "newState": {
+          "status": "Change Requested"
+        },
+        "occurredAt": "2026-10-18T10:10:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000005"
+      },
+      {
+        "id": "6",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.transition",
+        "targetType": "request",
+        "targetId": "flow-a",
+        "previousState": {
+          "status": "Change Requested"
+        },
+        "newState": {
+          "status": "Submitted"
+        },
+        "occurredAt": "2026-10-18T10:15:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000006"
+      },
+      {
+        "id": "7",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.transition",
+        "targetType": "request",
+        "targetId": "flow-a",
+        "previousState": {
+          "status": "Submitted"
+        },
+        "newState": {
+          "status": "Confirmed"
+        },
+        "occurredAt": "2026-10-18T10:20:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000007"
+      },
+      {
+        "id": "8",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.started",
+        "targetType": "request",
+        "targetId": "flow-b",
+        "previousState": null,
+        "newState": {
+          "status": "started"
+        },
+        "occurredAt": "2026-10-18T10:01:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000008"
+      },
+      {
+        "id": "9",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.abandoned",
+        "targetType": "request",
+        "targetId": "flow-b",
+        "previousState": {
+          "status": "started"
+        },
+        "newState": {
+          "status": "abandoned"
+        },
+        "occurredAt": "2026-10-18T10:02:00.000Z",
+        "outcome": "success",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000009"
+      },
+      {
+        "id": "10",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "action": "request.transition_failed",
+        "targetType": "request",
+        "targetId": "flow-b",
+        "previousState": {
+          "status": "Submitted"
+        },
+        "newState": {
+          "status": "Confirmed"
+        },
+        "occurredAt": "2026-10-18T10:03:00.000Z",
+        "outcome": "failure",
+        "metadata": {},
+        "eventHash": "0000000000000000000000000000000000000000000000000000000000000010"
+      }
+    ]
+  },
+  "platform": {
+    "state": "available",
+    "events": [
+      {
+        "kind": "onboarding_completed",
+        "occurredAt": "2026-10-18T08:05:00.000Z",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "targetId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "identity": [
+          "platform",
+          1
+        ]
+      },
+      {
+        "kind": "recovery_completed",
+        "occurredAt": "2026-10-18T11:00:00.000Z",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "targetId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "identity": [
+          "platform",
+          2
+        ]
+      },
+      {
+        "kind": "recovery_failed",
+        "occurredAt": "2026-10-18T11:05:00.000Z",
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "targetId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "identity": [
+          "platform",
+          3
+        ]
+      }
+    ]
+  },
+  "revisions": {
+    "state": "available",
+    "rows": [
+      {
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "requestId": "flow-a",
+        "version": 2,
+        "operation": "transitioned",
+        "capturedAt": "2026-10-18T10:10:00.000Z",
+        "roleAtAction": "conference_manager",
+        "requestStatus": "Change Requested"
+      },
+      {
+        "tenantId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "requestId": "flow-a",
+        "version": 4,
+        "operation": "transitioned",
+        "capturedAt": "2026-10-18T10:20:00.000Z",
+        "roleAtAction": "conference_manager",
+        "requestStatus": "Confirmed"
+      }
+    ]
+  }
+}

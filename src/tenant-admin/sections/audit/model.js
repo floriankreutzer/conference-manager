@@ -5,6 +5,8 @@ const ACTIONS = new Set([
   'authentication.failed',
   'authorization.denied',
   'request.created',
+  'request.started',
+  'request.abandoned',
   'request.transition',
   'request.transition_failed',
   'request.booking_change',

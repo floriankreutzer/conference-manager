@@ -5,12 +5,13 @@ import { createProductDeliveryCache } from '../src/platform-admin/product-delive
 
 const DAY = 86_400_000;
 function resource(name = 'product-delivery-known-fixture.json') {
-  return { status: 'ready', data: JSON.parse(readFileSync(new URL(`./support/${name}`, import.meta.url), 'utf8')) };
+  return { status: 'ready', data: { storedReport: JSON.parse(readFileSync(new URL(`./support/${name}`, import.meta.url), 'utf8')),
+    runtimeProduct: null, liveMetrics: null, operatorSources: null } };
 }
 function withDailyFeed(value, { age, freshness }) {
-  const evaluated = Date.parse(value.data.evaluatedAt);
+  const evaluated = Date.parse(value.data.storedReport.evaluatedAt);
   value.data.liveMetrics = {
-    observedAt: new Date(evaluated - age).toISOString(), evaluatedAt: value.data.evaluatedAt,
+    observedAt: new Date(evaluated - age).toISOString(), evaluatedAt: value.data.storedReport.evaluatedAt,
     freshness, sourceState: 'available',
   };
   return value;
@@ -40,13 +41,13 @@ test('Product cache invalidates fresh observations and unknown UTC windows at th
 
 test('stale retention uses bounded timers, catches suspended-tab clock changes and accounts for request flight', () => {
   const h = harness(); const stale = resource();
-  stale.data.evaluatedAt = new Date(Date.parse(stale.data.observedAt) + DAY).toISOString();
-  stale.data.freshness = 'stale'; assert.equal(h.cache.retain(stale), true);
+  stale.data.storedReport.evaluatedAt = new Date(Date.parse(stale.data.storedReport.observedAt) + DAY).toISOString();
+  stale.data.storedReport.freshness = 'stale'; assert.equal(h.cache.retain(stale), true);
   assert.equal(h.latest().delay, DAY);
   h.advance(DAY); h.cache.check(); assert.equal(h.expired.length, 0); assert.equal(h.latest().delay, DAY);
   h.wallJump(28 * DAY); h.cache.check(); assert.deepEqual(h.expired, [stale]);
   const almostStale = resource();
-  almostStale.data.evaluatedAt = new Date(Date.parse(almostStale.data.observedAt) + DAY - 1000).toISOString();
+  almostStale.data.storedReport.evaluatedAt = new Date(Date.parse(almostStale.data.storedReport.observedAt) + DAY - 1000).toISOString();
   const requestClock = h.cache.capture(); h.advance(2000);
   assert.equal(h.cache.retain(almostStale, requestClock), false); assert.equal(h.timers.size, 0);
 });
@@ -68,7 +69,7 @@ test('an observation expiring during retention cannot be published as reusable',
     wallNow: () => 0, monotonicNow: () => elapsed++, setTimer: () => 1, clearTimer() {},
   });
   const ending = resource();
-  ending.data.evaluatedAt = new Date(Date.parse(ending.data.observedAt) + DAY - 2).toISOString();
+  ending.data.storedReport.evaluatedAt = new Date(Date.parse(ending.data.storedReport.observedAt) + DAY - 2).toISOString();
   assert.equal(cache.retain(ending), false);
   assert.equal(cache.isReusable(ending), false);
   assert.deepEqual(expired, [ending]);
@@ -76,8 +77,8 @@ test('an observation expiring during retention cannot be published as reusable',
 
 test('daily freshness bounds the Product cache independently from an older stale Product report', () => {
   const h = harness(); const value = resource();
-  value.data.observedAt = new Date(Date.parse(value.data.evaluatedAt) - 2 * DAY).toISOString();
-  value.data.freshness = 'stale';
+  value.data.storedReport.observedAt = new Date(Date.parse(value.data.storedReport.evaluatedAt) - 2 * DAY).toISOString();
+  value.data.storedReport.freshness = 'stale';
   withDailyFeed(value, { age: DAY - 1000, freshness: 'fresh' });
   assert.equal(h.cache.retain(value), true);
   assert.equal(h.latest().delay, 1000);
@@ -90,8 +91,8 @@ test('daily freshness bounds the Product cache independently from an older stale
 
 test('an already stale daily feed retains a positive bounded lifetime without immediate reload callbacks', () => {
   const h = harness(); const value = resource();
-  value.data.evaluatedAt = new Date(Date.parse(value.data.observedAt) + DAY).toISOString();
-  value.data.freshness = 'stale';
+  value.data.storedReport.evaluatedAt = new Date(Date.parse(value.data.storedReport.observedAt) + DAY).toISOString();
+  value.data.storedReport.freshness = 'stale';
   withDailyFeed(value, { age: DAY, freshness: 'stale' });
   value.data.liveMetrics.sourceState = 'last_good';
   assert.equal(h.cache.retain(value), true);
@@ -119,12 +120,41 @@ test('stale daily retention expires before the independent unknown Product UTC w
 
 test('request flight cannot keep a daily feed past its own boundary or arm an expired reload timer', () => {
   const h = harness(); const value = resource();
-  value.data.observedAt = new Date(Date.parse(value.data.evaluatedAt) - 2 * DAY).toISOString();
-  value.data.freshness = 'stale';
+  value.data.storedReport.observedAt = new Date(Date.parse(value.data.storedReport.evaluatedAt) - 2 * DAY).toISOString();
+  value.data.storedReport.freshness = 'stale';
   withDailyFeed(value, { age: DAY - 1000, freshness: 'fresh' });
   const started = h.cache.capture(); h.advance(1000);
   assert.equal(h.cache.retain(value, started), false);
   h.cache.check();
   assert.equal(h.timers.size, 0);
   assert.deepEqual(h.expired, []);
+});
+
+test('a newer runtime observation cannot extend the stored delivery freshness boundary', () => {
+  const h = harness(); const value = resource();
+  value.data.runtimeProduct = JSON.parse(readFileSync(new URL('./support/product-runtime-fixture.json', import.meta.url), 'utf8'));
+  value.data.storedReport.evaluatedAt = new Date(Date.parse(value.data.storedReport.observedAt) + DAY - 1000).toISOString();
+  const original = structuredClone(value);
+  assert.equal(h.cache.retain(value), true); assert.equal(h.latest().delay, 1000);
+  h.advance(1000); h.cache.check();
+  assert.deepEqual(h.expired, [value]); assert.equal(h.cache.isReusable(value), false);
+  assert.deepEqual(value, original);
+});
+
+test('runtime freshness independently expires even while the stored report still has a full day', () => {
+  const h = harness(); const value = resource();
+  value.data.runtimeProduct = JSON.parse(readFileSync(new URL('./support/product-runtime-fixture.json', import.meta.url), 'utf8'));
+  value.data.runtimeProduct.evaluatedAt = new Date(Date.parse(value.data.runtimeProduct.observedAt) + DAY - 1000).toISOString();
+  assert.equal(h.cache.retain(value), true); assert.equal(h.latest().delay, 1000);
+  h.advance(1000); h.cache.check(); assert.deepEqual(h.expired, [value]);
+  assert.equal(h.timers.size, 0);
+});
+
+test('a runtime-only model has a bounded cache and does not require invented delivery data', () => {
+  const h = harness(); const value = resource();
+  value.data.storedReport = null;
+  value.data.runtimeProduct = JSON.parse(readFileSync(new URL('./support/product-runtime-fixture.json', import.meta.url), 'utf8'));
+  assert.equal(h.cache.retain(value), true); assert.equal(h.latest().delay, DAY);
+  h.advance(DAY); h.cache.check(); assert.deepEqual(h.expired, [value]);
+  assert.equal(value.data.storedReport, null);
 });

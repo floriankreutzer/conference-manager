@@ -2,6 +2,7 @@ import { normalizeLiveMeasurements } from '../live-metrics-contracts.js';
 import { normalizeProviderUsage } from '../provider-usage-contracts.js';
 import { normalizeProductDelivery, exactProductObject, productInstant, DAY_MS,
   requireProductCondition } from '../product-delivery-contracts.js';
+import { loadOptionalInsightSource } from './insight-source-api.js';
 
 export function normalizeLiveMetrics(value) {
   exactProductObject(value, ['schemaVersion', 'environment', 'collectionMode', 'observedAt',
@@ -23,17 +24,10 @@ export function normalizeLiveMetrics(value) {
   return Object.freeze({ ...value, measurements, providerUsage, productDelivery });
 }
 
+export function loadLiveMetricsSource(apiClient) {
+  return loadOptionalInsightSource(apiClient, 'demo/live-metrics', normalizeLiveMetrics);
+}
+
 export async function loadOptionalLiveMetrics(apiClient) {
-  let raw;
-  try { raw = await apiClient.request('demo/live-metrics', {
-    method: 'GET', signal: AbortSignal.timeout(10_000),
-  }); } catch (error) {
-    const unavailable = ['HTTP_404', 'HTTP_408', 'HTTP_429', 'HTTP_500', 'HTTP_502', 'HTTP_503', 'HTTP_504'].includes(error?.code);
-    const canceled = !(error instanceof TypeError) && typeof error?.code !== 'string'
-      && ['AbortError', 'TimeoutError'].includes(error?.name);
-    if (unavailable || canceled) return null;
-    throw error;
-  }
-  // A malformed successful response is an error, never a silent downgrade to old data.
-  return normalizeLiveMetrics(raw);
+  return (await loadLiveMetricsSource(apiClient)).data;
 }

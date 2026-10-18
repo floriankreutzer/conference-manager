@@ -21,10 +21,10 @@ test('private Product/Delivery client uses only fixed bounded GET and preserves 
   assert.equal(observed.options.method, 'GET');
   assert.equal(observed.options.body, undefined);
   assert.equal(typeof observed.options.signal.addEventListener, 'function');
-  assert.equal(report.freshness, 'unknown');
-  assert.ok(report.product.every((metric) => metric.value === null));
-  assert.equal(report.feedback.total, null);
-  assert.equal(report.delivery.length, 3);
+  assert.equal(report.storedReport.freshness, 'unknown');
+  assert.ok(report.storedReport.product.every((metric) => metric.value === null));
+  assert.equal(report.storedReport.feedback.total, null);
+  assert.equal(report.storedReport.delivery.length, 3);
 });
 
 test('wire schema rejects roles, customer content, arbitrary labels, malformed windows and fake zero states', () => {

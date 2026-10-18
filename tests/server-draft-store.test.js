@@ -58,13 +58,13 @@ test('server draft store preserves exact Equipment selection in its session-boun
   const equipmentDraft = draft({ equipmentIds: ['display-1', 'projector-1'] });
   assert.equal(store.save(equipmentDraft), true);
   assert.deepEqual(store.load(), equipmentDraft);
-  assert.equal(JSON.parse(storage.getItem(SERVER_DRAFT_KEY)).schemaVersion, 4);
+  assert.equal(JSON.parse(storage.getItem(SERVER_DRAFT_KEY)).schemaVersion, 5);
 
   assert.equal(store.save(draft({ equipmentIds: ['display-1', 'display-1'] })), false);
   assert.equal(store.save(draft({ equipmentIds: Array.from({ length: 201 }, (_, index) => `item-${index}`) })), false);
 });
 
-test('EMP-09 server draft store persists the exact active wizard step in its scoped v4 envelope', () => {
+test('EMP-09 server draft store persists the exact active wizard step in its scoped v5 envelope', () => {
   const storage = new MemoryStorage();
   const store = createServerDraftStore({
     tenantId: 'tenant-1', userId: 'user-1', sessionExpiresAt: SESSION_EXPIRES_AT, storage,
@@ -76,7 +76,7 @@ test('EMP-09 server draft store persists the exact active wizard step in its sco
   assert.equal(store.save(wizardDraft), true);
   assert.deepEqual(store.load(), wizardDraft);
   const envelope = JSON.parse(storage.getItem(SERVER_DRAFT_KEY));
-  assert.equal(envelope.schemaVersion, 4);
+  assert.equal(envelope.schemaVersion, 5);
   assert.equal(envelope.expiresAt, SESSION_EXPIRES_AT);
   assert.equal(Number.isFinite(Date.parse(envelope.createdAt)), true);
   assert.equal(envelope.draft.activeStep, 4);
@@ -118,12 +118,13 @@ test('EMP-09 server draft expires with and is bound to the exact validated sessi
 
   assert.equal(store.save(draft()), true);
   assert.deepEqual(JSON.parse(storage.getItem(SERVER_DRAFT_KEY)), {
-    schemaVersion: 4,
+    schemaVersion: 5,
     tenantId: 'tenant-1',
     userId: 'user-1',
     createdAt: '2026-09-19T12:00:00.000Z',
     expiresAt: sessionExpiresAt,
     draft: draft(),
+    workflow: null,
   });
 
   now = Date.parse('2026-09-19T12:30:00.000Z');
@@ -161,4 +162,49 @@ test('server draft store is unavailable without a validated tenant and user scop
   assert.equal(createServerDraftStore({
     tenantId: 'tenant-1', userId: 'user-1', sessionExpiresAt: '', storage,
   }), null);
+});
+
+test('draft v5 preserves opaque workflow references across reload and ignores late responses for replaced drafts', () => {
+  const storage = new MemoryStorage();
+  const options = { tenantId: 'tenant-1', userId: 'user-1', sessionExpiresAt: SESSION_EXPIRES_AT, storage };
+  const store = createServerDraftStore(options);
+  const key = '11111111-1111-4111-8111-111111111111';
+  const id = '22222222-2222-4222-8222-222222222222';
+  assert.equal(store.save(draft()), true);
+  assert.equal(store.saveWorkflow({ idempotencyKey: key, workflowId: null }), true);
+  const restored = createServerDraftStore(options);
+  assert.deepEqual(restored.loadWorkflow(), { idempotencyKey: key, workflowId: null });
+  assert.equal(store.saveWorkflow({ idempotencyKey: key, workflowId: id }, key), true);
+  assert.deepEqual(restored.loadWorkflow(), { idempotencyKey: key, workflowId: id });
+  assert.equal(restored.save(draft({ title: 'Still the same draft' })), true);
+  assert.deepEqual(store.loadWorkflow(), { idempotencyKey: key, workflowId: id });
+  restored.clear();
+  restored.save(draft({ title: 'Replacement draft' }));
+  assert.equal(store.saveWorkflow({ idempotencyKey: key, workflowId: id }, key), false);
+  assert.equal(restored.loadWorkflow(), null);
+});
+
+test('draft v4 migration restores text with unknown workflow and rejects forged authority or clocks in v5 references', () => {
+  const storage = new MemoryStorage();
+  const store = createServerDraftStore({ tenantId: 'tenant-1', userId: 'user-1',
+    sessionExpiresAt: SESSION_EXPIRES_AT, storage });
+  store.save(draft());
+  const legacy = JSON.parse(storage.getItem(SERVER_DRAFT_KEY));
+  legacy.schemaVersion = 4;
+  delete legacy.workflow;
+  storage.setItem(SERVER_DRAFT_KEY, JSON.stringify(legacy));
+  assert.deepEqual(store.load(), draft());
+  assert.equal(store.loadWorkflow(), null);
+  assert.equal(store.save(draft()), true);
+  assert.equal(JSON.parse(storage.getItem(SERVER_DRAFT_KEY)).schemaVersion, 5);
+  for (const workflow of [
+    { idempotencyKey: '../foreign', workflowId: null },
+    { idempotencyKey: '11111111-1111-4111-8111-111111111111', workflowId: null, startedAt: '2026-01-01T00:00:00.000Z' },
+    { idempotencyKey: '11111111-1111-4111-8111-111111111111', workflowId: null, status: 'submitted' },
+  ]) {
+    const envelope = { ...legacy, schemaVersion: 5, workflow };
+    storage.setItem(SERVER_DRAFT_KEY, JSON.stringify(envelope));
+    assert.equal(store.load(), null);
+    assert.equal(storage.getItem(SERVER_DRAFT_KEY), null);
+  }
 });

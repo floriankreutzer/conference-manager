@@ -170,8 +170,9 @@ test('server-backed Employee actions preserve confirmed cancellation and safely 
   assert.match(employee, /scheduleDraftSave = \(options = \{\}\) => \{\s*draftDirty = true;/);
   assert.match(employee, /scheduleDraftSave\(\{ immediate: true \}\);/);
   assert.match(employee, /if \(draftTimer\) clearTimeout\(draftTimer\);\s*draftTimer = null;\s*draftStore\.clear\(\);/);
-  assert.match(employee, /allocationRows\.splice\(index, 1\);\s*scheduleDraftSave\(\);/);
-  assert.match(employee, /allocationRows\.push\([^;]+;\s*scheduleDraftSave\(\);/);
+  assert.match(employee, /allocationRows\.splice\(index, 1\);\s*markDraftEdited\(\);/);
+  assert.match(employee, /allocationRows\.push\([^;]+;\s*markDraftEdited\(\);/);
+  assert.match(employee, /markDraftEdited = \(\) => \{[^}]*scheduleDraftSave\(\{ immediate: !startAttempted \}\);/);
   assert.match(employee, /roomSupportsParticipants\([\s\S]*requestCatalog\.bookingPolicy\?\.rules\?\.maximumParticipants/);
   assert.match(employee, /if \(!sourceRequest && !restoredDraft && !allocationRows\.length/);
 });

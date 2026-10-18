@@ -75,6 +75,19 @@ test('audit adapter emits the bounded filter contract and one cursor page', asyn
   assert.equal(Object.hasOwn(result, 'requestId'), false);
 });
 
+test('audit adapter accepts the minimized server Request lifecycle vocabulary without draft content', async () => {
+  for (const [action, status] of [['request.started', 'started'], ['request.abandoned', 'abandoned']]) {
+    const api = createTenantAuditApi({ apiClient: { async request() {
+      return page({ events: [event({ category: 'request', action,
+        target: { type: 'request', id: CORRELATION_ID },
+        change: { before: null, after: { status } } })] });
+    } } });
+    const result = await api.listAuditEvents();
+    assert.equal(result.events[0].action, action);
+    assert.deepEqual(result.events[0].change.after, { status });
+  }
+});
+
 test('audit filters reject invalid cursors, windows, categories, and actor authority before transport', async () => {
   let calls = 0;
   const api = createTenantAuditApi({ apiClient: { async request() { calls += 1; } } });

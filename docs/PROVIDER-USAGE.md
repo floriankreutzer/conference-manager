@@ -45,7 +45,8 @@ freshness/window boundaries, request flight, obsolete callbacks, navigation and 
 
 ## Optional daily connector feed
 
-Both Demo adapters now prefer the fixed `demo/live-metrics` GET. Its API-owned
+The Provider adapter prefers the fixed `demo/live-metrics` GET. Product reads that source
+independently of its runtime Product projection. The API-owned
 [closed daily source and storage contract](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/DAILY-LIVE-METRICS.md)
 keeps collection server-side behind the owner perimeter. No browser provider tokens,
 new runtime dependency or persistence is introduced. The old endpoint remains an
@@ -56,13 +57,13 @@ The new neutral measurement contract/renderer is included in each reachable mani
 only the Demo manifest contains the live HTTP adapter. Immutable paired CI verifies
 its actual API-generated fixture and fixed measurement dimensions.
 
-Provider rows distinguish last hourly sample, query window, provider resets and
+Provider rows distinguish the last hourly bandwidth value, latest memory sample, query window, provider resets and
 workflow counts from invoice totals. Product rows show retained Demo stock including
 seed and retained updates/revisions/diagnostics on the collection day; they do not establish Pilot
 outcomes, complete history across resets or audit verification. Unknowns remain unknown.
 Each row displays genuine source observation/period/sample clocks. Daily reports use
 24-hour stale and 30-day retention limits. The Product cache independently bounds the
-daily envelope, stored product report and separate operator sources: an older child report
+daily envelope, runtime Product, stored product report and separate operator sources: an older child report
 cannot extend the fresh daily envelope past its own 24-hour limit. A stale envelope can
 retain its explicitly stale state up to its own 30-day boundary; rereading does not renew
 source observation times.
@@ -77,9 +78,15 @@ The owner-selected structure uses a compact overview and accessible thematic tab
   Render, Resend and GitHub in four equal cards at wide desktop widths, two at medium
   widths and one on a narrow screen. Cards retain different units and reporting windows.
 - Product: Overview, Usage, Delivery, Feedback. Daily Demo inventory stays separate from
-  the stored product report and independently confirmed operator facts. A separately
+  the runtime Product projection, stored delivery report and independently confirmed operator facts. A separately
   connected feedback register is identified as its own source, even when the main product
   report has no configured feedback source.
+
+Source labels distinguish the daily report, runtime Product, manually confirmed facts,
+feedback register and stored fallback. Unavailable daily reads show a short fallback
+notice with a bounded reason in a native disclosure. A fresh source is never described
+as stale merely because another source is old; incomplete metrics remain a separate
+coverage state. RAM uses its actual latest measurement time, not a claimed hourly value.
 
 Missing values are briefly visible; causes, source timestamps, digests and methodology
 are in native disclosures. Null is never rendered as measured zero. Provider figures use

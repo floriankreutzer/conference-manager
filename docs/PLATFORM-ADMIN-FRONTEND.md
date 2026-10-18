@@ -9,10 +9,12 @@ pure singleton from `src/platform/feature-flags.js`; other customer
 capability dependencies remain forbidden. Production cannot receive the provider
 adapter. The client flag and Demo role selector never authorize financial reads.
 
-The provider and product views prefer the fixed same-origin, bodyless GET
+The provider view prefers the fixed same-origin, bodyless GET
 `/api/v1/platform/demo/live-metrics`, with a bounded timeout and explicit unavailable-feed
-fallbacks to their stored snapshot endpoints. Product also reads the separate fixed
-`/api/v1/platform/demo/operations-sources` projection. The API
+fallback to its stored snapshot endpoint. Product reads the daily report, the independent
+`/api/v1/platform/demo/product-delivery` runtime v2 (or compatible stored v1) projection
+and the separate fixed `/api/v1/platform/demo/operations-sources` projection. Runtime
+Product coverage and timestamps never replace the saved Delivery or Feedback clocks. The API
 independently requires its request-bound owner password capability and explicit
 private server snapshot configuration. Public/default CI instances return unavailable,
 not synthetic finance data. Real values are never included in this repository or
@@ -92,6 +94,9 @@ Readiness, entitlement, integration-health, diagnostics, Platform-audit, recover
 - `src/platform-admin/production/`: Production session and API adapters plus composition root.
 - `src/platform-admin/demo/`: bounded server-backed Demo session/persona, reset and private report adapters, and composition root.
 - `src/platform-admin/insight-tabs.js`: keyboard-accessible thematic tabs; selected view state remains in the application.
+- `src/platform-admin/insight-source.js`: source-specific status, original observations and explicit fallback reasons.
+- `src/platform-admin/product-runtime-contract.js`: exact runtime Product v2 wire validation, mirrored from the API-owned contract.
+- `src/platform-admin/demo/insight-source-api.js`: fixed, bounded optional reads; authority and malformed successes fail closed.
 - `src/platform-admin/live-metrics-freshness.js`: source observation, sample and window deadlines for presentation; the mirrored wire contract remains unchanged.
 - `src/platform-admin/product-delivery-trend.js`: supplied weekly series and locale-aware metric presentation, with unknowns preserved.
 - `src/core/i18n-platform-admin-messages.js`: canonical German and English messages.
