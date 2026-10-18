@@ -19,3 +19,32 @@ Key invariants:
 - persona selection is server-resolved and cannot mint effective roles or permissions in the browser;
 - existing demo data is never automatically uploaded into a production Tenant;
 - any future legacy-data import is a separately audited server-side migration process.
+
+## Request start and explicit discard
+
+The shared Employee renderer records the first material edit of a new Request through fixed
+same-origin `POST /api/v1/application/request-workflows`. The body is exactly `{}`; the existing API
+client supplies the session-bound CSRF token and a UUID `Idempotency-Key`. Repeated starts use the
+same key. Responses are positively validated as an exact schema-version-1 workflow envelope with a
+UUID, allowlisted state and canonical server timestamps. No draft content, client clock, Tenant,
+owner, permission or authoritative workflow state is submitted by this route.
+
+The existing single 32 KiB session draft key uses envelope v5 and may retain only the opaque
+`idempotencyKey` and nullable `workflowId` beside its existing allowlisted editor fields. Both are
+untrusted locators, scoped to the exact authenticated Tenant/User/session expiry and reauthorized
+server-side. V4 remains readable with an unknown start reference. A late transport response updates
+the reference only if the stored key still matches; it cannot replace a newer draft's content.
+
+New Request submission passes optional `workflowId` beside its existing composition envelope. The
+backend owns its binding to the Request UUID, normalized payload fingerprint, immutable first
+revision and atomic audit. Identical submission retries return that first revision; different
+payloads and terminal abandoned workflows conflict. Owner resubmission uses its existing separate
+contract and does not create a first-submission start.
+
+Only confirmed **Discard draft** invokes fixed
+`POST /api/v1/application/request-workflows/{workflowId}/abandon` with `{}`. Cancelling the dialog,
+switching views, reloading, closing a tab and local draft expiry do not emit abandonment. An untouched
+draft has no lifecycle event. Local input is cleared only after the server transition succeeds, or
+after the same-key server readback confirms that exact workflow was already submitted following a
+lost response. That recovery preserves the committed Request and creates no abandonment. Session or
+authority failures retain the existing fail-closed editor invalidation; no browser fallback is used.

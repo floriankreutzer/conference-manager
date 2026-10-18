@@ -99,7 +99,13 @@ Signed-out and unavailable production states return before any production busine
 
 ## Browser storage boundary
 
-Production authentication, roles, permissions, User ID, Tenant ID, CSRF state and session expiry are not persisted in browser storage.
+Production authentication, roles, permissions and CSRF state are not persisted as browser authority.
+The sole bounded Employee draft exception stores Tenant/User IDs and session expiry only as an
+untrusted scope comparison against the freshly authenticated session; it cannot reconstruct that
+session. Draft envelope v5 may additionally retain an opaque lifecycle idempotency key and workflow
+UUID for retries. Every corresponding server mutation revalidates the active Tenant, authenticated
+owner, current User security version and workflow state. No cookie, CSRF token, authoritative state
+or server lifecycle clock is copied into the draft. See `PRODUCTION-PERSISTENCE-CONTRACT.md`.
 
 The existing explicit demo role switch remains demo-only. Manipulating historical demo LocalStorage cannot promote a production user because production application context ignores that data for authority and capability checks.
 

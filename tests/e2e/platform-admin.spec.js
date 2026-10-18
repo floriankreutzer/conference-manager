@@ -922,6 +922,161 @@ test('daily live metrics show actual stock and provider samples without inventin
   await testInfo.attach('daily-live-provider-synthetic', { path: screenshot, contentType: 'image/png' });
 });
 
+function independentProductFixtures() {
+  const load = (name) => JSON.parse(readFileSync(new URL(`../support/${name}`, import.meta.url), 'utf8'));
+  const shiftThreeDays = (value) => JSON.parse(JSON.stringify(value), (_key, item) =>
+    typeof item === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item)
+      ? new Date(Date.parse(item) + 3 * 86_400_000).toISOString() : item);
+  const daily = shiftThreeDays(load('daily-live-metrics-fixture.json'));
+  const runtime = load('product-runtime-fixture.json');
+  const operators = load('operations-sources-fixture.json');
+  daily.productDelivery = shiftThreeDays(load('product-delivery-known-fixture.json'));
+  daily.evaluatedAt = daily.productDelivery.evaluatedAt = operators.evaluatedAt = runtime.evaluatedAt;
+  for (const source of operators.sources) source.freshness = 'stale';
+  return { daily, runtime, operators };
+}
+
+test('runtime Product subsets and old operator sources cannot mark the fresh daily report stale', async ({ page }, testInfo) => {
+  const { daily, runtime, operators } = independentProductFixtures();
+  await page.clock.install({ time: new Date(runtime.evaluatedAt) });
+  await installDemoRoutes(page);
+  const responses = { 'live-metrics': daily, 'product-delivery': runtime, 'operations-sources': operators };
+  for (const [path, value] of Object.entries(responses)) {
+    await page.route(`**/api/v1/platform/demo/${path}`, (route) => {
+      expect(route.request().method()).toBe('GET'); expect(route.request().postData()).toBeNull();
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(value) });
+    });
+  }
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  const view = page.locator('[data-product-delivery-report]');
+  const overview = await selectedInsightsPanel(page, 'product', 'overview');
+  await expect(overview.locator('[data-insight-source="runtime"] [role="status"]')).toContainText('weniger als 24');
+  await expect(overview.locator('[data-insight-source="product_daily"] [role="status"]')).toContainText('weniger als 24');
+  await expect(overview.locator('[data-insight-source="manual"] [role="status"]')).toContainText('Bestätigung');
+  await expect(overview.locator('[data-insight-source="manual"] [data-product-source-freshness]')).toHaveAttribute('data-product-source-freshness', 'stale');
+  await expect(overview.locator('[data-insight-source="feedback"] [role="status"]')).toContainText('mindestens 24');
+  await expect(overview.locator('[data-insight-source="runtime"] time')).toHaveAttribute('datetime', runtime.observedAt);
+  await expect(overview.locator('[data-insight-source="product_daily"] time')).toHaveAttribute('datetime', daily.productDelivery.observedAt);
+  await expect(overview.locator('[data-insight-source="manual"] time')).toHaveAttribute('datetime', operators.sources[0].observedAt);
+  await expect(view.locator('.platform-admin-insights-header [data-product-source-freshness="stale"]')).toHaveCount(0);
+  await selectInsightsTab(page, 'product', 'usage');
+  const submitted = view.locator('[data-product-outcomes] [data-product-metric="request_submitted"]');
+  await expect(submitted.locator('strong')).toHaveText('2');
+  await expect(submitted).toHaveAttribute('data-metric-coverage', 'partial');
+  await expect(submitted).toContainText('Beobachtete Teilmenge');
+  const evidence = submitted.locator('details');
+  await expect(evidence).not.toHaveAttribute('open');
+  await evidence.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(evidence).toHaveAttribute('open', '');
+  await expect(evidence).toContainText('vollständige Historie');
+  await expect(view.locator('[data-product-outcomes] [data-product-metric="request_abandoned"] strong')).toHaveText('Unbekannt');
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await selectedInsightsPanel(page, 'product', 'usage');
+  await expect(submitted).toContainText('Observed subset');
+  await expect(submitted.locator('strong')).toHaveText('2');
+  const screenshot = testInfo.outputPath('runtime-product-subsets.png');
+  await submitted.locator('summary').click();
+  await expect(submitted.locator('details')).toContainText('Complete history');
+  await submitted.screenshot({ path: screenshot });
+  await testInfo.attach('runtime-product-subsets', { path: screenshot, contentType: 'image/png' });
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  const delivery = await selectInsightsTab(page, 'product', 'delivery');
+  await expect(delivery.locator('[data-product-delivery-source="stored"] [data-insight-source="product_daily"] time'))
+    .toHaveAttribute('datetime', daily.productDelivery.observedAt);
+  await page.locator('[data-product-delivery-refresh]').click();
+  await selectedInsightsPanel(page, 'product', 'delivery');
+  await expect(delivery.locator('[data-product-delivery-source="stored"] time')).toHaveAttribute('datetime', daily.productDelivery.observedAt);
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  await expect(page.locator('[data-platform-provider-freshness]')).toHaveAttribute('data-platform-provider-freshness', 'fresh');
+  const providers = await selectInsightsTab(page, 'provider', 'sources');
+  await expect(providers.locator('[data-insight-source="daily"] time')).toHaveAttribute('datetime', daily.observedAt);
+});
+
+test('unavailable runtime Product shows the original stored report and a disclosed source-read reason', async ({ page }) => {
+  const { daily } = independentProductFixtures();
+  await installDemoRoutes(page);
+  await page.route('**/api/v1/platform/demo/live-metrics', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(daily),
+  }));
+  await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
+    status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'SOURCE_UNAVAILABLE' } }),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  const usage = await selectInsightsTab(page, 'product', 'usage');
+  const outcomes = usage.locator('[data-product-outcomes]');
+  await expect(outcomes).toContainText('Laufende Produktdaten derzeit nicht abrufbar');
+  await expect(outcomes.locator('[data-insight-source="product_daily"] time')).toHaveAttribute('datetime', daily.productDelivery.observedAt);
+  await expect(outcomes.locator('[data-product-metric="request_submitted"] strong')).toHaveText('1');
+  await expect(outcomes.locator('[data-metric-coverage]')).toHaveCount(0);
+  const reason = outcomes.locator(':scope > details').filter({ has: page.getByText('Warum diese Quelle fehlt', { exact: true }) });
+  await reason.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(reason).toContainText('beim letzten Abruf nicht bereitstellen');
+});
+
+test('fresh runtime Product preserves the separate stale delivery clock inside a fresh daily report', async ({ page }) => {
+  const { daily, runtime } = independentProductFixtures();
+  const delivery = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+  delivery.evaluatedAt = runtime.evaluatedAt; delivery.freshness = 'stale';
+  daily.productDelivery = delivery;
+  await installDemoRoutes(page);
+  for (const [path, value] of [['live-metrics', daily], ['product-delivery', runtime]]) {
+    await page.route(`**/api/v1/platform/demo/${path}`, (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(value),
+    }));
+  }
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  const overview = await selectedInsightsPanel(page, 'product', 'overview');
+  await expect(overview.locator('[data-insight-source="runtime"] [data-product-source-freshness]')).toHaveAttribute('data-product-source-freshness', 'fresh');
+  await expect(overview.locator('[data-insight-source="product_daily"] [data-product-source-freshness]')).toHaveAttribute('data-product-source-freshness', 'stale');
+  const section = await selectInsightsTab(page, 'product', 'delivery');
+  await expect(section.locator('[data-product-delivery-source="stored"] time')).toHaveAttribute('datetime', delivery.observedAt);
+  await expect(section.locator('[data-product-delivery-source="stored"] [role="status"]')).toContainText('mindestens 24 Stunden');
+  const methodology = section.locator('[data-product-delivery-source="stored"] > details');
+  await methodology.locator(':scope > summary').focus(); await page.keyboard.press('Enter');
+  await expect(methodology).toContainText('Render-Customer-Demo-Build');
+  await expect(methodology).toContainText('/conference-manager-website/');
+  await expect(methodology).toContainText('Produktionspublikation');
+  await expect(methodology).toContainText('eigene Nachweise unbekannt');
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await methodology.locator(':scope > summary').click();
+  await expect(methodology).toContainText('GitHub Pages review target');
+  await expect(methodology).toContainText('separate Production publication');
+  await page.locator('[data-platform-admin-fleet-view="providers"]').click();
+  await expect(page.locator('[data-platform-provider-freshness]')).toHaveAttribute('data-platform-provider-freshness', 'fresh');
+});
+
+test('runtime-only Product retains its true time while the daily and delivery reports are unavailable', async ({ page }) => {
+  const { runtime } = independentProductFixtures();
+  await installDemoRoutes(page);
+  await page.route('**/api/v1/platform/demo/live-metrics', (route) => route.fulfill({
+    status: 504, contentType: 'application/json', body: JSON.stringify({ error: { code: 'SOURCE_TIMEOUT' } }),
+  }));
+  await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(runtime),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="product-delivery"]').click();
+  const view = page.locator('[data-product-delivery-report]');
+  const notice = view.locator('[data-insight-fallback="daily"]');
+  await expect(notice).toContainText('Tagesbericht derzeit nicht abrufbar');
+  await notice.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(notice).toContainText('Wartezeit nicht geantwortet');
+  const usage = await selectInsightsTab(page, 'product', 'usage');
+  await expect(usage.locator('[data-product-outcomes] [data-insight-source="runtime"] time')).toHaveAttribute('datetime', runtime.observedAt);
+  await expect(usage.locator('[data-product-outcomes] [data-product-metric="request_submitted"] strong')).toHaveText('2');
+  const delivery = await selectInsightsTab(page, 'product', 'delivery');
+  await expect(delivery).toContainText('Kein gespeicherter Auslieferungsbericht verfügbar');
+  await expect(delivery.locator('[data-product-delivery-component]')).toHaveCount(0);
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await selectedInsightsPanel(page, 'product', 'delivery');
+  await expect(delivery).toContainText('No stored delivery report is available');
+  await expect(notice).toContainText('Daily report currently unavailable');
+});
+
 for (const { area, fleetView, tabs } of [
   { area: 'provider', fleetView: 'providers', tabs: ['overview', 'usage', 'sources'] },
   { area: 'product', fleetView: 'product-delivery', tabs: ['overview', 'usage', 'delivery', 'feedback'] },

@@ -1,5 +1,6 @@
 import { DAY_MS, exactProductObject as exact, productInstant as instant,
   normalizeProductDeliverySnapshot, requireProductCondition as requireCondition } from '../product-delivery-contracts.js';
+import { loadOptionalInsightSource } from './insight-source-api.js';
 
 export function normalizeOperationsSources(value) {
   exact(value, ['schemaVersion', 'environment', 'evaluatedAt', 'sources']);
@@ -34,15 +35,10 @@ export function normalizeOperationsSources(value) {
   return Object.freeze({ ...value, sources: Object.freeze(sources) });
 }
 
+export function loadOperationsSources(apiClient) {
+  return loadOptionalInsightSource(apiClient, 'demo/operations-sources', normalizeOperationsSources);
+}
+
 export async function loadOptionalOperationsSources(apiClient) {
-  let value;
-  try {
-    value = await apiClient.request('demo/operations-sources', { method: 'GET', signal: AbortSignal.timeout(10_000) });
-  } catch (error) {
-    if (['HTTP_404', 'HTTP_408', 'HTTP_429', 'HTTP_500', 'HTTP_502', 'HTTP_503', 'HTTP_504'].includes(error?.code)
-      || ['AbortError', 'TimeoutError'].includes(error?.name)
-      || (error instanceof TypeError && error.code === undefined)) return null;
-    throw error;
-  }
-  return normalizeOperationsSources(value);
+  return (await loadOperationsSources(apiClient)).data;
 }

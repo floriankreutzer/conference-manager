@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 2,
+  "environment": "demo",
+  "collectionMode": "runtime_projection",
+  "accessMode": "shared_owner_password",
+  "observedAt": "2026-10-18T13:00:00.000Z",
+  "evaluatedAt": "2026-10-18T13:00:00.000Z",
+  "periodStart": "2026-09-20T13:00:00.000Z",
+  "periodEnd": "2026-10-18T13:00:00.000Z",
+  "freshness": "fresh",
+  "sourceState": "available",
+  "product": [
+    {
+      "id": "onboarding_started",
+      "unit": "count",
+      "value": 1,
+      "reason": "available"
+    },
+    {
+      "id": "onboarding_completed",
+      "unit": "count",
+      "value": 1,
+      "reason": "available"
+    },
+    {
+      "id": "request_started",
+      "unit": "count",
+      "value": 2,
+      "reason": "available"
+    },
+    {
+      "id": "request_submitted",
+      "unit": "count",
+      "value": 3,
+      "reason": "available"
+    },
+    {
+      "id": "request_abandoned",
+      "unit": "count",
+      "value": 1,
+      "reason": "available"
+    },
+    {
+      "id": "time_to_submit",
+      "unit": "milliseconds",
+      "value": 300000,
+      "reason": "available"
+    },
+    {
+      "id": "manager_decisions",
+      "unit": "count",
+      "value": 2,
+      "reason": "available"
+    },
+    {
+      "id": "manager_decision_time",
+      "unit": "milliseconds",
+      "value": 300000,
+      "reason": "available"
+    },
+    {
+      "id": "transition_failures",
+      "unit": "count",
+      "value": 1,
+      "reason": "available"
+    },
+    {
+      "id": "recovery_completed",
+      "unit": "count",
+      "value": 1,
+      "reason": "available"
+    },
+    {
+      "id": "recovery_failed",
+      "unit": "count",
+      "value": 1,
+      "reason": "available"
+    },
+    {
+      "id": "recovery_failure_rate",
+      "unit": "ratio",
+      "value": 0.5,
+      "reason": "available"
+    }
+  ],
+  "productCoverage": [
+    {
+      "id": "onboarding_started",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "onboarding_completed",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "request_started",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "request_submitted",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "request_abandoned",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "time_to_submit",
+      "state": "partial",
+      "reason": "missing_start_clock",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "manager_decisions",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "manager_decision_time",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "transition_failures",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "recovery_completed",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "recovery_failed",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    },
+    {
+      "id": "recovery_failure_rate",
+      "state": "partial",
+      "reason": "retained_history",
+      "sourcePeriodStart": "2026-09-20T13:00:00.000Z",
+      "sourcePeriodEnd": "2026-10-18T13:00:00.000Z"
+    }
+  ],
+  "provenance": {
+    "mode": "retained_runtime",
+    "sourceEpoch": "3ba886063f75438fb4663c34b97aebb528b22a4659f4cf478e7e517b457fa356",
+    "eventCount": 13,
+    "sourceDigest": "459674e71ad79beb476be11d910ead4058863883855317f498db402462971ab8"
+  }
+}

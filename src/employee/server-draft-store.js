@@ -6,11 +6,20 @@ const DATE = /^(?:|\d{4}-\d{2}-\d{2})$/;
 const TIME = /^(?:|(?:[01]\d|2[0-3]):[0-5]\d)$/;
 const DECIMAL = /^(?:|\d{1,3}(?:\.\d{1,2})?)$/;
 const INTEGER = /^(?:|\d{1,4})$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 function exactObject(value, keys) {
   return value && typeof value === 'object' && !Array.isArray(value)
     && Object.keys(value).length === keys.length
     && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function validatedWorkflow(value) {
+  if (value === null) return null;
+  if (!exactObject(value, ['idempotencyKey', 'workflowId'])
+    || !UUID.test(value.idempotencyKey)
+    || (value.workflowId !== null && !UUID.test(value.workflowId))) return undefined;
+  return Object.freeze({ idempotencyKey: value.idempotencyKey, workflowId: value.workflowId });
 }
 
 function boundedString(value, maximum) {
@@ -141,9 +150,11 @@ export function createServerDraftStore({
     || typeof selectedStorage.removeItem !== 'function') return null;
 
   let draftCreatedAt = null;
+  let draftWorkflow = null;
 
   function clear() {
     draftCreatedAt = null;
+    draftWorkflow = null;
     try { selectedStorage.removeItem(SERVER_DRAFT_KEY); } catch {}
   }
 
@@ -165,7 +176,8 @@ export function createServerDraftStore({
         ? Date.parse(envelope.createdAt) : Number.NaN;
       if (!exactObject(envelope, [
         'schemaVersion', 'tenantId', 'userId', 'createdAt', 'expiresAt', 'draft',
-      ]) || envelope.schemaVersion !== 4 || envelope.tenantId !== tenant
+        ...(envelope?.schemaVersion === 5 ? ['workflow'] : []),
+      ]) || ![4, 5].includes(envelope.schemaVersion) || envelope.tenantId !== tenant
         || envelope.userId !== user || envelope.expiresAt !== sessionExpiresAt
         || now === null || !Number.isFinite(createdAt) || createdAt > now
         || createdAt >= sessionExpiry) {
@@ -173,8 +185,13 @@ export function createServerDraftStore({
         return null;
       }
       const draft = validatedDraft(envelope.draft, 3);
-      if (!draft) clear();
-      else draftCreatedAt = envelope.createdAt;
+      const workflow = validatedWorkflow(envelope.schemaVersion === 5 ? envelope.workflow : null);
+      if (!draft || workflow === undefined) {
+        clear();
+        return null;
+      }
+      draftCreatedAt = envelope.createdAt;
+      draftWorkflow = workflow;
       return draft;
     } catch {
       clear();
@@ -182,30 +199,46 @@ export function createServerDraftStore({
     }
   }
 
-  function save(value) {
+  function save(value, workflowValue = draftWorkflow) {
     const draft = validatedDraft(value, 3);
+    const workflow = validatedWorkflow(workflowValue);
     const now = currentTime();
-    if (!draft || !sessionActive(now)) return false;
+    if (!draft || workflow === undefined || !sessionActive(now)) return false;
     try {
       const createdAt = draftCreatedAt || new Date(now).toISOString();
       const serialized = JSON.stringify({
-        schemaVersion: 4,
+        schemaVersion: 5,
         tenantId: tenant,
         userId: user,
         createdAt,
         expiresAt: sessionExpiresAt,
         draft,
+        workflow,
       });
       if (new TextEncoder().encode(serialized).length > MAX_SERIALIZED_BYTES) return false;
       selectedStorage.setItem(SERVER_DRAFT_KEY, serialized);
       draftCreatedAt = createdAt;
+      draftWorkflow = workflow;
       return true;
     } catch {
       return false;
     }
   }
 
-  return Object.freeze({ clear, load, save, has: () => Boolean(load()) });
+  function loadWorkflow() {
+    return load() ? draftWorkflow : null;
+  }
+
+  // A late response may complete only the same draft, never a replacement editor.
+  function saveWorkflow(value, expectedKey = null) {
+    const workflow = validatedWorkflow(value);
+    if (!workflow) return false;
+    const draft = load();
+    if (!draft || (draftWorkflow?.idempotencyKey ?? null) !== expectedKey) return false;
+    return save(draft, workflow);
+  }
+
+  return Object.freeze({ clear, load, save, loadWorkflow, saveWorkflow, has: () => Boolean(load()) });
 }
 
 export { SERVER_DRAFT_KEY };

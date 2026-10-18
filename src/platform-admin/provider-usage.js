@@ -4,6 +4,7 @@ import { renderInsightTabs } from './insight-tabs.js';
 import { formatLiveMetric, liveMetricState, renderLiveMetrics } from './live-metrics.js';
 import { LIVE_METRICS } from './live-metrics-contracts.js';
 import { DAY_MS } from './observed-resource-clock.js';
+import { renderInsightRetrievalNotice, renderInsightSourceStatus } from './insight-source.js';
 
 const PROVIDERS = Object.freeze(['neon', 'render', 'resend', 'github']);
 
@@ -154,6 +155,7 @@ function sourcePanel(report) {
   const source = report.liveMetrics || report;
   return el('section', { className: 'card' }, [
     el('h2', { text: t('platformAdmin.insights.providers.sourcesTitle') }),
+    renderInsightSourceStatus(source, report.liveMetrics ? 'daily' : 'legacy'),
     el('p', { text: t(report.liveMetrics ? 'platformAdmin.liveMetrics.mode' : 'platformAdmin.providers.snapshot',
       { time: formatDateTime(source.observedAt) }) }),
     el('p', { text: t('platformAdmin.insights.providers.refreshPolicy') }),
@@ -229,6 +231,7 @@ export function renderProviderUsage({ resource, onRetry, isStale = false, elapse
       ]),
       refresh,
     ]),
+    renderInsightRetrievalNotice(report.retrieval),
     renderInsightTabs({ id: 'provider-insights', label: t('platformAdmin.insights.providers.navigation'), activeTab, onTabChange,
       tabs: [
         { id: 'overview', label: t('platformAdmin.insights.tabs.overview'), content: overview },

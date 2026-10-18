@@ -17,12 +17,14 @@ const DOMAIN_ENDPOINTS = Object.freeze({
   profile: 'v1/application/profile',
   catalog: 'v1/application/catalog',
   requests: 'v1/application/requests',
+  requestWorkflows: 'v1/application/request-workflows',
   roomAvailability: 'v1/application/room-availability',
   notifications: 'v1/application/notifications',
   configuration: 'v1/application/configuration',
 });
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const WORKFLOW_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const REQUEST_STATUSES = new Set([
@@ -100,6 +102,32 @@ function assertCanonicalUtc(value, code) {
     throw new ProductionPersistenceError(code);
   }
   return value;
+}
+
+function assertWorkflowId(value) {
+  if (typeof value !== 'string' || !WORKFLOW_ID.test(value)) {
+    throw new ProductionPersistenceError('PRODUCTION_REQUEST_WORKFLOW_INVALID');
+  }
+  return value;
+}
+
+function workflowEnvelope(value, { id = null, abandoned = false } = {}) {
+  const code = 'PRODUCTION_REQUEST_WORKFLOW_INVALID';
+  const envelope = assertExactObject(value, ['schemaVersion', 'workflow', 'requestId'], code);
+  if (envelope.schemaVersion !== 1) throw new ProductionPersistenceError(code);
+  assertWorkflowId(envelope.requestId);
+  const workflow = assertExactObject(envelope.workflow, ['id', 'status', 'startedAt', 'endedAt'], code);
+  assertWorkflowId(workflow.id);
+  assertCanonicalUtc(workflow.startedAt, code);
+  if (workflow.endedAt !== null) assertCanonicalUtc(workflow.endedAt, code);
+  if (!['started', 'submitted', 'abandoned'].includes(workflow.status)
+    || (id !== null && workflow.id !== id)
+    || (abandoned && workflow.status !== 'abandoned')
+    || ((workflow.status === 'started') !== (workflow.endedAt === null))
+    || (workflow.endedAt !== null && Date.parse(workflow.endedAt) < Date.parse(workflow.startedAt))) {
+    throw new ProductionPersistenceError(code);
+  }
+  return Object.freeze({ ...workflow });
 }
 
 function normalizedCollection(value, code, normalize) {
@@ -611,17 +639,33 @@ export function createProductionPersistence({ apiClient } = {}) {
       });
     },
 
-    async createRequest(requestDraft) {
+    async startRequestWorkflow(idempotencyKey) {
+      assertWorkflowId(idempotencyKey);
+      return workflowEnvelope(await call(apiClient, DOMAIN_ENDPOINTS.requestWorkflows, {
+        method: 'POST', body: {}, idempotencyKey,
+      }));
+    },
+
+    async abandonRequestWorkflow(workflowId) {
+      const id = assertWorkflowId(workflowId);
+      return workflowEnvelope(await call(apiClient, `${DOMAIN_ENDPOINTS.requestWorkflows}/${id}/abandon`, {
+        method: 'POST', body: {},
+      }), { id, abandoned: true });
+    },
+
+    async createRequest(requestDraft, { workflowId = null } = {}) {
+      if (workflowId !== null) assertWorkflowId(workflowId);
       const request = normalizeProductionRequestDraft(requestDraft);
       const schemaVersion = requestCompositionSchemaVersion(request);
       const payload = await call(
         apiClient,
         DOMAIN_ENDPOINTS.requests,
-        { method: 'POST', body: { schemaVersion, request } },
+        { method: 'POST', body: { schemaVersion, request, ...(workflowId === null ? {} : { workflowId }) } },
       );
       const result = normalizeProductionRequestMutationEnvelope(payload);
       observeRequestEnvelopeVersion(payload.schemaVersion, 'PRODUCTION_REQUEST_MUTATION_INVALID');
-      if (result.version !== 1 || result.status !== 'Submitted') {
+      if (result.version !== 1 || result.status !== 'Submitted'
+        || (workflowId !== null && result.id !== workflowId)) {
         throw new ProductionPersistenceError('PRODUCTION_REQUEST_MUTATION_INVALID');
       }
       return boundRequestIntent(request, result, 'PRODUCTION_REQUEST_MUTATION_INVALID');

@@ -23,6 +23,7 @@ import {
 } from './server-request-calendar.js';
 import { renderServerRequestHistory } from './server-request-history.js';
 import { composeServerRequestDraft } from '../shared/production-request-draft.js';
+import { createServerRequestWorkflow } from './server-request-workflow.js';
 import {
   cateringEditorOptions,
   equipmentEditorOptions,
@@ -303,6 +304,8 @@ export function createProductionEmployeeApplication({
     || typeof persistence.loadBookingChange !== 'function'
     || typeof persistence.loadRequestRoomContext !== 'function'
     || typeof persistence.proposeBookingChange !== 'function'
+    || typeof persistence.startRequestWorkflow !== 'function'
+    || typeof persistence.abandonRequestWorkflow !== 'function'
   ) {
     throw new TypeError('PRODUCTION_PERSISTENCE_REQUIRED');
   }
@@ -619,6 +622,10 @@ export function createProductionEmployeeApplication({
     queuedRequest = null;
     queuedResubmission = false;
     const restoredDraft = sourceRequest ? null : draftStore?.load?.() || null;
+    const requestWorkflow = isResubmission ? null : createServerRequestWorkflow({
+      persistence, draftStore: sourceRequest ? null : draftStore,
+    });
+    let workflowMutationPending = false;
     const rooms = roomEditorOptions(requestCatalog);
     if (!rooms.length) {
       root.appendChild(el('p', { className: 'info-box', text: t('production.employee.noRooms') }));
@@ -1046,6 +1053,7 @@ export function createProductionEmployeeApplication({
     }
     const allocationPanel = el('section', { attrs: { 'aria-label': t('cost.allocations') } });
     let scheduleDraftSave = () => {};
+    let markDraftEdited = () => {};
     const renderAllocationControls = () => {
       clear(allocationPanel);
       allocationPanel.append(
@@ -1083,7 +1091,7 @@ export function createProductionEmployeeApplication({
         const remove = button(t('common.delete'));
         remove.addEventListener('click', () => {
           allocationRows.splice(index, 1);
-          scheduleDraftSave();
+          markDraftEdited();
           renderAllocationControls();
         });
         row.append(
@@ -1102,7 +1110,7 @@ export function createProductionEmployeeApplication({
         const next = requestCatalog.costCenters.find((entry) => entry.active !== false && !used.has(entry.id));
         if (next) {
           allocationRows.push({ costCenterId: next.id, percentage: '0' });
-          scheduleDraftSave();
+          markDraftEdited();
         }
         renderAllocationControls();
       });
@@ -1301,6 +1309,7 @@ export function createProductionEmployeeApplication({
       el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
     ]);
     const actions = el('footer', { className: 'wizard-actions' });
+    const discardDraft = button(t('production.employee.discardDraft'), { className: 'danger' });
     let activeStep = restoredDraft?.activeStep || 1;
 
     const renderReview = () => {
@@ -1435,6 +1444,7 @@ export function createProductionEmployeeApplication({
       );
       if (activeStep === 6) renderReview();
       clear(actions);
+      if (!isResubmission) actions.appendChild(discardDraft);
       if (activeStep > 1) {
         const back = button(t('common.back'));
         back.addEventListener('click', () => moveToStep(activeStep - 1));
@@ -1506,6 +1516,7 @@ export function createProductionEmployeeApplication({
       return true;
     };
     function moveToStep(targetStep) {
+      if (workflowMutationPending) return;
       if (targetStep > activeStep && !validateStep(activeStep)) return;
       activeStep = Math.max(1, Math.min(6, targetStep));
       status.className = 'muted';
@@ -1558,9 +1569,84 @@ export function createProductionEmployeeApplication({
         }
         draftTimer = setTimeout(saveDraft, 400);
       };
-      root.addEventListener('input', scheduleDraftSave);
-      root.addEventListener('change', scheduleDraftSave);
     }
+
+    let startAttempted = false;
+    markDraftEdited = () => {
+      if (!isCurrentEditor() || workflowMutationPending || !requestWorkflow) return;
+      scheduleDraftSave({ immediate: !startAttempted });
+      if (startAttempted) return;
+      startAttempted = true;
+      void requestWorkflow.ensureStarted().catch((error) => {
+        if (!isCurrentEditor()) return;
+        if (authorityFailureCode(error)) invalidateEditorAuthority(error);
+        else {
+          status.className = 'error-box';
+          status.textContent = errorMessage(error);
+        }
+      });
+    };
+    root.addEventListener('input', () => markDraftEdited());
+    root.addEventListener('change', () => markDraftEdited());
+
+    function lockDraftMutation() {
+      workflowMutationPending = true;
+      discardDraft.disabled = true;
+      const controls = [...root.querySelectorAll('input, select, textarea')]
+        .map((control) => ({ control, disabled: control.disabled }));
+      controls.forEach(({ control }) => { control.disabled = true; });
+      return () => {
+        workflowMutationPending = false;
+        discardDraft.disabled = false;
+        controls.forEach(({ control, disabled }) => { control.disabled = disabled; });
+      };
+    }
+
+    discardDraft.addEventListener('click', () => {
+      if (!isCurrentEditor() || workflowMutationPending || !requestWorkflow) return;
+      const dismiss = button(t('common.cancel'));
+      const confirm = button(t('production.employee.discardDraft'), { className: 'danger' });
+      const dialog = openDialog({
+        title: t('production.employee.discardDraftTitle'),
+        description: t('production.employee.discardDraftDescription'),
+        actions: [dismiss, confirm],
+        labelledById: 'productionDiscardDraftTitle',
+      });
+      authoritySurfaces.track(dialog);
+      dismiss.addEventListener('click', () => dialog.close());
+      dialog.addEventListener('close', () => {
+        if (isCurrentEditor()) discardDraft.focus();
+      }, { once: true });
+      confirm.addEventListener('click', async () => {
+        if (!isCurrentEditor() || workflowMutationPending || !dialog.isConnected) return;
+        const unlock = lockDraftMutation();
+        confirm.disabled = true;
+        dialog.close();
+        try {
+          await requestWorkflow.abandon();
+          if (!isCurrentEditor()) return;
+          draftDirty = false;
+          if (draftTimer) clearTimeout(draftTimer);
+          if (!sourceRequest) draftStore?.clear?.();
+          showToast(t('production.employee.draftDiscarded'));
+          const replacementGeneration = editorRenderGeneration + 1;
+          await renderRequest();
+          if (replacementGeneration === editorRenderGeneration
+            && document.documentElement.dataset.sessionLocked !== 'true') {
+            appRoot.querySelector('#productionTitle')?.focus();
+          }
+        } catch (error) {
+          if (!isCurrentEditor()) return;
+          if (authorityFailureCode(error)) invalidateEditorAuthority(error);
+          else {
+            status.className = 'error-box';
+            status.textContent = errorMessage(error);
+          }
+        } finally {
+          unlock();
+        }
+      });
+    });
 
     checkAvailability.addEventListener('click', async () => {
       if (!isCurrentEditor()) return;
@@ -1625,7 +1711,7 @@ export function createProductionEmployeeApplication({
     });
 
     submit.addEventListener('click', async () => {
-      if (!isCurrentEditor()) return;
+      if (!isCurrentEditor() || workflowMutationPending) return;
       const window = currentAvailabilityWindow();
       const internalParticipants = safeParticipantCount(internal.value);
       const externalParticipants = safeParticipantCount(external.value);
@@ -1666,6 +1752,7 @@ export function createProductionEmployeeApplication({
       submit.disabled = true;
       status.className = 'muted';
       status.textContent = t('production.employee.submitting');
+      const unlockDraft = lockDraftMutation();
       try {
         const overrides = {
           title: normalizedTitle, roomId: window.roomId,
@@ -1689,9 +1776,12 @@ export function createProductionEmployeeApplication({
             compositionDraft(sourceRequest, requestCatalog, overrides),
           );
         } else {
+          const workflowId = await requestWorkflow.ensureStarted();
+          if (!isCurrentEditor()) return;
           submittedRequest = await persistence.createRequest(compositionDraft(
             sourceRequest, requestCatalog, overrides,
-          ));
+          ), { workflowId });
+          requestWorkflow.finish();
         }
         if (!isCurrentEditor()) return;
         submissionNotice = Object.freeze({
@@ -1743,6 +1833,7 @@ export function createProductionEmployeeApplication({
           focusStep();
         }
       } finally {
+        unlockDraft();
         if (isCurrentEditor()) {
           submit.disabled = !isAvailabilityVerified() || !resubmissionVersionCurrent;
         }

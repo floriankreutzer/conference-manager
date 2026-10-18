@@ -47,11 +47,14 @@
     "src/platform-admin/demo/product-delivery-api.js",
     "src/platform-admin/demo/operations-sources-api.js",
     "src/platform-admin/product-delivery-contracts.js",
+    "src/platform-admin/product-runtime-contract.js",
     "src/platform-admin/demo/live-metrics-api.js",
+    "src/platform-admin/demo/insight-source-api.js",
     "src/platform-admin/live-metrics-contracts.js",
     "src/platform-admin/live-metrics-freshness.js",
     "src/platform-admin/live-metrics.js",
     "src/platform-admin/insight-tabs.js",
+    "src/platform-admin/insight-source.js",
     "src/platform-admin/product-delivery-trend.js"
   ]
 }

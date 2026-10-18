@@ -71,7 +71,8 @@ test('presentation cache expires at the earliest independent operator-source fre
   let elapsed = 0; let expired = 0;
   const cache = createProductDeliveryCache({ wallNow: () => elapsed, monotonicNow: () => elapsed,
     setTimer: () => 1, clearTimer() {}, onExpire() { expired += 1; } });
-  const resource = { status: 'ready', data: report };
+  const resource = { status: 'ready', data: { storedReport: report, runtimeProduct: null,
+    operatorSources: report.operatorSources, liveMetrics: null } };
   assert.equal(cache.retain(resource), true);
   elapsed = 1000; cache.check();
   assert.equal(expired, 1); assert.equal(cache.isReusable(resource), false);

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { asProductionHtml } from './fixtures/production-html.js';
 import { readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productionUtcInstant } from '../../src/core/production-time.js';
@@ -11,7 +12,7 @@ const ORIGIN = 'https://conference.test';
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_ID = '22222222-2222-4222-8222-222222222222';
 const CSRF_TOKEN = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
-const REQUEST_ID = 'CR-2026-100001';
+const REQUEST_ID = '66666666-6666-4666-8666-666666666666';
 const API_REQUEST_ID = '33333333-3333-4333-8333-333333333333';
 const PROVIDER_TENANT_ID = '44444444-4444-4444-8444-444444444444';
 
@@ -289,6 +290,9 @@ async function installProductionApplicationFixture(page, {
   bookingChangeProposalError = null,
   availabilityResponses = [{ available: true, conflictCount: 0 }],
   requestCreateErrors = [],
+  loseCreatedResponse = false,
+  workflowStartError = null,
+  holdWorkflowStart = false,
   requestRoomContext = undefined,
   requestRoomContextSchemaVersion = null,
   holdAvailability = false,
@@ -319,6 +323,11 @@ async function installProductionApplicationFixture(page, {
   const roomContextReads = [];
   const catalogReads = [];
   const requestEnvelopes = [];
+  const workflowWrites = [];
+  const workflows = new Map();
+  let releaseWorkflowStart = () => {};
+  const workflowStartGate = holdWorkflowStart
+    ? new Promise((resolve) => { releaseWorkflowStart = resolve; }) : null;
   let catalogueSettings = structuredClone(
     initialCatalogueSettings ?? catalogueSettingsPayload().catalogue,
   );
@@ -909,6 +918,42 @@ async function installProductionApplicationFixture(page, {
       return;
     }
 
+    if (url.pathname === '/api/v1/application/request-workflows' && request.method() === 'POST') {
+      const key = request.headers()['idempotency-key'];
+      workflowWrites.push({ operation: 'start', key, csrf: request.headers()['x-csrf-token'], body: request.postDataJSON() });
+      if (workflowStartGate) await workflowStartGate;
+      if (workflowStartError) {
+        await route.fulfill({ status: workflowStartError,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: 'AUTHORITY_UNAVAILABLE', requestId: API_REQUEST_ID } }) });
+        return;
+      }
+      if (!workflows.has(key)) workflows.set(key, {
+        id: workflows.size === 0 ? REQUEST_ID : randomUUID(), status: 'started',
+        startedAt: new Date().toISOString(), endedAt: null,
+      });
+      await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ schemaVersion: 1, workflow: workflows.get(key), requestId: API_REQUEST_ID }) });
+      return;
+    }
+
+    const abandonedWorkflow = url.pathname.match(/^\/api\/v1\/application\/request-workflows\/([0-9a-f-]+)\/abandon$/);
+    if (abandonedWorkflow && request.method() === 'POST') {
+      const id = abandonedWorkflow[1];
+      workflowWrites.push({ operation: 'abandon', id, csrf: request.headers()['x-csrf-token'], body: request.postDataJSON() });
+      const workflow = [...workflows.values()].find((entry) => entry.id === id);
+      if (!workflow || workflow.status === 'submitted') {
+        await route.fulfill({ status: 409, contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: 'REQUEST_STATE_CONFLICT', requestId: API_REQUEST_ID } }) });
+        return;
+      }
+      workflow.status = 'abandoned';
+      workflow.endedAt ??= new Date().toISOString();
+      await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ schemaVersion: 1, workflow, requestId: API_REQUEST_ID }) });
+      return;
+    }
+
     if (url.pathname === '/api/v1/application/requests' && request.method() === 'POST') {
       const envelope = request.postDataJSON();
       const body = envelope.request;
@@ -925,7 +970,7 @@ async function installProductionApplicationFixture(page, {
         return;
       }
       let created = {
-        id: REQUEST_ID,
+        id: envelope.workflowId ?? REQUEST_ID,
         roomId: body.roomId,
         status: 'Submitted',
         statusReason: null,
@@ -1016,6 +1061,12 @@ async function installProductionApplicationFixture(page, {
         };
       }
       requests = [created];
+      const workflow = [...workflows.values()].find((entry) => entry.id === created.id);
+      if (workflow) { workflow.status = 'submitted'; workflow.endedAt = new Date().toISOString(); }
+      if (loseCreatedResponse) {
+        await route.abort('failed');
+        return;
+      }
       await route.fulfill({
         status: 201,
         contentType: 'application/json; charset=utf-8',
@@ -1404,6 +1455,8 @@ async function installProductionApplicationFixture(page, {
     roomContextReads,
     roomMediaUploads,
     requests: () => requests,
+    workflowWrites,
+    releaseWorkflowStart,
     writes,
   };
 }
@@ -1853,7 +1906,7 @@ test('EMP-09: scoped session draft resumes the exact active wizard step and stat
   await expect.poll(() => page.evaluate(() => JSON.parse(
     sessionStorage.getItem('conference_server_request_draft_v1'),
   ))).toMatchObject({
-    schemaVersion: 4,
+    schemaVersion: 5,
     tenantId: TENANT_ID,
     userId: USER_ID,
     expiresAt: '2099-09-24T12:00:00.000Z',
@@ -1875,6 +1928,125 @@ test('EMP-09: scoped session draft resumes the exact active wizard step and stat
   await expect(page.locator('#productionTitle')).toHaveValue('Resume me');
   await expect(page.locator('#productionCateringParticipants')).toHaveValue('2');
   await expect(page.getByLabel('Menge für Coffee')).toHaveValue('2');
+});
+
+test('Request lifecycle: first content edit survives navigation and reload; only confirmed discard terminates it', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  expect(fixture.workflowWrites).toEqual([]);
+  await page.locator('#productionTitle').fill('Retained draft');
+  await expect.poll(() => fixture.workflowWrites.length).toBe(1);
+  expect(fixture.workflowWrites[0]).toMatchObject({ operation: 'start', csrf: CSRF_TOKEN, body: {} });
+  expect(fixture.workflowWrites[0].key).toMatch(/^[0-9a-f-]{36}$/);
+  await expect.poll(() => page.evaluate(() => JSON.parse(
+    sessionStorage.getItem('conference_server_request_draft_v1'),
+  )?.workflow?.workflowId)).toBe(REQUEST_ID);
+  await page.locator('[data-view="requests"]').click();
+  await page.locator('[data-view="employee"]').click();
+  await expect(page.locator('#productionTitle')).toHaveValue('Retained draft');
+  await page.reload();
+  await page.locator('[data-view="employee"]').click();
+  await expect(page.locator('#productionTitle')).toHaveValue('Retained draft');
+  expect(fixture.workflowWrites).toHaveLength(1);
+  const discard = page.getByRole('button', { name: 'Entwurf verwerfen', exact: true });
+  await discard.click();
+  let dialog = page.getByRole('dialog', { name: 'Entwurf verwerfen?' });
+  await dialog.getByRole('button', { name: 'Abbrechen', exact: true }).click();
+  await expect(discard).toBeFocused();
+  await expect(page.locator('#productionTitle')).toHaveValue('Retained draft');
+  expect(fixture.workflowWrites).toHaveLength(1);
+  await discard.click();
+  dialog = page.getByRole('dialog', { name: 'Entwurf verwerfen?' });
+  await dialog.getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await expect(page.locator('#productionTitle')).toHaveValue('');
+  await expect(page.locator('#productionTitle')).toBeFocused();
+  expect(fixture.workflowWrites.map(({ operation }) => operation)).toEqual(['start', 'abandon']);
+  expect(fixture.workflowWrites[1]).toEqual({ operation: 'abandon', id: REQUEST_ID, csrf: CSRF_TOKEN, body: {} });
+  expect(await page.evaluate(() => sessionStorage.getItem('conference_server_request_draft_v1'))).toBeNull();
+});
+
+test('Request lifecycle: submission binds the reserved server ID and creates no abandonment', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.requestEnvelopes[0].workflowId).toBe(REQUEST_ID);
+  expect(fixture.workflowWrites.map(({ operation }) => operation)).toEqual(['start']);
+  expect(fixture.requests()[0].id).toBe(REQUEST_ID);
+});
+
+test('Request lifecycle: delayed starts reuse the stored key without overwriting a newer editor', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, { holdWorkflowStart: true });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await page.locator('#productionTitle').fill('First editor');
+  await expect.poll(() => fixture.workflowWrites.length).toBe(1);
+  await page.locator('[data-view="requests"]').click();
+  await page.locator('[data-view="employee"]').click();
+  await page.locator('#productionTitle').fill('Newer editor');
+  await expect.poll(() => fixture.workflowWrites.length).toBe(2);
+  expect(fixture.workflowWrites[0].key).toBe(fixture.workflowWrites[1].key);
+  fixture.releaseWorkflowStart();
+  await expect.poll(() => page.evaluate(() => JSON.parse(
+    sessionStorage.getItem('conference_server_request_draft_v1'),
+  )?.workflow?.workflowId)).toBe(REQUEST_ID);
+  await expect(page.locator('#productionTitle')).toHaveValue('Newer editor');
+  expect(await page.evaluate(() => JSON.parse(
+    sessionStorage.getItem('conference_server_request_draft_v1'),
+  )?.draft?.title)).toBe('Newer editor');
+  expect(fixture.workflowWrites.some(({ operation }) => operation === 'abandon')).toBe(false);
+});
+
+test('Request lifecycle: a lost submission response permits local discard without abandoning the committed Request', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, { loseCreatedResponse: true });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.locator('.error-box')).toBeVisible();
+  expect(fixture.requests()[0]).toMatchObject({ id: REQUEST_ID, status: 'Submitted' });
+  await page.getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Entwurf verwerfen?' })
+    .getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await expect(page.locator('#productionTitle')).toHaveValue('');
+  await expect(page.locator('#productionTitle')).toBeFocused();
+  expect(fixture.requests()[0]).toMatchObject({ id: REQUEST_ID, status: 'Submitted' });
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.workflowWrites.map(({ operation }) => operation)).toEqual(['start', 'abandon', 'start']);
+  expect(fixture.workflowWrites[0].key).toBe(fixture.workflowWrites[2].key);
+  expect(await page.evaluate(() => sessionStorage.getItem('conference_server_request_draft_v1'))).toBeNull();
+});
+
+test('Request lifecycle: revoked authority invalidates the editor before submission', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, { workflowStartError: 403 });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await page.locator('#productionTitle').fill('Must not submit');
+  await expect(page.locator('#productionTitle')).toHaveCount(0);
+  expect(fixture.workflowWrites).toHaveLength(1);
+  expect(fixture.requestEnvelopes).toEqual([]);
+  expect(fixture.workflowWrites.some(({ operation }) => operation === 'abandon')).toBe(false);
+});
+
+test('Request lifecycle: confirmed discard of an untouched form invents no start or abandonment', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await page.getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Entwurf verwerfen?' })
+    .getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await expect(page.locator('#productionTitle')).toBeFocused();
+  expect(fixture.workflowWrites).toEqual([]);
 });
 
 test('EMP-03: Room preview exposes explicit empty and fail-closed catalog-error states', async ({ page }) => {

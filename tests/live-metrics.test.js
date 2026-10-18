@@ -12,13 +12,13 @@ test('daily live client uses only the bounded fixed GET and retains actual stock
   const calls = [];
   const api = createProductDeliveryApi({ apiClient: { async request(path, options) {
     calls.push(path); assert.equal(options.method, 'GET'); assert.equal(options.body, undefined);
-    if (path === 'demo/operations-sources') throw Object.assign(new Error('PLATFORM_NOT_FOUND'), { code: 'HTTP_404' });
+    if (['demo/product-delivery', 'demo/operations-sources'].includes(path)) throw Object.assign(new Error('PLATFORM_NOT_FOUND'), { code: 'HTTP_404' });
     assert.equal(typeof options.signal.addEventListener, 'function'); return fixture();
   } } });
   const report = await api.load();
-  assert.deepEqual(calls, ['demo/live-metrics', 'demo/operations-sources']);
+  assert.deepEqual(calls, ['demo/live-metrics', 'demo/product-delivery', 'demo/operations-sources']);
   assert.equal(report.liveMetrics.measurements.find((x) => x.id === 'requests').value, 23);
-  assert.ok(report.product.every((x) => x.value === null));
+  assert.ok(report.storedReport.product.every((x) => x.value === null));
   assert.equal(report.liveMetrics.measurements.find((x) => x.id === 'tenants').value, null);
   assert.ok(Object.isFrozen(report.liveMetrics.measurements));
 });
