@@ -15,8 +15,6 @@ deletion, alert delivery and Production recovery/RPO/RTO are not claimed as exec
 Known credentials are not accepted. Current correction/release delivery remains tracked
 separately by #169/#170/#164 and the hardening register.
 
-Published Confluence decision: https://acckreutzer-1733338800840.atlassian.net/wiki/spaces/~5de0302805eece0d0920638f/pages/12451843/04.1.5.2+ADR-012+SaaS+3.6+Room+Media+Public+Guest+Content
-
 ## H-034 — managed Room media for EMP-03
 
 ### Accepted product choice
