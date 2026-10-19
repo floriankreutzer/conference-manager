@@ -186,7 +186,8 @@ test('audit demo is deterministic, resettable, cursor bounded, and validates fil
 test('audit adapter accepts Catering actions and minimized configuration summaries without private cost data', async () => {
   const actions = ['catering.order.prepared', 'catering.order.quoted', 'catering.order.decided',
     'catering.delivery.queued', 'catering.delivery.claimed', 'catering.delivery.attempted',
-    'catering.delivery.observed', 'catering.delivery.deferred', 'catering.delivery.recovered'];
+    'catering.delivery.observed', 'catering.delivery.deferred', 'catering.delivery.recovered',
+    'catering.manual.transmitted', 'catering.manual.receipt'];
   for (const action of actions) {
     const api = createTenantAuditApi({ apiClient: { async request() {
       return page({ events: [event({ action, category: 'request', target: { type: 'catering_order', id: CORRELATION_ID },
