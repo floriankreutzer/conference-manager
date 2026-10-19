@@ -1,4 +1,4 @@
-import { parseCateringMoneyInput } from '../core/catering-money-input.js';
+import { parseCateringMoneyInput } from './catering-money-input.js';
 import { formatNumber,t } from '../core/i18n.js';
 import { button,el,field } from '../core/ui.js';
 

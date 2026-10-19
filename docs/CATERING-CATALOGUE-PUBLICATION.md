@@ -6,8 +6,10 @@ custody#230 is accepted atbe04a087bb64316969dddb20db6541db6ee87ffb (canonical055
 Scoped HTTP/read composition#233 remains a separate candidate at446fe2c2b1a89323e11d09670b3dac0fbcc94b68.
 Its CI39329481398 quality and full PostgreSQL18.6 integration passed, including
 actual Customer review HTTP/CSRF/session/ownership/replay and400 binding pages;
-the four permanent paired browser/storage jobs remain pending at this checkpoint.
-No API pin or deployment was changed by this UI implementation yet.
+both Chromium storage jobs and WebKit PostgreSQL passed; the final WebKit objects
+permanent job remains pending at this checkpoint.
+Frontend shared CI now pins that immutable HTTP candidate for paired regression.
+It must pass its own full gates before UI acceptance; deployed refs are unchanged.
 
 The same-origin wire adapter accepts only closed, immutable scoped current
 binding/history reads and explicit review/rejection commands with captured
@@ -46,12 +48,14 @@ results lock the draft until explicit reload; no POST is automatically retried.
 Success is announced only after a fresh current context/history read. New audit
 actions use the existing minimized Tenant Admin configuration presentation.
 
-Validation before the final model/audit additions passed783 native cases and
-all architecture/security/i18n/design/lint/style gates; all15 existing source/
-assignment WebKit regressions and4 new editor cases passed. German320px and
-landscape reflow checks passed and the phone screenshot was inspected. Additional
-orchestration browser cases and final full checks are in progress; complete
-Chromium/WebKit, shared role/Tenant/CSRF, actual200% zoom and both permanent
+Final local complete validation passed786 native cases and all architecture/
+security/i18n/design/lint/style gates; dependency audit reported zero vulnerabilities. All32 source/assignment/editor/orchestration
+WebKit cases passed together, followed by20 editor/orchestration cases after
+keeping the shared exact money parser inside its Manager owner and adding DE/EN
+business-settings navigation/default-off checks. Discovery tests confirm that
+pure publication-port composition adds no extra request. German320px and
+landscape reflow checks passed and the phone screenshot was inspected.
+Complete Chromium/WebKit, shared role/Tenant/CSRF, actual200% zoom and both permanent
 three-customer/two-reset CI gates remain required before acceptance.
 
 Employee publication eligibility, versioned supplier availability, lead/minimum/

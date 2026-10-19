@@ -13,7 +13,7 @@ const product=(n)=>({ id: `supplier-${n}`,name: `Synthetic received item ${n}`,d
 const common=(n)=>({ id: `our-${n}`,name: `Synthetic old item ${n}`,description: null,
   price: { amountMinor: 700,currency: 'EUR' },active: true,order: n,siteIds: [],roomIds: [] });
 async function install(page,{ language='de',writeStatus=0,delayWrite=false,delayDetail=false,
-  corruptPage=false,corruptBasis=false,authorityStatus=0,blocked=false }={}) {
+  corruptPage=false,corruptBasis=false,authorityStatus=0,blocked=false,navigation=false,enabled=true }={}) {
   const calls=[]; let saved=null; let release; const pending=new Promise(resolve=>{ release=resolve; });
   const base='/api/v1/tenant/catering/provider-catalogues';
   const context=()=>({ schemaVersion: 1,integrationId: id(3),providerId: 'manual_catering',configurationRevision: 2,
@@ -67,12 +67,13 @@ async function install(page,{ language='de',writeStatus=0,delayWrite=false,delay
     }
     if (url.pathname==='/') return route.fulfill({ contentType: 'text/html',body: `<!doctype html><html lang="${language}">
       <head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/tokens.css">
-      <link rel="stylesheet" href="/assets/styles.css"></head><body><h1>Synthetic publication fixture</h1><main id="app"></main>
+      <link rel="stylesheet" href="/assets/styles.css"></head><body><h1 id="viewTitle" tabindex="-1">Synthetic publication fixture</h1><main id="app"></main>
       <button id="leave">Leave fixture</button><script type="module">
       import { renderCateringCataloguePublications } from '/src/manager/catering-publication-application.js';
       import { createCateringCataloguePublicationApi } from '/src/platform/catering-catalogue-publication-api.js';
       import { createCateringProviderCatalogueApi } from '/src/platform/catering-provider-catalogue-api.js';
-      import { nextStableCatalogueId,catalogueDefaultCurrency } from '/src/manager/business-settings-application.js';
+      import { featureFlags } from '/src/platform/feature-flags.js';
+      import { nextStableCatalogueId,catalogueDefaultCurrency,createManagerBusinessSettingsApplication } from '/src/manager/business-settings-application.js';
       import { setLanguage } from '/src/core/i18n.js';
       setLanguage('${language}'); let active=true;
       document.getElementById('leave').onclick=()=>{ active=false; document.getElementById('app').replaceChildren(); };
@@ -88,12 +89,21 @@ async function install(page,{ language='de',writeStatus=0,delayWrite=false,delay
           return { revision: context.assignmentRevision,currentCatalogueRevision: context.catalogueRevision,
             assignedCatalogueRevision: context.catalogueRevision,stale: false,
             assignments: items.map(x=>({ kind: 'item',entryId: x.id,integrationId: '${id(3)}' })) }; } };
-      await renderCateringCataloguePublications({ root: document.getElementById('app'),adapter,createId: nextStableCatalogueId,
+      const options={ root: document.getElementById('app'),adapter,createId: nextStableCatalogueId,
         defaultCurrencyFor: catalogueDefaultCurrency,catalogue: { async loadCatalogue() {
           const context=await client.request('v1/tenant/catering/provider-catalogues/${id(3)}/review');
           return { revision: context.catalogueRevision,catalogue: { cateringItems: items,cateringPackages: [] } }; } },
         locations: { async loadLocations() { return { configuration: { sites: [],rooms: [] } }; } },isCurrent: ()=>active,
-        onAuthorityFailure: ()=>{ document.getElementById('app').replaceChildren(); document.documentElement.dataset.locked='true'; } });
+        onAuthorityFailure: ()=>{ document.getElementById('app').replaceChildren(); document.documentElement.dataset.locked='true'; } };
+      if (${navigation}) {
+        const application=createManagerBusinessSettingsApplication({appRoot:options.root,
+          setPageHeading:title=>{document.getElementById('viewTitle').textContent=title;},
+          catalogue:{...options.catalogue,saveCatalogue:async()=>{},listCatalogueHistory:async()=>({revisions:[]})},
+          locations:{...options.locations,saveLocations:async()=>{},listLocationsHistory:async()=>({revisions:[]})},
+          cateringAssignments:{...adapter,featureFlags:featureFlags.forServerCateringCatalogue(${enabled})},
+          onAuthorityFailure:options.onAuthorityFailure});
+        await application.renderManagerSettings();
+      } else await renderCateringCataloguePublications(options);
       window.ready=true;
       </script></body></html>` });
     const file=path.resolve(ROOT,`.${url.pathname}`);
@@ -193,4 +203,19 @@ test('unavailable publication keeps the Manager review history readable without 
   await expect(page.getByRole('status')).toContainText('noch nicht freigegeben');
   await expect(page.getByText('Synthetic earlier publication',{exact:true})).toBeVisible();
   await expect(page.locator('[data-catering-publication-editor]')).toHaveCount(0); expect(f.calls.filter(c=>c.method==='POST')).toHaveLength(0);
+});
+
+for (const language of ['de','en']) test(`${language} business settings composes catalogue-review navigation behind the existing server flag`,async({page})=>{
+  const f=await install(page,{language,navigation:true});
+  expect(f.calls.filter(c=>c.path==='/api/v1/tenant/catering/provider-catalogues')).toHaveLength(0);
+  const nav=page.getByRole('button',{name:language==='de' ? 'Katalogfreigaben' : 'Catalogue review',exact:true});
+  await nav.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading',{name:language==='de' ? 'Lieferantenkatalog prüfen und freigeben' : 'Review and publish supplier catalogue',exact:true})).toBeFocused();
+  await choose(page,language);
+  expect(f.calls.filter(c=>c.path==='/api/v1/tenant/catering/provider-catalogues')).toHaveLength(1);
+});
+test('disabled business-settings flag exposes no publication navigation or source reads',async({page})=>{
+  const f=await install(page,{navigation:true,enabled:false});
+  await expect(page.getByRole('button',{name:'Katalogfreigaben',exact:true})).toHaveCount(0);
+  expect(f.calls.filter(c=>c.path.startsWith('/api/v1/tenant/catering/provider-catalogues') && !c.path.endsWith('/review'))).toHaveLength(0);
 });

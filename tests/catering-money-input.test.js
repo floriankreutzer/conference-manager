@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseCateringMoneyInput as parse } from '../src/core/catering-money-input.js';
+import { parseCateringMoneyInput as parse } from '../src/manager/catering-money-input.js';
 
 test('comma/dot decimal input produces exact known minor-unit prices without floating-point rounding',() => {
   for (const value of ['2.50','2,50',' 2.5 ','0002,50']) assert.deepEqual(parse(value,'EUR'),{ amountMinor: 250,currency: 'EUR' });
