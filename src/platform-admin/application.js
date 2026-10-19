@@ -93,6 +93,7 @@ export function createPlatformAdminApplication({
   runtime = 'production',
   sessionState = 'authenticated',
   signInPath = null,
+  renderSessionGate = null,
   onSignOut = null,
   onStepUp = null,
   demoControls = null,
@@ -101,6 +102,9 @@ export function createPlatformAdminApplication({
   documentRef = globalThis.document,
   windowRef = globalThis.window,
 } = {}) {
+  if (renderSessionGate !== null && (runtime !== 'production' || typeof renderSessionGate !== 'function')) {
+    throw new TypeError('PLATFORM_ADMIN_SESSION_GATE_INVALID');
+  }
   if (!['production', 'demo'].includes(runtime)) throw new TypeError('PLATFORM_ADMIN_RUNTIME_INVALID');
   if (providerUsage !== null && (runtime !== 'demo' || typeof providerUsage.load !== 'function')) {
     throw new TypeError('PLATFORM_ADMIN_PROVIDER_USAGE_INVALID');
@@ -1274,7 +1278,8 @@ export function createPlatformAdminApplication({
     if (sessionState !== 'authenticated' || !currentOperator) {
       setHeading(t('platformAdmin.title'), t('platformAdmin.subtitle'));
       renderNavigation({ view: 'fleet' }, null);
-      nodes.app.appendChild(sessionGate(sessionState, signInPath));
+      nodes.app.appendChild(sessionState === 'unauthenticated' && renderSessionGate
+        ? renderSessionGate() : sessionGate(sessionState, signInPath));
       return;
     }
     const route = currentRoute();

@@ -84,3 +84,42 @@ All exact-head remote frontend gates remain required: full Chromium/WebKit E2E,
 shared roles/Tenant/CSRF, separate actual200% Chromium zoom, both permanent
 three-customer/two-reset cases and security/source checks. No complete catalogue,
 publication, provider or SaaS4 release acceptance is claimed here.
+
+
+## Retained first browser CI timeout and engine isolation
+
+Candidate489ad094 / treea22f73b3 passed quality and all security/source checks.
+CI39320661754 E2E job118293865048 reached its existing20-minute job limit at
+20:57:03UTC. Its retained log contains no failing browser assertion before the
+cancellation: Chromium completed its237 cases and WebKit had progressed into
+its last cases. The cancelled run is not full E2E acceptance. Transport/print/
+keyboard/draft prechecks had passed; the independent shared journey continued.
+
+The full regular suite now runs in two separate engine jobs with fail-fast false,
+keeping the original20-minute job budget, one worker, zero retries, every test
+and all existing transport/print/keyboard/draft prechecks. Each engine gets the
+complete suite for its existing project. Distinct artifacts retain both reports.
+The existing required e2e status is an always-run aggregate that succeeds only
+when the entire two-engine matrix reports success; failure, skipped or cancelled
+matrix results fail it. Branch protection and every shared/actual-zoom/permanent
+three-customer/two-reset gate remain unchanged. Native contract tests exercise
+the aggregate shell check against success and every non-success result. This is
+a workload split, not acceptance of the timed-out run or a longer deadline.
+All exact-head frontend gates must pass again on the new immutable candidate.
+
+The adjusted candidate passed the complete local check753, including two new
+engine-matrix/required-status cases and all previous751 tests. YAML parsing,
+architecture/security/i18n/design/lint/style gates passed. The API pin and UI
+implementation are unchanged. Browser and shared gates must still execute on
+the adjusted head; prior incomplete evidence is not relabeled as accepted.
+
+
+Before publishing the CI correction, current main advanced toaa93c7d2 through
+independent Platform passkey UI#357. Its production codec/controller/view,
+bootstrap, translations, manifest and tests were reviewed and normally merged;
+those files remain byte-identical to accepted main. The API pin remainsaf77;
+the inherited passkey configuration404 path preserves its existing sign-in
+presentation when that separate API mode is absent. No identity mode is activated.
+The merged candidate passed the complete local check765, including all inherited
+Platform cases. Both complete browser projects and all shared gates still require
+fresh exact-head acceptance. No prior partial or cancelled result is substituted.
