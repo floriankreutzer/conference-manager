@@ -187,7 +187,7 @@ test('audit adapter accepts Catering actions and minimized configuration summari
   const actions = ['catering.order.prepared', 'catering.order.quoted', 'catering.order.decided',
     'catering.delivery.queued', 'catering.delivery.claimed', 'catering.delivery.attempted',
     'catering.delivery.observed', 'catering.delivery.deferred', 'catering.delivery.recovered',
-    'catering.manual.transmitted', 'catering.manual.receipt'];
+    'catering.manual.transmitted', 'catering.manual.receipt', 'catering.order.version_proposed'];
   for (const action of actions) {
     const api = createTenantAuditApi({ apiClient: { async request() {
       return page({ events: [event({ action, category: 'request', target: { type: 'catering_order', id: CORRELATION_ID },

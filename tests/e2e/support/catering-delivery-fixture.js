@@ -33,6 +33,13 @@ export async function installCateringDeliveryFixture(page, {
   await page.route('**/api/v1/tenant/catering/**', async (route) => {
     const request = route.request(); const url = new URL(request.url());
     const json = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
+    if (url.pathname.endsWith('/versions') && request.method() === 'GET') {
+      return json({ schemaVersion: 1, orderId: current.order.orderId, requestId: current.order.requestId,
+        orderState: { orderVersion: current.order.orderVersion, revision: current.state.revision, status: current.state.status },
+        currentRequest: { version: current.order.requestVersion, status: 'Confirmed' },
+        currentAssignmentRevision: current.order.assignmentRevision, basis: null, allowedOperations: [],
+        proposals: [], nextAfterOrderVersion: null });
+    }
     if (url.pathname.endsWith('/manual-delivery')) {
       if (request.method() === 'GET') {
         if (deferManualReads) await new Promise((resolve) => { waitingManualReads.add(resolve); });

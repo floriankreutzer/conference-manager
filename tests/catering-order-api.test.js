@@ -145,3 +145,27 @@ test('supplier rejection retains the earlier approved cost decision as historica
   value.decision = null;
   await assert.rejects(apiFor(value).loadOrder(value.order.orderId), /INVALID/);
 });
+
+test('historical selectors and later-version quote decisions bind the version as well as reused revision counters', async () => {
+  let sent; let response = { ...quoted(), order: { ...source.order, orderVersion: 2 } };
+  const client = createCateringOrderApi({ apiClient: { request: async (path, options) => { sent = { path, options }; return response; } } });
+  assert.equal((await client.loadOrder(source.order.orderId, { orderVersion: 2 })).order.orderVersion, 2);
+  assert.equal(sent.path, `v1/tenant/catering/orders/${source.order.orderId}?orderVersion=2`);
+  await assert.rejects(client.loadOrder(source.order.orderId, { orderVersion: 1 }), /INVALID/);
+  await client.recordQuote({ orderId: source.order.orderId, expectedOrderVersion: 2, expectedStateRevision: 1,
+    expectedQuoteRevision: 0, cost: quote().cost, expiresAt: quote().expiresAt });
+  assert.equal(sent.options.body.expectedOrderVersion, 2);
+  response = quoted();
+  await assert.rejects(client.recordQuote({ orderId: source.order.orderId, expectedOrderVersion: 2, expectedStateRevision: 1,
+    expectedQuoteRevision: 0, cost: quote().cost, expiresAt: quote().expiresAt }), /INVALID/);
+  response = { ...decided(), order: { ...source.order, orderVersion: 2 } };
+  await client.decideQuote({ orderId: source.order.orderId, expectedOrderVersion: 2, expectedStateRevision: 2,
+    expectedQuoteRevision: 1, decision: 'approved' });
+  assert.equal(sent.options.body.expectedOrderVersion, 2);
+  response = decided();
+  await assert.rejects(client.decideQuote({ orderId: source.order.orderId, expectedOrderVersion: 2, expectedStateRevision: 2,
+    expectedQuoteRevision: 1, decision: 'approved' }), /INVALID/);
+  await client.decideQuote({ orderId: source.order.orderId, expectedOrderVersion: 1, expectedStateRevision: 2,
+    expectedQuoteRevision: 1, decision: 'approved' });
+  assert.equal(Object.hasOwn(sent.options.body, 'expectedOrderVersion'), false);
+});

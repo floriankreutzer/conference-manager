@@ -1,4 +1,5 @@
 import { createCateringManualApi } from './catering-manual-api.js';
+import { createCateringVersionApi } from './catering-version-api.js';
 import { adapterError, immutable } from './tenant-settings-wire.js';
 import { orderArray, orderInstant, orderInteger, orderRecord, orderUuid } from './catering-order-wire.js';
 
@@ -46,6 +47,7 @@ export function createCateringDeliveryApi({ apiClient } = {}) {
   };
   return Object.freeze({
     ...createCateringManualApi({ apiClient }),
+    ...createCateringVersionApi({ apiClient }),
     listJobs({ orderId = null, afterJobId = null, signal } = {}) {
       return invoke(async () => {
         const order = orderId === null ? null : orderUuid(orderId);

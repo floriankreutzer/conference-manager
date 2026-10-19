@@ -22,8 +22,10 @@ repaint another tab. Controls preserve focus without stealing focus after an unr
 
 The effective-version summary is separate from current processing/order state. Only complete
 supplier confirmation makes a version effective. Pending, partial, rejected and substitution
-outcomes retain the earlier effective version. Full change/cancel/exception commands are
-separate work. Deferred automatic-job history remains visible with neutral wording after
+outcomes retain the earlier effective version. [Reviewed versions](CATERING-VERSIONS.md)
+add nonbinding change/cancel/exception proposals over a fully confirmed supplier basis;
+unsent-order replacement and changed supplier positions remain separate work.
+Deferred automatic-job history remains visible with neutral wording after
 manual facts are recorded, so it does not claim an outstanding initial manual send.
 
 The view uses native forms, fieldsets, legends, required selects/attestation, semantic history

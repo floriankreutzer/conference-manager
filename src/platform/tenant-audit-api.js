@@ -36,6 +36,7 @@ const ACTIONS = new Set([
   'catering.order.prepared',
   'catering.order.quoted',
   'catering.order.decided',
+  'catering.order.version_proposed',
   'catering.delivery.queued',
   'catering.delivery.claimed',
   'catering.delivery.attempted',

@@ -87,8 +87,13 @@ export function createCateringOrderApi({ apiClient } = {}) {
         return immutable({ schemaVersion: 1, orders, nextAfterOrderId: next });
       });
     },
-    loadOrder(orderId, { signal } = {}) {
-      return invoke(async () => { const id = uuid(orderId); return view(await apiClient.request(`${ROOT}/${id}`, { signal }), id); });
+    loadOrder(orderId, { signal, orderVersion = null } = {}) {
+      return invoke(async () => {
+        const id = uuid(orderId); const selected = orderVersion === null ? null : revision(orderVersion);
+        const saved = view(await apiClient.request(`${ROOT}/${id}${selected === null ? '' : `?orderVersion=${selected}`}`, { signal }), id);
+        if (selected !== null && saved.order.orderVersion !== selected) invalid();
+        return saved;
+      });
     },
     prepareOrders({ requestId, commandId, expectedRequestVersion, expectedAssignmentRevision } = {}) {
       return invoke(async () => {
@@ -105,27 +110,33 @@ export function createCateringOrderApi({ apiClient } = {}) {
         return immutable({ ...result, orders });
       });
     },
-    recordQuote({ orderId, expectedStateRevision, expectedQuoteRevision, cost, expiresAt } = {}) {
+    recordQuote({ orderId, expectedOrderVersion = 1, expectedStateRevision, expectedQuoteRevision, cost, expiresAt } = {}) {
       return invoke(async () => {
         const id = uuid(orderId);
+        const version = revision(expectedOrderVersion);
         const body = { schemaVersion: 1, expectedStateRevision: revision(expectedStateRevision, 1, Number.MAX_SAFE_INTEGER - 2),
           expectedQuoteRevision: revision(expectedQuoteRevision, 0, Number.MAX_SAFE_INTEGER - 2),
           cost: orderMoney(cost), expiresAt: orderInstant(expiresAt) };
+        if (version > 1) body.expectedOrderVersion = version;
         const saved = view(await apiClient.request(`${ROOT}/${id}/quote`, { method: 'PUT', body }), id);
-        if (saved.state.revision !== body.expectedStateRevision + 1 || saved.state.status !== 'pending_manager_review'
+        if (saved.order.orderVersion !== version || saved.state.revision !== body.expectedStateRevision + 1
+          || saved.state.status !== 'pending_manager_review'
           || saved.quote?.revision !== body.expectedQuoteRevision + 1 || saved.quote.cost.amountMinor !== body.cost.amountMinor
           || saved.quote.cost.currency !== body.cost.currency || saved.quote.expiresAt !== body.expiresAt || saved.decision !== null) invalid();
         return saved;
       });
     },
-    decideQuote({ orderId, expectedStateRevision, expectedQuoteRevision, decision } = {}) {
+    decideQuote({ orderId, expectedOrderVersion = 1, expectedStateRevision, expectedQuoteRevision, decision } = {}) {
       return invoke(async () => {
         const id = uuid(orderId);
+        const version = revision(expectedOrderVersion);
         if (!['approved','rejected'].includes(decision)) invalid();
         const body = { schemaVersion: 1, expectedStateRevision: revision(expectedStateRevision, 1, Number.MAX_SAFE_INTEGER - 2),
           expectedQuoteRevision: revision(expectedQuoteRevision), decision };
+        if (version > 1) body.expectedOrderVersion = version;
         const saved = view(await apiClient.request(`${ROOT}/${id}/decision`, { method: 'POST', body }), id);
-        if (saved.state.revision !== body.expectedStateRevision + 1 || saved.quote?.revision !== body.expectedQuoteRevision
+        if (saved.order.orderVersion !== version || saved.state.revision !== body.expectedStateRevision + 1
+          || saved.quote?.revision !== body.expectedQuoteRevision
           || saved.decision?.decision !== decision || saved.state.status !== (decision === 'approved' ? 'released' : 'rejected')) invalid();
         return saved;
       });
