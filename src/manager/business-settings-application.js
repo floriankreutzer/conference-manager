@@ -1,3 +1,5 @@
+import { renderCateringCataloguePublications } from './catering-publication-application.js';
+import { renderCateringProviderCatalogues } from './catering-source-application.js';
 import { createPublicGuestValueEditor } from '../core/public-guest-value-editor.js';
 import { projectRoomBusinessConfiguration } from '../core/tenant-location-ownership.js';
 import { currency as tenantCurrency, formatDateTime, t } from '../core/i18n.js';
@@ -605,7 +607,11 @@ export function createManagerBusinessSettingsApplication({
       attrs: { role: 'navigation', 'aria-label': t('managerSettings.title') },
     });
     const targets = ['rooms', 'services', 'catering'];
-    if (cateringAssignments?.featureFlags?.isEnabled('catering.catalogue') === true) targets.push('assignments');
+    if (cateringAssignments?.featureFlags?.isEnabled('catering.catalogue') === true) {
+      targets.push('assignments');
+      if (typeof cateringAssignments.listSourceConnections === 'function') targets.push('sources');
+      if (typeof cateringAssignments.loadPublicationContext === 'function') targets.push('publications');
+    }
     for (const target of targets) {
       const control = button(t(`managerSettings.section.${target}`), {
         className: section === target ? 'primary' : '',
@@ -1081,6 +1087,21 @@ export function createManagerBusinessSettingsApplication({
     clear(appRoot);
     appRoot.appendChild(renderRoot);
     if (section === 'rooms') await renderRooms(revision, renderRoot, focusHeading);
+    else if (section === 'publications') {
+      setPageHeading(t('cateringPublication.title'),t('cateringPublication.description'));
+      renderRoot.appendChild(sectionNavigation());
+      await renderCateringCataloguePublications({ root: renderRoot,adapter: cateringAssignments,catalogue,locations,
+        createId: nextStableCatalogueId,defaultCurrencyFor: catalogueDefaultCurrency,
+        isCurrent: () => isCurrentRender(revision,renderRoot),onAuthorityFailure });
+      focusCurrentHeading(revision,renderRoot,focusHeading);
+    }
+    else if (section === 'sources') {
+      setPageHeading(t('cateringSource.title'),t('cateringSource.description'));
+      renderRoot.appendChild(sectionNavigation());
+      await renderCateringProviderCatalogues({ root: renderRoot,adapter: cateringAssignments,
+        isCurrent: () => isCurrentRender(revision,renderRoot),onAuthorityFailure });
+      focusCurrentHeading(revision,renderRoot,focusHeading);
+    }
     else if (section === 'assignments') {
       setPageHeading(t('managerSettings.assignment.title'), t('managerSettings.assignment.description'));
       renderRoot.appendChild(sectionNavigation());
