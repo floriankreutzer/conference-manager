@@ -1,6 +1,7 @@
 import { t } from '../core/i18n.js';
 import { announce, button, el } from '../core/ui.js';
 import { tenantBulkCsvBytesToDocument, TenantBulkCsvError, tenantBulkDocumentToCsv } from './tenant-bulk-csv.js';
+import { downloadCsvText } from './csv-download.js';
 
 const MAX_BYTES = 65_536;
 const METHODS = ['loadBulkTemplate', 'exportBulk', 'validateBulk', 'applyBulk'];
@@ -10,20 +11,7 @@ export function supportsBulkTransfer(adapter) {
 }
 
 function downloadCsv(documentValue, filename) {
-  const blob = new Blob([tenantBulkDocumentToCsv(documentValue)], { type: 'text/csv;charset=utf-8' });
-  const objectUrl = URL.createObjectURL(blob);
-  let link = null;
-  try {
-    link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = filename;
-    link.hidden = true;
-    document.body.appendChild(link);
-    link.click();
-  } finally {
-    link?.remove();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
-  }
+  downloadCsvText(tenantBulkDocumentToCsv(documentValue), filename);
 }
 
 export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } = {}) {

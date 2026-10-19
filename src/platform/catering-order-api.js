@@ -60,6 +60,10 @@ export class CateringOrderApiError extends Error {
   }
 }
 
+// Public wire contract for scoped consumers that produce non-authoritative
+// documents from an already authorized order read. It never grants authority.
+export { view as normalizeCateringOrderView };
+
 export function createCateringOrderApi({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') throw new TypeError('CATERING_API_CLIENT_REQUIRED');
   const invoke = async (operation) => {
