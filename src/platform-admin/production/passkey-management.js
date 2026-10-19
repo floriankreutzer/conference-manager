@@ -66,7 +66,7 @@ export function createPlatformPasskeyManagement({ apiClient, refreshSession,
       if (closed || registrationView) return;
       const focused = document.activeElement; const hadFocus = content.contains(focused); clear(content);
       if (error) content.append(el('p', { attrs: { role: 'alert' }, text: t(error) }));
-      if (busy) content.append(el('p', { attrs: { role: 'status' }, text: t('platformAdmin.passkey.busy') }));
+      if (busy) content.append(el('p', { attrs: { role: 'status', tabindex: '-1' }, text: t('platformAdmin.passkey.busy') }));
       const list = el('ol', { className: 'platform-admin-record-list' });
       keys.forEach((key, index) => {
         const remove = button(t('platformAdmin.passkey.manage.remove'), { disabled: busy || keys.length < 2,
@@ -88,7 +88,9 @@ export function createPlatformPasskeyManagement({ apiClient, refreshSession,
         const reload = button(t('platformAdmin.passkey.resume')); reload.addEventListener('click', () => { void load(); });
         content.append(reload);
       }
-      if (hadFocus && focused?.isConnected === false) content.querySelector('button:not(:disabled)')?.focus();
+      if (hadFocus && focused?.isConnected === false) {
+        (busy ? content.querySelector('[role="status"]') : content.querySelector('button:not(:disabled)'))?.focus();
+      }
     }
     async function run(work) {
       if (busy || closed) return;
@@ -106,7 +108,10 @@ export function createPlatformPasskeyManagement({ apiClient, refreshSession,
         if (state.phase === 'credential_enrolled' && !state.busy && !closed) onReauthenticate();
       } });
       registrationView = createPlatformPasskeyLoginView({ controller: registration });
-      clear(content); content.append(registrationView.element); registrationView.update(); void registration.load();
+      const hadFocus = content.contains(document.activeElement);
+      clear(content); content.append(registrationView.element); registrationView.update();
+      if (hadFocus) registrationView.element.querySelector('h2')?.focus();
+      void registration.load();
     }
     async function load() {
       return run(async () => {

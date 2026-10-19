@@ -74,8 +74,10 @@ test('a reader manages only own keys and requires addition proof, native registr
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
   }
-  await dialog.getByRole('button', { name: 'Weiteren Passkey hinzufügen' }).click();
+  await dialog.getByRole('button', { name: 'Weiteren Passkey hinzufügen' }).focus();
+  await page.keyboard.press('Enter');
   await expect(dialog.getByRole('heading', { name: 'Passkey erstellen', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Passkey erstellen', exact: true })).toBeFocused();
   await dialog.getByRole('button', { name: 'Passkey erstellen', exact: true }).click();
   await dialog.getByRole('button', { name: 'Neuen Passkey bestätigen' }).click();
   await expect(page.getByRole('heading', { name: 'Plattform-Anmeldung', exact: true })).toBeVisible();
@@ -98,3 +100,28 @@ test('revocation binds the selected key and ends with sign-in; malformed key pro
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Weiteren Passkey hinzufügen' })).toBeDisabled();
   await expect(page.getByText('UNEXPECTED_PRIVATE_PROJECTION')).toHaveCount(0);
 });
+
+
+for (const outcome of ['cancel', 'failure']) {
+  test(`keyboard focus stays inside own-key dialog during busy and ${outcome}`, async ({ page }) => {
+    const f = await setup(page); const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Passkey 1', exact: true })).toBeVisible();
+    await page.evaluate(() => {
+      navigator.credentials.get = () => new Promise((resolve, reject) => {
+        window.rejectPasskey = reject;
+      });
+    });
+    const add = dialog.getByRole('button', { name: 'Weiteren Passkey hinzufügen' });
+    await add.focus(); await page.keyboard.press('Enter');
+    await expect(dialog.getByRole('status')).toBeFocused();
+    await expect(add).toBeDisabled();
+    await page.evaluate(kind => window.rejectPasskey(kind === 'cancel'
+      ? new DOMException('Cancelled', 'NotAllowedError') : new Error('Fixture failure')), outcome);
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Passkey 1 entfernen' })).toBeFocused();
+    expect(f.writes.map(item => item.path.split('/auth/passkey/')[1])).toEqual(['manage/addition/start']);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Passkeys verwalten' })).toBeFocused();
+  });
+}

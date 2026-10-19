@@ -118,3 +118,29 @@ Final local follow-up validation on2026-10-19: `npm run check` passed764 tests;
 management fixtures passed, including320/1280px document and dialog overflow.
 Chromium and shared-Demo CI for this new follow-up remain required; the successful
 Chromium checks for merged357 do not substitute for this different source tree.
+
+
+## Own-key keyboard focus review correction
+
+A management action now moves focus from its replaced trigger to the busy status.
+Completion/cancellation/error restores an available management control. Successful
+addition transfers focus into the registration view; while that view has no enabled
+control during loading, its focusable heading preserves focus across updates.
+The Close button remains available and Escape returns focus to the opener through
+the existing modal component. Deliberate focus outside the replaced content is
+preserved. No new copy, CSS, credentials or browser authority is introduced.
+
+The added keyboard fixtures retain the native prompt pending, assert focused busy
+status, reject it with cancellation or failure, verify the restored control and
+Escape/opener focus. The existing successful addition fixture now also asserts
+keyboard-triggered transfer to the registration heading. An initial implementation
+passed both failure paths but exposed another focus loss in the reused loading
+view; that view now falls back to its heading when no control is enabled. These
+interaction fixtures do not establish real authenticator or assistive-technology
+acceptance; current-head complete CI remains separately required.
+
+The final focused WebKit run passed six login/setup/management cases, including
+busy, cancellation, failure, successful registration transfer and opener return.
+It retains the320/1280px overflow and DE/EN checks. No assertion, timeout, browser
+pin or required gate was weakened. Full current-tree validation is recorded
+separately from this focused browser result.
