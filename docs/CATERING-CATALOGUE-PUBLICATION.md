@@ -1,42 +1,60 @@
-# Manager catalogue publication — unpublished browser preparation
+# Manager catalogue publication — candidate source
 
-This isolated branch follows source UI#358 candidate4f69cec5 and preserves the
-normally integrated Platform passkey UI#357 and full browser-engine CI gates.
-It does not compose publication navigation or a browser review form yet.
+This branch builds on accepted frontend main287b4f130a6f09cbb044e8a2a9cd53a27e525543
+(source UI#358 and normally integrated Platform passkey UI#357). API publication
+custody#230 is accepted atbe04a087bb64316969dddb20db6541db6ee87ffb (canonical055/Demo021).
+Scoped HTTP/read composition#233 remains a separate candidate at446fe2c2b1a89323e11d09670b3dac0fbcc94b68.
+Its CI39329481398 quality and full PostgreSQL18.6 integration passed, including
+actual Customer review HTTP/CSRF/session/ownership/replay and400 binding pages;
+the four permanent paired browser/storage jobs remain pending at this checkpoint.
+No API pin or deployment was changed by this UI implementation yet.
 
-The pure same-origin wire adapter prepares explicit review/rejection, observed
-source/configuration/canonical/assignment/publication/review counters, justified
-closed commercial mappings, known independent selling prices and exact minimal
-acknowledgements. It accepts bounded current binding/history reads and genuine
-continuation on UTF-8-shortened pages. Tenant/provider/actor/session claims,
-unknown or duplicated fields, unsafe text, hidden getters, sparse arrays,
-stale publication cursor, ambiguous EOF and mismatched success fail closed.
-There is no automatic write retry or supplier/credential/storage access.
+The same-origin wire adapter accepts only closed, immutable scoped current
+binding/history reads and explicit review/rejection commands with captured
+source/configuration/canonical/assignment/publication/review counters. Known
+selling prices are independent of supplier cost. Scope/actor/private fields,
+unsafe text, hidden getters, sparse/duplicate arrays, stale cursor, ambiguous
+EOF and mismatched success fail closed. Packed UTF-8-shortened pages preserve
+real continuation. There is no supplier, credential or browser-storage access.
 
-Six focused native cases pass, including full300-item/100-package/20-variant
-capacity, canonical replay normalization, explicit zero versus absent selling
-price, scope/private-data negatives, shortened page/history rules and exact
-published/rejected acknowledgement counters. Lint/style pass after correcting
-long source lines. The wire-only complete frontend check passed771; actual
-backend HTTP/database and browser acceptance have not executed for this branch.
+The Manager-owned review model captures immutable canonical/assignment/source
+observations, offers only own existing targets, reserves all canonical IDs for
+new targets, preserves historical entry/variant capacity and validates explicit
+received package components/variants. Previous own publications omitted from a
+new publication are previewed for retirement; remapped other-provider offers
+are excluded. Rejection keeps the previous publication. Supplier prices never
+fill a selling-price input. Explicit known zero remains valid.
 
-The matching backend HTTP preparation is still isolated behind the existing
-default-off configuration flag, based on unaccepted foundation API#230. Its
-actual SQL foundation passed in earlier partial suites; whole foundation CI is
-still pending after retained migration-test inventory corrections. No HTTP/API
-release, Manager publication UI, Employee offer filtering, supplier availability,
-automatic order activation, provider qualification or SaaS4 release is claimed.
+Navigation is composed only through the existing non-Demo Catalogue Manager
+assignment discovery and default-off server capability. No additional discovery
+request is introduced. Preparation reads current context, canonical catalogue,
+complete assignments, real sites/rooms and source/review history; it drains at
+most400 retained bindings through version-fenced pages before exposing a form.
+Every context page must keep the same basis. Source detail pages must match the
+immutable receipt metadata, which may legitimately predate current configuration.
+Source products remain bounded, user-paged and read-only; selected commercial
+inputs persist across those pages. The API remains the sole publication authority.
 
+The native form requires an explicit decision, independent selling prices,
+justification, effects preview and a fresh unchecked attestation. Changing input
+invalidates preview/consent. Retained variant history is preserved. Rejection,
+empty selection and omitted old offers have explicit effects. The orchestration
+excludes concurrent reads/writes, checks current connected render after awaits,
+removes disclosures on authority failure and does not repopulate a detached view.
+Known pre-write400/413 responses retain editable input. Conflict or unknown write
+results lock the draft until explicit reload; no POST is automatically retried.
+Success is announced only after a fresh current context/history read. New audit
+actions use the existing minimized Tenant Admin configuration presentation.
 
-The pure review draft now binds captured canonical/assignment/source versions,
-filters existing targets to the same provider, validates remembered immutable
-received fragments and explicit component/variant mapping, and previews only
-omitted previously published own offers. A remapped other-provider offer is
-never advertised for deactivation. Rejection retains prior publication. Source
-costs cannot become selling prices, and input mutation cannot replace captured
-observations. Seven new cases plus six wire and six existing source-wire cases
-passed19/19. Lint/format pass. The new product-fragment export reuses the existing
-closed source validator without network or snapshot/publication authority.
-No browser form or runtime navigation is composed yet; actual server/browser
-acceptance remains required. Complete validation passed778 native cases after this draft, including all
-architecture/security/i18n/design/lint/format gates. No browser form is composed.
+Validation before the final model/audit additions passed783 native cases and
+all architecture/security/i18n/design/lint/style gates; all15 existing source/
+assignment WebKit regressions and4 new editor cases passed. German320px and
+landscape reflow checks passed and the phone screenshot was inspected. Additional
+orchestration browser cases and final full checks are in progress; complete
+Chromium/WebKit, shared role/Tenant/CSRF, actual200% zoom and both permanent
+three-customer/two-reset CI gates remain required before acceptance.
+
+Employee publication eligibility, versioned supplier availability, lead/minimum/
+change/cancel rules, automatic order activation and provider qualification remain
+separate incomplete SaaS4 work. This candidate does not establish availability,
+provider acceptance, live supplier I/O, paid runtime capacity or release readiness.

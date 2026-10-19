@@ -99,3 +99,29 @@ test('empty initial assignment state and full received-fragment bounds remain su
   assert.equal(value.expectedAssignmentRevision,0); assert.equal(value.expectedPublicationRevision,0);
   assert.deepEqual(draft.retiring(intent({ items: [mapping('source-0','new-coffee')] })),[]);
 });
+
+test('retained variant history cannot be overflowed by new mappings while an explicit existing variant remains reviewable',() => {
+  const data = input(); data.canonical.catalogue.cateringPackages[0].variants=Array.from({ length: 20 },(_,i) => ({
+    id: i === 0 ? 'our-standard' : `retained-${i}`,name: `Retained variant ${i}`,description: null,price: money(500),active: false,order: i,
+  }));
+  const draft = createCateringPublicationReview(data); draft.remember('item',receivedItem()); draft.remember('package',receivedPackage());
+  const group = { ...mapping('source-break','our-break'),variants: [{ sourceId: 'source-standard',entryId: 'new-variant',
+    price: money(500),active: true,order: 0 }] };
+  assert.throws(() => draft.command(intent({ packages: [group] })),/VARIANT_LIMIT/);
+  group.variants[0].entryId='our-standard'; assert.equal(draft.command(intent({ packages: [group] })).packages[0].variants.length,1);
+});
+
+test('new target allocation reserves every existing ID and never treats retired historical entries as free capacity',() => {
+  const data=input(); const draft=createCateringPublicationReview(data);
+  assert.deepEqual(draft.existingIds('item'),['our-coffee','other-fruit']);
+  assert.equal(Object.isFrozen(draft.existingIds('item')),true);
+  assert.throws(() => draft.existingIds('foreign'));
+  for (let i=2;i<300;i++) {
+    data.canonical.catalogue.cateringItems.push(canonicalItem(`retained-${i}`));
+    data.assignments.assignments.push({kind:'item',entryId:`retained-${i}`,integrationId:id(3)});
+  }
+  const full=createCateringPublicationReview(data); full.remember('item',receivedItem());
+  assert.throws(() => full.command(intent({items:[mapping('source-coffee','new-target')]})),/CAPACITY/);
+  assert.equal(full.command(intent()).items[0].entryId,'our-coffee');
+  assert.deepEqual(full.command(intent({decision:'rejected',items:[]})).items,[]);
+});

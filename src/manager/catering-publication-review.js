@@ -65,7 +65,8 @@ export function createCateringPublicationReview({ current,canonical,assignments,
       || new Set(variants.map((x) => x.sourceId)).size !== variants.length) invalid();
     return { kind: value.kind,entryId: entry.id,sourceId: safeId(value.sourceId,INVALID),variants };
   });
-  if (new Set(retained.map((x) => key(x.kind,x.entryId))).size !== retained.length
+  if (new Set(retained.map((x) => key(x.kind,x.sourceId))).size !== retained.length
+    || new Set(retained.map((x) => key(x.kind,x.entryId))).size !== retained.length
     || (current.publicationRevision === 0 && retained.length>0)) invalid();
   const observed = immutable({ expectedReviewRevision: current.reviewRevision,expectedSourceRevision: current.sourceRevision,
     expectedConfigurationRevision: current.configurationRevision,expectedCatalogueRevision: current.catalogueRevision,
@@ -80,6 +81,10 @@ export function createCateringPublicationReview({ current,canonical,assignments,
     if (!canReview) invalid('CATERING_CATALOGUE_REVIEW_UNAVAILABLE');
     const selected = normalizeCatalogueReviewCommand({ schemaVersion: 1,...observed,...value });
     for (const [kind,values] of [['item',selected.items],['package',selected.packages]]) {
+      const existingIds=[...entries.keys()].filter((identifier) => identifier.startsWith(`${kind}:`));
+      if (new Set([...existingIds,...values.map((value) => key(kind,value.entryId))]).size>(kind === 'item' ? 300 : 100)) {
+        invalid('CATERING_CATALOGUE_REVIEW_CAPACITY');
+      }
       for (const mapping of values) {
         own(kind,mapping.entryId); const product = available.get(key(kind,mapping.sourceId));
         if (!product) invalid('CATERING_CATALOGUE_REVIEW_SOURCE_UNREVIEWED');
@@ -89,6 +94,10 @@ export function createCateringPublicationReview({ current,canonical,assignments,
           }
           if (mapping.variants.some((variant) => !product.variants.some((x) => x.id === variant.sourceId))) {
             invalid('CATERING_CATALOGUE_REVIEW_SOURCE_UNREVIEWED');
+          }
+          const previousVariants = entries.get(key('package',mapping.entryId))?.variants ?? [];
+          if (new Set([...previousVariants.map((x) => x.id),...mapping.variants.map((x) => x.entryId)]).size>20) {
+            invalid('CATERING_CATALOGUE_REVIEW_VARIANT_LIMIT');
           }
         }
       }
@@ -103,6 +112,10 @@ export function createCateringPublicationReview({ current,canonical,assignments,
       if (!previous && [...available.keys()].filter((x) => x.startsWith(`${kind}:`)).length>=(kind === 'item' ? 300 : 100)) invalid();
       available.set(identifier,product);
       return product;
+    },
+    existingIds(kind) {
+      if (!['item','package'].includes(kind)) invalid();
+      return Object.freeze([...entries].filter(([identifier]) => identifier.startsWith(`${kind}:`)).map(([,entry]) => entry.id));
     },
     candidates(kind) {
       if (!['item','package'].includes(kind)) invalid();

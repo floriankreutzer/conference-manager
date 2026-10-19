@@ -221,3 +221,15 @@ test('supplier catalogue intake audit exposes only bounded versions in the confi
   assert.equal(entry.action,'catering.catalogue.received'); assert.equal(entry.category,'configuration');
   assert.doesNotMatch(JSON.stringify(entry),/providerPrice|sourceVersion|commandId|actorUserId|reference|sourcePayload/);
 });
+
+for (const action of ['catering.catalogue.published','catering.catalogue.rejected']) {
+  test(`${action} exposes minimized publication audit without prices or review rationale`,async () => {
+    const api=createTenantAuditApi({ apiClient: { async request() {
+      return page({ events: [event({ action,category: 'configuration',target: { type: 'integration',id: null },
+        change: { before: { revision: 0 },after: { revision: 1 } } })] });
+    } } });
+    const entry=(await api.listAuditEvents()).events[0];
+    assert.equal(entry.action,action); assert.equal(entry.category,'configuration');
+    assert.doesNotMatch(JSON.stringify(entry),/providerPrice|justification|sourcePayload|commandId/);
+  });
+}

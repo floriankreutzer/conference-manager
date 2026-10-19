@@ -25,6 +25,8 @@ const ACTIONS = new Set([
   'integration.verified',
   'calendar.operation',
   'catering.catalogue.received',
+  'catering.catalogue.published',
+  'catering.catalogue.rejected',
   'catering.order.prepared',
   'catering.order.quoted',
   'catering.order.decided',

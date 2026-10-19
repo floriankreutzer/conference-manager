@@ -48,6 +48,8 @@ const ACTIONS = new Set([
   'catering.manual.transmitted',
   'catering.manual.receipt',
   'catering.catalogue.received',
+  'catering.catalogue.published',
+  'catering.catalogue.rejected',
   'audit.read',
 ]);
 const SUMMARY_KEYS = new Set([
