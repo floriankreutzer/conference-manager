@@ -2950,7 +2950,10 @@ test('EMP-15 stalled print styles time out and close the unusable popup', async 
     const popupPromise = page.waitForEvent('popup');
     await page.getByRole('dialog').getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
     const popup = await popupPromise;
-    await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeDisabled();
+    // Pending styles can defer WebKit rendering; inspect the actual DOM control state.
+    const printButton = popup.locator('button.print-action');
+    await expect(printButton).toHaveText('Drucken / Als PDF speichern');
+    await expect(printButton).toBeDisabled();
     await expect.poll(() => popup.isClosed(), { timeout: 20_000 }).toBe(true);
     await expect(page.getByText('Die Druckansicht konnte nicht geladen werden. Bitte erneut versuchen.', { exact: true })).toBeVisible();
   } finally { release(); }
