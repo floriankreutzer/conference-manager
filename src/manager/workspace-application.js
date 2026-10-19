@@ -10,6 +10,7 @@ export function createManagerWorkspaceApplication({
   persistence,
   locations,
   catalogue,
+  cateringAssignments = null,
   demoWorklistEnabled = false,
   onAuthorityFailure = null,
 } = {}) {
@@ -49,6 +50,7 @@ export function createManagerWorkspaceApplication({
         },
         locations: worklist?.locations || locations,
         catalogue: worklist?.catalogue || catalogue,
+        cateringAssignments,
         onAuthorityFailure: invalidateAuthorityProjection,
       });
       void businessSettings.renderManagerSettings({ focusHeading });

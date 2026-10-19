@@ -14,7 +14,7 @@ export function createFeatureFlagDefinitions(definitions = {}) {
 // Baseline functionality is intentionally absent from this registry. Genuinely
 // new functionality must be registered here and must default to false unless an
 // explicitly approved requirement says otherwise.
-export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({ 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false });
+export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({ 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false, 'catering.catalogue': false });
 
 export function createFeatureFlagResolver(defaults = FEATURE_FLAG_DEFAULTS, overrides = {}) {
   const safeDefaults = createFeatureFlagDefinitions(defaults);
@@ -38,5 +38,8 @@ export const featureFlags = Object.freeze({
   // A validated authenticated server projection can enable this presentation capability only.
   forServerCateringConfiguration(available) {
     return createFeatureFlagResolver(undefined, { 'catering.configuration': available === true });
+  },
+  forServerCateringCatalogue(available) {
+    return createFeatureFlagResolver(undefined, { 'catering.catalogue': available === true });
   },
 });

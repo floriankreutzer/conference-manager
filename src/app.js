@@ -10,6 +10,7 @@ import {
 import {
   applyTenantPresentationToDocument,
   discoverCateringConfiguration,
+  discoverCateringCatalogueAssignments,
   createTenantBookingPolicySettingsApi,
   createTenantCatalogueSettingsApi,
   createTenantCostAllocationSettingsApi,
@@ -84,9 +85,11 @@ export async function bootstrapCustomerApplication({
     refreshTimeoutMs: optionalTimeout,
   });
   let cateringConfiguration = null;
+  let cateringAssignments = null;
   try {
     await tenantPresentation.refresh();
     cateringConfiguration = await discoverCateringConfiguration({ context, authentication, timeoutMs: optionalTimeout });
+    cateringAssignments = await discoverCateringCatalogueAssignments({ context, authentication, timeoutMs: optionalTimeout });
   } catch (error) {
     if (!context.invalidateAuthority(error)) throw error;
     serverPersistence = null;
@@ -122,6 +125,7 @@ export async function bootstrapCustomerApplication({
       persistence: serverPersistence,
       locations: locationSettings,
       catalogue: catalogueSettings,
+      cateringAssignments,
       demoWorklistEnabled: context.isDemoRuntime()
         && context.tenantId() === '20000000-0000-4000-8000-000000000002',
       onAuthorityFailure,
