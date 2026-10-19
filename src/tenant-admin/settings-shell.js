@@ -33,8 +33,11 @@ export function createTenantAdminSettingsShell({
     if (!isCurrent() || focusSectionId !== sectionId) return;
     requestAnimationFrame(() => {
       if (!isCurrent() || focusSectionId !== sectionId) return;
-      appRoot.querySelector('[data-tenant-admin-section-content] h2')?.focus();
       focusSectionId = null;
+      const content = shell.querySelector('[data-tenant-admin-section-content]');
+      // Navigation focus must not interrupt interaction that began before this frame.
+      if (content?.contains(document.activeElement)) return;
+      content?.querySelector('h2')?.focus();
     });
   }
 

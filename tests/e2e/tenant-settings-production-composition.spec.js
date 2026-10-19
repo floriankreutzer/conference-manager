@@ -516,6 +516,36 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });
 
+test('deferred section navigation focus preserves an active settings edit', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+  await openTenantSettings(page);
+  await page.evaluate(() => {
+    const original = window.requestAnimationFrame.bind(window);
+    const pending = [];
+    window.requestAnimationFrame = (callback) => {
+      if (!callback.toString().includes('focusSectionId')) return original(callback);
+      pending.push(callback);
+      return 0;
+    };
+    window.flushSectionNavigationFocus = () => {
+      if (pending.length !== 1) throw new Error('Expected one deferred section focus');
+      pending.splice(0).forEach((callback) => callback(performance.now()));
+      window.requestAnimationFrame = original;
+    };
+  });
+  const content = await openSection(page, 'organization', 'organization');
+  const name = content.locator('#tenant-organization-display-name');
+  await name.fill('Northstar Focus Retained');
+  await expect(name).toBeFocused();
+  await page.evaluate(() => window.flushSectionNavigationFocus());
+  await expect(name).toBeFocused();
+  await expect(name).toHaveValue('Northstar Focus Retained');
+  await submit(content, 'organization');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  expect(fixture.writes[0].body.organization.displayName).toBe('Northstar Focus Retained');
+  await expect(content.locator('#tenant-organization-display-name')).toHaveValue('Northstar Focus Retained');
+});
+
 test('Tenant Admin sees Location history without a mixed-ownership rollback action', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
   await openTenantSettings(page);
