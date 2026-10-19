@@ -48,3 +48,7 @@ The UI currently admits only the source-defined manual_catering provider; no unq
 is silently substituted. Browser fixtures are synthetic server projections and do not prove real
 provider or PostgreSQL behavior. Actual DB, session/CSRF HTTP and permanent three-customer/reset
 acceptance remain independently required in the API and paired browser gates.
+
+The read-only [operation status](CATERING-OPERATIONAL-HEALTH.md) adds bounded
+stored-work evidence per connection. It does not establish verified provider
+health, credentials or delivery readiness and never grants business approval.
