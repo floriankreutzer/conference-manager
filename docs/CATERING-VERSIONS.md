@@ -46,6 +46,7 @@ historical commitment, source change/cancellation, read/write failures, authorit
 loss, detachment, existing Catering regressions, actual Chromium200% zoom and the
 unchanged full three-customer/two-reset acceptance against an immutable API ref.
 
-This UI does not complete unsent-order withdrawal/replacement, new supplier order
-creation, changed supplier positions, published catalogue/availability/cutoffs,
+The following branch increment adds [local unsent withdrawal and reviewed first
+physical replacements](CATERING-UNSENT-ORDERS.md), with its acceptance status recorded
+separately. This UI does not complete new provider order creation, changed supplier positions, published catalogue/availability/cutoffs,
 real provider credentials/adapters, supplier qualification or release gates.

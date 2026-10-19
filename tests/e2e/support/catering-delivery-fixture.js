@@ -33,6 +33,12 @@ export async function installCateringDeliveryFixture(page, {
   await page.route('**/api/v1/tenant/catering/**', async (route) => {
     const request = route.request(); const url = new URL(request.url());
     const json = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
+    if (url.pathname.endsWith('/withdrawal') && request.method() === 'GET') {
+      return json({ schemaVersion: 1, orderId: current.order.orderId,
+        orderState: { orderVersion: current.order.orderVersion, revision: current.state.revision, status: current.state.status },
+        eligible: false, effective: current.state.status === 'confirmed' ? { orderVersion: 1, status: 'confirmed' } : null,
+        withdrawal: null });
+    }
     if (url.pathname.endsWith('/versions') && request.method() === 'GET') {
       return json({ schemaVersion: 1, orderId: current.order.orderId, requestId: current.order.requestId,
         orderState: { orderVersion: current.order.orderVersion, revision: current.state.revision, status: current.state.status },

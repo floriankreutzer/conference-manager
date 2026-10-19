@@ -5,6 +5,7 @@ import { cateringMoneyText, cateringQuoteExpiry, cateringQuoteMinorUnits } from 
 import { createCateringDeliveryPanel } from './catering-delivery-panel.js';
 import { createCateringManualPanel } from './catering-manual-panel.js';
 import { createCateringVersionPanel } from './catering-version-panel.js';
+import { createCateringWithdrawalPanel } from './catering-withdrawal-panel.js';
 import { createCateringDocumentActions } from './catering-document-actions.js';
 
 const money = (value) => cateringMoneyText(value, locale());
@@ -34,13 +35,15 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
   let deliveryPanel = null;
   let manualPanel = null;
   let versionPanel = null;
+  let withdrawalPanel = null;
   function controls(value) {
     busy = value;
     root.setAttribute('aria-busy', String(value));
-    for (const control of root.querySelectorAll('button:not([data-delivery-control]):not([data-manual-control]):not([data-version-control]),input:not([data-manual-control]),select:not([data-manual-control]):not([data-version-control])')) control.disabled = value;
+    for (const control of root.querySelectorAll('button:not([data-delivery-control]):not([data-manual-control]):not([data-version-control]):not([data-withdrawal-control]),input:not([data-manual-control]):not([data-withdrawal-control]),select:not([data-manual-control]):not([data-version-control])')) control.disabled = value;
     deliveryPanel?.setBusy(value || uncertain);
     manualPanel?.setBusy(value || uncertain);
     versionPanel?.setBusy(value || uncertain);
+    withdrawalPanel?.setBusy(value || uncertain);
     next.disabled = value || !page?.nextAfterOrderId;
     prepare.disabled = value || uncertain || !selectedRequest || !assignments || !page || page.orders.length > 0;
     for (const control of detail.querySelectorAll('[data-order-write]:not([data-manual-control])')) control.disabled = value || uncertain;
@@ -70,7 +73,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
       const loaded = await adapter.listOrders({ requestId: selectedRequest || null, afterOrderId });
       if (!isCurrent()) return;
       page = loaded; displayed = null; uncertain = false;
-      deliveryPanel = null; manualPanel = null; versionPanel = null;
+      deliveryPanel = null; manualPanel = null; versionPanel = null; withdrawalPanel = null;
       detail.replaceChildren(); showList(); controls(false);
       status.textContent = t('cateringOrders.loaded');
       if (focus) reload.focus();
@@ -78,7 +81,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
   }
   function showDetail(view, historical = false) {
     displayed = view;
-    deliveryPanel = null; manualPanel = null; versionPanel = null;
+    deliveryPanel = null; manualPanel = null; versionPanel = null; withdrawalPanel = null;
     const order = view.order;
     const reviewable = !historical && (['pending_quote','pending_manager_review','released'].includes(view.state.status)
       || (view.state.status === 'rejected' && view.decision?.decision === 'rejected'));
@@ -92,6 +95,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
       el('p', { text: t('cateringOrders.reference', { reference: shortId(order.orderId), version: formatNumber(order.orderVersion) }) }),
       el('p', { text: t(`cateringOrders.state.${view.state.status}`) }),
       el('p', { text: t('cateringOrders.conferencePrice', { amount: money(order.conferencePrice) }) }));
+    if (view.deliveryOperation === 'initial') detail.appendChild(el('p', { text: t('cateringWithdrawal.firstDelivery') }));
     if (historical) {
       const current = button(t('cateringVersions.current'));
       current.addEventListener('click', () => { void loadDetail(order.orderId, null, true); });
@@ -139,6 +143,16 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
       }
     } else detail.appendChild(el('p', { text: t('cateringOrders.unknownCost') }));
     if (reviewable) quoteForm(view);
+    if (typeof delivery?.loadWithdrawal === 'function') {
+      const withdrawal = el('section', { attrs: { 'aria-label': t('cateringWithdrawal.title') } });
+      detail.appendChild(withdrawal);
+      withdrawalPanel = createCateringWithdrawalPanel({ root: withdrawal, adapter: delivery, view, readOnly: historical,
+        isCurrent: () => isCurrent() && displayed === view && withdrawal.isConnected, onAuthorityFailure,
+        onWithdraw: (command) => { void write(async () => {
+          await delivery.withdrawOrder(command); return adapter.loadOrder(order.orderId);
+        }); },
+      });
+    }
     if (delivery && !historical) {
       if (typeof delivery.loadVersionProposals === 'function') {
         const versions = el('section', { attrs: { 'aria-label': t('cateringVersions.title') } });

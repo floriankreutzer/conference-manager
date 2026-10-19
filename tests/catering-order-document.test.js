@@ -25,6 +25,21 @@ function rows(csv) {
   return records.map((record) => Object.fromEntries(headers.map((header, index) => [header, record[index]])));
 }
 
+test('first physical replacement documents identify a new supplier order while retaining separate business review evidence', () => {
+  const value = approved(); value.schemaVersion = 2; value.operation = 'change'; value.deliveryOperation = 'initial';
+  value.order.orderVersion = 2;
+  const document = createCateringOrderDocument(value, options);
+  assert.equal(document.schemaVersion, 2); assert.equal(document.operation, 'initial'); assert.equal(document.businessOperation, 'change');
+  const summary = rows(cateringOrderDocumentCsv(value, options))[0];
+  assert.equal(summary.operation, 'initial'); assert.equal(summary.business_operation, 'change');
+  assert.equal(summary.order_version, '2'); assert.equal(summary.notice, options.notice);
+  const changed = structuredClone(value); delete changed.deliveryOperation; changed.schemaVersion = 1;
+  assert.throws(() => requireCurrentCateringDocumentSource(value, changed, options.orderId), /SOURCE_CHANGED/);
+  for (const extra of [{ deliveryOperation: 'change' }, { operation: 'cancel' }, { schemaVersion: 1 }]) {
+    assert.throws(() => createCateringOrderDocument({ ...value, ...extra }, options), /INVALID/);
+  }
+});
+
 test('manual document projects only supplier delivery context and preserves descriptive package contents without selling prices', () => {
   const value = approved(); const document = createCateringOrderDocument(value, options);
   assert.equal(document.orderId, value.order.orderId); assert.equal(document.generatedAt, options.generatedAt.toISOString());

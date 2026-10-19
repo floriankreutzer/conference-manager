@@ -5,7 +5,7 @@ const INVALID = 'CATERING_MANUAL_RESPONSE_INVALID';
 const CHANNELS = ['email','telephone','portal','in_person','other'];
 const OUTCOMES = ['pending','confirmed','rejected','substitution_proposed'];
 const STATES = ['pending_quote','pending_manager_review','released','queued','dispatching','reconciliation_required',
-  'transmitted','confirmed','partially_confirmed','rejected','cancelled','failed'];
+  'transmitted','confirmed','partially_confirmed','rejected','cancelled','failed','withdrawn'];
 const count = (value, minimum = 1) => orderInteger(value, minimum);
 function invalid() { throw new CateringManualApiError(INVALID); }
 function scope({ orderId, orderVersion, positionIds }) {

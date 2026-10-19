@@ -6,7 +6,7 @@ import {
 const ROOT = 'v1/tenant/catering/orders';
 const INVALID = 'CATERING_ORDER_RESPONSE_INVALID';
 const STATUSES = ['pending_quote','pending_manager_review','released','queued','dispatching','reconciliation_required',
-  'transmitted','confirmed','partially_confirmed','rejected','cancelled','failed'];
+  'transmitted','confirmed','partially_confirmed','rejected','cancelled','failed','withdrawn'];
 function invalid() { throw new CateringOrderApiError(INVALID); }
 const revision = (value, minimum = 1, maximum = Number.MAX_SAFE_INTEGER - 1) => orderInteger(value, minimum, maximum);
 const uuid = orderUuid;
@@ -22,10 +22,13 @@ function references(value, maximum = 20, after = null) {
   });
 }
 function view(value, orderId) {
-  orderRecord(value, ['schemaVersion','order','providerId','configurationRevision','operation','state','quote','decision']);
-  if (value.schemaVersion !== 1 || value.providerId !== 'manual_catering'
+  const extended = value !== null && typeof value === 'object' && Object.hasOwn(value, 'deliveryOperation');
+  orderRecord(value, ['schemaVersion','order','providerId','configurationRevision','operation','state','quote','decision',
+    ...(extended ? ['deliveryOperation'] : [])]);
+  if (value.schemaVersion !== (extended ? 2 : 1) || value.providerId !== 'manual_catering'
     || !['initial','change','cancel','exception'].includes(value.operation)) invalid();
   const order = cateringOrderSnapshot(value.order, orderId);
+  if (extended && (value.operation !== 'change' || value.deliveryOperation !== 'initial' || order.orderVersion < 2)) invalid();
   orderRecord(value.state, ['revision','status','updatedAt']);
   if (!STATUSES.includes(value.state.status)) invalid();
   const state = { revision: revision(value.state.revision), status: value.state.status, updatedAt: orderInstant(value.state.updatedAt) };
@@ -48,7 +51,8 @@ function view(value, orderId) {
     || (state.status === 'pending_manager_review' && (quote === null || decision !== null))
     || (state.status === 'released' && decision?.decision !== 'approved')
     || (state.status === 'rejected' && !decision)) invalid();
-  return immutable({ schemaVersion: 1, order, providerId: value.providerId,
+  return immutable({ schemaVersion: value.schemaVersion, order, providerId: value.providerId,
+    ...(extended ? { deliveryOperation: 'initial' } : {}),
     configurationRevision: revision(value.configurationRevision), operation: value.operation, state, quote, decision });
 }
 

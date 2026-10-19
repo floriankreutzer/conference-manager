@@ -4,7 +4,7 @@ import { orderArray, orderInstant, orderInteger, orderMoney, orderRecord, orderU
 const INVALID = 'CATERING_VERSION_RESPONSE_INVALID';
 const OPERATIONS = ['change','cancel','exception'];
 const STATES = ['pending_quote','pending_manager_review','released','queued','dispatching','reconciliation_required',
-  'transmitted','confirmed','partially_confirmed','rejected','cancelled','failed'];
+  'transmitted','confirmed','partially_confirmed','rejected','cancelled','failed','withdrawn'];
 const count = (value, minimum = 1) => orderInteger(value, minimum);
 function invalid() { throw new CateringVersionApiError(INVALID); }
 function reason(value) {
@@ -72,8 +72,13 @@ export function createCateringVersionApi({ apiClient } = {}) {
             providerCost: orderMoney(value.basis.providerCost) };
         }
         const allowed = orderArray(value.allowedOperations, 3).map((operation) => {
-          if (!OPERATIONS.includes(operation) || !basis || basis.status !== 'confirmed' || !request
-            || !['confirmed','rejected','failed'].includes(current.status)
+          if (!OPERATIONS.includes(operation) || !request) invalid();
+          if (basis === null) {
+            if (operation !== 'change' || current.status !== 'withdrawn' || request.status !== 'Confirmed' || assignment === 0) invalid();
+            return operation;
+          }
+          if (basis.status !== 'confirmed'
+            || !['confirmed','rejected','failed','withdrawn'].includes(current.status)
             || (current.status === 'confirmed' && current.orderVersion !== basis.orderVersion)
             || (operation !== 'cancel' && request.status !== 'Confirmed')
             || (operation === 'change' && (request.version === basis.requestVersion || assignment === 0))

@@ -44,13 +44,15 @@ export function createCateringVersionPanel({ root, adapter, view, isCurrent, onP
     const form = el('form', { className: 'card' });
     const operation = el('select', { dataset: { versionControl: 'true' }, attrs: { required: 'required' } });
     operation.append(el('option', { value: '', text: t('cateringVersions.choose') }),
-      ...page.allowedOperations.map((value) => el('option', { value, text: t(`cateringVersions.operation.${value}`) })));
+      ...page.allowedOperations.map((value) => el('option', { value,
+        text: t(page.basis === null && value === 'change' ? 'cateringWithdrawal.replacement' : `cateringVersions.operation.${value}`) })));
     const reason = el('textarea', { dataset: { versionControl: 'true' }, attrs: { required: 'required', maxlength: '1000', rows: '3' } });
     reason.addEventListener('input', () => { reason.removeAttribute('aria-invalid'); });
     const save = makeButton('save'); save.type = 'submit';
     form.append(el('h5', { text: t('cateringVersions.new') }), el('p', { text: t('cateringVersions.warning') }),
       field({ id: 'catering-version-operation', label: t('cateringVersions.operation'), control: operation, required: true }),
       field({ id: 'catering-version-reason', label: t('cateringVersions.reason'), control: reason, required: true }), save);
+    if (page.basis === null) form.prepend(el('p', { text: t('cateringWithdrawal.firstDelivery') }));
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       if (loading || parentBusy || !readReady || !isCurrent() || !form.reportValidity()) return;

@@ -21,6 +21,17 @@ const ack = () => ({ schemaVersion: 1, replayed: false, proposal: proposal(),
   orderState: { orderVersion: 2, revision: 1, status: 'pending_quote' } });
 const api = (value) => createCateringVersionApi({ apiClient: { request: async () => value } });
 
+test('no-basis changes are advertised only for withdrawn unsent drafts with current confirmed conference and assignment', async () => {
+  const value = { ...page(), basis: null, allowedOperations: ['change'],
+    orderState: { orderVersion: 1, revision: 2, status: 'withdrawn' } };
+  assert.deepEqual((await api(value).loadVersionProposals({ orderId: id(1) })).allowedOperations, ['change']);
+  for (const extra of [{ allowedOperations: ['cancel'] }, { allowedOperations: ['exception'] },
+    { currentAssignmentRevision: 0 }, { currentRequest: { version: 1, status: 'Cancelled' } },
+    { orderState: { orderVersion: 1, revision: 2, status: 'rejected' } }]) {
+    await assert.rejects(api({ ...value, ...extra }).loadVersionProposals({ orderId: id(1) }), /INVALID/);
+  }
+});
+
 test('version pages retain exact commercial basis and consecutive bounded history without leaking authority', async () => {
   let sent; const value = page(24);
   const client = createCateringVersionApi({ apiClient: { request: async (path, options) => { sent = { path, options }; return value; } } });
