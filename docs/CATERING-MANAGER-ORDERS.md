@@ -54,7 +54,9 @@ existing hotspot. Platform owns the typed adapter, closed wire projection and ru
 Native headings, buttons, selects, forms, details, lists and field labels reuse the current design
 system, cards, grids, button rows and visible focus. Central DE/EN resources contain all new copy.
 No CSS, dependency, framework, storage key, credential, supplier URL or provider network adapter is
-added. Provider qualification, credential custody, publication and delivery remain separate work.
+added. The optional [delivery-processing panel](CATERING-MANAGER-DELIVERY.md) adds explicit enqueue and
+bounded job reads under its own default-off rollout. Provider qualification, credential custody,
+publication, actual manual handoff and ongoing receipt ingestion remain separate work.
 
 ## Evidence boundaries
 

@@ -12,3 +12,4 @@ export {
 export { discoverCateringConfiguration } from './catering-configuration-runtime.js';
 export { discoverCateringCatalogueAssignments } from './catering-catalogue-assignment-runtime.js';
 export { discoverCateringOrders } from './catering-order-runtime.js';
+export { discoverCateringDelivery } from './catering-delivery-runtime.js';

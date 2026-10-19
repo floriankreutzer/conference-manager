@@ -138,3 +138,10 @@ test('optional order discovery stays scoped, default-off, abortable and preserve
   assert.equal(signal.aborted, true); finish(page()); await Promise.resolve();
   assert.equal(featureFlags.isEnabled('catering.orders'), false);
 });
+
+test('supplier rejection retains the earlier approved cost decision as historical evidence', async () => {
+  const value = decided(); value.state.status = 'rejected'; value.state.revision = 6;
+  assert.equal((await apiFor(value).loadOrder(value.order.orderId)).decision.decision, 'approved');
+  value.decision = null;
+  await assert.rejects(apiFor(value).loadOrder(value.order.orderId), /INVALID/);
+});

@@ -2,11 +2,12 @@ import { formatDateTime, formatNumber, locale, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { cateringMoneyText, cateringQuoteExpiry, cateringQuoteMinorUnits } from './catering-quote-draft.js';
+import { createCateringDeliveryPanel } from './catering-delivery-panel.js';
 
 const money = (value) => cateringMoneyText(value, locale());
 const shortId = (value) => `${value.slice(0, 8)}…${value.slice(-8)}`;
 
-export async function renderCateringOrders({ root, requests, adapter, assignments, isCurrent, onAuthorityFailure }) {
+export async function renderCateringOrders({ root, requests, adapter, assignments, delivery = null, isCurrent, onAuthorityFailure }) {
   const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite' } });
   const choose = el('select');
   choose.appendChild(el('option', { value: '', text: t('cateringOrders.all') }));
@@ -27,10 +28,12 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
   let page = null;
   let displayed = null;
   let selectedRequest = '';
+  let deliveryPanel = null;
   function controls(value) {
     busy = value;
     root.setAttribute('aria-busy', String(value));
-    for (const control of root.querySelectorAll('button,input,select')) control.disabled = value;
+    for (const control of root.querySelectorAll('button:not([data-delivery-control]),input,select')) control.disabled = value;
+    deliveryPanel?.setBusy(value || uncertain);
     next.disabled = value || !page?.nextAfterOrderId;
     prepare.disabled = value || uncertain || !selectedRequest || !assignments || !page || page.orders.length > 0;
     for (const control of detail.querySelectorAll('[data-order-write]')) control.disabled = value || uncertain;
@@ -59,6 +62,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
       const loaded = await adapter.listOrders({ requestId: selectedRequest || null, afterOrderId });
       if (!isCurrent()) return;
       page = loaded; displayed = null; uncertain = false;
+      deliveryPanel = null;
       detail.replaceChildren(); showList(); controls(false);
       status.textContent = t('cateringOrders.loaded');
       if (focus) reload.focus();
@@ -66,7 +70,10 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
   }
   function showDetail(view) {
     displayed = view;
+    deliveryPanel = null;
     const order = view.order;
+    const reviewable = ['pending_quote','pending_manager_review','released'].includes(view.state.status)
+      || (view.state.status === 'rejected' && view.decision?.decision === 'rejected');
     if (page) {
       page = { ...page, orders: page.orders.map((reference) => reference.orderId === order.orderId
         ? { ...reference, orderVersion: order.orderVersion, stateRevision: view.state.revision, status: view.state.status }
@@ -104,7 +111,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
         amount: money(view.quote.cost), expires: formatDateTime(view.quote.expiresAt) }) }));
       if (view.quote.expired || Date.parse(view.quote.expiresAt) <= Date.now()) {
         detail.appendChild(el('p', { text: t('cateringOrders.expired') }));
-      } else if (['pending_manager_review','rejected','released'].includes(view.state.status)) {
+      } else if (reviewable) {
         const actions = el('div', { className: 'button-row' });
         for (const decision of ['approved','rejected']) {
           const control = button(t(`cateringOrders.${decision}`, { amount: money(view.quote.cost) }), {
@@ -117,7 +124,19 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
         detail.appendChild(actions);
       }
     } else detail.appendChild(el('p', { text: t('cateringOrders.unknownCost') }));
-    if (['pending_quote','pending_manager_review','rejected','released'].includes(view.state.status)) quoteForm(view);
+    if (reviewable) quoteForm(view);
+    if (delivery) {
+      const panel = el('section', { attrs: { 'aria-label': t('cateringDelivery.title') } });
+      detail.appendChild(panel);
+      deliveryPanel = createCateringDeliveryPanel({ root: panel, adapter: delivery, view,
+        isCurrent: () => isCurrent() && displayed === view && panel.isConnected,
+        onAuthorityFailure, onEnqueue: () => { void write(async () => {
+          await delivery.enqueue({ orderId: order.orderId, expectedOrderVersion: order.orderVersion,
+            expectedStateRevision: view.state.revision, expectedQuoteRevision: view.quote.revision });
+          return adapter.loadOrder(order.orderId);
+        }); },
+      });
+    }
     controls(false);
   }
   function quoteForm(view) {

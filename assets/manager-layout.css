@@ -1098,3 +1098,8 @@ main,
   outline: var(--focus-width) solid var(--focus-color);
   outline-offset: var(--space-1);
 }
+
+.catering-delivery-facts dt {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
