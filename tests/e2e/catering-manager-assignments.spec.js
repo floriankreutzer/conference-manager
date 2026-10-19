@@ -100,6 +100,7 @@ test('conflict preserves choices, prevents reapply and requires explicit reload'
   const fixture = await install(page, { conflict: true });
   await page.getByRole('button', { name: 'Catering-Lieferanten', exact: true }).click();
   const selects = page.getByLabel('Catering-Verbindung', { exact: false });
+  await expect(selects).toHaveCount(2);
   for (const select of await selects.all()) await select.selectOption(id(1));
   const save = page.getByRole('button', { name: 'Speichern', exact: true });
   await save.click();
