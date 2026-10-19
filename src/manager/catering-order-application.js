@@ -3,6 +3,7 @@ import { button, el, field } from '../core/ui.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { cateringMoneyText, cateringQuoteExpiry, cateringQuoteMinorUnits } from './catering-quote-draft.js';
 import { createCateringDeliveryPanel } from './catering-delivery-panel.js';
+import { createCateringManualPanel } from './catering-manual-panel.js';
 import { createCateringDocumentActions } from './catering-document-actions.js';
 
 const money = (value) => cateringMoneyText(value, locale());
@@ -30,14 +31,16 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
   let displayed = null;
   let selectedRequest = '';
   let deliveryPanel = null;
+  let manualPanel = null;
   function controls(value) {
     busy = value;
     root.setAttribute('aria-busy', String(value));
-    for (const control of root.querySelectorAll('button:not([data-delivery-control]),input,select')) control.disabled = value;
+    for (const control of root.querySelectorAll('button:not([data-delivery-control]):not([data-manual-control]),input:not([data-manual-control]),select:not([data-manual-control])')) control.disabled = value;
     deliveryPanel?.setBusy(value || uncertain);
+    manualPanel?.setBusy(value || uncertain);
     next.disabled = value || !page?.nextAfterOrderId;
     prepare.disabled = value || uncertain || !selectedRequest || !assignments || !page || page.orders.length > 0;
-    for (const control of detail.querySelectorAll('[data-order-write]')) control.disabled = value || uncertain;
+    for (const control of detail.querySelectorAll('[data-order-write]:not([data-manual-control])')) control.disabled = value || uncertain;
   }
   function failure(error, writing = false) {
     if (authorityFailureCode(error)) { onAuthorityFailure(error); return; }
@@ -64,7 +67,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
       const loaded = await adapter.listOrders({ requestId: selectedRequest || null, afterOrderId });
       if (!isCurrent()) return;
       page = loaded; displayed = null; uncertain = false;
-      deliveryPanel = null;
+      deliveryPanel = null; manualPanel = null;
       detail.replaceChildren(); showList(); controls(false);
       status.textContent = t('cateringOrders.loaded');
       if (focus) reload.focus();
@@ -72,7 +75,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
   }
   function showDetail(view) {
     displayed = view;
-    deliveryPanel = null;
+    deliveryPanel = null; manualPanel = null;
     const order = view.order;
     const reviewable = ['pending_quote','pending_manager_review','released'].includes(view.state.status)
       || (view.state.status === 'rejected' && view.decision?.decision === 'rejected');
@@ -136,6 +139,14 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
           await delivery.enqueue({ orderId: order.orderId, expectedOrderVersion: order.orderVersion,
             expectedStateRevision: view.state.revision, expectedQuoteRevision: view.quote.revision });
           return adapter.loadOrder(order.orderId);
+        }); },
+      });
+      const manual = el('section', { attrs: { 'aria-label': t('cateringManual.title') } });
+      detail.appendChild(manual);
+      manualPanel = createCateringManualPanel({ root: manual, adapter: delivery, view,
+        isCurrent: () => isCurrent() && displayed === view && manual.isConnected, onAuthorityFailure,
+        onRecord: (command) => { void write(async () => {
+          await delivery.recordManualFact(command); return adapter.loadOrder(order.orderId);
         }); },
       });
       const documents = el('section', { attrs: { 'aria-label': t('cateringDocuments.title') } });

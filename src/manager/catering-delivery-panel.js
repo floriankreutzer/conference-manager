@@ -24,6 +24,8 @@ export function createCateringDeliveryPanel({ root, adapter, view, isCurrent, on
   function present() {
     list.replaceChildren();
     for (const job of page.jobs) {
+      const manualRecorded = job.status === 'deferred' && ['transmitted','confirmed','partially_confirmed','rejected','cancelled']
+        .includes(view.state.status);
       const facts = [
         ['version', formatNumber(job.orderVersion)], ['operation', t(`cateringDelivery.operation.${job.operation}`)],
         ['attempts', formatNumber(job.dispatchAttempts)], ['reads', formatNumber(job.automaticReconciliationAttempts)],
@@ -31,11 +33,11 @@ export function createCateringDeliveryPanel({ root, adapter, view, isCurrent, on
       ];
       if (job.availableAt) facts.push(['available', formatDateTime(job.availableAt)]);
       list.appendChild(el('article', { className: 'card' }, [
-        el('h5', { text: t(`cateringDelivery.state.${job.status}`) }),
+        el('h5', { text: t(`cateringDelivery.state.${manualRecorded ? 'deferredRecorded' : job.status}`) }),
         el('dl', { className: 'manager-detail-list catering-delivery-facts' }, facts.map(([key, value]) => el('div', {}, [
           el('dt', { text: t(`cateringDelivery.${key}`) }), el('dd', { text: value }),
         ]))),
-        ...(job.status === 'deferred' ? [el('p', { text: t('cateringDelivery.manualFollowUp') })] : []),
+        ...(job.status === 'deferred' ? [el('p', { text: t(`cateringDelivery.${manualRecorded ? 'manualRecorded' : 'manualFollowUp'}`) })] : []),
       ]));
     }
     if (!page.jobs.length) list.appendChild(el('p', { text: t('cateringDelivery.empty') }));
