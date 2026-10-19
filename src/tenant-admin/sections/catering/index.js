@@ -4,6 +4,8 @@ import { CATERING_CAPABILITIES, CATERING_INITIAL_MODES } from '../../../shared/c
 import { defineTenantAdminSection, TENANT_ADMIN_SECTION_PERMISSION } from '../../section-contract.js';
 import { renderSectionError, renderSectionLoading } from '../../section-presentation.js';
 
+import { createCateringOperationalHealthPanel } from './operational-health.js';
+
 const TITLE = 'tenantAdmin.catering.title';
 function validAdapter(adapter) {
   return adapter?.featureFlags?.isEnabled('catering.configuration') === true
@@ -44,7 +46,7 @@ export function createCateringSection({ adapter = null } = {}) {
     ]);
     root.appendChild(intro);
 
-    function configurationForm(provider, snapshot = null) {
+    function configurationForm(provider, snapshot = null, health = null) {
       const reference = snapshot?.integrationId || 'new';
       const initial = snapshot?.configuration || { initialOrderMode: 'manager_review', capabilities: provider.capabilities };
       const form = el('form', { dataset: { cateringForm: reference } });
@@ -82,6 +84,7 @@ export function createCateringSection({ adapter = null } = {}) {
           lastCommand = { signature, commandId: globalThis.crypto.randomUUID() };
         }
         pending = true;
+        health?.setWriting(true);
         fields.disabled = true;
         form.setAttribute('aria-busy', 'true');
         clear(feedback);
@@ -101,6 +104,7 @@ export function createCateringSection({ adapter = null } = {}) {
         } catch (error) {
           if (!isCurrent()) return;
           fields.disabled = false;
+          health?.setWriting(false);
           pending = false;
           form.setAttribute('aria-busy', 'false');
           status.textContent = '';
@@ -137,11 +141,14 @@ export function createCateringSection({ adapter = null } = {}) {
     if (page.connections.length === 0) connections.appendChild(el('p', { text: t('tenantAdmin.section.empty') }));
     for (const snapshot of page.connections) {
       const provider = page.providers.find((entry) => entry.providerId === snapshot.providerId);
+      const health = typeof adapter.loadOperationalHealth === 'function' ? createCateringOperationalHealthPanel({
+        adapter, snapshot, isCurrent, reloadConfiguration() { focusAfterMutation = true; rerender(); },
+      }) : null;
       connections.appendChild(el('article', { className: 'card' }, [
         el('h4', { text: t('tenantAdmin.catering.connection',
           { provider: providerName(snapshot.providerId), reference: snapshot.integrationId.slice(-8) }) }),
         el('p', { className: 'muted', text: t('tenantAdmin.section.revision', { revision: formatNumber(snapshot.revision) }) }),
-        configurationForm(provider, snapshot),
+        configurationForm(provider, snapshot, health), health?.root,
       ]));
     }
     root.appendChild(connections);
