@@ -48,8 +48,10 @@ The current production provider registry is manual-only. API PR218 composes the
 awake-process worker as a separate change; this frontend does not establish that
 PR's acceptance or deployment. Manual deferral is explicitly described as requiring
 follow-up and does not confirm manual sending. There is no binding delivery time.
-Manual export/attestation, receipt detail/ongoing ingestion, reactivation and
-change/cancel/exception versions remain separate work.
+The [manual document flow](CATERING-MANUAL-DOCUMENTS.md) adds version-bound CSV and
+native print/save-as-PDF without transmission. Actual manual attestation, receipt
+detail/ongoing ingestion, reactivation and change/cancel/exception versions remain
+separate work.
 
 ## Verification and presentation
 

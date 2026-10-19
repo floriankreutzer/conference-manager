@@ -3,6 +3,7 @@ import { button, el, field } from '../core/ui.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { cateringMoneyText, cateringQuoteExpiry, cateringQuoteMinorUnits } from './catering-quote-draft.js';
 import { createCateringDeliveryPanel } from './catering-delivery-panel.js';
+import { createCateringDocumentActions } from './catering-document-actions.js';
 
 const money = (value) => cateringMoneyText(value, locale());
 const shortId = (value) => `${value.slice(0, 8)}…${value.slice(-8)}`;
@@ -42,7 +43,8 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
     if (authorityFailureCode(error)) { onAuthorityFailure(error); return; }
     if (!isCurrent()) return;
     uncertain ||= writing;
-    status.textContent = t(error?.code === 'HTTP_409' ? 'cateringOrders.conflict' : 'cateringOrders.error');
+    status.textContent = t(error?.code === 'CATERING_DOCUMENT_SOURCE_CHANGED' ? 'cateringDocuments.stale'
+      : error?.code === 'HTTP_409' ? 'cateringOrders.conflict' : 'cateringOrders.error');
     controls(false);
   }
   function showList() {
@@ -135,6 +137,13 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
             expectedStateRevision: view.state.revision, expectedQuoteRevision: view.quote.revision });
           return adapter.loadOrder(order.orderId);
         }); },
+      });
+      const documents = el('section', { attrs: { 'aria-label': t('cateringDocuments.title') } });
+      detail.appendChild(documents);
+      createCateringDocumentActions({ root: documents, view, adapter,
+        isCurrent: () => isCurrent() && displayed === view && documents.isConnected,
+        isAvailable: () => !busy && !uncertain, setBusy: controls,
+        onFailure: (error) => { failure(error, true); }, onStatus: (text) => { status.textContent = text; },
       });
     }
     controls(false);

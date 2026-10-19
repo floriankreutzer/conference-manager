@@ -1,5 +1,6 @@
+import { csvCellNeedsPrefix, spreadsheetSafeCsvCell as csvEscape } from './spreadsheet-csv-cell.js';
+
 const MAX_BYTES = 65_536;
-const DANGEROUS_CELL = /^(?:\s*[=+\-@]|[\t\r\n])/u;
 const MAX_FIELD_BYTES = 16_384;
 const MAX_ROWS = 1_024;
 const JSON_CELL_PREFIX = 'json:';
@@ -7,11 +8,6 @@ const NUMBER_COLUMNS = new Set(['capacity', 'order']);
 const BOOLEAN_COLUMNS = new Set(['active']);
 const JSON_COLUMNS = new Set(['address', 'mediaAssetIds', 'price', 'guestPresentation', 'guestPublicValues', 'equipment', 'accessibility', 'serviceIds', 'cateringPackageIds', 'siteIds', 'roomIds', 'itemIds', 'variants']);
 
-function csvEscape(value) {
-  let text = value === null || value === undefined ? '' : String(value);
-  if (text.startsWith("'") || DANGEROUS_CELL.test(text)) text = `'${text}`;
-  return `"${text.replaceAll('"', '""')}"`;
-}
 function cellValue(value) {
   if (value === null || value === undefined) return '';
   if (typeof value === 'object') return `${JSON_CELL_PREFIX}${JSON.stringify(value)}`;
@@ -114,7 +110,7 @@ function decodeCell(value, header) {
     if (Array.isArray(decoded) && decoded.length > arrayLimit) throw new TenantBulkCsvError('limit');
     return decoded;
   }
-  if (value.startsWith("'") && (value.slice(1).startsWith("'") || DANGEROUS_CELL.test(value.slice(1)))) return value.slice(1);
+  if (value.startsWith("'") && csvCellNeedsPrefix(value.slice(1))) return value.slice(1);
   if (value === '') return null;
   if (NUMBER_COLUMNS.has(header) && /^-?\d+$/.test(value)) {
     const number = Number(value); if (Number.isSafeInteger(number)) return number;
