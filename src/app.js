@@ -9,6 +9,7 @@ import {
 } from './platform/tenant-admin-operations-api.js';
 import {
   applyTenantPresentationToDocument,
+  discoverCateringConfiguration,
   createTenantBookingPolicySettingsApi,
   createTenantCatalogueSettingsApi,
   createTenantCostAllocationSettingsApi,
@@ -82,8 +83,10 @@ export async function bootstrapCustomerApplication({
     adapter: tenantPresentationAdapter,
     refreshTimeoutMs: optionalTimeout,
   });
+  let cateringConfiguration = null;
   try {
     await tenantPresentation.refresh();
+    cateringConfiguration = await discoverCateringConfiguration({ context, authentication, timeoutMs: optionalTimeout });
   } catch (error) {
     if (!context.invalidateAuthority(error)) throw error;
     serverPersistence = null;
@@ -155,6 +158,7 @@ export async function bootstrapCustomerApplication({
           connection: microsoft365Connection,
           onboardingRuntime,
         }),
+        catering: cateringConfiguration,
         capabilities: tenantCapabilities,
         audit: tenantAudit,
       }),

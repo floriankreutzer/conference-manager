@@ -1,3 +1,4 @@
+import { createCateringSection } from './sections/catering/index.js';
 import { createAuditSection } from './sections/audit/index.js';
 import { createBookingPoliciesSection } from './sections/booking-policies/index.js';
 import { createCapabilitiesSection } from './sections/capabilities/index.js';
@@ -54,6 +55,7 @@ export function createTenantAdminSectionRegistry({
     [createCostAllocationSection, adapters.costAllocation],
     [createUsersSection, adapters.users],
     [createMicrosoft365Section, adapters.microsoft365],
+    [createCateringSection, adapters.catering],
     [createCapabilitiesSection, adapters.capabilities],
     [createAuditSection, adapters.audit],
   ];

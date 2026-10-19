@@ -147,8 +147,17 @@ function changedAt(revision) {
 async function installProductionSettingsFixture(page, {
   organizationConflict = true,
   holdOrganizationReapplyRead = false,
+  cateringEnabled = false,
+  cateringConnections = [],
+  cateringCreateResponseLost = false,
+  cateringConflict = false,
 } = {}) {
   const state = initialState();
+  const cateringWrites = [];
+  const cateringCommands = new Map();
+  state.catering = clone(cateringConnections);
+  let cateringCreateFailure = cateringCreateResponseLost;
+  let cateringConflictPending = cateringConflict;
   const writes = [];
   const reads = [];
   const unexpectedApiRequests = [];
@@ -190,6 +199,55 @@ async function installProductionSettingsFixture(page, {
 
     if (url.pathname === '/api/v1/session' && method === 'GET') {
       await fulfillJson(route, sessionPayload());
+      return;
+    }
+
+    if (url.pathname === '/api/v1/integrations/catering' && method === 'GET') {
+      if (!cateringEnabled) {
+        await fulfillJson(route, { error: { code: 'NOT_FOUND' } }, 404);
+        return;
+      }
+      const capabilities = Object.fromEntries(['catalogue', 'availability', 'order', 'update', 'cancel', 'status']
+        .map((name) => [`catering.${name}`, 'manual']));
+      const after = url.searchParams.get('afterIntegrationId');
+      const rows = state.catering.filter((entry) => after === null || entry.integrationId > after)
+        .sort((a, b) => a.integrationId.localeCompare(b.integrationId));
+      await fulfillJson(route, { schemaVersion: 1,
+        providers: [{ providerId: 'manual_catering', capabilities }], connections: rows.slice(0, 20),
+        nextAfterIntegrationId: rows.length > 20 ? rows[19].integrationId : null });
+      return;
+    }
+    if (cateringEnabled && url.pathname === '/api/v1/integrations/catering' && method === 'POST') {
+      const body = request.postDataJSON();
+      cateringWrites.push({ body: clone(body), csrf: request.headers()['x-csrf-token'], method });
+      let saved = cateringCommands.get(body.commandId);
+      if (!saved) {
+        saved = { schemaVersion: 1, integrationId: '40000000-0000-4000-8000-000000000001',
+          providerId: body.providerId, revision: 1, configuration: clone(body.configuration) };
+        cateringCommands.set(body.commandId, saved);
+        state.catering.push(saved);
+      }
+      if (cateringCreateFailure) {
+        cateringCreateFailure = false;
+        await fulfillJson(route, { error: { code: 'UNAVAILABLE' } }, 503);
+      } else await fulfillJson(route, saved);
+      return;
+    }
+    const cateringMatch = /^\/api\/v1\/integrations\/catering\/([0-9a-f-]{36})\/configuration$/.exec(url.pathname);
+    if (cateringEnabled && cateringMatch && method === 'PUT') {
+      const body = request.postDataJSON();
+      cateringWrites.push({ body: clone(body), csrf: request.headers()['x-csrf-token'], method });
+      const saved = state.catering.find((entry) => entry.integrationId === cateringMatch[1]);
+      if (cateringConflictPending) {
+        cateringConflictPending = false;
+        saved.revision += 1;
+        await conflict(route, saved.revision);
+      } else if (saved.revision !== body.expectedRevision) await conflict(route, saved.revision);
+      else {
+        saved.revision += 1;
+        saved.configuration = clone(body.configuration);
+        await fulfillJson(route, saved);
+      }
       return;
     }
 
@@ -376,6 +434,7 @@ async function installProductionSettingsFixture(page, {
 
   return {
     state,
+    cateringWrites,
     writes,
     reads,
     unexpectedApiRequests,
@@ -407,6 +466,7 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   await openTenantSettings(page);
 
   await expect(page.locator('[data-view="manager"]')).toHaveCount(0);
+  await expect(page.locator('[data-tenant-admin-section="catering"]')).toHaveCount(0);
 
   let content = await openSection(page, 'organization', 'organization');
   await content.locator('#tenant-organization-display-name').fill('Northstar Reapplied');
@@ -501,6 +561,7 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   for (const expectedPath of [
     '/api/v1/session',
     '/api/v1/tenant/presentation',
+    '/api/v1/integrations/catering',
     '/api/v1/tenant/settings/organization',
     '/api/v1/tenant/settings/organization/history?limit=10',
     '/api/v1/tenant/settings/locations?schemaVersion=3',
@@ -678,5 +739,92 @@ test('H-035 Tenant Admin publishes and withdraws only finite Site Guest values',
   await submit(content, 'locations-technical');
   await expect.poll(() => fixture.writes.length).toBe(2);
   expect(fixture.writes[1].body.configuration.sites[0].guestPublicValues).toBeNull();
+  expect(fixture.unexpectedApiRequests).toEqual([]);
+});
+
+const cateringId = (n) => `40000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+function cateringConnection(n) {
+  return { schemaVersion: 1, integrationId: cateringId(n), providerId: 'manual_catering', revision: 1,
+    configuration: { initialOrderMode: 'manager_review', capabilities: Object.fromEntries(
+      ['catalogue', 'availability', 'order', 'update', 'cancel', 'status'].map((key) => [`catering.${key}`, 'manual']),
+    ) } };
+}
+async function openCatering(page) {
+  await page.locator('[data-tenant-admin-section="catering"]').click();
+  const content = page.locator('[data-tenant-admin-section-content="catering"]');
+  await expect(content.locator('[data-catering-form="new"]')).toBeVisible();
+  return content;
+}
+
+test('Catering setup preserves a failed command for deliberate safe replay and reflows in DE/EN', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { cateringEnabled: true, cateringCreateResponseLost: true });
+  await openTenantSettings(page);
+  const content = await openCatering(page);
+  await expect(content.getByText('Gespeicherte Einstellungen bestätigen weder die Verfügbarkeit noch die Lieferbereitschaft eines Caterers.')).toBeVisible();
+  const form = content.locator('[data-catering-form="new"]');
+  const mode = form.locator('select').first();
+  await mode.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(mode).toHaveValue('after_conference_approval');
+  await form.getByRole('button', { name: 'Verbindung einrichten', exact: true }).click();
+  await expect(form.getByRole('alert')).toBeVisible();
+  await expect(mode).toHaveValue('after_conference_approval');
+  await expect(form.getByRole('button', { name: 'Verbindung einrichten', exact: true })).toBeFocused();
+  await form.getByRole('button', { name: 'Verbindung einrichten', exact: true }).click();
+  await expect(content.locator(`[data-catering-form="${cateringId(1)}"]`)).toBeVisible();
+  expect(fixture.state.catering).toHaveLength(1);
+  expect(fixture.cateringWrites).toHaveLength(2);
+  expect(fixture.cateringWrites[0].body).toEqual(fixture.cateringWrites[1].body);
+  expect(fixture.cateringWrites[0].csrf).toBe(CSRF_TOKEN);
+  expect(Object.keys(fixture.cateringWrites[0].body).sort()).toEqual(['commandId', 'configuration', 'providerId', 'schemaVersion']);
+  expect(fixture.cateringWrites[0].body.commandId).toMatch(/^[0-9a-f-]{36}$/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(async () => (await import('/src/core/i18n.js')).setLanguage('en'));
+  await expect(content.getByRole('heading', { name: 'Catering connections', exact: true })).toBeVisible();
+  await expect(content.getByRole('button', { name: 'Set up connection', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 640, height: 450 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(fixture.unexpectedApiRequests).toEqual([]);
+});
+
+test('Catering configuration retains independent provider modes and requires explicit reload after conflict', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { cateringEnabled: true, cateringConflict: true,
+    cateringConnections: [cateringConnection(10), cateringConnection(11)] });
+  await openTenantSettings(page);
+  const content = await openCatering(page);
+  const selected = content.locator(`[data-catering-form="${cateringId(10)}"]`);
+  const other = content.locator(`[data-catering-form="${cateringId(11)}"]`);
+  await selected.locator('select').first().selectOption('after_conference_approval');
+  await expect(other.locator('select').first()).toHaveValue('manager_review');
+  await expect(selected.locator('option[value="api"]')).toHaveCount(0);
+  await selected.getByRole('button', { name: 'Änderungen speichern', exact: true }).click();
+  await expect(selected.getByRole('alert')).toBeVisible();
+  expect(fixture.cateringWrites).toHaveLength(1);
+  await expect(selected.locator('select').first()).toHaveValue('after_conference_approval');
+  await selected.getByRole('button', { name: 'Aktuellen Stand laden', exact: true }).click();
+  await expect(selected.locator('select').first()).toHaveValue('manager_review');
+  await selected.locator('select').first().selectOption('after_conference_approval');
+  await selected.getByRole('button', { name: 'Änderungen speichern', exact: true }).click();
+  await expect(selected.locator('select').first()).toHaveValue('after_conference_approval');
+  expect(fixture.cateringWrites).toHaveLength(2);
+  expect(fixture.cateringWrites.map((write) => write.body.expectedRevision)).toEqual([1, 2]);
+  expect(fixture.state.catering[1].configuration.initialOrderMode).toBe('manager_review');
+  expect(fixture.cateringWrites.every((write) => write.csrf === CSRF_TOKEN)).toBe(true);
+  expect(fixture.unexpectedApiRequests).toEqual([]);
+});
+
+test('Catering list replaces bounded pages without accumulating connection forms', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { cateringEnabled: true,
+    cateringConnections: Array.from({ length: 21 }, (_, i) => cateringConnection(i + 10)) });
+  await openTenantSettings(page);
+  const content = await openCatering(page);
+  await expect(content.locator('[data-catering-form]')).toHaveCount(21);
+  await content.getByRole('button', { name: 'Weitere Verbindungen', exact: true }).click();
+  await expect(content.locator('[data-catering-form]')).toHaveCount(2);
+  await expect(content.locator(`[data-catering-form="${cateringId(30)}"]`)).toBeVisible();
+  await content.getByRole('button', { name: 'Zur ersten Seite', exact: true }).click();
+  await expect(content.locator('[data-catering-form]')).toHaveCount(21);
+  expect(fixture.cateringWrites).toEqual([]);
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });

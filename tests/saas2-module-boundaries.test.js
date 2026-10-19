@@ -71,3 +71,21 @@ test('Production adapters cannot import demo.js implementations', () => {
   });
   assert.ok(violations.some((item) => item.includes('Production code must not import Demo module')));
 });
+
+test('Catering is an explicit Admin section and still rejects direct Platform/Manager dependencies', () => {
+  const base = {
+    'src/tenant-admin/section-registry.js': "import './sections/catering/index.js';",
+    'src/tenant-admin/sections/catering/index.js': "import '../../../shared/catering-configuration.js';",
+    'src/shared/catering-configuration.js': 'export const values = Object.freeze([]);',
+    'src/platform/catering-api.js': 'export const api = true;',
+    'src/manager/index.js': 'export const manager = true;',
+  };
+  assert.deepEqual(frontendSaas2BoundaryViolations(base), []);
+  const denied = frontendSaas2BoundaryViolations({ ...base,
+    'src/tenant-admin/sections/catering/index.js': "import '../../../platform/catering-api.js'; import '../../../manager/index.js';",
+    'src/tenant-admin/sections/unregistered/index.js': 'export const unknown = true;',
+  });
+  assert.ok(denied.some((item) => item.includes('may not import Platform directly')));
+  assert.ok(denied.some((item) => item.includes('must not depend on Employee or Conference Manager')));
+  assert.ok(denied.some((item) => item.includes('unregistered is not part')));
+});

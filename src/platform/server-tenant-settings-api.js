@@ -9,3 +9,4 @@ export {
   createPresentationRefreshingOrganizationSettings,
   createTenantPresentationRuntime,
 } from './tenant-presentation-runtime.js';
+export { discoverCateringConfiguration } from './catering-configuration-runtime.js';
