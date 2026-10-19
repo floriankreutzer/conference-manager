@@ -5,6 +5,7 @@ import { button, clear, el, field, showToast } from '../core/ui.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-bulk-transfer-panel.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
+import { renderCateringAssignments } from './catering-assignment-application.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -404,6 +405,7 @@ export function createManagerBusinessSettingsApplication({
   setPageHeading,
   locations,
   catalogue,
+  cateringAssignments = null,
   onAuthorityFailure,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') {
@@ -602,7 +604,9 @@ export function createManagerBusinessSettingsApplication({
       className: 'button-row manager-business-settings-nav',
       attrs: { role: 'navigation', 'aria-label': t('managerSettings.title') },
     });
-    for (const target of ['rooms', 'services', 'catering']) {
+    const targets = ['rooms', 'services', 'catering'];
+    if (cateringAssignments?.featureFlags?.isEnabled('catering.catalogue') === true) targets.push('assignments');
+    for (const target of targets) {
       const control = button(t(`managerSettings.section.${target}`), {
         className: section === target ? 'primary' : '',
         attrs: section === target ? { 'aria-current': 'page' } : {},
@@ -1077,6 +1081,13 @@ export function createManagerBusinessSettingsApplication({
     clear(appRoot);
     appRoot.appendChild(renderRoot);
     if (section === 'rooms') await renderRooms(revision, renderRoot, focusHeading);
+    else if (section === 'assignments') {
+      setPageHeading(t('managerSettings.assignment.title'), t('managerSettings.assignment.description'));
+      renderRoot.appendChild(sectionNavigation());
+      await renderCateringAssignments({ root: renderRoot, catalogue, adapter: cateringAssignments,
+        isCurrent: () => isCurrentRender(revision, renderRoot), onAuthorityFailure });
+      focusCurrentHeading(revision, renderRoot, focusHeading);
+    }
     else await renderCatalogue(revision, renderRoot, focusHeading);
   }
 

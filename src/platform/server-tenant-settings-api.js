@@ -10,3 +10,4 @@ export {
   createTenantPresentationRuntime,
 } from './tenant-presentation-runtime.js';
 export { discoverCateringConfiguration } from './catering-configuration-runtime.js';
+export { discoverCateringCatalogueAssignments } from './catering-catalogue-assignment-runtime.js';
