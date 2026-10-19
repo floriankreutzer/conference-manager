@@ -23,7 +23,7 @@
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",
-    "es-module-lexer": "3.0.3"
+    "es-module-lexer": "3.0.4"
   },
   "engines": {
     "node": ">=22"
