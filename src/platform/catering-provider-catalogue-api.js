@@ -59,6 +59,11 @@ function product(value,group = false) {
   const variants = array(value.variants,20).map((entry) => product(entry)); unique(variants);
   return { ...base,itemIds: itemIds.sort(),variants: variants.sort(compare) };
 }
+// A bounded received product fragment, without snapshot membership or publication authority.
+export function normalizeProviderCatalogueEntry(value,kind) {
+  if (!['item','package'].includes(kind)) invalid();
+  return immutable(product(value,kind === 'package'));
+}
 function unique(entries) { if (new Set(entries.map((entry) => entry.id)).size !== entries.length) invalid(); }
 function compare(a,b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; }
 export function normalizeProviderCatalogueSource(value) {
