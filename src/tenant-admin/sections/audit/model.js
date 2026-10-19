@@ -24,6 +24,7 @@ const ACTIONS = new Set([
   'integration.admin_consent.changed',
   'integration.verified',
   'calendar.operation',
+  'catering.catalogue.received',
   'catering.order.prepared',
   'catering.order.quoted',
   'catering.order.decided',

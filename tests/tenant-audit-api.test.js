@@ -210,3 +210,14 @@ test('audit adapter accepts Catering actions and minimized configuration summari
     await assert.rejects(rejected.listAuditEvents(), (error) => error.code === 'TENANT_AUDIT_RESPONSE_INVALID');
   }
 });
+
+
+test('supplier catalogue intake audit exposes only bounded versions in the configuration category',async () => {
+  const api = createTenantAuditApi({ apiClient: { async request() {
+    return page({ events: [event({ action: 'catering.catalogue.received',category: 'configuration',
+      target: { type: 'integration',id: null },change: { before: { revision: 0 },after: { revision: 1 } } })] });
+  } } });
+  const entry = (await api.listAuditEvents()).events[0];
+  assert.equal(entry.action,'catering.catalogue.received'); assert.equal(entry.category,'configuration');
+  assert.doesNotMatch(JSON.stringify(entry),/providerPrice|sourceVersion|commandId|actorUserId|reference|sourcePayload/);
+});
