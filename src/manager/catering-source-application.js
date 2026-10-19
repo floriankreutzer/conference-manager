@@ -1,5 +1,6 @@
+import { createCateringSourceTerms,createCateringSourceProduct } from './catering-source-presentation.js';
 import { createCateringSourceEditor } from './catering-source-editor.js';
-import { formatDateTime, formatMoney, formatNumber, t } from '../core/i18n.js';
+import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 
@@ -38,29 +39,6 @@ export async function renderCateringProviderCatalogues({ root,adapter,isCurrent,
     snapshot = null; history.replaceChildren(); details.replaceChildren();
     status.textContent = label('error'); setBusy(false);
   }
-  function commercialTerms(value) {
-    const list = el('dl');
-    for (const name of ['minimumLeadTimeMinutes','minimumOrderValue','changeCutoffMinutes','cancelCutoffMinutes']) {
-      const fact = value[name]; const formatted = fact === null ? label('unknown')
-        : name === 'minimumOrderValue' ? formatMoney(fact.amountMinor/100,fact.currency) : label('minutes',{ number: formatNumber(fact) });
-      list.append(el('dt',{ text: label(name) }),el('dd',{ text: formatted }));
-    }
-    return list;
-  }
-  function product(entry) {
-    const price = entry.providerPrice === null ? label('unknown') : formatMoney(entry.providerPrice.amountMinor/100,entry.providerPrice.currency);
-    const card = el('section',{ className: 'card' },[
-      el('h4',{ text: entry.name }),el('p',{ text: label('article',{ reference: entry.id }) }),
-      el('p',{ text: label('supplierPrice',{ price }) }),
-    ]);
-    if (entry.description !== null) card.appendChild(el('p',{ text: entry.description }));
-    if (entry.itemIds) card.appendChild(el('p',{ text: label('components',{ references: entry.itemIds.join(', ') }) }));
-    if (entry.variants?.length) card.appendChild(el('ul',{},entry.variants.map((variant) => el('li',{
-      text: label('variant',{ name: variant.name,reference: variant.id,price: variant.providerPrice === null ? label('unknown')
-        : formatMoney(variant.providerPrice.amountMinor/100,variant.providerPrice.currency) }),
-    }))));
-    return card;
-  }
   async function loadDetail(revision,section = 'items',afterEntryId = null) {
     if (busy || !current() || !selected || !snapshot) return;
     setBusy(true); status.textContent = label('loading'); details.replaceChildren();
@@ -76,7 +54,7 @@ export async function renderCateringProviderCatalogues({ root,adapter,isCurrent,
       }
       const heading = el('h3',{ text: label('revision',{ revision: formatNumber(value.revision) }),attrs: { tabindex: '-1' } });
       details.append(heading,el('p',{ text: value.reference }),el('p',{ text: formatDateTime(value.recordedAt) }),
-        el('p',{ text: label('pending') }),commercialTerms(value.terms));
+        el('p',{ text: label('pending') }),createCateringSourceTerms(value.terms));
       const items = button(label('items')); const packages = button(label('packages')); const first = button(label('firstEntries'));
       const next = button(label('nextEntries'),{ dataset: { sourceUnavailable: String(value.nextAfterEntryId === null) } });
       items.addEventListener('click',() => { void loadDetail(revision,'items'); });
@@ -84,7 +62,7 @@ export async function renderCateringProviderCatalogues({ root,adapter,isCurrent,
       first.addEventListener('click',() => { void loadDetail(revision,section); });
       next.addEventListener('click',() => { if (value.nextAfterEntryId) void loadDetail(revision,section,value.nextAfterEntryId); });
       details.append(el('div',{ className: 'button-row' },[items,packages,first,next]),el('h4',{ text: label(section) }));
-      for (const entry of value.entries) details.appendChild(product(entry));
+      for (const entry of value.entries) details.appendChild(createCateringSourceProduct(entry));
       if (!value.entries.length) details.appendChild(el('p',{ text: label('emptyEntries') }));
       status.textContent = label('detailLoaded'); setBusy(false); next.disabled = value.nextAfterEntryId === null; heading.focus();
     } catch (error) { failure(error); }

@@ -88,6 +88,9 @@ test('optional Manager discovery stays closed for Demo, other roles, malformed d
   assert.equal(calls, 0);
   const enabled = await discoverCateringCatalogueAssignments({ context: context(), authentication });
   assert.equal(enabled.featureFlags.isEnabled('catering.catalogue'), true);
+  assert.equal(typeof enabled.loadPublicationContext,'function');
+  assert.equal(typeof enabled.reviewCatalogue,'function');
+  assert.equal(calls,1);
   assert.equal(enabled.featureFlags.isEnabled('catering.configuration'), false);
   assert.equal(featureFlags.isEnabled('catering.catalogue'), false);
   for (const value of [null, {}, { ...projection(), secret: 'forbidden' }]) {

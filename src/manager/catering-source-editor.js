@@ -1,15 +1,11 @@
+import { parseCateringMoneyInput } from './catering-money-input.js';
 import { formatNumber,t } from '../core/i18n.js';
 import { button,el,field } from '../core/ui.js';
 
 const label = (key,values) => t(`cateringSource.${key}`,values);
 const ID = '[A-Za-z0-9][A-Za-z0-9._:-]{0,127}';
 function amount(control,currency,aggregate = false) {
-  const raw = control.value.trim(); if (!raw) return null;
-  if (!/^\d{1,14}(?:[.,]\d{1,2})?$/.test(raw)) throw new TypeError('CATERING_SOURCE_AMOUNT_INVALID');
-  const [whole,fraction = ''] = raw.replace(',','.').split('.');
-  const minor = BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0'));
-  if (minor > (aggregate ? 9007199254740990n : 1000000000n)) throw new TypeError('CATERING_SOURCE_AMOUNT_INVALID');
-  return { amountMinor: Number(minor),currency: currency.value };
+  return parseCateringMoneyInput(control.value,currency.value,{ nullable: true,aggregate });
 }
 function input({ required = false,maximum = 160,pattern } = {}) {
   return el('input',{ type: 'text',attrs: { maxlength: String(maximum),...(required ? { required: 'required' } : {}),
