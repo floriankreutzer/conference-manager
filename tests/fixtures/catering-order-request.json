@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 2,
+  "version": 2,
+  "id": "request-a",
+  "requesterAttribution": {
+    "displayName": "Synthetic Requester"
+  },
+  "roomId": "room-a",
+  "status": "Confirmed",
+  "statusReason": null,
+  "startsAt": "2026-10-20T10:00:00.000Z",
+  "endsAt": "2026-10-20T11:00:00.000Z",
+  "internalParticipants": 500,
+  "externalParticipants": 0,
+  "statusChangedAt": "2026-10-19T08:00:00.000Z",
+  "createdAt": "2026-10-19T08:00:00.000Z",
+  "updatedAt": "2026-10-19T08:00:00.000Z",
+  "details": {
+    "title": "Synthetic conference",
+    "specialRequirements": "Synthetic delivery note",
+    "dietaryRequirements": "Synthetic dietary note",
+    "serviceIds": [],
+    "catering": {
+      "participantCount": 3,
+      "packageSelection": {
+        "packageId": "package-a",
+        "variantId": "variant-a"
+      },
+      "itemQuantities": [
+        {
+          "itemId": "extra-0",
+          "quantity": 2
+        },
+        {
+          "itemId": "included-0",
+          "quantity": 2
+        }
+      ]
+    }
+  },
+  "pricing": {
+    "currency": "EUR",
+    "totalMinor": 1100,
+    "breakdown": {
+      "roomMinor": 0,
+      "servicesMinor": 0,
+      "cateringPackageMinor": 900,
+      "cateringItemsMinor": 200
+    },
+    "room": {
+      "id": "room-a",
+      "siteId": "site-a",
+      "name": "Synthetic Room",
+      "price": {
+        "amountMinor": 0,
+        "currency": "EUR"
+      }
+    },
+    "services": [],
+    "catering": {
+      "participantCount": 3,
+      "packageSelection": {
+        "package": {
+          "id": "package-a",
+          "name": "package-a",
+          "description": null,
+          "price": {
+            "amountMinor": 300,
+            "currency": "EUR"
+          }
+        },
+        "variant": {
+          "id": "variant-a",
+          "name": "variant-a",
+          "description": null,
+          "price": {
+            "amountMinor": 300,
+            "currency": "EUR"
+          }
+        },
+        "includedItems": [
+          {
+            "id": "included-0",
+            "name": "included-0",
+            "description": null,
+            "price": {
+              "amountMinor": 100,
+              "currency": "EUR"
+            }
+          },
+          {
+            "id": "included-1",
+            "name": "included-1",
+            "description": null,
+            "price": {
+              "amountMinor": 100,
+              "currency": "EUR"
+            }
+          }
+        ],
+        "participantCount": 3,
+        "lineTotalMinor": 900
+      },
+      "items": [
+        {
+          "item": {
+            "id": "extra-0",
+            "name": "extra-0",
+            "description": null,
+            "price": {
+              "amountMinor": 100,
+              "currency": "EUR"
+            }
+          },
+          "quantity": 2,
+          "includedByPackage": false,
+          "lineTotalMinor": 200
+        },
+        {
+          "item": {
+            "id": "included-0",
+            "name": "included-0",
+            "description": null,
+            "price": {
+              "amountMinor": 100,
+              "currency": "EUR"
+            }
+          },
+          "quantity": 2,
+          "includedByPackage": true,
+          "lineTotalMinor": 0
+        }
+      ]
+    }
+  },
+  "configurationRevisions": {
+    "organization": 1,
+    "locations": 1,
+    "catalogue": 4,
+    "bookingPolicies": 1,
+    "costAllocation": 1
+  },
+  "policy": {
+    "policyVersionId": "policy-a",
+    "effectiveFrom": "2026-01-01T00:00:00.000Z",
+    "evaluatedAt": "2026-10-19T08:00:00.000Z",
+    "rules": {
+      "minimumLeadTimeMinutes": 0,
+      "maximumAdvanceMinutes": 527040,
+      "cancellationWindowMinutes": 0,
+      "changeWindowMinutes": 0,
+      "maximumParticipants": 500,
+      "allowedSiteIds": [],
+      "allowedRoomIds": [],
+      "allowedServiceIds": []
+    }
+  },
+  "allocations": {
+    "schemaVersion": 1,
+    "configurationRevision": 1,
+    "snapshottedAt": "2026-10-19T08:00:00.000Z",
+    "model": "percentage_basis_points",
+    "totalBasisPoints": 10000,
+    "totalMinor": 1100,
+    "allocatedMinor": 1100,
+    "unallocatedMinor": 0,
+    "currency": "EUR",
+    "entries": [
+      {
+        "costCenterId": "center-a",
+        "code": "CENTER-A",
+        "name": "Synthetic Center",
+        "group": null,
+        "percentageBasisPoints": 10000,
+        "allocatedMinor": 1100
+      }
+    ]
+  }
+}

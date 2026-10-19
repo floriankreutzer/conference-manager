@@ -11,3 +11,4 @@ export {
 } from './tenant-presentation-runtime.js';
 export { discoverCateringConfiguration } from './catering-configuration-runtime.js';
 export { discoverCateringCatalogueAssignments } from './catering-catalogue-assignment-runtime.js';
+export { discoverCateringOrders } from './catering-order-runtime.js';

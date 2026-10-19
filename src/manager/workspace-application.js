@@ -1,5 +1,6 @@
 import { el, button } from '../core/ui.js';
 import { t } from '../core/i18n.js';
+import { renderCateringOrders } from './catering-order-application.js';
 import { createDemoManagerWorklistController } from './demo-worklist-controller.js';
 import { createManagerBusinessSettingsApplication } from './business-settings-application.js';
 import { createProductionManagerApplication } from './production-application.js';
@@ -11,6 +12,7 @@ export function createManagerWorkspaceApplication({
   locations,
   catalogue,
   cateringAssignments = null,
+  cateringOrders = null,
   demoWorklistEnabled = false,
   onAuthorityFailure = null,
 } = {}) {
@@ -39,6 +41,11 @@ export function createManagerWorkspaceApplication({
     persistence: worklist?.persistence || persistence,
     requestMutations,
     onAuthorityFailure,
+    onOpenCateringOrders: cateringOrders?.featureFlags?.isEnabled('catering.orders') === true
+      ? (panel, requests, isCurrent, invalidateAuthorityProjection) => renderCateringOrders({
+        root: panel, requests, adapter: cateringOrders, assignments: cateringAssignments, isCurrent,
+        onAuthorityFailure: invalidateAuthorityProjection,
+      }) : null,
     onOpenBusinessSettings: (panel, invalidateAuthorityProjection, { focusHeading = false } = {}) => {
       const heading = el('header');
       const content = el('div');
