@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 export function sourceStyleViolations(source) {
   const violations = [];
   if (!source.endsWith('\n')) violations.push('missing final newline');
-  source.split('\n').forEach((line, index) => {
+  source.split(/\r?\n/).forEach((line, index) => {
     if (/\s+$/.test(line)) violations.push(`line ${index + 1}: trailing whitespace`);
     if (line.includes('\t')) violations.push(`line ${index + 1}: tab`);
   });

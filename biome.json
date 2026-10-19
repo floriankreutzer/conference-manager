@@ -3,6 +3,7 @@
   "files": {
     "includes": [
       "src/**/*.js",
+      "src/**/*.mjs",
       "scripts/**/*.js",
       "scripts/**/*.mjs",
       "tests/**/*.js",
