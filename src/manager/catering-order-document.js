@@ -29,8 +29,9 @@ export function createCateringOrderDocument(view, { orderId, generatedAt = new D
   }));
   // Supplier documents do not disclose Conference Manager selling prices,
   // initiator/session data, allocations, audit actors, credentials or provider URLs.
-  return Object.freeze({ schemaVersion: 1, orderId: source.orderId, orderVersion: source.orderVersion,
-    integrationId: source.integrationId, operation: current.operation, status: current.state.status,
+  return Object.freeze({ schemaVersion: current.schemaVersion, orderId: source.orderId, orderVersion: source.orderVersion,
+    integrationId: source.integrationId, operation: current.deliveryOperation ?? current.operation, status: current.state.status,
+    ...(current.schemaVersion === 2 ? { businessOperation: current.operation } : {}),
     generatedAt: generatedAt.toISOString(), title: source.title, room: source.room.name,
     startsAt: source.startsAt, endsAt: source.endsAt, participantCount: source.participantCount,
     dietaryRequirements: source.dietaryRequirements, specialRequirements: source.specialRequirements,
@@ -47,8 +48,10 @@ export function cateringOrderDocumentCsv(view, { orderId, generatedAt, notice } 
     throw new TypeError('CATERING_DOCUMENT_NOTICE_INVALID');
   }
   const document = createCateringOrderDocument(view, { orderId, generatedAt });
+  const headers = document.schemaVersion === 2 ? [...HEADERS, 'business_operation'] : HEADERS;
   const identity = { order_id: document.orderId, order_version: document.orderVersion, integration_id: document.integrationId };
-  const rows = [{ ...identity, record_kind: 'summary', operation: document.operation, order_status: document.status,
+  const rows = [{ ...identity, record_kind: 'summary', operation: document.operation, business_operation: document.businessOperation,
+    order_status: document.status,
     generated_at_utc: document.generatedAt, conference_title: document.title, room_name: document.room,
     starts_at_utc: document.startsAt, ends_at_utc: document.endsAt, participants: document.participantCount,
     dietary_requirements: document.dietaryRequirements, special_requirements: document.specialRequirements,
@@ -59,8 +62,8 @@ export function cateringOrderDocumentCsv(view, { orderId, generatedAt, notice } 
     position_kind: position.kind, position_name: position.name, description: position.description, quantity: position.quantity,
     package_variant: position.variant, components_json: JSON.stringify(position.components),
     selections_json: JSON.stringify(position.selections) }))];
-  const csv = `${[HEADERS.map(spreadsheetSafeCsvCell).join(','),
-    ...rows.map((row) => HEADERS.map((header) => spreadsheetSafeCsvCell(row[header])).join(','))].join('\r\n')}\r\n`;
+  const csv = `${[headers.map(spreadsheetSafeCsvCell).join(','),
+    ...rows.map((row) => headers.map((header) => spreadsheetSafeCsvCell(row[header])).join(','))].join('\r\n')}\r\n`;
   if (new TextEncoder().encode(csv).byteLength > MAX_CSV_BYTES) throw new TypeError('CATERING_DOCUMENT_CSV_LIMIT');
   return csv;
 }

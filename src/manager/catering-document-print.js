@@ -20,6 +20,7 @@ export async function presentCateringPrintDocument({ printWindow, value, isCurre
     node('p', t('cateringDocuments.notice')));
   const content = node('main', '', 'guest-print-content');
   const context = node('section', '', 'guest-print-card');
+  if (value.schemaVersion === 2) context.append(node('p', t('cateringWithdrawal.firstDelivery')));
   context.append(node('h2', value.title), list([
     ['cateringDocuments.reference', value.orderId], ['cateringDelivery.version', formatNumber(value.orderVersion)],
     ['cateringDocuments.supplierReference', value.integrationId],
