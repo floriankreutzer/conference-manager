@@ -39,9 +39,18 @@ const ACTIONS = [
   'integration.admin_consent.changed',
   'integration.verified',
   'calendar.operation',
+  'catering.order.prepared',
+  'catering.order.quoted',
+  'catering.order.decided',
+  'catering.delivery.queued',
+  'catering.delivery.claimed',
+  'catering.delivery.attempted',
+  'catering.delivery.observed',
+  'catering.delivery.deferred',
+  'catering.delivery.recovered',
   'audit.read',
 ];
-const TARGETS = ['audit', 'booking', 'endpoint', 'entitlement', 'integration', 'proposal', 'request', 'room', 'tenant', 'user'];
+const TARGETS = ['audit', 'booking', 'catering_order', 'catalogue', 'endpoint', 'entitlement', 'integration', 'proposal', 'request', 'room', 'tenant', 'user'];
 const CAPABILITIES = [
   'tenant.user_administration',
   'tenant.audit_history',
@@ -122,6 +131,7 @@ test('every canonical audit, capability, and Microsoft reason maps to localized 
     ...CONNECTION_REASONS.map(microsoftConnectionReasonKey),
     ...HEALTH_REASONS.map(microsoftHealthReasonKey),
   ];
+  for (const action of ACTIONS) assert.notEqual(auditActionKey(action), 'tenantAdmin.operations.audit.action.unknown');
   for (const key of keys) {
     assert.equal(typeof TENANT_ADMIN_OPERATIONS_MESSAGES.de[key], 'string', `missing DE ${key}`);
     assert.equal(typeof TENANT_ADMIN_OPERATIONS_MESSAGES.en[key], 'string', `missing EN ${key}`);

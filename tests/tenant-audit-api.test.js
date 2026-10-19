@@ -181,3 +181,31 @@ test('audit demo is deterministic, resettable, cursor bounded, and validates fil
   assert.deepEqual(await demo.listAuditEvents(), initial);
   await assert.rejects(demo.listAuditEvents({ category: 'cross_tenant' }), (error) => error.code === 'HTTP_400');
 });
+
+
+test('audit adapter accepts Catering actions and minimized configuration summaries without private cost data', async () => {
+  const actions = ['catering.order.prepared', 'catering.order.quoted', 'catering.order.decided',
+    'catering.delivery.queued', 'catering.delivery.claimed', 'catering.delivery.attempted',
+    'catering.delivery.observed', 'catering.delivery.deferred', 'catering.delivery.recovered'];
+  for (const action of actions) {
+    const api = createTenantAuditApi({ apiClient: { async request() {
+      return page({ events: [event({ action, category: 'request', target: { type: 'catering_order', id: CORRELATION_ID },
+        change: { before: { status: 'released' }, after: { revision: 4, status: 'queued' } } })] });
+    } } });
+    const result = await api.listAuditEvents();
+    assert.equal(result.events[0].action, action);
+    assert.deepEqual(result.events[0].change.after, { revision: 4, status: 'queued' });
+  }
+  const summary = { activeCateringItemCount: 3, cateringItemCount: 4, revision: 2, brandingChanged: true };
+  const api = createTenantAuditApi({ apiClient: { async request() {
+    return page({ events: [event({ change: { before: null, after: { revision: 2 }, summary } })] });
+  } } });
+  assert.deepEqual((await api.listAuditEvents()).events[0].change.summary, summary);
+  for (const invalid of [{ amountMinor: 1200 }, { revision: '2' }, { brandingChanged: 1 }, { revision: -1 },
+    { providerPayload: 'private' }, { revision: Number.MAX_SAFE_INTEGER + 1 }]) {
+    const rejected = createTenantAuditApi({ apiClient: { async request() {
+      return page({ events: [event({ change: { before: null, after: null, summary: invalid } })] });
+    } } });
+    await assert.rejects(rejected.listAuditEvents(), (error) => error.code === 'TENANT_AUDIT_RESPONSE_INVALID');
+  }
+});

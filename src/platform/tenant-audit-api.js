@@ -33,9 +33,38 @@ const ACTIONS = new Set([
   'integration.admin_consent.changed',
   'integration.verified',
   'calendar.operation',
+  'catering.order.prepared',
+  'catering.order.quoted',
+  'catering.order.decided',
+  'catering.delivery.queued',
+  'catering.delivery.claimed',
+  'catering.delivery.attempted',
+  'catering.delivery.observed',
+  'catering.delivery.deferred',
+  'catering.delivery.recovered',
   'audit.read',
 ]);
 const SUMMARY_KEYS = new Set([
+  'onboardingStarted',
+  'brandingChanged',
+  'businessMetadataChanged',
+  'currencyChanged',
+  'displayNameChanged',
+  'localeChanged',
+  'activeCateringItemCount',
+  'activeEquipmentCount',
+  'activePackageCount',
+  'activeServiceCount',
+  'cateringItemCount',
+  'equipmentCount',
+  'openRequestCount',
+  'packageCount',
+  'revision',
+  'revokedSessionCount',
+  'roomCount',
+  'serviceCount',
+  'sourceRevision',
+
   'active',
   'conferenceManager',
   'enabled',
@@ -48,13 +77,35 @@ const SUMMARY_KEYS = new Set([
   'tenantAdmin',
 ]);
 const BOOLEAN_SUMMARY_KEYS = new Set([
+  'onboardingStarted',
+  'brandingChanged',
+  'businessMetadataChanged',
+  'currencyChanged',
+  'displayNameChanged',
+  'localeChanged',
+
   'active',
   'conferenceManager',
   'enabled',
   'profileUpdated',
   'tenantAdmin',
 ]);
-const INTEGER_SUMMARY_KEYS = new Set(['lifecycleVersion', 'siteCount']);
+const INTEGER_SUMMARY_KEYS = new Set([
+  'lifecycleVersion', 'siteCount',
+  'activeCateringItemCount',
+  'activeEquipmentCount',
+  'activePackageCount',
+  'activeServiceCount',
+  'cateringItemCount',
+  'equipmentCount',
+  'openRequestCount',
+  'packageCount',
+  'revision',
+  'revokedSessionCount',
+  'roomCount',
+  'serviceCount',
+  'sourceRevision',
+]);
 const STRING_SUMMARY_KEYS = new Set(['provider', 'providerStatus', 'status']);
 const TARGET_TYPE_PATTERN = /^[a-z][a-z0-9_:-]{0,63}$/;
 const TARGET_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -141,7 +192,8 @@ function normalizedEvent(value) {
     || (value.actor.userId !== null && !isUuid(value.actor.userId))
     || !exactKeys(value.target, ['type', 'id'])
     || !TARGET_TYPE_PATTERN.test(value.target.type || '')
-    || !exactKeys(value.change, ['before', 'after'])
+    || (!exactKeys(value.change, ['before', 'after'])
+      && !exactKeys(value.change, ['before', 'after', 'summary']))
   ) return null;
   const concealedTarget = value.target.type === 'tenant' || value.target.type === 'integration';
   if (
@@ -150,7 +202,8 @@ function normalizedEvent(value) {
   ) return null;
   const before = normalizedSummary(value.change.before);
   const after = normalizedSummary(value.change.after);
-  if (before === undefined || after === undefined) return null;
+  const summary = Object.hasOwn(value.change, 'summary') ? normalizedSummary(value.change.summary) : null;
+  if (before === undefined || after === undefined || summary === undefined) return null;
   return Object.freeze({
     id: value.id,
     category: value.category,
@@ -162,7 +215,7 @@ function normalizedEvent(value) {
     outcome: value.outcome,
     occurredAt: value.occurredAt,
     correlationId: value.correlationId.toLowerCase(),
-    change: Object.freeze({ before, after }),
+    change: Object.freeze({ before, after, ...(summary === null ? {} : { summary }) }),
   });
 }
 
