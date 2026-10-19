@@ -5,6 +5,8 @@ import {
   PLATFORM_ADMIN_SIGN_IN_PATH,
   PLATFORM_ADMIN_STEP_UP_PATH,
 } from './operator-session.js';
+import { createPlatformPasskeyLogin } from './passkey-login.js';
+import { createPlatformPasskeyLoginView } from './passkey-login-view.js';
 import { createPlatformAdminApi } from '../platform-api.js';
 
 async function bootstrapProductionPlatformAdmin() {
@@ -17,12 +19,18 @@ async function bootstrapProductionPlatformAdmin() {
     const sessionApi = createPlatformOperatorSessionApi({ apiClient });
     const session = await sessionApi.loadSession();
     if (!session) {
+      let loginView;
+      const login = createPlatformPasskeyLogin({ onChange: state => loginView?.update(state) });
+      loginView = createPlatformPasskeyLoginView({ controller: login });
       const application = createPlatformAdminApplication({
         runtime: 'production',
         sessionState: 'unauthenticated',
         signInPath: PLATFORM_ADMIN_SIGN_IN_PATH,
+        renderSessionGate: () => loginView.render(),
       });
       await application.start();
+      globalThis.addEventListener('pagehide', () => login.stop(), { once: true });
+      await login.load();
       return;
     }
     csrfToken = session.csrfToken;
