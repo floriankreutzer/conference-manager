@@ -79,6 +79,7 @@ test('Manager assigns package components together, preserves choices across boun
   await expect(selects).toHaveCount(2);
   await expect(selects.first().locator('option')).toHaveCount(21);
   await selects.first().selectOption(id(1));
+  await expect(selects.first().locator('option:checked')).toHaveText('d0000000…00000001 · Manueller Catering-Lieferant');
   await page.getByRole('button', { name: 'Weitere Verbindungen anzeigen' }).click();
   await expect(selects.first().locator('option')).toHaveCount(3);
   await expect(selects.first()).toHaveValue(id(1));
