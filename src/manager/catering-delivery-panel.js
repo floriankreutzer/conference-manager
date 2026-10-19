@@ -40,8 +40,9 @@ export function createCateringDeliveryPanel({ root, adapter, view, isCurrent, on
     }
     if (!page.jobs.length) list.appendChild(el('p', { text: t('cateringDelivery.empty') }));
   }
-  async function load(afterJobId = null) {
+  async function load(afterJobId = null, trigger = null) {
     if (loading || parentBusy || !isCurrent()) return;
+    const restoreFocus = trigger !== null && document.activeElement === trigger;
     loading = true; readReady = false; controls(); status.textContent = t('cateringDelivery.loading');
     try {
       const loaded = await adapter.listJobs({ orderId: view.order.orderId, afterJobId });
@@ -51,11 +52,20 @@ export function createCateringDeliveryPanel({ root, adapter, view, isCurrent, on
     } catch (error) {
       if (authorityFailureCode(error)) { onAuthorityFailure(error); return; }
       if (isCurrent()) status.textContent = t('cateringDelivery.error');
-    } finally { loading = false; if (isCurrent()) controls(); }
+    } finally {
+      loading = false;
+      if (isCurrent()) {
+        controls();
+        if (restoreFocus && [document.body,trigger].includes(document.activeElement)) {
+          const target = trigger.disabled ? reload : trigger;
+          if (!target.disabled) target.focus();
+        }
+      }
+    }
   }
-  reload.addEventListener('click', () => { void load(); });
-  first.addEventListener('click', () => { void load(); });
-  next.addEventListener('click', () => { if (page?.nextAfterJobId) void load(page.nextAfterJobId); });
+  reload.addEventListener('click', () => { void load(null, reload); });
+  first.addEventListener('click', () => { void load(null, first); });
+  next.addEventListener('click', () => { if (page?.nextAfterJobId) void load(page.nextAfterJobId, next); });
   enqueue.addEventListener('click', () => {
     if (loading || parentBusy || !isCurrent() || enqueue.disabled) return;
     onEnqueue();
