@@ -37,6 +37,19 @@ const SUMMARY_STRING_KEYS = new Map([
   ['missing', 'missing'],
   ['onboarding', 'onboarding'],
   ['pending', 'pending'],
+  ['pending_quote', 'pending_quote'],
+  ['pending_manager_review', 'pending_manager_review'],
+  ['released', 'released'],
+  ['queued', 'queued'],
+  ['dispatching', 'dispatching'],
+  ['reconciliation_required', 'reconciliation_required'],
+  ['transmitted', 'transmitted'],
+  ['confirmed', 'confirmed'],
+  ['partially_confirmed', 'partially_confirmed'],
+  ['rejected', 'rejected'],
+  ['cancelled', 'cancelled'],
+  ['failed', 'failed'],
+
   ['ready', 'ready'],
   ['Rejected', 'rejected'],
   ['revoked', 'revoked'],
@@ -128,12 +141,13 @@ function auditEvent(event) {
       el('dd', { className: 'tenant-operation-identifier', text: event.correlationId }),
     ]),
   ]);
-  if (event.change.before !== null || event.change.after !== null) {
+  if (event.change.before !== null || event.change.after !== null || event.change.summary) {
     const details = el('details', { className: 'tenant-audit-change' }, [
       el('summary', { text: t('tenantAdmin.operations.audit.change') }),
       el('div', { className: 'tenant-audit-state-grid' }, [
         stateSummary('tenantAdmin.operations.audit.before', event.change.before),
         stateSummary('tenantAdmin.operations.audit.after', event.change.after),
+        ...(event.change.summary ? [stateSummary('tenantAdmin.operations.audit.summaryTitle', event.change.summary)] : []),
       ]),
     ]);
     item.appendChild(details);
