@@ -12,6 +12,7 @@ import {
   discoverCateringConfiguration,
   discoverCateringCatalogueAssignments,
   discoverCateringOrders,
+  discoverCateringDelivery,
   createTenantBookingPolicySettingsApi,
   createTenantCatalogueSettingsApi,
   createTenantCostAllocationSettingsApi,
@@ -88,11 +89,13 @@ export async function bootstrapCustomerApplication({
   let cateringConfiguration = null;
   let cateringAssignments = null;
   let cateringOrders = null;
+  let cateringDelivery = null;
   try {
     await tenantPresentation.refresh();
     cateringConfiguration = await discoverCateringConfiguration({ context, authentication, timeoutMs: optionalTimeout });
     cateringAssignments = await discoverCateringCatalogueAssignments({ context, authentication, timeoutMs: optionalTimeout });
     cateringOrders = await discoverCateringOrders({ context, authentication, timeoutMs: optionalTimeout });
+    cateringDelivery = await discoverCateringDelivery({ context, authentication, orders: cateringOrders, timeoutMs: optionalTimeout });
   } catch (error) {
     if (!context.invalidateAuthority(error)) throw error;
     serverPersistence = null;
@@ -130,6 +133,7 @@ export async function bootstrapCustomerApplication({
       catalogue: catalogueSettings,
       cateringAssignments,
       cateringOrders,
+      cateringDelivery,
       demoWorklistEnabled: context.isDemoRuntime()
         && context.tenantId() === '20000000-0000-4000-8000-000000000002',
       onAuthorityFailure,

@@ -47,7 +47,7 @@ function view(value, orderId) {
   if ((state.status === 'pending_quote' && quote !== null)
     || (state.status === 'pending_manager_review' && (quote === null || decision !== null))
     || (state.status === 'released' && decision?.decision !== 'approved')
-    || (state.status === 'rejected' && decision?.decision !== 'rejected')) invalid();
+    || (state.status === 'rejected' && !decision)) invalid();
   return immutable({ schemaVersion: 1, order, providerId: value.providerId,
     configurationRevision: revision(value.configurationRevision), operation: value.operation, state, quote, decision });
 }

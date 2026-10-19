@@ -13,6 +13,7 @@ export function createManagerWorkspaceApplication({
   catalogue,
   cateringAssignments = null,
   cateringOrders = null,
+  cateringDelivery = null,
   demoWorklistEnabled = false,
   onAuthorityFailure = null,
 } = {}) {
@@ -44,6 +45,7 @@ export function createManagerWorkspaceApplication({
     onOpenCateringOrders: cateringOrders?.featureFlags?.isEnabled('catering.orders') === true
       ? (panel, requests, isCurrent, invalidateAuthorityProjection) => renderCateringOrders({
         root: panel, requests, adapter: cateringOrders, assignments: cateringAssignments, isCurrent,
+        delivery: cateringDelivery?.featureFlags?.isEnabled('catering.delivery') === true ? cateringDelivery : null,
         onAuthorityFailure: invalidateAuthorityProjection,
       }) : null,
     onOpenBusinessSettings: (panel, invalidateAuthorityProjection, { focusHeading = false } = {}) => {
