@@ -66,3 +66,55 @@ ZIP files. No browser pin, assertion or gate was changed. Required Chromium and
 complete regression/three-customer/reset CI remain open until exact-head checks
 finish; local WebKit evidence does not replace them. No formal WCAG, penetration
 test, deployed-runtime or owner-authenticator compliance is claimed.
+
+## Operation proof and own-key follow-up candidate
+
+A separate follow-up composes the production-only operation client only when the
+API explicitly reports `application_passkey`. Legacy CA keeps its existing entry;
+unknown/unavailable configuration remains closed. Shared presentation may offer an
+existing permission for a request that obtains its own proof, without changing the
+operator's MFA level, roles or permissions. Missing roles and unavailable Tenant
+actions remain hidden; Demo cannot enable this production transport.
+
+The existing API client still owns URL/method/body/idempotency validation and bounded
+normal responses. The decorator handles only an explicit428 challenge, validates a
+closed JSON response of at most16384 bytes and invokes the native assertion adapter.
+It resends the exact original request once with `X-Platform-Passkey-Proof`. Network,
+timeout, conflict, throttling and provider errors never retry a mutation. Proof-
+capable requests are serialized before any challenge cookie can change, with a
+maximum five queued requests; ordinary reads remain parallel. CSRF is refreshed at
+actual dispatch, including sensitive GET proofs, and the normal session is reloaded
+after successful execution. Failed post-commit session refresh reloads the workspace
+rather than encouraging another mutation. No elevated cookie enters browser code.
+
+The personal Passkeys dialog lists only positively validated own-key metadata.
+Unknown fields (including public-key persistence data), duplicate/overlong IDs and
+invalid dates fail before rendering. A failed initial list cannot enable key changes.
+Adding requires an existing-key operation proof, then separate native registration
+and possession, reusing the same pending-flow controller without exposing a grant.
+Revocation binds the selected credential, requires an existing-key assertion and
+ends in fresh sign-in. Removing one of two keys requires replacement before future
+business login. The server retains capacity, ownership, last-key, recovery and
+operator-version authority. A Customer Tenant Operator receives no Platform rights.
+
+All new controls reuse native buttons, modal/form/focus components, centralized DE/EN
+copy and existing tokens; no new CSS or dependency is needed. Closing/navigation
+aborts outstanding prompts and clears component memory. Local WebKit fixtures cover
+concrete lifecycle proof/cancellation, normal-session refresh, own-key addition,
+distinct possession, exact revocation target, private-field rejection and320/1280px
+modal/document overflow. Their injected credentials/API are browser interaction
+fixtures, not owner-device enrollment or independent cryptographic acceptance.
+
+The initial new lifecycle UI fixture used the wrong exact label for the existing
+required Operational reason field and timed out before dispatch. It was corrected
+to the actual accessible label; all four operation/key-management WebKit cases then
+passed. No product assertion, timeout, browser pin or required gate was weakened.
+Complete final checks and exact-head CI remain separate evidence for this follow-up.
+The earlier current-candidate limits above describe the accepted login/setup base;
+these additions remain unmerged and do not activate INT or complete SaaS1 acceptance.
+
+Final local follow-up validation on2026-10-19: `npm run check` passed764 tests;
+`npm run audit` reported zero vulnerabilities. The final four WebKit operation/
+management fixtures passed, including320/1280px document and dialog overflow.
+Chromium and shared-Demo CI for this new follow-up remain required; the successful
+Chromium checks for merged357 do not substitute for this different source tree.

@@ -1,5 +1,6 @@
 import { createApiClient } from '../../core/api-client.js';
 import { createPlatformPasskeyBrowser } from './passkey-browser.js';
+import { requirePlatformPasskeyConfiguration } from './passkey-contracts.js';
 
 const PHASES = new Set(['enrollment_required','registration_required','possession_required','passkey_required']);
 const STATE = /^[A-Za-z0-9_-]{43}$/;
@@ -80,11 +81,9 @@ export function createPlatformPasskeyLogin({ browser,
           if (failure?.code !== 'HTTP_404') throw failure;
           configuration = null; phase = 'legacy'; return;
         }
-        exact(value, ['mode','environment','minimumPasskeys','requestId']);
-        if (!['passkey_setup','application_passkey'].includes(value.mode) || !['dev','int','prod'].includes(value.environment)
-          || value.minimumPasskeys !== 2 || !ID.test(value.requestId || '')) reject();
+        const config = requirePlatformPasskeyConfiguration(value);
         if (stopped) reject();
-        configuration = value;
+        configuration = config;
         try {
           setPending(await client().request('enrollment/pending', { signal }), ['registration_required','possession_required']);
         } catch (failure) {
