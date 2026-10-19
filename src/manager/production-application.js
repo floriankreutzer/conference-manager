@@ -83,11 +83,15 @@ export function createProductionManagerApplication({
   persistence,
   requestMutations = new Map(),
   onOpenBusinessSettings = null,
+  onOpenCateringOrders = null,
   onAuthorityFailure = null,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_MANAGER_UI_REQUIRED');
   if (!(requestMutations instanceof Map)) {
     throw new TypeError('PRODUCTION_MANAGER_MUTATION_STATE_REQUIRED');
+  }
+  if (onOpenCateringOrders !== null && typeof onOpenCateringOrders !== 'function') {
+    throw new TypeError('PRODUCTION_MANAGER_CATERING_NAVIGATION_REQUIRED');
   }
   if (onOpenBusinessSettings !== null && typeof onOpenBusinessSettings !== 'function') {
     throw new TypeError('PRODUCTION_MANAGER_SETTINGS_NAVIGATION_REQUIRED');
@@ -435,6 +439,7 @@ export function createProductionManagerApplication({
           ['REPORTS', 'manager.reports'],
           ['ADMIN', 'manager.admin'],
         ];
+        if (onOpenCateringOrders !== null) tabDefinitions.push(['CATERING', 'cateringOrders.title']);
         tabDefinitions.forEach(([tabId, label], tabIndex) => {
           const tab = button(t(label), {
             id: `managerTab-${tabId}`,
@@ -495,6 +500,11 @@ export function createProductionManagerApplication({
           activeTab = 'BOOKINGS'; managerSearch = ''; managerStatus = 'ALL'; managerSite = 'ALL'; managerQuick = 'ALL';
           void refresh(id);
         };
+        if (activeTab === 'CATERING' && onOpenCateringOrders !== null) {
+          await onOpenCateringOrders(panel, requests, () => isCurrent(generation) && activeTab === 'CATERING',
+            invalidateAuthorityProjection);
+          return;
+        }
         if (activeTab === 'ROOM_PLAN') {
           panel.append(el('h2', { text: t('manager.roomPlan') }), el('p', { className: 'muted', text: t('manager.roomPlanDesc') }));
           renderManagerRoomPlan({ panel, catalog, requests, state: roomPlanState, openRequest });

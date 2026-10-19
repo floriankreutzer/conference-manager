@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "order": {
+    "schemaVersion": 1,
+    "integrationId": "e0000000-0000-4000-8000-000000000003",
+    "orderId": "e0000000-0000-4000-8000-000000000101",
+    "orderVersion": 1,
+    "requestId": "request-a",
+    "requestVersion": 2,
+    "assignmentRevision": 3,
+    "catalogueRevision": 4,
+    "sourceCapturedAt": "2026-10-19T08:00:00.000Z",
+    "startsAt": "2026-10-20T10:00:00.000Z",
+    "endsAt": "2026-10-20T11:00:00.000Z",
+    "room": {
+      "id": "room-a",
+      "siteId": "site-a",
+      "name": "Synthetic Room"
+    },
+    "title": "Synthetic conference",
+    "participantCount": 3,
+    "dietaryRequirements": "Synthetic dietary note",
+    "specialRequirements": "Synthetic delivery note",
+    "positions": [
+      {
+        "kind": "package",
+        "entryId": "package-a",
+        "name": "package-a",
+        "description": null,
+        "quantity": 3,
+        "unitPrice": {
+          "amountMinor": 300,
+          "currency": "EUR"
+        },
+        "conferenceLineTotalMinor": 900,
+        "packageDetails": {
+          "variant": {
+            "id": "variant-a",
+            "name": "variant-a",
+            "description": null,
+            "price": {
+              "amountMinor": 300,
+              "currency": "EUR"
+            }
+          },
+          "includedItems": [
+            {
+              "id": "included-0",
+              "name": "included-0",
+              "description": null,
+              "price": {
+                "amountMinor": 100,
+                "currency": "EUR"
+              }
+            },
+            {
+              "id": "included-1",
+              "name": "included-1",
+              "description": null,
+              "price": {
+                "amountMinor": 100,
+                "currency": "EUR"
+              }
+            }
+          ],
+          "includedSelections": [
+            {
+              "itemId": "included-0",
+              "quantity": 2
+            }
+          ]
+        },
+        "positionId": "e0000000-0000-4000-8000-000000000100"
+      }
+    ],
+    "conferencePrice": {
+      "amountMinor": 900,
+      "currency": "EUR"
+    },
+    "providerCost": null
+  },
+  "providerId": "manual_catering",
+  "configurationRevision": 1,
+  "operation": "initial",
+  "state": {
+    "revision": 1,
+    "status": "pending_quote",
+    "updatedAt": "2026-10-19T09:00:00.000Z"
+  },
+  "quote": null,
+  "decision": null
+}
