@@ -20,6 +20,8 @@ import {
 
 const PAGE_SIZE = 20;
 const SUMMARY_STRING_KEYS = new Map([
+  ['issued', 'issued'],
+  ['reissued', 'reissued'],
   ['started', 'started'],
   ['abandoned', 'abandoned'],
   ['active', 'active'],

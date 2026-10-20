@@ -186,6 +186,13 @@ async function responseError(response) {
   return new ApiSecurityError(`HTTP_${response.status}`, { serverCode, currentRevision });
 }
 
+// Shared bounded JSON/error decoding for deliberate fixed-endpoint transports.
+// This grants no request, destination, CSRF exemption or retry authority.
+export async function readApiJsonResponse(response) {
+  if (!response.ok) throw await responseError(response);
+  return parseJsonResponse(response);
+}
+
 export function createApiClient({
   baseUrl = '/api/',
   origin = globalThis.location?.origin,

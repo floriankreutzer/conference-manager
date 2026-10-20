@@ -2,6 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { customerDemoBoundaryViolations } from '../scripts/customer-demo-boundary-policy.mjs';
 
+test('Customer Demo rejects invited identity transport and presentation through direct and shared imports', () => {
+  for (const name of ['client','controller','view','bootstrap']) {
+    const target=`src/platform/customer-authentication/${name}.js`;
+    for (const bridge of [false,true]) {
+      const source={
+        'src/platform/demo-bootstrap.js': bridge ? "import './shared-sign-in.js';" : `import './customer-authentication/${name}.js';`,
+        [target]: 'export const identity = true;',
+        ...(bridge ? { 'src/platform/shared-sign-in.js': `import './customer-authentication/${name}.js';` } : {}),
+      };
+      assert.ok(customerDemoBoundaryViolations(source).some(item => item.includes('must not reach invited Customer authentication')));
+    }
+  }
+});
+
 test('Customer Production and Demo roots share only server-authoritative composition', () => {
   const violations = customerDemoBoundaryViolations({
     'src/app.js': "import './employee/index.js';",

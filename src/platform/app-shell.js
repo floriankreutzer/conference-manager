@@ -239,6 +239,11 @@ export function createAppShell({
       return;
     }
 
+    if (typeof authentication?.createSignInView === 'function') {
+      setPageHeading(t('customerAuth.pageTitle'), t('customerAuth.pageText'));
+      const signInView = authentication.createSignInView();
+      appRoot.appendChild(signInView.element); signInView.update(); return;
+    }
     setPageHeading(t('auth.production.signInTitle'), t('auth.production.signInText'));
     const signIn = button(t('auth.production.signInAction'), { className: 'primary' });
     signIn.addEventListener('click', () => authentication?.signIn());
