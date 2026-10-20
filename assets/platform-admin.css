@@ -667,3 +667,47 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+.platform-admin-invitations,
+.platform-admin-invitation-form,
+.platform-admin-invitation-people,
+.platform-admin-invitation-results,
+.platform-admin-invitation-person {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--space-3);
+}
+
+.platform-admin-invitation-form > fieldset,
+.platform-admin-invitation-person {
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+}
+
+.platform-admin-invitation-person legend,
+.platform-admin-invitation-record h4,
+.platform-admin-invitations p {
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-invitations .field,
+.platform-admin-invitations input:not([type="checkbox"]),
+.platform-admin-invitations select,
+.platform-admin-invitations textarea {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.platform-admin-invitations .button-row {
+  flex-wrap: wrap;
+}
+
+.platform-admin-invitations button {
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

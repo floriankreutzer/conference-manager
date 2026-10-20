@@ -21,6 +21,7 @@
     "src/core/i18n-manager-settings-messages.js",
     "src/core/i18n-onboarding-messages.js",
     "src/core/i18n-platform-admin-messages.js",
+    "src/core/i18n-platform-invitation-messages.js",
     "src/core/i18n-production-application-messages.js",
     "src/core/i18n-tenant-admin-operations-messages.js",
     "src/core/i18n-tenant-admin-settings-messages.js",

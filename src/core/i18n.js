@@ -6,6 +6,7 @@ import { INACTIVITY_LOCK_MESSAGES } from './i18n-inactivity-lock-messages.js';
 import { MANAGER_SETTINGS_MESSAGES } from './i18n-manager-settings-messages.js';
 import { ONBOARDING_MESSAGES } from './i18n-onboarding-messages.js';
 import { PLATFORM_ADMIN_MESSAGES } from './i18n-platform-admin-messages.js';
+import { PLATFORM_INVITATION_MESSAGES } from './i18n-platform-invitation-messages.js';
 import { PRODUCTION_APPLICATION_MESSAGES } from './i18n-production-application-messages.js';
 import { TENANT_ADMIN_OPERATIONS_MESSAGES } from './i18n-tenant-admin-operations-messages.js';
 import { TENANT_ADMIN_SETTINGS_MESSAGES } from './i18n-tenant-admin-settings-messages.js';
@@ -16,6 +17,8 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const platformInvitations=PLATFORM_INVITATION_MESSAGES[targetLanguage] ?? PLATFORM_INVITATION_MESSAGES.de;
+  if (platformInvitations?.[key]!==undefined) return platformInvitations[key];
   const invitationMessages=CUSTOMER_INVITATION_MESSAGES[targetLanguage] ?? CUSTOMER_INVITATION_MESSAGES.de;
   if (invitationMessages?.[key]!==undefined) return invitationMessages[key];
   const customerAuthMessages = CUSTOMER_AUTHENTICATION_MESSAGES[targetLanguage] ?? CUSTOMER_AUTHENTICATION_MESSAGES.de;

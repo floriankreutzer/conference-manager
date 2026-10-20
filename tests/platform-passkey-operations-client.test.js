@@ -137,3 +137,19 @@ test('read requests remain parallel, queued proof requests stay bounded and over
   const oversized = fixture({ authenticate: async () => ({ signature: 'x'.repeat(9001) }) });
   await assert.rejects(oversized.client.request('tenants', { method: 'POST', body: {} })); assert.equal(oversized.requests.length, 1);
 });
+
+test('individual invitation listing queues its exact query with fresh mutations in both navigation orders',async()=>{
+  for (const readFirst of [true,false]) {
+    let release,prompts=0;
+    const f=fixture({ authenticate() {
+      prompts++;return prompts===1 ? new Promise(resolve=>{ release=()=>resolve({ id: state }); }) : Promise.resolve({ id: state });
+    } });
+    const read=()=>f.client.request(`tenants/${ID}/invitations?limit=100&afterId=${ID}`);
+    const write=()=>f.client.request(`tenants/${ID}/invitations`,{ method: 'POST',body: { invitations: [] },idempotencyKey: ID });
+    const first=readFirst ? read() : write(),second=readFirst ? write() : read();
+    await new Promise(resolve=>setImmediate(resolve));assert.equal(f.requests.length,1);assert.equal(prompts,1);release();
+    await Promise.all([first,second]);assert.equal(f.requests.length,4);assert.equal(f.refreshes(),2);
+    assert.equal(f.requests[0].url,f.requests[1].url);assert.equal(f.requests[2].url,f.requests[3].url);
+    assert.equal(f.requests[2].init.headers['X-CSRF-Token'],'N'.repeat(43));
+  }
+});
