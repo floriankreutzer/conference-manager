@@ -85,6 +85,9 @@ export function customerDemoBoundaryViolations(sourceEntries) {
   }
 
   for (const file of demoReachable) {
+    if (isInside(file, 'src/platform/customer-invitations')) {
+      violations.push(violation(DEMO_ENTRY, `Customer Demo must not reach real Customer invitation transport ${file}.`));
+    }
     if (isInside(file, 'src/platform/customer-authentication')) {
       violations.push(violation(DEMO_ENTRY, `Customer Demo must not reach invited Customer authentication ${file}.`));
     }

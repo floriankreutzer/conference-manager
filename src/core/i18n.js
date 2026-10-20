@@ -1,6 +1,7 @@
 import * as base from './i18n-base.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
 import { CUSTOMER_AUTHENTICATION_MESSAGES } from './i18n-customer-authentication-messages.js';
+import { CUSTOMER_INVITATION_MESSAGES } from './i18n-customer-invitation-messages.js';
 import { INACTIVITY_LOCK_MESSAGES } from './i18n-inactivity-lock-messages.js';
 import { MANAGER_SETTINGS_MESSAGES } from './i18n-manager-settings-messages.js';
 import { ONBOARDING_MESSAGES } from './i18n-onboarding-messages.js';
@@ -15,6 +16,8 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const invitationMessages=CUSTOMER_INVITATION_MESSAGES[targetLanguage] ?? CUSTOMER_INVITATION_MESSAGES.de;
+  if (invitationMessages?.[key]!==undefined) return invitationMessages[key];
   const customerAuthMessages = CUSTOMER_AUTHENTICATION_MESSAGES[targetLanguage] ?? CUSTOMER_AUTHENTICATION_MESSAGES.de;
   if (customerAuthMessages?.[key] !== undefined) return customerAuthMessages[key];
   const platformAdminMessages = PLATFORM_ADMIN_MESSAGES[targetLanguage] ?? PLATFORM_ADMIN_MESSAGES.de;
