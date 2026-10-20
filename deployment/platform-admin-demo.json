@@ -58,6 +58,7 @@
     "src/platform-admin/live-metrics.js",
     "src/platform-admin/insight-tabs.js",
     "src/platform-admin/insight-source.js",
-    "src/platform-admin/product-delivery-trend.js"
+    "src/platform-admin/product-delivery-trend.js",
+    "src/core/i18n-platform-synthetic-messages.js"
   ]
 }

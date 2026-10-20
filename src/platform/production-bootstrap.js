@@ -6,12 +6,13 @@ import { createCustomerInvitationClient } from './customer-invitations/client.js
 import { featureFlags } from './feature-flags.js';
 
 async function bootstrapProductionCustomerApplication() {
+  const presentationFlags=featureFlags.forProtectedDocument(globalThis.document);
   const application = await bootstrapCustomerApplication({
     runtimeMode: RUNTIME_MODE.PRODUCTION,
     authenticationBootstrap: options=>bootstrapInvitedCustomerAuthentication({ ...options,
-      microsoftAuthenticationEnabled: featureFlags.isEnabled('customer.microsoft-authentication'),
-      syntheticHandoffEnabled: featureFlags.isEnabled('customer.synthetic-handoff') }),
-    invitationAdministrationFactory: featureFlags.isEnabled('customer.invitations') ? createCustomerInvitationClient : null,
+      microsoftAuthenticationEnabled: presentationFlags.isEnabled('customer.microsoft-authentication'),
+      syntheticHandoffEnabled: presentationFlags.isEnabled('customer.synthetic-handoff') }),
+    invitationAdministrationFactory: presentationFlags.isEnabled('customer.invitations') ? createCustomerInvitationClient : null,
   });
   installCustomerInactivityLock({
     context: application.context,

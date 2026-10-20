@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp } from 'node:fs/promises';
+import { handlePlatformSyntheticNavigationFixture,platformSyntheticLandingFixture }
+  from '../tests/e2e/fixtures/platform-synthetic-navigation-server.mjs';
 import { handleAuthenticationNavigationFixture } from '../tests/e2e/fixtures/authentication-navigation-server.mjs';
 
 const HOST = '127.0.0.1';
@@ -48,6 +50,7 @@ const server = createServer({
   key: await readFile(PRIVATE_KEY_PATH),
 }, async (request, response) => {
   if (await handleAuthenticationNavigationFixture(request,response)) return;
+  if (await handlePlatformSyntheticNavigationFixture(request,response)) return;
   if (!['GET', 'HEAD'].includes(request.method || '')) {
     response.writeHead(405, { Allow: 'GET, HEAD' });
     response.end();
@@ -72,7 +75,13 @@ const server = createServer({
   }
 });
 
+const secondary=createServer({ cert: await readFile(CERTIFICATE_PATH),key: await readFile(PRIVATE_KEY_PATH) },
+  platformSyntheticLandingFixture);
+secondary.requestTimeout=5000;secondary.headersTimeout=5000;secondary.keepAliveTimeout=1000;secondary.maxHeadersCount=100;
+secondary.listen(4174,'127.0.0.1');
+
 async function stop() {
+  secondary.closeAllConnections();await new Promise(resolve=>secondary.close(resolve));
   server.close(async () => {
     await rm(CERTIFICATE_DIRECTORY, { recursive: true, force: true });
     process.exit(0);

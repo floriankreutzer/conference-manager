@@ -97,7 +97,7 @@
 
 .platform-admin-filter-form {
   display: grid;
-  grid-template-columns: minmax(14rem, 2fr) repeat(2, minmax(10rem, 1fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: var(--space-3);
   align-items: end;
 }
@@ -708,6 +708,66 @@
 
 .platform-admin-invitations button {
   max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+
+.platform-admin-synthetic-dialog h2,
+.platform-admin-synthetic-workspace {
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-synthetic-workspace,
+.platform-admin-synthetic-workspace form,
+.platform-admin-synthetic-workspace .field {
+  min-inline-size: 0;
+}
+
+.platform-admin-synthetic-workspace button,
+.platform-admin-synthetic-dialog .modal-actions button {
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-synthetic-workspace select {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.platform-admin-synthetic-workspace .button-row {
+  flex-wrap: wrap;
+}
+
+.platform-admin-shell .nav-list > li,
+.platform-admin-shell .brand > div,
+.platform-admin-filter-form .field {
+  min-inline-size: 0;
+}
+
+.platform-admin-shell {
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-filter-form input,
+.platform-admin-filter-form select {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+@media (max-width: 760px) {
+  .platform-admin-filter-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.platform-admin-filter-form button {
+  max-inline-size: 100%;
+  min-inline-size: 0;
   white-space: normal;
   overflow-wrap: anywhere;
 }
