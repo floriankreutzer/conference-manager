@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp } from 'node:fs/promises';
+import { handleAuthenticationNavigationFixture } from '../tests/e2e/fixtures/authentication-navigation-server.mjs';
 
 const HOST = '127.0.0.1';
 const PORT = 4173;
@@ -46,6 +47,7 @@ const server = createServer({
   cert: await readFile(CERTIFICATE_PATH),
   key: await readFile(PRIVATE_KEY_PATH),
 }, async (request, response) => {
+  if (await handleAuthenticationNavigationFixture(request,response)) return;
   if (!['GET', 'HEAD'].includes(request.method || '')) {
     response.writeHead(405, { Allow: 'GET, HEAD' });
     response.end();

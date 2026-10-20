@@ -9,7 +9,8 @@ async function bootstrapProductionCustomerApplication() {
   const application = await bootstrapCustomerApplication({
     runtimeMode: RUNTIME_MODE.PRODUCTION,
     authenticationBootstrap: options=>bootstrapInvitedCustomerAuthentication({ ...options,
-      microsoftAuthenticationEnabled: featureFlags.isEnabled('customer.microsoft-authentication') }),
+      microsoftAuthenticationEnabled: featureFlags.isEnabled('customer.microsoft-authentication'),
+      syntheticHandoffEnabled: featureFlags.isEnabled('customer.synthetic-handoff') }),
     invitationAdministrationFactory: featureFlags.isEnabled('customer.invitations') ? createCustomerInvitationClient : null,
   });
   installCustomerInactivityLock({
