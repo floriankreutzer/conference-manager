@@ -95,6 +95,27 @@ test('sensitive GET proof includes CSRF and refresh failure never repeats the co
   assert.equal(stopped.requests.length, 0);
 });
 
+test('recovery-target GET proofs share the mutation queue in both navigation orders', async () => {
+  for (const readFirst of [true,false]) {
+    let release,prompts=0;
+    const f=fixture({ authenticate() {
+      prompts++;
+      return prompts===1 ? new Promise(resolve => { release=() => resolve({ id: state }); }) : Promise.resolve({ id: state });
+    } });
+    const read=() => f.client.request(`tenants/${ID}/recovery/user-session-revocation/targets?limit=50`);
+    const write=() => f.client.request('tenants',{ method: 'POST',body: { displayName: 'Synthetic' },idempotencyKey: ID });
+    const first=readFirst ? read() : write(),second=readFirst ? write() : read();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.requests.length,1,'neither initial request may replace the in-flight operation cookie');
+    assert.equal(prompts,1); release();
+    await Promise.all([first,second]); assert.equal(f.requests.length,4); assert.equal(f.refreshes(),2);
+    assert.equal(f.requests[2].init.headers['X-CSRF-Token'],'N'.repeat(43));
+    assert.equal(f.requests[0].url,f.requests[1].url); assert.equal(f.requests[2].url,f.requests[3].url);
+    assert.equal(f.requests[0].init.body,f.requests[1].init.body);
+    assert.equal(f.requests[2].init.body,f.requests[3].init.body);
+  }
+});
+
 test('configuration loader preserves only an explicit missing endpoint as legacy and rejects unknown modes', async () => {
   const client = { async request() { return { mode: 'application_passkey', environment: 'int', minimumPasskeys: 2, requestId: ID }; } };
   assert.equal((await loadPlatformPasskeyConfiguration(client)).mode, 'application_passkey');
