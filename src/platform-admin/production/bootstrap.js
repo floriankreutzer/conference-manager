@@ -7,6 +7,10 @@ import {
 } from './operator-session.js';
 import { createPlatformPasskeyLogin } from './passkey-login.js';
 import { createPlatformPasskeyLoginView } from './passkey-login-view.js';
+import { createPlatformPasskeyManagement } from './passkey-management.js';
+import { createPlatformPasskeyOperationsClient, loadPlatformPasskeyConfiguration } from './passkey-operations-client.js';
+import { announce } from '../../core/ui.js';
+import { t } from '../../core/i18n.js';
 import { createPlatformAdminApi } from '../platform-api.js';
 
 async function bootstrapProductionPlatformAdmin() {
@@ -34,13 +38,28 @@ async function bootstrapProductionPlatformAdmin() {
       return;
     }
     csrfToken = session.csrfToken;
+    const configuration = await loadPlatformPasskeyConfiguration(apiClient);
+    if (configuration?.mode === 'passkey_setup') throw new TypeError('PLATFORM_SETUP_SESSION_REJECTED');
+    async function refreshSession() {
+      const refreshed = await sessionApi.loadSession();
+      if (!refreshed) return false;
+      csrfToken = refreshed.csrfToken; return true;
+    }
+    const protectedClient = configuration?.mode === 'application_passkey' ? createPlatformPasskeyOperationsClient({
+      csrfTokenProvider: () => csrfToken, onPrompt: () => announce(t('platformAdmin.passkey.busy')), refreshSession,
+    }) : null;
+    const keyManagement = protectedClient ? createPlatformPasskeyManagement({ apiClient, refreshSession }) : null;
+    if (keyManagement) globalThis.addEventListener('pagehide', () => keyManagement.stop(), { once: true });
+    if (protectedClient) globalThis.addEventListener('pagehide', () => protectedClient.stop(), { once: true });
     const application = createPlatformAdminApplication({
       runtime: 'production',
       sessionState: 'authenticated',
       operator: session.operator,
-      dataSource: createPlatformAdminApi({ apiClient }),
+      dataSource: createPlatformAdminApi({ apiClient: protectedClient ?? apiClient }),
+      operationProofAvailable: protectedClient !== null,
+      renderSecurityControls: keyManagement ? () => keyManagement.renderControl() : null,
       onSignOut: () => sessionApi.signOut(),
-      onStepUp: () => globalThis.location.assign(PLATFORM_ADMIN_STEP_UP_PATH),
+      onStepUp: protectedClient ? null : () => globalThis.location.assign(PLATFORM_ADMIN_STEP_UP_PATH),
     });
     await application.start();
   } catch {

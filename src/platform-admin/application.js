@@ -94,6 +94,8 @@ export function createPlatformAdminApplication({
   sessionState = 'authenticated',
   signInPath = null,
   renderSessionGate = null,
+  renderSecurityControls = null,
+  operationProofAvailable = false,
   onSignOut = null,
   onStepUp = null,
   demoControls = null,
@@ -102,6 +104,12 @@ export function createPlatformAdminApplication({
   documentRef = globalThis.document,
   windowRef = globalThis.window,
 } = {}) {
+  if (typeof operationProofAvailable !== 'boolean' || (operationProofAvailable && runtime !== 'production')) {
+    throw new TypeError('PLATFORM_ADMIN_OPERATION_PROOF_INVALID');
+  }
+  if (renderSecurityControls !== null && (runtime !== 'production' || typeof renderSecurityControls !== 'function')) {
+    throw new TypeError('PLATFORM_ADMIN_SECURITY_CONTROLS_INVALID');
+  }
   if (renderSessionGate !== null && (runtime !== 'production' || typeof renderSessionGate !== 'function')) {
     throw new TypeError('PLATFORM_ADMIN_SESSION_GATE_INVALID');
   }
@@ -427,6 +435,10 @@ export function createPlatformAdminApplication({
       ]), reset);
     }
 
+    if (runtime === 'production' && currentOperator && renderSecurityControls) {
+      nodes.sidebarFooter.append(renderSecurityControls());
+    }
+
     if (runtime === 'production' && typeof onSignOut === 'function' && currentOperator) {
       const signOut = button(t('platformAdmin.session.signOut'), { className: 'platform-admin-reset' });
       signOut.addEventListener('click', async () => {
@@ -511,7 +523,7 @@ export function createPlatformAdminApplication({
         const permission = definition.includes('session-revocation')
           ? 'platform:session:revoke'
           : 'platform:recovery:execute';
-        if (shouldPresentPlatformPermission(currentOperator, permission)) {
+        if (shouldPresentPlatformPermission(currentOperator, permission, Date.now(), operationProofAvailable)) {
           targets[definition] = await dataSource.loadRecoveryTargets({
             tenantId: tenant.id,
             recoveryId: definition,
@@ -873,9 +885,10 @@ export function createPlatformAdminApplication({
     }, [
       el('h2', { id: 'platformAdminCreateTenantTitle', text: t('platformAdmin.create.title') }),
       el('p', { text: t('platformAdmin.create.description') }),
+      ...(operationProofAvailable ? [el('p', { text: t('platformAdmin.passkey.operationNote') })] : []),
     ]);
     const controls = el('div', { className: 'button-row' });
-    if (shouldPresentPlatformPermission(currentOperator, permission)) {
+    if (shouldPresentPlatformPermission(currentOperator, permission, Date.now(), operationProofAvailable)) {
       const create = button(t('platformAdmin.create.start'), {
         className: 'primary',
         dataset: { platformAdminCreateTenant: 'true' },
@@ -995,6 +1008,7 @@ export function createPlatformAdminApplication({
         }),
       }),
       el('p', { text: t(`platformAdmin.action.effect.${action}`) }),
+      ...(operationProofAvailable ? [el('p', { text: t('platformAdmin.passkey.operationNote') })] : []),
       el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.action.recoveryNote') }),
       field({
         id: 'platformAdminActionReason',
@@ -1088,6 +1102,7 @@ export function createPlatformAdminApplication({
       title: t(titleKey),
       description: t(effectKey),
       content: el('div', {}, [
+        ...(operationProofAvailable ? [el('p', { text: t('platformAdmin.passkey.operationNote') })] : []),
         el('p', { text: t('platformAdmin.action.target', { tenant: tenant.displayName, reference: tenant.reference || tenant.id }) }),
         field({ id: 'platformAdminResourceReason', label: t('platformAdmin.action.reason'), control: reason, required: true }),
         field({
@@ -1247,6 +1262,7 @@ export function createPlatformAdminApplication({
     }
     section.append(renderPlatformAdminTenantSection({
       sectionId: definition.id,
+      operationProofAvailable,
       tenant,
       operator: currentOperator,
       resource,

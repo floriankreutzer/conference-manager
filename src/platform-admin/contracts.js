@@ -714,9 +714,14 @@ export function platformPermissionRequiresStepUp(permission) {
   return STEP_UP_PERMISSIONS.has(permission);
 }
 
-export function shouldPresentPlatformPermission(operator, permission, now = Date.now()) {
+export function shouldPresentPlatformPermission(operator, permission, now = Date.now(), operationProofAvailable = false) {
   if (!operator || !PERMISSION_SET.has(permission) || !operator.permissions.includes(permission)) return false;
   if (!STEP_UP_PERMISSIONS.has(permission)) return true;
+  // Presentation can offer an action whose concrete request will obtain its own
+  // fresh signature. This neither changes the operator nor grants assurance.
+  if (operationProofAvailable === true && Number.isSafeInteger(now)) {
+    return ['mfa', 'step_up'].includes(operator.assurance?.level);
+  }
   return operator.assurance.level === 'step_up'
     && Number.isSafeInteger(now)
     && Date.parse(operator.assurance.stepUpExpiresAt) > now;
@@ -724,19 +729,19 @@ export function shouldPresentPlatformPermission(operator, permission, now = Date
 
 // This is presentation-only. The Platform API must independently authorize permission,
 // assurance, server-owned target scope, object version, and the requested transition.
-export function shouldPresentPlatformAction(operator, tenant, action, now = Date.now()) {
+export function shouldPresentPlatformAction(operator, tenant, action, now = Date.now(), operationProofAvailable = false) {
   if (!operator || !tenant || !ACTION_SET.has(action)) return false;
   const permission = ACTION_PERMISSION[action];
   return tenant.allowedActions.includes(action)
-    && shouldPresentPlatformPermission(operator, permission, now);
+    && shouldPresentPlatformPermission(operator, permission, now, operationProofAvailable);
 }
 
-export function platformActionNeedsStepUp(operator, tenant, action, now = Date.now()) {
+export function platformActionNeedsStepUp(operator, tenant, action, now = Date.now(), operationProofAvailable = false) {
   if (!operator || !tenant || !ACTION_SET.has(action) || !tenant.allowedActions.includes(action)) return false;
   const permission = ACTION_PERMISSION[action];
   return operator.permissions.includes(permission)
     && STEP_UP_PERMISSIONS.has(permission)
-    && !shouldPresentPlatformPermission(operator, permission, now);
+    && !shouldPresentPlatformPermission(operator, permission, now, operationProofAvailable);
 }
 
 export function isPlatformAdminSection(value) {
