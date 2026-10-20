@@ -84,7 +84,9 @@ test('owner-inclusive creation, list and per-person resend/revoke use exact fres
     const confirmation=page.getByRole('dialog');await confirmation.getByRole('textbox',{ name: 'Betriebliche Begründung *',exact: true }).fill('Explicit synthetic reason');
     await confirmation.getByRole('button',{ name: operation,exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(person.getByText(operation==='Widerrufen' ? 'Widerrufen' : 'Annahme steht aus',{ exact: true })).toBeVisible();
+    await expect(page.getByRole('status').getByText('Die Einladungen können bearbeitet werden.',{ exact: true })).toBeVisible();
+    const state=operation==='Widerrufen' ? 'Widerrufen' : 'Annahme steht aus';
+    await expect(person.locator('p').filter({ hasText: new RegExp(`^${state}$`) })).toBeVisible();
   }
   expect(f.writes).toHaveLength(3);expect(f.writes[0].value.invitations).toHaveLength(1);
   expect(f.writes[1].value.expectedRevision).toBe(1);expect(f.writes[2].value.expectedRevision).toBe(2);
