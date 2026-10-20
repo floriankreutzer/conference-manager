@@ -91,6 +91,7 @@ export function createPlatformPasskeyOperationsClient({ origin = globalThis.loca
       const path = new URL(url).pathname;
       const needsProofQueue = init.method !== 'GET' || path.startsWith('/api/v1/platform/audit/exports')
         || path.includes('/diagnostics/correlations/')
+        || /^\/api\/v1\/platform\/tenants\/[0-9a-f-]{36}\/invitations$/i.test(path)
         || /^\/api\/v1\/platform\/tenants\/[0-9a-f-]{36}\/recovery\/[a-z][a-z0-9-]{0,63}\/targets$/i.test(path);
       if (!needsProofQueue) return send(url, init);
       // Serialize proof-capable requests before their initial response can set

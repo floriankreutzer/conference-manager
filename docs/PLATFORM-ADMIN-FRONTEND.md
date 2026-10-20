@@ -104,3 +104,43 @@ Readiness, entitlement, integration-health, diagnostics, Platform-audit, recover
 - `scripts/check-platform-admin-boundaries.mjs`: topology, import, storage, network, CSP, and composition-root gate.
 
 Run `npm run check`, `npm run audit`, and `npm run test:e2e`. The E2E suite verifies the isolated Demo, deterministic reset, role/assurance presentation, Production fail-closed behavior, and the fixed step-up request.
+
+## Prepared individual Customer invitation presentation
+
+The explicit `customerInvitationPresentation` application port selects the new
+real-customer surface. It is rejected in the closed Demo and is not yet injected
+by the Production entrypoint. The centralized optional
+`platform.customer-invitations` registry entry defaults OFF. Protected runtime
+composition must bind that presentation to a validated server capability and the
+new backend invitation services; an unsupported endpoint or malformed response
+never activates a legacy fallback.
+
+`customer-invitation-api.js` owns the exact direct Platform contracts for owner-
+inclusive Tenant creation and individual list/batch/reissue/revoke. It cannot
+call Customer endpoints or select an external origin. The existing authenticated
+API transport and fresh exact-request passkey decorator retain every recipient,
+Customer role, locale, reason, target, revision, query and command key. Individual
+invitation GETs join the same bounded proof queue as writes. The total adapter
+deadline includes the existing120-second native passkey ceremony; synthetic
+browser assertions are protocol fixtures and are not physical-key acceptance.
+
+`customer-invitation-controller.js` retains only the exact in-memory creation or
+batch command after an unknown outcome. Only an explicit retry resubmits its
+unchanged UUID and intent. Unknown reissue/revoke requires a current read before
+another operation; it never blindly repeats the mutation. Current page revisions
+remain authoritative inputs, and the server independently reauthorizes each call.
+
+`customer-invitations-view.js` and `customer-invitations-presentation.js` own native
+forms, separate per-person roles/language, owner inclusion guidance, audited
+mutation confirmations, bounded pagination, status/focus handoff, DE/EN copy,
+localized expiry and responsive layout. Closing or leaving the context clears
+transient recipients and pending commands. Language changes preserve the current
+draft and pending command. The new lifecycle panel suppresses the legacy single-
+claim actions when injected; other lifecycle actions remain shared. A queued or
+provider-accepted message is never described as delivered or as granted access.
+The configured owner is a server-owned contact, never inferred from login claims.
+
+Source and fixture checks do not constitute live sender, recipient, key recovery,
+protected INT cutover or real Microsoft acceptance. Current commit-bound CI and
+browser evidence is tracked in SaaS1 issue351; no milestone acceptance is closed by
+preparing this inactive port.

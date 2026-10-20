@@ -96,6 +96,7 @@ export function createPlatformAdminApplication({
   renderSessionGate = null,
   renderSecurityControls = null,
   operationProofAvailable = false,
+  customerInvitationPresentation = null,
   onSignOut = null,
   onStepUp = null,
   demoControls = null,
@@ -109,6 +110,11 @@ export function createPlatformAdminApplication({
   }
   if (renderSecurityControls !== null && (runtime !== 'production' || typeof renderSecurityControls !== 'function')) {
     throw new TypeError('PLATFORM_ADMIN_SECURITY_CONTROLS_INVALID');
+  }
+  if (customerInvitationPresentation !== null && (runtime !== 'production'
+    || ['beginRender','renderCreateControl','renderTenantPanel','clear']
+      .some(method => typeof customerInvitationPresentation[method] !== 'function'))) {
+    throw new TypeError('PLATFORM_ADMIN_CUSTOMER_INVITATION_PRESENTATION_INVALID');
   }
   if (renderSessionGate !== null && (runtime !== 'production' || typeof renderSessionGate !== 'function')) {
     throw new TypeError('PLATFORM_ADMIN_SESSION_GATE_INVALID');
@@ -877,6 +883,11 @@ export function createPlatformAdminApplication({
   }
 
   function renderCreateTenantControl() {
+    if (customerInvitationPresentation) return customerInvitationPresentation.renderCreateControl({
+      operator: currentOperator,operationProofAvailable,onStepUp,
+      isCurrent: () => !stopped && currentRoute().view === 'fleet',
+      onCreated: async () => { await loadFleet();announce(t('platformInvitations.status.complete')); },
+    });
     const permission = 'platform:invitation:manage';
     if (!currentOperator.permissions.includes(permission)) return null;
     const panel = el('section', {
@@ -1263,7 +1274,8 @@ export function createPlatformAdminApplication({
     section.append(renderPlatformAdminTenantSection({
       sectionId: definition.id,
       operationProofAvailable,
-      tenant,
+      tenant: customerInvitationPresentation ? { ...tenant,
+        allowedActions: tenant.allowedActions.filter(action => !['invitation_revoke','invitation_reissue'].includes(action)) } : tenant,
       operator: currentOperator,
       resource,
       onAction: (action) => confirmAction(tenant, action),
@@ -1279,10 +1291,18 @@ export function createPlatformAdminApplication({
       onRecoveryTargetsMore: (recoveryId, cursor) => loadMoreRecoveryTargets(tenant, recoveryId, cursor),
       onQuotaSet: (quota) => editQuota(tenant, quota),
     }));
+    if (customerInvitationPresentation && definition.id === 'lifecycle') {
+      const panel=customerInvitationPresentation.renderTenantPanel({ tenant,operator: currentOperator,operationProofAvailable,onStepUp,
+        isCurrent: () => !stopped && currentRoute().tenantId === tenant.id && currentRoute().section === 'lifecycle' });
+      if (panel) section.append(panel);
+    }
     return section;
   }
 
   function render() {
+    const invitationRoute=currentRoute();
+    customerInvitationPresentation?.beginRender({ key: sessionState === 'authenticated' && !stopped
+      ? `${invitationRoute.view}:${invitationRoute.tenantId ?? ''}:${invitationRoute.section ?? ''}` : null });
     documentRef.title = t('platformAdmin.documentTitle');
     nodes.skipLink.textContent = t('a11y.skip');
     nodes.brandTitle.textContent = t('platformAdmin.brand.title');
@@ -1390,6 +1410,7 @@ export function createPlatformAdminApplication({
 
   function stop() {
     stopped = true;
+    customerInvitationPresentation?.clear();
     fleetRequestGeneration += 1;
     windowRef.removeEventListener('hashchange', routeChanged);
     windowRef.removeEventListener('popstate', routeChanged);
