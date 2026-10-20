@@ -16,6 +16,29 @@
   margin-block: var(--space-4);
 }
 
+.tenant-invitation-administration,
+.tenant-invitation-administration :is(fieldset, legend, .field, .tenant-role-option) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.tenant-invitation-administration fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tenant-invitation-administration .tenant-role-option {
+  display: flex;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.tenant-invitation-administration .tenant-role-option span {
+  min-inline-size: 0;
+}
+
 .tenant-operations-filter h3,
 .tenant-operation-section-header h2,
 .tenant-operation-card-header h3,

@@ -44,10 +44,14 @@ export async function bootstrapCustomerApplication({
   runtimeMode,
   authenticationBootstrap,
   microsoft365ConnectionFactory = createMicrosoft365ConnectionApi,
+  invitationAdministrationFactory = null,
   optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
   if (typeof microsoft365ConnectionFactory !== 'function') {
     throw new TypeError('MICROSOFT365_CONNECTION_FACTORY_REQUIRED');
+  }
+  if (invitationAdministrationFactory!==null && typeof invitationAdministrationFactory!=='function') {
+    throw new TypeError('CUSTOMER_INVITATION_FACTORY_INVALID');
   }
   const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   renderAppBootstrapLoading();
@@ -142,6 +146,8 @@ export async function bootstrapCustomerApplication({
   const tenantUserAdministration = context.isTenantAdmin() && authentication
     ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
     : null;
+  const invitations = tenantUserAdministration && invitationAdministrationFactory
+    ? invitationAdministrationFactory({ apiClient: authentication.apiClient }) : null;
   const tenantAudit = context.isTenantAdmin() && authentication
     ? createTenantAuditApi({ apiClient: authentication.apiClient })
     : null;
@@ -165,7 +171,7 @@ export async function bootstrapCustomerApplication({
       setPageHeading,
       sectionAdapters: Object.freeze({
         ...effectiveTenantSettingsAdapters,
-        users: tenantUserAdministration,
+        users: invitations ? Object.freeze({ ...tenantUserAdministration,invitations }) : tenantUserAdministration,
         microsoft365: Object.freeze({
           connection: microsoft365Connection,
           onboardingRuntime,

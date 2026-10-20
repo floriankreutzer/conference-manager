@@ -1,5 +1,7 @@
 import { formatDateTime, formatNumber, t } from '../../../core/i18n.js';
 import { announce, button, clear, el, showToast } from '../../../core/ui.js';
+import { createInvitationAdministrationController } from './invitations-controller.js';
+import { createInvitationAdministrationView } from './invitations-view.js';
 import {
   TENANT_ELEVATED_ROLE,
   canSelectRole,
@@ -104,6 +106,8 @@ export function createUsersSection({ context, adapter = null } = {}) {
   let nextAfterId = null;
   let cursorHistory = [];
   let pendingFocus = null;
+  const invitationController=adapter?.invitations ? createInvitationAdministrationController({ client: adapter.invitations }) : null;
+  const invitationDraft=[];let invitationView=null;
 
   function loadingPanel() {
     return el('section', {
@@ -416,6 +420,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
   }
 
   async function render({ root, isCurrent, rerender }) {
+    invitationView?.dispose();invitationView=null;
     clear(root);
     const intro = el('section', { className: 'card tenant-admin-intro' }, [
       el('h2', {
@@ -433,7 +438,13 @@ export function createUsersSection({ context, adapter = null } = {}) {
       dataset: { tenantAdminUsers: 'true' },
       attrs: { 'aria-label': t('tenantAdmin.users.title') },
     }, [loadingPanel()]);
-    root.append(intro, filterForm(rerender), surface);
+    root.append(intro);
+    if (invitationController) {
+      invitationView=createInvitationAdministrationView({ controller: invitationController,draft: invitationDraft,isCurrent });
+      root.append(invitationView.element);
+      if (invitationController.snapshot().status==='idle') void invitationController.load();
+    }
+    root.append(filterForm(rerender),surface);
 
     try {
       const page = await adapter.listUsers({ limit: PAGE_SIZE, afterId, ...filters });

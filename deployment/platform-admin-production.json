@@ -16,6 +16,7 @@
     "src/core/i18n-base.js",
     "src/core/i18n-capability-messages.js",
     "src/core/i18n-customer-authentication-messages.js",
+    "src/core/i18n-customer-invitation-messages.js",
     "src/core/i18n-inactivity-lock-messages.js",
     "src/core/i18n-manager-settings-messages.js",
     "src/core/i18n-onboarding-messages.js",
