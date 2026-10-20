@@ -27,6 +27,7 @@ const ACTIONS = new Set([
   'tenant.identity.claimed',
   'tenant.identity.unbound',
   'tenant.user.provisioned',
+  'tenant.user.identity_linked',
   'tenant.user.profile_updated',
   'integration.connected',
   'integration.disconnected',

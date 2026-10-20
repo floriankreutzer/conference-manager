@@ -6,7 +6,8 @@ import {
   createTenantAuditApi,
 } from '../src/platform/tenant-audit-api.js';
 import { createDemoTenantAudit } from '../src/tenant-admin/demo-tenant-audit.js';
-import { normalizedAuditFilters } from '../src/tenant-admin/sections/audit/model.js';
+import { normalizedAuditFilters,auditActionKey } from '../src/tenant-admin/sections/audit/model.js';
+import { TENANT_ADMIN_OPERATIONS_MESSAGES } from '../src/core/i18n-tenant-admin-operations-messages.js';
 
 const ACTOR_ID = '11111111-1111-4111-8111-111111111111';
 const CORRELATION_ID = '22222222-2222-4222-8222-222222222222';
@@ -38,6 +39,16 @@ function page(overrides = {}) {
     ...overrides,
   };
 }
+
+test('explicit Microsoft identity-link audit is accepted and localized without external identity or security-version disclosure',async()=>{
+  const api=createTenantAuditApi({ apiClient: { async request() { return page({ events: [event({
+    action: 'tenant.user.identity_linked',change: { before: null,after: null,summary: { provider: 'microsoft_entra' } },
+  })] }); } } });
+  const result=await api.listAuditEvents(),key=auditActionKey(result.events[0].action);
+  assert.equal(TENANT_ADMIN_OPERATIONS_MESSAGES.de[key],'Microsoft-Anmeldung verknüpft');
+  assert.equal(TENANT_ADMIN_OPERATIONS_MESSAGES.en[key],'Microsoft sign-in linked');
+  assert.doesNotMatch(JSON.stringify(result),/securityVersion|providerUserReference|recipient/);
+});
 
 test('audit adapter emits the bounded filter contract and one cursor page', async () => {
   const calls = [];

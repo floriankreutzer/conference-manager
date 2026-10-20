@@ -1,4 +1,5 @@
-import { ApiSecurityError,readApiJsonResponse } from '../../core/api-client.js';
+import { ApiSecurityError } from '../../core/api-client.js';
+import { createCustomerAuthenticationTransport } from './transport.js';
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CSRF=/^[a-f0-9]{64}$/;
@@ -17,6 +18,7 @@ export function createCustomerEmailClient({ origin=globalThis.location?.origin,f
     throw new TypeError('CUSTOMER_EMAIL_CLIENT_CONFIGURATION_INVALID');
   }
   let csrfToken=null;
+  const transport=createCustomerAuthenticationTransport({ namespace: 'email',origin,fetchImpl,timeoutMs,invalid });
   function pending(value,expected = null) {
     exact(value,['status','expiresAt','csrfToken','requestId']);
     if (!['code_required','membership_required'].includes(value.status) || (expected && value.status!==expected)
@@ -30,20 +32,7 @@ export function createCustomerEmailClient({ origin=globalThis.location?.origin,f
   }
   async function call(suffix,{ body,status=200,proof=false } = {}) {
     if (proof && !CSRF.test(csrfToken || '')) throw new ApiSecurityError('CSRF_TOKEN_REQUIRED');
-    const abort=new AbortController(),timer=globalThis.setTimeout(() => abort.abort(),timeoutMs);
-    try {
-      const response=await fetchImpl(new URL(`/api/v1/auth/email/${suffix}`,origin),{
-        method: body===undefined ? 'GET' : 'POST',credentials: 'same-origin',redirect: 'error',cache: 'no-store',
-        referrerPolicy: 'no-referrer',signal: abort.signal,
-        headers: { Accept: 'application/json',...(body===undefined ? {} : { 'Content-Type': 'application/json' }),
-          ...(proof ? { 'X-CSRF-Token': csrfToken } : {}) },
-        ...(body===undefined ? {} : { body: JSON.stringify(body) }),
-      });
-      if (response.redirected || (response.url && response.url!==new URL(`/api/v1/auth/email/${suffix}`,origin).href)) invalid();
-      const value=await readApiJsonResponse(response);
-      if (response.status!==status) invalid();
-      return value;
-    } finally { globalThis.clearTimeout(timer); }
+    return transport(suffix,{ body,status,csrfToken: proof ? csrfToken : null });
   }
   return Object.freeze({
     async request({ recipient,locale } = {}) {

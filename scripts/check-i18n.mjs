@@ -12,6 +12,7 @@ const CANONICAL_CATALOG_PATHS = [
   CAPABILITY_CATALOG_PATH,
   PLATFORM_ADMIN_CATALOG_PATH,
   'src/core/i18n-platform-invitation-messages.js',
+  'src/core/i18n-customer-authentication-messages.js',
   TENANT_ADMIN_OPERATIONS_CATALOG_PATH,
   TENANT_SETTINGS_DOMAIN_CATALOG_PATH,
 ];
@@ -147,6 +148,7 @@ const canonical = mergeCatalogs(
   capabilityCatalog,
   readFrozenCatalog(PLATFORM_ADMIN_CATALOG_PATH),
   readFrozenCatalog('src/core/i18n-platform-invitation-messages.js'),
+  readFrozenCatalog('src/core/i18n-customer-authentication-messages.js'),
   readNamedFrozenCatalog(TENANT_ADMIN_OPERATIONS_CATALOG_PATH, 'TENANT_ADMIN_OPERATIONS_MESSAGES'),
   readFrozenCatalog(TENANT_SETTINGS_DOMAIN_CATALOG_PATH),
 );
