@@ -1,6 +1,7 @@
 import { ApiSecurityError,readApiJsonResponse } from '../../core/api-client.js';
 
 const ENDPOINTS=Object.freeze({
+  delegation: Object.freeze({ confirmation: ['GET',200,null],logout: ['POST',204,'flow'] }),
   email: Object.freeze({ challenges: ['POST',202,null],pending: ['GET',200,null],verify: ['POST',200,'flow'],
     choices: ['GET',200,null],selection: ['POST',204,'flow'] }),
   microsoft: Object.freeze({ choices: ['GET',200,null],selection: ['POST',204,'flow'],

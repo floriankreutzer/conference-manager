@@ -1,9 +1,9 @@
 import { formatDateTime,language,setLanguage,t } from '../../core/i18n.js';
 import { button,clear,el,field } from '../../core/ui.js';
 
-export function createCustomerEmailLoginView({ controller,signInWithMicrosoft } = {}) {
+export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,operatorTestEnabled=false } = {}) {
   if (!controller || ['snapshot','subscribe','request','verify','select','restart','resume','checkSession']
-    .some(name => typeof controller[name]!=='function') || typeof signInWithMicrosoft!=='function') {
+    .some(name => typeof controller[name]!=='function') || typeof signInWithMicrosoft!=='function' || typeof operatorTestEnabled!=='boolean') {
     throw new TypeError('CUSTOMER_EMAIL_LOGIN_VIEW_CONFIGURATION_INVALID');
   }
   const element=el('section',{ className: 'card',attrs: { 'aria-labelledby': 'customerAuthTitle' } });
@@ -79,6 +79,11 @@ export function createCustomerEmailLoginView({ controller,signInWithMicrosoft } 
     }
     if (actions.length) element.append(el('div',{ className: 'button-row' },actions));
     element.append(el('p',{ text: t('customerAuth.description') }));
+    if (operatorTestEnabled && state.phase==='email') {
+      element.append(el('form',{ attrs: { action: '/api/v1/auth/delegation/start',method: 'post' } },[
+        button(t('customerHandoff.start'),{ type: 'submit' }),
+      ]));
+    }
     if (hadFocus) {
       const target=(samePhase && focusId ? element.querySelector(`#${focusId}`) : null)
         || (state.error && ['email','code'].includes(state.phase) ? element.querySelector('input') : null) || title;
