@@ -51,6 +51,9 @@
     "src/platform-admin/product-delivery-contracts.js",
     "src/platform-admin/insight-tabs.js",
     "src/platform-admin/insight-source.js",
-    "src/platform-admin/product-delivery-trend.js"
+    "src/platform-admin/product-delivery-trend.js",
+    "src/platform-admin/production/passkey-contracts.js",
+    "src/platform-admin/production/passkey-operations-client.js",
+    "src/platform-admin/production/passkey-management.js"
   ]
 }

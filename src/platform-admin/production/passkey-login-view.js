@@ -67,7 +67,7 @@ export function createPlatformPasskeyLoginView({ controller } = {}) {
     // view replaced the user's focused control after an asynchronous transition.
     if (hadFocus && active?.isConnected === false) {
       if (phaseChanged || state.error) title.focus();
-      else element.querySelector('button:not(:disabled), input:not(:disabled), a')?.focus();
+      else (element.querySelector('button:not(:disabled), input:not(:disabled), a') || title).focus();
     }
     return element;
   }

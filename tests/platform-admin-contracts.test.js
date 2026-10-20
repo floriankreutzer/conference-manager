@@ -190,3 +190,21 @@ test('Platform Admin routes derive the target exclusively from a validated hash'
   });
   assert.equal(platformAdminTenantHash(tenantId, 'customer-admin'), platformAdminFleetHash());
 });
+
+test('an operation-proof transport can present an existing permission without fabricating assurance or granting another role', () => {
+  const existing = platformOperatorFixture('platform_tenant_operator');
+  const operator = normalizePlatformOperator({ ...existing, assurance: { level: 'mfa',
+    authenticatedAt: '2099-01-01T00:00:00.000Z', stepUpExpiresAt: null } });
+  const tenant = normalizePlatformTenant(platformTenantFixture(4, 'suspended'));
+  const now = Date.parse('2099-01-01T00:01:00.000Z');
+  assert.equal(shouldPresentPlatformAction(operator, tenant, 'reactivate', now, true), true);
+  assert.equal(platformActionNeedsStepUp(operator, tenant, 'reactivate', now, true), false);
+  assert.equal(shouldPresentPlatformAction(operator, tenant, 'reactivate', now), false, 'legacy CA presentation remains strict');
+  assert.equal(shouldPresentPlatformAction(operator, { ...tenant, allowedActions: [] }, 'reactivate', now, true), false);
+  assert.equal(shouldPresentPlatformAction(operator, tenant, 'unknown', now, true), false);
+  assert.equal(shouldPresentPlatformPermission(operator, 'platform:recovery:execute', now, true), false);
+  assert.equal(shouldPresentPlatformPermission(operator, 'platform:invitation:manage', NaN, true), false);
+  assert.equal(operator.assurance.level, 'mfa'); assert.equal(operator.assurance.stepUpExpiresAt, null);
+  const reader = normalizePlatformOperator(platformOperatorFixture('platform_support_reader'));
+  assert.equal(shouldPresentPlatformAction(reader, tenant, 'reactivate', now, true), false);
+});

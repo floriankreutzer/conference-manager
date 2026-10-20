@@ -48,10 +48,10 @@ function definitionList(rows) {
   return list;
 }
 
-function actionPanel(tenant, operator, actions, onAction, onStepUp) {
+function actionPanel(tenant, operator, actions, onAction, onStepUp, operationProofAvailable) {
   const available = actions.filter((action) => tenant.allowedActions.includes(action));
-  const executable = available.filter((action) => shouldPresentPlatformAction(operator, tenant, action));
-  const needsStepUp = available.some((action) => platformActionNeedsStepUp(operator, tenant, action));
+  const executable = available.filter((action) => shouldPresentPlatformAction(operator, tenant, action, Date.now(), operationProofAvailable));
+  const needsStepUp = available.some((action) => platformActionNeedsStepUp(operator, tenant, action, Date.now(), operationProofAvailable));
   const panel = el('section', {
     className: 'card platform-admin-action-panel',
     attrs: { 'aria-labelledby': 'platformAdminActionsTitle' },
@@ -98,7 +98,7 @@ function overview(tenant) {
   ]);
 }
 
-function lifecycle(tenant, operator, onAction, onStepUp) {
+function lifecycle(tenant, operator, onAction, onStepUp, operationProofAvailable) {
   return el('div', {}, [
     el('section', { className: 'card' }, [definitionList([
       { label: t('platformAdmin.field.lifecycle'), value: state(tenant.lifecycleState) },
@@ -107,7 +107,7 @@ function lifecycle(tenant, operator, onAction, onStepUp) {
       { label: t('platformAdmin.field.invitation'), value: state(tenant.invitationState, 'invitation') },
       { label: t('platformAdmin.field.version'), value: formatNumber(tenant.version) },
     ])]),
-    actionPanel(tenant, operator, LIFECYCLE_ACTIONS, onAction, onStepUp),
+    actionPanel(tenant, operator, LIFECYCLE_ACTIONS, onAction, onStepUp, operationProofAvailable),
   ]);
 }
 
@@ -155,7 +155,7 @@ function previewPanel(preview, onApply) {
   return panel;
 }
 
-function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPackagePreview, onEntitlementApply, onPackageApply, onStepUp }) {
+function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPackagePreview, onEntitlementApply, onPackageApply, onStepUp, operationProofAvailable }) {
   if (!operator.permissions.includes('platform:entitlement:read')) return denied();
   const pending = resourcePanel(resource, onRetry);
   if (pending) return pending;
@@ -178,7 +178,7 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
     ]));
   });
   const mayManage = operator.permissions.includes('platform:entitlement:manage');
-  if (mayManage && shouldPresentPlatformPermission(operator, 'platform:entitlement:manage')) {
+  if (mayManage && shouldPresentPlatformPermission(operator, 'platform:entitlement:manage', Date.now(), operationProofAvailable)) {
     const previewControl = button(t('platformAdmin.entitlements.preview'), { type: 'submit', className: 'secondary' });
     form.append(el('div', { className: 'button-row' }, [previewControl]));
     form.addEventListener('submit', (event) => {
@@ -214,7 +214,7 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
   return el('div', {}, [form, packages, previewElement].filter(Boolean));
 }
 
-function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepUp }) {
+function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepUp, operationProofAvailable }) {
   if (!operator.permissions.includes('platform:diagnostics:read')) return denied();
   const pending = resourcePanel(resource, onRetry);
   if (pending) return pending;
@@ -234,7 +234,7 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
     ]),
   ]);
   const mayLookup = operator.permissions.includes('platform:diagnostics:sensitive');
-  if (mayLookup && shouldPresentPlatformPermission(operator, 'platform:diagnostics:sensitive')) {
+  if (mayLookup && shouldPresentPlatformPermission(operator, 'platform:diagnostics:sensitive', Date.now(), operationProofAvailable)) {
     const correlationId = el('input', { type: 'text', attrs: { required: 'required', pattern: '[0-9a-fA-F-]{36}', maxlength: '36', autocomplete: 'off' } });
     const to = new Date();
     const from = new Date(to.getTime() - (24 * 60 * 60 * 1_000));
@@ -280,6 +280,7 @@ function recovery({
   onRecoveryExecute,
   onRecoveryTargetsMore,
   onStepUp,
+  operationProofAvailable,
 }) {
   const previews = resource?.data?.previews || {};
   const targets = resource?.data?.targets || {};
@@ -302,7 +303,7 @@ function recovery({
       });
     }
     const controls = el('div', { className: 'button-row' });
-    if (shouldPresentPlatformPermission(operator, permission)) {
+    if (shouldPresentPlatformPermission(operator, permission, Date.now(), operationProofAvailable)) {
       const previewControl = button(t('platformAdmin.recovery.preview'), { className: 'secondary', dataset: { platformAdminRecoveryPreview: definition.id } });
       previewControl.addEventListener('click', () => {
         if (target && !target.reportValidity()) return;
@@ -336,7 +337,7 @@ function recovery({
   if (!cards.childElementCount) return denied();
   const needsStepUp = PLATFORM_RECOVERY_DEFINITIONS.some((definition) => {
     const permission = definition.id.includes('session-revocation') ? 'platform:session:revoke' : 'platform:recovery:execute';
-    return operator.permissions.includes(permission) && !shouldPresentPlatformPermission(operator, permission);
+    return operator.permissions.includes(permission) && !shouldPresentPlatformPermission(operator, permission, Date.now(), operationProofAvailable);
   });
   if (needsStepUp && typeof onStepUp === 'function') {
     const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
@@ -346,7 +347,7 @@ function recovery({
   return cards;
 }
 
-function metering({ operator, resource, onRetry, onQuotaSet, onStepUp }) {
+function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operationProofAvailable }) {
   if (!operator.permissions.includes('platform:metering:read')) return denied();
   const pending = resourcePanel(resource, onRetry);
   if (pending) return pending;
@@ -356,7 +357,7 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp }) {
   usage.dimensions.forEach((dimension) => {
     const quota = byQuota.get(dimension.dimension);
     const controls = [];
-    if (operator.permissions.includes('platform:quota:manage') && shouldPresentPlatformPermission(operator, 'platform:quota:manage') && quota.state !== 'unknown') {
+    if (operator.permissions.includes('platform:quota:manage') && shouldPresentPlatformPermission(operator, 'platform:quota:manage', Date.now(), operationProofAvailable) && quota.state !== 'unknown') {
       const edit = button(t('platformAdmin.metering.editQuota'), { className: 'secondary', dataset: { platformAdminQuota: dimension.dimension } });
       edit.addEventListener('click', () => onQuotaSet(quota));
       controls.push(edit);
@@ -372,7 +373,7 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp }) {
       el('div', { className: 'button-row' }, controls),
     ]));
   });
-  if (operator.permissions.includes('platform:quota:manage') && !shouldPresentPlatformPermission(operator, 'platform:quota:manage') && typeof onStepUp === 'function') {
+  if (operator.permissions.includes('platform:quota:manage') && !shouldPresentPlatformPermission(operator, 'platform:quota:manage', Date.now(), operationProofAvailable) && typeof onStepUp === 'function') {
     const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
     stepUp.addEventListener('click', onStepUp);
     list.prepend(el('section', { className: 'card' }, [el('p', { text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp])]));
@@ -404,8 +405,8 @@ function runtimeStatus({ operator, resource, onRetry }) {
 }
 
 export function renderPlatformAdminTenantSection(options) {
-  const { sectionId, tenant, operator, onAction, onStepUp } = options;
-  if (sectionId === 'lifecycle') return lifecycle(tenant, operator, onAction, onStepUp);
+  const { sectionId, tenant, operator, onAction, onStepUp, operationProofAvailable } = options;
+  if (sectionId === 'lifecycle') return lifecycle(tenant, operator, onAction, onStepUp, operationProofAvailable);
   if (sectionId === 'entitlements') return entitlements(options);
   if (sectionId === 'diagnostics') return diagnostics(options);
   if (sectionId === 'recovery') return recovery(options);
