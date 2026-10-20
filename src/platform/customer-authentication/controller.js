@@ -1,10 +1,14 @@
 import { ApiSecurityError } from '../../core/api-client.js';
 
-export function createCustomerEmailController({ client,completeSession } = {}) {
+export function createCustomerEmailController({ client,completeSession,microsoftClient=null,initialMicrosoftChoice=false } = {}) {
   if (!client || ['request','pending','verify','choices','select','clear'].some(name => typeof client[name]!=='function')
-    || typeof completeSession!=='function') throw new TypeError('CUSTOMER_EMAIL_CONTROLLER_CONFIGURATION_INVALID');
+    || typeof completeSession!=='function' || typeof initialMicrosoftChoice!=='boolean'
+    || microsoftClient!==null && ['choices','select','clear'].some(name=>typeof microsoftClient[name]!=='function')
+    || initialMicrosoftChoice && microsoftClient===null) throw new TypeError('CUSTOMER_EMAIL_CONTROLLER_CONFIGURATION_INVALID');
   let state=Object.freeze({ phase: 'loading',error: null,expiresAt: null,items: Object.freeze([]) });
   let busy=false,disposed=false,loaded=false; const listeners=new Set();
+  let microsoft=initialMicrosoftChoice;
+  const currentClient=()=>microsoft ? microsoftClient : client;
   function publish(changes) {
     if (disposed) return;
     state=Object.freeze({ ...state,...changes }); for (const listener of listeners) listener(state);
@@ -12,8 +16,8 @@ export function createCustomerEmailController({ client,completeSession } = {}) {
   const errorKey=error => error instanceof ApiSecurityError && error.code==='HTTP_429' ? 'limited'
     : error instanceof ApiSecurityError && error.code==='HTTP_401' ? 'rejected' : 'unavailable';
   async function choices(result) {
-    const items=await client.choices();
-    publish({ phase: 'choices',expiresAt: result.expiresAt,items,error: items.length ? null : 'noChoices' });
+    const items=await currentClient().choices();
+    publish({ phase: 'choices',expiresAt: result?.expiresAt ?? null,items,error: items.length ? null : 'noChoices' });
   }
   async function run(work,failurePhase) {
     if (busy || disposed) return;
@@ -22,6 +26,14 @@ export function createCustomerEmailController({ client,completeSession } = {}) {
     finally { busy=false; }
   }
   async function recover(initial) {
+    if (microsoft) {
+      try { await choices(); }
+      catch (error) {
+        if (!(error instanceof ApiSecurityError) || error.code!=='HTTP_401') throw error;
+        microsoftClient.clear();publish({ phase: 'choices',expiresAt: null,items: Object.freeze([]),error: 'microsoftUnlinked' });
+      }
+      return;
+    }
     try {
       const result=await client.pending();
       if (result.status==='membership_required') await choices(result);
@@ -43,7 +55,7 @@ export function createCustomerEmailController({ client,completeSession } = {}) {
       await run(() => recover(true),'email');
     },
     request(recipient,locale) {
-      return run(async () => { const result=await client.request({ recipient,locale });
+      return run(async () => { microsoft=false;microsoftClient?.clear();const result=await client.request({ recipient,locale });
         publish({ phase: 'code',expiresAt: result.expiresAt,items: Object.freeze([]) }); },'email');
     },
     verify(code) {
@@ -63,7 +75,7 @@ export function createCustomerEmailController({ client,completeSession } = {}) {
       return run(async () => {
         // A lost selection response is ambiguous. The only continuation rechecks
         // the ordinary session; neither selection nor acceptance is retried.
-        try { await client.select(membershipId); }
+        try { await currentClient().select(membershipId); }
         catch { publish({ phase: 'refresh_required',error: 'refresh' }); return; }
         try { await completeSession(); publish({ phase: 'authenticated',items: Object.freeze([]),expiresAt: null }); }
         catch { publish({ phase: 'refresh_required',error: 'refresh' }); }
@@ -74,9 +86,9 @@ export function createCustomerEmailController({ client,completeSession } = {}) {
         publish({ phase: 'authenticated',error: null,items: Object.freeze([]),expiresAt: null }); },'refresh_required');
     },
     restart() {
-      if (busy || disposed) return; client.clear();
+      if (busy || disposed) return; client.clear();microsoftClient?.clear();microsoft=false;
       publish({ phase: 'email',error: null,items: Object.freeze([]),expiresAt: null });
     },
-    dispose() { disposed=true; listeners.clear(); client.clear(); },
+    dispose() { disposed=true; listeners.clear(); client.clear();microsoftClient?.clear(); },
   });
 }

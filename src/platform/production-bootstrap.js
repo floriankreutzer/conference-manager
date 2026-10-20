@@ -8,7 +8,8 @@ import { featureFlags } from './feature-flags.js';
 async function bootstrapProductionCustomerApplication() {
   const application = await bootstrapCustomerApplication({
     runtimeMode: RUNTIME_MODE.PRODUCTION,
-    authenticationBootstrap: bootstrapInvitedCustomerAuthentication,
+    authenticationBootstrap: options=>bootstrapInvitedCustomerAuthentication({ ...options,
+      microsoftAuthenticationEnabled: featureFlags.isEnabled('customer.microsoft-authentication') }),
     invitationAdministrationFactory: featureFlags.isEnabled('customer.invitations') ? createCustomerInvitationClient : null,
   });
   installCustomerInactivityLock({

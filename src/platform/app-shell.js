@@ -53,6 +53,9 @@ export function createAppShell({
   if (onViewChange !== null && typeof onViewChange !== 'function') {
     throw new TypeError('APP_SHELL_VIEW_CHANGE_HANDLER_INVALID');
   }
+  if (context.isDemoRuntime() && (authentication?.createAccountSecurityView || authentication?.createPendingAuthenticationView)) {
+    throw new TypeError('CUSTOMER_ACCOUNT_PRESENTATION_REQUIRES_PRODUCTION');
+  }
 
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');
@@ -411,16 +414,20 @@ export function createAppShell({
       control: languageSelect,
       hint: t('profile.languageNote'),
     }));
+    let dialog;
+    const accountSecurityView=authentication?.createAccountSecurityView?.({ onClose: ()=>dialog?.close() }) ?? null;
+    if (accountSecurityView) content.append(accountSecurityView.element);
 
     const help = button(t('profile.help'));
     const logout = context.isDemoRuntime() ? null : button(t('profile.logout'), { className: 'danger' });
     const close = button(t('common.close'), { className: 'primary' });
-    const dialog = openDialog({
+    dialog = openDialog({
       title: t('profile.title'),
       content,
       actions: [help, logout, close].filter(Boolean),
       labelledById: 'profileTitle',
     });
+    if (accountSecurityView) dialog.addEventListener('close',()=>accountSecurityView.dispose(),{ once: true });
     close.addEventListener('click', () => dialog.close());
     help.addEventListener('click', () => {
       const interactionRevision = renderRevision;
@@ -496,6 +503,11 @@ export function createAppShell({
     if (!context.isAuthenticated()) {
       renderProductionAuthentication();
       return;
+    }
+    const pendingAuthentication=authentication?.createPendingAuthenticationView?.() ?? null;
+    if (pendingAuthentication) {
+      pendingAuthentication.update?.();setPageHeading(t('customerAuth.pageTitle'),t('customerAuth.pageText'));
+      appRoot.append(pendingAuthentication.element);return;
     }
     if (view === 'welcome') {
       void renderWelcome(revision);
