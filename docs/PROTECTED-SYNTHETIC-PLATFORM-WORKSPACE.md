@@ -78,3 +78,15 @@ operator denial, actual native two-origin303, no Customer session grant and
 lint495, whitespace495 and design-token checks pass. Full frozen local check and
 fresh main-target CI remain pending at this source checkpoint. No local Chromium
 acceptance is claimed because that managed installation is unusable.
+
+First frozen full local run:864/866 passed. One unchanged dependency-license CLI
+stderr assertion saw the managed runtime's UNDICI-EHPA warning; its exact unchanged
+file passes27 tests when only that warning is suppressed. Full CI has no such
+warning failure. The other failure was an existing boundary test which still
+forbade the now explicitly approved production-bootstrap metadata import. Its
+positive cases now cover exactly Demo/production bootstrap; negative application
+and non-bootstrap production-module imports remain forbidden. All5 boundary/provider
+cases pass. First CI39516710004 quality likewise failed only that obsolete
+expectation; browser jobs did not execute. These failures are retained, and fresh
+CI acceptance is required after this test-contract correction. No production
+boundary, redaction guard, assertion strictness or deadline is weakened.

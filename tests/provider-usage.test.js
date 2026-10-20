@@ -49,16 +49,17 @@ test('Provider wire freshness follows the server clock and cannot contradict its
   value.freshness = 'stale'; assert.equal(normalizeProviderUsage(value).freshness, 'stale');
 });
 
-test('only Demo composition may consume the pure central flag resolver', () => {
+test('only explicit Demo/production bootstrap may consume the pure central flag resolver', () => {
   const resolver = 'export const createFeatureFlagResolver = () => false;';
-  assert.deepEqual(platformAdminBoundaryViolations({
-    'src/platform-admin/demo/bootstrap.js': "import '../../platform/feature-flags.js';",
-    'src/platform/feature-flags.js': resolver,
-  }), []);
-  for (const file of ['src/platform-admin/application.js', 'src/platform-admin/production/bootstrap.js']) {
-    const correct = platformAdminBoundaryViolations({ [file]: file.endsWith('application.js')
+  for (const file of ['src/platform-admin/demo/bootstrap.js','src/platform-admin/production/bootstrap.js']) {
+    assert.deepEqual(platformAdminBoundaryViolations({
+      [file]: "import '../../platform/feature-flags.js';",'src/platform/feature-flags.js': resolver,
+    }), []);
+  }
+  for (const file of ['src/platform-admin/application.js','src/platform-admin/production/private-client.js']) {
+    const violations = platformAdminBoundaryViolations({ [file]: file.endsWith('application.js')
       ? "import '../platform/feature-flags.js';" : "import '../../platform/feature-flags.js';",
     'src/platform/feature-flags.js': resolver });
-    assert.ok(correct.some((item) => item.includes('must not depend on customer capability')));
+    assert.ok(violations.some((item) => item.includes('must not depend on customer capability')));
   }
 });
