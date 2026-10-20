@@ -85,6 +85,9 @@ export function customerDemoBoundaryViolations(sourceEntries) {
   }
 
   for (const file of demoReachable) {
+    if (isInside(file, 'src/platform/customer-authentication')) {
+      violations.push(violation(DEMO_ENTRY, `Customer Demo must not reach invited Customer authentication ${file}.`));
+    }
     const source = String(sources.get(file) || '');
     if (![PREFERENCE_MODULE, SERVER_DRAFT_MODULE].includes(file) && BROWSER_STORAGE.test(source)) {
       violations.push(violation(file, 'Customer Demo runtime must not use browser storage as business, Tenant, persona, permission or session authority.'));
