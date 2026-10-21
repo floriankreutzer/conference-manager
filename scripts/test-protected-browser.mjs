@@ -10,7 +10,7 @@ const project=process.argv[2];
 if (process.argv.length!==3 || !['chromium-protected','webkit-protected'].includes(project)) {
   throw new Error('PROTECTED_BROWSER_PROJECT_REQUIRED');
 }
-const root=process.cwd(),apiRoot=path.resolve(root,'../api'),expected=process.env.PROTECTED_BROWSER_API_REF;
+const root=process.cwd(),apiRoot=path.resolve(root,'../api'),expected=process.env.PROTECTED_BROWSER_COUNTERPART_REF;
 function command(program,args,{ capture=false }={}) {
   const result=spawnSync(program,args,{ encoding: 'utf8',stdio: capture ? 'pipe' : 'ignore',timeout: 30000,maxBuffer: 65536 });
   if (result.status!==0) throw new Error('PROTECTED_BROWSER_SETUP_COMMAND_FAILED');

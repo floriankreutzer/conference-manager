@@ -97,3 +97,13 @@ budget/429/API-isolation regression case is prepared. This successor pins that
 exact correction; initial failures remain historical and fresh full/qualified
 execution is mandatory. Local execution service is currently unresponsive;
 previous884 local passes do not prove this counterpart update.
+
+The actual-main predecessor's auxiliary gates exposed exact public-SHA
+false positives and the release inventory's required single paired API ref.
+Both this branch's shared/permanent and qualified paths now use exact1dc5b011;
+all original contract/zoom/full progression/two-reset steps are retained. The
+pinned independent release verifier is unchanged. The harness variable name
+is PROTECTED_BROWSER_COUNTERPART_REF, and only the two observed predecessor
+commit/path/rule/line fingerprints are carried in .gitleaksignore. Full history
+scanning and every other secret finding remain enforced. Fresh full CI is
+required; prior qualified success onbcd529d9 remains dated evidence only.

@@ -151,7 +151,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 446fe2c2b1a89323e11d09670b3dac0fbcc94b68
+          ref: 1dc5b011b2dcaba4310e51dbde890928bbd0f0a8
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -294,7 +294,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_API_REF: 1dc5b011b2dcaba4310e51dbde890928bbd0f0a8
+      PROTECTED_BROWSER_COUNTERPART_REF: 1dc5b011b2dcaba4310e51dbde890928bbd0f0a8
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
     services:
       postgres:
@@ -326,7 +326,7 @@ jobs:
           path: api
       - name: Verify immutable counterpart and candidate refs
         run: |
-          test "$(git -C api rev-parse HEAD)" = "$PROTECTED_BROWSER_API_REF"
+          test "$(git -C api rev-parse HEAD)" = "$PROTECTED_BROWSER_COUNTERPART_REF"
           test "$(git -C frontend rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
