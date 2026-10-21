@@ -1,14 +1,14 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-APIca7c29a22d41782f776f8d10ae38d53e6b287910. Both refs are checked before setup
+API704a555af364895785e594e57e5055671f2d3585. Both refs are checked before setup
 and copied into unchanged closed runtime configuration and bounded evidence.
 It adds to the full regular Chromium/WebKit suites and unchanged permanent
 three-customer/two-reset/shared/zoom gates. Existing required e2e status now
 requires both complete browser matrices; failures/cancellation/skips cannot pass
 the aggregate. Its negative truth table covers both matrix results.
 
-The test-only API287 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
+The test-only API288 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
 fresh restricted roles and separate max1 Customer/Platform business+lease pools.
 No authentication/provider/clock/database-driver/test port is injected into a
 production root. Only initial normal Platform MFA and two generated software
@@ -19,8 +19,9 @@ Actual document origins are default-port HTTPS app-int.example.test and
 ops-int.example.com, different registrable sites. A fixed two-authority CONNECT
 relay forwards untouched TLS bytes only to the loopback edge. It cannot contact
 another host or add authentication headers. The edge requires exact Host/SNI,
-serves captured current production browser graphs/separate Platform manifest and
-fixed protected HTML, and forwards /api only to the actual matching root.
+forwards every static/API request to the actual matching root. The normal build
+module writes separate externally pinned manifests before those roots start;
+the edge serves no file or HTML itself.
 It never mocks protocol responses. Scripts/tests/manifests/foreign-plane modules
 are not public files. Ordered artifact content hashes bind transformed HTML and
 served files. Responses/headers/bodies/connections/observability have bounds.
@@ -77,3 +78,12 @@ uses the established "Angemeldeter Benutzer {name}" label. The test now selects
 the existing profile navigation dialog trigger and asserts the exact respective
 setup/loaded-profile accessible-name policy. No production label/auth behavior,
 timeout, privacy rule or assertion case is weakened. Full journey remains pending.
+
+The preceding qualified journey on frontend5b0e57d9/APIca7c29a2 passed both
+engines in CI39613292536: native virtual CTAP2 Chromium1passed17.8s and explicitly
+qualified software-assertion WebKit1passed23.3s, actual trusted different-site
+HTTPS, both handoffs, Fabrikam active, private images and all3 Tenant audit
+chains. Regular/permanent gates remained pending at that checkpoint. That
+proved the earlier test-edge static arrangement. This successor pins API288
+and requires fresh proof that the actual protected processes own delivery;
+previous browser results cannot substitute for this new boundary.

@@ -1,5 +1,7 @@
 import { test,expect } from '@playwright/test';
 import { fileURLToPath,pathToFileURL } from 'node:url';
+import { rm } from 'node:fs/promises';
+import { buildProtectedFrontendArtifacts,writeProtectedFrontendArtifacts } from '../../scripts/protected-frontend-artifacts.mjs';
 import { createQualifiedProtectedEdge } from './support/qualified-edge.mjs';
 import { installQualifiedAuthenticator } from './support/browser-authenticator.mjs';
 
@@ -12,10 +14,13 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     throw new Error('PROTECTED_BROWSER_RUNNER_REQUIRED');
   }
   const { createProtectedBrowserRuntimeFixture }=await import(pathToFileURL(`${apiRoot}/tests-db/support/protected-browser-runtime-fixture.js`));
-  let runtime,edge,context;
+  let runtime,edge,context,artifactsWritten=false;
   try {
-    runtime=await createProtectedBrowserRuntimeFixture({ apiCommit,frontendCommit });
-    edge=await createQualifiedProtectedEdge({ root: FRONTEND_ROOT,ports: runtime.ports,certificateDirectory });
+    const built=await buildProtectedFrontendArtifacts({ root: FRONTEND_ROOT,apiCommit,frontendCommit,environment: 'int',
+      customerOrigin: 'https://app-int.example.test',platformOrigin: 'https://ops-int.example.com',syntheticEnabled: true });
+    await writeProtectedFrontendArtifacts(built,`${apiRoot}/.protected-frontend`);artifactsWritten=true;
+    runtime=await createProtectedBrowserRuntimeFixture({ apiCommit,frontendCommit,hostedFrontend: built.manifestDigests });
+    edge=await createQualifiedProtectedEdge({ root: FRONTEND_ROOT,ports: runtime.ports,certificateDirectory,artifactDigests: built.digests });
     context=await browser.newContext({ proxy: { server: edge.proxy },ignoreHTTPSErrors: false,
       viewport: browserName==='webkit' ? { width: 390,height: 844 } : { width: 1280,height: 900 } });
     const parts=runtime.initialSetCookie.split(';').map(part=>part.trim()),index=parts[0].indexOf('=');
@@ -114,6 +119,8 @@ test('actual qualified different-site roots bind native handoff, local onboardin
       traffic: edge.evidence(),scope: 'no auth material captured' }));
     throw error;
   } finally {
-    try { await context?.close(); } finally { try { await edge?.close(); } finally { await runtime?.close(); } }
+    try { await context?.close(); } finally { try { await edge?.close(); } finally {
+      try { await runtime?.close(); } finally { if (artifactsWritten) await rm(`${apiRoot}/.protected-frontend`,{ recursive: true,force: true }); }
+    } }
   }
 });
