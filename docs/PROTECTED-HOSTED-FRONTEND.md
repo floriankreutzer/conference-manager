@@ -43,3 +43,11 @@ Chromium uses native virtual CTAP2; WebKit's software assertion bridge remains
 explicitly qualified. Microsoft primary, physical keys, recovery and actual
 deployment remain unproved. Existing full/permanent/zoom/security gates remain
 unchanged; no additional spend or live provider is activated.
+
+Build-only presentation flags must be supplied inline to the build command or
+in its isolated build environment. Do not copy them into protected runtime
+configuration: unknown PROTECTED_ keys remain rejected by the owned loaders.
+The qualified journey now invokes the real clean-checkout CLI with explicit
+nonsecret build inputs and compares its output refs/manifest pins with the
+independently captured module bytes before starting either root. This covers
+the deployable command path, not merely the underlying writer function.
