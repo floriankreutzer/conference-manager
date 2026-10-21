@@ -2,3 +2,4 @@
 # No broad rule/path/value exclusion: preserve full-history scanning.
 5b0e57d902d38025056e2f72dfd134fa0465a0fa:.github/workflows/ci.yml:generic-api-key:297
 6e0e90edc7e4b60e087aad20456ca08f555b4490:.github/workflows/ci.yml:generic-api-key:297
+bcd529d9459b7c73f81ffbe1a63b0f91bcade4d0:.github/workflows/ci.yml:generic-api-key:297
