@@ -11,6 +11,7 @@ import {
   schemaRevision,
 } from './tenant-settings-wire.js';
 import { createTenantBulkSettingsApi } from './tenant-bulk-settings-api.js';
+import { createCatalogueMediaApi } from '../core/catalogue-media-api.js';
 
 const CURRENT_PATH = 'v1/tenant/settings/catalogue';
 const HISTORY_PATH = `${CURRENT_PATH}/history`;
@@ -154,8 +155,12 @@ export function createTenantCatalogueSettingsApi({ apiClient } = {}) {
     types: ['services', 'equipment', 'catering-items', 'catering-packages'],
     normalizeApplied: current,
   });
+  const media = createCatalogueMediaApi({ apiClient });
   return Object.freeze({
     ...bulk,
+    async listCatalogueMedia() {
+      return { assets: await media.list() };
+    },
     async listDemoMedia() {
       return apiClient.request('v1/demo/media');
     },
