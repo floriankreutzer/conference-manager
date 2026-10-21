@@ -1,5 +1,9 @@
 import { test,expect } from '@playwright/test';
 import { fileURLToPath,pathToFileURL } from 'node:url';
+import { rm } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { buildProtectedFrontendArtifacts } from '../../scripts/protected-frontend-artifacts.mjs';
 import { createQualifiedProtectedEdge } from './support/qualified-edge.mjs';
 import { installQualifiedAuthenticator } from './support/browser-authenticator.mjs';
 
@@ -12,10 +16,20 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     throw new Error('PROTECTED_BROWSER_RUNNER_REQUIRED');
   }
   const { createProtectedBrowserRuntimeFixture }=await import(pathToFileURL(`${apiRoot}/tests-db/support/protected-browser-runtime-fixture.js`));
-  let runtime,edge,context;
+  let runtime,edge,context,artifactsWritten=false;
   try {
-    runtime=await createProtectedBrowserRuntimeFixture({ apiCommit,frontendCommit });
-    edge=await createQualifiedProtectedEdge({ root: FRONTEND_ROOT,ports: runtime.ports,certificateDirectory });
+    const built=await buildProtectedFrontendArtifacts({ root: FRONTEND_ROOT,apiCommit,frontendCommit,environment: 'int',
+      customerOrigin: 'https://app-int.example.test',platformOrigin: 'https://ops-int.example.com',syntheticEnabled: true });
+    const { stdout }=await promisify(execFile)(process.execPath,
+      ['scripts/build-protected-frontend.mjs',`${apiRoot}/.protected-frontend`],{ cwd: FRONTEND_ROOT,
+        env: { ...process.env,PROTECTED_API_COMMIT: apiCommit,PROTECTED_FRONTEND_COMMIT: frontendCommit,
+          PROTECTED_ENVIRONMENT: 'int',PROTECTED_CUSTOMER_ORIGIN: 'https://app-int.example.test',
+          PROTECTED_PLATFORM_ORIGIN: 'https://ops-int.example.com',PROTECTED_SYNTHETIC_ENABLED: 'true',
+          PROTECTED_PRESENTATION_MICROSOFT_ENABLED: 'false',PROTECTED_PRESENTATION_INVITATIONS_ENABLED: 'false' },
+        timeout: 30000,maxBuffer: 65536 });artifactsWritten=true;
+    expect(JSON.parse(stdout)).toEqual({ apiCommit,frontendCommit,manifestSha256: built.manifestDigests });
+    runtime=await createProtectedBrowserRuntimeFixture({ apiCommit,frontendCommit,hostedFrontend: built.manifestDigests });
+    edge=await createQualifiedProtectedEdge({ root: FRONTEND_ROOT,ports: runtime.ports,certificateDirectory,artifactDigests: built.digests });
     context=await browser.newContext({ proxy: { server: edge.proxy },ignoreHTTPSErrors: false,
       viewport: browserName==='webkit' ? { width: 390,height: 844 } : { width: 1280,height: 900 } });
     const parts=runtime.initialSetCookie.split(';').map(part=>part.trim()),index=parts[0].indexOf('=');
@@ -114,6 +128,8 @@ test('actual qualified different-site roots bind native handoff, local onboardin
       traffic: edge.evidence(),scope: 'no auth material captured' }));
     throw error;
   } finally {
-    try { await context?.close(); } finally { try { await edge?.close(); } finally { await runtime?.close(); } }
+    try { await context?.close(); } finally { try { await edge?.close(); } finally {
+      try { await runtime?.close(); } finally { if (artifactsWritten) await rm(`${apiRoot}/.protected-frontend`,{ recursive: true,force: true }); }
+    } }
   }
 });

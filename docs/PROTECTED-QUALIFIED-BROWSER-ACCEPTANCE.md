@@ -1,14 +1,23 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-APIca7c29a22d41782f776f8d10ae38d53e6b287910. Both refs are checked before setup
+APIea1f4f08e45dc5a5c63b75517ed0fd4cc2a2de7b. Both refs are checked before setup
 and copied into unchanged closed runtime configuration and bounded evidence.
 It adds to the full regular Chromium/WebKit suites and unchanged permanent
 three-customer/two-reset/shared/zoom gates. Existing required e2e status now
 requires both complete browser matrices; failures/cancellation/skips cannot pass
 the aggregate. Its negative truth table covers both matrix results.
 
-The test-only API287 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
+Current candidate status — 21 October 2026: both API checkouts and their fixed
+test expectations use that same immutable API288 integration candidate, which
+includes accepted mainb31430e7. Compared with the fully feature-tested1dc5b011
+application, only documentation and the inherited exact secret-scan inventory
+changed. Full actual-main API and frontend acceptance remain mandatory before
+merging; neither running candidates nor the eventual merge commit grant operating
+readiness. The known public-pin inventory has three exact observed fingerprints,
+with no broad rule/path/value exclusion. The execution notes below are historical.
+
+The test-only API288 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
 fresh restricted roles and separate max1 Customer/Platform business+lease pools.
 No authentication/provider/clock/database-driver/test port is injected into a
 production root. Only initial normal Platform MFA and two generated software
@@ -19,8 +28,9 @@ Actual document origins are default-port HTTPS app-int.example.test and
 ops-int.example.com, different registrable sites. A fixed two-authority CONNECT
 relay forwards untouched TLS bytes only to the loopback edge. It cannot contact
 another host or add authentication headers. The edge requires exact Host/SNI,
-serves captured current production browser graphs/separate Platform manifest and
-fixed protected HTML, and forwards /api only to the actual matching root.
+forwards every static/API request to the actual matching root. The normal build
+module writes separate externally pinned manifests before those roots start;
+the edge serves no file or HTML itself.
 It never mocks protocol responses. Scripts/tests/manifests/foreign-plane modules
 are not public files. Ordered artifact content hashes bind transformed HTML and
 served files. Responses/headers/bodies/connections/observability have bounds.
@@ -54,6 +64,8 @@ source refs/artifact hashes, bounded counts and Tenant states. Trace, screenshot
 video and request/cookie/hidden form captures are disabled only in this separate
 sensitive suite; normal existing evidence gates are retained unchanged.
 
+## Historical execution checkpoints
+
 Local pure artifact/ref/key/aggregate checks pass. Full local frontend and fresh
 CI/native/qualified browser execution remain pending; Docker and pinned browsers
 are absent locally. No actual browser, physical key or live cutover pass is
@@ -77,6 +89,37 @@ uses the established "Angemeldeter Benutzer {name}" label. The test now selects
 the existing profile navigation dialog trigger and asserts the exact respective
 setup/loaded-profile accessible-name policy. No production label/auth behavior,
 timeout, privacy rule or assertion case is weakened. Full journey remains pending.
+
+The preceding qualified journey on frontend5b0e57d9/APIca7c29a2 passed both
+engines in CI39613292536: native virtual CTAP2 Chromium1passed17.8s and explicitly
+qualified software-assertion WebKit1passed23.3s, actual trusted different-site
+HTTPS, both handoffs, Fabrikam active, private images and all3 Tenant audit
+chains. Regular/permanent gates remained pending at that checkpoint. That
+proved the earlier test-edge static arrangement. This successor pins API288
+and requires fresh proof that the actual protected processes own delivery;
+previous browser results cannot substitute for this new boundary.
+
+Initial actual owned-delivery CI39617252870 failed both engines on HTTP429 from
+the new static limiter after repeated legitimate cold graph navigations. API
+successor1dc5b011 derives its bounded budget from the sealed file count, admits
+sixteen cold graphs/minute/address and caps4096 requests/2000 keys. The API/auth
+limits and edge2000-event bound remain unchanged. An additional real-HTTP
+budget/429/API-isolation regression case is prepared. This successor pins that
+exact correction; initial failures remain historical and fresh full/qualified
+execution is mandatory. Local execution service is currently unresponsive;
+previous884 local passes do not prove this counterpart update.
+
+The actual-main predecessor's auxiliary gates exposed exact public-SHA
+false positives and the release inventory's required single paired API ref.
+Both this branch's shared/permanent and qualified paths now use exact1dc5b011;
+all original contract/zoom/full progression/two-reset steps are retained. The
+pinned independent release verifier is unchanged. The harness variable name
+is PROTECTED_BROWSER_COUNTERPART_REF, and only the two observed predecessor
+commit/path/rule/line fingerprints are carried in .gitleaksignore. Full history
+scanning and every other secret finding remain enforced. Fresh full CI is
+required; prior qualified success onbcd529d9 remains dated evidence only.
+
+Inherited actual-main predecessor evidence (retained during the normal base merge):
 
 Actual-mainfb6c6272 first auxiliary gates failed: full-history generic-api-key
 classified two public immutable API commit pins as credentials, and the pinned
