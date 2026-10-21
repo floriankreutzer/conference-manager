@@ -1,6 +1,6 @@
 import { createApiClient } from '../../core/api-client.js';
 import { createPlatformPasskeyBrowser } from './passkey-browser.js';
-import { requirePlatformPasskeyConfiguration } from './passkey-contracts.js';
+import { requirePlatformPasskeyConfiguration,requirePlatformPasskeyChallenge } from './passkey-contracts.js';
 
 export class PlatformPasskeyOperationError extends Error {
   constructor(code = 'PLATFORM_PASSKEY_OPERATION_FAILED') { super(code); this.name = 'PlatformPasskeyOperationError'; this.code = code; }
@@ -22,12 +22,7 @@ async function challenge(response) {
   } catch { await reader.cancel(); reject(); }
   finally { reader.releaseLock(); }
   let value; try { value = JSON.parse(text); } catch { reject(); }
-  if (!value || Object.keys(value).sort().join(',') !== 'options,requestId,state,status'
-    || value.status !== 'passkey_required' || typeof value.state !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value.state)
-    || typeof value.requestId !== 'string'
-    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.requestId)
-    || !value.options || typeof value.options !== 'object' || Array.isArray(value.options)) reject();
-  return value;
+  try { return requirePlatformPasskeyChallenge(value); } catch { reject(); }
 }
 function encodedProof(state, response) {
   const bytes = new TextEncoder().encode(JSON.stringify({ state, response })); let text = '';
@@ -86,6 +81,16 @@ export function createPlatformPasskeyOperationsClient({ origin = globalThis.loca
       throw new PlatformPasskeyOperationError();
     } finally { for (const signal of sources) signal.removeEventListener('abort', abort); }
   }
+  function runExclusive(work) {
+    if (typeof work!=='function') return Promise.reject(new TypeError('PLATFORM_PASSKEY_WORK_REQUIRED'));
+    if (queued>=5) return Promise.reject(new PlatformPasskeyOperationError('PLATFORM_PASSKEY_OPERATION_BUSY'));
+    queued++;
+    const result=tail.then(()=>{
+      if (stopped.signal.aborted) throw new PlatformPasskeyOperationError('PLATFORM_PASSKEY_OPERATION_CANCELLED');
+      return work(stopped.signal);
+    });tail=result.catch(()=>{});
+    return result.finally(()=>{ queued--; });
+  }
   const client = createApiClient({ baseUrl: '/api/v1/platform/', origin, csrfTokenProvider,
     fetchImpl(url, init) {
       const path = new URL(url).pathname;
@@ -96,11 +101,8 @@ export function createPlatformPasskeyOperationsClient({ origin = globalThis.loca
       if (!needsProofQueue) return send(url, init);
       // Serialize proof-capable requests before their initial response can set
       // a cookie, so concurrent operations cannot replace each other's binding.
-      if (queued >= 5) return Promise.reject(new PlatformPasskeyOperationError('PLATFORM_PASSKEY_OPERATION_BUSY'));
-      queued++;
-      const result = tail.then(() => send(url, init)); tail = result.catch(() => {});
-      return result.finally(() => { queued--; });
+      return runExclusive(()=>send(url,init));
     },
   });
-  return Object.freeze({ request: client.request, stop() { stopped.abort(); } });
+  return Object.freeze({ request: client.request,runExclusive, stop() { stopped.abort(); } });
 }

@@ -1,4 +1,5 @@
 import * as base from './i18n-base.js';
+import { PLATFORM_SYNTHETIC_MESSAGES } from './i18n-platform-synthetic-messages.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
 import { CUSTOMER_AUTHENTICATION_MESSAGES } from './i18n-customer-authentication-messages.js';
 import { CUSTOMER_INVITATION_MESSAGES } from './i18n-customer-invitation-messages.js';
@@ -17,6 +18,8 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const synthetic=PLATFORM_SYNTHETIC_MESSAGES[targetLanguage] ?? PLATFORM_SYNTHETIC_MESSAGES.de;
+  if (synthetic?.[key]!==undefined) return synthetic[key];
   const platformInvitations=PLATFORM_INVITATION_MESSAGES[targetLanguage] ?? PLATFORM_INVITATION_MESSAGES.de;
   if (platformInvitations?.[key]!==undefined) return platformInvitations[key];
   const invitationMessages=CUSTOMER_INVITATION_MESSAGES[targetLanguage] ?? CUSTOMER_INVITATION_MESSAGES.de;

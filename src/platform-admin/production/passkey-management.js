@@ -1,5 +1,6 @@
 import { formatDateTime, formatNumber, t } from '../../core/i18n.js';
 import { button, clear, el, openDialog } from '../../core/ui.js';
+import { requirePlatformPasskeyChallenge } from './passkey-contracts.js';
 import { createPlatformPasskeyBrowser } from './passkey-browser.js';
 import { createPlatformPasskeyLogin } from './passkey-login.js';
 import { createPlatformPasskeyLoginView } from './passkey-login-view.js';
@@ -35,12 +36,8 @@ function keysResponse(value) {
   });
 }
 function challenge(value) {
-  exact(value, ['status','state','options','requestId']); requestId(value.requestId);
-  if (value.status !== 'passkey_required' || typeof value.state !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(value.state)
-    || !value.options || typeof value.options !== 'object' || Array.isArray(value.options)) {
-    throw new TypeError('PLATFORM_PASSKEY_MANAGEMENT_RESPONSE_INVALID');
-  }
-  return value;
+  try { return requirePlatformPasskeyChallenge(value); }
+  catch { throw new TypeError('PLATFORM_PASSKEY_MANAGEMENT_RESPONSE_INVALID'); }
 }
 
 // Own-key UI only. The API independently binds every read, addition and revocation

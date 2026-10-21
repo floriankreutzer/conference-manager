@@ -14,7 +14,7 @@ export function createFeatureFlagDefinitions(definitions = {}) {
 // Baseline functionality is intentionally absent from this registry. Genuinely
 // new functionality must be registered here and must default to false unless an
 // explicitly approved requirement says otherwise.
-export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({ 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false, 'catering.catalogue': false, 'catering.orders': false, 'catering.delivery': false, 'customer.invitations': false, 'platform.customer-invitations': false, 'customer.microsoft-authentication': false, 'customer.synthetic-handoff': false });
+export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({ 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false, 'catering.catalogue': false, 'catering.orders': false, 'catering.delivery': false, 'customer.invitations': false, 'platform.customer-invitations': false, 'customer.microsoft-authentication': false, 'customer.synthetic-handoff': false, 'platform.synthetic-workspace': false });
 
 export function createFeatureFlagResolver(defaults = FEATURE_FLAG_DEFAULTS, overrides = {}) {
   const safeDefaults = createFeatureFlagDefinitions(defaults);
@@ -35,6 +35,24 @@ export function createFeatureFlagResolver(defaults = FEATURE_FLAG_DEFAULTS, over
 const operationsFlags = createFeatureFlagResolver(undefined, { 'platform.provider-usage': true, 'platform.product-delivery': true });
 export const featureFlags = Object.freeze({
   isEnabled: operationsFlags.isEnabled,
+  // Read-only nonsecret artifact metadata enables presentation, never authority.
+  // Missing, duplicate or unknown profile markers keep every feature disabled.
+  forProtectedDocument(documentRef) {
+    function single(name) {
+      if (typeof documentRef?.querySelectorAll!=='function') return null;
+      const nodes=documentRef.querySelectorAll(`meta[name="${name}"]`);
+      return nodes.length===1 ? nodes[0].content : null;
+    }
+    const environment=single('conference-deployment-environment');
+    const qualified=single('conference-protected-runtime')==='true' && ['dev','int','prod'].includes(environment);
+    const synthetic=qualified && ['dev','int'].includes(environment) && single('conference-protected-synthetic')==='enabled';
+    const invitations=qualified && single('conference-protected-invitations')==='enabled';
+    return createFeatureFlagResolver(undefined,{
+      'customer.synthetic-handoff': synthetic,'platform.synthetic-workspace': synthetic,
+      'customer.microsoft-authentication': qualified && single('conference-protected-microsoft')==='enabled',
+      'customer.invitations': invitations,'platform.customer-invitations': invitations,
+    });
+  },
   // A validated authenticated server projection can enable this presentation capability only.
   forServerCateringConfiguration(available) {
     return createFeatureFlagResolver(undefined, { 'catering.configuration': available === true });

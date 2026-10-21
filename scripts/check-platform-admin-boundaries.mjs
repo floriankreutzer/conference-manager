@@ -118,7 +118,8 @@ for (const definition of [
     }
     if (
       file === 'index.html'
-      || (!(definition.artifact === 'platform-admin-demo' && file === 'src/platform/feature-flags.js')
+      || (!(['platform-admin-demo','platform-admin-production'].includes(definition.artifact)
+        && file==='src/platform/feature-flags.js')
         && ['src/app.js', 'src/employee', 'src/manager', 'src/tenant-admin', 'src/platform']
         .some((root) => isInside(file, root))
       )
