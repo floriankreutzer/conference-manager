@@ -66,7 +66,7 @@ test('current audit warning is localized, reflows and exports unavailable legacy
 });
 
 test('invented legacy verification fails closed without a verified badge or export',async({ page })=>{
-  await setup(page,{ forged: true });await expect(page.locator('[role="alert"]')).toBeVisible();
+  await setup(page,{ forged: true });await expect(page.locator('.platform-admin-error[role="alert"]')).toBeVisible();
   await expect(page.getByRole('button',{ name: /100.*exportieren/ })).toHaveCount(0);
   await expect(page.getByText(/Die Signaturen des aktuellen Audit-Abschnitts/)).toHaveCount(0);
 });
