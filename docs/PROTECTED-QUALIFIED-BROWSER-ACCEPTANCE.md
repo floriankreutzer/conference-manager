@@ -1,12 +1,21 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API1dc5b011b2dcaba4310e51dbde890928bbd0f0a8. Both refs are checked before setup
+APIea1f4f08e45dc5a5c63b75517ed0fd4cc2a2de7b. Both refs are checked before setup
 and copied into unchanged closed runtime configuration and bounded evidence.
 It adds to the full regular Chromium/WebKit suites and unchanged permanent
 three-customer/two-reset/shared/zoom gates. Existing required e2e status now
 requires both complete browser matrices; failures/cancellation/skips cannot pass
 the aggregate. Its negative truth table covers both matrix results.
+
+Current candidate status — 21 October 2026: both API checkouts and their fixed
+test expectations use that same immutable API288 integration candidate, which
+includes accepted mainb31430e7. Compared with the fully feature-tested1dc5b011
+application, only documentation and the inherited exact secret-scan inventory
+changed. Full actual-main API and frontend acceptance remain mandatory before
+merging; neither running candidates nor the eventual merge commit grant operating
+readiness. The known public-pin inventory has three exact observed fingerprints,
+with no broad rule/path/value exclusion. The execution notes below are historical.
 
 The test-only API288 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
 fresh restricted roles and separate max1 Customer/Platform business+lease pools.
@@ -54,6 +63,8 @@ Evidence contains only engines, declared authenticator scope, fixed origins,
 source refs/artifact hashes, bounded counts and Tenant states. Trace, screenshot,
 video and request/cookie/hidden form captures are disabled only in this separate
 sensitive suite; normal existing evidence gates are retained unchanged.
+
+## Historical execution checkpoints
 
 Local pure artifact/ref/key/aggregate checks pass. Full local frontend and fresh
 CI/native/qualified browser execution remain pending; Docker and pinned browsers
