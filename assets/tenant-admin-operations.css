@@ -298,7 +298,7 @@
 
 
 .tenant-synthetic-onboarding,
-.tenant-synthetic-onboarding :is(fieldset, legend, label, span) {
+.tenant-synthetic-onboarding :is(fieldset, legend, label, span, button, a) {
   min-inline-size: 0;
   max-inline-size: 100%;
   overflow-wrap: anywhere;

@@ -21,7 +21,7 @@ export function createSyntheticCalendarSection({ adapter=null }={}) {
     clear(root);
     const heading=el('h2',{ text: t(TITLE),attrs: { tabindex: '-1' } });
     const status=el('p',{ text: t('syntheticOnboarding.loading'),attrs: { role: 'status','aria-live': 'polite','aria-atomic': 'true' } });
-    root.append(el('section',{ className: 'card tenant-admin-intro' },[heading,status]));
+    root.append(el('section',{ className: 'card tenant-admin-intro tenant-synthetic-onboarding' },[heading,status]));
     try {
       const view=await adapter.getView();if (!isCurrent()) return;
       status.textContent=t('syntheticOnboarding.disclosure');

@@ -76,7 +76,7 @@ test('local-calendar Admin imports selected rooms and explicitly completes ready
   await expect(page.getByRole('group',{ name: 'Räume für den Import auswählen' })).toHaveCount(0);
   await page.getByRole('button',{ name: 'Einrichtung abschließen' }).click();
   await page.getByRole('button',{ name: 'Testmandanten aktivieren' }).click();
-  await expect(page.getByRole('link',{ name: 'Anwendung öffnen' })).toHaveAttribute('href','/');
+  await expect(page.getByRole('link',{ name: 'Anwendung öffnen' })).toHaveAttribute('href',new URL('/',page.url()).href);
   expect(f.writes.map(row=>row.value)).toEqual([{ expectedRevision: 2,selectedKeys: ['focus','workshop'] },
     { expectedRevision: 3,expectedStatus: 'onboarding',targetStatus: 'ready' },
     { expectedRevision: 3,expectedStatus: 'ready',targetStatus: 'active' }]);expect(f.errors).toEqual([]);
@@ -160,7 +160,7 @@ test('REAL composition keeps Microsoft while unavailable classification never se
 
 test('unknown protected provider state presents an error without Microsoft fallback or mutations',async ({ page })=>{
   const f=await composition(page,'unavailable');
-  await expect(page.getByText(/Der aktuelle Kalenderzustand ist nicht verfügbar/)).toBeVisible();
+  await expect(page.locator('#app').getByRole('alert')).toHaveText(/Der aktuelle Kalenderzustand ist nicht verfügbar/);
   await expect(page.getByRole('button',{ name: 'Microsoft 365',exact: true })).toHaveCount(0);
   await expect(page.getByRole('button',{ name: 'Testmandanten aktivieren' })).toHaveCount(0);
   expect(f.calls).not.toContain('/api/v1/integrations/synthetic-calendar/lifecycle/transitions');expect(f.errors).toEqual([]);

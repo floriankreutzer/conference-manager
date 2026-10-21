@@ -61,7 +61,15 @@ Chromium1248/WebKit2370 executables are absent; no browser execution is claimed.
 Fresh CI complete browser suites, unchanged full paired three-customer/two-reset
 and exact source/inventory/security gates remain required. Component/composition
 fixtures are not actual backend, cross-site cookie/RP/physical key or deployment
-proof. API283/284 feature native proofs and pending285 HTTP/audit/source acceptance
+proof. API283/284/285 feature native proofs, including285 HTTP/audit/source acceptance,
 remain separately identified under SaaS1 issue351. Catalogue media/object staging,
 qualified two-site browser and operating owner/sender/keys/recovery/cutover remain
 open; no live email, cloud compute, paid capacity or customer activation occurs.
+
+The initial Chromium CI39603858070 (head b038af50) passed292/295 browser
+cases and failed3 new cases. Actual enlarged-text overflow in the introductory
+heading is corrected by applying the same scoped wrapping contract to that card.
+The remaining two new expectations now match canonical same-origin absolute
+navigation URLs and the visible app alert separately from its screenreader
+announcement. No case is removed or skipped; narrow enlarged-text no-overflow
+remains mandatory. Fresh corrected complete CI remains required.
