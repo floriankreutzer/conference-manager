@@ -11,6 +11,9 @@ both messages, even when its current page is empty. It must never imply that a
 verified current segment authenticates the retained prefix. Unknown fields,
 invented legacy verification, prefix events and invalid ordering fail closed.
 The audit-only offline genesis is a fact, not an operator principal or permission.
+Continuation depends on the last bounded response, rather than the accumulated
+displayed count. A partial/empty authorized page or the segment boundary stops
+pagination; full subsequent pages can continue beyond 200 displayed events.
 
 The export control is presented only with the existing operation-proof port and
 the operator's audit-export permission. The API independently enforces permission,

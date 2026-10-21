@@ -142,7 +142,8 @@ function audit(resource, onLoadMore,onExportAudit) {
     ...(event.targetTenantId ? [el('small', { text: t('platformAdmin.audit.tenantTarget', { tenantId: event.targetTenantId }) })] : []),
   ])));
   const beforeSequence = resource.data.items.at(-1)?.sequence ?? null;
-  const next = beforeSequence && resource.data.items.length === 100 && typeof onLoadMore === 'function'
+  const hasMore=resource.data.schemaVersion===2 ? resource.auditHasMore===true : resource.data.items.length===100;
+  const next = beforeSequence && hasMore && typeof onLoadMore === 'function'
     ? nextControl({ data: { nextCursor: beforeSequence } }, onLoadMore)
     : null;
   const verification=[];

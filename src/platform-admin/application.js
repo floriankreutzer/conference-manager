@@ -491,6 +491,8 @@ export function createPlatformAdminApplication({
       else if (view === 'integration-health') data = await dataSource.loadMicrosoftHealth({ limit: 50, cursor });
       else if (view === 'platform-audit') data = await dataSource.loadAudit({ limit: 100, beforeSequence: cursor });
       else data = await dataSource.loadRuntimeDeployments();
+      const auditHasMore=view==='platform-audit' && data.schemaVersion===2
+        ? data.items.length===100 && data.items.at(-1).sequence>data.audit.legacy.eventCount+1 : null;
       if (append && existing?.data && Array.isArray(data.items)) {
         data = Object.freeze({ ...data, items: Object.freeze([...existing.data.items, ...data.items]) });
       }
@@ -498,6 +500,7 @@ export function createPlatformAdminApplication({
       const completed = observedClock?.capture();
       if (completed) projectionReadClocks.set(view, completed);
       const ready = { status: 'ready', data,
+        ...(auditHasMore===null ? {} : { auditHasMore }),
         ...(completed ? { loadedAt: new Date(completed.wall).toISOString(), requestClock } : {}) };
       if (view === 'product-delivery' && !productCache.retain(ready, requestClock)) {
         throw new TypeError('PLATFORM_PRODUCT_CACHE_EXPIRED');

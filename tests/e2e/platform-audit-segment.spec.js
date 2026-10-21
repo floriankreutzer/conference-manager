@@ -10,8 +10,8 @@ function payload() {
     targetId: ID,previousState: null,newState: { integrityVersion: 2 },occurredAt: '2026-10-21T12:00:00.000Z',correlationId: ID,
     outcome: 'success',metadata: { operation: 'audit_segment_genesis',legacyVerification: 'unavailable' },retentionClass: 'recovery' }] };
 }
-async function setup(page,{ forged=false }={}) {
-  const exports=[];
+async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false }={}) {
+  const exports=[],cursors=[];
   await page.addInitScript(()=>{
     const bytes=length=>new Uint8Array(length).fill(1).buffer;
     Object.defineProperty(navigator,'credentials',{ configurable: true,value: { async get() {
@@ -35,7 +35,16 @@ async function setup(page,{ forged=false }={}) {
     } else if (url.pathname==='/api/v1/platform/tenants') {
       body={ schemaVersion: 1,snapshotAt: '2026-10-21T12:00:00.000Z',items: [],nextCursor: null };
     } else if (url.pathname==='/api/v1/platform/audit/events') {
-      body=payload();if (forged) body.audit.legacy.verification='verified';
+      const before=url.searchParams.get('beforeSequence');cursors.push(before);body=payload();
+      const genesis=body.items[0];
+      body.items=Array.from({ length: eventCount },(_,index)=>{
+        const sequence=124+eventCount-index;
+        return sequence===125 ? genesis : { ...genesis,sequence,assuranceLevel: 'unverified',
+          action: 'platform.authentication.failed',targetType: 'authentication',targetId: 'platform',outcome: 'failure',
+          retentionClass: 'security',newState: null,metadata: { reasonCode: 'identity_unmapped' } };
+      }).filter(item=>before===null || item.sequence<Number(before)).slice(0,100);
+      if (before!==null && emptyContinuation) body.items=[];
+      if (forged) body.audit.legacy.verification='verified';
     } else if (url.pathname==='/api/v1/platform/audit/exports') {
       exports.push({ url: request.url(),headers: request.headers() });
       if (!request.headers()['x-platform-passkey-proof']) {
@@ -46,11 +55,11 @@ async function setup(page,{ forged=false }={}) {
     await route.fulfill({ status: code,contentType: 'application/json',body: JSON.stringify(body) });
   });
   await page.goto(`${ORIGIN}/platform-admin/`);
-  await page.locator('[data-platform-admin-fleet-view="platform-audit"]').click();return exports;
+  await page.locator('[data-platform-admin-fleet-view="platform-audit"]').click();return { exports,cursors };
 }
 
 test('current audit warning is localized, reflows and exports unavailable legacy context only after exact proof',async({ page })=>{
-  const exports=await setup(page);
+  const { exports }=await setup(page);
   await expect(page.getByText(/Für die 124 älteren Ereignisse/)).toBeVisible();
   const control=page.getByRole('button',{ name: 'Bis zu 100 aktuelle Ereignisse exportieren' });
   await control.focus();await expect(control).toBeFocused();
@@ -70,3 +79,17 @@ test('invented legacy verification fails closed without a verified badge or expo
   await expect(page.getByRole('button',{ name: /100.*exportieren/ })).toHaveCount(0);
   await expect(page.getByText(/Die Signaturen des aktuellen Audit-Abschnitts/)).toHaveCount(0);
 });
+
+for (const emptyContinuation of [false,true]) {
+  test(`audit pagination uses the last bounded page and stops without repeated cursors: empty=${emptyContinuation}`,async({ page })=>{
+    const { cursors }=await setup(page,{ eventCount: 201,emptyContinuation });
+    const entries=page.locator('.platform-admin-audit-list > li'),next=page.locator('.platform-admin-pagination button');
+    await expect(entries).toHaveCount(100);await next.click();
+    if (emptyContinuation) { await expect(entries).toHaveCount(100);await expect(next).toHaveCount(0); }
+    else {
+      await expect(entries).toHaveCount(200);await next.click();await expect(entries).toHaveCount(201);
+      await expect(next).toHaveCount(0);
+    }
+    expect(cursors).toEqual(emptyContinuation ? [null,'226'] : [null,'226','126']);
+  });
+}
