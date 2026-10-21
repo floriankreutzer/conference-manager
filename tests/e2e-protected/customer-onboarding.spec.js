@@ -46,7 +46,9 @@ test('actual qualified different-site roots bind native handoff, local onboardin
       await expect(page.getByRole('button',{ name: 'Testzugang öffnen',exact: true })).toBeVisible();
       expect(await page.evaluate(()=>location.origin)).toBe(origins.customer);
       await page.getByRole('button',{ name: 'Testzugang öffnen',exact: true }).click();
-      await expect(page.getByRole('button',{ name: 'Profil',exact: true })).toBeVisible();
+      const profileButton=page.locator('#primaryNavigation button[aria-haspopup="dialog"]');
+      await expect(profileButton).toBeVisible();
+      await expect(profileButton).toHaveAttribute('aria-label',role==='employee' ? /^Angemeldeter Benutzer .+/ : 'Profil');
     }
     await handoff('fabrikam','tenant_admin');
     await page.getByRole('button',{ name: 'Kalender und Onboarding',exact: true }).click();

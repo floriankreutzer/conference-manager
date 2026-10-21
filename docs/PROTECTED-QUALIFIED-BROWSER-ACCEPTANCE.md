@@ -1,7 +1,7 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API8e2e64b27326c74440604b589407d08b41a0142f. Both refs are checked before setup
+APIca7c29a22d41782f776f8d10ae38d53e6b287910. Both refs are checked before setup
 and copied into unchanged closed runtime configuration and bounded evidence.
 It adds to the full regular Chromium/WebKit suites and unchanged permanent
 three-customer/two-reset/shared/zoom gates. Existing required e2e status now
@@ -68,3 +68,12 @@ policies, without changing server cookies. WebKit stopped after generation
 confirmation; its software bridge now supplies the test facade when that engine
 has no navigator.credentials. Bounded path/status/error-code diagnostics are
 prepared if further failure remains. No qualified journey pass is claimed yet.
+
+Corrected a20c0985/CI39611541040 passed qualified TLS, both actual generation/
+handoff/Fabrikam import-ready-active paths and the cookie assertions in both
+engines. The second Northwind Employee handoff also completed; both tests then
+looked for an exact "Profil" accessible name although a nonempty real profile
+uses the established "Angemeldeter Benutzer {name}" label. The test now selects
+the existing profile navigation dialog trigger and asserts the exact respective
+setup/loaded-profile accessible-name policy. No production label/auth behavior,
+timeout, privacy rule or assertion case is weakened. Full journey remains pending.
