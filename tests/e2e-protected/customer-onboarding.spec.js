@@ -64,10 +64,12 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     });expect(customerState.status).toBe(200);expect(customerState.tenantStatus).toBe('active');
     expect(customerState.roles).toEqual(['employee','tenant_admin']);
     const cookies=await context.cookies([`${origins.customer}/api/v1/session`,`${origins.platform}/api/v1/platform/session`]);
-    const namespaces=cookies.filter(cookie=>cookie.httpOnly && cookie.secure && cookie.sameSite==='Strict').map(cookie=>({
-      name: cookie.name,domain: cookie.domain,path: cookie.path }));
-    expect(namespaces.some(cookie=>cookie.domain===new URL(origins.customer).hostname)).toBe(true);
-    expect(namespaces.some(cookie=>cookie.domain===new URL(origins.platform).hostname)).toBe(true);
+    const namespaces=cookies.filter(cookie=>cookie.httpOnly && cookie.secure).map(cookie=>({
+      name: cookie.name,domain: cookie.domain,path: cookie.path,sameSite: cookie.sameSite }));
+    expect(namespaces.some(cookie=>cookie.domain===new URL(origins.customer).hostname
+      && cookie.path==='/api' && cookie.sameSite==='Lax')).toBe(true);
+    expect(namespaces.some(cookie=>cookie.domain===new URL(origins.platform).hostname
+      && cookie.path==='/api/v1/platform' && cookie.sameSite==='Strict')).toBe(true);
     await page.getByRole('button',{ name: 'Profil',exact: true }).click();
     await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
     await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
@@ -99,10 +101,16 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     const evidence=await runtime.evidence();
     expect(evidence.tenants.some(tenant=>tenant.slot==='fabrikam' && tenant.status==='active' && tenant.rooms===2)).toBe(true);
     expect(evidence.tenantChainsVerified).toBe(3);expect(errors).toEqual([]);
-    console.log('PROTECTED_QUALIFIED_BROWSER_EVIDENCE',JSON.stringify({ engine: browserName,authenticator,
+    console.log('PROTECTED_QUALIFIED_BROWSER_EVIDENCE',JSON.stringify({ engine: browserName,authenticator: authenticator.mode,
       actualOrigins: origins,refs: evidence.refs,artifacts: traffic.artifacts,tenantChainsVerified: evidence.tenantChainsVerified,
       tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: 2,
       scope: 'initial canonical MFA fixture; Microsoft primary, physical keys and operating cutover unproved' }));
+  } catch (error) {
+    // Fixed paths/status codes and test bridge counters only. Never include
+    // callback queries, headers, cookies, request/response bodies or DOM forms.
+    if (edge) console.log('PROTECTED_QUALIFIED_BROWSER_FAILURE',JSON.stringify({ engine: browserName,
+      traffic: edge.evidence(),scope: 'no auth material captured' }));
+    throw error;
   } finally {
     try { await context?.close(); } finally { try { await edge?.close(); } finally { await runtime?.close(); } }
   }

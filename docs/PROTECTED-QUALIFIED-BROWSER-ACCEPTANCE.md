@@ -37,8 +37,8 @@ WebKit uses an explicitly labeled test-only software assertion bridge that check
 the actual frame origin, RP, challenge, allowlist and required UV before signing;
 the real pinned server verifier accepts the result. This proves WebKit document,
 TLS, cookies and native form behavior, not its native WebAuthn engine or hardware.
-No private key enters browser JavaScript. Existing Strict session cookies keep
-their real paths/flags; signed arrival is anonymous across sites and subsequent
+No private key enters browser JavaScript. Existing Customer Lax and Platform
+Strict session cookies keep their real paths/flags; signed arrival is anonymous across sites and subsequent
 same-origin session reads use the current cookie. No cookie is weakened.
 
 The prepared journey creates the actual three-customer generation with a fresh
@@ -58,3 +58,13 @@ Local pure artifact/ref/key/aggregate checks pass. Full local frontend and fresh
 CI/native/qualified browser execution remain pending; Docker and pinned browsers
 are absent locally. No actual browser, physical key or live cutover pass is
 claimed by this preparation. SaaS1 issue351/milestone2.
+
+Initial CI39610029988 on6e0e90ed is retained as failed. Chromium passed actual
+qualified TLS, native CTAP2 generation/handoff and full Fabrikam import/activation,
+then the new test incorrectly expected a Strict Customer cookie. Inspection of
+the unchanged canonical cookie serializer confirmed Customer Lax/Path /api and
+Platform Strict/Path /api/v1/platform; assertions now require those exact existing
+policies, without changing server cookies. WebKit stopped after generation
+confirmation; its software bridge now supplies the test facade when that engine
+has no navigator.credentials. Bounded path/status/error-code diagnostics are
+prepared if further failure remains. No qualified journey pass is claimed yet.

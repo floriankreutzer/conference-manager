@@ -12,7 +12,7 @@ export async function installQualifiedAuthenticator({ context,page,browserName,k
       credentialId: Buffer.from(key.credential.id,'base64url').toString('base64'),isResidentCredential: true,rpId: RP_ID,
       privateKey: key.exportPrivateKey(),userHandle: Buffer.from(key.userHandle,'base64url').toString('base64'),signCount: 0,
     } });
-    return 'native-chromium-virtual-ctap2';
+    return Object.freeze({ mode: 'native-chromium-virtual-ctap2' });
   }
   if (browserName!=='webkit') throw new Error('PROTECTED_AUTHENTICATOR_ENGINE_INVALID');
   // WebKit test bridge only. Current actual document origin/RP/challenge and UV
@@ -32,7 +32,11 @@ export async function installQualifiedAuthenticator({ context,page,browserName,k
     const encode=buffer=>btoa(String.fromCharCode(...new Uint8Array(buffer)))
       .replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
     const decode=value=>Uint8Array.from(atob(value.replaceAll('-','+').replaceAll('_','/')),character=>character.charCodeAt(0)).buffer;
-    Object.defineProperty(navigator.credentials,'get',{ configurable: true,value: async({ publicKey,signal })=>{
+    let credentials=navigator.credentials;
+    if (!credentials) {
+      credentials={};Object.defineProperty(navigator,'credentials',{ configurable: true,value: credentials });
+    }
+    Object.defineProperty(credentials,'get',{ configurable: true,value: async({ publicKey,signal })=>{
       if (signal?.aborted || publicKey.rpId!==rpId || !isSecureContext) throw new DOMException('Denied','NotAllowedError');
       const value=await globalThis.__cmQualifiedSoftwareAssertion({ rpId: publicKey.rpId,userVerification: publicKey.userVerification,
         challenge: encode(publicKey.challenge),allowed: (publicKey.allowCredentials ?? []).map(item=>encode(item.id)) });
@@ -42,5 +46,5 @@ export async function installQualifiedAuthenticator({ context,page,browserName,k
         getClientExtensionResults: ()=>({}) };
     } });
   },{ origin: PLATFORM_ORIGIN,rpId: RP_ID });
-  return 'webkit-origin-bound-software-test-bridge';
+  return Object.freeze({ mode: 'webkit-origin-bound-software-test-bridge' });
 }

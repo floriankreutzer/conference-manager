@@ -83,8 +83,18 @@ export async function createQualifiedProtectedEdge({ root,ports,certificateDirec
     if (url.pathname.startsWith('/api/')) {
       const upstream=httpRequest({ hostname: '127.0.0.1',port: ports[surface],path: request.url,
         method: request.method,headers: { ...request.headers,connection: 'close' } },incoming=>{
-        response.writeHead(incoming.statusCode,incoming.headers);let bytes=0;
-        incoming.on('data',chunk=>{ bytes+=chunk.length;if (bytes>MAX_BYTES) { incoming.destroy();response.destroy(); } });
+        response.writeHead(incoming.statusCode,incoming.headers);let bytes=0;const failure=[];
+        incoming.on('data',chunk=>{
+          bytes+=chunk.length;if (bytes>MAX_BYTES) { incoming.destroy();response.destroy(); }
+          if (incoming.statusCode>=400 && bytes<=4096) failure.push(chunk);
+        });
+        incoming.on('end',()=>{
+          if (incoming.statusCode<400 || bytes>4096) return;
+          try {
+            const body=JSON.parse(Buffer.concat(failure).toString()),code=body.error?.code;
+            if (typeof code==='string' && /^[A-Z][A-Z0-9_]{1,127}$/.test(code)) event.errorCode=code;
+          } catch { /* No raw response is retained as diagnostic evidence. */ }
+        });
         incoming.on('error',()=>response.destroy());incoming.pipe(response);
       });let length=0;
       request.on('data',chunk=>{ length+=chunk.length;if (length>MAX_BYTES) { upstream.destroy();response.destroy(); } });
