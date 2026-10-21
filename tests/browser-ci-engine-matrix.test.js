@@ -17,12 +17,29 @@ test('regular browser CI retains both full projects, one unchanged budget and di
 });
 test('required e2e aggregate rejects failed, cancelled, skipped, absent and ambiguous matrix results',() => {
   const aggregate = workflow.slice(workflow.indexOf('\n  e2e:'),workflow.indexOf('\n  shared-demo-e2e:'));
-  assert.match(aggregate,/needs: browser-e2e/); assert.match(aggregate,/if: \$\{\{ always\(\) \}\}/);
+  assert.match(aggregate,/needs: \[browser-e2e, protected-browser-e2e\]/);
+  assert.match(aggregate,/if: \$\{\{ always\(\) \}\}/);
   assert.match(aggregate,/BROWSER_MATRIX_RESULT: \$\{\{ needs\['browser-e2e'\]\.result \}\}/);
-  const command = aggregate.match(/run: (test "\$BROWSER_MATRIX_RESULT" = success)/)?.[1];
+  assert.match(aggregate,/PROTECTED_BROWSER_MATRIX_RESULT: \$\{\{ needs\['protected-browser-e2e'\]\.result \}\}/);
+  const command = aggregate.match(/run: (test "\$BROWSER_MATRIX_RESULT" = success[^\n]*)/)?.[1];
   assert.ok(command); assert.doesNotMatch(aggregate,/continue-on-error:|\|\| true/);
   for (const value of ['success','failure','cancelled','skipped','','success\nfailure']) {
-    const result = spawnSync('bash',['-c',command],{ env: { ...process.env,BROWSER_MATRIX_RESULT: value },encoding: 'utf8' });
-    assert.equal(result.status,value === 'success' ? 0 : 1);
+    for (const protectedValue of ['success','failure','cancelled','skipped','','success\nfailure']) {
+      const result = spawnSync('bash',['-c',command],{ env: { ...process.env,BROWSER_MATRIX_RESULT: value,
+        PROTECTED_BROWSER_MATRIX_RESULT: protectedValue },encoding: 'utf8' });
+      assert.equal(result.status,value === 'success' && protectedValue === 'success' ? 0 : 1);
+    }
   }
+});
+
+test('qualified protected acceptance pins the API, retains both engines and actual TLS without weakening permanent gates',()=>{
+  const protectedJob=workflow.slice(workflow.indexOf('\n  protected-browser-e2e:'));
+  assert.match(protectedJob,/browser: \[chromium, webkit\]/);assert.match(protectedJob,/needs: quality/);
+  assert.match(protectedJob,/ref: ca7c29a22d41782f776f8d10ae38d53e6b287910/);
+  const refs=[...workflow.matchAll(/repository: floriankreutzer\/conference-manager-api\n\s+ref: ([a-f0-9]{40})/g)]
+    .map(match=>match[1]);
+  assert.deepEqual(refs,["ca7c29a22d41782f776f8d10ae38d53e6b287910","ca7c29a22d41782f776f8d10ae38d53e6b287910"]);
+  assert.match(protectedJob,/node scripts\/test-protected-browser.mjs "\$\{\{ matrix.browser \}\}-protected"/);
+  assert.doesNotMatch(protectedJob,/continue-on-error:|--ignore-https-errors|--retries|--grep|--shard/);
+  assert.match(workflow,/Run full three-customer progression and two-cycle reset acceptance/);
 });

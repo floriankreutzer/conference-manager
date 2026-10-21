@@ -111,14 +111,15 @@ jobs:
   # Keep the existing required status, and fail it for any non-success matrix result.
   e2e:
     runs-on: ubuntu-latest
-    needs: browser-e2e
+    needs: [browser-e2e, protected-browser-e2e]
     if: ${{ always() }}
     timeout-minutes: 20
     steps:
       - name: Require both complete engine jobs to succeed
         env:
           BROWSER_MATRIX_RESULT: ${{ needs['browser-e2e'].result }}
-        run: test "$BROWSER_MATRIX_RESULT" = success
+          PROTECTED_BROWSER_MATRIX_RESULT: ${{ needs['protected-browser-e2e'].result }}
+        run: test "$BROWSER_MATRIX_RESULT" = success && test "$PROTECTED_BROWSER_MATRIX_RESULT" = success
 
   shared-demo-e2e:
     runs-on: ubuntu-latest
@@ -150,7 +151,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 446fe2c2b1a89323e11d09670b3dac0fbcc94b68
+          ref: ca7c29a22d41782f776f8d10ae38d53e6b287910
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -283,3 +284,65 @@ jobs:
           name: shared-demo-playwright-report
           path: frontend/playwright-report-shared-demo/
           if-no-files-found: ignore
+
+  protected-browser-e2e:
+    runs-on: ubuntu-latest
+    needs: quality
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    env:
+      PROTECTED_BROWSER_COUNTERPART_REF: ca7c29a22d41782f776f8d10ae38d53e6b287910
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+    services:
+      postgres:
+        image: docker.io/library/postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout exact frontend candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: frontend
+      - name: Checkout immutable protected API bootstrap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: floriankreutzer/conference-manager-api
+          ref: ca7c29a22d41782f776f8d10ae38d53e6b287910
+          token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
+          persist-credentials: false
+          path: api
+      - name: Verify immutable counterpart and candidate refs
+        run: |
+          test "$(git -C api rev-parse HEAD)" = "$PROTECTED_BROWSER_COUNTERPART_REF"
+          test "$(git -C frontend rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install locked API dependencies
+        working-directory: api
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install selected browser and normal test CA trust utility
+        working-directory: frontend
+        run: |
+          npx playwright install --with-deps "${{ matrix.browser }}"
+          sudo apt-get install --no-install-recommends -y libnss3-tools
+      - name: Run actual different-site protected browser acceptance
+        working-directory: frontend
+        run: node scripts/test-protected-browser.mjs "${{ matrix.browser }}-protected"
