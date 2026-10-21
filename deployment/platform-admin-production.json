@@ -30,6 +30,7 @@
     "src/core/preferences.js",
     "src/core/ui.js",
     "src/platform-admin/application.js",
+    "src/platform-admin/audit-export.js",
     "src/platform-admin/contracts.js",
     "src/platform-admin/fleet-sections.js",
     "src/platform-admin/index.js",

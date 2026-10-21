@@ -36,6 +36,7 @@ import { renderProviderUsage } from './provider-usage.js';
 import { renderProductDelivery } from './product-delivery.js';
 import { createProductDeliveryCache } from './product-delivery-cache.js';
 import { createProviderUsageFreshness } from './provider-usage-freshness.js';
+import { downloadPlatformAuditExport } from './audit-export.js';
 
 const LIFECYCLE_FILTERS = Object.freeze(['all', 'pending', 'onboarding', 'ready', 'active', 'suspended', 'archived']);
 const HEALTH_FILTERS = Object.freeze(['all', 'healthy', 'degraded', 'unavailable', 'not_configured']);
@@ -879,6 +880,8 @@ export function createPlatformAdminApplication({
       onRetry: () => loadFleetResource(fleetView, { force: true }),
       onSelectTenant: openTenantFromFleet,
       onLoadMore: (cursor) => loadFleetResource(fleetView, { cursor, append: true }),
+      onExportAudit: operationProofAvailable && currentOperator?.permissions.includes('platform:audit:export')
+        ? ()=>downloadPlatformAuditExport(dataSource) : null,
     });
   }
 

@@ -1,5 +1,11 @@
 export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
   de: Object.freeze({
+    "platformAdmin.segmentAudit.description": "Hier siehst du geprüfte Ereignisse des aktuellen Audit-Abschnitts. Ein Export enthält höchstens 100 aktuelle Ereignisse und benötigt eine eigene Bestätigung.",
+    "platformAdmin.segmentAudit.failed": "Das Audit konnte nicht vollständig geprüft oder geladen werden. Versuche es erneut.",
+    "platformAdmin.segmentAudit.verified": "Die Signaturen des aktuellen Audit-Abschnitts wurden vom Server geprüft.",
+    "platformAdmin.segmentAudit.legacy": "Für die {count} älteren Ereignisse ist die Signaturprüfung nicht verfügbar. Diese Historie bleibt erhalten und ist nicht als geprüft ausgewiesen.",
+    "platformAdmin.segmentAudit.export": "Bis zu 100 aktuelle Ereignisse exportieren",
+    "platformAdmin.segmentAudit.exported": "Der Export mit dem Prüfstatus der älteren Historie wurde heruntergeladen.",
     "platformAdmin.passkey.manage.open": "Passkeys verwalten",
     "platformAdmin.passkey.manage.title": "Meine Passkeys",
     "platformAdmin.passkey.manage.description": "Für den Zugang benötigst du zwei Passkeys. Du kannst bis zu fünf Schlüssel einrichten. Hinzufügen und Entfernen benötigen eine eigene Bestätigung. Nach dem Entfernen musst du dich neu anmelden und gegebenenfalls einen Ersatzschlüssel einrichten.",
@@ -717,6 +723,12 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
     'platformAdmin.state.connected': 'Verbunden',
   }),
   en: Object.freeze({
+    "platformAdmin.segmentAudit.description": "View verified events in the current audit segment. An export contains at most 100 current events and requires a separate confirmation.",
+    "platformAdmin.segmentAudit.failed": "The audit could not be fully verified or loaded. Try again.",
+    "platformAdmin.segmentAudit.verified": "The server verified the signatures of the current audit segment.",
+    "platformAdmin.segmentAudit.legacy": "Signature verification is unavailable for the {count} older events. This history remains retained and is not presented as verified.",
+    "platformAdmin.segmentAudit.export": "Export up to 100 current events",
+    "platformAdmin.segmentAudit.exported": "The export, including the verification status of older history, has been downloaded.",
     "platformAdmin.passkey.manage.open": "Manage passkeys",
     "platformAdmin.passkey.manage.title": "My passkeys",
     "platformAdmin.passkey.manage.description": "Access requires two passkeys. You can register up to five keys. Adding and removing require a separate confirmation. After removal, sign in again and register a replacement key if needed.",

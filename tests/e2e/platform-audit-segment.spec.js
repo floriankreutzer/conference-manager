@@ -1,0 +1,72 @@
+import { expect,test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+const ORIGIN='https://ops-int.example.com',ID='11111111-1111-4111-8111-111111111111';
+const state=Buffer.alloc(32,1).toString('base64url');
+function payload() {
+  return { schemaVersion: 2,audit: { segmentId: ID,verification: 'verified',
+    legacy: { eventCount: 124,verification: 'unavailable' } },items: [{ sequence: 125,operatorId: null,roles: [],permissions: [],
+    assuranceLevel: 'offline_owner',targetTenantId: null,action: 'platform.operator.changed',targetType: 'platform_audit_segment',
+    targetId: ID,previousState: null,newState: { integrityVersion: 2 },occurredAt: '2026-10-21T12:00:00.000Z',correlationId: ID,
+    outcome: 'success',metadata: { operation: 'audit_segment_genesis',legacyVerification: 'unavailable' },retentionClass: 'recovery' }] };
+}
+async function setup(page,{ forged=false }={}) {
+  const exports=[];
+  await page.addInitScript(()=>{
+    const bytes=length=>new Uint8Array(length).fill(1).buffer;
+    Object.defineProperty(navigator,'credentials',{ configurable: true,value: { async get() {
+      const encoded=btoa(String.fromCharCode(...new Uint8Array(bytes(32)))).replace(/=+$/,'');
+      return { id: encoded,rawId: bytes(32),type: 'public-key',response: { clientDataJSON: bytes(64),
+        authenticatorData: bytes(37),signature: bytes(72),userHandle: bytes(32) },getClientExtensionResults: ()=>({}) };
+    } } });
+  });
+  await page.route(`${ORIGIN}/**`,async route=>{
+    const request=route.request(),url=new URL(request.url());let body,code=200;
+    if (!url.pathname.startsWith('/api/')) {
+      await route.fulfill({ response: await route.fetch({ url: `https://127.0.0.1:4173${url.pathname}${url.search}` }) });return;
+    }
+    if (url.pathname==='/api/v1/platform/session') {
+      body={ operatorId: ID,roles: ['platform_security_auditor'],permissions: ['platform:tenant:read','platform:diagnostics:read',
+        'platform:diagnostics:sensitive','platform:audit:read','platform:audit:export','platform:runtime:read'],
+      assurance: { level: 'mfa',authenticatedAt: '2099-01-01T00:00:00.000Z' },expiresAt: '2099-01-01T04:00:00.000Z',
+      stepUpExpiresAt: null,csrfToken: 'C'.repeat(43) };
+    } else if (url.pathname==='/api/v1/platform/auth/passkey/configuration') {
+      body={ mode: 'application_passkey',environment: 'int',minimumPasskeys: 2,requestId: ID };
+    } else if (url.pathname==='/api/v1/platform/tenants') {
+      body={ schemaVersion: 1,snapshotAt: '2026-10-21T12:00:00.000Z',items: [],nextCursor: null };
+    } else if (url.pathname==='/api/v1/platform/audit/events') {
+      body=payload();if (forged) body.audit.legacy.verification='verified';
+    } else if (url.pathname==='/api/v1/platform/audit/exports') {
+      exports.push({ url: request.url(),headers: request.headers() });
+      if (!request.headers()['x-platform-passkey-proof']) {
+        code=428;body={ status: 'passkey_required',state,requestId: ID,options: { challenge: state,
+          rpId: 'ops-int.example.com',allowCredentials: [{ id: state,type: 'public-key' }],userVerification: 'required' } };
+      } else body=payload();
+    } else { code=404;body={ error: { code: 'PLATFORM_NOT_FOUND' } }; }
+    await route.fulfill({ status: code,contentType: 'application/json',body: JSON.stringify(body) });
+  });
+  await page.goto(`${ORIGIN}/platform-admin/`);
+  await page.locator('[data-platform-admin-fleet-view="platform-audit"]').click();return exports;
+}
+
+test('current audit warning is localized, reflows and exports unavailable legacy context only after exact proof',async({ page })=>{
+  const exports=await setup(page);
+  await expect(page.getByText(/Für die 124 älteren Ereignisse/)).toBeVisible();
+  const control=page.getByRole('button',{ name: 'Bis zu 100 aktuelle Ereignisse exportieren' });
+  await control.focus();await expect(control).toBeFocused();
+  const downloaded=page.waitForEvent('download');await page.keyboard.press('Enter');
+  const download=await downloaded;
+  expect(JSON.parse(await readFile(await download.path(),'utf8'))).toEqual(payload());
+  expect(exports).toHaveLength(2);expect(exports[0].url).toBe(exports[1].url);
+  expect(exports[1].headers['x-platform-passkey-proof']).toBeTruthy();
+  await page.evaluate(async()=>{ const i18n=await import('/src/core/i18n.js');i18n.setLanguage('en');
+    window.dispatchEvent(new CustomEvent('conference-language-changed')); });
+  await expect(page.getByText(/Signature verification is unavailable for the 124 older events/)).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+});
+
+test('invented legacy verification fails closed without a verified badge or export',async({ page })=>{
+  await setup(page,{ forged: true });await expect(page.locator('[role="alert"]')).toBeVisible();
+  await expect(page.getByRole('button',{ name: /100.*exportieren/ })).toHaveCount(0);
+  await expect(page.getByText(/Die Signaturen des aktuellen Audit-Abschnitts/)).toHaveCount(0);
+});
