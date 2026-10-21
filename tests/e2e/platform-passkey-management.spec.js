@@ -115,6 +115,7 @@ for (const outcome of ['cancel', 'failure']) {
     await add.focus(); await page.keyboard.press('Enter');
     await expect(dialog.getByRole('status')).toBeFocused();
     await expect(add).toBeDisabled();
+    await page.waitForFunction(() => typeof window.rejectPasskey === 'function');
     await page.evaluate(kind => window.rejectPasskey(kind === 'cancel'
       ? new DOMException('Cancelled', 'NotAllowedError') : new Error('Fixture failure')), outcome);
     await expect(dialog.getByRole('alert')).toBeVisible();
