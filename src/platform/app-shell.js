@@ -62,7 +62,8 @@ export function createAppShell({
   const titleRoot = document.getElementById('viewTitle');
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
-  if (context.tenantStatus?.() === 'onboarding'
+  if ((context.tenantStatus?.() === 'onboarding'
+    || !context.isDemoRuntime() && context.tenantStatus?.() === 'ready')
     && context.canManageTenantUsers() && tenantAdmin) view = 'tenantAdmin';
   let renderRevision = 0;
 

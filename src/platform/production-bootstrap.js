@@ -4,6 +4,7 @@ import { installCustomerInactivityLock } from './inactivity-lock.js';
 import { bootstrapInvitedCustomerAuthentication } from './customer-authentication/bootstrap.js';
 import { createCustomerInvitationClient } from './customer-invitations/client.js';
 import { featureFlags } from './feature-flags.js';
+import { discoverProtectedSyntheticOnboarding } from './synthetic-onboarding-api.js';
 
 async function bootstrapProductionCustomerApplication() {
   const presentationFlags=featureFlags.forProtectedDocument(globalThis.document);
@@ -13,6 +14,8 @@ async function bootstrapProductionCustomerApplication() {
       microsoftAuthenticationEnabled: presentationFlags.isEnabled('customer.microsoft-authentication'),
       syntheticHandoffEnabled: presentationFlags.isEnabled('customer.synthetic-handoff') }),
     invitationAdministrationFactory: presentationFlags.isEnabled('customer.invitations') ? createCustomerInvitationClient : null,
+    syntheticOnboardingFactory: presentationFlags.isEnabled('customer.synthetic-onboarding')
+      ? discoverProtectedSyntheticOnboarding : null,
   });
   installCustomerInactivityLock({
     context: application.context,

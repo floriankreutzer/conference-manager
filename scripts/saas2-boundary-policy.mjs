@@ -21,6 +21,7 @@ const APPROVED_SECTION_IDS = new Set([
   'cost-allocation',
   'users',
   'microsoft365',
+  'synthetic-calendar',
   'catering',
   'capabilities',
   'audit',

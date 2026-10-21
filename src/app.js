@@ -45,6 +45,7 @@ export async function bootstrapCustomerApplication({
   authenticationBootstrap,
   microsoft365ConnectionFactory = createMicrosoft365ConnectionApi,
   invitationAdministrationFactory = null,
+  syntheticOnboardingFactory = null,
   optionalProjectionTimeoutMs = OPTIONAL_PROJECTION_TIMEOUT_MS,
 } = {}) {
   if (typeof microsoft365ConnectionFactory !== 'function') {
@@ -52,6 +53,9 @@ export async function bootstrapCustomerApplication({
   }
   if (invitationAdministrationFactory!==null && typeof invitationAdministrationFactory!=='function') {
     throw new TypeError('CUSTOMER_INVITATION_FACTORY_INVALID');
+  }
+  if (syntheticOnboardingFactory!==null && typeof syntheticOnboardingFactory!=='function') {
+    throw new TypeError('SYNTHETIC_ONBOARDING_FACTORY_INVALID');
   }
   const optionalTimeout = normalizedOptionalProjectionTimeout(optionalProjectionTimeoutMs);
   renderAppBootstrapLoading();
@@ -90,12 +94,15 @@ export async function bootstrapCustomerApplication({
     adapter: tenantPresentationAdapter,
     refreshTimeoutMs: optionalTimeout,
   });
+  let syntheticOnboarding = null;
   let cateringConfiguration = null;
   let cateringAssignments = null;
   let cateringOrders = null;
   let cateringDelivery = null;
   try {
     await tenantPresentation.refresh();
+    syntheticOnboarding = context.isTenantAdmin() && authentication && syntheticOnboardingFactory
+      ? await syntheticOnboardingFactory({ apiClient: authentication.apiClient,timeoutMs: optionalTimeout }) : null;
     cateringConfiguration = await discoverCateringConfiguration({ context, authentication, timeoutMs: optionalTimeout });
     cateringAssignments = await discoverCateringCatalogueAssignments({ context, authentication, timeoutMs: optionalTimeout });
     cateringOrders = await discoverCateringOrders({ context, authentication, timeoutMs: optionalTimeout });
@@ -146,7 +153,7 @@ export async function bootstrapCustomerApplication({
   const tenantUserAdministration = context.isTenantAdmin() && authentication
     ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
     : null;
-  const invitations = tenantUserAdministration && invitationAdministrationFactory
+  const invitations = tenantUserAdministration && invitationAdministrationFactory && !syntheticOnboarding
     ? invitationAdministrationFactory({ apiClient: authentication.apiClient }) : null;
   const tenantAudit = context.isTenantAdmin() && authentication
     ? createTenantAuditApi({ apiClient: authentication.apiClient })
@@ -176,6 +183,7 @@ export async function bootstrapCustomerApplication({
           connection: microsoft365Connection,
           onboardingRuntime,
         }),
+        syntheticCalendar: syntheticOnboarding,
         catering: cateringConfiguration,
         capabilities: tenantCapabilities,
         audit: tenantAudit,
