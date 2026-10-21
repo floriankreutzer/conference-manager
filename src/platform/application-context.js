@@ -336,8 +336,12 @@ export async function createApplicationContext({
     status = PRODUCTION_AUTH_STATUS.UNAVAILABLE;
     session = null;
   } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED
-    && session?.tenant?.status === PRODUCTION_TENANT_STATUS.ONBOARDING) {
-    // Onboarding has no bookable catalogue yet; keep its tenant-admin session authoritative.
+    && (session?.tenant?.status === PRODUCTION_TENANT_STATUS.ONBOARDING
+      || runtimeMode === RUNTIME_MODE.PRODUCTION && session?.tenant?.status === PRODUCTION_TENANT_STATUS.READY
+        && session?.roles?.includes(PRODUCTION_TENANT_ROLE.TENANT_ADMIN)
+        && session?.permissions?.includes(PRODUCTION_PERMISSION.TENANT_INTEGRATIONS_MANAGE))) {
+    // Administrative setup remains authenticated without active-only Request projections.
+    // This creates no business data, role or active-Tenant authority.
   } else if (status === PRODUCTION_AUTH_STATUS.AUTHENTICATED) {
     const persistence = createProductionPersistence({ apiClient: authentication.runtime.apiClient });
     try {

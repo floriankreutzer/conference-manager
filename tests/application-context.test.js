@@ -742,3 +742,26 @@ test('stalled required startup projections are aborted and fail closed', async (
   assert.equal(abortedPaths.length, 3);
   assert.equal(abortedPaths.includes('v1/application/profile'), true);
 });
+
+
+test('ready Production Tenant Admin retains administrative session without active-only business projections',async()=>{
+  const admin=session({ roles: ['employee','tenant_admin'],permissions: TENANT_ADMIN_PERMISSIONS });
+  const ready=Object.freeze({ ...admin,tenant: Object.freeze({ ...admin.tenant,status: 'ready' }) });
+  const context=await createApplicationContext({ runtimeMode: 'production',authenticationBootstrap: async()=>({
+    status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,session: ready,runtime: { apiClient: {
+      request() { assert.fail('ready setup cannot infer or fetch active-only business authority'); } } } }) });
+  assert.equal(context.isAuthenticated(),true);assert.equal(context.isTenantAdmin(),true);assert.equal(context.isManager(),false);
+  assert.equal(context.tenantStatus(),'ready');assert.deepEqual(context.requests(),[]);assert.equal(context.canSwitchRole(),false);
+  assert.equal(context.invalidateAuthority(Object.assign(new Error('denied'),{ code: 'HTTP_403' })),true);
+  assert.equal(context.isAuthenticated(),false);assert.equal(context.isTenantAdmin(),false);
+});
+
+test('ready Production Conference Manager cannot inherit setup-session preservation or Demo switching',async()=>{
+  const manager=session({ roles: ['employee','conference_manager'],permissions: MANAGER_PERMISSIONS });
+  const ready=Object.freeze({ ...manager,tenant: Object.freeze({ ...manager.tenant,status: 'ready' }) });let reads=0;
+  const context=await createApplicationContext({ runtimeMode: 'production',authenticationBootstrap: async()=>({
+    status: PRODUCTION_AUTH_STATUS.AUTHENTICATED,session: ready,runtime: { apiClient: {
+      async request() { reads++;throw Object.assign(new Error('denied'),{ code: 'HTTP_403' }); } } } }) });
+  assert.ok(reads>0);assert.equal(context.isAuthenticated(),false);assert.equal(context.isManager(),false);
+  assert.equal(context.isTenantAdmin(),false);assert.equal(context.canSwitchRole(),false);
+});

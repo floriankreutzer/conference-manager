@@ -5,6 +5,7 @@ import { createCapabilitiesSection } from './sections/capabilities/index.js';
 import { createCostAllocationSection } from './sections/cost-allocation/index.js';
 import { createLocationsSection } from './sections/locations/index.js';
 import { createMicrosoft365Section } from './sections/microsoft365/index.js';
+import { createSyntheticCalendarSection } from './sections/synthetic-calendar/index.js';
 import { createOrganizationSection } from './sections/organization/index.js';
 import { createUsersSection } from './sections/users/index.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
@@ -54,9 +55,10 @@ export function createTenantAdminSectionRegistry({
     [createBookingPoliciesSection, adapters.bookingPolicies],
     [createCostAllocationSection, adapters.costAllocation],
     [createUsersSection, adapters.users],
-    [createMicrosoft365Section, adapters.microsoft365],
+    ...(adapters.syntheticCalendar ? [[createSyntheticCalendarSection, adapters.syntheticCalendar]]
+      : [[createMicrosoft365Section, adapters.microsoft365]]),
     [createCateringSection, adapters.catering],
-    [createCapabilitiesSection, adapters.capabilities],
+    ...(adapters.syntheticCalendar ? [] : [[createCapabilitiesSection, adapters.capabilities]]),
     [createAuditSection, adapters.audit],
   ];
 

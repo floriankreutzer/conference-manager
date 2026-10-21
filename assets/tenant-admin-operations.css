@@ -295,3 +295,27 @@
     scroll-behavior: auto;
   }
 }
+
+
+.tenant-synthetic-onboarding,
+.tenant-synthetic-onboarding :is(fieldset, legend, label, span) {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}
+
+.tenant-synthetic-onboarding fieldset {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tenant-synthetic-onboarding .tenant-synthetic-room-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--control-height);
+}

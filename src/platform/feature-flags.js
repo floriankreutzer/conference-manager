@@ -14,7 +14,7 @@ export function createFeatureFlagDefinitions(definitions = {}) {
 // Baseline functionality is intentionally absent from this registry. Genuinely
 // new functionality must be registered here and must default to false unless an
 // explicitly approved requirement says otherwise.
-export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({ 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false, 'catering.catalogue': false, 'catering.orders': false, 'catering.delivery': false, 'customer.invitations': false, 'platform.customer-invitations': false, 'customer.microsoft-authentication': false, 'customer.synthetic-handoff': false, 'platform.synthetic-workspace': false });
+export const FEATURE_FLAG_DEFAULTS = createFeatureFlagDefinitions({ 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false, 'catering.catalogue': false, 'catering.orders': false, 'catering.delivery': false, 'customer.invitations': false, 'platform.customer-invitations': false, 'customer.microsoft-authentication': false, 'customer.synthetic-handoff': false, 'customer.synthetic-onboarding': false, 'platform.synthetic-workspace': false });
 
 export function createFeatureFlagResolver(defaults = FEATURE_FLAG_DEFAULTS, overrides = {}) {
   const safeDefaults = createFeatureFlagDefinitions(defaults);
@@ -48,7 +48,7 @@ export const featureFlags = Object.freeze({
     const synthetic=qualified && ['dev','int'].includes(environment) && single('conference-protected-synthetic')==='enabled';
     const invitations=qualified && single('conference-protected-invitations')==='enabled';
     return createFeatureFlagResolver(undefined,{
-      'customer.synthetic-handoff': synthetic,'platform.synthetic-workspace': synthetic,
+      'customer.synthetic-handoff': synthetic,'customer.synthetic-onboarding': synthetic,'platform.synthetic-workspace': synthetic,
       'customer.microsoft-authentication': qualified && single('conference-protected-microsoft')==='enabled',
       'customer.invitations': invitations,'platform.customer-invitations': invitations,
     });

@@ -1,3 +1,4 @@
+import { SYNTHETIC_ONBOARDING_MESSAGES } from './i18n-synthetic-onboarding-messages.js';
 import * as base from './i18n-base.js';
 import { PLATFORM_SYNTHETIC_MESSAGES } from './i18n-platform-synthetic-messages.js';
 import { CAPABILITY_MESSAGES } from './i18n-capability-messages.js';
@@ -18,6 +19,8 @@ function interpolate(template, values) {
 }
 
 function capabilityTemplate(targetLanguage, key) {
+  const localOnboarding=SYNTHETIC_ONBOARDING_MESSAGES[targetLanguage] ?? SYNTHETIC_ONBOARDING_MESSAGES.de;
+  if (localOnboarding?.[key]!==undefined) return localOnboarding[key];
   const synthetic=PLATFORM_SYNTHETIC_MESSAGES[targetLanguage] ?? PLATFORM_SYNTHETIC_MESSAGES.de;
   if (synthetic?.[key]!==undefined) return synthetic[key];
   const platformInvitations=PLATFORM_INVITATION_MESSAGES[targetLanguage] ?? PLATFORM_INVITATION_MESSAGES.de;

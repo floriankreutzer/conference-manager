@@ -106,3 +106,20 @@ Composition Root Production/Demo runtime selection cannot be proven completely b
 - Merge commit: `6a56ce4f355765d21176c496740afd318a559b47`
 - Application build delivered by the implementation: `2026.08.27.70`
 - Current ownership supersession: Roadmap Approved Version 11 (2026-09-01), #164 and #166
+
+
+## Protected local-calendar onboarding
+
+The explicitly enabled DEV/INT protected profile may compose the named
+`synthetic-calendar` section under Tenant Admin integration authority. It owns
+only local synthetic discovery/import/readiness/lifecycle presentation over the
+trusted API. Current server mode/provider metadata selects its adapter; only a
+positively validated REAL result keeps the Microsoft section. Unknown or failed
+classification renders unavailable and never selects a provider fallback. In
+that private synthetic branch its truthful readiness surface replaces the
+Microsoft integration/capability presentation. Existing Demo/REAL composition
+and all section privacy/dependency/authorization rules remain unchanged.
+
+This is a bounded named section addition to the architecture inventory, not a
+cross-section import or capability/storage exception. It does not own Conference
+Manager Room-business/Catalogue fields and does not grant Platform authority.

@@ -89,3 +89,17 @@ test('Catering is an explicit Admin section and still rejects direct Platform/Ma
   assert.ok(denied.some((item) => item.includes('must not depend on Employee or Conference Manager')));
   assert.ok(denied.some((item) => item.includes('unregistered is not part')));
 });
+
+
+test('protected synthetic integration is a named private section with no Microsoft or Platform implementation imports',()=>{
+  const allowed={ 'src/tenant-admin/section-registry.js': "import './sections/synthetic-calendar/index.js';",
+    'src/tenant-admin/sections/synthetic-calendar/index.js': 'export const section=true;' };
+  assert.deepEqual(frontendSaas2BoundaryViolations(allowed),[]);
+  const denied=frontendSaas2BoundaryViolations({ ...allowed,
+    'src/tenant-admin/sections/synthetic-calendar/index.js':
+      "import '../microsoft365/index.js'; import '../../../platform/synthetic-onboarding-api.js';",
+    'src/tenant-admin/sections/microsoft365/index.js': 'export const microsoft=true;',
+    'src/platform/synthetic-onboarding-api.js': 'export const api=true;' });
+  assert.ok(denied.some(item=>item.includes('may not import Platform directly')));
+  assert.ok(denied.some(item=>item.includes('must not depend on another section')));
+});
