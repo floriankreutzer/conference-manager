@@ -193,11 +193,11 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: server-backed Employee editor restores
   assert.match(employee, /next\.disabled = activeStep === 2 && !isAvailabilityVerified\(\)/);
   assert.match(employee, /type: 'radio',[\s\S]*name: 'productionRoomChoice'/);
   assert.match(employee, /roomAssetPreviewState\(entry\)/);
-  assert.match(employee, /openRoomPreview\(entry, preview, index\)/);
+  assert.match(employee, /openRoomPreview\(entry, preview, index, demoMedia\)/);
   assert.match(employee, /production\.employee\.roomAssetsPrivacy/);
   assert.match(messages, /Grundriss des Raums/);
   assert.match(messages, /Floor plan for room/);
-  assert.match(employee, /managedRoomMedia\(entry\)/);
+  assert.match(employee, /managedRoomMedia\(entry, demoMedia\)/);
   assert.match(employee, /roomPreviewVisual\(managed\.floorplan/);
   assert.doesNotMatch(employee, /room-floorplan-table|room-floorplan-door/);
   assert.doesNotMatch(messages, /Freigegebene (?:Raum|Grundriss)|Approved (?:room|floor-plan)/);

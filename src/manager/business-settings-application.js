@@ -424,7 +424,13 @@ export function createManagerBusinessSettingsApplication({
   const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
 
   function demoCateringImage(editor, media, ownerKind, revision, renderRoot, onRevision = () => {}) {
-    if (!demoRuntime) return;
+    if (!demoRuntime) {
+      if (media) editor.node.appendChild(el('img', {
+        className: 'room-asset-visual media',
+        attrs: { src: media.url, alt: media.altText, loading: 'lazy', referrerpolicy: 'no-referrer' },
+      }));
+      return;
+    }
     const canCreate = typeof catalogue.createDemoCatalogueImage === 'function';
     const canReplace = typeof catalogue.replaceDemoCatalogueImage === 'function';
     const canRemove = typeof catalogue.removeDemoCatalogueImage === 'function';
@@ -919,6 +925,15 @@ export function createManagerBusinessSettingsApplication({
     }
     if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
     let demoMedia = [];
+    if (!demoRuntime && typeof catalogue.listCatalogueMedia === 'function') {
+      try {
+        const response = await catalogue.listCatalogueMedia();
+        demoMedia = response.assets;
+      } catch (error) {
+        if (handleAuthorityFailure(error)) return;
+        demoMedia = null;
+      }
+    }
     if (demoRuntime && typeof catalogue.listDemoMedia === 'function') {
       try {
         const response = await catalogue.listDemoMedia();

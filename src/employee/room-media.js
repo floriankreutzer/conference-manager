@@ -7,11 +7,15 @@ export function roomMediaPath(roomId, assetId) {
   return `/api/v1/tenant/rooms/${encodeURIComponent(roomId)}/media/${assetId.toLowerCase()}`;
 }
 
-export function managedRoomMedia(room) {
-  const floorplan = typeof room?.floorplanAssetId === 'string'
+export function managedRoomMedia(room, catalogueMedia = null) {
+  const current = catalogueMedia?.get(`room_plan:${room?.id}`);
+  const catalogueFloorplan = current?.ownerKind === 'room_plan' && current.ownerId === room?.id
+    && typeof current.id === 'string' && ASSET_ID.test(current.id) && current.id === room?.floorplanAssetId
+    && current.url === `/api/v1/tenant/catalogue-media/${current.id}` ? current.url : null;
+  const floorplan = catalogueFloorplan || (typeof room?.floorplanAssetId === 'string'
     && /^52000000-0000-4000-8000-[0-9a-f]{12}$/i.test(room.floorplanAssetId)
     ? `/api/v1/demo/media/${room.floorplanAssetId.toLowerCase()}`
-    : roomMediaPath(room?.id, room?.floorplanAssetId);
+    : roomMediaPath(room?.id, room?.floorplanAssetId));
   const references = Array.isArray(room?.mediaAssetIds) && room.mediaAssetIds.length <= 20
     ? room.mediaAssetIds : [];
   return Object.freeze({

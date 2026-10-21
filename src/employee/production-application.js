@@ -49,6 +49,7 @@ import {
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { createAuthoritySurfaceRegistry } from '../shared/authority-surface-registry.js';
 import { managedRoomMedia } from './room-media.js';
+import { createCatalogueMediaApi } from '../core/catalogue-media-api.js';
 import { createApiClient } from '../core/api-client.js';
 import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 
@@ -89,9 +90,9 @@ function roomPreviewVisual(path, label, className = '') {
   return el('div', { className: 'room-asset-frame' }, [image, status]);
 }
 
-function openRoomPreview(room, trigger, previewIndex) {
+function openRoomPreview(room, trigger, previewIndex, catalogueMedia) {
   const assets = roomAssetPreviewState(room);
-  const managed = managedRoomMedia(room);
+  const managed = managedRoomMedia(room, catalogueMedia);
   const content = el('section', { className: 'room-asset-dialog' });
   if (room.description) {
     content.appendChild(el('p', { text: room.description }));
@@ -315,7 +316,10 @@ export function createProductionEmployeeApplication({
   const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
 
   async function loadDemoMedia() {
-    if (!demoRuntime) return new Map();
+    if (!demoRuntime) {
+      const assets = await createCatalogueMediaApi({ apiClient: createApiClient() }).list();
+      return new Map(assets.map((entry) => [`${entry.ownerKind}:${entry.ownerId}`, entry]));
+    }
     const response = await createApiClient().request('v1/demo/media');
     if (!Array.isArray(response?.assets) || response.assets.length > 40) return new Map();
     return new Map(response.assets.filter((entry) =>
@@ -815,7 +819,7 @@ export function createProductionEmployeeApplication({
             )} · ${t('room.cost')}`,
           }));
         }
-        const managed = managedRoomMedia(entry);
+        const managed = managedRoomMedia(entry, demoMedia);
         if (managed.floorplan || managed.media.length > 0) {
           card.append(
             roomPreviewVisual(
@@ -848,7 +852,7 @@ export function createProductionEmployeeApplication({
           attrs: { 'aria-haspopup': 'dialog' },
         });
         preview.addEventListener('click', () => {
-          authoritySurfaces.track(openRoomPreview(entry, preview, index));
+          authoritySurfaces.track(openRoomPreview(entry, preview, index, demoMedia));
         });
         card.appendChild(preview);
         if (entry.equipment.length) {
