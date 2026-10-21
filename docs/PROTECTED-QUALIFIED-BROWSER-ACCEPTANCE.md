@@ -1,7 +1,7 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API704a555af364895785e594e57e5055671f2d3585. Both refs are checked before setup
+API1dc5b011b2dcaba4310e51dbde890928bbd0f0a8. Both refs are checked before setup
 and copied into unchanged closed runtime configuration and bounded evidence.
 It adds to the full regular Chromium/WebKit suites and unchanged permanent
 three-customer/two-reset/shared/zoom gates. Existing required e2e status now
@@ -87,3 +87,13 @@ chains. Regular/permanent gates remained pending at that checkpoint. That
 proved the earlier test-edge static arrangement. This successor pins API288
 and requires fresh proof that the actual protected processes own delivery;
 previous browser results cannot substitute for this new boundary.
+
+Initial actual owned-delivery CI39617252870 failed both engines on HTTP429 from
+the new static limiter after repeated legitimate cold graph navigations. API
+successor1dc5b011 derives its bounded budget from the sealed file count, admits
+sixteen cold graphs/minute/address and caps4096 requests/2000 keys. The API/auth
+limits and edge2000-event bound remain unchanged. An additional real-HTTP
+budget/429/API-isolation regression case is prepared. This successor pins that
+exact correction; initial failures remain historical and fresh full/qualified
+execution is mandatory. Local execution service is currently unresponsive;
+previous884 local passes do not prove this counterpart update.
