@@ -107,3 +107,19 @@ is PROTECTED_BROWSER_COUNTERPART_REF, and only the two observed predecessor
 commit/path/rule/line fingerprints are carried in .gitleaksignore. Full history
 scanning and every other secret finding remain enforced. Fresh full CI is
 required; prior qualified success onbcd529d9 remains dated evidence only.
+
+Inherited actual-main predecessor evidence (retained during the normal base merge):
+
+Actual-mainfb6c6272 first auxiliary gates failed: full-history generic-api-key
+classified two public immutable API commit pins as credentials, and the pinned
+release tool correctly rejected two different paired API refs. This correction
+uses the fully feature-accepted APIca7c29a2 for both shared/permanent and qualified
+checkout paths; all existing contract/browser/zoom/reset steps remain required
+against that exact counterpart. The inventory's single immutable counterpart
+contract stays unchanged. A CI assertion requires both checkout refs to match.
+The nonsecret harness variable is now PROTECTED_BROWSER_COUNTERPART_REF.
+Only the two observed exact commit/path/rule/line fingerprints are recorded in
+.gitleaksignore; no rule, path or secret-value wildcard is excluded and the full
+history scan stays enabled. Prior failed auxiliary runs remain historical.
+Workspace execution is unavailable, so no local pass for this fix is claimed;
+fresh all mandatory actual-main checks/reviews remain required before ready.
