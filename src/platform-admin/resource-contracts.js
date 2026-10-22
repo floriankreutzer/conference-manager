@@ -441,19 +441,32 @@ export function normalizePlatformCorrelation(value, expectedTenantId, expectedCo
   });
 }
 
-function auditEvent(value) {
+function auditDataRecord(value,errorCode) {
+  if (!value || ![Object.prototype,null].includes(Object.getPrototypeOf(value))
+    || Reflect.ownKeys(value).some(key=>typeof key!=='string'
+      || !Object.hasOwn(Object.getOwnPropertyDescriptor(value,key),'value'))) invalid(errorCode);
+}
+
+function auditEvent(value,segment=false) {
   const errorCode = 'PLATFORM_AUDIT_RESPONSE_INVALID';
+  auditDataRecord(value,errorCode);
   exact(value, [
     'sequence', 'operatorId', 'roles', 'permissions', 'assuranceLevel', 'targetTenantId', 'action',
     'targetType', 'targetId', 'previousState', 'newState', 'occurredAt', 'correlationId', 'outcome',
     'metadata', 'retentionClass',
   ], errorCode);
+  for (const key of ['previousState','newState','metadata']) if (value[key]!==null) auditDataRecord(value[key],errorCode);
+  if (value.assuranceLevel==='offline_owner' && (value.operatorId!==null || value.targetTenantId!==null
+    || value.roles?.length!==0 || value.permissions?.length!==0 || value.action!=='platform.operator.changed'
+    || value.outcome!=='success' || value.retentionClass!=='recovery'
+    || !['platform_audit_segment','platform_operator_bootstrap','platform_passkey_grant'].includes(value.targetType))) invalid(errorCode);
   return Object.freeze({
     sequence: integer(value.sequence, errorCode, { minimum: 1 }),
     operatorId: value.operatorId === null ? null : id(value.operatorId, errorCode),
     roles: list(value.roles, ROLE_SET.size, (entry) => oneOf(entry, ROLE_SET, errorCode), errorCode, { uniqueBy: (entry) => entry }),
     permissions: list(value.permissions, PERMISSION_SET.size, (entry) => oneOf(entry, PERMISSION_SET, errorCode), errorCode, { uniqueBy: (entry) => entry }),
-    assuranceLevel: oneOf(value.assuranceLevel, new Set(['unverified', 'mfa', 'step_up', 'break_glass']), errorCode),
+    assuranceLevel: oneOf(value.assuranceLevel,
+      new Set(['unverified', 'mfa', 'step_up', 'break_glass',...(segment ? ['offline_owner'] : [])]), errorCode),
     targetTenantId: value.targetTenantId === null ? null : id(value.targetTenantId, errorCode),
     action: text(value.action, 96, errorCode, { pattern: /^[a-z][a-z0-9_.-]{0,95}$/ }),
     targetType: text(value.targetType, 64, errorCode, { pattern: /^[a-z][a-z0-9_:-]{0,63}$/ }),
@@ -470,11 +483,25 @@ function auditEvent(value) {
 
 export function normalizePlatformAuditPage(value) {
   const errorCode = 'PLATFORM_AUDIT_RESPONSE_INVALID';
-  exact(value, ['schemaVersion', 'items'], errorCode);
-  if (value.schemaVersion !== 1) invalid(errorCode);
+  auditDataRecord(value,errorCode);
+  const segmented=value?.schemaVersion===2;
+  exact(value, ['schemaVersion', 'items',...(segmented ? ['audit'] : [])], errorCode);
+  if (![1,2].includes(value.schemaVersion)) invalid(errorCode);
+  let audit;
+  if (segmented) {
+    auditDataRecord(value.audit,errorCode);auditDataRecord(value.audit.legacy,errorCode);
+    exact(value.audit,['segmentId','verification','legacy'],errorCode);
+    exact(value.audit.legacy,['eventCount','verification'],errorCode);
+    if (value.audit.verification!=='verified' || value.audit.legacy.verification!=='unavailable'
+      || value.audit.legacy.eventCount>3200) invalid(errorCode);
+    audit=Object.freeze({ segmentId: id(value.audit.segmentId,errorCode),verification: 'verified',legacy: Object.freeze({
+      eventCount: integer(value.audit.legacy.eventCount,errorCode,{ minimum: 0 }),verification: 'unavailable' }) });
+  }
+  const items=list(value.items,100,item=>auditEvent(item,segmented),errorCode,{ uniqueBy: item=>item.sequence });
+  if (segmented && items.some((item,index)=>item.sequence<=audit.legacy.eventCount
+    || index>0 && item.sequence>=items[index-1].sequence)) invalid(errorCode);
   return Object.freeze({
-    schemaVersion: 1,
-    items: list(value.items, 100, auditEvent, errorCode, { uniqueBy: (entry) => entry.sequence }),
+    schemaVersion: value.schemaVersion,...(segmented ? { audit } : {}),items,
   });
 }
 

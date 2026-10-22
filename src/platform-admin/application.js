@@ -36,6 +36,8 @@ import { renderProviderUsage } from './provider-usage.js';
 import { renderProductDelivery } from './product-delivery.js';
 import { createProductDeliveryCache } from './product-delivery-cache.js';
 import { createProviderUsageFreshness } from './provider-usage-freshness.js';
+import { downloadPlatformAuditExport } from './audit-export.js';
+import { assertPlatformAuditContinuation } from './audit-page-continuation.js';
 
 const LIFECYCLE_FILTERS = Object.freeze(['all', 'pending', 'onboarding', 'ready', 'active', 'suspended', 'archived']);
 const HEALTH_FILTERS = Object.freeze(['all', 'healthy', 'degraded', 'unavailable', 'not_configured']);
@@ -490,13 +492,17 @@ export function createPlatformAdminApplication({
       else if (view === 'integration-health') data = await dataSource.loadMicrosoftHealth({ limit: 50, cursor });
       else if (view === 'platform-audit') data = await dataSource.loadAudit({ limit: 100, beforeSequence: cursor });
       else data = await dataSource.loadRuntimeDeployments();
+      const auditHasMore=view==='platform-audit' && data.schemaVersion===2
+        ? data.items.length===100 && data.items.at(-1).sequence>data.audit.legacy.eventCount+1 : null;
       if (append && existing?.data && Array.isArray(data.items)) {
+        if (view === 'platform-audit') assertPlatformAuditContinuation(existing.data, data);
         data = Object.freeze({ ...data, items: Object.freeze([...existing.data.items, ...data.items]) });
       }
       if (fleetResources.get(view) !== pending) return;
       const completed = observedClock?.capture();
       if (completed) projectionReadClocks.set(view, completed);
       const ready = { status: 'ready', data,
+        ...(auditHasMore===null ? {} : { auditHasMore }),
         ...(completed ? { loadedAt: new Date(completed.wall).toISOString(), requestClock } : {}) };
       if (view === 'product-delivery' && !productCache.retain(ready, requestClock)) {
         throw new TypeError('PLATFORM_PRODUCT_CACHE_EXPIRED');
@@ -879,6 +885,8 @@ export function createPlatformAdminApplication({
       onRetry: () => loadFleetResource(fleetView, { force: true }),
       onSelectTenant: openTenantFromFleet,
       onLoadMore: (cursor) => loadFleetResource(fleetView, { cursor, append: true }),
+      onExportAudit: operationProofAvailable && currentOperator?.permissions.includes('platform:audit:export')
+        ? ()=>downloadPlatformAuditExport(dataSource) : null,
     });
   }
 

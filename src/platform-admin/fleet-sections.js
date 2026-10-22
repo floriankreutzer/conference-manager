@@ -130,7 +130,7 @@ function microsoftHealth(resource, onSelectTenant, onLoadMore) {
   ].filter(Boolean));
 }
 
-function audit(resource, onLoadMore) {
+function audit(resource, onLoadMore,onExportAudit) {
   const list = el('ol', { className: 'platform-admin-audit-list' });
   resource.data.items.forEach((event) => list.append(el('li', { className: 'card' }, [
     el('div', { className: 'platform-admin-record-heading' }, [
@@ -142,10 +142,29 @@ function audit(resource, onLoadMore) {
     ...(event.targetTenantId ? [el('small', { text: t('platformAdmin.audit.tenantTarget', { tenantId: event.targetTenantId }) })] : []),
   ])));
   const beforeSequence = resource.data.items.at(-1)?.sequence ?? null;
-  const next = beforeSequence && resource.data.items.length === 100 && typeof onLoadMore === 'function'
+  const hasMore=resource.data.schemaVersion===2 ? resource.auditHasMore===true : resource.data.items.length===100;
+  const next = beforeSequence && hasMore && typeof onLoadMore === 'function'
     ? nextControl({ data: { nextCursor: beforeSequence } }, onLoadMore)
     : null;
+  const verification=[];
+  if (resource.data.schemaVersion===2) {
+    verification.push(el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.segmentAudit.verified') }),
+      el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.segmentAudit.legacy',{
+        count: formatNumber(resource.data.audit.legacy.eventCount) }) }));
+    if (typeof onExportAudit==='function') {
+      const control=button(t('platformAdmin.segmentAudit.export'),{ className: 'secondary' }),
+        feedback=el('p',{ attrs: { role: 'status' } });
+      control.addEventListener('click',async()=>{
+        if (control.disabled) return;control.disabled=true;feedback.textContent='';
+        try { await onExportAudit();feedback.textContent=t('platformAdmin.segmentAudit.exported'); }
+        catch { feedback.textContent=t('platformAdmin.segmentAudit.failed'); }
+        finally { control.disabled=false; }
+      });
+      verification.push(el('p',{ text: t('platformAdmin.segmentAudit.description') }),control,feedback);
+    }
+  }
   return el('section', {}, [
+    ...verification,
     ...(resource.data.items.length ? [list] : [el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.audit.empty') })]),
     next,
   ].filter(Boolean));
@@ -173,11 +192,11 @@ function runtime(resource) {
   return el('section', { className: 'platform-admin-record-list' }, resource.data.deployments.map(runtimeCard));
 }
 
-export function renderPlatformFleetView({ view, resource, onRetry, onSelectTenant, onLoadMore }) {
+export function renderPlatformFleetView({ view, resource, onRetry, onSelectTenant, onLoadMore,onExportAudit }) {
   if (!resource || resource.status === 'loading') return loading();
   if (resource.status === 'error') return failed(onRetry);
   if (view === 'readiness') return readiness(resource, onSelectTenant, onLoadMore);
   if (view === 'integration-health') return microsoftHealth(resource, onSelectTenant, onLoadMore);
-  if (view === 'platform-audit') return audit(resource, onLoadMore);
+  if (view === 'platform-audit') return audit(resource, onLoadMore,onExportAudit);
   return runtime(resource);
 }
