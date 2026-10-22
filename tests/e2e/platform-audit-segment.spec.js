@@ -10,7 +10,7 @@ function payload() {
     targetId: ID,previousState: null,newState: { integrityVersion: 2 },occurredAt: '2026-10-21T12:00:00.000Z',correlationId: ID,
     outcome: 'success',metadata: { operation: 'audit_segment_genesis',legacyVerification: 'unavailable' },retentionClass: 'recovery' }] };
 }
-async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false }={}) {
+async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,changedContext=null }={}) {
   const exports=[],cursors=[];
   await page.addInitScript(()=>{
     const bytes=length=>new Uint8Array(length).fill(1).buffer;
@@ -44,6 +44,9 @@ async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false }=
           retentionClass: 'security',newState: null,metadata: { reasonCode: 'identity_unmapped' } };
       }).filter(item=>before===null || item.sequence<Number(before)).slice(0,100);
       if (before!==null && emptyContinuation) body.items=[];
+      if (before!==null && changedContext==='segment') body.audit.segmentId='22222222-2222-4222-8222-222222222222';
+      if (before!==null && changedContext==='legacy') body.audit.legacy.eventCount=123;
+      if (before!==null && changedContext==='schema') body={ schemaVersion: 1,items: [] };
       if (forged) body.audit.legacy.verification='verified';
     } else if (url.pathname==='/api/v1/platform/audit/exports') {
       exports.push({ url: request.url(),headers: request.headers() });
@@ -91,5 +94,17 @@ for (const emptyContinuation of [false,true]) {
       await expect(next).toHaveCount(0);
     }
     expect(cursors).toEqual(emptyContinuation ? [null,'226'] : [null,'226','126']);
+  });
+}
+
+for (const changedContext of ['segment','legacy','schema']) {
+  test(`audit continuation rejects changed ${changedContext} context without relabeling retained events`,async({ page })=>{
+    await setup(page,{ eventCount: 201,changedContext });
+    await expect(page.locator('.platform-admin-audit-list > li')).toHaveCount(100);
+    await page.locator('.platform-admin-pagination button').click();
+    await expect(page.locator('.platform-admin-error[role="alert"]')).toBeVisible();
+    await expect(page.locator('.platform-admin-audit-list > li')).toHaveCount(0);
+    await expect(page.getByText(/Die Signaturen des aktuellen Audit-Abschnitts/)).toHaveCount(0);
+    await expect(page.getByRole('button',{ name: /100.*exportieren/ })).toHaveCount(0);
   });
 }

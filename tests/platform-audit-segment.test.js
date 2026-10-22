@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizePlatformAuditPage } from '../src/platform-admin/resource-contracts.js';
 import { downloadPlatformAuditExport } from '../src/platform-admin/audit-export.js';
+import { assertPlatformAuditContinuation } from '../src/platform-admin/audit-page-continuation.js';
 
 const id='11111111-1111-4111-8111-111111111111';
 function payload() {
@@ -11,6 +12,18 @@ function payload() {
     targetId: id,previousState: null,newState: { integrityVersion: 2 },occurredAt: '2026-10-21T12:00:00.000Z',correlationId: id,
     outcome: 'success',metadata: { operation: 'audit_segment_genesis',legacyVerification: 'unavailable' },retentionClass: 'recovery' }] };
 }
+
+test('audit continuation retains its exact segment, legacy boundary and schema context',()=>{
+  assert.doesNotThrow(()=>assertPlatformAuditContinuation(payload(),payload()));
+  assert.doesNotThrow(()=>assertPlatformAuditContinuation({ schemaVersion: 1 },{ schemaVersion: 1 }));
+  for (const mutate of [value=>{ value.audit.segmentId='22222222-2222-4222-8222-222222222222'; },
+    value=>{ value.audit.legacy.eventCount=123; },value=>{ value.audit.verification='unavailable'; },
+    value=>{ value.audit.legacy.verification='verified'; },value=>{ value.schemaVersion=1; }]) {
+    const changed=payload();mutate(changed);
+    assert.throws(()=>assertPlatformAuditContinuation(payload(),changed),/CONTEXT_CHANGED/);
+  }
+  assert.throws(()=>assertPlatformAuditContinuation({ schemaVersion: 1 },payload()),/CONTEXT_CHANGED/);
+});
 
 test('existing audit contract consumes v2 without claiming the preserved legacy prefix is verified',()=>{
   const input=payload(),normalized=normalizePlatformAuditPage(input);
