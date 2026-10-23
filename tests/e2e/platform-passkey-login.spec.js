@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { constants, createPublicKey, publicEncrypt, randomUUID, createHash } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 
 const ORIGIN = 'https://ops-int.example.com';
@@ -100,4 +102,36 @@ async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Passkey setup complete' })).toBeVisible();
   await expect(page.locator('[data-platform-admin-create-tenant]')).toHaveCount(0);
   expect(f.writes).toHaveLength(1); expect(f.writes[0].path).toBe(`${BASE}authenticate`);
+});
+
+
+test('INT approval file stays encrypted until an explicit local import and never fills or stores its setup code',async({ page })=>{
+  const f=await setup(page,{ minimumPasskeys: 1 });
+  await page.getByRole('button',{ name: 'Sichere Übergabe vorbereiten',exact: true }).click();
+  const save=page.getByRole('link',{ name: 'Einrichtungsanfrage speichern',exact: true });
+  await expect(save).toBeVisible();
+  await expect(page.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true })).toHaveAttribute('target','_blank');
+  const downloadPromise=page.waitForEvent('download');await save.click();const download=await downloadPromise;
+  const recipient=JSON.parse(await readFile(await download.path(),'utf8'));
+  expect(recipient.origin).toBe(ORIGIN);expect(recipient.format).toBe('cm-int-passkey-recipient:v1');
+  expect(JSON.stringify(recipient)).not.toMatch(/PRIVATE KEY|privateKey|grantId|token/);
+  const picker=page.getByLabel('Verschlüsselte Freigabedatei');
+  await picker.setInputFiles({ name: 'invalid.json',mimeType: 'application/json',buffer: Buffer.from('{') });
+  await page.getByRole('button',{ name: 'Freigabedatei öffnen',exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Die Datei konnte nicht verwendet werden' })).toBeVisible();
+  expect(f.writes).toHaveLength(0);
+  const grant={ grantId: randomUUID(),token: Buffer.alloc(32,3).toString('base64url') };
+  const label=createHash('sha256').update(Buffer.from(JSON.stringify(['cm-int-passkey-browser-delivery:v1','a'.repeat(40),recipient.requestId,randomUUID(),
+    1,'int',2,randomUUID(),randomUUID(),recipient.recipientSha256]))).digest();
+  const ciphertext=publicEncrypt({ key: createPublicKey(recipient.recipientPublicKey),padding: constants.RSA_PKCS1_OAEP_PADDING,
+    oaepHash: 'sha256',oaepLabel: label },Buffer.from(JSON.stringify(grant)));
+  const bundle={ format: 'cm-int-passkey-browser-delivery:v1',requestId: recipient.requestId,
+    recipientSha256: recipient.recipientSha256,labelHash: label.toString('hex'),ciphertext: ciphertext.toString('base64url') };
+  await picker.setInputFiles({ name: 'approval.json',mimeType: 'application/json',buffer: Buffer.from(JSON.stringify(bundle)) });
+  await page.getByRole('button',{ name: 'Freigabedatei öffnen',exact: true }).click();
+  await expect(page.getByRole('heading',{ name: 'Passkey erstellen',exact: true })).toBeVisible();
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].path).toBe(`${BASE}enrollment/start`);
+  expect(f.writes[0].data).toEqual({ state,...grant });expect(f.writes[0].csrf).toBe(state);
+  expect(await page.evaluate(token=>[document.body.textContent,JSON.stringify(localStorage),JSON.stringify(sessionStorage)]
+    .some(value=>value.includes(token)),grant.token)).toBe(false);
 });
