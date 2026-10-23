@@ -122,10 +122,10 @@ export function createPlatformAdminApplication({
     throw new TypeError('PLATFORM_ADMIN_SESSION_GATE_INVALID');
   }
   if (!['production', 'demo'].includes(runtime)) throw new TypeError('PLATFORM_ADMIN_RUNTIME_INVALID');
-  if (providerUsage !== null && (runtime !== 'demo' || typeof providerUsage.load !== 'function')) {
+  if (providerUsage !== null && typeof providerUsage.load !== 'function') {
     throw new TypeError('PLATFORM_ADMIN_PROVIDER_USAGE_INVALID');
   }
-  if (productDelivery !== null && (runtime !== 'demo' || typeof productDelivery.load !== 'function')) {
+  if (productDelivery !== null && typeof productDelivery.load !== 'function') {
     throw new TypeError('PLATFORM_ADMIN_PRODUCT_DELIVERY_INVALID');
   }
   if (!['authenticated', 'unauthenticated', 'unavailable'].includes(sessionState)) {

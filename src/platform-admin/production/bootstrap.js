@@ -17,6 +17,7 @@ import { createPlatformSyntheticWorkspacePresentation } from './synthetic-worksp
 import { announce,el } from '../../core/ui.js';
 import { t } from '../../core/i18n.js';
 import { createPlatformAdminApi } from '../platform-api.js';
+import { createProtectedPlatformInsights } from './insights-api.js';
 
 async function bootstrapProductionPlatformAdmin() {
   let csrfToken = null;const presentationFlags=featureFlags.forProtectedDocument(globalThis.document);
@@ -64,11 +65,15 @@ async function bootstrapProductionPlatformAdmin() {
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
       }) }) : null;
     if (syntheticWorkspace) globalThis.addEventListener('pagehide',()=>syntheticWorkspace.stop(),{ once: true });
+    const insights=protectedClient && session.operator.permissions.includes('platform:runtime:read')
+      ? createProtectedPlatformInsights({ apiClient }) : null;
     const application = createPlatformAdminApplication({
       runtime: 'production',
       sessionState: 'authenticated',
       operator: session.operator,
       dataSource: createPlatformAdminApi({ apiClient: protectedClient ?? apiClient }),
+      providerUsage: session.operator.roles.includes('platform_security_admin') ? insights?.providerUsage ?? null : null,
+      productDelivery: insights?.productDelivery ?? null,
       operationProofAvailable: protectedClient !== null,customerInvitationPresentation: customerInvitations,
       renderSecurityControls: keyManagement || syntheticWorkspace ? ()=>el('div',{},[
         ...(keyManagement ? [keyManagement.renderControl()] : []),

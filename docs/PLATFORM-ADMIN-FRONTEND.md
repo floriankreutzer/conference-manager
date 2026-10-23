@@ -6,8 +6,9 @@ The Demo composition can inject the optional provider-usage adapter. Its registe
 `platform.provider-usage` flag defaults OFF centrally; its approved presentation
 override is also centralized. Only the Operations Demo bootstrap consumes the
 pure singleton from `src/platform/feature-flags.js`; other customer
-capability dependencies remain forbidden. Production cannot receive the provider
-adapter. The client flag and Demo role selector never authorize financial reads.
+capability dependencies remain forbidden. Production cannot receive the
+Demo adapter. The protected production composition has its own fixed insight
+ports described below. The client flag and Demo role selector never authorize financial reads.
 
 The provider view prefers the fixed same-origin, bodyless GET
 `/api/v1/platform/demo/live-metrics`, with a bounded timeout and explicit unavailable-feed
@@ -144,3 +145,28 @@ Source and fixture checks do not constitute live sender, recipient, key recovery
 protected INT cutover or real Microsoft acceptance. Current commit-bound CI and
 browser evidence is tracked in SaaS1 issue351; no milestone acceptance is closed by
 preparing this inactive port.
+
+## Protected insight navigation
+
+The active application-passkey composition injects independent protected insight
+ports for the existing Providers & usage and Product & delivery views. They are
+available without selecting a Tenant. Provider navigation additionally requires
+the Security Admin role; both ports require runtime-read presentation permission.
+The backend independently enforces current passkey assurance, permission and
+all-Tenant scope before consulting private aggregate sources.
+
+`production/insights-api.js` uses only fixed bodyless GETs to
+`insights/providers` and `insights/product-delivery`, with bounded deadlines,
+closed response validation and the exact `application_passkey` source identity.
+It cannot call Demo routes or fall back on another source after an authentication,
+authorization, availability or malformed-response failure. The Demo adapters and
+their default wire validation remain unchanged. Existing cards, tabs, source
+clocks, DE/EN messages, locale formatting, error/retry states and design tokens
+are reused. The production manifest inventories the newly reachable adapter.
+
+Missing Provider observations remain unavailable. Missing Product collection is
+an explicitly uncollected production report with unknown values. Daily feeds,
+runtime Product extraction and Operations/Feedback writers are not activated by
+this transport; no live metrics or collection acceptance is implied. Tenant detail
+menus still require a selected Tenant; optional synthetic controls retain their
+separate authentication policy and rollout decision.
