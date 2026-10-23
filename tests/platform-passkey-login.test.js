@@ -10,13 +10,13 @@ const pending = (status, extra = {}) => ({ status, state, requestId,
   ...(status === 'enrollment_required' ? {} : { options }),
   ...(status === 'passkey_required' ? { setupRequired: false } : {}), ...extra });
 const httpError = code => Object.assign(new Error(code), { code });
-function fixture({ mode = 'passkey_setup', initial = 'enrollment_required' } = {}) {
+function fixture({ mode = 'passkey_setup', initial = 'enrollment_required', minimumPasskeys = 2 } = {}) {
   const calls = []; let phase = initial; let fail = null; let authenticated = 0; let nativeCalls = 0;
   const controller = createPlatformPasskeyLogin({
     apiClientFactory: token => ({ async request(path, init = {}) {
       calls.push({ token, path, init });
       if (fail) throw fail;
-      if (path === 'configuration') return { mode, environment: 'int', minimumPasskeys: 2, requestId };
+      if (path === 'configuration') return { mode, environment: 'int', minimumPasskeys, requestId };
       if (path === 'enrollment/pending') {
         if (!['registration_required','possession_required'].includes(phase)) throw httpError('HTTP_401');
         return pending(phase);
@@ -28,7 +28,9 @@ function fixture({ mode = 'passkey_setup', initial = 'enrollment_required' } = {
       if (path === 'enrollment/start') { phase = 'registration_required'; return pending(phase); }
       if (path === 'enrollment/register') { phase = 'possession_required'; return pending(phase); }
       if (path === 'enrollment/complete') return { status: 'credential_enrolled', requestId };
-      if (path === 'authenticate') return mode === 'passkey_setup' ? pending('registration_required') : { status: 'authenticated', requestId };
+      if (path === 'authenticate') return mode === 'passkey_setup'
+        ? minimumPasskeys === 1 ? { status: 'setup_complete', requestId } : pending('registration_required')
+        : { status: 'authenticated', requestId };
       throw new Error('UNEXPECTED_PATH');
     } }),
     browser: { async register() { nativeCalls++; return response; }, async authenticate() { nativeCalls++; return response; } },
@@ -96,4 +98,16 @@ test('malformed grants do not reach API, errors are minimized and stop cancels o
   await assert.rejects(queued.continue(), /BUSY/); queued.stop(); assert.equal(signal.aborted, true);
   rejectNative(httpError('PLATFORM_PASSKEY_BROWSER_CANCELLED')); await proof;
   assert.equal(queued.snapshot().phase, 'stopped'); assert.equal(queued.snapshot().error, null);
+});
+
+
+test('INT one-key setup accepts a completed server proof without prompting for a second registration or opening business access',async()=>{
+  const f=fixture({ initial: 'passkey_required',minimumPasskeys: 1 });
+  assert.equal((await f.controller.load()).phase,'passkey_required');
+  assert.equal((await f.controller.continue()).phase,'setup_complete');
+  assert.equal(f.nativeCalls(),1);assert.equal(f.authenticated(),0);
+  assert.equal(f.calls.some(call=>call.path==='enrollment/start'),false);
+  const active=fixture({ mode: 'application_passkey',initial: 'passkey_required',minimumPasskeys: 1 });
+  await active.controller.load();assert.equal((await active.controller.continue()).phase,'authenticated');
+  assert.equal(active.nativeCalls(),1);assert.equal(active.authenticated(),1);
 });
