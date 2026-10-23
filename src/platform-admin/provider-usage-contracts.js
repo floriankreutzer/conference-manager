@@ -12,12 +12,15 @@ function instant(value) {
   }
 }
 
-export function normalizeProviderUsage(value) {
+export function normalizeProviderUsage(value, { accessMode = 'shared_owner_password' } = {}) {
+  if (!['shared_owner_password', 'application_passkey'].includes(accessMode)) {
+    throw new TypeError('PLATFORM_PROVIDER_USAGE_INVALID');
+  }
   exact(value, ['schemaVersion', 'collectionMode', 'accessMode', 'evaluatedAt', 'observedAt',
     'periodStart', 'periodEnd', 'freshness', 'alertDelivery', 'costState', 'neon', 'render', 'github']);
   [value.evaluatedAt, value.observedAt, value.periodStart, value.periodEnd].forEach(instant);
   if (value.schemaVersion !== 1 || value.collectionMode !== 'operator_snapshot'
-    || value.accessMode !== 'shared_owner_password' || !['fresh', 'stale'].includes(value.freshness)
+    || value.accessMode !== accessMode || !['fresh', 'stale'].includes(value.freshness)
     || value.alertDelivery !== 'not_configured' || value.costState !== 'unknown'
     || Date.parse(value.periodStart) >= Date.parse(value.observedAt)
     || Date.parse(value.observedAt) > Date.parse(value.periodEnd)

@@ -363,14 +363,16 @@ export function normalizeProductDeliverySnapshot(value) {
   return Object.freeze(JSON.parse(JSON.stringify(value)));
 }
 
-export function normalizeProductDelivery(value) {
+export function normalizeProductDelivery(value, { environment = 'demo', expectedAccessMode = 'shared_owner_password' } = {}) {
+  requireProductCondition((environment === 'demo' && expectedAccessMode === 'shared_owner_password')
+    || (environment === 'production' && expectedAccessMode === 'application_passkey'));
   exactProductObject(value, ['schemaVersion', 'environment', 'observedAt', 'periodStart',
     'periodEnd', 'product', 'feedback', 'delivery', 'provenance', 'collectionMode',
     'accessMode', 'evaluatedAt', 'freshness']);
   const { collectionMode, accessMode, evaluatedAt, freshness, ...snapshot } = value;
   const report = normalizeProductDeliverySnapshot(snapshot);
   const evaluated = productInstant(evaluatedAt);
-  requireProductCondition(report.environment === 'demo' && accessMode === 'shared_owner_password'
+  requireProductCondition(report.environment === environment && accessMode === expectedAccessMode
     && productInstant(report.periodEnd) <= evaluated
     && (report.observedAt === null
       ? collectionMode === 'not_collected' && freshness === 'unknown'

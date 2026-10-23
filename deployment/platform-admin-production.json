@@ -36,6 +36,7 @@
     "src/platform-admin/fleet-sections.js",
     "src/platform-admin/index.js",
     "src/platform-admin/production/bootstrap.js",
+    "src/platform-admin/production/insights-api.js",
     "src/platform-admin/production/passkey-browser.js",
     "src/platform-admin/production/passkey-login.js",
     "src/platform-admin/production/passkey-login-view.js",
