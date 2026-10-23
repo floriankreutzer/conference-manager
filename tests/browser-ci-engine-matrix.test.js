@@ -39,7 +39,7 @@ test('qualified protected acceptance pins the API, retains both engines and actu
   assert.match(protectedJob,/node frontend\/scripts\/check-platform-passkey-wire.mjs "\$PWD\/api"/);
   const refs=[...workflow.matchAll(/repository: floriankreutzer\/conference-manager-api\n\s+ref: ([a-f0-9]{40})/g)]
     .map(match=>match[1]);
-  assert.deepEqual(refs,["5b3dd52fd26c195c041118fee24a3588ebd0f9f0","ca1bc069059f7ac202ebde6f9a63b36b0f8f1f87"]);
+  assert.deepEqual(refs,["ca1bc069059f7ac202ebde6f9a63b36b0f8f1f87","ca1bc069059f7ac202ebde6f9a63b36b0f8f1f87"]);
   assert.match(protectedJob,/node scripts\/test-protected-browser.mjs "\$\{\{ matrix.browser \}\}-protected"/);
   assert.doesNotMatch(protectedJob,/continue-on-error:|--ignore-https-errors|--retries|--grep|--shard/);
   assert.match(workflow,/Run full three-customer progression and two-cycle reset acceptance/);
