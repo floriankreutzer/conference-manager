@@ -11,7 +11,7 @@ const registration = { challenge: state, rp: { id: 'ops-int.example.com', name: 
 const assertion = { challenge: state, rpId: 'ops-int.example.com', userVerification: 'required',
   allowCredentials: [{ id: state, type: 'public-key' }], timeout: 120000 };
 
-async function setup(page, { initial = 'enrollment_required' } = {}) {
+async function setup(page, { initial = 'enrollment_required', minimumPasskeys = 2 } = {}) {
   let phase = initial; const writes = [];
   // Browser UI/serialization fixture only. Real crypto/DB proof is owned by API
   // integration gates; this fixture does not represent owner-device enrollment.
@@ -38,7 +38,7 @@ async function setup(page, { initial = 'enrollment_required' } = {}) {
     }
     let status = 200; let body;
     if (url.pathname === '/api/v1/platform/session') { status = 401; body = { error: { code: 'PLATFORM_UNAUTHENTICATED' } }; }
-    else if (url.pathname === `${BASE}configuration`) body = { mode: 'passkey_setup', environment: 'int', minimumPasskeys: 2, requestId };
+    else if (url.pathname === `${BASE}configuration`) body = { mode: 'passkey_setup', environment: 'int', minimumPasskeys, requestId };
     else if (request.method() === 'GET') {
       const enrollment = url.pathname === `${BASE}enrollment/pending`;
       if (enrollment !== ['registration_required','possession_required'].includes(phase)) {
@@ -87,14 +87,17 @@ test('independent setup is labelled, keyboard usable, bilingual, responsive and 
   await page.screenshot({ path: '/tmp/cm-platform-passkey-setup-webkit.png', fullPage: true });
 });
 
-test('native cancellation offers a retry and setup completion never opens a business session', async ({ page }) => {
-  const f = await setup(page, { initial: 'passkey_required' });
+for (const minimumPasskeys of [1,2]) test(`native cancellation and completion with ${minimumPasskeys} required keys stay bilingual and session-free`,
+async ({ page }) => {
+  const f = await setup(page, { initial: 'passkey_required',minimumPasskeys });
   await expect(page.getByRole('button', { name: 'Mit Passkey bestätigen' })).toBeVisible();
   await page.evaluate(() => { globalThis.passkeyCancelNext = true; });
   await page.getByRole('button', { name: 'Mit Passkey bestätigen' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'abgebrochen' })).toBeVisible(); expect(f.writes).toHaveLength(0);
   await page.getByRole('button', { name: 'Mit Passkey bestätigen' }).click();
-  await expect(page.getByRole('heading', { name: 'Schlüssel eingerichtet' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Passkey-Einrichtung abgeschlossen' })).toBeVisible();
+  await page.locator('.platform-admin-sidebar-select').selectOption('en');
+  await expect(page.getByRole('heading', { name: 'Passkey setup complete' })).toBeVisible();
   await expect(page.locator('[data-platform-admin-create-tenant]')).toHaveCount(0);
   expect(f.writes).toHaveLength(1); expect(f.writes[0].path).toBe(`${BASE}authenticate`);
 });
