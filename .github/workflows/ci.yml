@@ -340,6 +340,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify actual protected API passkey options reach native browser ports
         run: node frontend/scripts/check-platform-passkey-wire.mjs "$PWD/api"
+      - name: Verify actual protected API insight reports reach both production views
+        run: node frontend/scripts/check-platform-insight-wire.mjs "$PWD/api"
       - name: Prefer the official Ubuntu archive for browser prerequisites
         shell: bash
         run: |
