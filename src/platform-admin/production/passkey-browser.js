@@ -108,7 +108,10 @@ export function createPlatformPasskeyBrowser({ credentials = globalThis.navigato
       let publicKey;
       if (registration) {
         exact(options, ['challenge','rp','user','pubKeyCredParams','attestation','authenticatorSelection'],
-          ['timeout','excludeCredentials','extensions']);
+          ['timeout','excludeCredentials','extensions','hints']);
+        // The pinned API SDK emits an empty hints array by default. It is not
+        // an instruction to select a different authenticator or relax policy.
+        if (options.hints !== undefined && (!Array.isArray(options.hints) || options.hints.length !== 0)) reject();
         exact(options.rp, ['id','name']); exact(options.user, ['id','name','displayName']);
         if (options.rp.id !== hostname || options.attestation !== 'none') reject();
         if (!Array.isArray(options.pubKeyCredParams) || options.pubKeyCredParams.length !== 1) reject();
