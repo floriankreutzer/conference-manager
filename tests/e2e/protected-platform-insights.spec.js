@@ -19,7 +19,8 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
       expiresAt: '2099-01-01T04:00:00.000Z', stepUpExpiresAt: null, csrfToken: 'c'.repeat(43),
     };
     else if (path === '/api/v1/platform/auth/passkey/configuration') {
-      body = { mode: 'application_passkey', environment: 'int', minimumPasskeys: 1 };
+      body = { mode: 'application_passkey', environment: 'int', minimumPasskeys: 1,
+        requestId: '00000000-0000-4000-8000-000000000102' };
     } else if (path === '/api/v1/platform/tenants') {
       body = { schemaVersion: 1, snapshotAt: '2026-10-23T12:00:00.000Z', items: [], nextCursor: null };
     } else if (path === '/api/v1/platform/insights/providers') {

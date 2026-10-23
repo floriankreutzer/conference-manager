@@ -772,7 +772,7 @@ test('final optional source authority failure suppresses the already fetched pro
   await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
 });
 
-test('private product failures and forged content fail closed and Production refuses the Demo-only adapter', async ({ page }) => {
+test('private product failures and forged content fail closed and the protected port refuses Demo payloads', async ({ page }) => {
   await installDemoRoutes(page);
   let malformed = false;
   await page.route('**/api/v1/platform/demo/product-delivery', (route) => route.fulfill({
@@ -790,13 +790,15 @@ test('private product failures and forged content fail closed and Production ref
   await expect(page.getByRole('heading', { name: 'Produktübersicht nicht verfügbar' })).toBeVisible();
   await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
   await expect(page.locator('#app')).not.toContainText('must-not-render-private-content');
-  const refusal = await page.evaluate(async () => {
-    const { createPlatformAdminApplication } = await import('/src/platform-admin/application.js');
-    try { createPlatformAdminApplication({ runtime: 'production', productDelivery: { async load() {} } }); }
+  const demoReport = JSON.parse(readFileSync(new URL('../support/product-delivery-fixture.json', import.meta.url), 'utf8'));
+  const refusal = await page.evaluate(async report => {
+    const { createProtectedPlatformInsights } = await import('/src/platform-admin/production/insights-api.js');
+    const protectedPort = createProtectedPlatformInsights({ apiClient: { async request() { return report; } } });
+    try { await protectedPort.productDelivery.load(); }
     catch (error) { return error.message; }
     return null;
-  });
-  expect(refusal).toBe('PLATFORM_ADMIN_PRODUCT_DELIVERY_INVALID');
+  }, demoReport);
+  expect(refusal).toBe('PRODUCT_DELIVERY_INVALID');
 });
 
 
