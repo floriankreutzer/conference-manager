@@ -8,7 +8,8 @@ const permissions = ['platform:tenant:read','platform:readiness:read','platform:
   'platform:operator:manage','platform:break-glass:manage'];
 
 test('protected insight views retain DE/EN mobile navigation without a Tenant or Demo requests', async ({ page }) => {
-  const requests = [];
+  const requests = [], pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
   let providerAvailable = true;
   await page.route('**/api/v1/platform/**', async route => {
     const path = new URL(route.request().url()).pathname; requests.push(path);
@@ -50,4 +51,5 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
   await page.reload(); await page.locator('[data-platform-admin-fleet-view="providers"]').click();
   await expect(page.locator('.platform-admin-error')).toBeVisible();
   expect(requests.some(path => path.includes('/demo/'))).toBe(false);
+  expect(pageErrors).toEqual([]);
 });

@@ -148,7 +148,7 @@ function sourceCoverage(model) {
   const deliveryMetrics = report?.delivery.flatMap((component) => component.buckets.flatMap((bucket) => bucket.metrics)) || [];
   const sourceRows = [
     { kind: 'runtime', source: runtime, detail: runtime ? runtimeCoverageSummary(runtime)
-      : t('platformAdmin.insights.product.runtimeUnavailable'), reason: model.retrieval.runtimeReason },
+      : t('platformAdmin.insights.product.runtimeUnavailable'), reason: model.retrieval?.runtimeReason },
     { kind: storedInsightSourceKind(model), source: report,
       detail: report ? t(runtime ? 'platformAdmin.insights.product.deliveryCoverage' : 'platformAdmin.insights.product.coverage', {
         known: formatNumber((runtime ? deliveryMetrics : report.product).filter((metric) => metric.value !== null).length),
@@ -156,11 +156,11 @@ function sourceCoverage(model) {
       }) : t('platformAdmin.insights.product.deliveryUnavailable') },
     { kind: 'manual', source: manual,
       detail: t(manual?.snapshot ? 'platformAdmin.insights.product.sourceSeparate' : 'platformAdmin.operatorSources.unavailable'),
-      reason: model.retrieval.operationsReason },
+      reason: model.retrieval?.operationsReason },
     { kind: 'feedback', source: storedFeedback ? report : feedback,
       detail: t(feedback?.snapshot ? 'platformAdmin.insights.product.feedbackConfigured'
         : storedFeedback ? 'platformAdmin.insights.product.feedbackFromStored' : 'platformAdmin.insights.product.feedbackUnavailable'),
-      reason: model.retrieval.operationsReason },
+      reason: model.retrieval?.operationsReason },
   ];
   return el('section', { className: 'card', dataset: { productSourceCoverage: 'true' } }, [
     el('h2', { text: t('platformAdmin.insights.product.sourceOverview') }),
@@ -192,7 +192,7 @@ function renderUsage(model) {
       el('h2', { text: t('platformAdmin.productDelivery.outcomes') }),
       ...(!model.runtimeProduct ? [el('p', { attrs: { role: 'status' },
         text: t('platformAdmin.insights.product.runtimeUnavailable') }),
-      renderInsightReadReason(model.retrieval.runtimeReason)] : []),
+      renderInsightReadReason(model.retrieval?.runtimeReason)] : []),
       renderInsightSourceStatus(report, model.runtimeProduct ? 'runtime' : storedInsightSourceKind(model)),
       ...(report.productCoverage ? [el('p', { className: 'platform-admin-data-note',
         text: t('platformAdmin.insights.product.partialNote') })] : []),

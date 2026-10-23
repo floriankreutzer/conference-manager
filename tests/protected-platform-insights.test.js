@@ -40,3 +40,40 @@ test('protected reports reject Demo authority and malformed successes; every fai
     }
   }
 });
+
+
+test('protected Product renders every panel with unknown sources and no Demo retrieval metadata', async () => {
+  class ViewNode {
+    constructor(tagName = '') { this.tagName = tagName.toUpperCase(); this.children = []; this.dataset = {}; this.attrs = {}; }
+    append(...nodes) { this.children.push(...nodes); }
+    setAttribute(key, value) { this.attrs[key] = value; }
+    addEventListener() {}
+  }
+  const previousDocument = globalThis.document, previousNode = globalThis.Node;
+  try {
+    globalThis.Node = ViewNode;
+    globalThis.document = { documentElement: { lang: 'de', dataset: {} },
+      createElement: tag => new ViewNode(tag),
+      createTextNode: text => Object.assign(new ViewNode(), { textContent: text }),
+    };
+    const { renderProductDelivery } = await import('../src/platform-admin/product-delivery.js');
+    const api = createProtectedPlatformInsights({ apiClient: { async request() {
+      return { ...fixture('product-delivery'), environment: 'production', accessMode: 'application_passkey' };
+    } } });
+    const model = await api.productDelivery.load();
+    assert.equal(model.retrieval, null);
+    for (const retrieval of [null, undefined]) {
+      const view = renderProductDelivery({ resource: { status: 'ready', data: { ...model, retrieval } }, onRetry() {} });
+      const descendants = node => [node, ...node.children.flatMap(descendants)];
+      const nodes = descendants(view);
+      assert.equal(view.dataset.productDeliveryReport, 'true');
+      assert.deepEqual(nodes.filter(node => node.attrs.role === 'tabpanel').map(node => node.dataset.insightsPanel),
+        ['overview', 'usage', 'delivery', 'feedback']);
+      assert.equal(nodes.filter(node => node.dataset.productMetric).length, 72);
+      assert.ok(model.storedReport.product.every(metric => metric.value === null));
+      assert.equal(nodes.some(node => node.dataset.insightFallback), false);
+    }
+  } finally {
+    globalThis.document = previousDocument; globalThis.Node = previousNode;
+  }
+});
