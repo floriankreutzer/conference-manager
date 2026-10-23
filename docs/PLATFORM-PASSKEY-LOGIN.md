@@ -23,6 +23,15 @@ ArrayBuffers to canonical bounded base64url JSON and retains no raw native error
 A single native prompt can run at once. Cancellation, duplicate registration and
 unsupported environments have fixed presentation-safe error categories.
 
+The pinned API SDK includes `hints: []` in registration JSON. The browser accepts
+only that empty optional array and omits it from native options; nonempty or
+malformed hints remain rejected. Required resident credentials, user verification,
+exact RP, no attestation and ES256 remain unchanged. The protected CI jobs also
+generate registration/assertion options with the immutable API checkout, round-trip
+them through JSON, and require both to reach the injected native credential ports.
+The browser journey fixtures include the actual empty-hints field. Injected ports
+and engine fixtures do not establish owner-device or Apple Passwords acceptance.
+
 The login controller uses the existing same-origin API client, including bounded
 JSON responses, no redirects/cache/referrer and HttpOnly session cookies. It reads
 configuration and pending enrollment/authentication from the API. State is echoed
