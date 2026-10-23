@@ -33,7 +33,10 @@ export function createPlatformPasskeyGrantDeliveryView({ controller, onChange } 
       const result = await delivery.consume(await file.text(), grant => controller.startEnrollment(grant));
       if (result.error || result.phase !== 'registration_required') throw new Error();
       dispose(); onChange();
-    } catch { failed = true; }
+    } catch {
+      failed = true;
+      if (!delivery?.hasRecipient()) { dispose(); onChange(); }
+    }
     finally { busy = false; render(); }
   }
   function render() {
@@ -46,9 +49,11 @@ export function createPlatformPasskeyGrantDeliveryView({ controller, onChange } 
       const prepareButton = button(t('platformAdmin.passkey.delivery.prepare'), { disabled: busy || controller.snapshot().busy });
       prepareButton.addEventListener('click', () => { void prepare(); }); element.append(prepareButton);
     } else {
-      element.append(el('p', { attrs: { role: 'status' }, text: t('platformAdmin.passkey.delivery.keepOpen') }),
-        el('a', { href: requestUrl, className: 'primary button-link', text: t('platformAdmin.passkey.delivery.download'),
-          attrs: { download: 'platform-passkey-recipient.json' } }));
+      const download = el('a', { className: 'primary button-link', text: t('platformAdmin.passkey.delivery.download'),
+        attrs: { download: 'platform-passkey-recipient.json' } });
+      // This URL is created locally above, never accepted from a file or server.
+      download.href = requestUrl;
+      element.append(el('p', { attrs: { role: 'status' }, text: t('platformAdmin.passkey.delivery.keepOpen') }), download);
       const input = el('input', { type: 'file', attrs: { accept: '.json,application/json', required: 'required' } });
       input.disabled = busy || controller.snapshot().busy;
       const submit = button(t('platformAdmin.passkey.delivery.use'), { type: 'submit', disabled: input.disabled });

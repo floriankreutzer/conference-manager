@@ -7,7 +7,7 @@ const ORIGIN = 'https://ops-int.example.com';
 const FORMAT = 'cm-int-passkey-browser-delivery:v1';
 const GRANT = { grantId: randomUUID(), token: Buffer.alloc(32, 1).toString('base64url') };
 async function fixture() {
-  let now = Date.now(); let pair; let hold = false; let paused; let release; let decrypted;
+  let now = Date.now(); let elapsed = 0; let pair; let hold = false; let paused; let release; let decrypted;
   const pause = new Promise(resolve => { paused = resolve; });
   const gate = new Promise(resolve => { release = resolve; });
   const crypto = { randomUUID: () => randomUUID(), subtle: {
@@ -18,7 +18,7 @@ async function fixture() {
       if (hold) { paused(); await gate; } return result;
     },
   } };
-  const delivery = createPlatformPasskeyGrantDelivery({ origin: ORIGIN, crypto, clock: () => now });
+  const delivery = createPlatformPasskeyGrantDelivery({ origin: ORIGIN, crypto, clock: () => now, monotonicClock: () => elapsed });
   const request = JSON.parse(await delivery.prepare());
   function envelope({ labelPatch = [], grant = GRANT, tamper = false } = {}) {
     const label = [FORMAT, 'a'.repeat(40), request.requestId, randomUUID(), 1, 'int', 2,
@@ -31,7 +31,8 @@ async function fixture() {
     return { format: FORMAT,requestId: request.requestId,recipientSha256: request.recipientSha256,
       labelHash: bytes.toString('hex'),ciphertext: ciphertext.toString('base64url') };
   }
-  return { delivery, request, envelope, pair: () => pair, hold: () => { hold = true; return { pause, release }; }, decrypted: () => decrypted, advance: value => { now += value; } };
+  return { delivery, request, envelope, pair: () => pair, hold: () => { hold = true; return { pause, release }; },
+    decrypted: () => decrypted, advance: value => { now += value; }, elapse: value => { elapsed += value; } };
 }
 
 test('only a public recipient request leaves the browser; canonical issuer ciphertext reaches only the explicit enrollment callback',async()=>{
@@ -99,4 +100,15 @@ test('late preparation cannot publish a request after its recipient lifetime ela
     clock: ()=>calls++===0 ? now : now+900001 });
   await assert.rejects(delivery.prepare(),/DELIVERY_REJECTED/);
   await assert.rejects(delivery.consume('{}',()=>assert.fail()),/DELIVERY_REJECTED/);
+});
+
+test('observed wall-clock rollback and monotonic expiry cannot extend recipient custody',async()=>{
+  const rolled = await fixture(); rolled.advance(840000); rolled.elapse(840000);
+  assert.equal(rolled.delivery.hasRecipient(),true);
+  rolled.advance(-780000); rolled.elapse(1000);
+  assert.equal(rolled.delivery.hasRecipient(),false);
+  await assert.rejects(rolled.delivery.consume(JSON.stringify(rolled.envelope()),()=>assert.fail()),/DELIVERY_REJECTED/);
+  const expired = await fixture(); expired.advance(1000); expired.elapse(900000);
+  assert.equal(expired.delivery.hasRecipient(),false);
+  await assert.rejects(expired.delivery.consume(JSON.stringify(expired.envelope()),()=>assert.fail()),/DELIVERY_REJECTED/);
 });

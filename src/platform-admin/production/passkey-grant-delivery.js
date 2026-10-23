@@ -22,17 +22,20 @@ function bytes(value, length) {
 // authority lives here. The independent canonical issuer and enrollment API
 // still validate their exact operator, primary proof, deployment and expiry.
 // The private recipient key is non-exportable and exists only in this instance.
-export function createPlatformPasskeyGrantDelivery({ crypto = globalThis.crypto, clock = () => Date.now(), origin } = {}) {
+export function createPlatformPasskeyGrantDelivery({ crypto = globalThis.crypto, clock = () => Date.now(),
+  monotonicClock = () => globalThis.performance.now(), origin } = {}) {
   let parsed;
   try { parsed = new URL(origin); } catch { reject(); }
-  if (parsed.origin !== origin || parsed.protocol !== 'https:' || typeof clock !== 'function'
+  if (parsed.origin !== origin || parsed.protocol !== 'https:' || typeof clock !== 'function' || typeof monotonicClock !== 'function'
     || typeof crypto?.subtle?.generateKey !== 'function' || typeof crypto?.randomUUID !== 'function') reject();
   let recipient = null; let busy = false; let disposed = false;
   function current() {
-    const now = clock();
-    if (disposed || !recipient || !Number.isSafeInteger(now) || now < recipient.createdAt || now >= recipient.expiresAt) {
+    const now = clock(), elapsed = monotonicClock();
+    if (disposed || !recipient || !Number.isSafeInteger(now) || now < recipient.lastWall || now >= recipient.expiresAt
+      || !Number.isFinite(elapsed) || elapsed < recipient.lastElapsed || elapsed - recipient.createdElapsed >= LIFETIME_MS) {
       recipient = null; reject();
     }
+    recipient.lastWall = now; recipient.lastElapsed = elapsed;
     return recipient;
   }
   return Object.freeze({
@@ -40,7 +43,8 @@ export function createPlatformPasskeyGrantDelivery({ crypto = globalThis.crypto,
       if (busy || disposed || recipient) reject();
       busy = true;
       try {
-        const createdAt = clock(); if (!Number.isSafeInteger(createdAt) || createdAt < 0) reject();
+        const createdAt = clock(), createdElapsed = monotonicClock();
+        if (!Number.isSafeInteger(createdAt) || createdAt < 0 || !Number.isFinite(createdElapsed) || createdElapsed < 0) reject();
         const pair = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 4096,
           publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, false, ['encrypt', 'decrypt']);
         if (disposed || pair.privateKey.extractable !== false) reject();
@@ -49,9 +53,11 @@ export function createPlatformPasskeyGrantDelivery({ crypto = globalThis.crypto,
         const fingerprint = Array.from(digest, value => value.toString(16).padStart(2, '0')).join('');
         const requestId = crypto.randomUUID(); if (!UUID.test(requestId) || !HEX.test(fingerprint)) reject();
         const pem = `-----BEGIN PUBLIC KEY-----\n${base64(spki).match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----\n`;
-        const readyAt = clock();
-        if (disposed || !Number.isSafeInteger(readyAt) || readyAt < createdAt || readyAt >= createdAt + LIFETIME_MS) reject();
-        recipient = { key: pair.privateKey, requestId, fingerprint, createdAt, expiresAt: createdAt + LIFETIME_MS };
+        const readyAt = clock(), readyElapsed = monotonicClock();
+        if (disposed || !Number.isSafeInteger(readyAt) || readyAt < createdAt || readyAt >= createdAt + LIFETIME_MS
+          || !Number.isFinite(readyElapsed) || readyElapsed < createdElapsed || readyElapsed - createdElapsed >= LIFETIME_MS) reject();
+        recipient = { key: pair.privateKey, requestId, fingerprint, createdAt, expiresAt: createdAt + LIFETIME_MS,
+          createdElapsed, lastWall: readyAt, lastElapsed: readyElapsed };
         const request = { format: REQUEST_FORMAT, origin, requestId, recipientPublicKey: pem, recipientSha256: fingerprint,
           createdAt: new Date(createdAt).toISOString(), expiresAt: new Date(recipient.expiresAt).toISOString() };
         return JSON.stringify(request, null, 2);
@@ -78,6 +84,7 @@ export function createPlatformPasskeyGrantDelivery({ crypto = globalThis.crypto,
       } catch { reject(); }
       finally { plaintext?.fill(0); busy = false; }
     },
+    hasRecipient() { try { current(); return true; } catch { return false; } },
     dispose() { disposed = true; recipient = null; },
   });
 }
