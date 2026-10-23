@@ -9,7 +9,7 @@ const state = Buffer.alloc(32, 1).toString('base64url');
 const registration = { challenge: state, rp: { id: 'ops-int.example.com', name: 'Conference Manager' },
   user: { id: state, name: 'Operator', displayName: 'Operator' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
   attestation: 'none', authenticatorSelection: { residentKey: 'required', userVerification: 'required', requireResidentKey: true },
-  timeout: 120000, excludeCredentials: [], extensions: { credProps: true } };
+  timeout: 120000, excludeCredentials: [], extensions: { credProps: true }, hints: [] };
 const assertion = { challenge: state, rpId: 'ops-int.example.com', userVerification: 'required',
   allowCredentials: [{ id: state, type: 'public-key' }], timeout: 120000 };
 
