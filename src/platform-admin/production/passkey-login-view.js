@@ -1,3 +1,4 @@
+import { createPlatformPasskeyGrantDeliveryView } from './passkey-grant-delivery-view.js';
 import { t } from '../../core/i18n.js';
 import { button, clear, el, field } from '../../core/ui.js';
 import { PLATFORM_ADMIN_SIGN_IN_PATH } from './operator-session.js';
@@ -15,6 +16,7 @@ export function createPlatformPasskeyLoginView({ controller } = {}) {
   const element = el('section', { className: 'card platform-admin-session-gate',
     attrs: { 'aria-labelledby': 'platformPasskeyTitle' } });
   let previousPhase = null;
+  const delivery = createPlatformPasskeyGrantDeliveryView({ controller, onChange: () => update() });
   function update(state = controller.snapshot()) {
     const active = document.activeElement; const hadFocus = element.contains(active); const phaseChanged = state.phase !== previousPhase;
     previousPhase = state.phase; clear(element);
@@ -26,6 +28,10 @@ export function createPlatformPasskeyLoginView({ controller } = {}) {
       text: t('platformAdmin.passkey.setupOnly') }));
     if (state.error) element.append(el('p', { attrs: { role: 'alert' }, text: t(`platformAdmin.passkey.error.${state.error}`) }));
     if (state.busy) element.append(el('p', { attrs: { role: 'status' }, text: t('platformAdmin.passkey.busy') }));
+    if (phase !== 'loading' && (state.environment !== 'int' || state.mode !== 'passkey_setup'
+      || !['sign_in','enrollment_required','passkey_required'].includes(phase))) delivery.dispose();
+    if (state.environment === 'int' && state.mode === 'passkey_setup'
+      && ['sign_in','enrollment_required','passkey_required'].includes(phase)) element.append(delivery.render());
     if (phase === 'enrollment_required') {
       const grantId = el('input', { type: 'text', attrs: { required: 'required', maxlength: '36', minlength: '36',
         autocomplete: 'off', spellcheck: 'false', autocapitalize: 'none' } });
@@ -56,8 +62,9 @@ export function createPlatformPasskeyLoginView({ controller } = {}) {
     } else if (!state.busy) {
       const controls = el('div', { className: 'button-row' });
       controls.append(el('a', { href: PLATFORM_ADMIN_SIGN_IN_PATH, className: 'primary button-link',
-        text: t('platformAdmin.session.signIn') }));
-      if (state.error || phase === 'loading') {
+        text: t('platformAdmin.session.signIn'),
+        ...(delivery.hasRequest() ? { attrs: { target: '_blank', rel: 'noopener noreferrer' } } : {}) }));
+      if (state.error || phase === 'loading' || delivery.hasRequest()) {
         const reload = button(t('platformAdmin.passkey.resume')); reload.addEventListener('click', () => { void controller.load(); });
         controls.append(reload);
       }
@@ -71,5 +78,5 @@ export function createPlatformPasskeyLoginView({ controller } = {}) {
     }
     return element;
   }
-  return Object.freeze({ element, update, render: () => update() });
+  return Object.freeze({ element, update, render: () => update(), stop: () => delivery.dispose() });
 }

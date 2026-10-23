@@ -38,7 +38,7 @@ async function bootstrapProductionPlatformAdmin() {
         renderSessionGate: () => loginView.render(),
       });
       await application.start();
-      globalThis.addEventListener('pagehide', () => login.stop(), { once: true });
+      globalThis.addEventListener('pagehide', () => { login.stop(); loginView.stop(); }, { once: true });
       await login.load();
       return;
     }

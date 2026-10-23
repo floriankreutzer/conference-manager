@@ -70,6 +70,8 @@
     "src/platform-admin/customer-invitation-api.js",
     "src/platform-admin/customer-invitations-presentation.js",
     "src/platform-admin/customer-invitation-controller.js",
-    "src/platform-admin/customer-invitations-view.js"
+    "src/platform-admin/customer-invitations-view.js",
+    "src/platform-admin/production/passkey-grant-delivery.js",
+    "src/platform-admin/production/passkey-grant-delivery-view.js"
   ]
 }
