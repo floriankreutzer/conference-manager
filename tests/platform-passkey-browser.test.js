@@ -57,6 +57,17 @@ test('foreign RP, malformed or excessive options, weakened UV and browser author
   assert.equal(f.calls.length, 0);
 });
 
+test('the pinned API empty registration hints reach native creation without forwarding authenticator preferences', async () => {
+  const f = fixture(); f.setResult(response(true));
+  await f.browser.register({ ...registration(), hints: [] });
+  assert.equal(f.calls.length, 1);
+  assert.equal(Object.hasOwn(f.calls[0].publicKey, 'hints'), false);
+  for (const hints of [null, {}, '', ['client-device'], ['security-key'], ['hybrid'], [null]]) {
+    await assert.rejects(f.browser.register({ ...registration(), hints }), /BROWSER_REJECTED/);
+  }
+  assert.equal(f.calls.length, 1);
+});
+
 test('registration cannot request direct attestation, weaker resident/UV policy or unreviewed algorithm/extension', async () => {
   const f = fixture();
   for (const change of [{ attestation: 'direct' }, { rp: { ...registration().rp, id: 'example.com' } },
