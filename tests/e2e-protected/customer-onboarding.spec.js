@@ -45,7 +45,7 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     await page.goto(`${origins.platform}/platform-admin/`);
     await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
     await page.getByRole('button',{ name: 'Testmandanten anlegen',exact: true }).click();
-    await page.getByRole('button',{ name: 'Anlegen mit Passkey bestätigen',exact: true }).click();
+    await page.getByRole('button',{ name: 'Anlegen bestätigen',exact: true }).click();
     await expect(page.getByRole('button',{ name: 'Fabrikam verwalten',exact: true })).toBeVisible();
     const platformDocument=await page.evaluate(()=>({ origin: location.origin,secure: isSecureContext }));
     expect(platformDocument).toEqual({ origin: origins.platform,secure: true });
@@ -56,7 +56,7 @@ test('actual qualified different-site roots bind native handoff, local onboardin
       expect(await page.evaluate(()=>location.origin)).toBe(origins.platform);
       await page.getByRole('combobox',{ name: 'Testmandant',exact: true }).selectOption(slot);
       await page.getByRole('combobox',{ name: 'Kundenrolle',exact: true }).selectOption(role);
-      await page.getByRole('button',{ name: 'Browserwechsel mit Passkey freigeben',exact: true }).click();
+      await page.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();
       await expect(page.getByRole('button',{ name: 'Testzugang öffnen',exact: true })).toBeVisible();
       expect(await page.evaluate(()=>location.origin)).toBe(origins.customer);
       await page.getByRole('button',{ name: 'Testzugang öffnen',exact: true }).click();

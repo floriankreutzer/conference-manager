@@ -1,7 +1,8 @@
 const unavailable=error=>error?.code==='PLATFORM_SYNTHETIC_SESSION_REFRESH_REQUIRED'
   || ['HTTP_401','HTTP_403'].includes(error?.code) ? 'authority'
   : error?.code==='HTTP_409' ? 'conflict'
-  : ['PLATFORM_SYNTHETIC_CANCELLED','PLATFORM_PASSKEY_BROWSER_CANCELLED','PLATFORM_PASSKEY_OPERATION_CANCELLED'].includes(error?.code)
+  : ['PLATFORM_SYNTHETIC_CANCELLED','PLATFORM_PASSKEY_BROWSER_CANCELLED','PLATFORM_PASSKEY_OPERATION_CANCELLED',
+    'PLATFORM_MICROSOFT_OPERATION_CANCELLED'].includes(error?.code)
     ? 'cancelled' : 'unknown';
 
 export function createPlatformSyntheticWorkspaceController({ api,reauthenticate }={}) {

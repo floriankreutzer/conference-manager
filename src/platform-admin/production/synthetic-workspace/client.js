@@ -58,8 +58,10 @@ function selection(value) {
 // this ceremony's binding; no generic428 replay or privileged cookie is used.
 export function createPlatformSyntheticWorkspaceClient({ apiClient,runExclusive,refreshSession,csrfTokenProvider,
   browser=null,navigation=null,origin=globalThis.location?.origin,windowRef=globalThis.window,documentRef=globalThis.document,
-  timeoutMs=15000 }={}) {
-  if (typeof apiClient?.request!=='function' || [runExclusive,refreshSession,csrfTokenProvider].some(value=>typeof value!=='function')
+  timeoutMs=15000,assuranceMode='application_passkey',microsoftConfirmation=null }={}) {
+  if (!['application_passkey','microsoft_mfa'].includes(assuranceMode)
+    || assuranceMode==='microsoft_mfa' && typeof microsoftConfirmation!=='function'
+    || typeof apiClient?.request!=='function' || [runExclusive,refreshSession,csrfTokenProvider].some(value=>typeof value!=='function')
     || !Number.isSafeInteger(timeoutMs) || timeoutMs<1000 || timeoutMs>15000) throw new TypeError('PLATFORM_SYNTHETIC_CLIENT_INVALID');
   const forms=navigation || createAuthenticationFormNavigation({ origin,windowRef,documentRef });
   if (['submit','reset','dispose'].some(name=>typeof forms[name]!=='function')) throw new TypeError('PLATFORM_SYNTHETIC_CLIENT_INVALID');
@@ -75,7 +77,13 @@ export function createPlatformSyntheticWorkspaceClient({ apiClient,runExclusive,
     finally { clearTimeout(timer);for (const source of sources) source.removeEventListener('abort',cancel); }
   }
   async function assertion(path,intent,signal) {
-    const pending=requirePlatformPasskeyChallenge(await call(path,{ method: 'POST',body: intent },signal));
+    const value=await call(path,{ method: 'POST',body: intent },signal);
+    if (assuranceMode==='microsoft_mfa') {
+      current(signal);const state=await microsoftConfirmation(value,{ signal });current(signal);
+      if (state!==value?.state || typeof state!=='string' || !/^[A-Za-z0-9_-]{43}$/.test(state)) invalid();
+      return { ...intent,state };
+    }
+    const pending=requirePlatformPasskeyChallenge(value);
     current(signal);browser ??=createPlatformPasskeyBrowser({ origin });
     const response=await browser.authenticate(pending.options,{ signal });current(signal);
     return { ...intent,state: pending.state,response };

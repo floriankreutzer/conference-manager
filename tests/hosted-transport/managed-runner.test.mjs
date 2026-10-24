@@ -80,7 +80,11 @@ if (process.env.CM_TRANSPORT_BROWSERS === '1') {
   for (const name of ['chromium', 'webkit']) test(`${name}: real response/DOM assertion reflection cannot persist the canary`, async () => {
     const result = await runCase(`browser-echo-${name}`);
     assert.notEqual(result.status, 0); assert.equal(result.summary.status, 'failed');
-    assert.equal(result.summary.failed, 1); assert.ok(result.summary.guardBlockedWrites > 0);
+    // Only the closed reporter counters may diagnose an unexpected result.
+    // Raw browser errors, DOM, headers and exception text remain suppressed.
+    const counts = Object.fromEntries(['total', 'passed', 'failed', 'skipped', 'interrupted', 'timedOut']
+      .map((key) => [key, result.summary[key]]));
+    assert.equal(result.summary.failed, 1, JSON.stringify(counts)); assert.ok(result.summary.guardBlockedWrites > 0);
     assert.equal(result.files.some((file) => file.endsWith('scenario-chromium-shared-demo.json')), true);
     assert.equal(result.files.some((file) => /error-context\.md$|\.(png|webm|zip|har)$/.test(file)), false);
   });

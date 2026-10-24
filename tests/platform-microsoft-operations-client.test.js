@@ -74,3 +74,13 @@ test('Microsoft capability is explicit and closed;404 preserves older profiles w
     await assert.rejects(loadPlatformMicrosoftConfiguration({ request: async()=>value }),/PLATFORM_MICROSOFT_OPERATION_FAILED/);
   }
 });
+
+test('explicit synthetic confirmation validates the complete challenge and uses status without retrying any business request',async()=>{
+  const f=fixture(),signal=new AbortController().signal;
+  assert.equal(await f.client.runExclusive(()=>f.client.confirmOperation(microsoftOperationChallenge(),{ signal })),state);
+  assert.equal(f.calls.length,1);assert.ok(f.calls[0].url.endsWith('/auth/microsoft/operation/status'));
+  assert.equal(f.refreshed(),0);assert.equal(f.confirmed(),1);
+  await assert.rejects(f.client.confirmOperation({ state,authorizationUrl: microsoftOperationChallenge().authorizationUrl },{ signal }));
+  await assert.rejects(f.client.confirmOperation(microsoftOperationChallenge()),/CANCELLED/);
+  assert.equal(f.calls.length,1);
+});

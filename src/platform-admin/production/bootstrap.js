@@ -59,10 +59,12 @@ async function bootstrapProductionPlatformAdmin() {
     if (protectedClient) globalThis.addEventListener('pagehide', () => protectedClient.stop(), { once: true });
     const customerInvitations=presentationFlags.isEnabled('platform.customer-invitations')
       ? createPlatformInvitationPresentation({ api: createPlatformCustomerInvitationApi({ apiClient: protectedClient ?? apiClient }) }) : null;
-    const syntheticWorkspace=protectedClient && ['dev','int'].includes(configuration?.environment)
+    const syntheticWorkspace=protectedClient && ['dev','int'].includes((configuration ?? microsoftConfiguration)?.environment)
       && session.operator.permissions.includes('platform:lifecycle:manage') && presentationFlags.isEnabled('platform.synthetic-workspace')
       ? createPlatformSyntheticWorkspacePresentation({ apiFactory: ()=>createPlatformSyntheticWorkspaceClient({
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
+        assuranceMode: microsoftConfiguration ? 'microsoft_mfa' : 'application_passkey',
+        microsoftConfirmation: microsoftConfiguration ? protectedClient.confirmOperation : null,
       }) }) : null;
     if (syntheticWorkspace) globalThis.addEventListener('pagehide',()=>syntheticWorkspace.stop(),{ once: true });
     const insights=session.operator.permissions.includes('platform:runtime:read')
