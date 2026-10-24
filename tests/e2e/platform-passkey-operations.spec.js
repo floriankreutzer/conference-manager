@@ -59,7 +59,7 @@ async function setup(page) {
 test('ordinary MFA presents permitted actions and signs only the confirmed concrete request without generic elevation', async ({ page }) => {
   const f = await setup(page);
   await page.locator('[data-platform-action="suspend"]').click();
-  await expect(page.getByText('Vor dem Ausführen bestätigst du genau diese Aktion mit deinem Passkey.')).toBeVisible();
+  await expect(page.getByText('Vor dem Ausführen bestätigst du genau diese Aktion.')).toBeVisible();
   await page.getByRole('dialog').getByRole('textbox', { name: /^Betriebliche Begründung/ }).fill('Synthetic signed lifecycle approval');
   await page.locator('[data-platform-admin-confirm-action="suspend"]').click();
   await expect(page.locator('[data-platform-action="reactivate"]')).toBeVisible();
