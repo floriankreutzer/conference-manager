@@ -14,11 +14,23 @@ export function createPlatformMicrosoftOperationsClient({ origin=globalThis.loca
   csrfTokenProvider,confirmation,...options }={}) {
   if (typeof confirmation!=='function') throw new TypeError('PLATFORM_MICROSOFT_CONFIRMATION_PORT_REQUIRED');
   const statusClient=createApiClient({ origin,fetchImpl,csrfTokenProvider,baseUrl: '/api/v1/platform/' });
-  return createPlatformOperationClient({ ...options,origin,fetchImpl,csrfTokenProvider,
+  const client=createPlatformOperationClient({ ...options,origin,fetchImpl,csrfTokenProvider,
     ErrorType: PlatformMicrosoftOperationError,errorPrefix: 'PLATFORM_MICROSOFT',
     readPending: value=>requirePlatformMicrosoftOperationChallenge(value,origin),
     async confirm(pending,{ signal }) {
-      await confirmation(pending,{ signal,async readStatus({ signal: statusSignal }) {
+      await confirmPending(pending,signal);
+      return { 'X-Platform-Microsoft-Proof': pending.state };
+    },
+  });
+  async function confirmOperation(value,{ signal }={}) {
+    if (!signal || typeof signal.addEventListener!=='function' || signal.aborted) {
+      throw new PlatformMicrosoftOperationError('PLATFORM_MICROSOFT_OPERATION_CANCELLED');
+    }
+    const pending=requirePlatformMicrosoftOperationChallenge(value,origin);
+    await confirmPending(pending,signal);return pending.state;
+  }
+  async function confirmPending(pending,signal) {
+    await confirmation(pending,{ signal,async readStatus({ signal: statusSignal }) {
         const controller=new AbortController(),abort=()=>controller.abort(),timer=setTimeout(abort,10000);
         signal.addEventListener('abort',abort,{ once: true });statusSignal.addEventListener('abort',abort,{ once: true });
         if (signal.aborted || statusSignal.aborted) abort();
@@ -28,7 +40,9 @@ export function createPlatformMicrosoftOperationsClient({ origin=globalThis.loca
           }));
         } finally { clearTimeout(timer);signal.removeEventListener('abort',abort);statusSignal.removeEventListener('abort',abort); }
       } });
-      return { 'X-Platform-Microsoft-Proof': pending.state };
-    },
-  });
+    if (signal.aborted) throw new PlatformMicrosoftOperationError('PLATFORM_MICROSOFT_OPERATION_CANCELLED');
+  }
+  // Caller must hold this client's existing runExclusive lease through its
+  // fixed synthetic options, confirmation and final native form or JSON write.
+  return Object.freeze({ ...client,confirmOperation });
 }

@@ -16,8 +16,8 @@ export async function handlePlatformSyntheticNavigationFixture(request,response)
   }
   const form=new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
   let payload;try { payload=JSON.parse(form.get('payload')); } catch { /* Rejected below. */ }
-  if (form.size!==2 || form.get('csrfToken')!=='C'.repeat(43) || !payload
-    || Object.keys(payload).sort().join(',')!=='generationId,response,role,slot,state'
+  if (form.size!==2 || !['C'.repeat(43),'N'.repeat(43)].includes(form.get('csrfToken')) || !payload
+    || !['generationId,response,role,slot,state','generationId,role,slot,state'].includes(Object.keys(payload).sort().join(','))
     || payload.state!==Buffer.alloc(32,1).toString('base64url')
     || !['northwind','contoso','fabrikam'].includes(payload.slot)
     || !['employee','conference_manager','tenant_admin'].includes(payload.role)) {

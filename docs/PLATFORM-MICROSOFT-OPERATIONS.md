@@ -30,7 +30,7 @@ apart, with a115-second dialog deadline and ten-second request limits. Final
 execution still needs the current source session, independent Strict operation
 cookie and exact one-use proof at the server.
 
-The paired API source is 387654a132ef4fd02c122021aeac706574a3ff20 in API314.
+The paired API source is488d6718804ac2a980235251956963cab644aedf in API315.
 Both protected and shared-Demo CI jobs pin that immutable counterpart; existing
 Chromium/WebKit, three-customer progression and two-reset gates remain required.
 Focused client/contract and unchanged legacy transport coverage passes locally.
@@ -54,9 +54,35 @@ owner REAL Customer entry, sole-owner lifecycle, audited old-key retirement,
 actual provider settings and coordinated live verification remain release work.
 
 
-CI40132834167 verified ordinary Chromium and both protected engines, then ordinary
-WebKit rejected Playwright's fulfilled303 response. The callback now continues
-to the existing real loopback HTTPS server as well as its landing; both engines
-must exercise the actual redirect. No redirect/cookie/COOP assertion is removed.
-The final immutable API pin is387654a132ef4fd02c122021aeac706574a3ff20.
-This correction requires renewed full browser/paired qualification.
+## Synthetic Microsoft workspace candidate
+
+The authenticated DEV/INT Microsoft capability now composes the existing own
+three-customer workspace through the same proof queue and confirmation dialog.
+Generation options, status confirmation and final state-only JSON/native-form
+write retain that queue until commit/normal refresh or page navigation. The
+Microsoft branch never constructs or calls the application credential adapter.
+Cancellation sends no final command. The backend remains the sole role, source,
+generation, browser custody and one-use proof authority.
+
+Synthetic disclosure/loading/confirmation text is now provider-neutral in the
+existing DE/EN catalog; existing dialog controls, role selection, deterministic
+reset and retained-history presentation remain. New browser progression retains
+creation, cancelled reset, isolated Microsoft tab and real two-origin native
+handoff with refreshed CSRF and no credential response. Existing legacy browser
+assertions change only their visible confirmation labels.
+
+This source pins API315 candidate488d6718804ac2a980235251956963cab644aedf
+(canonical071/Demo031) in both protected and permanent Demo browser jobs.
+Local focused16 and full915 tests pass, including the final API315 counterpart
+rebind and real callback fixture. All browser/native/elapsed-expiry/Demo/reset
+gates remain required. The earlier ordinary Chromium redirect correction is verified
+in CI40132834167; its other outstanding gates are recorded in FE380. No real
+Microsoft/device or deployed acceptance is claimed. Owner REAL access and the
+remaining operational release dependencies above are unchanged.
+
+
+Ordinary WebKit in FE380's CI40132834167 rejected Playwright's fulfilled303.
+The shared callback fixture now continues to the real loopback TLS server,
+retaining the exact redirect/cookie/COOP assertions. Synthetic Microsoft browser
+progression uses that same real callback/landing; no engine-specific exemption
+is introduced. Its updated full qualification remains pending.

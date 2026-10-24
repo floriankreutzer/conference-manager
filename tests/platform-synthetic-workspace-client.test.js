@@ -5,9 +5,9 @@ const uuid=index=>`ba000000-0000-4000-8000-${String(index).padStart(12,'0')}`,ST
 const snapshot=()=>({ generationId: uuid(2),revision: 1,available: true,tenants: ['northwind','contoso','fabrikam'].map((slot,index)=>({
   slot,tenantId: uuid(index+3),status: ['active','ready','onboarding'][index] })) });
 const directory=()=>({ generation: snapshot(),retainedGenerations: 1,canReplace: true,replaceAfter: null,requestId: uuid(1) });
-function fixture({ refresh=true,browser=null,respond=null }={}) {
+function fixture({ refresh=true,browser=null,respond=null,assuranceMode='application_passkey',microsoftConfirmation=null }={}) {
   const calls=[],forms=[],events=[];let active=false;
-  const client=createPlatformSyntheticWorkspaceClient({ origin: 'https://127.0.0.1',
+  const client=createPlatformSyntheticWorkspaceClient({ origin: 'https://127.0.0.1',assuranceMode,microsoftConfirmation,
     apiClient: { async request(path,options={}) {
       calls.push({ path,options,active });assert.ok(options.signal instanceof AbortSignal);
       if (respond) return respond(path,options);
@@ -87,4 +87,30 @@ test('stopping an in-flight browser prompt aborts it without submitting a form o
   const task=f.client.approve({ generationId: uuid(2),slot: 'northwind',role: 'employee' },{ onNavigation: ()=>assert.fail('NO_NAVIGATION') });
   await seen;f.client.stop();await assert.rejects(task,/NATIVE_ABORT/);assert.equal(f.forms.length,0);assert.equal(f.calls.length,1);
   await assert.rejects(f.client.currentGeneration(),/CANCELLED/);assert.equal(f.calls.length,1);
+});
+
+test('Microsoft synthetic creation and native approval hold the same queue and send state without an application-key response',async()=>{
+  const challenge={ status: 'microsoft_required',state: STATE },confirmations=[];
+  const f=fixture({ assuranceMode: 'microsoft_mfa',browser: { authenticate: ()=>assert.fail('NO_APPLICATION_KEY') },
+    async microsoftConfirmation(value,{ signal }) {
+      assert.equal(f.active(),true);assert.ok(signal instanceof AbortSignal);confirmations.push(value);return value.state;
+    },respond(path) {
+      if (path.endsWith('/options')) return challenge;
+      if (path.endsWith('/replace')) return { status: 'generation_replaced',generation: snapshot(),csrfToken: CSRF,requestId: uuid(1) };
+      assert.fail('NO_OTHER_ROUTE');
+    } });
+  await f.client.replace({ expectedGenerationId: null,expectedRevision: 0 });
+  assert.deepEqual(f.calls[1].options.body,{ expectedGenerationId: null,expectedRevision: 0,state: STATE });
+  let navigated;const seen=new Promise(resolve=>{ navigated=resolve; });
+  const approval=f.client.approve({ generationId: uuid(2),slot: 'fabrikam',role: 'tenant_admin' },{ onNavigation: navigated });
+  await seen;assert.equal(f.active(),true);
+  assert.deepEqual(JSON.parse(f.forms[0][1].payload),{ generationId: uuid(2),slot: 'fabrikam',role: 'tenant_admin',state: STATE });
+  f.client.cancelNavigation();await approval;assert.equal(f.active(),false);assert.equal(confirmations.length,2);
+});
+
+test('cancelled Microsoft confirmation sends no generation mutation or navigation',async()=>{
+  const f=fixture({ assuranceMode: 'microsoft_mfa',respond: ()=>({ status: 'microsoft_required',state: STATE }),
+    microsoftConfirmation: async()=>{ throw Object.assign(new Error('cancelled'),{ code: 'PLATFORM_MICROSOFT_OPERATION_CANCELLED' }); } });
+  await assert.rejects(f.client.replace({ expectedGenerationId: null,expectedRevision: 0 }),{ code: 'PLATFORM_MICROSOFT_OPERATION_CANCELLED' });
+  assert.equal(f.calls.length,1);assert.equal(f.forms.length,0);assert.equal(f.active(),false);
 });
