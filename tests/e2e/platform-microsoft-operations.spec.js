@@ -10,6 +10,8 @@ const permissions=['platform:tenant:read','platform:readiness:read','platform:in
   'platform:invitation:manage','platform:lifecycle:manage','platform:entitlement:manage','platform:quota:manage'];
 async function setup(page,context) {
   const writes=[],callbacks=[];let status='active',revision=3,sessionReads=0,verified=false,statusReads=0;
+  const reset=await context.request.post(ORIGIN+'/__cm-ms-cookie-evidence/reset',{ headers: { Origin: ORIGIN } });
+  expect(reset.status()).toBe(200);
   await context.addCookies([{ name: 'cm_platform_session',value: 'synthetic-normal-session',
     domain: '127.0.0.1',path: '/api/v1/platform',secure: true,httpOnly: true,sameSite: 'Strict' }]);
   await context.route('https://login.microsoftonline.com/**',async route=>{
@@ -71,7 +73,9 @@ async function setup(page,context) {
   await page.goto(`${ORIGIN}/platform-admin/`);
   await page.locator(`[data-platform-admin-tenant="${TENANT}"]`).click();
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
-  return { writes,callbacks,statusReads: ()=>statusReads,sessionReads: ()=>sessionReads };
+  return { writes,callbacks,statusReads: ()=>statusReads,sessionReads: ()=>sessionReads,
+    receiverEvidence: async()=>{ const result=await context.request.get(ORIGIN+'/__cm-ms-cookie-evidence');
+      expect(result.status()).toBe(200);return result.json(); } };
 }
 async function requestAction(page) {
   await page.locator('[data-platform-action="suspend"]').click();
@@ -85,13 +89,13 @@ test('Microsoft confirmation survives different-site COOP isolation and executes
   await expect(link).toBeFocused();await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel',/noopener/);
   const opened=context.waitForEvent('page');await link.press('Enter');const provider=await opened;
   await provider.waitForLoadState();expect(await provider.evaluate(()=>window.opener===null)).toBe(true);
-  const callbackResponse=provider.waitForResponse(response=>response.url().startsWith(ORIGIN+BASE+'/callback?'));
-  const operationResponse=page.waitForResponse(response=>response.url().endsWith(`/tenants/${TENANT}/lifecycle/transitions`));
   await provider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();
   await expect(provider).toHaveURL(ORIGIN+BASE+'/complete');
-  expect(await (await callbackResponse).headerValue('x-cm-fixture-microsoft-custody')).toBe('lax-without-strict');
-  expect(await (await operationResponse).headerValue('x-cm-fixture-microsoft-custody')).toBe('strict-source-and-operation');
   await expect(page.locator('[data-platform-action="reactivate"]')).toBeVisible();
+  // Read closed counters directly from the actual TLS receiver, independently
+  // of WebKit's incomplete intercepted request/redirect-response metadata.
+  expect(await f.receiverEvidence()).toEqual({ schemaVersion: 1,callbackAccepted: 1,callbackRejected: 0,
+    operationAccepted: 1,operationRejected: 0 });
   expect(f.writes).toHaveLength(2);expect(f.writes[0].url).toBe(f.writes[1].url);expect(f.writes[0].body).toEqual(f.writes[1].body);
   expect(f.writes[0].headers['idempotency-key']).toBe(f.writes[1].headers['idempotency-key']);
   expect(f.writes[1].headers['x-platform-passkey-proof']).toBeUndefined();expect(f.sessionReads()).toBe(2);

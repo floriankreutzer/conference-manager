@@ -10,7 +10,8 @@ test('regular browser CI retains both full projects, one unchanged budget and di
   assert.match(matrix,/fail-fast: false/); assert.match(matrix,/project: \[chromium-desktop, webkit-mobile\]/);
   assert.match(matrix,/run: npm run test:e2e -- --project=\$\{\{ matrix\.project \}\}/);
   assert.match(matrix,/name: playwright-report-\$\{\{ matrix\.project \}\}/);
-  for (const proof of ['test-hosted-transport.mjs --browsers','EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft']) {
+  for (const proof of ['test-hosted-transport.mjs --browsers','platform-microsoft-operations.spec.js',
+    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft']) {
     assert.ok(matrix.includes(proof));
   }
   assert.doesNotMatch(matrix,/continue-on-error:|--grep-invert|--shard|--retries|--workers/);
