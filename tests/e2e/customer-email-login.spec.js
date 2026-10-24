@@ -88,7 +88,7 @@ test('code form preserves language/focus, clears submitted secrets, reports erro
   await expect(page.getByRole('combobox',{ name: 'Language',exact: true })).toBeFocused();
   await expect(page.getByLabel('Eight-digit code')).toHaveValue('0012');
   await page.getByLabel('Eight-digit code').fill('00123456');await page.getByLabel('Eight-digit code').press('Enter');
-  await expect(page.locator('#app [role="status"]')).toBeFocused();
+  await expect(page.getByRole('main').getByRole('status')).toBeFocused();
   expect(await page.locator('#customerAuthCode').count()).toBe(0);f.releaseVerification();
   await expect(page.getByRole('main').getByRole('alert')).toContainText('Sign-in could not be confirmed');
   await expect(page.getByLabel('Eight-digit code')).toBeFocused();

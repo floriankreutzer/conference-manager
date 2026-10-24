@@ -74,6 +74,9 @@
     "src/platform-admin/customer-invitation-controller.js",
     "src/platform-admin/customer-invitations-view.js",
     "src/platform-admin/production/passkey-grant-delivery.js",
-    "src/platform-admin/production/passkey-grant-delivery-view.js"
+    "src/platform-admin/production/passkey-grant-delivery-view.js",
+    "src/shared/authentication-page.js",
+    "assets/brand/pavurel-signet.svg",
+    "assets/brand/pavurel-login-lounge.webp"
   ]
 }
