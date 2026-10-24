@@ -1,6 +1,8 @@
 export const CUSTOMER_AUTHENTICATION_MESSAGES = Object.freeze({
   de: Object.freeze({
     'authenticationPage.brand': 'PAVUREL',
+    'authenticationPage.customer.documentTitle': 'Anmelden · Conference Manager',
+    'authenticationPage.platform.documentTitle': 'Anmelden · Pavurel Plattform',
     'authenticationPage.customer.title': 'Willkommen im Conference Manager',
     'authenticationPage.customer.text': 'Melden Sie sich mit Microsoft oder einem E-Mail-Code an.',
     'authenticationPage.platform.title': 'Willkommen in der Plattformverwaltung',
@@ -81,6 +83,8 @@ export const CUSTOMER_AUTHENTICATION_MESSAGES = Object.freeze({
   }),
   en: Object.freeze({
     'authenticationPage.brand': 'PAVUREL',
+    'authenticationPage.customer.documentTitle': 'Sign in · Conference Manager',
+    'authenticationPage.platform.documentTitle': 'Sign in · Pavurel Platform',
     'authenticationPage.customer.title': 'Welcome to Conference Manager',
     'authenticationPage.customer.text': 'Sign in with Microsoft or an email code.',
     'authenticationPage.platform.title': 'Welcome to platform administration',

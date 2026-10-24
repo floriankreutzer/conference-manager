@@ -514,6 +514,7 @@ export function createAppShell({
       return;
     }
     authenticationPage?.dispose(); authenticationPage = null;
+    document.documentElement.dataset.authenticationReady = 'true';
     const pendingAuthentication=authentication?.createPendingAuthenticationView?.() ?? null;
     if (pendingAuthentication) {
       pendingAuthentication.update?.();setPageHeading(t('customerAuth.pageTitle'),t('customerAuth.pageText'));

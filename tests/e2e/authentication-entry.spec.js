@@ -10,14 +10,16 @@ test('signed-out Platform has a separate bilingual entry with Microsoft, no appl
   }));
   await page.goto('/platform-admin/');
   const entry = page.locator('[data-authentication-surface="platform"]');
+  await expect(page).toHaveTitle('Anmelden · Pavurel Plattform');
   await expect(entry.getByRole('heading', { level: 1 })).toHaveText('Willkommen in der Plattformverwaltung');
   await expect(page.locator('.app-shell')).toBeHidden();
   await expect(entry.getByRole('link', { name: 'Mit Microsoft anmelden' })).toHaveAttribute('href',
-    '/api/v1/platform/auth/microsoft/login');
+    new URL('/api/v1/platform/auth/microsoft/login', page.url()).href);
   await expect(entry.getByRole('button', { name: /Passkey/ })).toHaveCount(0);
   await expect(page.locator('#skipLink')).toHaveAttribute('href', '#authenticationContent');
   await entry.getByRole('combobox', { name: 'Sprache', exact: true }).selectOption('en');
   await expect(entry.getByRole('heading', { level: 1 })).toHaveText('Welcome to platform administration');
+  await expect(page).toHaveTitle('Sign in · Pavurel Platform');
   await expect(entry.getByRole('combobox', { name: 'Language', exact: true })).toBeFocused();
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -48,6 +50,7 @@ test('signed-out Customer retains both Microsoft and email-code methods on its o
     body: JSON.stringify({ error: { code: 'AUTHENTICATION_REQUIRED' } }) }));
   await page.goto('/');
   const entry = page.locator('[data-authentication-surface="customer"]');
+  await expect(page).toHaveTitle('Anmelden · Conference Manager');
   await expect(entry.getByRole('heading', { level: 1 })).toHaveText('Willkommen im Conference Manager');
   await expect(page.locator('.app-shell')).toBeHidden();
   await expect(entry.getByRole('textbox', { name: 'E-Mail-Adresse', exact: true })).toBeVisible();

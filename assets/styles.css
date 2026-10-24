@@ -1241,6 +1241,7 @@ main {
 }
 
 /* Shared signed-out entry. Operational application layout remains unchanged. */
+html:has(meta[name="conference-runtime"][content="production"]):not([data-authentication-ready="true"]) .app-shell { display: none; }
 .app-shell[hidden] { display: none; }
 .authentication-entry {
   display: grid;
@@ -1256,13 +1257,15 @@ main {
   min-inline-size: 0;
   padding: clamp(var(--space-6), 5vw, calc(var(--space-8) * 2));
   gap: var(--space-4);
+  overflow-wrap: anywhere;
 }
 .authentication-entry-brand { inline-size: calc(var(--space-8) * 2); block-size: calc(var(--space-8) * 2); object-fit: contain; }
 .authentication-entry-wordmark { margin: 0; color: var(--brand-primary); font-weight: var(--font-weight-bold); }
 .authentication-entry-login h1 { margin: 0; font-family: var(--font-family-display); font-size: var(--font-size-2xl); }
 .authentication-entry-intro { color: var(--color-muted); margin: 0; }
-.authentication-entry-login > .card { padding-inline: 0; border: 0; box-shadow: none; inline-size: 100%; }
+.authentication-entry-login > .card { padding-inline: 0; border: 0; box-shadow: none; inline-size: 100%; min-inline-size: 0; }
 .authentication-entry-login .button-row { flex-wrap: wrap; }
+.authentication-entry-login :is(button, a) { max-inline-size: 100%; min-inline-size: 0; overflow-wrap: anywhere; }
 .authentication-entry-login input, .authentication-entry-login select { max-inline-size: 100%; min-inline-size: 0; }
 .authentication-entry-visual { display: none; min-inline-size: 0; }
 .authentication-entry-visual img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }

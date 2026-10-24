@@ -39,6 +39,7 @@ async function bootstrapProductionPlatformAdmin() {
       return;
     }
     csrfToken = session.csrfToken;
+    document.documentElement.dataset.authenticationReady = 'true';
     const configuration = await loadPlatformPasskeyConfiguration(apiClient);
     if (configuration?.mode === 'passkey_setup') throw new TypeError('PLATFORM_SETUP_SESSION_REJECTED');
     async function refreshSession() {
@@ -81,7 +82,7 @@ async function bootstrapProductionPlatformAdmin() {
   } catch {
     const retry = button(t('auth.production.retry'), { className: 'primary' });
     retry.addEventListener('click', () => globalThis.location.reload());
-    const content = el('section', { className: 'card', attrs: { role: 'alert' } }, [
+    const content = el('section', { className: 'card platform-admin-session-gate', attrs: { role: 'alert' } }, [
       el('h2', { text: t('platformAdmin.session.unavailableTitle') }),
       el('p', { text: t('platformAdmin.session.unavailableText') }), retry,
     ]);
