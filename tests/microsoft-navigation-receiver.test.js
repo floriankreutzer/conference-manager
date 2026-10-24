@@ -46,3 +46,16 @@ test('native final receiver requires both Strict cookies, exact source CSRF/proo
   }
   assert.equal((await receive({ payload: 'x'.repeat(2049) })).status,413);
 });
+
+test('receiver evidence contains only closed counters and reset rejects bodies or foreign origins',async()=>{
+  const reset='/__cm-ms-cookie-evidence/reset',read='/__cm-ms-cookie-evidence';
+  assert.equal((await receive({ url: reset,payload: '' })).status,200);
+  await receive({ method: 'GET',url: callback,headers: { cookie: `cm_platform_ms_operation_tx=${state}.${state}` } });
+  await receive();await receive({ headers: { cookie: '' } });
+  const result=await receive({ method: 'GET',url: read,payload: '' });
+  assert.deepEqual(JSON.parse(result.body),{ schemaVersion: 1,callbackAccepted: 1,callbackRejected: 0,
+    operationAccepted: 1,operationRejected: 1 });
+  assert.equal((await receive({ url: reset,payload: 'body' })).status,400);
+  assert.equal((await receive({ url: reset,payload: '',headers: { origin: 'https://other.example.test' } })).status,400);
+  assert.deepEqual(JSON.parse((await receive({ method: 'GET',url: read,payload: '' })).body),JSON.parse(result.body));
+});

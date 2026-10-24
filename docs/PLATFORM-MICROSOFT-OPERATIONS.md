@@ -130,3 +130,18 @@ and oversized body produce no receipt. No cookie policy, COOP, timeout, retry or
 application behavior changes. These stronger receiver observations require fresh
 full browser gates; the prior failure is retained and no browser success is
 inferred from the local receiver tests.
+
+
+The next retained WebKit failure (FE381 CI40137763875) reached the real callback
+landing but its redirected response omitted the custom receipt header. The
+fixture now records only four closed accepted/rejected counters at the actual
+TLS receiver. The browser test resets this isolated serial fixture, performs
+the real callback/final write and reads its counters directly through the test
+request context. Exactly one accepted callback and final command, with zero
+rejections, are required. This avoids intercepted header metadata entirely.
+The receiver's Lax/Strict, source-CSRF/proof, exact body and size guards remain;
+negative tests cover missing/wrong cookies and reject body/foreign-origin reset
+without changing evidence. No raw cookie, identity or diagnostic is recorded.
+Both engine jobs now run the focused Microsoft test before the unchanged full
+suite, without adding retries, time, runners or relaxing any required gate.
+The correction still requires fresh paired browser/Demo acceptance.
