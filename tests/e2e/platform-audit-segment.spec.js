@@ -3,14 +3,19 @@ import { readFile } from 'node:fs/promises';
 
 const ORIGIN='https://ops-int.example.com',ID='11111111-1111-4111-8111-111111111111';
 const state=Buffer.alloc(32,1).toString('base64url');
-function payload() {
-  return { schemaVersion: 2,audit: { segmentId: ID,verification: 'verified',
+function payload(ownerRoles=false) {
+  const value={ schemaVersion: 2,audit: { segmentId: ID,verification: 'verified',
     legacy: { eventCount: 124,verification: 'unavailable' } },items: [{ sequence: 125,operatorId: null,roles: [],permissions: [],
     assuranceLevel: 'offline_owner',targetTenantId: null,action: 'platform.operator.changed',targetType: 'platform_audit_segment',
     targetId: ID,previousState: null,newState: { integrityVersion: 2 },occurredAt: '2026-10-21T12:00:00.000Z',correlationId: ID,
     outcome: 'success',metadata: { operation: 'audit_segment_genesis',legacyVerification: 'unavailable' },retentionClass: 'recovery' }] };
+  if (ownerRoles) Object.assign(value.items[0],{ targetType: 'platform_owner_roles',
+    previousState: { roleCount: 2,securityVersion: 6 },newState: { roleCount: 4,securityVersion: 7,scopeMode: 'all' },
+    metadata: { operation: 'owner_all_platform_roles',environment: 'int',deploymentEpoch: ID,
+      approvalReference: 'owner-role-test',sessionsRevoked: 1,transactionsRevoked: 0 } });
+  return value;
 }
-async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,changedContext=null }={}) {
+async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,changedContext=null,ownerRoles=false }={}) {
   const exports=[],cursors=[];
   await page.addInitScript(()=>{
     const bytes=length=>new Uint8Array(length).fill(1).buffer;
@@ -35,7 +40,7 @@ async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,ch
     } else if (url.pathname==='/api/v1/platform/tenants') {
       body={ schemaVersion: 1,snapshotAt: '2026-10-21T12:00:00.000Z',items: [],nextCursor: null };
     } else if (url.pathname==='/api/v1/platform/audit/events') {
-      const before=url.searchParams.get('beforeSequence');cursors.push(before);body=payload();
+      const before=url.searchParams.get('beforeSequence');cursors.push(before);body=payload(ownerRoles);
       const genesis=body.items[0];
       body.items=Array.from({ length: eventCount },(_,index)=>{
         const sequence=124+eventCount-index;
@@ -53,7 +58,7 @@ async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,ch
       if (!request.headers()['x-platform-passkey-proof']) {
         code=428;body={ status: 'passkey_required',state,requestId: ID,options: { challenge: state,
           rpId: 'ops-int.example.com',allowCredentials: [{ id: state,type: 'public-key' }],userVerification: 'required' } };
-      } else body=payload();
+      } else body=payload(ownerRoles);
     } else { code=404;body={ error: { code: 'PLATFORM_NOT_FOUND' } }; }
     await route.fulfill({ status: code,contentType: 'application/json',body: JSON.stringify(body) });
   });
@@ -75,6 +80,15 @@ test('current audit warning is localized, reflows and exports unavailable legacy
     window.dispatchEvent(new CustomEvent('conference-language-changed')); });
   await expect(page.getByText(/Signature verification is unavailable for the 124 older events/)).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+});
+
+test('owner all-role upgrade receipt stays readable and exportable in the current signed segment',async({ page })=>{
+  await setup(page,{ ownerRoles: true });
+  await expect(page.locator('.platform-admin-audit-list > li')).toHaveCount(1);
+  await expect(page.locator('.platform-admin-error[role="alert"]')).toHaveCount(0);
+  const downloaded=page.waitForEvent('download');
+  await page.getByRole('button',{ name: 'Bis zu 100 aktuelle Ereignisse exportieren' }).click();
+  expect(JSON.parse(await readFile(await (await downloaded).path(),'utf8'))).toEqual(payload(true));
 });
 
 test('invented legacy verification fails closed without a verified badge or export',async({ page })=>{

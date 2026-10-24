@@ -136,3 +136,10 @@ remain independent. Verified group rights expire after at most one hour, includi
 email-code sessions; the server owns expiry, mapping approval, source reconciliation
 and audit. Provider overage or missing claims grant no group authority. Synthetic
 provider/browser fixtures do not establish actual Microsoft or live acceptance.
+
+The current-segment Platform audit reader also accepts the API's fixed
+`platform_owner_roles` offline-owner receipt. It remains recovery evidence with
+no claimed operator, Tenant, roles or permissions; ordinary events cannot use it
+to create browser authority. Legacy schema1 and arbitrary offline target types
+remain rejected. The existing audit list and bounded export keep this receipt
+readable after the one-time server-side owner upgrade.
