@@ -92,6 +92,8 @@ async function installProductionFixture(page, {
   roles = ['employee', 'tenant_admin'],
   conflictOnUpdate = false,
   groupManaged = false,
+  groupMappings = false,
+  mappingConflict = false,
 } = {}) {
   let users = initialUsers();
   if (groupManaged) users = users.map(user => user.id === USER_ID ? {
@@ -101,6 +103,7 @@ async function installProductionFixture(page, {
   const writes = [];
   const accessWrites = [];
   const reads = [];
+  const mappingWrites=[];let mappingSettings={ revision: 0,directoryId: null,mappings: [] };
 
   await page.route(`${ORIGIN}/**`, async (route) => {
     const request = route.request();
@@ -122,6 +125,16 @@ async function installProductionFixture(page, {
         body: JSON.stringify(presentationPayload()),
       });
       return;
+    }
+    if (groupMappings && url.pathname==='/api/v1/tenant/microsoft-role-mappings') {
+      if (request.method()==='PUT') {
+        const body=request.postDataJSON();mappingWrites.push({ body,csrf: request.headers()['x-csrf-token'] });
+        if (mappingConflict) { await route.fulfill({ status: 409,contentType: 'application/json',
+          body: JSON.stringify({ error: { code: 'MICROSOFT_ROLE_MAPPING_VERSION_CONFLICT' },currentRevision: 2 }) });return; }
+        mappingSettings={ revision: body.expectedRevision+1,directoryId: body.directoryId,mappings: body.mappings };
+      }
+      await route.fulfill({ status: 200,contentType: 'application/json',
+        body: JSON.stringify({ settings: mappingSettings,requestId: ADMIN_ID }) });return;
     }
     if (await fulfillApplicationProjection(route)) return;
 
@@ -212,7 +225,7 @@ async function installProductionFixture(page, {
     }
   });
 
-  return { writes, accessWrites, reads };
+  return { writes, accessWrites, reads, mappingWrites };
 }
 
 async function openTenantAdministration(page) {
@@ -284,6 +297,36 @@ test('Microsoft group roles stay visible and independent through direct add/remo
   await expect(card.getByRole('list',{ name: 'Roles from Microsoft groups' })).toContainText('Conference Manager – from Microsoft group');
   await expect(card.getByRole('group',{ name: 'Directly assigned roles' })).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});
+
+test('Tenant Admin configures Microsoft groups with exact CSRF intent, keyboard roles and DE/EN mobile reflow',async({ page })=>{
+  const fixture=await installProductionFixture(page,{ groupMappings: true });
+  await page.setViewportSize({ width: 375,height: 760 });await openTenantAdministration(page);
+  const panel=page.locator('[data-microsoft-role-mappings]');await expect(panel).toBeVisible();
+  await panel.getByLabel('Verzeichnis-ID',{ exact: true }).fill(TENANT_ID);
+  await panel.getByRole('button',{ name: 'Gruppe hinzufügen' }).click();
+  const group=panel.getByLabel('Gruppen-ID',{ exact: true });await expect(group).toBeFocused();await group.fill(USER_ID);
+  const role=panel.getByRole('checkbox',{ name: 'Conference Manager',exact: true });
+  await role.focus();await page.keyboard.press('Space');
+  await panel.getByRole('button',{ name: 'Speichern',exact: true }).click();
+  await expect(page.locator('#toast')).toContainText('Gruppenzuordnungen gespeichert');
+  expect(fixture.mappingWrites).toEqual([{ csrf: CSRF_TOKEN,body: { directoryId: TENANT_ID,expectedRevision: 0,
+    mappings: [{ groupId: USER_ID,roles: ['conference_manager'] }] } }]);
+  await expect(panel.getByLabel('Gruppen-ID',{ exact: true })).toHaveValue(USER_ID);
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+  await page.locator('#profileLanguage').selectOption('en');
+  await expect(panel.getByRole('heading',{ name: 'Microsoft group roles' })).toBeVisible();
+  await expect(panel.getByLabel('Group ID',{ exact: true })).toHaveValue(USER_ID);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+});
+
+test('concurrent Microsoft mapping change is announced without an automatic write replay',async({ page })=>{
+  const fixture=await installProductionFixture(page,{ groupMappings: true,mappingConflict: true });
+  await openTenantAdministration(page);const panel=page.locator('[data-microsoft-role-mappings]');
+  await panel.getByLabel('Verzeichnis-ID',{ exact: true }).fill(TENANT_ID);
+  const save=panel.getByRole('button',{ name: 'Speichern',exact: true });await save.click();
+  await expect(panel.getByRole('status')).toContainText('zwischenzeitlich geändert');await expect(save).toBeFocused();
+  expect(fixture.mappingWrites).toHaveLength(1);
 });
 
 test('Tenant Admin lifecycle is keyboard operable, server-authoritative, and responsive', async ({ page }) => {

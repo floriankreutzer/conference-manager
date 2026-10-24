@@ -45,6 +45,19 @@ test('unknown verification, prefix events, forged offline authority, duplicate o
   assert.throws(()=>normalizePlatformAuditPage(value));assert.equal(accessed,false);
 });
 
+test('verified owner all-role receipt remains readable without accepting offline browser authority',()=>{
+  const input=payload(),event=input.items[0];
+  Object.assign(event,{ targetType: 'platform_owner_roles',previousState: { roleCount: 2,securityVersion: 6 },
+    newState: { roleCount: 4,securityVersion: 7,scopeMode: 'all' },metadata: { operation: 'owner_all_platform_roles',
+      environment: 'int',deploymentEpoch: id,approvalReference: 'owner-role-test',sessionsRevoked: 1,transactionsRevoked: 0 } });
+  assert.deepEqual(normalizePlatformAuditPage(input),input);
+  for (const patch of [{ operatorId: id },{ targetTenantId: id },{ roles: ['platform_security_admin'] },
+    { permissions: ['platform:operator:manage'] },{ outcome: 'denied' },{ targetType: 'arbitrary_owner_grant' }]) {
+    assert.throws(()=>normalizePlatformAuditPage({ ...input,items: [{ ...event,...patch }] }));
+  }
+  assert.throws(()=>normalizePlatformAuditPage({ schemaVersion: 1,items: [event] }));
+});
+
 test('bounded download retains v2 verification context, uses the existing export port and revokes its object URL',async()=>{
   const documentBefore=globalThis.document,createBefore=URL.createObjectURL,revokeBefore=URL.revokeObjectURL;
   let clicked=false,removed=false,appended=false,blob,revoked=false;

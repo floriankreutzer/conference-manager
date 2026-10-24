@@ -459,7 +459,8 @@ function auditEvent(value,segment=false) {
   if (value.assuranceLevel==='offline_owner' && (value.operatorId!==null || value.targetTenantId!==null
     || value.roles?.length!==0 || value.permissions?.length!==0 || value.action!=='platform.operator.changed'
     || value.outcome!=='success' || value.retentionClass!=='recovery'
-    || !['platform_audit_segment','platform_operator_bootstrap','platform_passkey_grant'].includes(value.targetType))) invalid(errorCode);
+    || !['platform_audit_segment','platform_operator_bootstrap','platform_owner_roles','platform_passkey_grant']
+      .includes(value.targetType))) invalid(errorCode);
   return Object.freeze({
     sequence: integer(value.sequence, errorCode, { minimum: 1 }),
     operatorId: value.operatorId === null ? null : id(value.operatorId, errorCode),
