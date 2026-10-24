@@ -28,9 +28,8 @@ async function setup(page,context) {
     }
     if (url.pathname===BASE+'/callback') {
       callbacks.push(request.headers());verified=true;
-      await route.fulfill({ status: 303,headers: { Location: BASE+'/complete',
-        'Set-Cookie': `cm_platform_ms_operation=${state}.${state}; Path=/api/v1/platform; HttpOnly; Secure; SameSite=Strict; Max-Age=120`,
-        'Cross-Origin-Opener-Policy': 'same-origin','Referrer-Policy': 'no-referrer','Cache-Control': 'no-store' } });return;
+      // WebKit cannot fulfill redirects; the actual loopback TLS fixture owns303.
+      await route.continue();return;
     }
     if (url.pathname===BASE+'/complete') {
       await route.fulfill({ status: 200,contentType: 'text/html',headers: { 'Cross-Origin-Opener-Policy': 'same-origin' },

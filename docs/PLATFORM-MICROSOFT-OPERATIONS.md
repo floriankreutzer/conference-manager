@@ -30,7 +30,7 @@ apart, with a115-second dialog deadline and ten-second request limits. Final
 execution still needs the current source session, independent Strict operation
 cookie and exact one-use proof at the server.
 
-The paired API source is 6295da3a1affe64e361dc64bd968c24b4e0be790 in API314.
+The paired API source is 387654a132ef4fd02c122021aeac706574a3ff20 in API314.
 Both protected and shared-Demo CI jobs pin that immutable counterpart; existing
 Chromium/WebKit, three-customer progression and two-reset gates remain required.
 Focused client/contract and unchanged legacy transport coverage passes locally.
@@ -52,3 +52,11 @@ PostgreSQL session/audit/transaction repositories and isolated MSAL responses.
 Neither is deployed acceptance. Synthetic Microsoft handoff/Calendar custody,
 owner REAL Customer entry, sole-owner lifecycle, audited old-key retirement,
 actual provider settings and coordinated live verification remain release work.
+
+
+CI40132834167 verified ordinary Chromium and both protected engines, then ordinary
+WebKit rejected Playwright's fulfilled303 response. The callback now continues
+to the existing real loopback HTTPS server as well as its landing; both engines
+must exercise the actual redirect. No redirect/cookie/COOP assertion is removed.
+The final immutable API pin is387654a132ef4fd02c122021aeac706574a3ff20.
+This correction requires renewed full browser/paired qualification.
