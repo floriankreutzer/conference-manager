@@ -62,6 +62,7 @@
     "src/platform-admin/insight-source.js",
     "src/platform-admin/product-delivery-trend.js",
     "src/core/i18n-platform-synthetic-messages.js",
-    "src/core/i18n-synthetic-onboarding-messages.js"
+    "src/core/i18n-synthetic-onboarding-messages.js",
+    "src/core/i18n-platform-microsoft-operation-messages.js"
   ]
 }

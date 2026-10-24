@@ -77,6 +77,11 @@
     "src/platform-admin/production/passkey-grant-delivery-view.js",
     "src/shared/authentication-page.js",
     "assets/brand/pavurel-signet.svg",
-    "assets/brand/pavurel-login-lounge.webp"
+    "assets/brand/pavurel-login-lounge.webp",
+    "src/core/i18n-platform-microsoft-operation-messages.js",
+    "src/platform-admin/production/operation-client.js",
+    "src/platform-admin/production/microsoft-operations-client.js",
+    "src/platform-admin/production/microsoft-operation-confirmation.js",
+    "src/platform-admin/production/microsoft-operation-contracts.js"
   ]
 }

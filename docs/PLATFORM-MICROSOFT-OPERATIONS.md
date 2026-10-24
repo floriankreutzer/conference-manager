@@ -1,0 +1,50 @@
+# Microsoft action confirmation (source candidate)
+
+The protected Platform keeps its existing application and business dialogs after
+normal Microsoft MFA login. An explicitly authenticated operation capability
+selects the Microsoft proof transport;404 preserves the older profile without
+pretending a capability exists. Application-passkey management is not mounted in
+the Microsoft profile. The browser never supplies identity, scope or permission
+authority.
+
+The shared operation client serializes proof-capable requests before any pending
+cookie can change. Only an explicit428 challenge may lead to one retry, retaining
+the exact original URL, method, serialized body, idempotency key and source CSRF.
+Unknown/network/status/conflict errors and cancellation do not retry a mutation.
+After successful execution, the existing normal-session endpoint refreshes CSRF.
+Missing refresh requests a reload; it never retries the committed operation.
+
+The Microsoft challenge is closed and bounded. Its HTTPS authorization URL must
+use the organizational Microsoft host/path, exact same-origin operation callback,
+openid/profile, code/query, PKCE, max-age0, matching state and the bounded MFA/time
+request. No provider response, external redirect, role or token is persisted or
+treated as permission. The signed server-side proof remains authoritative.
+
+The native dialog reuses existing design tokens/components and central DE/EN
+messages, restores focus, supports Escape/cancellation and translates while open.
+Only an explicit keyboard/pointer link activation opens a separate noopener,
+noreferrer tab. COOP same-origin stays enabled. The parent does not rely on an
+opener, postMessage, browser storage, redirect fragment or elevated cookie.
+Bounded same-origin CSRF-protected status POSTs run at most60 times, two seconds
+apart, with a115-second dialog deadline and ten-second request limits. Final
+execution still needs the current source session, independent Strict operation
+cookie and exact one-use proof at the server.
+
+The paired API source is f712c8f4e83784eec14cd78b3e7a7153f31e8424 in API314.
+Both protected and shared-Demo CI jobs pin that immutable counterpart; existing
+Chromium/WebKit, three-customer progression and two-reset gates remain required.
+Focused client/contract and unchanged legacy transport coverage passes locally.
+The first full local check caught a catalog-registration omission; the new
+message resource now joins the existing Platform catalog and its synchronized
+DE/EN referenced-key assertions remain unchanged. A complete renewed check and
+all browser/CI qualification remain pending. Local browser execution could not
+start because engines are absent and their download was unavailable; no browser
+success is claimed from that attempt.
+
+Browser progression uses isolated provider/HTTP fixtures and real browser
+cross-site cookie/COOP behavior. It does not prove real Microsoft signatures or
+physical MFA. The backend's native operation progression separately uses actual
+PostgreSQL session/audit/transaction repositories and isolated MSAL responses.
+Neither is deployed acceptance. Synthetic Microsoft handoff/Calendar custody,
+owner REAL Customer entry, sole-owner lifecycle, audited old-key retirement,
+actual provider settings and coordinated live verification remain release work.
