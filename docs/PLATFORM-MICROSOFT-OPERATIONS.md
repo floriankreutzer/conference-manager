@@ -30,7 +30,7 @@ apart, with a115-second dialog deadline and ten-second request limits. Final
 execution still needs the current source session, independent Strict operation
 cookie and exact one-use proof at the server.
 
-The paired API source is6c1bc867e215ba17e800ff45b84a8e776298b358 in API315.
+The paired API source isc3c64ab9c1dee213e834360f5143cc87883d1a90 in API315.
 Both protected and shared-Demo CI jobs pin that immutable counterpart; existing
 Chromium/WebKit, three-customer progression and two-reset gates remain required.
 Focused client/contract and unchanged legacy transport coverage passes locally.
@@ -71,7 +71,7 @@ creation, cancelled reset, isolated Microsoft tab and real two-origin native
 handoff with refreshed CSRF and no credential response. Existing legacy browser
 assertions change only their visible confirmation labels.
 
-This source pins API315 candidate6c1bc867e215ba17e800ff45b84a8e776298b358
+This source pins API315 candidatec3c64ab9c1dee213e834360f5143cc87883d1a90
 (canonical071/Demo031) in both protected and permanent Demo browser jobs.
 Local focused16 and full915 tests pass, including the final API315 counterpart
 rebind and real callback fixture. All browser/native/elapsed-expiry/Demo/reset
@@ -104,3 +104,14 @@ Strict source/operation cookies on cross-site callback and the Strict operation
 cookie on the parent's final request. No cookie check is removed. The API pair
 also adds minimal predicate-column grants to its isolated readiness fixture and
 negative secret/full-table-read checks. Renewed exact-pair gates remain pending.
+
+
+CI40136157564 passed both protected browser engines. Its ordinary Chromium job
+failed before application progression in the WebKit transport reflection canary:
+the reporter counted zero ordinary failures where the deliberate DOM assertion
+should count one. The next source retains every assertion, deadline and zero
+retries and adds only closed numeric reporter counters to diagnose the result;
+no raw browser errors, DOM, headers or exception text are exported. The failed
+run remains failed; neither a cause nor stability is claimed yet. The API pair
+also restores only approved predicate-column grants after PostgreSQL revokes
+them together with the deliberately escalated table grant in its native fixture.
