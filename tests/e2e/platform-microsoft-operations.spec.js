@@ -1,7 +1,8 @@
 import { expect,test } from '@playwright/test';
-import { MICROSOFT_OPERATION_ORIGIN as ORIGIN,MICROSOFT_OPERATION_ID as ID,MICROSOFT_OPERATION_STATE as state,
+import { MICROSOFT_OPERATION_ID as ID,MICROSOFT_OPERATION_STATE as state,
   microsoftOperationChallenge } from '../support/platform-microsoft-operation-fixture.js';
 
+const ORIGIN='https://127.0.0.1:4173';
 const TENANT='22222222-2222-4222-8222-222222222222';
 const BASE='/api/v1/platform/auth/microsoft/operation';
 const permissions=['platform:tenant:read','platform:readiness:read','platform:integration-health:read',
@@ -10,7 +11,7 @@ const permissions=['platform:tenant:read','platform:readiness:read','platform:in
 async function setup(page,context) {
   const writes=[],callbacks=[];let status='active',revision=3,sessionReads=0,verified=false,statusReads=0;
   await context.addCookies([{ name: 'cm_platform_session',value: 'synthetic-normal-session',
-    domain: 'ops-int.example.com',path: '/api/v1/platform',secure: true,httpOnly: true,sameSite: 'Strict' }]);
+    domain: '127.0.0.1',path: '/api/v1/platform',secure: true,httpOnly: true,sameSite: 'Strict' }]);
   await context.route('https://login.microsoftonline.com/**',async route=>{
     const url=new URL(route.request().url());expect(url.searchParams.get('state')).toBe(state);
     const callback=ORIGIN+BASE+'/callback?state='+state+'&code=synthetic-provider-code';
@@ -54,9 +55,9 @@ async function setup(page,context) {
     } else if (url.pathname===`/api/v1/platform/tenants/${TENANT}/lifecycle/transitions`) {
       const requestHeaders=request.headers();writes.push({ headers: requestHeaders,body: request.postDataJSON(),url: request.url() });
       if (!requestHeaders['x-platform-microsoft-proof']) {
-        code=428;body=microsoftOperationChallenge();
+        code=428;body=microsoftOperationChallenge(ORIGIN);
         await context.addCookies([{ name: 'cm_platform_ms_operation',value: `${state}.${state}`,
-          domain: 'ops-int.example.com',path: '/api/v1/platform',secure: true,httpOnly: true,sameSite: 'Strict' }]);
+          domain: '127.0.0.1',path: '/api/v1/platform',secure: true,httpOnly: true,sameSite: 'Strict' }]);
         headers['Set-Cookie']=`cm_platform_ms_operation_tx=${state}.${state}; Path=${BASE}/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=120`;
       } else {
         expect(verified).toBe(true);expect(requestHeaders['x-platform-microsoft-proof']).toBe(state);

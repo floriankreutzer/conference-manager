@@ -30,14 +30,18 @@ apart, with a115-second dialog deadline and ten-second request limits. Final
 execution still needs the current source session, independent Strict operation
 cookie and exact one-use proof at the server.
 
-The paired API source is f712c8f4e83784eec14cd78b3e7a7153f31e8424 in API314.
+The paired API source is 6295da3a1affe64e361dc64bd968c24b4e0be790 in API314.
 Both protected and shared-Demo CI jobs pin that immutable counterpart; existing
 Chromium/WebKit, three-customer progression and two-reset gates remain required.
 Focused client/contract and unchanged legacy transport coverage passes locally.
 The first full local check caught a catalog-registration omission; the new
 message resource now joins the existing Platform catalog and its synchronized
-DE/EN referenced-key assertions remain unchanged. A complete renewed check and
-all browser/CI qualification remain pending. Local browser execution could not
+DE/EN referenced-key assertions remain unchanged. The renewed local check passed912 tests. CI40131764420 passed both protected
+browser engines; ordinary Chromium passed316 cases but failed the new callback
+landing because Playwright does not intercept redirected destinations. The
+fixture now uses the existing loopback TLS server for the genuine303 landing,
+retaining different-site provider isolation, cookie and exact-request assertions.
+The corrected source and updated immutable API pair require renewed full gates. Local browser execution could not
 start because engines are absent and their download was unavailable; no browser
 success is claimed from that attempt.
 

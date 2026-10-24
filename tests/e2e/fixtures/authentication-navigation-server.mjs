@@ -11,6 +11,17 @@ const html=createProtectedCustomerHtml({
 // Playwright does not intercept a continued request's redirect destination, so
 // its fixed local landing page serves the actual protected artifact bytes.
 export async function handleAuthenticationNavigationFixture(request,response) {
+  // The browser follows a fulfilled redirect without routing its destination
+  // through Playwright again. Serve this fixed, neutral loopback document on the
+  // actual TLS server; it grants no identity, proof or operation authority.
+  if (request.url==='/api/v1/platform/auth/microsoft/operation/complete' && request.method==='GET'
+    && request.headers.host==='127.0.0.1:4173') {
+    response.writeHead(200,{ 'Content-Type': 'text/html; charset=utf-8','Cache-Control': 'no-store',
+      'Cross-Origin-Opener-Policy': 'same-origin','Referrer-Policy': 'no-referrer',
+      'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'" });
+    response.end('<!doctype html><html lang="en"><meta charset="utf-8"><title>Return to application</title>'
+      +'<main>Return to the application.</main></html>');return true;
+  }
   if (request.url==='/__cm-customer-handoff-result' && request.method==='GET') {
     response.writeHead(200,{ 'Content-Type': 'text/html; charset=utf-8','Cache-Control': 'no-store' });
     response.end(html);return true;
