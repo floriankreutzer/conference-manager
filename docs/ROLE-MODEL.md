@@ -104,3 +104,16 @@ Available personas:
 - Role changes invalidate stale server sessions through `security_version` semantics.
 - The inactivity lock is additive UI protection only; unlock revalidates the server session and never restores stale browser authority.
 - Customer and Platform Admin security domains remain separate.
+
+## Independent role sources (source candidate)
+
+When the trusted API supplies role provenance, effective elevated roles are the
+union of direct assignments and Microsoft-group grants. The User form edits only
+direct assignments and displays Microsoft-group roles separately as read-only
+source information. Saving or removing a direct assignment never copies or clears
+a group grant. Response validation rejects unknown roles, unexpected provenance
+fields and a union inconsistent with the effective role snapshot. Employee remains
+implicit. Older responses without provenance retain their direct-only presentation.
+No browser value establishes group authority; approved provider mapping and
+synchronization still belong to the API. Source implementation and fixture/browser
+evidence are distinct from actual protected provider and live acceptance.

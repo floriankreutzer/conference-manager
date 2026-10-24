@@ -4,6 +4,8 @@ import {
   TENANT_ELEVATED_ROLE,
   canSelectRole,
   elevatedRolesFromUser,
+  directRolesFromUser,
+  microsoftGroupRolesFromUser,
   normalizeElevatedRoleSelection,
   roleUpdateErrorKey,
   sameRoleSelection,
@@ -48,4 +50,14 @@ test('presentation error mapping exposes no backend internals', () => {
   assert.equal(roleUpdateErrorKey('HTTP_403'), 'tenantAdmin.users.errorForbidden');
   assert.equal(roleUpdateErrorKey('HTTP_404'), 'tenantAdmin.users.errorForbidden');
   assert.equal(roleUpdateErrorKey('DATABASE_DETAIL'), 'tenantAdmin.users.errorGeneric');
+});
+
+test('editing direct grants never copies a Microsoft group grant into the submitted selection',()=>{
+  const user={ active: true,roles: ['employee','conference_manager','tenant_admin'],
+    roleSources: { direct: ['tenant_admin'],microsoftGroups: ['conference_manager'] } };
+  assert.deepEqual(directRolesFromUser(user),['tenant_admin']);
+  assert.deepEqual(microsoftGroupRolesFromUser(user),['conference_manager']);
+  assert.deepEqual(elevatedRolesFromUser(user),['conference_manager','tenant_admin']);
+  assert.equal(canSelectRole({ ...user,active: false },'conference_manager'),false);
+  assert.equal(canSelectRole({ ...user,active: false },'tenant_admin'),true);
 });

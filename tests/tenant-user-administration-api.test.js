@@ -28,6 +28,34 @@ function user(overrides = {}) {
   };
 }
 
+test('role-source response retains the exact union and sends only the edited direct selection',async()=>{
+  let sent;
+  const roleSources={ direct: [],microsoftGroups: ['conference_manager'] };
+  const api=createTenantUserOperationsApi({ apiClient: { async request(path,options) {
+    if (!options) return { users: [user({ roles: ['employee','conference_manager'],roleSources })],nextAfterId: null,requestId: REQUEST_ID };
+    sent=options.body;
+    return { user: { id: USER_ID,displayName: 'Ada Lovelace',active: true,roles: ['employee','conference_manager'],roleSources },
+      requestId: REQUEST_ID };
+  } } });
+  const page=await api.listUsers();
+  assert.deepEqual(page.users[0].roleSources,roleSources);
+  assert.equal(Object.isFrozen(page.users[0].roleSources.microsoftGroups),true);
+  assert.deepEqual((await api.setRoles(USER_ID,[])).roleSources,roleSources);
+  assert.deepEqual(sent,{ roles: [] });
+});
+
+test('inconsistent, unknown or overbroad role-source responses fail closed',async()=>{
+  for (const roleSources of [null,{}, { direct: [],microsoftGroups: ['tenant_admin'] },
+    { direct: [],microsoftGroups: ['conference_manager','conference_manager'] },
+    { direct: ['employee'],microsoftGroups: [] },{ direct: ['platform_admin'],microsoftGroups: [] },
+    { direct: [],microsoftGroups: ['conference_manager'],directoryId: USER_ID }]) {
+    const api=createTenantUserOperationsApi({ apiClient: { async request() {
+      return { users: [user({ roles: ['employee','conference_manager'],roleSources })],nextAfterId: null,requestId: REQUEST_ID };
+    } } });
+    await assert.rejects(api.listUsers(),{ code: 'TENANT_USERS_RESPONSE_INVALID' });
+  }
+});
+
 test('canonical and compatibility factories expose the same bounded tenant-user API', () => {
   assert.equal(createTenantUserAdministrationApi, createTenantUserOperationsApi);
   assert.equal(TenantUserAdministrationApiError, TenantUserOperationsApiError);

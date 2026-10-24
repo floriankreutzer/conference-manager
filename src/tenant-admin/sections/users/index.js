@@ -5,7 +5,8 @@ import { createInvitationAdministrationView } from './invitations-view.js';
 import {
   TENANT_ELEVATED_ROLE,
   canSelectRole,
-  elevatedRolesFromUser,
+  directRolesFromUser,
+  microsoftGroupRolesFromUser,
   sameRoleSelection,
 } from '../../user-role-model.js';
 import {
@@ -223,7 +224,8 @@ export function createUsersSection({ context, adapter = null } = {}) {
 
   function userCard(user, rerender) {
     const self = user.id === context.userId();
-    const originalRoles = elevatedRolesFromUser(user);
+    const originalRoles = directRolesFromUser(user);
+    const groupRoles = microsoftGroupRolesFromUser(user);
     const statusId = `tenant-user-status-${user.id}`;
     const headingId = `tenant-user-heading-${user.id}`;
     const card = el('article', {
@@ -245,7 +247,17 @@ export function createUsersSection({ context, adapter = null } = {}) {
       attrs: { 'aria-describedby': statusId },
     });
     roles.disabled = self;
-    roles.appendChild(el('legend', { text: t('tenantAdmin.users.elevatedRoles') }));
+    roles.appendChild(el('legend', { text: t(groupRoles.length
+      ? 'tenantAdmin.users.directRoles' : 'tenantAdmin.users.elevatedRoles') }));
+    if (groupRoles.length) {
+      roles.appendChild(el('p', { className: 'field-hint', text: t('tenantAdmin.users.groupRolesHint') }));
+      const groupList = el('ul', { attrs: { 'aria-label': t('tenantAdmin.users.groupRoles') } });
+      for (const role of groupRoles) groupList.appendChild(el('li', {
+        text: t(role === TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER
+          ? 'tenantAdmin.users.groupConferenceManager' : 'tenantAdmin.users.groupTenantAdmin'),
+      }));
+      roles.appendChild(groupList);
+    }
 
     const conferenceManager = checkbox({
       id: `tenant-user-manager-${user.id}`,
