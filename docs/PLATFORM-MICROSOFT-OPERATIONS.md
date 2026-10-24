@@ -30,7 +30,7 @@ apart, with a115-second dialog deadline and ten-second request limits. Final
 execution still needs the current source session, independent Strict operation
 cookie and exact one-use proof at the server.
 
-The paired API source isfbcf1b42a591ba8d7f52ee33b613c1c4a3299f1d in API315.
+The paired API source is6c1bc867e215ba17e800ff45b84a8e776298b358 in API315.
 Both protected and shared-Demo CI jobs pin that immutable counterpart; existing
 Chromium/WebKit, three-customer progression and two-reset gates remain required.
 Focused client/contract and unchanged legacy transport coverage passes locally.
@@ -71,7 +71,7 @@ creation, cancelled reset, isolated Microsoft tab and real two-origin native
 handoff with refreshed CSRF and no credential response. Existing legacy browser
 assertions change only their visible confirmation labels.
 
-This source pins API315 candidatefbcf1b42a591ba8d7f52ee33b613c1c4a3299f1d
+This source pins API315 candidate6c1bc867e215ba17e800ff45b84a8e776298b358
 (canonical071/Demo031) in both protected and permanent Demo browser jobs.
 Local focused16 and full915 tests pass, including the final API315 counterpart
 rebind and real callback fixture. All browser/native/elapsed-expiry/Demo/reset
@@ -95,3 +95,12 @@ all native credential, navigation, onboarding, media and source assertions stay.
 The final API counterpart also includes the explicit empty handoff table in the
 historical reset rollback fixture; the database FK remains unchanged. Renewed
 exact-pair gates are required; the failed candidate remains failed history.
+
+
+The inherited ordinary WebKit cookie evidence now uses Playwright allHeaders(),
+whose documented result includes Cookie; headers() deliberately omits security
+headers. Both engine assertions still require callback Lax custody, absence of
+Strict source/operation cookies on cross-site callback and the Strict operation
+cookie on the parent's final request. No cookie check is removed. The API pair
+also adds minimal predicate-column grants to its isolated readiness fixture and
+negative secret/full-table-read checks. Renewed exact-pair gates remain pending.
