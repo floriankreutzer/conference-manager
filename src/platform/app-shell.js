@@ -17,6 +17,7 @@ import { PRODUCTION_AUTH_STATUS } from './production-session.js';
 import { TENANT_PRESENTATION_FALLBACK } from './tenant-presentation-api.js';
 import { applyTenantPresentationToDocument } from './tenant-presentation-runtime.js';
 import { formatRequestDateTime, requestOccursToday } from './welcome-projection.js';
+import { mountAuthenticationPage } from '../shared/authentication-page.js';
 
 export function renderAppBootstrapLoading() {
   const appRoot = document.getElementById('app');
@@ -62,6 +63,7 @@ export function createAppShell({
   const titleRoot = document.getElementById('viewTitle');
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
+  let authenticationPage = null;
   if ((context.tenantStatus?.() === 'onboarding'
     || !context.isDemoRuntime() && context.tenantStatus?.() === 'ready')
     && context.canManageTenantUsers() && tenantAdmin) view = 'tenantAdmin';
@@ -222,6 +224,11 @@ export function createAppShell({
   }
 
   function renderProductionAuthentication() {
+    const showEntry = content => {
+      if (context.isDemoRuntime()) { appRoot.appendChild(content); return; }
+      authenticationPage?.dispose();
+      authenticationPage = mountAuthenticationPage({ content, surface: 'customer' });
+    };
     if (context.isAuthenticated()) {
       setPageHeading(t('auth.production.signedInTitle'), t('auth.production.signedInText'));
       const details = el('dl', { className: 'details-list' }, [
@@ -236,7 +243,7 @@ export function createAppShell({
       setPageHeading(t('auth.production.unavailableTitle'), t('auth.production.unavailableText'));
       const retry = button(t('auth.production.retry'), { className: 'primary' });
       retry.addEventListener('click', () => globalThis.location.reload());
-      appRoot.appendChild(el('section', { className: 'card' }, [
+      showEntry(el('section', { className: 'card' }, [
         el('p', { text: t('auth.production.unavailableText') }),
         el('div', { className: 'button-row' }, [retry]),
       ]));
@@ -246,12 +253,13 @@ export function createAppShell({
     if (typeof authentication?.createSignInView === 'function') {
       setPageHeading(t('customerAuth.pageTitle'), t('customerAuth.pageText'));
       const signInView = authentication.createSignInView();
-      appRoot.appendChild(signInView.element); signInView.update(); return;
+      showEntry(signInView.element);
+      signInView.update(); return;
     }
     setPageHeading(t('auth.production.signInTitle'), t('auth.production.signInText'));
     const signIn = button(t('auth.production.signInAction'), { className: 'primary' });
     signIn.addEventListener('click', () => authentication?.signIn());
-    appRoot.appendChild(el('section', { className: 'card' }, [
+    showEntry(el('section', { className: 'card' }, [
       el('p', { text: t('auth.production.signInText') }),
       el('div', { className: 'button-row' }, [signIn]),
     ]));
@@ -505,6 +513,7 @@ export function createAppShell({
       renderProductionAuthentication();
       return;
     }
+    authenticationPage?.dispose(); authenticationPage = null;
     const pendingAuthentication=authentication?.createPendingAuthenticationView?.() ?? null;
     if (pendingAuthentication) {
       pendingAuthentication.update?.();setPageHeading(t('customerAuth.pageTitle'),t('customerAuth.pageText'));

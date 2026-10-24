@@ -2,7 +2,6 @@ import { createApiClient } from '../../core/api-client.js';
 import { createPlatformAdminApplication } from '../index.js';
 import {
   createPlatformOperatorSessionApi,
-  PLATFORM_ADMIN_SIGN_IN_PATH,
   PLATFORM_ADMIN_STEP_UP_PATH,
 } from './operator-session.js';
 import { createPlatformPasskeyLogin } from './passkey-login.js';
@@ -14,10 +13,11 @@ import { createPlatformCustomerInvitationApi } from '../customer-invitation-api.
 import { createPlatformInvitationPresentation } from '../customer-invitations-presentation.js';
 import { createPlatformSyntheticWorkspaceClient } from './synthetic-workspace/client.js';
 import { createPlatformSyntheticWorkspacePresentation } from './synthetic-workspace/presentation.js';
-import { announce,el } from '../../core/ui.js';
+import { announce,button,el } from '../../core/ui.js';
 import { t } from '../../core/i18n.js';
 import { createPlatformAdminApi } from '../platform-api.js';
 import { createProtectedPlatformInsights } from './insights-api.js';
+import { mountAuthenticationPage } from '../../shared/authentication-page.js';
 
 async function bootstrapProductionPlatformAdmin() {
   let csrfToken = null;const presentationFlags=featureFlags.forProtectedDocument(globalThis.document);
@@ -32,14 +32,9 @@ async function bootstrapProductionPlatformAdmin() {
       let loginView;
       const login = createPlatformPasskeyLogin({ onChange: state => loginView?.update(state) });
       loginView = createPlatformPasskeyLoginView({ controller: login });
-      const application = createPlatformAdminApplication({
-        runtime: 'production',
-        sessionState: 'unauthenticated',
-        signInPath: PLATFORM_ADMIN_SIGN_IN_PATH,
-        renderSessionGate: () => loginView.render(),
-      });
-      await application.start();
-      globalThis.addEventListener('pagehide', () => { login.stop(); loginView.stop(); }, { once: true });
+      document.getElementById('skipLink').textContent = t('a11y.skip');
+      const entry = mountAuthenticationPage({ content: loginView.render(), surface: 'platform', onLanguageChange: () => loginView.update() });
+      globalThis.addEventListener('pagehide', () => { login.stop(); loginView.stop(); entry.dispose(); }, { once: true });
       await login.load();
       return;
     }
@@ -57,16 +52,16 @@ async function bootstrapProductionPlatformAdmin() {
     const keyManagement = protectedClient ? createPlatformPasskeyManagement({ apiClient, refreshSession }) : null;
     if (keyManagement) globalThis.addEventListener('pagehide', () => keyManagement.stop(), { once: true });
     if (protectedClient) globalThis.addEventListener('pagehide', () => protectedClient.stop(), { once: true });
-    const customerInvitations=protectedClient && presentationFlags.isEnabled('platform.customer-invitations')
-      ? createPlatformInvitationPresentation({ api: createPlatformCustomerInvitationApi({ apiClient: protectedClient }) }) : null;
+    const customerInvitations=presentationFlags.isEnabled('platform.customer-invitations')
+      ? createPlatformInvitationPresentation({ api: createPlatformCustomerInvitationApi({ apiClient: protectedClient ?? apiClient }) }) : null;
     const syntheticWorkspace=protectedClient && ['dev','int'].includes(configuration?.environment)
       && session.operator.permissions.includes('platform:lifecycle:manage') && presentationFlags.isEnabled('platform.synthetic-workspace')
       ? createPlatformSyntheticWorkspacePresentation({ apiFactory: ()=>createPlatformSyntheticWorkspaceClient({
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
       }) }) : null;
     if (syntheticWorkspace) globalThis.addEventListener('pagehide',()=>syntheticWorkspace.stop(),{ once: true });
-    const insights=protectedClient && session.operator.permissions.includes('platform:runtime:read')
-      ? createProtectedPlatformInsights({ apiClient }) : null;
+    const insights=session.operator.permissions.includes('platform:runtime:read')
+      ? createProtectedPlatformInsights({ apiClient,accessMode: configuration ? 'application_passkey' : 'microsoft_mfa' }) : null;
     const application = createPlatformAdminApplication({
       runtime: 'production',
       sessionState: 'authenticated',
@@ -84,11 +79,14 @@ async function bootstrapProductionPlatformAdmin() {
     });
     await application.start();await syntheticWorkspace?.resume();
   } catch {
-    const application = createPlatformAdminApplication({
-      runtime: 'production',
-      sessionState: 'unavailable',
-    });
-    await application.start();
+    const retry = button(t('auth.production.retry'), { className: 'primary' });
+    retry.addEventListener('click', () => globalThis.location.reload());
+    const content = el('section', { className: 'card', attrs: { role: 'alert' } }, [
+      el('h2', { text: t('platformAdmin.session.unavailableTitle') }),
+      el('p', { text: t('platformAdmin.session.unavailableText') }), retry,
+    ]);
+    const entry = mountAuthenticationPage({ content, surface: 'platform' });
+    globalThis.addEventListener('pagehide', () => entry.dispose(), { once: true });
   }
 }
 

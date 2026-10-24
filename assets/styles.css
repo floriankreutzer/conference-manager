@@ -1239,3 +1239,36 @@ main {
     animation: none !important;
   }
 }
+
+/* Shared signed-out entry. Operational application layout remains unchanged. */
+.app-shell[hidden] { display: none; }
+.authentication-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-block-size: 100svh;
+  background: var(--color-surface);
+}
+.authentication-entry-login {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-inline-size: 0;
+  padding: clamp(var(--space-6), 5vw, calc(var(--space-8) * 2));
+  gap: var(--space-4);
+}
+.authentication-entry-brand { inline-size: calc(var(--space-8) * 2); block-size: calc(var(--space-8) * 2); object-fit: contain; }
+.authentication-entry-wordmark { margin: 0; color: var(--brand-primary); font-weight: var(--font-weight-bold); }
+.authentication-entry-login h1 { margin: 0; font-family: var(--font-family-display); font-size: var(--font-size-2xl); }
+.authentication-entry-intro { color: var(--color-muted); margin: 0; }
+.authentication-entry-login > .card { padding-inline: 0; border: 0; box-shadow: none; inline-size: 100%; }
+.authentication-entry-login .button-row { flex-wrap: wrap; }
+.authentication-entry-login input, .authentication-entry-login select { max-inline-size: 100%; min-inline-size: 0; }
+.authentication-entry-visual { display: none; min-inline-size: 0; }
+.authentication-entry-visual img { display: block; inline-size: 100%; block-size: 100%; object-fit: cover; }
+@media (min-width: 60rem) {
+  .authentication-entry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .authentication-entry-login { max-inline-size: 42rem; inline-size: 100%; justify-self: center; }
+  .authentication-entry-visual { display: block; position: relative; }
+  .authentication-entry-visual img { position: absolute; inset: 0; }
+}

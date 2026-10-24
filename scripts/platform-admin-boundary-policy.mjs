@@ -15,6 +15,7 @@ const API_CLIENT_FACTORY = /\bcreateApiClient\b/;
 const BROWSER_STORAGE = /\b(?:localStorage|sessionStorage)\b/;
 const FLAG_METADATA='src/platform/feature-flags.js';
 const FORM_NAVIGATION='src/shared/authentication-form-navigation.js';
+const AUTHENTICATION_PAGE='src/shared/authentication-page.js';
 const RETIRED_DEMO_AUTHORITY = /\b(?:platform_admin_demo_v1|createPlatformAdminDemoStore|createPlatformAdminDemoAdapter)\b/;
 
 function violation(file, message) {
@@ -45,6 +46,10 @@ export function platformAdminBoundaryViolations(sourceEntries) {
       violations.push(violation(file,'Cross-surface metadata/form contracts must remain import-free and without network adapters, browser storage or timers.'));
     }
 
+    if (file===AUTHENTICATION_PAGE && (BROWSER_STORAGE.test(source) || DIRECT_NETWORK_AUTHORITY.test(source)
+      || [...(graph.get(file) || [])].some(dependency=>!['src/core/ui.js','src/core/i18n.js'].includes(dependency)))) {
+      violations.push(violation(file,'The shared authentication frame must remain presentation-only.'));
+    }
     if (isInside(file, DEMO_ROOT) && DIRECT_NETWORK_AUTHORITY.test(source)) {
       violations.push(violation(file, 'Demo modules must use the approved same-origin API client, never direct network authority.'));
     }
@@ -74,6 +79,7 @@ export function platformAdminBoundaryViolations(sourceEntries) {
       if (isInside(file, PLATFORM_ADMIN_ROOT)
         && !([`${DEMO_ROOT}/bootstrap.js`,`${PRODUCTION_ROOT}/bootstrap.js`].includes(file) && dependency===FLAG_METADATA)
         && !(file===`${PRODUCTION_ROOT}/synthetic-workspace/client.js` && dependency===FORM_NAVIGATION)
+        && !(file===`${PRODUCTION_ROOT}/bootstrap.js` && dependency===AUTHENTICATION_PAGE)
         && CUSTOMER_CAPABILITY_ROOTS.some((root) => isInside(dependency, root))) {
         violations.push(violation(file, `Platform Admin must not depend on customer capability ${dependency}.`));
       }

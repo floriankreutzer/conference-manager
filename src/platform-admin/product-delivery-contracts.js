@@ -365,7 +365,7 @@ export function normalizeProductDeliverySnapshot(value) {
 
 export function normalizeProductDelivery(value, { environment = 'demo', expectedAccessMode = 'shared_owner_password' } = {}) {
   requireProductCondition((environment === 'demo' && expectedAccessMode === 'shared_owner_password')
-    || (environment === 'production' && expectedAccessMode === 'application_passkey'));
+    || (environment === 'production' && ['application_passkey','microsoft_mfa'].includes(expectedAccessMode)));
   exactProductObject(value, ['schemaVersion', 'environment', 'observedAt', 'periodStart',
     'periodEnd', 'product', 'feedback', 'delivery', 'provenance', 'collectionMode',
     'accessMode', 'evaluatedAt', 'freshness']);
