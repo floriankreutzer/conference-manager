@@ -117,3 +117,22 @@ implicit. Older responses without provenance retain their direct-only presentati
 No browser value establishes group authority; approved provider mapping and
 synchronization still belong to the API. Source implementation and fixture/browser
 evidence are distinct from actual protected provider and live acceptance.
+
+## Microsoft mapping administration (source candidate)
+
+The User section reads the server's optional Microsoft-role mapping capability.
+For an authorized REAL Tenant Admin, it edits an exact directory-ID/group-ID/role
+mapping and submits the expected server revision through existing CSRF transport.
+It never submits a Tenant, User, provider observation or effective role grant.
+Group UUIDs require explicit elevated-role selection; no baseline or Platform role
+is selectable. A 403/404 hides this unavailable capability while preserving User
+administration. Conflicts require an explicit reload/review; writes are not retried
+automatically. Drafts remain in memory across section rerenders/language changes,
+with no browser storage or authority. Detached/stale views ignore late responses.
+
+Saving a mapping revokes existing derived sources until fresh Microsoft sign-in.
+Changing mappings requires an active directly assigned Tenant Admin for recovery. Direct grants
+remain independent. Verified group rights expire after at most one hour, including
+email-code sessions; the server owns expiry, mapping approval, source reconciliation
+and audit. Provider overage or missing claims grant no group authority. Synthetic
+provider/browser fixtures do not establish actual Microsoft or live acceptance.

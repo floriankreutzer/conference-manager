@@ -2,6 +2,7 @@ import { formatDateTime, formatNumber, t } from '../../../core/i18n.js';
 import { announce, button, clear, el, showToast } from '../../../core/ui.js';
 import { createInvitationAdministrationController } from './invitations-controller.js';
 import { createInvitationAdministrationView } from './invitations-view.js';
+import { createMicrosoftRoleMappingsView } from './microsoft-role-mappings-view.js';
 import {
   TENANT_ELEVATED_ROLE,
   canSelectRole,
@@ -109,6 +110,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
   let pendingFocus = null;
   const invitationController=adapter?.invitations ? createInvitationAdministrationController({ client: adapter.invitations }) : null;
   const invitationDraft=[];let invitationView=null;
+  const mappingDraft={ initialized: false,directoryId: '',revision: 0,mappings: [] };let mappingView=null;
 
   function loadingPanel() {
     return el('section', {
@@ -433,6 +435,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
 
   async function render({ root, isCurrent, rerender }) {
     invitationView?.dispose();invitationView=null;
+    mappingView?.dispose();mappingView=null;
     clear(root);
     const intro = el('section', { className: 'card tenant-admin-intro' }, [
       el('h2', {
@@ -457,6 +460,11 @@ export function createUsersSection({ context, adapter = null } = {}) {
       if (invitationController.snapshot().status==='idle') void invitationController.load();
     }
     root.append(filterForm(rerender),surface);
+    if (!context.isDemoRuntime() && adapter.microsoftRoleMappings) {
+      mappingView=createMicrosoftRoleMappingsView({ client: adapter.microsoftRoleMappings,draft: mappingDraft,isCurrent,
+        onChanged() { pendingFocus='results';rerender(); } });
+      root.append(mappingView.element);void mappingView.load();
+    }
 
     try {
       const page = await adapter.listUsers({ limit: PAGE_SIZE, afterId, ...filters });

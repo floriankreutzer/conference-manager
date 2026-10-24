@@ -1,3 +1,5 @@
+import { createMicrosoftRoleMappingApi } from './microsoft-role-mapping-api.js';
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const UTC_INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const ROLE_ORDER = Object.freeze(['employee', 'conference_manager', 'tenant_admin']);
@@ -266,6 +268,7 @@ export function createTenantUserOperationsApi({ apiClient } = {}) {
   }
 
   return Object.freeze({
+    microsoftRoleMappings: createMicrosoftRoleMappingApi({ apiClient }),
     async listUsers(filters = {}) {
       let payload;
       try {
