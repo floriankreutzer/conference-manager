@@ -14,6 +14,14 @@ export function elevatedRolesFromUser(user) {
   return Object.freeze(ELEVATED_ROLE_ORDER.filter((role) => user.roles.includes(role)));
 }
 
+export function directRolesFromUser(user) {
+  return user?.roleSources ? normalizeElevatedRoleSelection(user.roleSources.direct) : elevatedRolesFromUser(user);
+}
+
+export function microsoftGroupRolesFromUser(user) {
+  return normalizeElevatedRoleSelection(user?.roleSources?.microsoftGroups);
+}
+
 export function normalizeElevatedRoleSelection(value) {
   if (!Array.isArray(value) || value.length > ELEVATED_ROLE_ORDER.length) return Object.freeze([]);
   if (new Set(value).size !== value.length || value.some((role) => !ELEVATED_ROLE_SET.has(role))) {
@@ -32,7 +40,7 @@ export function sameRoleSelection(left, right) {
 export function canSelectRole(user, role) {
   if (!user || !ELEVATED_ROLE_SET.has(role)) return false;
   if (user.active) return true;
-  return elevatedRolesFromUser(user).includes(role);
+  return directRolesFromUser(user).includes(role);
 }
 
 export function roleUpdateErrorKey(code) {

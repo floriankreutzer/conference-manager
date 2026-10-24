@@ -91,8 +91,13 @@ async function productionHtml() {
 async function installProductionFixture(page, {
   roles = ['employee', 'tenant_admin'],
   conflictOnUpdate = false,
+  groupManaged = false,
 } = {}) {
   let users = initialUsers();
+  if (groupManaged) users = users.map(user => user.id === USER_ID ? {
+    ...user,roles: ['employee','conference_manager'],
+    roleSources: { direct: [],microsoftGroups: ['conference_manager'] },
+  } : user);
   const writes = [];
   const accessWrites = [];
   const reads = [];
@@ -169,17 +174,20 @@ async function installProductionFixture(page, {
         return;
       }
       users = users.map((user) => user.id === USER_ID
-        ? { ...user, roles: ['employee', ...body.roles] }
+        ? { ...user, roles: ['employee', ...['conference_manager','tenant_admin'].filter(role => body.roles.includes(role)
+          || user.roleSources?.microsoftGroups.includes(role))],
+          ...(user.roleSources ? { roleSources: { ...user.roleSources,direct: body.roles } } : {}) }
         : user);
       await route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify({
-          user: (({ id, displayName, active, roles: userRoles }) => ({
+          user: (({ id, displayName, active, roles: userRoles, roleSources }) => ({
             id,
             displayName,
             active,
             roles: userRoles,
+            ...(roleSources ? { roleSources } : {}),
           }))(users.find((user) => user.id === USER_ID)),
           requestId: ADMIN_ID,
         }),
@@ -252,6 +260,30 @@ test('REG-01: Tenant Admin manages elevated roles through the production API wit
 
   const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(noOverflow).toBe(true);
+});
+
+test('Microsoft group roles stay visible and independent through direct add/remove in DE and EN',async({ page })=>{
+  const fixture=await installProductionFixture(page,{ groupManaged: true });
+  await page.setViewportSize({ width: 375,height: 760 });
+  await openTenantAdministration(page);
+  const card=page.locator(`[data-tenant-user-id="${USER_ID}"]`);
+  await expect(card.getByRole('list',{ name: 'Rollen aus Microsoft-Gruppen' })).toContainText('Conference Manager');
+  await expect(card.getByRole('checkbox',{ name: 'Conference Manager' })).not.toBeChecked();
+  const admin=card.getByRole('checkbox',{ name: 'Tenant Admin' });
+  await admin.focus();await page.keyboard.press('Space');
+  await card.locator('[data-tenant-role-action="save"]').click();
+  await expect(card).toBeFocused();
+  await expect(admin).toBeChecked();
+  expect(fixture.writes[0]).toEqual({ csrf: CSRF_TOKEN,body: { roles: ['tenant_admin'] } });
+  await admin.uncheck();await card.locator('[data-tenant-role-action="save"]').click();
+  await expect(card).toBeFocused();
+  await expect(card.getByRole('list',{ name: 'Rollen aus Microsoft-Gruppen' })).toContainText('Conference Manager');
+  expect(fixture.writes[1]).toEqual({ csrf: CSRF_TOKEN,body: { roles: [] } });
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+  await page.locator('#profileLanguage').selectOption('en');
+  await expect(card.getByRole('list',{ name: 'Roles from Microsoft groups' })).toContainText('Conference Manager – from Microsoft group');
+  await expect(card.getByRole('group',{ name: 'Directly assigned roles' })).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
 });
 
 test('Tenant Admin lifecycle is keyboard operable, server-authoritative, and responsive', async ({ page }) => {

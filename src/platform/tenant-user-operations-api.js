@@ -53,6 +53,24 @@ function displayName(value) {
     && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
+function normalizedRoleSources(value, roles) {
+  if (!exactKeys(value, ['direct', 'microsoftGroups'])) return null;
+  const normalize = (input) => {
+    if (!Array.isArray(input) || input.length > 2 || new Set(input).size !== input.length
+      || input.some(role => !ELEVATED_ROLE_SET.has(role))) return null;
+    return Object.freeze(ELEVATED_ROLE_ORDER.filter(role => input.includes(role)));
+  };
+  const direct = normalize(value.direct), microsoftGroups = normalize(value.microsoftGroups);
+  if (!direct || !microsoftGroups) return null;
+  const union = ELEVATED_ROLE_ORDER.filter(role => direct.includes(role) || microsoftGroups.includes(role));
+  if (union.length !== roles.length - 1 || union.some(role => !roles.includes(role))) return null;
+  return Object.freeze({ direct, microsoftGroups });
+}
+
+function userKeys(value, required) {
+  return exactKeys(value, Object.hasOwn(value ?? {}, 'roleSources') ? [...required, 'roleSources'] : required);
+}
+
 function normalizedLifecycle(value, active) {
   if (
     !exactKeys(value, ['status', 'version'])
@@ -88,7 +106,7 @@ function normalizedRequestOwnership(value) {
 }
 
 function normalizedOperationalUser(value) {
-  if (!exactKeys(value, [
+  if (!userKeys(value, [
     'id',
     'displayName',
     'active',
@@ -99,6 +117,7 @@ function normalizedOperationalUser(value) {
     'requestOwnership',
   ])) return null;
   const roles = normalizedRoles(value.roles);
+  const roleSources = roles && Object.hasOwn(value, 'roleSources') ? normalizedRoleSources(value.roleSources, roles) : undefined;
   const lifecycle = normalizedLifecycle(value.lifecycle, value.active);
   const identityProvider = normalizedIdentityProvider(value.identityProvider);
   const requestOwnership = normalizedRequestOwnership(value.requestOwnership);
@@ -107,6 +126,7 @@ function normalizedOperationalUser(value) {
     || !displayName(value.displayName)
     || typeof value.active !== 'boolean'
     || !roles
+    || roleSources === null
     || !lifecycle
     || !identityProvider
     || (value.lastSignInAt !== null && !isUtcInstant(value.lastSignInAt))
@@ -117,6 +137,7 @@ function normalizedOperationalUser(value) {
     displayName: value.displayName,
     active: value.active,
     roles,
+    ...(roleSources ? { roleSources } : {}),
     lifecycle,
     identityProvider,
     lastSignInAt: value.lastSignInAt,
@@ -125,9 +146,10 @@ function normalizedOperationalUser(value) {
 }
 
 function normalizedRoleUser(value) {
-  if (!exactKeys(value, ['id', 'displayName', 'active', 'roles'])) return null;
+  if (!userKeys(value, ['id', 'displayName', 'active', 'roles'])) return null;
   const roles = normalizedRoles(value.roles);
-  if (!isUuid(value.id) || !displayName(value.displayName) || typeof value.active !== 'boolean' || !roles) {
+  const roleSources = roles && Object.hasOwn(value, 'roleSources') ? normalizedRoleSources(value.roleSources, roles) : undefined;
+  if (!isUuid(value.id) || !displayName(value.displayName) || typeof value.active !== 'boolean' || !roles || roleSources === null) {
     return null;
   }
   return Object.freeze({
@@ -135,6 +157,7 @@ function normalizedRoleUser(value) {
     displayName: value.displayName,
     active: value.active,
     roles,
+    ...(roleSources ? { roleSources } : {}),
   });
 }
 

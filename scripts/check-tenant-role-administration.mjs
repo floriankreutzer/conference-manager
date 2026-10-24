@@ -98,7 +98,8 @@ const userSection = await readFile('src/tenant-admin/sections/users/index.js', '
 for (const required of [
   'context.userId()',
   'context.isDemoRuntime()',
-  'elevatedRolesFromUser',
+  'const originalRoles = directRolesFromUser(user)',
+  'microsoftGroupRolesFromUser(user)',
   'canSelectRole',
   'adapter.setRoles(user.id, currentSelection(controls))',
   "dataset: { tenantRoleAction: 'save' }",
