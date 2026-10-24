@@ -115,3 +115,18 @@ no raw browser errors, DOM, headers or exception text are exported. The failed
 run remains failed; neither a cause nor stability is claimed yet. The API pair
 also restores only approved predicate-column grants after PostgreSQL revokes
 them together with the deliberately escalated table grant in its native fixture.
+
+
+CI40135928573 passed ordinary Chromium, both protected engines and316 other
+WebKit cases. WebKit still omitted Cookie from the intercepted final request's
+allHeaders() metadata. The next fixture continues that actual browser request to
+the loopback TLS server. The receiver requires the exact normal Strict cookie,
+operation Strict cookie, source CSRF, proof state and bounded original command
+before returning its fixed success receipt. Its actual callback receiver also
+requires the Lax transaction cookie and rejects either Strict cookie. Browser
+assertions require both closed receipts; raw cookies are never echoed. Negative
+receiver tests prove missing/wrong cookies, CSRF, proof, origin, changed command
+and oversized body produce no receipt. No cookie policy, COOP, timeout, retry or
+application behavior changes. These stronger receiver observations require fresh
+full browser gates; the prior failure is retained and no browser success is
+inferred from the local receiver tests.
