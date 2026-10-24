@@ -30,7 +30,7 @@ apart, with a115-second dialog deadline and ten-second request limits. Final
 execution still needs the current source session, independent Strict operation
 cookie and exact one-use proof at the server.
 
-The paired API source is488d6718804ac2a980235251956963cab644aedf in API315.
+The paired API source isfbcf1b42a591ba8d7f52ee33b613c1c4a3299f1d in API315.
 Both protected and shared-Demo CI jobs pin that immutable counterpart; existing
 Chromium/WebKit, three-customer progression and two-reset gates remain required.
 Focused client/contract and unchanged legacy transport coverage passes locally.
@@ -71,7 +71,7 @@ creation, cancelled reset, isolated Microsoft tab and real two-origin native
 handoff with refreshed CSRF and no credential response. Existing legacy browser
 assertions change only their visible confirmation labels.
 
-This source pins API315 candidate488d6718804ac2a980235251956963cab644aedf
+This source pins API315 candidatefbcf1b42a591ba8d7f52ee33b613c1c4a3299f1d
 (canonical071/Demo031) in both protected and permanent Demo browser jobs.
 Local focused16 and full915 tests pass, including the final API315 counterpart
 rebind and real callback fixture. All browser/native/elapsed-expiry/Demo/reset
@@ -86,3 +86,12 @@ The shared callback fixture now continues to the real loopback TLS server,
 retaining the exact redirect/cookie/COOP assertions. Synthetic Microsoft browser
 progression uses that same real callback/landing; no engine-specific exemption
 is introduced. Its updated full qualification remains pending.
+
+
+The first FE381 protected Chromium run40134708408 timed out because its two
+historical action locators still used the old Passkey labels. Those locators now
+use the same provider-neutral labels as the ordinary legacy and Microsoft tests;
+all native credential, navigation, onboarding, media and source assertions stay.
+The final API counterpart also includes the explicit empty handoff table in the
+historical reset rollback fixture; the database FK remains unchanged. Renewed
+exact-pair gates are required; the failed candidate remains failed history.
