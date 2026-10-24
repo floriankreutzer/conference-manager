@@ -60,3 +60,10 @@ to the existing real loopback HTTPS server as well as its landing; both engines
 must exercise the actual redirect. No redirect/cookie/COOP assertion is removed.
 The final immutable API pin is387654a132ef4fd02c122021aeac706574a3ff20.
 This correction requires renewed full browser/paired qualification.
+
+
+CI40134642318 reached the actual WebKit callback/landing but its cookie assertion
+used Playwright request.headers(), whose documented projection excludes security
+and cookie headers. Callback/write evidence now uses request.allHeaders() in both
+engines. All actual Lax/Strict presence/absence assertions remain unchanged.
+The failed WebKit run remains historical; renewed browser gates are required.

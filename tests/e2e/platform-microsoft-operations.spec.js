@@ -27,7 +27,7 @@ async function setup(page,context) {
       await route.fulfill({ response: upstream });return;
     }
     if (url.pathname===BASE+'/callback') {
-      callbacks.push(request.headers());verified=true;
+      callbacks.push(await request.allHeaders());verified=true;
       // WebKit cannot fulfill redirects; the actual loopback TLS fixture owns303.
       await route.continue();return;
     }
@@ -52,7 +52,7 @@ async function setup(page,context) {
         displayName: 'Synthetic customer',lifecycle: { status,revision },onboardingState: 'complete',identityState: 'active',
         invitation: { id: null,state: 'none',revision: null,expiresAt: null },updatedAt: '2026-10-24T12:00:00.000Z' }],nextCursor: null };
     } else if (url.pathname===`/api/v1/platform/tenants/${TENANT}/lifecycle/transitions`) {
-      const requestHeaders=request.headers();writes.push({ headers: requestHeaders,body: request.postDataJSON(),url: request.url() });
+      const requestHeaders=await request.allHeaders();writes.push({ headers: requestHeaders,body: request.postDataJSON(),url: request.url() });
       if (!requestHeaders['x-platform-microsoft-proof']) {
         code=428;body=microsoftOperationChallenge(ORIGIN);
         await context.addCookies([{ name: 'cm_platform_ms_operation',value: `${state}.${state}`,
