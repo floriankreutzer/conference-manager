@@ -13,7 +13,7 @@ function instant(value) {
 }
 
 export function normalizeProviderUsage(value, { accessMode = 'shared_owner_password' } = {}) {
-  if (!['shared_owner_password', 'application_passkey'].includes(accessMode)) {
+  if (!['shared_owner_password', 'application_passkey', 'microsoft_mfa'].includes(accessMode)) {
     throw new TypeError('PLATFORM_PROVIDER_USAGE_INVALID');
   }
   exact(value, ['schemaVersion', 'collectionMode', 'accessMode', 'evaluatedAt', 'observedAt',

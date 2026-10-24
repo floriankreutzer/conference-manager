@@ -1,5 +1,12 @@
 export const CUSTOMER_AUTHENTICATION_MESSAGES = Object.freeze({
   de: Object.freeze({
+    'authenticationPage.brand': 'PAVUREL',
+    'authenticationPage.customer.documentTitle': 'Anmelden · Conference Manager',
+    'authenticationPage.platform.documentTitle': 'Anmelden · Pavurel Plattform',
+    'authenticationPage.customer.title': 'Willkommen im Conference Manager',
+    'authenticationPage.customer.text': 'Melden Sie sich mit Microsoft oder einem E-Mail-Code an.',
+    'authenticationPage.platform.title': 'Willkommen in der Plattformverwaltung',
+    'authenticationPage.platform.text': 'Melden Sie sich mit Ihrem freigegebenen Microsoft-Konto an.',
     "customerHandoff.title": "Testzugang bestätigen",
     "customerHandoff.start": "Als Plattform-Operator testen",
     "customerHandoff.phase.loading": "Der freigegebene Testzugang wird geprüft.",
@@ -75,6 +82,13 @@ export const CUSTOMER_AUTHENTICATION_MESSAGES = Object.freeze({
     'customerAccount.error.refresh': 'Die Bestätigung wird nicht erneut gesendet. Der aktuelle Status wird unabhängig geprüft.',
   }),
   en: Object.freeze({
+    'authenticationPage.brand': 'PAVUREL',
+    'authenticationPage.customer.documentTitle': 'Sign in · Conference Manager',
+    'authenticationPage.platform.documentTitle': 'Sign in · Pavurel Platform',
+    'authenticationPage.customer.title': 'Welcome to Conference Manager',
+    'authenticationPage.customer.text': 'Sign in with Microsoft or an email code.',
+    'authenticationPage.platform.title': 'Welcome to platform administration',
+    'authenticationPage.platform.text': 'Sign in with your approved Microsoft account.',
     "customerHandoff.title": "Confirm test access",
     "customerHandoff.start": "Test as a Platform Operator",
     "customerHandoff.phase.loading": "Checking the approved test access.",

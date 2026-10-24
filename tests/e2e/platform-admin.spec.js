@@ -281,7 +281,7 @@ test('Production entry fails closed on an insecure or unavailable operator sessi
   });
   await page.goto('/platform-admin/');
   await expect(page.locator('meta[name="conference-runtime"]')).toHaveAttribute('content', 'production');
-  await expect(page.locator('#runtimeNotice')).toHaveAttribute('data-platform-admin-runtime', 'production');
+  await expect(page.locator('[data-authentication-surface="platform"]')).toHaveAttribute('data-platform-admin-runtime', 'production');
   await expect(page.locator('.platform-admin-session-gate')).toBeVisible();
   await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(0);
   await expect(page.locator('[data-platform-admin-demo-reset]')).toHaveCount(0);

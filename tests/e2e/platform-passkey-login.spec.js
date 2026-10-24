@@ -73,7 +73,7 @@ test('independent setup is labelled, keyboard usable, bilingual, responsive and 
   await page.getByRole('button', { name: 'Passkey erstellen', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Passkey bestätigen', exact: true })).toBeFocused();
   await page.reload(); await expect(page.getByRole('button', { name: 'Neuen Passkey bestätigen' })).toBeVisible();
-  await page.locator('.platform-admin-sidebar-select').selectOption('en');
+  await page.locator('.authentication-entry-language').selectOption('en');
   await expect(page.getByRole('heading', { name: 'Confirm your passkey' })).toBeVisible();
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
@@ -98,7 +98,7 @@ async ({ page }) => {
   await expect(page.getByRole('alert').filter({ hasText: 'abgebrochen' })).toBeVisible(); expect(f.writes).toHaveLength(0);
   await page.getByRole('button', { name: 'Mit Passkey bestätigen' }).click();
   await expect(page.getByRole('heading', { name: 'Passkey-Einrichtung abgeschlossen' })).toBeVisible();
-  await page.locator('.platform-admin-sidebar-select').selectOption('en');
+  await page.locator('.authentication-entry-language').selectOption('en');
   await expect(page.getByRole('heading', { name: 'Passkey setup complete' })).toBeVisible();
   await expect(page.locator('[data-platform-admin-create-tenant]')).toHaveCount(0);
   expect(f.writes).toHaveLength(1); expect(f.writes[0].path).toBe(`${BASE}authenticate`);
