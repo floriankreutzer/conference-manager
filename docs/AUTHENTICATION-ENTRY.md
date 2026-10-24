@@ -15,6 +15,10 @@ both on disposal. An authenticated session enters the existing application
 without forcing sign-in on every navigation. The frame has no network, session,
 role, credential or persistence authority. Its only imports are canonical Core
 presentation and i18n. The architecture gate enforces that narrow shared boundary.
+The initial session check also renders a visible, localized busy status in this
+frame. Shell composition disposes that bootstrap frame before presenting the
+resolved authentication or application state; pending checks never expose the
+business navigation or leave a blank page.
 
 Customer retains its existing invitation-bound Microsoft/email-code controls
 and protocol. Platform retains compatibility with the currently deployed passkey

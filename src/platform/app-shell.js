@@ -19,7 +19,10 @@ import { applyTenantPresentationToDocument } from './tenant-presentation-runtime
 import { formatRequestDateTime, requestOccursToday } from './welcome-projection.js';
 import { mountAuthenticationPage } from '../shared/authentication-page.js';
 
+let bootstrapAuthenticationPage = null;
+
 export function renderAppBootstrapLoading() {
+  bootstrapAuthenticationPage?.dispose();
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');
   const mainRoot = document.getElementById('mainContent');
@@ -33,13 +36,15 @@ export function renderAppBootstrapLoading() {
   navigationRoot.setAttribute('aria-label', t('a11y.mainNav'));
   clear(appRoot);
   mainRoot.setAttribute('aria-busy', 'true');
-  appRoot.appendChild(el('section', {
+  const status = el('section', {
     className: 'card',
     attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
   }, [
     el('h2', { text: t('auth.production.loadingTitle') }),
     el('p', { text: t('auth.production.loadingText') }),
-  ]));
+  ]);
+  bootstrapAuthenticationPage = mountAuthenticationPage({ content: status, surface: 'customer' });
+  bootstrapAuthenticationPage.element.querySelector('main').setAttribute('aria-busy', 'true');
 }
 
 export function createAppShell({
@@ -57,6 +62,8 @@ export function createAppShell({
   if (context.isDemoRuntime() && (authentication?.createAccountSecurityView || authentication?.createPendingAuthenticationView)) {
     throw new TypeError('CUSTOMER_ACCOUNT_PRESENTATION_REQUIRES_PRODUCTION');
   }
+  bootstrapAuthenticationPage?.dispose();
+  bootstrapAuthenticationPage = null;
 
   const appRoot = document.getElementById('app');
   const navigationRoot = document.getElementById('primaryNavigation');

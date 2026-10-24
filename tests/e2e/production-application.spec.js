@@ -4467,11 +4467,15 @@ test('production bootstrap shows localized loading before the session contract r
 
   await expect(page.locator('#viewTitle')).toHaveText('Sichere Sitzung wird geladen');
   await expect(page.getByRole('status').filter({ hasText: 'Die serverseitige Microsoft-Sitzung wird geprüft.' })).toBeVisible();
+  await expect(page.getByRole('main')).toHaveAttribute('aria-busy', 'true');
+  await expect(page.locator('.app-shell')).toBeHidden();
   await expect(page.locator('#mainContent')).toHaveAttribute('aria-busy', 'true');
 
   fixture.releaseSession();
   await expect(page.locator('#viewTitle')).toHaveText('Willkommen');
   await expect(page.locator('#mainContent')).not.toHaveAttribute('aria-busy');
+  await expect(page.locator('[data-authentication-surface]')).toHaveCount(0);
+  await expect(page.locator('.app-shell')).toBeVisible();
 });
 
 test('Tenant Admin without Conference Manager permission never receives Manager navigation', async ({ page }) => {
