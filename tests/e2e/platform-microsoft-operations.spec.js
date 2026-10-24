@@ -60,10 +60,10 @@ async function setup(page,context) {
         headers['Set-Cookie']=`cm_platform_ms_operation_tx=${state}.${state}; Path=${BASE}/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=120`;
       } else {
         expect(verified).toBe(true);expect(requestHeaders['x-platform-microsoft-proof']).toBe(state);
-        expect(requestHeaders.cookie).toContain('cm_platform_ms_operation=');
+        // Observe native cookie transfer at the real receiving TLS server.
+        // WebKit's interception metadata may omit a Cookie header entirely.
         status='suspended';revision++;
-        body={ schemaVersion: 1,outcome: 'updated',lifecycle: { tenantId: TENANT,status,revision,
-          changedAt: '2026-10-24T12:01:00.000Z' } };
+        await route.continue();return;
       }
     } else { code=404;body={ error: { code: 'PLATFORM_NOT_FOUND' } }; }
     await route.fulfill({ status: code,contentType: 'application/json',headers,body: JSON.stringify(body) });
@@ -85,14 +85,17 @@ test('Microsoft confirmation survives different-site COOP isolation and executes
   await expect(link).toBeFocused();await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel',/noopener/);
   const opened=context.waitForEvent('page');await link.press('Enter');const provider=await opened;
   await provider.waitForLoadState();expect(await provider.evaluate(()=>window.opener===null)).toBe(true);
+  const callbackResponse=provider.waitForResponse(response=>response.url().startsWith(ORIGIN+BASE+'/callback?'));
+  const operationResponse=page.waitForResponse(response=>response.url().endsWith(`/tenants/${TENANT}/lifecycle/transitions`));
   await provider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();
   await expect(provider).toHaveURL(ORIGIN+BASE+'/complete');
+  expect(await (await callbackResponse).headerValue('x-cm-fixture-microsoft-custody')).toBe('lax-without-strict');
+  expect(await (await operationResponse).headerValue('x-cm-fixture-microsoft-custody')).toBe('strict-source-and-operation');
   await expect(page.locator('[data-platform-action="reactivate"]')).toBeVisible();
   expect(f.writes).toHaveLength(2);expect(f.writes[0].url).toBe(f.writes[1].url);expect(f.writes[0].body).toEqual(f.writes[1].body);
   expect(f.writes[0].headers['idempotency-key']).toBe(f.writes[1].headers['idempotency-key']);
   expect(f.writes[1].headers['x-platform-passkey-proof']).toBeUndefined();expect(f.sessionReads()).toBe(2);
-  expect(f.callbacks).toHaveLength(1);expect(f.callbacks[0].cookie).toContain('cm_platform_ms_operation_tx=');
-  expect(f.callbacks[0].cookie).not.toContain('cm_platform_session=');expect(f.callbacks[0].cookie).not.toContain('cm_platform_ms_operation=');
+  expect(f.callbacks).toHaveLength(1);
   expect(f.statusReads()).toBeGreaterThan(0);
   expect(await page.evaluate(()=>JSON.stringify(localStorage)+JSON.stringify(sessionStorage))).not.toContain(state);await provider.close();
 });
