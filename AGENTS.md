@@ -211,6 +211,15 @@ Relevant changes are not Definition-of-Done if required Demo data is missing/inc
 CI must continue to provision the canonical data and run the full three-customer progression and two-cycle reset acceptance in Chromium and WebKit against an immutable trusted API ref. Seed-row existence alone is insufficient evidence.
 Do not weaken, skip or remove customer/task/reset/browser assertions to unblock later work. Intentional scenario changes require an explicit product decision and equivalent or stronger regression coverage.
 Cross-repository changes must validate both repositories together with exact immutable counterpart commits. The binding contract is `docs/SAAS-3.7-SCENARIO-ACCEPTANCE.md`.
+
+## Supplementary application design profile
+
+The optional [Pavurel Application Design profile](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/1e812a0f0f82cdd2669b5e2d3e5411ea79a5dd1d/skills/pavurel-app-design/SKILL.md) in [skills PR #1](https://github.com/floriankreutzer/automatic-engineering-design-skills/pull/1) supports task-specific application design work. This pinned reference identifies the review candidate from that PR; check its current merge status before adoption. It does not install a skill or replace a repository standard.
+
+Before applying the profile, read this repository's current instructions and the relevant sources listed above from the target repository root, and identify current `main` and the exact work/base ref. Repository requirements, tokens, public contracts and executable gates remain authoritative. The profile must link to and apply those current sources rather than duplicate their normative rules or freeze a historical baseline. Resolve material conflicts in the owning repository; do not silently weaken an existing requirement to follow skill guidance.
+
+Referencing a profile does not install it or authorize dependencies, publication, deployment or merging.
+
 ## Cost-constrained execution
 Work must remain within the owner's configured zero-additional-spend limits. Do not upgrade plans, increase paid quotas, change spending limits, or start billable runners or deployments without an explicit new owner decision. Prefer local validation, bundle related documentation changes, and avoid unnecessary workflow reruns and Hosted Demo traffic. Configured cost controls do not provide additional included capacity.
 Required reviews, security checks, regression/progression tests and release gates remain mandatory. Normally, local results do not substitute for required GitHub checks. Owner decision (2026-10-04): while the included Actions allowance is exhausted, temporary alternative acceptance is permitted only for fully executed equivalent checks, bound to exact commits with retained commands, environment, results and evidence. Unexecuted checks remain open; failed Actions statuses remain failed and must not be relabeled or forged. This exception does not authorize changes to enforced branch protections, public source disclosure, paid capacity or automatic release closure. User-reported settings must be distinguished from verified billing evidence.
