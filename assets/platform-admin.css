@@ -665,7 +665,7 @@
 }
 
 .platform-admin-insights-trend:not([hidden]) {
-  animation: platform-admin-trend-enter 160ms ease-out;
+  animation: platform-admin-trend-enter var(--transition-fast);
 }
 
 @media (prefers-reduced-motion: reduce) {
