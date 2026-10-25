@@ -2,6 +2,7 @@ import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el } from '../core/ui.js';
 import { readinessBlockerPresentation } from './readiness-blockers.js';
 import { auditEventPresentation } from './audit-event-presentation.js';
+import { microsoftMappingSummaryPresentation } from './microsoft-mapping-summary.js';
 
 export const PLATFORM_FLEET_VIEW_DEFINITIONS = Object.freeze([
   Object.freeze({ id: 'directory', permission: 'platform:tenant:read', titleKey: 'platformAdmin.fleetView.directory' }),
@@ -131,10 +132,12 @@ function microsoftHealth(resource, onSelectTenant, onLoadMore) {
       el('div', { className: 'platform-admin-inline-status' }, [
         el('span', { text: t('platformAdmin.integration.connection') }),
         status(item.connectionState),
-        el('span', { text: t('platformAdmin.integration.mappingSummary', {
-          active: formatNumber(item.mappings.active),
-          total: formatNumber(item.mappings.total),
-        }) }),
+        el('span', { text: (() => {
+          const presentation = microsoftMappingSummaryPresentation(item.mappings);
+          return t(presentation.messageKey, presentation.values
+            ? Object.fromEntries(Object.entries(presentation.values).map(([key, value]) => [key, formatNumber(value)]))
+            : {});
+        })() }),
       ]),
       capabilities,
     ]));
