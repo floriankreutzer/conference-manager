@@ -10,7 +10,7 @@ is adopted or impersonated, and an existing login requires explicit sign-out.
 
 ## Source candidate and qualification
 
-This candidate pairs API318 sourcefaa37217ea512bac95b22ddacf46506f78e54141.
+This candidate pairs cumulative API319 source47240172a4b927c23adce41d9b5fe148e792747f.
 It is unmerged preparation, not a live release. The full existing protected
 browser and permanent three-customer/two-reset CI suites remain required.
 The isolated owner browser renderer tests substitute provider/API responses and
@@ -133,3 +133,10 @@ Unknown sites remain blocked, all Customer/Platform traffic remains byte-transpa
 actual roots, and no provider API/network is exposed or contacted. The case still
 requires zero denied external CONNECTs and exactly three isolated provider
 pages. This transport substitution is not actual Microsoft/device evidence.
+
+
+Final counterpart binding includes the separate guarded one-time owner upgrade
+workflow in API319. This changes no Owner runtime policy or browser assertion.
+All three immutable CI references and their regression expectation use the same
+47240172a4b927c23adce41d9b5fe148e792747f candidate. Its own complete CI and
+independent accepted Main remain required before release.
