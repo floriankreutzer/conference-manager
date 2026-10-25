@@ -7,7 +7,7 @@ export function microsoftOperationChallenge(origin=MICROSOFT_OPERATION_ORIGIN) {
   for (const [key,value] of Object.entries({ client_id: MICROSOFT_OPERATION_ID,scope: 'openid profile',
     redirect_uri: origin+'/api/v1/platform/auth/microsoft/operation/callback',
     response_type: 'code',response_mode: 'query',max_age: '0',state,nonce: state,code_challenge: state,code_challenge_method: 'S256',
-    claims: JSON.stringify({ id_token: { auth_time: { essential: true },amr: { essential: true } } }) })) {
+    claims: JSON.stringify({ id_token: { auth_time: { essential: true },amr: { essential: true,values: ['mfa'] } } }) })) {
     url.searchParams.set(key,value);
   }
   return { status: 'microsoft_required',state,authorizationUrl: url.href,requestId: MICROSOFT_OPERATION_ID };
