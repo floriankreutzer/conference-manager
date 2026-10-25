@@ -88,7 +88,7 @@ export async function handleAuthenticationNavigationFixture(request,response) {
     response.writeHead(200,{ 'Content-Type': 'text/html; charset=utf-8','Cache-Control': 'no-store' });
     response.end(html);return true;
   }
-  if (request.url!=='/api/v1/auth/delegation/complete') return false;
+  if (!['/api/v1/auth/delegation/complete','/api/v1/auth/owner/complete'].includes(request.url)) return false;
   if (request.method!=='POST' || request.headers.host!=='127.0.0.1:4173'
     || request.headers.origin!=='https://127.0.0.1:4173'
     || request.headers['content-type']!=='application/x-www-form-urlencoded') {

@@ -10,6 +10,7 @@ const TENANT_SETTINGS_DOMAIN_CATALOG_PATH = 'src/core/i18n-tenant-settings-domai
 const CANONICAL_CATALOG_PATHS = [
   BASE_CATALOG_PATH,
   'src/core/i18n-platform-synthetic-messages.js',
+  'src/core/i18n-owner-customer-messages.js',
   'src/core/i18n-synthetic-onboarding-messages.js',
   CAPABILITY_CATALOG_PATH,
   PLATFORM_ADMIN_CATALOG_PATH,
@@ -151,6 +152,7 @@ const canonical = mergeCatalogs(
   readFrozenCatalog(PLATFORM_ADMIN_CATALOG_PATH),
   readFrozenCatalog('src/core/i18n-platform-invitation-messages.js'),
   readFrozenCatalog('src/core/i18n-platform-synthetic-messages.js'),
+  readFrozenCatalog('src/core/i18n-owner-customer-messages.js'),
   readFrozenCatalog('src/core/i18n-customer-authentication-messages.js'),
   readNamedFrozenCatalog(TENANT_ADMIN_OPERATIONS_CATALOG_PATH, 'TENANT_ADMIN_OPERATIONS_MESSAGES'),
   readFrozenCatalog(TENANT_SETTINGS_DOMAIN_CATALOG_PATH),

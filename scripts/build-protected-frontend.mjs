@@ -21,6 +21,7 @@ function flag(name) {
 const built=await buildProtectedFrontendArtifacts({ root,apiCommit,frontendCommit,
   customerOrigin: env.PROTECTED_CUSTOMER_ORIGIN,platformOrigin: env.PROTECTED_PLATFORM_ORIGIN,
   environment: env.PROTECTED_ENVIRONMENT,syntheticEnabled: flag('PROTECTED_SYNTHETIC_ENABLED'),
-  microsoftEnabled: flag('PROTECTED_PRESENTATION_MICROSOFT_ENABLED'),invitationsEnabled: flag('PROTECTED_PRESENTATION_INVITATIONS_ENABLED') });
+  microsoftEnabled: flag('PROTECTED_PRESENTATION_MICROSOFT_ENABLED'),invitationsEnabled: flag('PROTECTED_PRESENTATION_INVITATIONS_ENABLED'),
+  ownerAccessEnabled: flag('PROTECTED_OWNER_CUSTOMER_ACCESS_ENABLED') });
 await writeProtectedFrontendArtifacts(built,destination);
 console.log(JSON.stringify({ frontendCommit,apiCommit,manifestSha256: built.manifestDigests }));

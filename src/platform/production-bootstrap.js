@@ -12,6 +12,7 @@ async function bootstrapProductionCustomerApplication() {
     runtimeMode: RUNTIME_MODE.PRODUCTION,
     authenticationBootstrap: options=>bootstrapInvitedCustomerAuthentication({ ...options,
       microsoftAuthenticationEnabled: presentationFlags.isEnabled('customer.microsoft-authentication'),
+      ownerHandoffEnabled: presentationFlags.isEnabled('customer.owner-handoff'),
       syntheticHandoffEnabled: presentationFlags.isEnabled('customer.synthetic-handoff') }),
     invitationAdministrationFactory: presentationFlags.isEnabled('customer.invitations') ? createCustomerInvitationClient : null,
     syntheticOnboardingFactory: presentationFlags.isEnabled('customer.synthetic-onboarding')
