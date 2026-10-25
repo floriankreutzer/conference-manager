@@ -86,8 +86,14 @@ async({ browser,browserName })=>{
       await finish.focus();await page.keyboard.press('Enter');
       try { await expect(page.locator('#primaryNavigation button[aria-haspopup="dialog"]')).toBeVisible(); }
       catch (error) {
+        const traffic=edge.evidence();
+        console.error('OWNER_BROWSER_EDGE_DIAGNOSTIC '+JSON.stringify({ role,eventCount: traffic.requests.length,errors,
+          failures: traffic.requests.filter(event=>event.status>=400).map(event=>({
+            path: event.path.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi,':id'),status: event.status,errorCode: event.errorCode ?? null,
+          })) }));
         const state=await page.evaluate(async()=>{
-          const response=await fetch('/api/v1/session'),value=await response.json();let validation='not_authenticated';
+          const response=await fetch('/api/v1/session'),body=await response.text();let value={},validation='not_authenticated';
+          try { value=JSON.parse(body); } catch { validation='non_json_response'; }
           if (response.ok) try { const { validateProductionSession }=await import('/src/platform/production-session.js');
             validateProductionSession(value);validation='accepted'; } catch (failure) {
             validation=typeof failure.code==='string' && /^[A-Z_]{1,80}$/.test(failure.code) ? failure.code : 'unknown';
@@ -96,7 +102,7 @@ async({ browser,browserName })=>{
             authenticationReady: document.documentElement.dataset.authenticationReady==='true',
             heading: document.querySelector('h1')?.textContent.slice(0,120) ?? null,
             subheading: document.querySelector('h2')?.textContent.slice(0,120) ?? null };
-        });
+        }).catch(()=>({ diagnostic: 'unavailable' }));
         console.error('OWNER_BROWSER_PROJECTION_DIAGNOSTIC '+JSON.stringify({ role,...state,errors,
           requests: edge.evidence().requests.filter(event=>event.status>=400).map(event=>({
             path: event.path.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi,':id'),status: event.status,errorCode: event.errorCode ?? null,
