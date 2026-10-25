@@ -84,7 +84,24 @@ async({ browser,browserName })=>{
         await page.setViewportSize(browserName==='webkit' ? { width: 390,height: 844 } : { width: 1280,height: 900 });
       }
       await finish.focus();await page.keyboard.press('Enter');
-      await expect(page.locator('#primaryNavigation button[aria-haspopup="dialog"]')).toBeVisible();
+      try { await expect(page.locator('#primaryNavigation button[aria-haspopup="dialog"]')).toBeVisible(); }
+      catch (error) {
+        const state=await page.evaluate(async()=>{
+          const response=await fetch('/api/v1/session'),value=await response.json();let validation='not_authenticated';
+          if (response.ok) try { const { validateProductionSession }=await import('/src/platform/production-session.js');
+            validateProductionSession(value);validation='accepted'; } catch (failure) {
+            validation=typeof failure.code==='string' && /^[A-Z_]{1,80}$/.test(failure.code) ? failure.code : 'unknown';
+          }
+          return { sessionStatus: response.status,validation,userVersion: typeof value.user?.id==='string' ? value.user.id[14] : null,
+            authenticationReady: document.documentElement.dataset.authenticationReady==='true',
+            heading: document.querySelector('h1')?.textContent.slice(0,120) ?? null,
+            subheading: document.querySelector('h2')?.textContent.slice(0,120) ?? null };
+        });
+        console.error('OWNER_BROWSER_PROJECTION_DIAGNOSTIC '+JSON.stringify({ role,...state,errors,
+          requests: edge.evidence().requests.filter(event=>event.status>=400).map(event=>({
+            path: event.path.replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gi,':id'),status: event.status,errorCode: event.errorCode ?? null,
+          })) }));throw error;
+      }
       const session=await page.evaluate(async()=>{ const response=await fetch('/api/v1/session'),value=await response.json();
         return { status: response.status,userId: value.user?.id,roles: value.roles }; });
       expect(session.status).toBe(200);expect(session.roles).toEqual(role==='employee' ? ['employee'] : ['employee',role]);

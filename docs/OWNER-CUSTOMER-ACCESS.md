@@ -84,3 +84,14 @@ UUID8 User and unchanged roles, and rejects invalid versions/variant, injected
 URI suffix and extra Platform roles. Media asset UUID policy is independent
 and unchanged. No session, role, permission, expiry, cookie or proof assertion
 is removed; both full browser engines must qualify the correction.
+
+
+Correcteda7411cd / CI40148696547 still failed the actual Owner application's
+profile-navigation assertion in both engines (jobs121035859833/121035859898).
+The UUID8 unit progression passes, so it is not a sufficient explanation for
+the remaining failure. A bounded failure-only diagnostic now retains role,
+ordinary session HTTP/parser outcome, UUID version only, static headings,
+page-error names and scrubbed failed API path/status/error-code metadata. It
+retains no User ID, token, cookie, proof, request body or provider claims. The
+original navigation assertion and all budgets remain; the next exact run must
+identify and fix the remaining projection boundary before acceptance.
