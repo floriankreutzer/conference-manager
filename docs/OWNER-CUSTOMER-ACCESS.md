@@ -10,7 +10,7 @@ is adopted or impersonated, and an existing login requires explicit sign-out.
 
 ## Source candidate and qualification
 
-This candidate pairs API318 sourced8d1d10d4ca46dd524a808a5b5939f79c34e9638.
+This candidate pairs API318 sourcefaa37217ea512bac95b22ddacf46506f78e54141.
 It is unmerged preparation, not a live release. The full existing protected
 browser and permanent three-customer/two-reset CI suites remain required.
 The isolated owner browser renderer tests substitute provider/API responses and
@@ -72,3 +72,15 @@ and verifies no app keys or ordinary User grants plus both signed audit chains.
 The earlier isolated renderer cases remain. Both complete protected engine jobs,
 all ordinary tests and permanent Demo/reset gates must execute on this exact
 new counterpart; source preparation alone is not acceptance.
+
+
+Complete paired Owner run499bfc83942867619cebf951d49bb896182fbe0c /
+CI40148190764 failed both engines (jobs121034354853 /121034354891) after
+actual native completion returned to the Customer root. The ordinary session
+parser still accepted UUID1-5, while the specified stable attributable Owner
+User uses UUID8 and the canonical server accepts UUID1-8. This parser now
+accepts that canonical UUID range. A progression case requires the exact
+UUID8 User and unchanged roles, and rejects invalid versions/variant, injected
+URI suffix and extra Platform roles. Media asset UUID policy is independent
+and unchanged. No session, role, permission, expiry, cookie or proof assertion
+is removed; both full browser engines must qualify the correction.

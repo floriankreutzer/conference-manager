@@ -4,7 +4,7 @@ const SESSION_PATH = 'v1/session';
 const LOGIN_PATH = '/api/v1/auth/microsoft/login';
 const APPLICATION_ROOT = '/';
 const DEFAULT_BOOTSTRAP_TIMEOUT_MS = 10_000;
-const INTERNAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const INTERNAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const PRODUCTION_TENANT_STATUS = Object.freeze({
   PENDING: 'pending',

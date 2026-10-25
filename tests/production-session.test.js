@@ -212,3 +212,15 @@ test('production session bootstrap aborts a stalled endpoint and fails closed wi
   assert.equal(runtime.currentSession(), null);
   assert.equal(runtime.status(), PRODUCTION_AUTH_STATUS.UNAVAILABLE);
 });
+
+test('production session accepts canonical server UUID8 owner attribution without accepting malformed identity or extra roles',()=>{
+  const userId='11111111-1111-8111-8111-111111111111';
+  const owner=validateProductionSession(sessionPayload({ user: { id: userId } }),{ clock: ()=>NOW });
+  assert.equal(owner.user.id,userId);assert.deepEqual(owner.roles,['employee','tenant_admin']);
+  for (const id of ['11111111-1111-0111-8111-111111111111','11111111-1111-9111-8111-111111111111',
+    '11111111-1111-8111-7111-111111111111','11111111-1111-8111-8111-111111111111?role=admin']) {
+    assert.throws(()=>validateProductionSession(sessionPayload({ user: { id } }),{ clock: ()=>NOW }),{ code: 'SESSION_INVALID' });
+  }
+  assert.throws(()=>validateProductionSession(sessionPayload({ user: { id: userId },roles: ['employee','platform_security_admin'] }),
+    { clock: ()=>NOW }),{ code: 'SESSION_ROLES_INVALID' });
+});
