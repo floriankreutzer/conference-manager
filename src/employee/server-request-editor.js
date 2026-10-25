@@ -46,6 +46,16 @@ export function roomEditorOptions(catalog) {
   )));
 }
 
+// Room fixtures may retain catalogue references while older REAL data contains
+// descriptive labels. Resolve only against the current authorized catalogue.
+export function roomEquipmentNames(room,catalog) {
+  const equipment=new Map((catalog?.equipment || []).map(entry=>[entry.id,entry.name]));
+  return Object.freeze((room?.equipment || []).map(value=>{
+    if (equipment.has(value)) return equipment.get(value);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? null : value;
+  }));
+}
+
 export function roomSupportsParticipants(room, totalParticipants, policyMaximumParticipants = MAX_PARTICIPANTS) {
   const capacity = Number(room?.capacity);
   const participants = Number(totalParticipants);
