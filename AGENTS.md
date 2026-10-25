@@ -18,12 +18,12 @@ Before writing, editing, refactoring, or reviewing code:
 
 1. Read this `AGENTS.md` completely.
 2. Read `docs/CODING-STANDARDS.md` completely.
-3. Treat `main` as the repository source of truth and determine the current target/base ref.
+3. Treat `main` as the repository source of truth and determine the current target/base ref. At the start of each repository task, automatically use the available `use-agent-knowledge` skill without requiring a separate user invocation. If the skill is unavailable, use available authorized GitHub tools to read `AGENTS.md`, `README.md`, `INDEX.md`, `projects.json` and the matching project entry point from a consistent current commit of `floriankreutzer/automatic-engineering-agent-knowledge`; load only relevant entries and recheck scope, dates and current source evidence. This repository's current requirements remain authoritative. If knowledge access is unavailable, report the limitation and continue work permitted by the available project sources; do not invent retrieval or bypass mandatory instructions.
 4. Read the current version of every existing file before modifying it. When using the GitHub Contents API, use the current blob SHA for updates.
 5. Inspect the relevant architecture, design-system, security, i18n, and test documentation before implementation.
 6. Identify existing components, utilities, patterns, tokens, translations, and tests that can be reused.
 7. Assess regression, accessibility, security, internationalization, responsive, browser, and data-integrity impact.
-8. Make the smallest coherent change required for the requested scope. Do not perform unrelated repository-wide refactors.
+8. Make the smallest coherent change required for the requested scope. Do not perform unrelated repository-wide refactors. Before completing ordinary work, automatically create or update useful, durable, evidence-backed lessons in that private knowledge repository as part of the owner's requested workflow; no separate reminder is needed. Respect explicit read-only requests and narrower user scope. Read its current format and matching entries, avoid duplicates, update the index, follow its branch/review/test rules and verify the remote save. If no useful new learning exists, no write is needed. Report applied/saved entry IDs or the concrete access, check or save limitation. Never copy the private corpus, confidential customer/employer data, credentials or transcripts into this public repository; do not add permissions, a background service or a runtime dependency.
 
 Do not bypass branch protection, required reviews, required status checks, security gates, or test gates.
 
