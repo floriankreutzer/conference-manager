@@ -16,7 +16,7 @@ Missing refresh requests a reload; it never retries the committed operation.
 
 The Microsoft challenge is closed and bounded. Its HTTPS authorization URL must
 use the organizational Microsoft host/path, exact same-origin operation callback,
-openid/profile, code/query, PKCE, max-age0, matching state and the bounded MFA/time
+openid/profile, code/query, PKCE, a closed max-age contract, matching state and the bounded MFA/time
 request. No provider response, external redirect, role or token is persisted or
 treated as permission. The signed server-side proof remains authoritative.
 
@@ -160,3 +160,9 @@ Both protected and permanent Demo CI jobs bind that exact API counterpart.
 The shared challenge fixture exercises `prompt=login` in unit and both browser
 engines; focused negatives cover invalid, duplicate and unknown parameters.
 These source tests are distinct from real Microsoft and live Demo acceptance.
+
+## Provider window migration
+
+The browser accepts the revised literal max_age=300 only together with prompt=login. The previously qualified max_age=0 challenge remains supported during the coordinated rollout; other ages, missing interactive prompt on the revised request, duplicate or unknown parameters still fail before navigation. This is provider request compatibility, not a five-minute elevated application permission. The paired API must independently require fresh auth_time, MFA, nonce/PKCE, current source/browser/exact-operation binding and the unchanged 120-second one-use proof. A provider token's issuance/expiry window and authentication freshness are distinct checks. The browser never grants either authority. No UI, storage, credential, role or mutation retry contract changes.
+
+The current provider-window candidate binds API `79e6debeeb5db83fd5dc46f532adbb5ae2ed11ff` in both protected and permanent Demo CI jobs. Earlier API bindings above describe historical candidates. Real Microsoft/device and deployed acceptance remain separate from the isolated paired browser gates.
