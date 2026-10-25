@@ -654,6 +654,26 @@
   margin: 0;
 }
 
+@keyframes platform-admin-trend-enter {
+  from {
+    transform: translateY(var(--space-1));
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+.platform-admin-insights-trend:not([hidden]) {
+  animation: platform-admin-trend-enter 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-admin-insights-trend:not([hidden]) {
+    animation: none;
+  }
+}
+
 .platform-admin-insights-trend figcaption {
   margin-block-end: var(--space-3);
   font-weight: var(--font-weight-medium);
