@@ -33,9 +33,11 @@ export function requirePlatformMicrosoftOperationChallenge(value,origin) {
     || query.get('scope')?.split(' ').sort().join(',')!=='openid,profile') failed();
   let claims;try { claims=JSON.parse(query.get('claims')); } catch { failed(); }
   exact(claims,['id_token']);exact(claims.id_token,['auth_time','amr']);
-  for (const key of ['auth_time','amr']) {
-    exact(claims.id_token[key],['essential']);if (claims.id_token[key].essential!==true) failed();
-  }
+  exact(claims.id_token.auth_time,['essential']);
+  exact(claims.id_token.amr,['essential','values']);
+  if (claims.id_token.auth_time.essential!==true || claims.id_token.amr.essential!==true
+    || !Array.isArray(claims.id_token.amr.values) || claims.id_token.amr.values.length!==1
+    || claims.id_token.amr.values[0]!=='mfa') failed();
   return Object.freeze({ state: value.state,authorizationUrl: url.href });
 }
 export function requirePlatformMicrosoftOperationStatus(value) {

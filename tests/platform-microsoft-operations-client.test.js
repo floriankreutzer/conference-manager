@@ -47,6 +47,13 @@ test('Microsoft challenge rejects foreign redirects, extra authority, duplicate 
     const url=new URL(valid.authorizationUrl);mutate(url);
     assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: url.href },origin),/RESPONSE_INVALID/);
   }
+  for (const amr of [{ essential: true },{ essential: true,values: [] },{ essential: true,values: ['pwd'] },
+    { essential: true,values: ['mfa','pwd'] },{ essential: false,values: ['mfa'] },
+    { essential: true,values: ['mfa'],extra: true }]) {
+    const url=new URL(valid.authorizationUrl);
+    url.searchParams.set('claims',JSON.stringify({ id_token: { auth_time: { essential: true },amr } }));
+    assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: url.href },origin),/RESPONSE_INVALID/);
+  }
   for (const status of [{ status: 'consumed',requestId: id },{ status: 'verified',requestId: id,principal: {} }]) {
     assert.throws(()=>requirePlatformMicrosoftOperationStatus(status),/RESPONSE_INVALID/);
   }
