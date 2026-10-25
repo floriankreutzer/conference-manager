@@ -34,6 +34,7 @@
     "src/platform-admin/audit-page-continuation.js",
     "src/platform-admin/contracts.js",
     "src/platform-admin/fleet-sections.js",
+    "src/platform-admin/readiness-blockers.js",
     "src/platform-admin/demo/bootstrap.js",
     "src/platform-admin/demo/operator-session.js",
     "src/platform-admin/index.js",
