@@ -10,7 +10,7 @@ is adopted or impersonated, and an existing login requires explicit sign-out.
 
 ## Source candidate and qualification
 
-This candidate pairs API318 source597b9d20a7e559b88323bb5dab7100b1ba0e9069.
+This candidate pairs API318 sourced8d1d10d4ca46dd524a808a5b5939f79c34e9638.
 It is unmerged preparation, not a live release. The full existing protected
 browser and permanent three-customer/two-reset CI suites remain required.
 The isolated owner browser renderer tests substitute provider/API responses and
@@ -53,3 +53,22 @@ Owner role check is relaxed. Both actual protected-root engine jobs passed on
 the failed candidate, but the complete run remains failed. New Owner cases now
 run early before the unchanged full ordinary suite, with retries0 and unchanged
 budgets; final dual-engine and complete Demo/reset qualification remain required.
+
+
+## Complete qualified-site browser candidate
+
+The new protected Owner case captures exact immutable hosted artifacts and
+starts both actual API roots under separate restricted TLS/SCRAM database
+identities. Every Customer/Platform API response, directory selection, options,
+callback, status, native approval and Customer admission comes from those roots.
+The initial ordinary MFA session and external provider document/network are
+isolated fixtures using the actual pinned SDK; live Microsoft/device acceptance
+remains unproved. No production provider or issuer injection port is added.
+
+The case opens all three Customer roles under one stable attributable own User,
+requires explicit sign-out when changing role, checks native different-site
+cookies/303 paths, keyboard, English confirmation and320px enlarged-text layout,
+and verifies no app keys or ordinary User grants plus both signed audit chains.
+The earlier isolated renderer cases remain. Both complete protected engine jobs,
+all ordinary tests and permanent Demo/reset gates must execute on this exact
+new counterpart; source preparation alone is not acceptance.

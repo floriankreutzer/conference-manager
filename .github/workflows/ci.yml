@@ -155,7 +155,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 597b9d20a7e559b88323bb5dab7100b1ba0e9069
+          ref: d8d1d10d4ca46dd524a808a5b5939f79c34e9638
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -298,7 +298,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: 597b9d20a7e559b88323bb5dab7100b1ba0e9069
+      PROTECTED_BROWSER_COUNTERPART_REF: d8d1d10d4ca46dd524a808a5b5939f79c34e9638
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
     services:
       postgres:
@@ -324,7 +324,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 597b9d20a7e559b88323bb5dab7100b1ba0e9069
+          ref: d8d1d10d4ca46dd524a808a5b5939f79c34e9638
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
