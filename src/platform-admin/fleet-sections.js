@@ -1,5 +1,6 @@
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el } from '../core/ui.js';
+import { readinessBlockerPresentation } from './readiness-blockers.js';
 
 export const PLATFORM_FLEET_VIEW_DEFINITIONS = Object.freeze([
   Object.freeze({ id: 'directory', permission: 'platform:tenant:read', titleKey: 'platformAdmin.fleetView.directory' }),
@@ -72,7 +73,19 @@ function readiness(resource, onSelectTenant, onLoadMore) {
   const list = el('ul', { className: 'platform-admin-record-list' });
   resource.data.items.forEach((item) => {
     const blockers = el('ul', { className: 'platform-admin-detail-list' });
-    item.readiness.blockerCodes.forEach((entry) => blockers.append(el('li', {}, [dataCode(entry)])));
+    item.readiness.blockerCodes.forEach((entry) => {
+      const presentation = readinessBlockerPresentation(entry);
+      const label = t(presentation.messageKey, presentation.checkKey
+        ? { check: t(presentation.checkKey) }
+        : {});
+      blockers.append(el('li', {}, [
+        el('p', { className: 'platform-admin-blocker-label', text: label }),
+        el('details', { className: 'platform-admin-blocker-details' }, [
+          el('summary', { text: t('platformAdmin.readiness.technicalDetails') }),
+          dataCode(entry),
+        ]),
+      ]));
+    });
     list.append(el('li', { className: 'card platform-admin-record' }, [
       heading(item, onSelectTenant),
       el('div', { className: 'platform-admin-inline-status' }, [
@@ -91,7 +104,7 @@ function readiness(resource, onSelectTenant, onLoadMore) {
           : 'platformAdmin.readiness.checkCountMany',
         { count: formatNumber(item.readiness.checks.length) },
       ) }),
-      ...(item.readiness.blockerCodes.length ? [blockers] : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
+      ...(item.readiness.blockerCodes.length ? [el('h4', { text: t('platformAdmin.readiness.blockers') }), blockers] : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
     ]));
   });
   return el('section', {}, [
