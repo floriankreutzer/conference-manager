@@ -8,7 +8,7 @@ import {
 } from '../src/platform/feature-flags.js';
 
 test('regression: baseline remains independent of optional provider reporting', () => {
-  assert.deepEqual(FEATURE_FLAG_DEFAULTS, { 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false, 'catering.catalogue': false, 'catering.orders': false, 'catering.delivery': false, 'customer.invitations': false, 'platform.customer-invitations': false, 'customer.microsoft-authentication': false, 'customer.synthetic-handoff': false, 'customer.synthetic-onboarding': false, 'platform.synthetic-workspace': false });
+  assert.deepEqual(FEATURE_FLAG_DEFAULTS, { 'platform.provider-usage': false, 'platform.product-delivery': false, 'catering.configuration': false, 'catering.catalogue': false, 'catering.orders': false, 'catering.delivery': false, 'customer.invitations': false, 'platform.customer-invitations': false, 'customer.microsoft-authentication': false, 'customer.synthetic-handoff': false, 'customer.synthetic-onboarding': false, 'platform.synthetic-workspace': false, 'customer.owner-handoff': false, 'platform.owner-customer-access': false });
   assert.equal(featureFlags.isEnabled('customer.invitations'),false);
   assert.equal(featureFlags.isEnabled('platform.customer-invitations'),false);
   assert.equal(featureFlags.isEnabled('customer.microsoft-authentication'),false);

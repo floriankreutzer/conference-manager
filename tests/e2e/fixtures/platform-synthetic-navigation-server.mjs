@@ -4,7 +4,8 @@ const CUSTOMER='https://127.0.0.1:4174',PLATFORM='https://127.0.0.1:4173';
 // emits an actual two-origin303. It creates no Customer cookie or identity and
 // does not substitute for the real backend's exact proof/session transaction.
 export async function handlePlatformSyntheticNavigationFixture(request,response) {
-  if (request.url!=='/api/v1/platform/auth/delegation/approve') return false;
+  const owner=request.url==='/api/v1/platform/auth/owner/approve';
+  if (!owner && request.url!=='/api/v1/platform/auth/delegation/approve') return false;
   if (request.method!=='POST' || request.headers.host!=='127.0.0.1:4173'
     || request.headers.origin!==PLATFORM || request.headers['content-type']!=='application/x-www-form-urlencoded'
     || !String(request.headers.cookie || '').split(';').some(value=>value.trim()==='cm_fixture_platform=present')) {
@@ -17,9 +18,11 @@ export async function handlePlatformSyntheticNavigationFixture(request,response)
   const form=new URLSearchParams(Buffer.concat(chunks).toString('utf8'));
   let payload;try { payload=JSON.parse(form.get('payload')); } catch { /* Rejected below. */ }
   if (form.size!==2 || !['C'.repeat(43),'N'.repeat(43)].includes(form.get('csrfToken')) || !payload
-    || !['generationId,response,role,slot,state','generationId,role,slot,state'].includes(Object.keys(payload).sort().join(','))
+    || !(owner ? Object.keys(payload).sort().join(',')==='role,state,tenantId'
+      && payload.tenantId==='ba000000-0000-4000-8000-000000000002'
+      : ['generationId,response,role,slot,state','generationId,role,slot,state'].includes(Object.keys(payload).sort().join(','))
+      && ['northwind','contoso','fabrikam'].includes(payload.slot))
     || payload.state!==Buffer.alloc(32,1).toString('base64url')
-    || !['northwind','contoso','fabrikam'].includes(payload.slot)
     || !['employee','conference_manager','tenant_admin'].includes(payload.role)) {
     response.writeHead(400);response.end();return true;
   }

@@ -44,7 +44,7 @@ test('deployable manifests bind exact profile and every captured byte and refuse
     assert.equal(createHash('sha256').update(raw).digest('hex'),built.manifestDigests[surface]);
     assert.equal(manifest.surface,surface);assert.equal(manifest.apiCommit,selected.apiCommit);
     assert.equal(manifest.frontendCommit,selected.frontendCommit);assert.equal(manifest.syntheticEnabled,true);
-    assert.equal(manifest.microsoftEnabled,false);assert.equal(manifest.invitationsEnabled,false);
+    assert.equal(manifest.ownerAccessEnabled,false);assert.equal(manifest.microsoftEnabled,false);assert.equal(manifest.invitationsEnabled,false);
     for (const entry of manifest.files) {
       const bytes=await readFile(path.join(destination,surface,entry.path));
       assert.equal(bytes.length,entry.bytes);assert.equal(createHash('sha256').update(bytes).digest('hex'),entry.sha256);
@@ -55,7 +55,7 @@ test('deployable manifests bind exact profile and every captured byte and refuse
   const next=await buildProtectedFrontendArtifacts({ ...selected,apiCommit: 'c'.repeat(40) });
   assert.deepEqual(next.digests,built.digests);assert.notDeepEqual(next.manifestDigests,built.manifestDigests);
   for (const change of [{ apiCommit: 'main' },{ frontendCommit: 'latest' },{ environment: 'demo' },
-    { environment: 'prod',syntheticEnabled: true },{ microsoftEnabled: 'true' }]) {
+    { environment: 'prod',syntheticEnabled: true },{ microsoftEnabled: 'true' },{ ownerAccessEnabled: true },{ ownerAccessEnabled: 'true' }]) {
     await assert.rejects(buildProtectedFrontendArtifacts({ ...selected,...change }),/PROTECTED_/);
   }
 });

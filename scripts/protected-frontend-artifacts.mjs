@@ -19,7 +19,7 @@ async function files(root,relative) {
 // Build-time only: no credentials, network, source execution, runtime authority
 // or browser-controlled paths. The reviewed checkout supplies native modules.
 export async function buildProtectedFrontendArtifacts({ root,apiCommit,frontendCommit,customerOrigin,platformOrigin,
-  environment,syntheticEnabled=false,microsoftEnabled=false,invitationsEnabled=false }={}) {
+  environment,syntheticEnabled=false,microsoftEnabled=false,invitationsEnabled=false,ownerAccessEnabled=false }={}) {
   if (!path.isAbsolute(root ?? '') || ![apiCommit,frontendCommit].every(ref=>/^[a-f0-9]{40}$/.test(ref ?? ''))
     || !['dev','int','prod'].includes(environment)) fail();
   requireProtectedFrontendOrigins({ customerOrigin,platformOrigin });
@@ -37,7 +37,7 @@ export async function buildProtectedFrontendArtifacts({ root,apiCommit,frontendC
   const platformInventory=JSON.parse(await readFile(path.join(root,'deployment/platform-admin-production.json'),'utf8'));
   if (platformInventory.artifact!=='platform-admin-production' || !Array.isArray(platformInventory.files)) fail();
   const platformFiles=new Set(platformInventory.files);if (platformFiles.size!==platformInventory.files.length) fail();
-  const presentation={ customerOrigin,platformOrigin,environment,syntheticEnabled,microsoftEnabled,invitationsEnabled };
+  const presentation={ customerOrigin,platformOrigin,environment,syntheticEnabled,microsoftEnabled,invitationsEnabled,ownerAccessEnabled };
   const html={ customer: createProtectedCustomerHtml({ source: await readFile(path.join(root,'index.html'),'utf8'),...presentation }),
     platform: createProtectedPlatformHtml({ source: await readFile(path.join(root,'platform-admin/index.html'),'utf8'),...presentation }) };
   const sets={ customer: customerFiles,platform: platformFiles },content=new Map(),digests={},manifests={},manifestDigests={};
@@ -53,7 +53,7 @@ export async function buildProtectedFrontendArtifacts({ root,apiCommit,frontendC
     }
     digests[surface]=ordered.digest('hex');
     manifests[surface]=Buffer.from(JSON.stringify({ schemaVersion: 1,surface,environment,apiCommit,frontendCommit,
-      customerOrigin,platformOrigin,syntheticEnabled,microsoftEnabled,invitationsEnabled,files: entries })+'\n');
+      customerOrigin,platformOrigin,syntheticEnabled,microsoftEnabled,invitationsEnabled,ownerAccessEnabled,files: entries })+'\n');
     manifestDigests[surface]=hash(manifests[surface]);
   }
   return { sets,content,digests,manifests,manifestDigests };

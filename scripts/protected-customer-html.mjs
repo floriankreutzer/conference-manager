@@ -13,14 +13,15 @@ export function requireProtectedFrontendOrigins({ customerOrigin,platformOrigin 
   if (customerOrigin===platformOrigin) throw new TypeError('PROTECTED_CUSTOMER_HTML_INVALID');
   return Object.freeze({ customerOrigin,platformOrigin });
 }
-export function protectedPresentationMetadata({ environment=null,syntheticEnabled=false,microsoftEnabled=false,invitationsEnabled=false }={}) {
-  if ([syntheticEnabled,microsoftEnabled,invitationsEnabled].some(value=>typeof value!=='boolean')
+export function protectedPresentationMetadata({ environment=null,syntheticEnabled=false,microsoftEnabled=false,invitationsEnabled=false,ownerAccessEnabled=false }={}) {
+  if ([syntheticEnabled,microsoftEnabled,invitationsEnabled,ownerAccessEnabled].some(value=>typeof value!=='boolean')
     || environment!==null && !['dev','int','prod'].includes(environment)
-    || [syntheticEnabled,microsoftEnabled,invitationsEnabled].some(Boolean) && environment===null
-    || syntheticEnabled && environment==='prod') throw new TypeError('PROTECTED_PRESENTATION_CONFIGURATION_INVALID');
+    || [syntheticEnabled,microsoftEnabled,invitationsEnabled,ownerAccessEnabled].some(Boolean) && environment===null
+    || syntheticEnabled && environment==='prod' || ownerAccessEnabled && !microsoftEnabled) throw new TypeError('PROTECTED_PRESENTATION_CONFIGURATION_INVALID');
   return `<meta name="conference-protected-runtime" content="true">
   <meta name="conference-deployment-environment" content="${environment ?? 'unconfigured'}">
   <meta name="conference-protected-synthetic" content="${syntheticEnabled ? 'enabled' : 'disabled'}">
+  <meta name="conference-protected-owner-access" content="${ownerAccessEnabled ? 'enabled' : 'disabled'}">
   <meta name="conference-protected-microsoft" content="${microsoftEnabled ? 'enabled' : 'disabled'}">
   <meta name="conference-protected-invitations" content="${invitationsEnabled ? 'enabled' : 'disabled'}">`;
 }
