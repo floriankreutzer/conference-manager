@@ -1,5 +1,11 @@
 # Conference Manager Design System
 
+## Authority and supplementary application profile
+
+This document and the current `assets/tokens.css` remain the application design sources under root `AGENTS.md` and `docs/CODING-STANDARDS.md`. Read them from the target application repository, together with the current architecture, affected component and test sources.
+
+The optional [Pavurel Application Design profile](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/1e812a0f0f82cdd2669b5e2d3e5411ea79a5dd1d/skills/pavurel-app-design/SKILL.md) in [skills PR #1](https://github.com/floriankreutzer/automatic-engineering-design-skills/pull/1) helps apply these sources to an authorized UI task. This pinned candidate's acceptance state is recorded in that PR, and the reference does not install it. It must defer to the current repository rules and tokens, preserve the native-module architecture, and avoid copying marketing-site defaults or maintaining a second design specification. Resolve material conflicts in the owning repository before implementing the affected change.
+
 ## Brand architecture
 
 PAVUREL is the standard corporate visual identity shipped with Conference Manager. The official product name remains **Conference Manager**; **by Pavurel** is the subordinate corporate endorsement and is not part of the product name.

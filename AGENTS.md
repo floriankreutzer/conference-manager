@@ -33,7 +33,7 @@ At minimum, use the applicable current versions of:
 
 - `README.md`
 - `docs/ARCHITECTURE.md`
-- `docs/DESIGN-SYSTEM.md`
+- `docs/DESIGN-SYSTEM.md`, including the supplementary [Pavurel application profile](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/1e812a0f0f82cdd2669b5e2d3e5411ea79a5dd1d/skills/pavurel-app-design/SKILL.md); current repository requirements remain authoritative.
 - security documentation under `docs/`
 - `docs/CODING-STANDARDS.md`
 - `assets/tokens.css`
