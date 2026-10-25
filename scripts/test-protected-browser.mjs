@@ -36,7 +36,7 @@ try {
   command('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-days','1','-subj','/CN=CM qualified acceptance CA',
     '-keyout',path.join(directory,'ca.key'),'-out',path.join(directory,'ca.crt')]);
   await writeFile(path.join(directory,'extensions.cnf'),
-    'subjectAltName=DNS:app-int.example.test,DNS:ops-int.example.com\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\n');
+    'subjectAltName=DNS:app-int.example.test,DNS:ops-int.example.com,DNS:login.microsoftonline.com\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\n');
   command('openssl',['req','-newkey','rsa:2048','-nodes','-subj','/CN=ops-int.example.com',
     '-keyout',path.join(directory,'server.key'),'-out',path.join(directory,'server.csr')]);
   command('openssl',['x509','-req','-in',path.join(directory,'server.csr'),'-CA',path.join(directory,'ca.crt'),

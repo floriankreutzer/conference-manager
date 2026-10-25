@@ -114,3 +114,22 @@ final audit/count assertions, rate limits, retries and deadlines remain unchange
 Existing journeys never invoke compaction. A focused regression proves exact
 retention, aggregation, input immutability and refusal to compact non-static,
 failed, pending or foreign-surface requests. Renewed full qualification is required.
+
+
+Candidate64cb8ff / CI40150747469 passed the complete Chromium protected job
+121041945533 including all three Owner roles. WebKit121041945552 passed every
+role, stable identity and native redirect/cookie assertion, then failed the
+closed-edge zero-denied-CONNECT assertion (six). The intercepted external
+provider document still caused native WebKit connection attempts before route
+fulfilment. Those attempts remained blocked; the failed run is retained.
+
+The Owner-only fixture now serves that single external document through a fixed
+local TLS/SNI endpoint for login.microsoftonline.com instead of browser route
+fulfilment. Its test certificate adds only that name. The relay enables this
+fixed endpoint only for the explicit Owner fixture; ordinary acceptance retains
+its two-site allowlist. Only the exact GET authorize path, one43-character state
+and the fixed actual Platform operation callback can produce the closed anchor.
+Unknown sites remain blocked, all Customer/Platform traffic remains byte-transparent
+actual roots, and no provider API/network is exposed or contacted. The case still
+requires zero denied external CONNECTs and exactly three isolated provider
+pages. This transport substitution is not actual Microsoft/device evidence.

@@ -29,7 +29,7 @@ async({ browser,browserName })=>{
       timeout: 30000,maxBuffer: 65536 });written=true;
     expect(JSON.parse(stdout)).toEqual({ apiCommit,frontendCommit,manifestSha256: built.manifestDigests });
     runtime=await createProtectedOwnerBrowserRuntimeFixture({ apiCommit,frontendCommit,hostedFrontend: built.manifestDigests });
-    edge=await createQualifiedProtectedEdge({ root: ROOT,ports: runtime.ports,certificateDirectory,artifactDigests: built.digests });
+    edge=await createQualifiedProtectedEdge({ root: ROOT,ports: runtime.ports,certificateDirectory,artifactDigests: built.digests,isolatedMicrosoft: true });
     context=await browser.newContext({ proxy: { server: edge.proxy },ignoreHTTPSErrors: false,
       viewport: browserName==='webkit' ? { width: 390,height: 844 } : { width: 1280,height: 900 } });
     const parts=runtime.initialSetCookie.split(';').map(part=>part.trim()),pair=parts[0],split=pair.indexOf('=');
@@ -39,17 +39,8 @@ async({ browser,browserName })=>{
     }
     await context.addCookies([{ name: pair.slice(0,split),value: pair.slice(split+1),domain: new URL(origins.platform).hostname,
       path,secure: true,httpOnly: true,sameSite: 'Strict' }]);
-    // Only the external provider document is isolated. Its anchor returns to the
-    // actual Platform callback, whose actual pinned SDK uses fixture network I/O.
-    await context.route('https://login.microsoftonline.com/**',async route=>{
-      const url=new URL(route.request().url()),redirect=new URL(url.searchParams.get('redirect_uri'));
-      expect(redirect.origin).toBe(origins.platform);expect(redirect.pathname).toBe('/api/v1/platform/auth/microsoft/operation/callback');
-      const state=url.searchParams.get('state');expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
-      redirect.searchParams.set('state',state);redirect.searchParams.set('code','owner-browser-provider-code');
-      await route.fulfill({ contentType: 'text/html',headers: { 'Cross-Origin-Opener-Policy': 'same-origin',
-        'Referrer-Policy': 'no-referrer','Cache-Control': 'no-store' },body: '<!doctype html><html lang="en"><title>Isolated provider</title>'
-          +'<main><a href="'+redirect.href.replaceAll('&','&amp;')+'">Confirm isolated Microsoft fixture</a></main></html>' });
-    });
+    // The closed TLS edge serves only the isolated external provider document.
+    // All callbacks, status, approvals and admissions remain actual API roots.
     await context.addInitScript(()=>{ Object.defineProperty(navigator,'credentials',{ configurable: true,value: {
       get() { throw new Error('OWNER_APPLICATION_PASSKEY_FORBIDDEN'); },create() { throw new Error('OWNER_APPLICATION_PASSKEY_FORBIDDEN'); },
     } }); });
@@ -125,7 +116,7 @@ async({ browser,browserName })=>{
       ['/api/v1/auth/owner/complete','POST','same-origin',3]]) {
       expect(traffic.requests.filter(event=>event.path===path && event.method===method && event.status===303 && event.fetchSite===site)).toHaveLength(count);
     }
-    expect(traffic.deniedConnects).toBe(0);const evidence=await runtime.evidence();
+    expect(traffic.deniedConnects).toBe(0);expect(traffic.providerDocuments).toBe(3);const evidence=await runtime.evidence();
     expect(evidence).toMatchObject({ application_keys: 0,own_bindings: 1,distinct_own_users: 1,consumed_flows: 3,
       ordinary_user_grants: 0,tenantChainVerified: true,platformChainVerified: true });
     console.log('OWNER_PROTECTED_BROWSER_EVIDENCE '+JSON.stringify({ engine: browserName,...evidence,
