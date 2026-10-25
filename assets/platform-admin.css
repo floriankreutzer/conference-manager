@@ -281,6 +281,27 @@
   color: var(--color-muted);
 }
 
+.platform-admin-audit-action {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-bold);
+}
+
+.platform-admin-audit-event-details {
+  margin-block-start: var(--space-2);
+}
+
+.platform-admin-audit-event-details summary {
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-audit-event-details code {
+  display: block;
+  margin-block-start: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
 .platform-admin-warning {
   border-inline-start: 5px solid var(--color-warning);
   background: var(--color-warning-soft);
