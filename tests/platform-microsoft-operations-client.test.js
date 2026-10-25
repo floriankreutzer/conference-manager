@@ -91,3 +91,19 @@ test('explicit synthetic confirmation validates the complete challenge and uses 
   await assert.rejects(f.client.confirmOperation(microsoftOperationChallenge()),/CANCELLED/);
   assert.equal(f.calls.length,1);
 });
+
+test('exact Microsoft operation accepts only optional literal login prompt and preserves the qualified legacy challenge',()=>{
+  const valid=microsoftOperationChallenge(),url=new URL(valid.authorizationUrl);
+  assert.equal(url.searchParams.get('prompt'),'login');
+  assert.equal(requirePlatformMicrosoftOperationChallenge(valid,origin).authorizationUrl,url.href);
+  url.searchParams.delete('prompt');
+  assert.equal(requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: url.href },origin).state,state);
+  for (const prompt of ['', 'none','consent','select_account','login consent','LOGIN']) {
+    const invalid=new URL(valid.authorizationUrl);invalid.searchParams.set('prompt',prompt);
+    assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: invalid.href },origin),/RESPONSE_INVALID/);
+  }
+  for (const [key,value] of [['prompt','login'],['unexpected','login']]) {
+    const invalid=new URL(valid.authorizationUrl);invalid.searchParams.append(key,value);
+    assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: invalid.href },origin),/RESPONSE_INVALID/);
+  }
+});
