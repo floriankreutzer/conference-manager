@@ -91,6 +91,8 @@ jobs:
         run: sudo apt-get install --no-install-recommends -y libnss3-tools
       - name: Verify isolated acceptance transport in Chromium, WebKit and API requests
         run: node scripts/test-hosted-transport.mjs --browsers
+      - name: Verify exact Microsoft action and native cookie custody before the full suite
+        run: npx playwright test tests/e2e/platform-microsoft-operations.spec.js --project=${{ matrix.project }}
       - name: Verify Guest print loading and recovery in both engines
         run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled"
       - name: Verify Tenant Admin keyboard lifecycle after navigation focus
@@ -151,7 +153,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 1edb9e3d64d9b57ffed5c69183d9f5d1d46cf3a1
+          ref: c3c64ab9c1dee213e834360f5143cc87883d1a90
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -294,7 +296,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: 1edb9e3d64d9b57ffed5c69183d9f5d1d46cf3a1
+      PROTECTED_BROWSER_COUNTERPART_REF: c3c64ab9c1dee213e834360f5143cc87883d1a90
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
     services:
       postgres:
@@ -320,7 +322,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 1edb9e3d64d9b57ffed5c69183d9f5d1d46cf3a1
+          ref: c3c64ab9c1dee213e834360f5143cc87883d1a90
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api

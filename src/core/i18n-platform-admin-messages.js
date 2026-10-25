@@ -1,5 +1,8 @@
+import { PLATFORM_MICROSOFT_OPERATION_MESSAGES } from './i18n-platform-microsoft-operation-messages.js';
+
 export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
   de: Object.freeze({
+    ...PLATFORM_MICROSOFT_OPERATION_MESSAGES.de,
     "platformAdmin.passkey.delivery.title": "Einrichtungsfreigabe als Datei",
     "platformAdmin.passkey.delivery.description": "Bereite die sichere Übergabe an dieses Browserfenster vor. Die Anfrage enthält keinen Einrichtungscode.",
     "platformAdmin.passkey.delivery.prepare": "Sichere Übergabe vorbereiten",
@@ -27,7 +30,7 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
     "platformAdmin.passkey.manage.add": "Weiteren Passkey hinzufügen",
     "platformAdmin.passkey.manage.remove": "Passkey entfernen",
     "platformAdmin.passkey.manage.removeNamed": "Passkey {number} entfernen",
-    "platformAdmin.passkey.operationNote": "Vor dem Ausführen bestätigst du genau diese Aktion mit deinem Passkey.",
+    "platformAdmin.passkey.operationNote": "Vor dem Ausführen bestätigst du genau diese Aktion.",
     "platformAdmin.passkey.title.legacy": "Mit Microsoft anmelden",
     "platformAdmin.passkey.title.sign_in": "Plattform-Anmeldung",
     "platformAdmin.passkey.title.loading": "Anmeldung wird geprüft",
@@ -732,6 +735,7 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
     'platformAdmin.state.connected': 'Verbunden',
   }),
   en: Object.freeze({
+    ...PLATFORM_MICROSOFT_OPERATION_MESSAGES.en,
     "platformAdmin.passkey.delivery.title": "Setup approval by file",
     "platformAdmin.passkey.delivery.description": "Prepare secure delivery to this browser window. The request contains no setup code.",
     "platformAdmin.passkey.delivery.prepare": "Prepare secure delivery",
@@ -759,7 +763,7 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
     "platformAdmin.passkey.manage.add": "Add another passkey",
     "platformAdmin.passkey.manage.remove": "Remove passkey",
     "platformAdmin.passkey.manage.removeNamed": "Remove passkey {number}",
-    "platformAdmin.passkey.operationNote": "Before execution, confirm this exact action with your passkey.",
+    "platformAdmin.passkey.operationNote": "Before execution, confirm this exact action.",
     "platformAdmin.passkey.title.legacy": "Sign in with Microsoft",
     "platformAdmin.passkey.title.sign_in": "Platform sign-in",
     "platformAdmin.passkey.title.loading": "Checking sign-in",

@@ -8,6 +8,8 @@ import { createPlatformPasskeyLogin } from './passkey-login.js';
 import { createPlatformPasskeyLoginView } from './passkey-login-view.js';
 import { createPlatformPasskeyManagement } from './passkey-management.js';
 import { createPlatformPasskeyOperationsClient, loadPlatformPasskeyConfiguration } from './passkey-operations-client.js';
+import { createPlatformMicrosoftOperationsClient,loadPlatformMicrosoftConfiguration } from './microsoft-operations-client.js';
+import { confirmPlatformMicrosoftOperation } from './microsoft-operation-confirmation.js';
 import { featureFlags } from '../../platform/feature-flags.js';
 import { createPlatformCustomerInvitationApi } from '../customer-invitation-api.js';
 import { createPlatformInvitationPresentation } from '../customer-invitations-presentation.js';
@@ -41,6 +43,7 @@ async function bootstrapProductionPlatformAdmin() {
     csrfToken = session.csrfToken;
     document.documentElement.dataset.authenticationReady = 'true';
     const configuration = await loadPlatformPasskeyConfiguration(apiClient);
+    const microsoftConfiguration=configuration===null ? await loadPlatformMicrosoftConfiguration(apiClient) : null;
     if (configuration?.mode === 'passkey_setup') throw new TypeError('PLATFORM_SETUP_SESSION_REJECTED');
     async function refreshSession() {
       const refreshed = await sessionApi.loadSession();
@@ -49,16 +52,19 @@ async function bootstrapProductionPlatformAdmin() {
     }
     const protectedClient = configuration?.mode === 'application_passkey' ? createPlatformPasskeyOperationsClient({
       csrfTokenProvider: () => csrfToken, onPrompt: () => announce(t('platformAdmin.passkey.busy')), refreshSession,
-    }) : null;
-    const keyManagement = protectedClient ? createPlatformPasskeyManagement({ apiClient, refreshSession }) : null;
+    }) : microsoftConfiguration ? createPlatformMicrosoftOperationsClient({ csrfTokenProvider: ()=>csrfToken,refreshSession,
+      confirmation: confirmPlatformMicrosoftOperation }) : null;
+    const keyManagement = configuration?.mode==='application_passkey' ? createPlatformPasskeyManagement({ apiClient, refreshSession }) : null;
     if (keyManagement) globalThis.addEventListener('pagehide', () => keyManagement.stop(), { once: true });
     if (protectedClient) globalThis.addEventListener('pagehide', () => protectedClient.stop(), { once: true });
     const customerInvitations=presentationFlags.isEnabled('platform.customer-invitations')
       ? createPlatformInvitationPresentation({ api: createPlatformCustomerInvitationApi({ apiClient: protectedClient ?? apiClient }) }) : null;
-    const syntheticWorkspace=protectedClient && ['dev','int'].includes(configuration?.environment)
+    const syntheticWorkspace=protectedClient && ['dev','int'].includes((configuration ?? microsoftConfiguration)?.environment)
       && session.operator.permissions.includes('platform:lifecycle:manage') && presentationFlags.isEnabled('platform.synthetic-workspace')
       ? createPlatformSyntheticWorkspacePresentation({ apiFactory: ()=>createPlatformSyntheticWorkspaceClient({
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
+        assuranceMode: microsoftConfiguration ? 'microsoft_mfa' : 'application_passkey',
+        microsoftConfirmation: microsoftConfiguration ? protectedClient.confirmOperation : null,
       }) }) : null;
     if (syntheticWorkspace) globalThis.addEventListener('pagehide',()=>syntheticWorkspace.stop(),{ once: true });
     const insights=session.operator.permissions.includes('platform:runtime:read')

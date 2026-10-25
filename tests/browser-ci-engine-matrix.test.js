@@ -10,7 +10,8 @@ test('regular browser CI retains both full projects, one unchanged budget and di
   assert.match(matrix,/fail-fast: false/); assert.match(matrix,/project: \[chromium-desktop, webkit-mobile\]/);
   assert.match(matrix,/run: npm run test:e2e -- --project=\$\{\{ matrix\.project \}\}/);
   assert.match(matrix,/name: playwright-report-\$\{\{ matrix\.project \}\}/);
-  for (const proof of ['test-hosted-transport.mjs --browsers','EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft']) {
+  for (const proof of ['test-hosted-transport.mjs --browsers','platform-microsoft-operations.spec.js',
+    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft']) {
     assert.ok(matrix.includes(proof));
   }
   assert.doesNotMatch(matrix,/continue-on-error:|--grep-invert|--shard|--retries|--workers/);
@@ -35,11 +36,11 @@ test('required e2e aggregate rejects failed, cancelled, skipped, absent and ambi
 test('qualified protected acceptance pins the API, retains both engines and actual TLS without weakening permanent gates',()=>{
   const protectedJob=workflow.slice(workflow.indexOf('\n  protected-browser-e2e:'));
   assert.match(protectedJob,/browser: \[chromium, webkit\]/);assert.match(protectedJob,/needs: quality/);
-  assert.match(protectedJob,/ref: 1edb9e3d64d9b57ffed5c69183d9f5d1d46cf3a1/);
+  assert.match(protectedJob,/ref: c3c64ab9c1dee213e834360f5143cc87883d1a90/);
   assert.match(protectedJob,/node frontend\/scripts\/check-platform-passkey-wire.mjs "\$PWD\/api"/);
   const refs=[...workflow.matchAll(/repository: floriankreutzer\/conference-manager-api\n\s+ref: ([a-f0-9]{40})/g)]
     .map(match=>match[1]);
-  assert.deepEqual(refs,["1edb9e3d64d9b57ffed5c69183d9f5d1d46cf3a1","1edb9e3d64d9b57ffed5c69183d9f5d1d46cf3a1"]);
+  assert.deepEqual(refs,["c3c64ab9c1dee213e834360f5143cc87883d1a90","c3c64ab9c1dee213e834360f5143cc87883d1a90"]);
   assert.match(protectedJob,/node scripts\/test-protected-browser.mjs "\$\{\{ matrix.browser \}\}-protected"/);
   assert.doesNotMatch(protectedJob,/continue-on-error:|--ignore-https-errors|--retries|--grep|--shard/);
   assert.match(workflow,/Run full three-customer progression and two-cycle reset acceptance/);
