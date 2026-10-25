@@ -38,8 +38,9 @@ export function createPlatformSyntheticWorkspacePresentation({ apiFactory,window
       control.addEventListener('click',open);return control;
     },
     async resume() {
-      if (resumed || stopped) return;resumed=true;const controller=ensureModel();await controller.load();
-      if (!stopped && (controller.snapshot().pendingIntent || windowRef.location.search==='?auth=synthetic_intent')) open();
+      if (resumed || stopped) return false;resumed=true;const controller=ensureModel();await controller.load();
+      if (stopped || !(controller.snapshot().pendingIntent || windowRef.location.search==='?auth=synthetic_intent')) return false;
+      open();return true;
     },
     stop() { if (stopped) return;stopped=true;dialog?.close();model?.stop();model=null; },
   });

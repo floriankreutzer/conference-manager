@@ -346,6 +346,8 @@ jobs:
         run: node frontend/scripts/check-platform-passkey-wire.mjs "$PWD/api"
       - name: Verify actual protected API insight reports reach both production views
         run: node frontend/scripts/check-platform-insight-wire.mjs "$PWD/api"
+      - name: Verify actual Platform runtime projection reaches its strict frontend contract
+        run: node frontend/scripts/check-platform-runtime-wire.mjs "$PWD/api"
       - name: Prefer the official Ubuntu archive for browser prerequisites
         shell: bash
         run: |

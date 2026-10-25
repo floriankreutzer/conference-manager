@@ -1263,3 +1263,39 @@ test('delivery charts contain only the four source periods and never draw unknow
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
     .toBeLessThanOrEqual(1);
 });
+
+test('Platform navigation clears an obsolete action announcement without retrying the uncertain mutation',async({ page })=>{
+  await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });let attempts=0;
+  await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/lifecycle/transitions`,route=>{
+    attempts++;return route.fulfill({ status: 503,contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'SOURCE_UNAVAILABLE' } }) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+  await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
+  await page.locator('[data-platform-action="suspend"]').click();
+  await page.locator('#platformAdminActionReason').fill('Isolated uncertain action fixture');
+  await page.locator('[data-platform-admin-confirm-action="suspend"]').click();
+  await expect(page.locator('#alertRegion')).not.toBeEmpty();
+  await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+  await expect(page.locator('#alertRegion')).toBeEmpty();await expect(page.locator('#statusRegion')).toBeEmpty();
+  await expect(page.locator('.platform-admin-error')).toBeVisible();
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+  await page.goBack();await expect(page.locator('#alertRegion')).toBeEmpty();expect(attempts).toBe(1);
+});
+
+test('Platform runtime accepts actual API support references and reflows long metadata on mobile',async({ page })=>{
+  await installDemoRoutes(page);
+  const payload=JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json',import.meta.url),'utf8'));
+  await page.route('**/api/v1/platform/runtime/deployments',route=>route.fulfill({
+    contentType: 'application/json',body: JSON.stringify(payload),
+  }));
+  await page.goto('/platform-admin-demo/');
+  await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
+  await expect(page.locator('.platform-admin-record-list > article')).toHaveCount(4);
+  for (const width of [320,1280]) {
+    await page.setViewportSize({ width,height: 900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  await expect(page.locator('.platform-admin-error')).toHaveCount(0);
+});

@@ -5,9 +5,9 @@ import { platformOperatorFixture } from '../support/platform-admin-contract-fixt
 import { microsoftOperationChallenge } from '../support/platform-microsoft-operation-fixture.js';
 const uuid=n=>`ba000000-0000-4000-8000-${String(n).padStart(12,'0')}`,STATE=Buffer.alloc(32,1).toString('base64url');
 const ORIGIN='https://127.0.0.1:4173',CUSTOMER='https://127.0.0.1:4174',BASE='/api/v1/platform/auth/microsoft/operation';
-async function setup(page,context,{ pending=true,reader=false }={}) {
+async function setup(page,context,{ pending=true,reader=false,syntheticPending=false,authHint='' }={}) {
   const html=createProtectedPlatformHtml({ source: await readFile(new URL('../../platform-admin/index.html',import.meta.url),'utf8'),
-    customerOrigin: CUSTOMER,platformOrigin: ORIGIN,environment: 'int',microsoftEnabled: true,ownerAccessEnabled: true });
+    customerOrigin: CUSTOMER,platformOrigin: ORIGIN,environment: 'int',microsoftEnabled: true,ownerAccessEnabled: true,syntheticEnabled: true });
   const writes=[],reads=[];let verified=false;
   await context.addCookies([{ name: 'cm_fixture_platform',value: 'present',domain: '127.0.0.1',path: '/api/v1/platform',
     secure: true,httpOnly: true,sameSite: 'Strict' }]);
@@ -39,6 +39,11 @@ async function setup(page,context,{ pending=true,reader=false }={}) {
     else if (path===BASE+'/status') { expect(request.postDataJSON()).toEqual({ state: STATE });
       value={ status: verified ? 'verified' : 'pending',requestId: uuid(1) }; }
     else if (path==='/api/v1/platform/tenants') value={ schemaVersion: 1,snapshotAt: new Date().toISOString(),items: [],nextCursor: null };
+    else if (path==='/api/v1/platform/synthetic/generation') value={ generation: null,retainedGenerations: 0,
+      canReplace: true,replaceAfter: null,requestId: uuid(1) };
+    else if (path==='/api/v1/platform/auth/delegation/intent') value=syntheticPending
+      ? { status: 'confirmation_required',slots: ['northwind','contoso','fabrikam'],roles: ['employee','conference_manager','tenant_admin'],requestId: uuid(1) }
+      : { status: 'none',requestId: uuid(1) };
     else if (path==='/api/v1/platform/auth/owner/intent') value={ status: pending ? 'confirmation_required' : 'none',
       customerStartUrl: CUSTOMER+'/?auth=owner_start',requestId: uuid(1),...(pending ? { tenants: [{
         tenantId: uuid(2),displayName: 'Customer',status: 'active' }],nextTenantId: null,
@@ -50,7 +55,7 @@ async function setup(page,context,{ pending=true,reader=false }={}) {
     else status=404;
     await route.fulfill({ status,contentType: 'application/json',body: JSON.stringify(value ?? { error: { code: 'PLATFORM_NOT_FOUND' } }) });
   });
-  await page.goto(ORIGIN+'/platform-admin/');return { writes,reads };
+  await page.goto(ORIGIN+'/platform-admin/'+authHint);return { writes,reads };
 }
 test('owner chooses current customer and role, explicitly confirms Microsoft and uses native state-only navigation',async({ page,context })=>{
   const f=await setup(page,context);const workspace=page.getByRole('dialog',{ name: 'Kundenanwendung als Owner öffnen',exact: true });
@@ -91,4 +96,18 @@ test('cancelling Microsoft leaves owner approval unsent until an independent sta
   await expect(dialog.getByRole('alert')).toContainText('abgebrochen');expect(f.writes.filter(x=>x.path.endsWith('/approve'))).toHaveLength(0);
   await dialog.getByRole('button',{ name: 'Aktuellen Status prüfen',exact: true }).click();
   await expect(dialog.getByRole('combobox',{ name: 'Kunde',exact: true })).toBeVisible();expect(f.writes.filter(x=>x.path.endsWith('/options'))).toHaveLength(1);
+});
+
+for (const [authHint,title] of [
+  ['?auth=owner_intent','Kundenanwendung als Owner öffnen'],
+  ['?auth=synthetic_intent','Eigene Testmandanten'],
+  ['','Eigene Testmandanten'],
+]) test(`only one pending access dialog resumes for ${authHint || 'ordinary navigation'}`,async({ page,context })=>{
+  const f=await setup(page,context,{ syntheticPending: true,authHint });
+  const dialog=page.getByRole('dialog',{ name: title,exact: true });
+  await expect(dialog).toBeVisible();await expect(page.getByRole('dialog')).toHaveCount(1);
+  await dialog.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
+  const other=title==='Eigene Testmandanten' ? 'Owner-Kundenzugang' : 'Eigene Testmandanten';
+  await page.getByRole('button',{ name: other,exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(1);expect(f.writes).toHaveLength(0);
 });
