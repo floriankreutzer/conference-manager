@@ -9,6 +9,18 @@ const HOSTS=Object.freeze({ 'app-int.example.test': 'customer','ops-int.example.
 const ORIGINS=Object.freeze({ customer: 'https://app-int.example.test',platform: 'https://ops-int.example.com' });
 const MAX_BYTES=2*1024*1024,MAX_EVENTS=2000;
 function fail() { throw new Error('PROTECTED_QUALIFIED_EDGE_INVALID'); }
+
+// Explicit phase compaction releases only successful immutable-asset evidence.
+// Authentication, document, failure and unfinished events retain their order.
+export function compactQualifiedStaticRequests(events) {
+  const completed={ customer: 0,platform: 0 },requests=[];
+  for (const event of events) {
+    if (Object.hasOwn(completed,event.surface) && ['GET','HEAD'].includes(event.method) && event.status===200
+      && /^(?:\/src\/[A-Za-z0-9_./-]+\.js|\/assets\/[A-Za-z0-9_./-]+)$/.test(event.path)) completed[event.surface]++;
+    else requests.push(event);
+  }
+  return { requests,completed };
+}
 export async function buildProtectedAcceptanceArtifacts(root) {
   return buildProtectedFrontendArtifacts({ root,apiCommit: 'a'.repeat(40),frontendCommit: 'b'.repeat(40),
     ...Object.fromEntries(Object.entries(ORIGINS).map(([surface,origin])=>[`${surface}Origin`,origin])),
@@ -27,7 +39,7 @@ export async function createQualifiedProtectedEdge({ root,ports,certificateDirec
     || !ports || ['customer','platform'].some(surface=>!Number.isSafeInteger(ports[surface])
       || ports[surface]<1024 || ports[surface]>65535) || ports.customer===ports.platform || !artifactDigests
     || ['customer','platform'].some(surface=>!/^[a-f0-9]{64}$/.test(artifactDigests[surface] ?? ''))) fail();
-  const events=[],sockets=new Set();let deniedConnects=0;
+  const events=[],sockets=new Set(),completedStatic={ customer: 0,platform: 0 };let deniedConnects=0,staticCompactions=0;
   const edge=httpsServer({ key: await readFile(path.join(certificateDirectory,'server.key')),
     cert: await readFile(path.join(certificateDirectory,'server.crt')),maxHeaderSize: 16384 },(request,response)=>{
     const host=request.headers.host,surface=Object.hasOwn(HOSTS,host) ? HOSTS[host] : null;
@@ -78,7 +90,14 @@ export async function createQualifiedProtectedEdge({ root,ports,certificateDirec
     });
   });const proxyPort=await listen(proxy);
   return Object.freeze({ proxy: `http://127.0.0.1:${proxyPort}`,origins: ORIGINS,
-    evidence: ()=>({ artifacts: { ...artifactDigests },requests: events.map(value=>({ ...value })),deniedConnects }),
+    compactStaticEvidence() {
+      if (staticCompactions>=2) fail();
+      const compacted=compactQualifiedStaticRequests(events);staticCompactions++;
+      for (const surface of Object.keys(completedStatic)) completedStatic[surface]+=compacted.completed[surface];
+      events.splice(0,events.length,...compacted.requests);
+    },
+    evidence: ()=>({ artifacts: { ...artifactDigests },requests: events.map(value=>({ ...value })),deniedConnects,
+      staticCompactions,completedStatic: { ...completedStatic } }),
     async close() { for (const socket of sockets) socket.destroy();
       await Promise.all([new Promise(resolve=>edge.close(resolve)),new Promise(resolve=>proxy.close(resolve))]);
     },

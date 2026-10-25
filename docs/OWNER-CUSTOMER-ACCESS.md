@@ -95,3 +95,22 @@ page-error names and scrubbed failed API path/status/error-code metadata. It
 retains no User ID, token, cookie, proof, request body or provider claims. The
 original navigation assertion and all budgets remain; the next exact run must
 identify and fix the remaining projection boundary before acceptance.
+
+
+The failure-only diagnostic in81ce6f0 / CI40149419211 failed to decode an
+empty response and obscured the original assertion; it retains failed status.
+Corrected diagnostic3f55a0f / CI40150437946, Chromium121040952693,
+identified tenant_admin (third role), exactly2000 retained edge events and an
+empty400 session response. Earlier Employee/Manager projections had succeeded.
+The sealed graphs contain197 Customer and86 Platform files; repeated no-store
+native document transitions exhausted the edge's fixed event journal.
+
+The three-role case now explicitly compacts only completed200 GET/HEAD static
+module/asset events at its two successful role boundaries, retaining bounded
+per-surface counts. The2000 live-event bound and a new maximum of two compactions
+stay fixed. Every API, navigation, failure and unfinished event retains order;
+all real-root bytes, original/browser custody, three-role stable identity,
+final audit/count assertions, rate limits, retries and deadlines remain unchanged.
+Existing journeys never invoke compaction. A focused regression proves exact
+retention, aggregation, input immutability and refusal to compact non-static,
+failed, pending or foreign-surface requests. Renewed full qualification is required.

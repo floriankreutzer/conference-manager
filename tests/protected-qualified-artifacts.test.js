@@ -6,7 +6,7 @@ import { mkdtemp,readFile,rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { buildProtectedFrontendArtifacts,writeProtectedFrontendArtifacts } from '../scripts/protected-frontend-artifacts.mjs';
-import { buildProtectedAcceptanceArtifacts,createQualifiedProtectedEdge }
+import { buildProtectedAcceptanceArtifacts,createQualifiedProtectedEdge,compactQualifiedStaticRequests }
   from './e2e-protected/support/qualified-edge.mjs';
 
 test('qualified acceptance serves exact current production graphs and separate protected HTML at distinct fixed sites',async()=>{
@@ -58,4 +58,18 @@ test('deployable manifests bind exact profile and every captured byte and refuse
     { environment: 'prod',syntheticEnabled: true },{ microsoftEnabled: 'true' },{ ownerAccessEnabled: true },{ ownerAccessEnabled: 'true' }]) {
     await assert.rejects(buildProtectedFrontendArtifacts({ ...selected,...change }),/PROTECTED_/);
   }
+});
+
+
+test('qualified phase compaction preserves every API, document, failure and unfinished event in order',()=>{
+  const request=(path,method='GET',status=200,surface='customer')=>({ path,method,status,surface,fetchSite: 'same-origin',cookiePresent: true });
+  const retained=[request('/api/v1/session'),request('/api/v1/auth/owner/complete','POST',303),request('/'),
+    request('/platform-admin/'),request('/src/module.js','POST'),request('/src/module.js','GET',404),
+    request('/assets/logo.svg','GET',null),request('/src/module.js?unsealed=true'),request('/src/module.js','GET',200,'foreign')];
+  const input=[request('/src/main.js'),...retained.slice(0,4),request('/assets/logo.svg','HEAD',200,'platform'),
+    ...retained.slice(4),request('/src/main.js')];
+  const before=structuredClone(input),result=compactQualifiedStaticRequests(input);
+  assert.deepEqual(result,{ requests: retained,completed: { customer: 2,platform: 1 } });
+  assert.deepEqual(input,before);assert.equal(result.requests[0],retained[0]);
+  assert.deepEqual(compactQualifiedStaticRequests(result.requests),{ requests: retained,completed: { customer: 0,platform: 0 } });
 });

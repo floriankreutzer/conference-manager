@@ -112,11 +112,14 @@ async({ browser,browserName })=>{
         return { status: response.status,userId: value.user?.id,roles: value.roles }; });
       expect(session.status).toBe(200);expect(session.roles).toEqual(role==='employee' ? ['employee'] : ['employee',role]);
       users.push(session.userId);await provider.close();
+      if (index<roles.length-1) edge.compactStaticEvidence();
     }
     expect(new Set(users).size).toBe(1);expect(typeof users[0]).toBe('string');expect(errors).toEqual([]);
     expect(await page.evaluate(()=>!/(?:csrfToken|browserToken|refresh_token|access_token|approval_proof)/i
       .test(JSON.stringify({ local: Object.entries(localStorage),session: Object.entries(sessionStorage) })))).toBe(true);
     const traffic=edge.evidence();
+    expect(traffic.staticCompactions).toBe(2);expect(traffic.completedStatic.customer).toBeGreaterThan(0);
+    expect(traffic.completedStatic.platform).toBeGreaterThan(0);
     for (const [path,method,site,count] of [['/api/v1/platform/auth/microsoft/operation/callback','GET','cross-site',3],
       ['/api/v1/platform/auth/owner/approve','POST','same-origin',3],['/api/v1/auth/owner/callback','GET','cross-site',3],
       ['/api/v1/auth/owner/complete','POST','same-origin',3]]) {
