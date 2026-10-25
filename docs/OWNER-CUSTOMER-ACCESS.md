@@ -38,3 +38,18 @@ The signed hosted manifest includes ownerAccessEnabled. The paired API refuses
 a mismatch with its immutable owner flag and refuses owner presentation without
 Microsoft presentation. Build with the fixed PROTECTED_OWNER_CUSTOMER_ACCESS_ENABLED
 input; the HTML marker only exposes a control and grants no server authority.
+
+
+## Retained failed browser evidence
+
+Initial49ef9e002e68d019a6877400104b5e93f5b4f3d7 / CI40146657842
+Chromium job121029566940 passed321 cases but failed all three new Platform
+Owner cases before the control appeared. Its test helper lacked the security
+auditor role, so the four-role mock contained an undefined permission and the
+actual ordinary-session parser correctly rejected it. The helper now includes
+the canonical auditor permissions; a focused contract case validates the exact
+four-role fixture before browser execution. No production session validator or
+Owner role check is relaxed. Both actual protected-root engine jobs passed on
+the failed candidate, but the complete run remains failed. New Owner cases now
+run early before the unchanged full ordinary suite, with retries0 and unchanged
+budgets; final dual-engine and complete Demo/reset qualification remain required.

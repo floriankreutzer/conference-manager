@@ -84,6 +84,10 @@ export function platformOperatorFixture(role = 'platform_support_reader') {
       'platform:runtime:read', 'platform:invitation:manage', 'platform:lifecycle:manage',
       'platform:entitlement:manage', 'platform:quota:manage',
     ],
+    platform_security_auditor: [
+      'platform:tenant:read', 'platform:diagnostics:read', 'platform:diagnostics:sensitive',
+      'platform:audit:read', 'platform:audit:export', 'platform:runtime:read',
+    ],
     platform_security_admin: [
       'platform:tenant:read', 'platform:diagnostics:read', 'platform:diagnostics:sensitive',
       'platform:recovery:execute', 'platform:audit:read', 'platform:session:revoke',

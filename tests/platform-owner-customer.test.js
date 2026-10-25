@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { normalizePlatformOperatorSession } from '../src/platform-admin/contracts.js';
+import { platformOperatorFixture } from './support/platform-admin-contract-fixtures.js';
 import { createPlatformOwnerCustomerClient } from '../src/platform-admin/production/owner-customer/client.js';
 import { createPlatformOwnerCustomerController } from '../src/platform-admin/production/owner-customer/controller.js';
 const uuid=n=>`ba000000-0000-4000-8000-${String(n).padStart(12,'0')}`,state='S'.repeat(43),csrf='C'.repeat(43);
@@ -93,4 +95,13 @@ test('unknown owner approval outcome requires a fresh status check and does not 
       assert.deepEqual(f.calls.slice(-2),['refresh',['read',{ afterTenantId: null }]]); }
     f.controller.stop();await f.controller.nextPage();assert.equal(f.calls.at(-1),'stop');
   }
+});
+
+test('four-role owner browser fixture is accepted by the real ordinary-session contract',()=>{
+  const roles=['platform_support_reader','platform_tenant_operator','platform_security_auditor','platform_security_admin'];
+  const permissions=[...new Set(roles.flatMap(role=>platformOperatorFixture(role).permissions))];
+  const session=normalizePlatformOperatorSession({ operatorId: uuid(1),roles,permissions,
+    assurance: { level: 'mfa',authenticatedAt: new Date().toISOString() },expiresAt: new Date(Date.now()+3600000).toISOString(),
+    stepUpExpiresAt: null,csrfToken: csrf });
+  assert.deepEqual([...session.operator.roles].sort(),roles.toSorted());assert.ok(session.operator.permissions.includes('platform:audit:export'));
 });
