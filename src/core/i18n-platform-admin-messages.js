@@ -1303,7 +1303,7 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
     'platformAdmin.section.runtime.title': 'Runtime status',
     'platformAdmin.section.runtime.description': 'Review frontend, API, and schema compatibility.',
     'platformAdmin.readiness.blockers': 'Current blockers',
-    'platformAdmin.readiness.noBlockers': 'There are no readiness blockers.'
+    'platformAdmin.readiness.noBlockers': 'There are no readiness blockers.',
     'platformAdmin.readiness.check.identity': 'Tenant identity',
     'platformAdmin.readiness.check.microsoftConnection': 'Microsoft connection',
     'platformAdmin.readiness.check.placesPermission': 'Microsoft Places permission',
@@ -1323,7 +1323,7 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
     'platformAdmin.readiness.reason.roomMappingMissing': 'Room mapping to Microsoft rooms is missing.',
     'platformAdmin.readiness.reason.freeBusyUnhealthy': 'Microsoft availability checks are not healthy.',
     'platformAdmin.readiness.reason.directoryEntitlementMissing': 'The Microsoft directory capability is not enabled.',
-    'platformAdmin.readiness.reason.calendarEntitlementMissing': 'The Microsoft calendar capability is not enabled.',,
+    'platformAdmin.readiness.reason.calendarEntitlementMissing': 'The Microsoft calendar capability is not enabled.',
     'platformAdmin.blocker.tenant_identity_missing': 'Tenant identity is missing',
     'platformAdmin.blocker.microsoft_connection_missing': 'Microsoft connection is missing',
     'platformAdmin.blocker.room_mapping_incomplete': 'Room mapping is incomplete',
