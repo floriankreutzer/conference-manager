@@ -5039,6 +5039,6 @@ test('EMP-03: room cards and review resolve catalogue equipment references witho
   await page.getByRole('radio',{ name: /Room A/ }).check();
   await page.getByRole('button',{ name: 'Raumverfügbarkeit prüfen' }).click();await advanceEmployeeToReview(page);
   const review=page.locator('[data-step-panel]:visible');
-  await expect(review).toContainText('Display 86 Zoll, Whiteboard, Ausstattung nicht verfügbar');
+  await expect(review).toContainText('Display 86 Zoll · Whiteboard · Ausstattung nicht verfügbar');
   await expect(review).not.toContainText(id);await expect(review).not.toContainText(unknown);expect(fixture.writes).toHaveLength(0);
 });
