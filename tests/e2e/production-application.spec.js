@@ -5025,3 +5025,20 @@ test('Manager business references use named selections and keyboard-accessible D
   await englishSummary.focus(); await page.keyboard.press('Enter');
   await expect(page.locator('#manager-catalogue-services-service-support-amount-help-description')).toContainText('12.50 EUR');
 });
+
+test('EMP-03: room cards and review resolve catalogue equipment references without displaying internal UUIDs',async({ page })=>{
+  const catalog=catalogPayload(),id='ba000000-0000-4000-8000-000000000001',unknown='ba000000-0000-4000-8000-000000000002';
+  catalog.catalog.rooms[0].equipment=[id,'Whiteboard',unknown];
+  catalog.catalog.equipment=[{ id,name: 'Display 86 Zoll',description: null,active: true,order: 1,
+    price: { amountMinor: 0,currency: 'EUR' },siteIds: ['berlin'],roomIds: ['room-a'] }];
+  const fixture=await installProductionApplicationFixture(page,{ catalog });
+  await page.goto(`${ORIGIN}/`);await page.locator('[data-view="employee"]').click();await openEmployeeRoomStep(page);
+  const card=page.locator('[data-room-id="room-a"]');
+  await expect(card).toContainText('Ausstattung: Display 86 Zoll, Whiteboard, Ausstattung nicht verfügbar');
+  await expect(card).not.toContainText(id);await expect(card).not.toContainText(unknown);
+  await page.getByRole('radio',{ name: /Room A/ }).check();
+  await page.getByRole('button',{ name: 'Raumverfügbarkeit prüfen' }).click();await advanceEmployeeToReview(page);
+  const review=page.locator('[data-step-panel]:visible');
+  await expect(review).toContainText('Display 86 Zoll, Whiteboard, Ausstattung nicht verfügbar');
+  await expect(review).not.toContainText(id);await expect(review).not.toContainText(unknown);expect(fixture.writes).toHaveLength(0);
+});
