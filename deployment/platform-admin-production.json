@@ -82,6 +82,12 @@
     "src/platform-admin/production/operation-client.js",
     "src/platform-admin/production/microsoft-operations-client.js",
     "src/platform-admin/production/microsoft-operation-confirmation.js",
-    "src/platform-admin/production/microsoft-operation-contracts.js"
+    "src/platform-admin/production/microsoft-operation-contracts.js",
+    "src/core/i18n-owner-customer-messages.js",
+    "src/platform-admin/production/customer-workspace-client.js",
+    "src/platform-admin/production/owner-customer/client.js",
+    "src/platform-admin/production/owner-customer/controller.js",
+    "src/platform-admin/production/owner-customer/presentation.js",
+    "src/platform-admin/production/owner-customer/view.js"
   ]
 }

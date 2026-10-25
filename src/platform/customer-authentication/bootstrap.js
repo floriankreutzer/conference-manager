@@ -5,9 +5,9 @@ import { createCustomerEmailLoginView } from './view.js';
 import { createCustomerMicrosoftClient } from './microsoft-client.js';
 import { createCustomerAccountController } from './account-controller.js';
 import { createCustomerAccountView } from './account-view.js';
-import { createCustomerHandoffClient } from './handoff-client.js';
-import { createCustomerHandoffController } from './handoff-controller.js';
-import { createCustomerHandoffView } from './handoff-view.js';
+import { createCustomerHandoffClient,createOwnerCustomerHandoffClient } from './handoff-client.js';
+import { createCustomerHandoffController,createOwnerCustomerHandoffController } from './handoff-controller.js';
+import { createCustomerHandoffView,createOwnerCustomerHandoffView } from './handoff-view.js';
 
 function continuation(options) {
   const search=options.location?.search ?? globalThis.location?.search ?? '';
@@ -15,6 +15,8 @@ function continuation(options) {
   const query=new URLSearchParams(search);
   if ([...query.keys()].length!==1 || query.getAll('auth').length!==1) return null;
   const value=query.get('auth');
+  if (value==='owner_confirmation') return 'owner_handoff';
+  if (value==='owner_start') return 'owner_start';
   if (value==='synthetic_confirmation') return 'handoff';
   return value==='microsoft_membership_required' ? 'membership' : value==='microsoft_link_confirmation_required' ? 'link' : null;
 }
@@ -23,11 +25,12 @@ function continuation(options) {
 // and neither closed Demo entrypoint imports these real authentication modules.
 export async function bootstrapInvitedCustomerAuthentication(options = {}) {
   const enabled=options.microsoftAuthenticationEnabled ?? false,handoffEnabled=options.syntheticHandoffEnabled ?? false;
-  if (typeof enabled!=='boolean' || typeof handoffEnabled!=='boolean') throw new TypeError('CUSTOMER_MICROSOFT_PRESENTATION_CONFIGURATION_INVALID');
+  const ownerEnabled=options.ownerHandoffEnabled ?? false;
+  if ([enabled,handoffEnabled,ownerEnabled].some(value=>typeof value!=='boolean')) throw new TypeError('CUSTOMER_MICROSOFT_PRESENTATION_CONFIGURATION_INVALID');
   const result=await bootstrapProductionAuthentication(options);
   if (!result.runtime || result.status===PRODUCTION_AUTH_STATUS.UNAVAILABLE
-    || result.status===PRODUCTION_AUTH_STATUS.AUTHENTICATED && !enabled && !handoffEnabled) return result;
-  let view=null,pendingView=null,pending=enabled || handoffEnabled ? continuation(options) : null;
+    || result.status===PRODUCTION_AUTH_STATUS.AUTHENTICATED && !enabled && !handoffEnabled && !ownerEnabled) return result;
+  let view=null,pendingView=null,pending=enabled || handoffEnabled || ownerEnabled ? continuation(options) : null;
   const replaceRoot=()=>{ if (typeof options.replace==='function') options.replace('/');else globalThis.location.replace('/'); };
   const navigate=url=>{ if (typeof options.navigate==='function') options.navigate(url);else globalThis.location.assign(url); };
   async function completeSession(expected=null) {
@@ -38,12 +41,15 @@ export async function bootstrapInvitedCustomerAuthentication(options = {}) {
     }
     pending=null;replaceRoot();
   }
-  function createHandoffView() {
+  function createHandoffView(owner=false) {
     if (pendingView) return pendingView;
-    const controller=createCustomerHandoffController({ client: createCustomerHandoffClient(options),cancel: replaceRoot });
-    pendingView=createCustomerHandoffView({ controller });void controller.load();return pendingView;
+    const controller=(owner ? createOwnerCustomerHandoffController : createCustomerHandoffController)({
+      client: (owner ? createOwnerCustomerHandoffClient : createCustomerHandoffClient)(options),cancel: replaceRoot,
+      initialStart: owner && pending==='owner_start' });
+    pendingView=(owner ? createOwnerCustomerHandoffView : createCustomerHandoffView)({ controller });void controller.load();return pendingView;
   }
   function createSignInView() {
+    if (['owner_handoff','owner_start'].includes(pending) && ownerEnabled) return createHandoffView(true);
     if (pending==='handoff' && handoffEnabled) return createHandoffView();
     if (view) return view;
     const controller=createCustomerEmailController({ client: createCustomerEmailClient(options),
@@ -63,9 +69,12 @@ export async function bootstrapInvitedCustomerAuthentication(options = {}) {
   }
   const runtime=Object.freeze({ ...result.runtime,createSignInView,...(enabled ? {
     createAccountSecurityView: ({ onClose=replaceRoot }={})=>createAccountView(false,'h3',onClose),
-  } : {}),...(enabled || handoffEnabled ? {
+  } : {}),...(enabled || handoffEnabled || ownerEnabled ? {
     createPendingAuthenticationView() {
-      if (!pending || pending==='handoff' && !handoffEnabled || pending!=='handoff' && !enabled) return null;
+      if (!pending || pending==='handoff' && !handoffEnabled
+        || ['owner_handoff','owner_start'].includes(pending) && !ownerEnabled
+        || !['handoff','owner_handoff','owner_start'].includes(pending) && !enabled) return null;
+      if (['owner_handoff','owner_start'].includes(pending)) return createHandoffView(true);
       if (pending==='handoff') return createHandoffView();
       if (pending==='membership') return createSignInView();
       if (pendingView) return pendingView;

@@ -1,4 +1,7 @@
 const ACTIONS=Object.freeze({
+  'customer-owner-start': ['/api/v1/auth/owner/start',[]],
+  'customer-owner-complete': ['/api/v1/auth/owner/complete',['csrfToken']],
+  'platform-owner-approve': ['/api/v1/platform/auth/owner/approve',['csrfToken','payload']],
   'customer-start': ['/api/v1/auth/delegation/start',[]],
   'customer-complete': ['/api/v1/auth/delegation/complete',['csrfToken']],
   'platform-approve': ['/api/v1/platform/auth/delegation/approve',['csrfToken','payload']],
@@ -29,7 +32,7 @@ export function createAuthenticationFormNavigation({ origin=globalThis.location?
           return !keys.includes(key) || !own.enumerable || !Object.hasOwn(own,'value');
         })) throw new TypeError('AUTHENTICATION_FORM_NAVIGATION_INVALID');
       if (keys.includes('csrfToken') && (typeof fields.csrfToken!=='string'
-        || !(action==='customer-complete' ? /^[a-f0-9]{64}$/ : /^[A-Za-z0-9_-]{43}$/).test(fields.csrfToken))
+        || !(['customer-complete','customer-owner-complete'].includes(action) ? /^[a-f0-9]{64}$/ : /^[A-Za-z0-9_-]{43}$/).test(fields.csrfToken))
         || keys.includes('payload') && (typeof fields.payload!=='string' || fields.payload.length<2 || fields.payload.length>16384)) {
         throw new TypeError('AUTHENTICATION_FORM_NAVIGATION_INVALID');
       }

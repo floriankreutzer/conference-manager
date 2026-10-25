@@ -78,7 +78,7 @@ export function platformAdminBoundaryViolations(sourceEntries) {
       }
       if (isInside(file, PLATFORM_ADMIN_ROOT)
         && !([`${DEMO_ROOT}/bootstrap.js`,`${PRODUCTION_ROOT}/bootstrap.js`].includes(file) && dependency===FLAG_METADATA)
-        && !(file===`${PRODUCTION_ROOT}/synthetic-workspace/client.js` && dependency===FORM_NAVIGATION)
+        && !(file===`${PRODUCTION_ROOT}/customer-workspace-client.js` && dependency===FORM_NAVIGATION)
         && !(file===`${PRODUCTION_ROOT}/bootstrap.js` && dependency===AUTHENTICATION_PAGE)
         && CUSTOMER_CAPABILITY_ROOTS.some((root) => isInside(dependency, root))) {
         violations.push(violation(file, `Platform Admin must not depend on customer capability ${dependency}.`));

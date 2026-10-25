@@ -15,6 +15,8 @@ import { createPlatformCustomerInvitationApi } from '../customer-invitation-api.
 import { createPlatformInvitationPresentation } from '../customer-invitations-presentation.js';
 import { createPlatformSyntheticWorkspaceClient } from './synthetic-workspace/client.js';
 import { createPlatformSyntheticWorkspacePresentation } from './synthetic-workspace/presentation.js';
+import { createPlatformOwnerCustomerClient } from './owner-customer/client.js';
+import { createPlatformOwnerCustomerPresentation } from './owner-customer/presentation.js';
 import { announce,button,el } from '../../core/ui.js';
 import { t } from '../../core/i18n.js';
 import { createPlatformAdminApi } from '../platform-api.js';
@@ -67,6 +69,14 @@ async function bootstrapProductionPlatformAdmin() {
         microsoftConfirmation: microsoftConfiguration ? protectedClient.confirmOperation : null,
       }) }) : null;
     if (syntheticWorkspace) globalThis.addEventListener('pagehide',()=>syntheticWorkspace.stop(),{ once: true });
+    const ownerCustomer=protectedClient && microsoftConfiguration && presentationFlags.isEnabled('platform.owner-customer-access')
+      && ['platform_security_admin','platform_tenant_operator','platform_security_auditor','platform_support_reader']
+        .every(role=>session.operator.roles.includes(role))
+      ? createPlatformOwnerCustomerPresentation({ apiFactory: ()=>createPlatformOwnerCustomerClient({
+        apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
+        microsoftConfirmation: protectedClient.confirmOperation,
+      }) }) : null;
+    if (ownerCustomer) globalThis.addEventListener('pagehide',()=>ownerCustomer.stop(),{ once: true });
     const insights=session.operator.permissions.includes('platform:runtime:read')
       ? createProtectedPlatformInsights({ apiClient,accessMode: configuration ? 'application_passkey' : 'microsoft_mfa' }) : null;
     const application = createPlatformAdminApplication({
@@ -77,14 +87,15 @@ async function bootstrapProductionPlatformAdmin() {
       providerUsage: session.operator.roles.includes('platform_security_admin') ? insights?.providerUsage ?? null : null,
       productDelivery: insights?.productDelivery ?? null,
       operationProofAvailable: protectedClient !== null,customerInvitationPresentation: customerInvitations,
-      renderSecurityControls: keyManagement || syntheticWorkspace ? ()=>el('div',{},[
+      renderSecurityControls: keyManagement || syntheticWorkspace || ownerCustomer ? ()=>el('div',{},[
         ...(keyManagement ? [keyManagement.renderControl()] : []),
         ...(syntheticWorkspace ? [syntheticWorkspace.renderControl()] : []),
+        ...(ownerCustomer ? [ownerCustomer.renderControl()] : []),
       ]) : null,
       onSignOut: () => sessionApi.signOut(),
       onStepUp: protectedClient ? null : () => globalThis.location.assign(PLATFORM_ADMIN_STEP_UP_PATH),
     });
-    await application.start();await syntheticWorkspace?.resume();
+    await application.start();await syntheticWorkspace?.resume();await ownerCustomer?.resume();
   } catch {
     const retry = button(t('auth.production.retry'), { className: 'primary' });
     retry.addEventListener('click', () => globalThis.location.reload());
