@@ -30,6 +30,7 @@ import {
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
   roomEditorOptions,
+  roomEquipmentNames,
   roomSupportsParticipants,
   serviceEditorOptions,
 } from './server-request-editor.js';
@@ -858,7 +859,8 @@ export function createProductionEmployeeApplication({
         if (entry.equipment.length) {
           card.appendChild(el('p', {
             className: 'room-equipment',
-            text: t('production.employee.roomEquipment', { equipment: entry.equipment.join(', ') }),
+            text: t('production.employee.roomEquipment', { equipment: roomEquipmentNames(entry,catalog)
+              .map(name=>name ?? t('production.employee.roomEquipmentUnavailable')).join(', ') }),
           }));
         }
         roomSelectionGrid.appendChild(card);
@@ -1396,7 +1398,9 @@ export function createProductionEmployeeApplication({
         reviewCard(t('review.room'), [
           [t('production.employee.room'), roomLabel(model.room || {})],
           [t('production.employee.roomFacilities'), joinedNames(
-            (model.room?.equipment || []).map((name) => ({ name })),
+            roomEquipmentNames(model.room,catalog).map(name=>({
+              name: name ?? t('production.employee.roomEquipmentUnavailable'),
+            })),
           )],
         ], 2, 'room'),
         reviewCard(t('production.employee.reviewServicesEquipment'), [
