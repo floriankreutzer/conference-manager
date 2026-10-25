@@ -1,6 +1,7 @@
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el } from '../core/ui.js';
 import { readinessBlockerPresentation } from './readiness-blockers.js';
+import { auditEventPresentation } from './audit-event-presentation.js';
 
 export const PLATFORM_FLEET_VIEW_DEFINITIONS = Object.freeze([
   Object.freeze({ id: 'directory', permission: 'platform:tenant:read', titleKey: 'platformAdmin.fleetView.directory' }),
@@ -145,15 +146,22 @@ function microsoftHealth(resource, onSelectTenant, onLoadMore) {
 
 function audit(resource, onLoadMore,onExportAudit) {
   const list = el('ol', { className: 'platform-admin-audit-list' });
-  resource.data.items.forEach((event) => list.append(el('li', { className: 'card' }, [
-    el('div', { className: 'platform-admin-record-heading' }, [
-      dataCode(event.action),
-      status(event.outcome),
-    ]),
-    el('p', { text: formatDateTime(event.occurredAt) }),
-    el('small', { text: t('platformAdmin.audit.sequence', { sequence: formatNumber(event.sequence) }) }),
-    ...(event.targetTenantId ? [el('small', { text: t('platformAdmin.audit.tenantTarget', { tenantId: event.targetTenantId }) })] : []),
-  ])));
+  resource.data.items.forEach((event) => {
+    const presentation = auditEventPresentation(event.action);
+    list.append(el('li', { className: 'card' }, [
+      el('div', { className: 'platform-admin-record-heading' }, [
+        el('p', { className: 'platform-admin-audit-action', text: t(presentation.messageKey) }),
+        status(event.outcome),
+      ]),
+      el('p', { text: formatDateTime(event.occurredAt) }),
+      el('small', { text: t('platformAdmin.audit.sequence', { sequence: formatNumber(event.sequence) }) }),
+      ...(event.targetTenantId ? [el('small', { text: t('platformAdmin.audit.tenantTarget', { tenantId: event.targetTenantId }) })] : []),
+      el('details', { className: 'platform-admin-audit-event-details' }, [
+        el('summary', { text: t('platformAdmin.audit.event.technicalDetails') }),
+        dataCode(event.action),
+      ]),
+    ]));
+  });
   const beforeSequence = resource.data.items.at(-1)?.sequence ?? null;
   const hasMore=resource.data.schemaVersion===2 ? resource.auditHasMore===true : resource.data.items.length===100;
   const next = beforeSequence && hasMore && typeof onLoadMore === 'function'
