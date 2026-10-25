@@ -30,6 +30,14 @@ function dataCode(value) {
   return el('code', { className: 'platform-admin-data-code', text: String(value) });
 }
 
+function mappingSummary(mappings) {
+  const presentation = microsoftMappingSummaryPresentation(mappings);
+  const values = presentation.values
+    ? Object.fromEntries(Object.entries(presentation.values).map(([key, value]) => [key, formatNumber(value)]))
+    : {};
+  return t(presentation.messageKey, values);
+}
+
 function heading(item, onSelectTenant) {
   const content = [
     el('div', {}, [el('h3', { text: item.displayName }), el('small', { text: item.tenantId })]),
@@ -132,12 +140,7 @@ function microsoftHealth(resource, onSelectTenant, onLoadMore) {
       el('div', { className: 'platform-admin-inline-status' }, [
         el('span', { text: t('platformAdmin.integration.connection') }),
         status(item.connectionState),
-        el('span', { text: (() => {
-          const presentation = microsoftMappingSummaryPresentation(item.mappings);
-          return t(presentation.messageKey, presentation.values
-            ? Object.fromEntries(Object.entries(presentation.values).map(([key, value]) => [key, formatNumber(value)]))
-            : {});
-        })() }),
+        el('span', { text: mappingSummary(item.mappings) }),
       ]),
       capabilities,
     ]));
