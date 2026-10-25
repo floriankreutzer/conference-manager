@@ -42,7 +42,7 @@ test('Microsoft challenge rejects foreign redirects, extra authority, duplicate 
   }
   for (const mutate of [url=>{ url.hostname='evil.example'; },url=>url.searchParams.set('redirect_uri','https://evil.example'),
     url=>url.searchParams.append('state',state),url=>url.searchParams.set('scope','openid profile User.Read'),
-    url=>url.searchParams.set('max_age','300'),url=>url.searchParams.delete('claims'),url=>{ url.hash='private'; },
+    url=>url.searchParams.set('max_age','301'),url=>url.searchParams.delete('claims'),url=>{ url.hash='private'; },
     url=>url.searchParams.set('claims',JSON.stringify({ id_token: { auth_time: { essential: true } } }))]) {
     const url=new URL(valid.authorizationUrl);mutate(url);
     assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: url.href },origin),/RESPONSE_INVALID/);
@@ -104,6 +104,18 @@ test('exact Microsoft operation accepts only optional literal login prompt and p
   }
   for (const [key,value] of [['prompt','login'],['unexpected','login']]) {
     const invalid=new URL(valid.authorizationUrl);invalid.searchParams.append(key,value);
+    assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: invalid.href },origin),/RESPONSE_INVALID/);
+  }
+});
+
+test('provider token window requires interactive login and preserves the legacy zero-age challenge',()=>{
+  const valid=microsoftOperationChallenge(),url=new URL(valid.authorizationUrl);
+  url.searchParams.set('max_age','300');
+  assert.equal(requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: url.href },origin).state,state);
+  url.searchParams.delete('prompt');
+  assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: url.href },origin),/RESPONSE_INVALID/);
+  for (const age of ['1','299','301','0300','300.0','-1','']) {
+    const invalid=new URL(valid.authorizationUrl);invalid.searchParams.set('max_age',age);
     assert.throws(()=>requirePlatformMicrosoftOperationChallenge({ ...valid,authorizationUrl: invalid.href },origin),/RESPONSE_INVALID/);
   }
 });
