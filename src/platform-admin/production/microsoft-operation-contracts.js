@@ -28,7 +28,8 @@ export function requirePlatformMicrosoftOperationChallenge(value,origin) {
     || query.has('prompt') && query.get('prompt')!=='login'
     || !UUID.test(query.get('client_id') || '') || query.get('state')!==value.state
     || query.get('redirect_uri')!==origin+'/api/v1/platform/auth/microsoft/operation/callback'
-    || query.get('response_type')!=='code' || query.get('response_mode')!=='query' || query.get('max_age')!=='0'
+    || query.get('response_type')!=='code' || query.get('response_mode')!=='query' || !['0','300'].includes(query.get('max_age'))
+    || query.get('max_age')==='300' && query.get('prompt')!=='login'
     || query.get('code_challenge_method')!=='S256' || !OPAQUE.test(query.get('nonce') || '')
     || !OPAQUE.test(query.get('code_challenge') || '')
     || query.get('scope')?.split(' ').sort().join(',')!=='openid,profile') failed();
