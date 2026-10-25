@@ -17,6 +17,9 @@ test('qualified acceptance serves exact current production graphs and separate p
   assert.notEqual(first.digests.customer,first.digests.platform);
   assert.equal([...first.sets.customer].some(name=>name.startsWith('src/platform-admin/')),false);
   assert.equal(first.sets.platform.has('src/employee/production-application.js'),false);
+  assert.equal(first.sets.customer.has('src/shared/detached-print.html'),true);
+  assert.equal(first.sets.platform.has('src/shared/detached-print.html'),false);
+  assert.match(first.content.get('customer:src/shared/detached-print.html').toString(),/<!doctype html>/i);
   for (const set of Object.values(first.sets)) {
     assert.equal([...set].some(name=>/^(?:tests|scripts|deployment)\//.test(name)),false);
   }

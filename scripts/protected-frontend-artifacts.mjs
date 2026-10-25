@@ -33,6 +33,7 @@ export async function buildProtectedFrontendArtifacts({ root,apiCommit,frontendC
     for (const dependency of graph.get(name)) visit(dependency);
   }
   visit('src/platform/production-bootstrap.js');
+  customerFiles.add('src/shared/detached-print.html');
   if ([...customerFiles].some(name=>name.startsWith('src/platform-admin/'))) fail();
   const platformInventory=JSON.parse(await readFile(path.join(root,'deployment/platform-admin-production.json'),'utf8'));
   if (platformInventory.artifact!=='platform-admin-production' || !Array.isArray(platformInventory.files)) fail();
