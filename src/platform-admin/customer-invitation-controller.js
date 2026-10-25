@@ -1,7 +1,7 @@
 const errorCode=error=>error?.code==='PLATFORM_CUSTOMER_INVITATION_INPUT_INVALID' ? 'input'
   : ['HTTP_400','HTTP_409','HTTP_429','HTTP_401','HTTP_403','HTTP_404'].includes(error?.code)
   ? ({ HTTP_400: 'input',HTTP_409: 'conflict',HTTP_429: 'limited',HTTP_401: 'authority',HTTP_403: 'authority',HTTP_404: 'authority' })[error.code]
-  : error?.code==='PLATFORM_PASSKEY_OPERATION_CANCELLED' ? 'cancelled' : 'unknown';
+  : ['PLATFORM_PASSKEY_OPERATION_CANCELLED','PLATFORM_MICROSOFT_OPERATION_CANCELLED'].includes(error?.code) ? 'cancelled' : 'unknown';
 
 export function createPlatformInvitationController({ api,tenantId=null,onCreated=async()=>{},idFactory=()=>globalThis.crypto.randomUUID() }={}) {
   if (!api || ['create','list','issue','mutate'].some(key=>typeof api[key]!=='function')
@@ -38,7 +38,7 @@ export function createPlatformInvitationController({ api,tenantId=null,onCreated
     load({ afterId=state.afterId }={}) {
       if (tenantId===null) return;
       return perform(async()=>{ try { await read(afterId); }
-        catch (error) { update({ status: pending ? 'retry' : 'error',error: errorCode(error) }); } });
+        catch (error) { update({ status: pending ? 'retry' : 'refresh_required',error: errorCode(error) }); } });
     },
     issue(value) {
       if (disposed || busy || pending || state.error==='authority' || !['ready','error'].includes(state.status)) return;
