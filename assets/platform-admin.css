@@ -243,6 +243,27 @@
   background: var(--color-warning-soft);
 }
 
+.platform-admin-blocker-label {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-blocker-details {
+  margin-block-start: var(--space-2);
+}
+
+.platform-admin-blocker-details summary {
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-blocker-details code {
+  display: block;
+  margin-block-start: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
 .platform-admin-record-list,
 .platform-admin-audit-list {
   display: grid;
