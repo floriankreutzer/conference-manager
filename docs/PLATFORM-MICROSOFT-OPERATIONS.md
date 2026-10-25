@@ -145,3 +145,18 @@ without changing evidence. No raw cookie, identity or diagnostic is recorded.
 Both engine jobs now run the focused Microsoft test before the unchanged full
 suite, without adding retries, time, runners or relaxing any required gate.
 The correction still requires fresh paired browser/Demo acceptance.
+
+
+## Interactive exact-operation prompt compatibility
+
+The exact-operation URL contract accepts the optional literal `prompt=login`
+emitted by API `810a7a02c8be5a30fd49ee0d7dcdae009f8f77c3`. Other prompt
+values, duplicate parameters and unknown query fields fail before navigation.
+The previously qualified challenge without a prompt remains supported; the
+normal Platform login is unchanged. Issuer/path, callback, scope, state, PKCE,
+max-age and literal MFA/auth-time validation remain mandatory. Server proof,
+source session, CSRF and exact-operation authorization remain authoritative.
+Both protected and permanent Demo CI jobs bind that exact API counterpart.
+The shared challenge fixture exercises `prompt=login` in unit and both browser
+engines; focused negatives cover invalid, duplicate and unknown parameters.
+These source tests are distinct from real Microsoft and live Demo acceptance.
