@@ -105,7 +105,9 @@ function readiness(resource, onSelectTenant, onLoadMore) {
           : 'platformAdmin.readiness.checkCountMany',
         { count: formatNumber(item.readiness.checks.length) },
       ) }),
-      ...(item.readiness.blockerCodes.length ? [el('h4', { text: t('platformAdmin.readiness.blockers') }), blockers] : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
+      ...(item.readiness.blockerCodes.length
+        ? [el('h4', { text: t('platformAdmin.readiness.blockers') }), blockers]
+        : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
     ]));
   });
   return el('section', {}, [
