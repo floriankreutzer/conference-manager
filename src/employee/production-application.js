@@ -670,10 +670,13 @@ export function createProductionEmployeeApplication({
         ? sourceRequest.details.catering.itemQuantities.map((entry) => [entry.itemId, entry.quantity])
         : Object.entries(restoredDraft?.itemQuantities || {}),
     );
+    const initialCateringParticipants = sourceRequest?.details?.catering?.participantCount
+      ?? restoredDraft?.cateringParticipants ?? null;
+    let defaultCateringParticipants = initialCateringParticipants === null;
     const cateringParticipants = el('input', {
       attrs: {
         type: 'number', min: '0', max: String(MAX_PARTICIPANTS), step: '1',
-        value: String(sourceRequest?.details?.catering?.participantCount ?? restoredDraft?.cateringParticipants ?? 0),
+        value: String(initialCateringParticipants ?? 0),
       },
     });
     const servicePanel = el('fieldset', { className: 'room-option-fieldset selection-option-fieldset' });
@@ -1148,7 +1151,10 @@ export function createProductionEmployeeApplication({
     scheduleControls.forEach((control) => {
       control.addEventListener('input', () => clearControlValidation(control));
     });
-    cateringParticipants.addEventListener('input', () => clearControlValidation(cateringParticipants));
+    cateringParticipants.addEventListener('input', () => {
+      defaultCateringParticipants = false;
+      clearControlValidation(cateringParticipants);
+    });
     const checkAvailability = button(t('production.employee.checkAvailability'));
     const submit = button(t(isResubmission ? 'review.resubmit' : 'production.employee.submit'), { className: 'primary', disabled: true });
     let verifiedAvailabilityKey = null;
@@ -1224,6 +1230,7 @@ export function createProductionEmployeeApplication({
     const updateParticipantTotal = () => {
       const count = (safeParticipantCount(internal.value) || 0)
         + (safeParticipantCount(external.value) || 0);
+      if (defaultCateringParticipants) cateringParticipants.value = String(count);
       clear(participantTotal);
       participantTotal.append(
         el('span', { text: t('schedule.total') }),

@@ -246,7 +246,7 @@ function appliedRequest(current, change, submittedRequest = null) {
       currency: 'EUR', totalMinor: 0,
       breakdown: { roomMinor: 0, servicesMinor: 0, cateringPackageMinor: 0, cateringItemsMinor: 0 },
       room: { id: change.roomId, siteId: 'berlin', name: 'Room A', price: { amountMinor: 0, currency: 'EUR' } },
-      services: [], catering: { participantCount: 0, packageSelection: null, items: [] },
+      services: [], catering: { participantCount: request.catering.participantCount, packageSelection: null, items: [] },
     },
     configurationRevisions: request.configurationRevisions,
     policy: {
@@ -1029,7 +1029,7 @@ async function installProductionApplicationFixture(page, {
               },
               lineTotalMinor: entry.price.amountMinor,
             })),
-            catering: { participantCount: 0, packageSelection: null, items: [] },
+            catering: { participantCount: body.catering.participantCount, packageSelection: null, items: [] },
           },
           configurationRevisions: body.configurationRevisions,
           policy: {
@@ -1644,6 +1644,7 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
     roomId: 'room-a',
     internalParticipants: 2,
     externalParticipants: 1,
+    catering: { participantCount: 3 },
   });
   expect(fixture.writes[0].body).not.toHaveProperty('tenantId');
   expect(fixture.writes[0].body).not.toHaveProperty('userId');
@@ -1841,7 +1842,7 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await packageGroup.getByText('For focused workshops', { exact: true }).click();
   await expect(packageChoice).toBeChecked();
   await expect(packageChoice).toBeFocused();
-  await page.locator('#productionCateringParticipants').fill('3');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('3');
   await itemGroup.getByLabel('Menge für Coffee').fill('3');
   await itemGroup.getByLabel('Menge für Cake').fill('2');
   await page.locator('#productionDietary').fill('Vegetarian');
@@ -1883,6 +1884,42 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(page.getByRole('heading', { name: 'Bewirtung' })).toBeFocused();
   await expect(packageChoice).toBeChecked();
   await expect(itemGroup.getByLabel('Menge für Cake')).toHaveValue('2');
+});
+
+test('Catering participant default follows the attendee total until explicitly edited and preserves zero on restore', async ({ page }) => {
+  await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page, { internal: '2', external: '1' });
+  const openCatering = async () => {
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
+  };
+  const changeInternalParticipants = async (count) => {
+    await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+    await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+    await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+    await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
+    await page.locator('#productionInternal').fill(count);
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await openCatering();
+  };
+  await openCatering();
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('3');
+  await changeInternalParticipants('4');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('5');
+  await page.locator('#productionCateringParticipants').fill('0');
+  await changeInternalParticipants('3');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('0');
+  await page.reload();
+  await page.locator('[data-view="employee"]').click();
+  await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('0');
+  await changeInternalParticipants('2');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('0');
 });
 
 test('EMP-09: scoped session draft resumes the exact active wizard step and state after reload', async ({ page }) => {
