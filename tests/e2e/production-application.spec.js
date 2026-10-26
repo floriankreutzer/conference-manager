@@ -1841,7 +1841,7 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await packageGroup.getByText('For focused workshops', { exact: true }).click();
   await expect(packageChoice).toBeChecked();
   await expect(packageChoice).toBeFocused();
-  await page.locator('#productionCateringParticipants').fill('3');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('3');
   await itemGroup.getByLabel('Menge für Coffee').fill('3');
   await itemGroup.getByLabel('Menge für Cake').fill('2');
   await page.locator('#productionDietary').fill('Vegetarian');
@@ -1883,6 +1883,39 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(page.getByRole('heading', { name: 'Bewirtung' })).toBeFocused();
   await expect(packageChoice).toBeChecked();
   await expect(itemGroup.getByLabel('Menge für Cake')).toHaveValue('2');
+});
+
+test('Catering participant default follows the attendee total until explicitly edited and preserves zero on restore', async ({ page }) => {
+  await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page, { internal: '2', external: '1' });
+  const openCatering = async () => {
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
+  };
+  const changeInternalParticipants = async (count) => {
+    await page.locator('.step').nth(0).click();
+    await page.locator('#productionInternal').fill(count);
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await openCatering();
+  };
+  await openCatering();
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('3');
+  await changeInternalParticipants('4');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('5');
+  await page.locator('#productionCateringParticipants').fill('0');
+  await changeInternalParticipants('3');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('0');
+  await page.reload();
+  await page.locator('[data-view="employee"]').click();
+  await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('0');
+  await changeInternalParticipants('2');
+  await expect(page.locator('#productionCateringParticipants')).toHaveValue('0');
 });
 
 test('EMP-09: scoped session draft resumes the exact active wizard step and state after reload', async ({ page }) => {
