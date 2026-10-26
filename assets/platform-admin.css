@@ -244,6 +244,27 @@
   background: var(--color-warning-soft);
 }
 
+.platform-admin-blocker-label {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-blocker-details {
+  margin-block-start: var(--space-2);
+}
+
+.platform-admin-blocker-details summary {
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-blocker-details code {
+  display: block;
+  margin-block-start: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
 .platform-admin-record-list,
 .platform-admin-audit-list {
   display: grid;
@@ -259,6 +280,27 @@
 .platform-admin-audit-list p {
   margin-block: var(--space-2);
   color: var(--color-muted);
+}
+
+.platform-admin-audit-action {
+  color: var(--color-ink);
+  font-weight: var(--font-weight-bold);
+}
+
+.platform-admin-audit-event-details {
+  margin-block-start: var(--space-2);
+}
+
+.platform-admin-audit-event-details summary {
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-audit-event-details code {
+  display: block;
+  margin-block-start: var(--space-2);
+  overflow-wrap: anywhere;
 }
 
 .platform-admin-warning {
@@ -611,6 +653,26 @@
 
 .platform-admin-insights-trend {
   margin: 0;
+}
+
+@keyframes platform-admin-trend-enter {
+  from {
+    transform: translateY(var(--space-1));
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+.platform-admin-insights-trend:not([hidden]) {
+  animation: platform-admin-trend-enter var(--transition-fast);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .platform-admin-insights-trend:not([hidden]) {
+    animation: none;
+  }
 }
 
 .platform-admin-insights-trend figcaption {

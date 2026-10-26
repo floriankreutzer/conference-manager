@@ -56,7 +56,7 @@ export const PLATFORM_INVITATION_MESSAGES = Object.freeze({
     "platformInvitations.createTitle": "Create a customer",
     "platformInvitations.title": "Customer invitations",
     "platformInvitations.new": "People and reason",
-    "platformInvitations.ownerNote": "The configured platform owner is always invited as a Tenant Operator. Add up to19 other people. An invitation alone does not grant access.",
+    "platformInvitations.ownerNote": "The configured platform owner is always invited as a Tenant Operator. Add up to 19 other people. An invitation alone does not grant access.",
     "platformInvitations.description": "Invite more people and manage existing invitations. Each person receives only their selected customer roles.",
     "platformInvitations.add": "Add a person",
     "platformInvitations.person": "Person {number}",

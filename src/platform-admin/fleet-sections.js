@@ -1,5 +1,8 @@
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el } from '../core/ui.js';
+import { readinessBlockerPresentation } from './readiness-blockers.js';
+import { auditEventPresentation } from './audit-event-presentation.js';
+import { microsoftMappingSummaryPresentation } from './microsoft-mapping-summary.js';
 
 export const PLATFORM_FLEET_VIEW_DEFINITIONS = Object.freeze([
   Object.freeze({ id: 'directory', permission: 'platform:tenant:read', titleKey: 'platformAdmin.fleetView.directory' }),
@@ -25,6 +28,14 @@ function status(value) {
 
 function dataCode(value) {
   return el('code', { className: 'platform-admin-data-code', text: String(value) });
+}
+
+function mappingSummary(mappings) {
+  const presentation = microsoftMappingSummaryPresentation(mappings);
+  const values = presentation.values
+    ? Object.fromEntries(Object.entries(presentation.values).map(([key, value]) => [key, formatNumber(value)]))
+    : {};
+  return t(presentation.messageKey, values);
 }
 
 function heading(item, onSelectTenant) {
@@ -72,7 +83,19 @@ function readiness(resource, onSelectTenant, onLoadMore) {
   const list = el('ul', { className: 'platform-admin-record-list' });
   resource.data.items.forEach((item) => {
     const blockers = el('ul', { className: 'platform-admin-detail-list' });
-    item.readiness.blockerCodes.forEach((entry) => blockers.append(el('li', {}, [dataCode(entry)])));
+    item.readiness.blockerCodes.forEach((entry) => {
+      const presentation = readinessBlockerPresentation(entry);
+      const label = t(presentation.messageKey, presentation.checkKey
+        ? { check: t(presentation.checkKey) }
+        : {});
+      blockers.append(el('li', {}, [
+        el('p', { className: 'platform-admin-blocker-label', text: label }),
+        el('details', { className: 'platform-admin-blocker-details' }, [
+          el('summary', { text: t('platformAdmin.readiness.technicalDetails') }),
+          dataCode(entry),
+        ]),
+      ]));
+    });
     list.append(el('li', { className: 'card platform-admin-record' }, [
       heading(item, onSelectTenant),
       el('div', { className: 'platform-admin-inline-status' }, [
@@ -91,7 +114,9 @@ function readiness(resource, onSelectTenant, onLoadMore) {
           : 'platformAdmin.readiness.checkCountMany',
         { count: formatNumber(item.readiness.checks.length) },
       ) }),
-      ...(item.readiness.blockerCodes.length ? [blockers] : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
+      ...(item.readiness.blockerCodes.length
+        ? [el('h4', { text: t('platformAdmin.readiness.blockers') }), blockers]
+        : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
     ]));
   });
   return el('section', {}, [
@@ -115,10 +140,7 @@ function microsoftHealth(resource, onSelectTenant, onLoadMore) {
       el('div', { className: 'platform-admin-inline-status' }, [
         el('span', { text: t('platformAdmin.integration.connection') }),
         status(item.connectionState),
-        el('span', { text: t('platformAdmin.integration.mappingSummary', {
-          active: formatNumber(item.mappings.active),
-          total: formatNumber(item.mappings.total),
-        }) }),
+        el('span', { text: mappingSummary(item.mappings) }),
       ]),
       capabilities,
     ]));
@@ -132,15 +154,22 @@ function microsoftHealth(resource, onSelectTenant, onLoadMore) {
 
 function audit(resource, onLoadMore,onExportAudit) {
   const list = el('ol', { className: 'platform-admin-audit-list' });
-  resource.data.items.forEach((event) => list.append(el('li', { className: 'card' }, [
-    el('div', { className: 'platform-admin-record-heading' }, [
-      dataCode(event.action),
-      status(event.outcome),
-    ]),
-    el('p', { text: formatDateTime(event.occurredAt) }),
-    el('small', { text: t('platformAdmin.audit.sequence', { sequence: formatNumber(event.sequence) }) }),
-    ...(event.targetTenantId ? [el('small', { text: t('platformAdmin.audit.tenantTarget', { tenantId: event.targetTenantId }) })] : []),
-  ])));
+  resource.data.items.forEach((event) => {
+    const presentation = auditEventPresentation(event.action);
+    list.append(el('li', { className: 'card' }, [
+      el('div', { className: 'platform-admin-record-heading' }, [
+        el('p', { className: 'platform-admin-audit-action', text: t(presentation.messageKey) }),
+        status(event.outcome),
+      ]),
+      el('p', { text: formatDateTime(event.occurredAt) }),
+      el('small', { text: t('platformAdmin.audit.sequence', { sequence: formatNumber(event.sequence) }) }),
+      ...(event.targetTenantId ? [el('small', { text: t('platformAdmin.audit.tenantTarget', { tenantId: event.targetTenantId }) })] : []),
+      el('details', { className: 'platform-admin-audit-event-details' }, [
+        el('summary', { text: t('platformAdmin.audit.event.technicalDetails') }),
+        dataCode(event.action),
+      ]),
+    ]));
+  });
   const beforeSequence = resource.data.items.at(-1)?.sequence ?? null;
   const hasMore=resource.data.schemaVersion===2 ? resource.auditHasMore===true : resource.data.items.length===100;
   const next = beforeSequence && hasMore && typeof onLoadMore === 'function'
