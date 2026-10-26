@@ -155,7 +155,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 79e6debeeb5db83fd5dc46f532adbb5ae2ed11ff
+          ref: 8ed8a06fe1cfb8d1718ee6a57bdd5dbd93b07fff
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -298,7 +298,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: 79e6debeeb5db83fd5dc46f532adbb5ae2ed11ff
+      PROTECTED_BROWSER_COUNTERPART_REF: 8ed8a06fe1cfb8d1718ee6a57bdd5dbd93b07fff
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
     services:
       postgres:
@@ -324,7 +324,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: 79e6debeeb5db83fd5dc46f532adbb5ae2ed11ff
+          ref: 8ed8a06fe1cfb8d1718ee6a57bdd5dbd93b07fff
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -346,6 +346,8 @@ jobs:
         run: node frontend/scripts/check-platform-passkey-wire.mjs "$PWD/api"
       - name: Verify actual protected API insight reports reach both production views
         run: node frontend/scripts/check-platform-insight-wire.mjs "$PWD/api"
+      - name: Verify actual Platform runtime projection reaches its strict frontend contract
+        run: node frontend/scripts/check-platform-runtime-wire.mjs "$PWD/api"
       - name: Prefer the official Ubuntu archive for browser prerequisites
         shell: bash
         run: |

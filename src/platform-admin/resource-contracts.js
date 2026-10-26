@@ -567,6 +567,16 @@ export function normalizePlatformQuotaMutation(value, expectedTenantId, expected
   });
 }
 
+const RUNTIME_IDENTIFIER_PATTERN=/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const RUNTIME_DEPLOYMENT_PATTERN=/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+const RUNTIME_EVIDENCE_PATTERN=/^[A-Za-z0-9][A-Za-z0-9._:/#-]{0,254}$/;
+function runtimeReference(value,maximum,pattern) {
+  if (value===null) return null;
+  const reference=text(value,maximum,'PLATFORM_RUNTIME_RESPONSE_INVALID',{ pattern });
+  if (reference.includes('://')) invalid('PLATFORM_RUNTIME_RESPONSE_INVALID');
+  return reference;
+}
+
 function runtime(value) {
   const errorCode = 'PLATFORM_RUNTIME_RESPONSE_INVALID';
   exact(value, ['schemaVersion', 'environment', 'deployment', 'components', 'databaseSchema', 'dependencies', 'freshness', 'evidence', 'metadataState', 'operationalState', 'overallState', 'reasonCodes'], errorCode);
@@ -576,10 +586,10 @@ function runtime(value) {
   function component(entry) {
     exact(entry, ['expectedVersion', 'expectedBuildId', 'version', 'buildId', 'state'], errorCode);
     return Object.freeze({
-      expectedVersion: entry.expectedVersion === null ? null : text(entry.expectedVersion, 80, errorCode, { pattern: REFERENCE_PATTERN }),
-      expectedBuildId: entry.expectedBuildId === null ? null : text(entry.expectedBuildId, 80, errorCode, { pattern: REFERENCE_PATTERN }),
-      version: entry.version === null ? null : text(entry.version, 80, errorCode, { pattern: REFERENCE_PATTERN }),
-      buildId: entry.buildId === null ? null : text(entry.buildId, 80, errorCode, { pattern: REFERENCE_PATTERN }),
+      expectedVersion: runtimeReference(entry.expectedVersion,64,RUNTIME_IDENTIFIER_PATTERN),
+      expectedBuildId: runtimeReference(entry.expectedBuildId,64,RUNTIME_IDENTIFIER_PATTERN),
+      version: runtimeReference(entry.version,64,RUNTIME_IDENTIFIER_PATTERN),
+      buildId: runtimeReference(entry.buildId,64,RUNTIME_IDENTIFIER_PATTERN),
       state: oneOf(entry.state, new Set(['current', 'mismatch', 'unknown']), errorCode),
     });
   }
@@ -589,23 +599,19 @@ function runtime(value) {
   exact(value.evidence, ['release', 'change', 'rollback', 'runbook'], errorCode);
   const evidence = {};
   for (const key of ['release', 'change', 'rollback', 'runbook']) {
-    evidence[key] = value.evidence[key] === null
-      ? null
-      : text(value.evidence[key], 128, errorCode, { pattern: REFERENCE_PATTERN });
+    evidence[key] = runtimeReference(value.evidence[key],255,RUNTIME_EVIDENCE_PATTERN);
   }
   return Object.freeze({
     schemaVersion: 1,
     environment: oneOf(value.environment, new Set(['development', 'test', 'pilot', 'production']), errorCode),
     deployment: Object.freeze({
-      reference: value.deployment.reference === null
-        ? null
-        : text(value.deployment.reference, 80, errorCode, { pattern: REFERENCE_PATTERN }),
+      reference: runtimeReference(value.deployment.reference,128,RUNTIME_DEPLOYMENT_PATTERN),
       deployedAt: instant(value.deployment.deployedAt, errorCode, { nullable: true }),
     }),
     components: Object.freeze({ frontend: component(value.components.frontend), api: component(value.components.api) }),
     databaseSchema: Object.freeze({
-      expectedVersion: integer(value.databaseSchema.expectedVersion, errorCode, { nullable: true }),
-      currentVersion: integer(value.databaseSchema.currentVersion, errorCode, { nullable: true }),
+      expectedVersion: integer(value.databaseSchema.expectedVersion, errorCode, { minimum: 1,maximum: 100000,nullable: true }),
+      currentVersion: integer(value.databaseSchema.currentVersion, errorCode, { maximum: 100000,nullable: true }),
       state: oneOf(value.databaseSchema.state, new Set(['current', 'mismatch', 'unknown']), errorCode),
     }),
     dependencies: Object.freeze({
@@ -630,7 +636,9 @@ export function normalizePlatformRuntimeDeployments(value) {
   const errorCode = 'PLATFORM_RUNTIME_RESPONSE_INVALID';
   exact(value, ['schemaVersion', 'deployments'], errorCode);
   if (value.schemaVersion !== 1) invalid(errorCode);
-  return Object.freeze({ schemaVersion: 1, deployments: list(value.deployments, 32, runtime, errorCode, { uniqueBy: (entry) => entry.deployment.reference }) });
+  return Object.freeze({ schemaVersion: 1, deployments: list(value.deployments,50,runtime,errorCode,{
+    uniqueBy: entry=>`${entry.environment}\u0000${entry.deployment.reference ?? ''}`,
+  }) });
 }
 
 export function normalizePlatformTenantRuntime(value, expectedTenantId) {

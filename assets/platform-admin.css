@@ -138,6 +138,7 @@
 
 .platform-admin-record-heading h3 {
   margin-block: 0;
+  overflow-wrap: anywhere;
 }
 
 .platform-admin-record-heading small,
