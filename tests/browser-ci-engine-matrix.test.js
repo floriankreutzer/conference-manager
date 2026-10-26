@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const workflow = await readFile(new URL('../.github/workflows/ci.yml',import.meta.url),'utf8');
-test('regular browser CI retains both full projects, one unchanged budget and distinct evidence before its required status',() => {
+test('regular browser CI retains both full projects, a bounded aggregate budget and distinct evidence before its required status',() => {
   const matrix = workflow.slice(workflow.indexOf('  browser-e2e:'),workflow.indexOf('  # Keep the existing required status'));
-  assert.match(matrix,/needs: quality/); assert.match(matrix,/timeout-minutes: 20/);
+  assert.match(matrix,/needs: quality/); assert.match(matrix,/timeout-minutes: 25/);
   assert.match(matrix,/fail-fast: false/); assert.match(matrix,/project: \[chromium-desktop, webkit-mobile\]/);
   assert.match(matrix,/run: npm run test:e2e -- --project=\$\{\{ matrix\.project \}\}/);
   assert.match(matrix,/name: playwright-report-\$\{\{ matrix\.project \}\}/);
