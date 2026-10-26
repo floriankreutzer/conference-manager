@@ -1,0 +1,205 @@
+{
+  "schemaVersion": 1,
+  "deployments": [
+    {
+      "schemaVersion": 1,
+      "environment": "test",
+      "deployment": {
+        "reference": "int:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "deployedAt": "2026-10-25T11:50:00.000Z"
+      },
+      "components": {
+        "frontend": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        },
+        "api": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        }
+      },
+      "databaseSchema": {
+        "expectedVersion": 100000,
+        "currentVersion": 100000,
+        "state": "current"
+      },
+      "dependencies": {
+        "required": "ready",
+        "optional": "ready",
+        "state": "ready"
+      },
+      "freshness": {
+        "state": "fresh",
+        "observedAt": "2026-10-25T11:59:00.000Z",
+        "maxAgeSeconds": 300
+      },
+      "evidence": {
+        "release": "release:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "change": "github:pr:330",
+        "rollback": "change:rollback:330",
+        "runbook": "docs:platform-operations#rollback"
+      },
+      "metadataState": "current",
+      "operationalState": "ready",
+      "overallState": "ready",
+      "reasonCodes": []
+    },
+    {
+      "schemaVersion": 1,
+      "environment": "production",
+      "deployment": {
+        "reference": "int:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "deployedAt": "2026-10-25T11:50:00.000Z"
+      },
+      "components": {
+        "frontend": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        },
+        "api": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        }
+      },
+      "databaseSchema": {
+        "expectedVersion": 100000,
+        "currentVersion": 100000,
+        "state": "current"
+      },
+      "dependencies": {
+        "required": "ready",
+        "optional": "ready",
+        "state": "ready"
+      },
+      "freshness": {
+        "state": "fresh",
+        "observedAt": "2026-10-25T11:59:00.000Z",
+        "maxAgeSeconds": 300
+      },
+      "evidence": {
+        "release": "release:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "change": "github:pr:330",
+        "rollback": "change:rollback:330",
+        "runbook": "docs:platform-operations#rollback"
+      },
+      "metadataState": "current",
+      "operationalState": "ready",
+      "overallState": "ready",
+      "reasonCodes": []
+    },
+    {
+      "schemaVersion": 1,
+      "environment": "development",
+      "deployment": {
+        "reference": null,
+        "deployedAt": "2026-10-25T11:50:00.000Z"
+      },
+      "components": {
+        "frontend": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        },
+        "api": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        }
+      },
+      "databaseSchema": {
+        "expectedVersion": 100000,
+        "currentVersion": 100000,
+        "state": "current"
+      },
+      "dependencies": {
+        "required": "ready",
+        "optional": "ready",
+        "state": "ready"
+      },
+      "freshness": {
+        "state": "fresh",
+        "observedAt": "2026-10-25T11:59:00.000Z",
+        "maxAgeSeconds": 300
+      },
+      "evidence": {
+        "release": "release:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "change": "github:pr:330",
+        "rollback": "change:rollback:330",
+        "runbook": "docs:platform-operations#rollback"
+      },
+      "metadataState": "unknown",
+      "operationalState": "ready",
+      "overallState": "unknown",
+      "reasonCodes": [
+        "deployment_reference_missing"
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "environment": "pilot",
+      "deployment": {
+        "reference": null,
+        "deployedAt": "2026-10-25T11:50:00.000Z"
+      },
+      "components": {
+        "frontend": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        },
+        "api": {
+          "expectedVersion": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "expectedBuildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "version": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "buildId": "vaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "current"
+        }
+      },
+      "databaseSchema": {
+        "expectedVersion": 100000,
+        "currentVersion": 100000,
+        "state": "current"
+      },
+      "dependencies": {
+        "required": "ready",
+        "optional": "ready",
+        "state": "ready"
+      },
+      "freshness": {
+        "state": "fresh",
+        "observedAt": "2026-10-25T11:59:00.000Z",
+        "maxAgeSeconds": 300
+      },
+      "evidence": {
+        "release": "release:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "change": "github:pr:330",
+        "rollback": "change:rollback:330",
+        "runbook": "docs:platform-operations#rollback"
+      },
+      "metadataState": "unknown",
+      "operationalState": "ready",
+      "overallState": "unknown",
+      "reasonCodes": [
+        "deployment_reference_missing"
+      ]
+    }
+  ]
+}

@@ -35,8 +35,9 @@ export function createPlatformOwnerCustomerPresentation({ apiFactory,windowRef=g
       control.addEventListener('click',open);return control;
     },
     async resume() {
-      if (resumed || stopped) return;resumed=true;const controller=ensureModel();await controller.load();
-      if (!stopped && (controller.snapshot().directory?.pending || windowRef.location.search==='?auth=owner_intent')) open();
+      if (resumed || stopped) return false;resumed=true;const controller=ensureModel();await controller.load();
+      if (stopped || !(controller.snapshot().directory?.pending || windowRef.location.search==='?auth=owner_intent')) return false;
+      open();return true;
     },
     stop() { if (stopped) return;stopped=true;dialog?.close();model?.stop();model=null; },
   });

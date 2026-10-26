@@ -17,6 +17,7 @@ import {
   normalizeAllocationEditorDraft,
   normalizeCateringEditorDraft,
   roomEditorOptions,
+  roomEquipmentNames,
   roomSupportsParticipants,
   serviceEditorOptions,
 } from '../src/employee/server-request-editor.js';
@@ -875,4 +876,13 @@ test('all Customer authority failures delegate to one shell and context invalida
   assert.match(analytics, /catch \(caught\) \{\s*if \(authorityFailureCode\(caught\)\)[\s\S]*if \(!isCurrent\(\)/);
   assert.match(demoBootstrap, /onAuthorityFailure: application\.shell\.invalidateAuthorityProjection/);
   assert.match(demoSecurity, /catch \(error\) \{\s*delete documentRoot\.documentElement\.dataset\.demoContextSwitching;\s*if \(authorityFailureCode\(error\) && onAuthorityFailure\?\.\(error\)\) return;/);
+});
+
+test('room equipment resolves current catalogue names, preserves legacy labels and conceals unresolved internal references',()=>{
+  const id='ba000000-0000-4000-8000-000000000001',unknown='ba000000-0000-4000-8000-000000000002';
+  const room={ equipment: [id,'Whiteboard',unknown] },catalog={ equipment: [{ id,name: 'Display 86 Zoll' }] };
+  assert.deepEqual(roomEquipmentNames(room,catalog),['Display 86 Zoll','Whiteboard',null]);
+  assert.deepEqual(roomEquipmentNames(room,{ equipment: [] }),[null,'Whiteboard',null]);
+  assert.deepEqual(roomEquipmentNames(null,catalog),[]);
+  assert.deepEqual(room.equipment,[id,'Whiteboard',unknown]);
 });

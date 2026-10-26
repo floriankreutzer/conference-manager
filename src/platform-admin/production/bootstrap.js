@@ -95,7 +95,12 @@ async function bootstrapProductionPlatformAdmin() {
       onSignOut: () => sessionApi.signOut(),
       onStepUp: protectedClient ? null : () => globalThis.location.assign(PLATFORM_ADMIN_STEP_UP_PATH),
     });
-    await application.start();await syntheticWorkspace?.resume();await ownerCustomer?.resume();
+    await application.start();
+    // An explicit return intent owns automatic presentation. Otherwise resume
+    // only the first pending workspace; both controls remain available manually.
+    if (globalThis.location.search==='?auth=owner_intent') await ownerCustomer?.resume();
+    else if (globalThis.location.search==='?auth=synthetic_intent') await syntheticWorkspace?.resume();
+    else if (!await syntheticWorkspace?.resume()) await ownerCustomer?.resume();
   } catch {
     const retry = button(t('auth.production.retry'), { className: 'primary' });
     retry.addEventListener('click', () => globalThis.location.reload());

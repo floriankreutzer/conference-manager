@@ -311,7 +311,12 @@ export function createPlatformAdminApplication({
     if (focused && focused !== documentRef.body && focused.isConnected === false) focusHeading();
   }
 
+  function clearRouteAnnouncements() {
+    announce('');announce('',{ assertive: true });
+  }
+
   function navigate(hash, { replace = false } = {}) {
+    clearRouteAnnouncements();
     if (windowRef.location.hash !== hash) {
       windowRef.history[replace ? 'replaceState' : 'pushState'](null, '', hash);
     }
@@ -1397,6 +1402,7 @@ export function createPlatformAdminApplication({
   }
 
   function routeChanged() {
+    clearRouteAnnouncements();
     actionError = false;
     render();
     void ensureVisibleResource();
