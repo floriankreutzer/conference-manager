@@ -1899,7 +1899,10 @@ test('Catering participant default follows the attendee total until explicitly e
     await expect(page.locator('[data-step-panel="4"]')).toBeVisible();
   };
   const changeInternalParticipants = async (count) => {
-    await page.locator('.step').nth(0).click();
+    await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+    await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+    await page.getByRole('button', { name: 'Zurück', exact: true }).click();
+    await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
     await page.locator('#productionInternal').fill(count);
     await page.getByRole('button', { name: 'Weiter' }).click();
     await openCatering();
