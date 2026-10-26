@@ -246,7 +246,7 @@ function appliedRequest(current, change, submittedRequest = null) {
       currency: 'EUR', totalMinor: 0,
       breakdown: { roomMinor: 0, servicesMinor: 0, cateringPackageMinor: 0, cateringItemsMinor: 0 },
       room: { id: change.roomId, siteId: 'berlin', name: 'Room A', price: { amountMinor: 0, currency: 'EUR' } },
-      services: [], catering: { participantCount: 0, packageSelection: null, items: [] },
+      services: [], catering: { participantCount: request.catering.participantCount, packageSelection: null, items: [] },
     },
     configurationRevisions: request.configurationRevisions,
     policy: {
@@ -1029,7 +1029,7 @@ async function installProductionApplicationFixture(page, {
               },
               lineTotalMinor: entry.price.amountMinor,
             })),
-            catering: { participantCount: 0, packageSelection: null, items: [] },
+            catering: { participantCount: body.catering.participantCount, packageSelection: null, items: [] },
           },
           configurationRevisions: body.configurationRevisions,
           policy: {
@@ -1644,6 +1644,7 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
     roomId: 'room-a',
     internalParticipants: 2,
     externalParticipants: 1,
+    catering: { participantCount: 3 },
   });
   expect(fixture.writes[0].body).not.toHaveProperty('tenantId');
   expect(fixture.writes[0].body).not.toHaveProperty('userId');
