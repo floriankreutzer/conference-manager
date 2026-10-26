@@ -286,6 +286,7 @@ async function installProductionApplicationFixture(page, {
   catalogLocationsRevision = 1,
   allocationRequired = false,
   catalogueSettings: initialCatalogueSettings = null,
+  locations: initialLocations = null,
   bookingChange: initialBookingChange = null,
   bookingChangeProposalError = null,
   availabilityResponses = [{ available: true, conflictCount: 0 }],
@@ -332,7 +333,7 @@ async function installProductionApplicationFixture(page, {
     initialCatalogueSettings ?? catalogueSettingsPayload().catalogue,
   );
   let catalogueSettingsRevision = 1;
-  let locationSettings = locationSettingsPayload().locations;
+  let locationSettings = structuredClone(initialLocations ?? locationSettingsPayload().locations);
   let applicationCatalog = structuredClone(catalog);
   let applicationCatalogLocationsRevision = catalogLocationsRevision;
   let requests = [];
@@ -3431,8 +3432,25 @@ test('Conference Manager edits normal Room prices with Rooms and validates Cater
 });
 
 test('Conference Manager updates complete Room business snapshots and surfaces revision conflicts', async ({ page }) => {
+  const equipmentId = '8b35e8b7-9132-4d7b-98c5-ecffdef4bb98';
+  const unavailableEquipmentId = '90c891b7-fc17-46d0-8cdf-01938589f233';
+  const initialLocations = locationSettingsPayload().locations;
+  initialLocations.configuration.rooms[0].equipment = [equipmentId, unavailableEquipmentId, 'Whiteboard'];
+  const initialCatalogue = structuredClone(catalogueSettingsPayload().catalogue);
+  initialCatalogue.equipment = [{
+    id: equipmentId,
+    name: 'Display 86 Zoll',
+    description: null,
+    price: { amountMinor: 0, currency: 'EUR' },
+    active: true,
+    order: 1,
+    siteIds: [],
+    roomIds: [],
+  }];
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
+    locations: initialLocations,
+    catalogueSettings: initialCatalogue,
   });
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
@@ -3442,6 +3460,19 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
 
   const room = page.locator('[data-manager-room-id="room-a"]');
   await expect(room).toBeVisible();
+  const equipment = room.locator('#manager-room-equipment-0');
+  await expect(equipment).toBeVisible();
+  const equipmentOptions = await equipment.locator('option').evaluateAll((options) => options.map((option) => ({
+    value: option.value,
+    label: option.textContent.trim(),
+    selected: option.selected,
+  })));
+  expect(equipmentOptions.map(({ label }) => label)).toContain('Display 86 Zoll');
+  expect(equipmentOptions.map(({ label }) => label)).toContain('Nicht verfügbare gespeicherte Verknüpfung 1');
+  expect(equipmentOptions.map(({ label }) => label)).toContain('Whiteboard');
+  expect(equipmentOptions.map(({ label }) => label)).not.toContain(unavailableEquipmentId);
+  expect(equipmentOptions.filter(({ selected }) => selected).map(({ value }) => value))
+    .toEqual([equipmentId, unavailableEquipmentId, 'Whiteboard']);
   expect(await page.locator('[data-tenant-bulk-transfer] option').evaluateAll((options) => (
     options.map(({ value }) => value)
   ))).toEqual(['rooms']);
@@ -3484,11 +3515,18 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
           capacity: 16,
           active: true,
           floor: '1',
+          equipment: [equipmentId, unavailableEquipmentId, 'Whiteboard'],
         }],
       },
     },
   });
   expect(fixture.locationWrites[0].body).not.toHaveProperty('providerContext');
+
+  await equipment.selectOption([{ value: equipmentId }, { value: 'Whiteboard' }]);
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(2);
+  expect(fixture.locationWrites[1].body.configuration.rooms[0].equipment)
+    .toEqual([equipmentId, 'Whiteboard']);
 
   const conflictFixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
