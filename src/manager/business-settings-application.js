@@ -233,6 +233,33 @@ function referenceChoices(entries, selected = []) {
   return control;
 }
 
+function roomEquipmentChoices(entries, selected = []) {
+  const control = el('select', { attrs: { multiple: 'multiple', size: '3' } });
+  const selectedIds = new Set(selected);
+  const catalogueIds = new Set(entries.map((entry) => entry.id));
+  const unavailableIds = selected.filter((id) => (
+    !catalogueIds.has(id)
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+  ));
+  entries.forEach((entry) => {
+    const option = el('option', { value: entry.id, text: entry.active === false
+      ? t('managerSettings.choice.inactive', { name: entry.name }) : entry.name });
+    option.selected = selectedIds.has(entry.id);
+    control.appendChild(option);
+  });
+  selected.forEach((value) => {
+    if (catalogueIds.has(value)) return;
+    const unavailableIndex = unavailableIds.indexOf(value);
+    const label = unavailableIndex >= 0
+      ? t('managerSettings.room.equipmentUnavailable', { number: unavailableIndex + 1 })
+      : value;
+    const option = el('option', { value, text: label });
+    option.selected = true;
+    control.appendChild(option);
+  });
+  return control;
+}
+
 function selectedReferences(control) {
   return Array.from(control.selectedOptions, (option) => option.value);
 }
@@ -695,7 +722,7 @@ export function createManagerBusinessSettingsApplication({
         capacity: numberInput(room.capacity, { min: 1, max: 100_000 }),
         active: checkbox(room.active),
         floor: textInput(room.floor, { maxlength: '80' }),
-        equipment: textInput(room.equipment.join(', '), { maxlength: '4050' }),
+        equipment: roomEquipmentChoices(catalogueSnapshot.catalogue.equipment, room.equipment),
         accessibility: textInput(room.accessibility.join(', '), { maxlength: '2000' }),
         serviceIds: referenceChoices(catalogueSnapshot.catalogue.services, room.serviceIds),
         cateringPackageIds: referenceChoices(catalogueSnapshot.catalogue.cateringPackages, room.cateringPackageIds),
@@ -732,7 +759,7 @@ export function createManagerBusinessSettingsApplication({
           })] : []),
           field({ id: `manager-room-capacity-${index}`, label: t('managerSettings.room.capacity'), control: controls.capacity, required: true }),
           field({ id: `manager-room-floor-${index}`, label: t('managerSettings.room.floor'), control: controls.floor, optional: true }),
-          field({ id: `manager-room-equipment-${index}`, label: t('managerSettings.room.equipment'), control: controls.equipment, optional: true, hint: t('managerSettings.commaSeparated') }),
+          field({ id: `manager-room-equipment-${index}`, label: t('managerSettings.room.equipment'), control: controls.equipment, optional: true, hint: t('managerSettings.help.roomEquipment') }),
           field({ id: `manager-room-accessibility-${index}`, label: t('managerSettings.room.accessibility'), control: controls.accessibility, optional: true, hint: t('managerSettings.commaSeparated') }),
           field({ id: `manager-room-services-${index}`, label: t('managerSettings.room.serviceIds'), control: controls.serviceIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
           field({ id: `manager-room-catering-${index}`, label: t('managerSettings.room.cateringPackageIds'), control: controls.cateringPackageIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
@@ -860,7 +887,7 @@ export function createManagerBusinessSettingsApplication({
             capacity: Number(controls.capacity.value),
             active: controls.active.checked,
             floor: controls.floor.value.trim() || null,
-            equipment: commaList(controls.equipment.value, { maximum: 100, pattern: /^.{1,160}$/u }),
+            equipment: selectedReferences(controls.equipment),
             accessibility: commaList(controls.accessibility.value, { maximum: 20, pattern: /^.{1,80}$/u }),
             serviceIds: selectedReferences(controls.serviceIds),
             cateringPackageIds: selectedReferences(controls.cateringPackageIds),
