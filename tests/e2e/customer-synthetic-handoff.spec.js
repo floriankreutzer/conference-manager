@@ -3,14 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { createProtectedCustomerHtml } from '../../scripts/protected-customer-html.mjs';
 const ID='ba000000-0000-4000-8000-000000000001',TENANT='ba000000-0000-4000-8000-000000000002';
 const CSRF='c'.repeat(64),ROOT='/api/v1/auth/delegation';
-async function setup(page,{ existing=false,lostLogout=false,expired=false }={}) {
+async function setup(page,{ existing=false,lostLogout=false,expired=false,entry=false }={}) {
   const configured=new URL(test.info().project.use.baseURL);
   if (configured.protocol!=='https:' || configured.hostname!=='127.0.0.1') throw new Error('LOOPBACK_FIXTURE_REQUIRED');
   const origin=configured.origin,html=createProtectedCustomerHtml({
     source: await readFile(new URL('../../index.html',import.meta.url),'utf8'),
     customerOrigin: origin,platformOrigin: 'https://127.0.0.1:4174',
   });
-  const writes=[],reads=[];let authenticated=existing,cookiePresent=existing,completed=false;
+  const writes=[],reads=[],events=[];let authenticated=existing,cookiePresent=existing,completed=false,ready=false;
   await page.route('**/*',async route=>{
     const request=route.request(),url=new URL(request.url());
     if (url.origin!==origin) { await route.abort('blockedbyclient');throw new Error('UNEXPECTED_NON_LOOPBACK_REQUEST'); }
@@ -28,8 +28,16 @@ async function setup(page,{ existing=false,lostLogout=false,expired=false }={}) 
       await route.fulfill({ contentType: 'text/css',body: 'html { font-size: 200%; }' });return;
     }
     if (!url.pathname.startsWith('/api/')) { await route.continue();return; }
+    events.push(`${request.method()} ${url.pathname}`);
     if (request.method()==='GET') reads.push(url.pathname);
     else writes.push({ path: url.pathname,body: request.postData(),headers: request.headers(),navigation: request.isNavigationRequest() });
+    if (url.pathname==='/api/v1/health/ready') {
+      await route.fulfill({ contentType: ready ? 'application/json' : 'text/html',
+        body: ready ? JSON.stringify({ status: 'ready',requestId: ID }) : '<html><title>Starting</title></html>' });return;
+    }
+    if (url.pathname===`${ROOT}/start`) {
+      await route.fulfill({ contentType: 'text/html',body: '<html lang="en"><title>Started</title><h1>Start received</h1></html>' });return;
+    }
     let status=200,response;
     if (url.pathname==='/api/v1/session') {
       if (!authenticated) status=401;
@@ -52,8 +60,27 @@ async function setup(page,{ existing=false,lostLogout=false,expired=false }={}) 
     if (status>=400) response={ error: { code: 'AUTHENTICATION_REJECTED',requestId: ID } };
     await route.fulfill({ status,contentType: 'application/json',...(status===204 ? {} : { body: JSON.stringify(response) }) });
   });
-  await page.goto(`${origin}/?auth=synthetic_confirmation`);return { writes,reads };
+  await page.goto(entry ? `${origin}/` : `${origin}/?auth=synthetic_confirmation`);
+  return { writes,reads,events,setReady() { ready=true; } };
 }
+
+test('initial operator test waits for readiness, recovers from cold HTML by explicit retry and sends one native POST',async({ page })=>{
+  const f=await setup(page,{ entry: true });
+  await page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true }).click();
+  await expect(page.locator('main').getByRole('alert')).toContainText('Testzugang wurde noch nicht gestartet');
+  expect(f.writes).toHaveLength(0);expect(f.reads.filter(path=>path==='/api/v1/health/ready')).toHaveLength(1);
+  await page.getByRole('combobox',{ name: 'Sprache',exact: true }).selectOption('en');
+  await expect(page.getByRole('combobox',{ name: 'Language',exact: true })).toBeFocused();
+  await expect(page.locator('main').getByRole('alert')).toContainText('Test access has not started');
+  await page.addStyleTag({ url: '/test-reflow.css' });
+  for (const width of [320,1280]) { await page.setViewportSize({ width,height: 900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); }
+  f.setReady();await page.getByRole('button',{ name: 'Test as a Platform Operator',exact: true }).focus();
+  await Promise.all([page.waitForEvent('domcontentloaded'),page.keyboard.press('Enter')]);
+  await expect(page.getByRole('heading',{ name: 'Start received',exact: true })).toBeVisible();
+  expect(f.writes).toHaveLength(1);expect(f.writes[0].path).toBe(`${ROOT}/start`);expect(f.writes[0].navigation).toBe(true);
+  expect(f.events.slice(-2)).toEqual(['GET /api/v1/health/ready',`POST ${ROOT}/start`]);
+});
 
 test('Customer confirmation uses real native POST navigation after keyboard approval, with bilingual reflow and no stored proof',async({ page })=>{
   const f=await setup(page);
