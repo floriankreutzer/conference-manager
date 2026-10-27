@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-arrow-right-title pavurel-arrow-right-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-arrow-right-title">Next</title>
+  <desc id="pavurel-arrow-right-desc">A horizontal arrow pointing right.</desc>
+  <path d="M4 12h16"/>
+  <path d="m14 6 6 6-6 6" stroke="currentColor"/>
+</svg>

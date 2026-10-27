@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="cm-room-equipment-title cm-room-equipment-desc" focusable="false" xml:lang="en">
+  <title id="cm-room-equipment-title">Room and equipment</title>
+  <desc id="cm-room-equipment-desc">A room outline containing a display.</desc>
+  <path d="M8.5 20.5h-5v-17h17v17h-5"/>
+  <rect x="7" y="6.5" width="10" height="6.5" rx="1"/>
+  <path d="M12 13v3M9 16h6" stroke="#FFFFFF"/>
+</svg>

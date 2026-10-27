@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-customers-title pavurel-customers-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-customers-title">Customer organisations</title>
+  <desc id="pavurel-customers-desc">An office building with windows and an entrance.</desc>
+  <rect x="5.5" y="3.5" width="13" height="17" rx="1.5"/>
+  <path d="M3 20.5h18M9 7.5h1M14 7.5h1M9 11.5h1M14 11.5h1"/>
+  <path d="M10 20.5v-5h4v5" stroke="currentColor"/>
+</svg>

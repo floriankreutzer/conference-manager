@@ -52,6 +52,12 @@ alert, and server display labels use text nodes. Existing field/card/button/layo
 components and design tokens are reused without new CSS or a parallel component
 system. Expiry uses the existing locale-aware date/time formatter.
 
+Microsoft control branding follows the scoped manufacturer treatment in
+[ICON-SYSTEM.md](ICON-SYSTEM.md#microsoft-authentication-control). This is a planned
+presentation requirement, not a change to email admission, fixed sign-in routes
+or existing authenticated authority; generic product button styling must not
+replace the vendor lockup when that control is implemented.
+
 Invitation audit summaries now translate issued, reissued and revoked states in
 both languages. Prior revisions remain supplied by the trusted backend projection.
 

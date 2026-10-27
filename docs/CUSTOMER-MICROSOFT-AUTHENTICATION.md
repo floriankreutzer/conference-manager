@@ -53,7 +53,15 @@ Customer Tenant selection, roles and user identity cannot be supplied as authori
 
 Native forms/buttons, explicit labels, live status/error text, focus restoration
 and the existing card/button-row design are reused. All new text uses central
-DE/EN catalogs. The authentication catalog is included in the canonical
+DE/EN catalogs.
+
+The shared [Microsoft control contract](ICON-SYSTEM.md#microsoft-authentication-control)
+governs the planned vendor-branded sign-in control within that existing layout.
+Use the unchanged official symbol and localized DE/EN label; the complete reference
+button SVGs contain English text. Preserve this document's protocol and account-
+linking boundaries. Reference storage alone does not implement the control.
+
+The authentication catalog is included in the canonical
 duplicate/key/placeholder parity gate. The Tenant audit adapter and view recognize
 the new identity-link action with localized labels; raw provider identities and
 security versions remain excluded by the server's public history projection.

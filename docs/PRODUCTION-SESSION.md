@@ -113,6 +113,10 @@ The existing explicit demo role switch remains demo-only. Manipulating historica
 
 Production sign-in, session unavailable, authenticated status and logout copy use the canonical DE/EN localization resources. Controls use native buttons and the existing shell/profile dialog semantics, keyboard behavior and focus handling.
 
+The [Microsoft control reference](ICON-SYSTEM.md#microsoft-authentication-control)
+defines the planned sign-in branding exception within those native semantics.
+It changes no fixed endpoint, session transition, permission or deployed control.
+
 The signed-out synthetic Operator-test entry performs a bounded, uncached same-origin
 `GET /api/v1/health/ready` before its initial native form POST. Only the exact ready
 JSON contract permits that POST. Hosting start pages, redirects, unavailable or

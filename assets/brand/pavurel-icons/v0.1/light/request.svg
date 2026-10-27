@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="cm-request-title cm-request-desc" focusable="false" xml:lang="en">
+  <title id="cm-request-title">Conference request</title>
+  <desc id="cm-request-desc">A document with a folded corner, short text lines and a small plus sign.</desc>
+  <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V8l-5-5Z"/>
+  <path d="M14 3v5h5M7.5 11.5H12M7.5 15.5h2"/>
+  <path d="M15 13.5v5M12.5 16h5" stroke="#7A1F3D"/>
+</svg>

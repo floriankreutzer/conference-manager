@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-audit-title pavurel-audit-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-audit-title">Audit log</title>
+  <desc id="pavurel-audit-desc">A clipboard with event lines and a check mark.</desc>
+  <path d="M8 4.5H5.5v17h13v-17H16"/>
+  <rect x="8" y="2.5" width="8" height="4" rx="1"/>
+  <path d="M8.5 10h7M8.5 13.5h3"/>
+  <path d="m12 17 2 2 4-4" stroke="currentColor"/>
+</svg>

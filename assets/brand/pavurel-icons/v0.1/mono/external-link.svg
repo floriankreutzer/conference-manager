@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-external-link-title pavurel-external-link-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-external-link-title">External destination</title>
+  <desc id="pavurel-external-link-desc">An arrow leaving the upper-right corner of a frame.</desc>
+  <path d="M11 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6"/>
+  <path d="M14 3h7v7M21 3 12 12" stroke="currentColor"/>
+</svg>

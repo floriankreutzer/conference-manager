@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-delivery-title pavurel-delivery-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-delivery-title">Delivery</title>
+  <desc id="pavurel-delivery-desc">An open package with an upward arrow.</desc>
+  <path d="M4 9.5l8 4 8-4M4 9.5v10l8 3 8-3v-10M12 13.5v9M4 9.5l4-2M16 7.5l4 2"/>
+  <path d="M12 10V2.5M8.5 6 12 2.5 15.5 6" stroke="currentColor"/>
+</svg>

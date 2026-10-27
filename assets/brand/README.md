@@ -6,6 +6,17 @@ PAVUREL is the standard corporate visual identity shipped by Conference Manager.
 
 The product-default presentation preset must use only code-shipped, reviewed assets from this directory. Tenant-specific presentation remains controlled through the existing allowlisted preset contract and must not load arbitrary remote branding resources.
 
+## Shared reference assets
+
+The [canonical icon and Microsoft usage contract](../../docs/ICON-SYSTEM.md) governs
+shared Website, Customer and Platform consumption. Existing approved runtime assets
+below keep their current status. The additional [Pavurel icon v0.1 draft](pavurel-icons/v0.1/README.md)
+and [Microsoft third-party references](microsoft-sign-in/reference-2026-10-27/README.md)
+are stored here as versioned sources; no view integration or deployment is implied.
+[Manifests, hashes, previews and offline reproduction](../../docs/brand-reference/README.md)
+remain outside `assets/`, whose non-Markdown contents enter Customer packaging.
+Keep Microsoft originals separate from Pavurel functional icons and licensing.
+
 ## Approved runtime assets
 
 - `pavurel-signet.svg` — approved Connection & Flow signet for light surfaces.

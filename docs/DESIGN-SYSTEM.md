@@ -41,6 +41,11 @@ Change these tokens to update the identity globally:
 
 Approved PAVUREL logo, signet and app-icon geometry is governed separately under `assets/brand/` and must not be recreated through CSS or redrawn from screenshots/mockups.
 
+Functional icons, stable semantic names and unchanged third-party Microsoft
+sign-in assets follow [ICON-SYSTEM.md](ICON-SYSTEM.md). The versioned v0.1 icon
+set is a working draft; it does not replace approved runtime marks or establish
+UI/deployment acceptance. Keep native repo-local rendering and central DE/EN copy.
+
 ### Surfaces
 
 - `--color-canvas`: application background
@@ -58,6 +63,14 @@ The typography contract deliberately combines two sans-serif families rather tha
 - `--font-family-display`: **Manrope** first, then the complete functional UI fallback chain. Use this token for brand/display typography, semantic H1-H3 headings, onboarding headlines and selected prominent KPI values. Hero and H1 surfaces use 700; normal H2/H3 and onboarding headings use the existing 600 weight token. H4 remains on the functional UI family unless a component has a specific justified display role.
 - `--font-family-sans`: **Inter** first, followed by system UI fallbacks. Body text, descriptions, navigation, forms, labels, inputs, buttons, tables, dense operational views, supporting information and status text continue to inherit this token.
 - Component styles consume these semantic family tokens. Literal font-family stacks outside `assets/tokens.css` are rejected by `npm run check:design`.
+
+The planned Microsoft authentication control is a narrowly scoped vendor
+component under [the Microsoft control contract](ICON-SYSTEM.md#microsoft-authentication-control).
+Preserve its manufacturer's symbol, light/dark treatment, typography and spacing;
+do not restyle its lockup as a generic Bordeaux/Inter/Manrope product button.
+Global product tokens and the current design gate stay unchanged. Any scoped
+semantic token or validator handling belongs to the separately reviewed control
+implementation, not this reference-asset storage change.
 
 Manrope is self-hosted as the official Google Fonts variable TrueType asset at `assets/fonts/Manrope[wght].ttf`; its SHA-256 is `d0639be45d0af36e798172419d7bd173c4bd4f29e2b76cbb69db1d11bf8b0a40`. The repository ships the accompanying SIL Open Font License 1.1 and FONTLOG provenance metadata. The browser loads the font from the application origin only, consistent with the existing `font-src 'self'` CSP, and `index.html` preloads the file because a display heading is present on every application view. `font-display: swap` keeps text visible during loading; if Manrope cannot be loaded, the display token falls back through Inter and the existing system UI stack. No Google Fonts CDN request, third-party JavaScript or new runtime dependency is introduced.
 
