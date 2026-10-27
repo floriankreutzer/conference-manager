@@ -155,7 +155,9 @@ therefore has a known not-executed outcome. A transport failure or abort after
 dispatching either write remains an unknown outcome. It never becomes a safe
 cancellation merely because the local signal was aborted. Existing immutable
 command keys and explicit user retries remain authoritative; there is no new
-automatic retry. A completed operation whose normal session cannot be refreshed
+automatic retry. Cancelling or refusing a later retry cannot establish the outcome
+of an earlier unconfirmed write: its original command and unknown outcome remain
+until a successful explicit retry or context disposal. A completed operation whose normal session cannot be refreshed
 retains its separate refresh-required result, even when that handler stops the
 client.
 

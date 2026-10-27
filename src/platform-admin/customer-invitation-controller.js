@@ -20,11 +20,12 @@ export function createPlatformInvitationController({ api,tenantId=null,onCreated
     const items=await api.list({ tenantId,afterId });
     update({ status: pending ? 'retry' : 'ready',items,afterId,hasNext: items.length===100,error: null });
   }
-  async function submit() {
+  async function submit({ priorOutcomeUnknown=false }={}) {
     let result;
     try { result=tenantId===null ? await api.create(pending) : await api.issue(pending); }
     catch (error) {
-      const code=errorCode(error);if (code!=='unknown') pending=null;
+      // A later refused/cancelled attempt cannot disprove an earlier commit.
+      const code=priorOutcomeUnknown ? 'unknown' : errorCode(error);if (code!=='unknown') pending=null;
       update({ status: pending ? 'retry' : 'error',error: code });return;
     }
     pending=null;if (disposed) return;
@@ -41,7 +42,7 @@ export function createPlatformInvitationController({ api,tenantId=null,onCreated
     load({ afterId=state.afterId }={}) {
       if (tenantId===null) return;
       return perform(async()=>{ try { await read(afterId); }
-        catch (error) { update({ status: pending ? 'retry' : 'refresh_required',error: readError(error) }); } });
+        catch (error) { update({ status: pending ? 'retry' : 'refresh_required',error: pending ? 'unknown' : readError(error) }); } });
     },
     issue(value) {
       if (disposed || busy || pending || state.error==='authority' || !['ready','error'].includes(state.status)) return;
@@ -51,7 +52,7 @@ export function createPlatformInvitationController({ api,tenantId=null,onCreated
           roles: Object.freeze([...row.roles]),locale: row.locale }))) });
       return perform(submit);
     },
-    retry() { if (pending && state.status==='retry') return perform(submit); },
+    retry() { if (pending && state.status==='retry') return perform(()=>submit({ priorOutcomeUnknown: true })); },
     mutate(operation,invitationId,reason) {
       if (tenantId===null || state.status!=='ready' || pending) return;
       const row=state.items.find(item=>item.id===invitationId);

@@ -128,6 +128,17 @@ test('lost creation result retains the exact command for explicit retry and keep
   await expect(page.getByRole('dialog')).toHaveCount(0);expect(f.writes).toHaveLength(2);
   expect(f.writes[0]).toEqual(f.writes[1]);
 });
+test('unknown creation retry keeps the original committed command when its later proof is cancelled',async({ page })=>{
+  const f=await fixture(page,{ lostCreation: true }),dialog=await fillCreation(page);
+  await dialog.getByRole('button',{ name: 'Kunden anlegen und Einladungen vormerken',exact: true }).click();
+  const retry=dialog.getByRole('button',{ name: 'Dieselbe Anfrage erneut prüfen',exact: true });await expect(retry).toBeVisible();
+  await page.evaluate(()=>{ globalThis.cancelInvitationProof=true; });await retry.click();
+  await expect(retry).toBeVisible();
+  await expect(dialog.getByRole('alert')).toContainText('Das Ergebnis ist unklar.');
+  expect(f.writes).toHaveLength(1);
+  await retry.click();await expect(dialog).toHaveCount(0);
+  expect(f.writes).toHaveLength(2);expect(f.writes[0]).toEqual(f.writes[1]);
+});
 test('creation editor remains keyboard usable and contained at narrow, desktop and doubled-text sizes',async ({ page })=>{
   await fixture(page);const dialog=await fillCreation(page);
   for (const width of [320,1280]) {
