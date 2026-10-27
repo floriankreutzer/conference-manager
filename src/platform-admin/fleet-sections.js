@@ -186,8 +186,10 @@ function audit(resource, onLoadMore,onExportAudit) {
       control.addEventListener('click',async()=>{
         if (control.disabled) return;control.disabled=true;feedback.textContent='';
         try { await onExportAudit();feedback.textContent=t('platformAdmin.segmentAudit.exported'); }
-        catch { feedback.textContent=t('platformAdmin.segmentAudit.failed'); }
-        finally { control.disabled=false; }
+        catch (error) { feedback.textContent=t(
+          ['PLATFORM_PASSKEY_OPERATION_CANCELLED','PLATFORM_MICROSOFT_OPERATION_CANCELLED'].includes(error?.code)
+            ? 'platformAdmin.passkey.error.cancelled' : 'platformAdmin.passkey.error.failed'); }
+        finally { control.disabled=false;if (control.isConnected && document.activeElement===document.body) control.focus(); }
       });
       verification.push(el('p',{ text: t('platformAdmin.segmentAudit.description') }),control,feedback);
     }

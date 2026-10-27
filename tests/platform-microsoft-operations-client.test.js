@@ -60,7 +60,7 @@ test('Microsoft challenge rejects foreign redirects, extra authority, duplicate 
 });
 test('Microsoft cancellation, status failure, network error and non428 refusal never execute a mutation retry',async()=>{
   const cancelled=fixture({ confirmation: async()=>{ throw new Error('private-cancel'); } });
-  await assert.rejects(cancelled.client.request('tenants',{ method: 'POST',body: {} }),/PLATFORM_MICROSOFT_OPERATION_FAILED/);
+  await assert.rejects(cancelled.client.request('tenants',{ method: 'POST',body: {} }),/PLATFORM_MICROSOFT_OPERATION_NOT_EXECUTED/);
   assert.equal(cancelled.calls.length,1);
   for (const code of [400,401,403,409,429,503]) {
     const f=fixture({ fetcher: ()=>json({ error: { code: 'REFUSED' } },code) });

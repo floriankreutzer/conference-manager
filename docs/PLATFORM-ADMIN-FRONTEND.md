@@ -146,6 +146,34 @@ protected INT cutover or real Microsoft acceptance. Current commit-bound CI and
 browser evidence is tracked in SaaS1 issue351; no milestone acceptance is closed by
 preparing this inactive port.
 
+## Operation cancellation and invitation read outcomes
+
+The shared operation transport preserves explicit Microsoft and native-passkey
+cancellation before a protected request is replayed. A received428 establishes
+that the business operation did not execute; a failed challenge or confirmation
+therefore has a known not-executed outcome. A transport failure or abort after
+dispatching either write remains an unknown outcome. It never becomes a safe
+cancellation merely because the local signal was aborted. Existing immutable
+command keys and explicit user retries remain authoritative; there is no new
+automatic retry. A completed operation whose normal session cannot be refreshed
+retains its separate refresh-required result, even when that handler stops the
+client.
+
+Microsoft confirmation distinguishes explicit cancellation from unavailable,
+invalid or expired status. Poll completions after cancellation cannot complete
+the dialog a second time. Audit export feedback describes that operation only;
+it does not relabel independently loaded audit events or their verification.
+Keyboard focus returns to the connected export control when dialog closure left
+focus on the document body. A cancelled invitation read uses a neutral status;
+other failed list reads report unavailable current data rather than an unknown
+write. Initial issuance remains disabled until an explicit successful read.
+After a confirmed mutation, a failed list refresh cannot resubmit that mutation.
+
+These source changes address the cancellation/read-outcome subset of issue399.
+They do not establish a cause or repair for401/403/404 invitation access failures,
+enable synthetic admission, change global routes or entitlement presentation, or
+complete real-provider or Hosted acceptance.
+
 ## Protected insight navigation
 
 The active application-passkey composition injects independent protected insight

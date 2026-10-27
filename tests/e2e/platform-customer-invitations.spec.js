@@ -44,7 +44,12 @@ async function fixture(page,{ lostCreation=false }={}) {
     const { createPlatformInvitationPresentation }=await import('/src/platform-admin/customer-invitations-presentation.js');
     const { setLanguage }=await import('/src/core/i18n.js');setLanguage('de');
     const transport=createPlatformPasskeyOperationsClient({ csrfTokenProvider: ()=>csrf,refreshSession: async()=>true,
-      browser: { async authenticate() { return { id: 'synthetic-test-assertion' }; } } });
+      browser: { async authenticate() {
+        if (globalThis.cancelInvitationProof) {
+          globalThis.cancelInvitationProof=false;throw Object.assign(new Error(),{ code: 'PLATFORM_PASSKEY_BROWSER_CANCELLED' });
+        }
+        return { id: 'synthetic-test-assertion' };
+      } } });
     const api=createPlatformCustomerInvitationApi({ apiClient: transport });
     const presentation=createPlatformInvitationPresentation({ api });
     const operator={ permissions: ['platform:invitation:manage'],assurance: { level: 'mfa' } };
@@ -92,6 +97,27 @@ test('owner-inclusive creation, list and per-person resend/revoke use exact fres
   expect(f.writes[1].value.expectedRevision).toBe(1);expect(f.writes[2].value.expectedRevision).toBe(2);
   expect(f.requests.filter(row=>row.method==='GET')).toHaveLength(6,'each list is explicitly challenged and retried once');
 });
+for (const locale of ['de','en']) {
+  test(`cancelled invitation read is neutral and cannot enable issuance before refresh: ${locale}`,async({ page })=>{
+    const f=await fixture(page),dialog=await fillCreation(page);
+    await dialog.getByRole('button',{ name: 'Kunden anlegen und Einladungen vormerken',exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.evaluate(value=>{ globalThis.platformInvitationFixture.language(value);globalThis.cancelInvitationProof=true; },locale);
+    const refresh=page.getByRole('button',{ name: locale==='de' ? 'Aktuellen Stand laden' : 'Load current status',exact: true });
+    await refresh.click();
+    await expect(page.getByRole('status').getByText(locale==='de'
+      ? 'Die Bestätigung wurde abgebrochen. Es wird keine Aktion automatisch wiederholt.'
+      : 'Confirmation was cancelled. No action is retried automatically.',{ exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('button',{ name: locale==='de' ? 'Person hinzufügen' : 'Add a person',exact: true })).toBeDisabled();
+    expect(f.writes).toHaveLength(1);expect(f.requests.filter(row=>row.method==='GET')).toHaveLength(1);
+    await page.setViewportSize({ width: 320,height: 900 });await refresh.focus();await refresh.press('Enter');
+    await expect(page.getByRole('heading',{ name: 'Person@example.test',exact: true })).toBeVisible();
+    await expect(page.getByRole('button',{ name: locale==='de' ? 'Person hinzufügen' : 'Add a person',exact: true })).toBeEnabled();
+    expect(f.writes).toHaveLength(1);expect(f.requests.filter(row=>row.method==='GET')).toHaveLength(3);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  });
+}
 test('lost creation result retains the exact command for explicit retry and keeps drafts through translation',async ({ page })=>{
   const f=await fixture(page,{ lostCreation: true });const dialog=await fillCreation(page);
   await dialog.getByRole('button',{ name: 'Kunden anlegen und Einladungen vormerken',exact: true }).click();

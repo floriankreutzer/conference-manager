@@ -95,7 +95,7 @@ export function createPlatformInvitationView({ controller,draft,creation=false,i
     fields.disabled=!['ready','error'].includes(state.status) || state.error==='authority';
     if (submitted && state.status==='ready') { draft.invitations.splice(0);draft.reason='';reason.value='';renderPeople();submitted=false; }
     if (state.status==='error') submitted=false;
-    clear(status);clear(results);status.setAttribute('role',state.error ? 'alert' : 'status');
+    clear(status);clear(results);status.setAttribute('role',state.error && state.error!=='cancelled' ? 'alert' : 'status');
     status.append(el('p',{ text: t(key(state.error ? `error.${state.error}` : `status.${state.status}`)) }));
     if (state.status==='retry') status.append(action('retry',()=>controller.retry()));
     if (!creation && ['idle','ready','error','refresh_required','retry'].includes(state.status)) status.append(action('refresh',()=>controller.load()));
