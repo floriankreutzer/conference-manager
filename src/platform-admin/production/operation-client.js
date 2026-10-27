@@ -37,18 +37,24 @@ export function createPlatformOperationClient({ origin = globalThis.location?.or
   }
   async function send(url, init) {
     const controller = new AbortController();
+    let mayHaveMutated = false;
     const abort = () => controller.abort();
     const sources = [stopped.signal, init.signal].filter(Boolean);
     for (const signal of sources) { if (signal.aborted) abort(); else signal.addEventListener('abort', abort, { once: true }); }
     try {
       if (controller.signal.aborted) throw operationError('OPERATION_CANCELLED');
       const headers = { ...init.headers, 'X-CSRF-Token': csrf() }; const request = { ...init, headers, signal: controller.signal };
+      mayHaveMutated = init.method !== 'GET';
       const first = await fetchImpl(url, request); if (first.status !== 428) return first;
+      // Only the explicit challenge establishes that the action did not run.
+      // Aborting either in-flight write can still hide a committed result.
+      mayHaveMutated = false;
       const pending=await challenge(first,readPending,ErrorType);onPrompt();
       const proofHeaders=await confirm(pending,{ signal: controller.signal });
       if (controller.signal.aborted) throw operationError('OPERATION_CANCELLED');
+      mayHaveMutated = init.method !== 'GET';
       const completed=await fetchImpl(url,{ ...request,headers: { ...headers,...proofHeaders } });
-      if (completed.status === 428) { await completed.body?.cancel(); reject(); }
+      if (completed.status === 428) { mayHaveMutated=false;await completed.body?.cancel();reject(); }
       if (completed.ok) {
         let refreshed = false;
         try { refreshed = await refreshSession() === true; } catch {}
@@ -60,11 +66,15 @@ export function createPlatformOperationClient({ origin = globalThis.location?.or
       }
       return completed;
     } catch (failure) {
-      if (failure instanceof ErrorType) throw failure;
-      if (failure?.code === 'PLATFORM_PASSKEY_BROWSER_CANCELLED' || controller.signal.aborted) {
+      const cancelledCode = `${errorPrefix}_OPERATION_CANCELLED`;
+      if (failure instanceof ErrorType && failure.code === `${errorPrefix}_SESSION_REFRESH_REQUIRED`) throw failure;
+      const cancelled = failure?.code === cancelledCode || controller.signal.aborted
+        || errorPrefix === 'PLATFORM_PASSKEY' && failure?.code === 'PLATFORM_PASSKEY_BROWSER_CANCELLED';
+      if (mayHaveMutated) throw new ErrorType();
+      if (cancelled) {
         throw operationError('OPERATION_CANCELLED');
       }
-      throw new ErrorType();
+      throw operationError('OPERATION_NOT_EXECUTED');
     } finally { for (const signal of sources) signal.removeEventListener('abort', abort); }
   }
   function runExclusive(work) {

@@ -16,6 +16,31 @@ test('unknown creation outcome retains only the immutable command and needs an e
   assert.equal(f.calls.length,2);assert.equal(f.calls[0],f.calls[1]);assert.equal(f.calls[1].reason,draft.reason);
   assert.deepEqual(f.calls[1].invitations[0].roles,['tenant_admin']);assert.equal(c.snapshot().status,'complete');
 });
+test('a cancelled or refused check of an earlier unknown write preserves that original command and outcome',async()=>{
+  for (const tenantId of [null,'tenant']) {
+    for (const code of ['PLATFORM_MICROSOFT_OPERATION_CANCELLED','PLATFORM_PASSKEY_OPERATION_CANCELLED',
+      'PLATFORM_MICROSOFT_OPERATION_NOT_EXECUTED','PLATFORM_PASSKEY_OPERATION_NOT_EXECUTED','HTTP_403']) {
+      const calls=[];let ids=0;
+      const send=async value=>{
+        calls.push(value);if (calls.length===1) throw new Error('NETWORK');
+        if (calls.length===2) throw Object.assign(new Error(),{ code });
+        return tenantId===null ? { invitations: [] } : [];
+      };
+      const c=createPlatformInvitationController({ tenantId,idFactory: ()=>`command-${++ids}`,
+        api: { create: send,issue: send,list: async()=>{
+          if (calls.length===2) throw Object.assign(new Error(),{ code: 'PLATFORM_MICROSOFT_OPERATION_CANCELLED' });return [];
+        },mutate: async()=>{} } });
+      if (tenantId!==null) await c.load();
+      await c.issue(draft);await c.retry();
+      assert.equal(c.snapshot().status,'retry');assert.equal(c.snapshot().error,'unknown');
+      if (tenantId!==null) { await c.load();assert.equal(c.snapshot().error,'unknown'); }
+      await c.issue({ ...draft,reason: 'Different intent' });assert.equal(calls.length,2);
+      await c.retry();assert.equal(calls.length,3);assert.equal(ids,1);
+      assert.equal(calls[0],calls[1]);assert.equal(calls[0],calls[2]);
+      assert.equal(c.snapshot().status,tenantId===null ? 'complete' : 'ready');
+    }
+  }
+});
 test('known denial and cancelled proof have no retry while detached completions cannot restore data',async()=>{
   for (const code of ['PLATFORM_CUSTOMER_INVITATION_INPUT_INVALID','HTTP_400','HTTP_401','HTTP_403','HTTP_409','HTTP_429',
     'PLATFORM_PASSKEY_OPERATION_CANCELLED','PLATFORM_MICROSOFT_OPERATION_CANCELLED']) {

@@ -154,6 +154,47 @@ protected INT cutover or real Microsoft acceptance. Current commit-bound CI and
 browser evidence is tracked in SaaS1 issue351; no milestone acceptance is closed by
 preparing this inactive port.
 
+## Operation cancellation and invitation read outcomes
+
+The shared operation transport preserves explicit Microsoft and native-passkey
+cancellation before a protected request is replayed. A received428 establishes
+that the business operation did not execute; a failed challenge or confirmation
+therefore has a known not-executed outcome. A transport failure or abort after
+dispatching either write remains an unknown outcome. It never becomes a safe
+cancellation merely because the local signal was aborted. Existing immutable
+command keys and explicit user retries remain authoritative; there is no new
+automatic retry. Cancelling or refusing a later retry cannot establish the outcome
+of an earlier unconfirmed write: its original command and unknown outcome remain
+until a successful explicit retry or context disposal. A completed operation whose normal session cannot be refreshed
+retains its separate refresh-required result, even when that handler stops the
+client.
+
+Microsoft confirmation distinguishes explicit cancellation from unavailable,
+invalid or expired status. Poll completions after cancellation cannot complete
+the dialog a second time. The Platform API adapter preserves cancellation only
+from its typed Microsoft/passkey operation errors; arbitrary matching codes and
+ordinary failures retain the existing bounded resource error. Audit export
+feedback describes that operation only;
+it does not relabel independently loaded audit events or their verification.
+Keyboard focus returns to the connected export control when dialog closure left
+focus on the document body. A cancelled invitation read uses a neutral status;
+other failed list reads report unavailable current data rather than an unknown
+write. Initial issuance remains disabled until an explicit successful read.
+After a confirmed mutation, a failed list refresh cannot resubmit that mutation.
+
+These source changes address the cancellation/read-outcome subset of issue399.
+They do not establish a cause or repair for401/403/404 invitation access failures,
+enable synthetic admission, change global routes or entitlement presentation, or
+complete real-provider or Hosted acceptance.
+
+`platform-api.js` is the active shared API adapter selected by both bootstraps.
+Its outcome types live in the adapter-free `operation-errors.js`, and the existing
+Production client exports retain those same class identities. Both artifact
+manifests include that shared contract without making Demo depend on Production.
+The cancellation unit regression imports the same active API adapter as the
+Production bootstrap. Its visible DE/EN browser regressions run early in each
+engine and again in the unchanged full suite; permanent Demo/reset gates remain.
+
 ## Protected insight navigation
 
 The active application-passkey composition injects independent protected insight

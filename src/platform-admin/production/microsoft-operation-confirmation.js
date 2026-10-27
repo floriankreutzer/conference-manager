@@ -8,6 +8,7 @@ export function confirmPlatformMicrosoftOperation(pending,{ signal,readStatus }=
     const controller=new AbortController(),deadline=Date.now()+115000;
     let settled=false,polling=false,timer,dialog,polls=0;
     const cancelled=()=>Object.assign(new Error('PLATFORM_MICROSOFT_OPERATION_CANCELLED'),{ code: 'PLATFORM_MICROSOFT_OPERATION_CANCELLED' });
+    const failed=()=>Object.assign(new Error('PLATFORM_MICROSOFT_OPERATION_FAILED'),{ code: 'PLATFORM_MICROSOFT_OPERATION_FAILED' });
     const link=el('a',{ className: 'btn primary',href: pending.authorizationUrl,target: '_blank',rel: 'noopener noreferrer' });
     const status=el('p',{ attrs: { role: 'status','aria-live': 'polite' } });
     const cancel=button('',{ className: 'secondary' });
@@ -22,20 +23,26 @@ export function confirmPlatformMicrosoftOperation(pending,{ signal,readStatus }=
     function finish(error) {
       if (settled) return;settled=true;controller.abort();clearTimeout(timer);
       signal?.removeEventListener('abort',abort);window.removeEventListener('conference-language-changed',update);
-      dialog?.close();if (error) { announce(t('platformAdmin.microsoftOperation.failed'));reject(error); } else resolve();
+      dialog?.close();if (error) {
+        announce(t(error.code==='PLATFORM_MICROSOFT_OPERATION_CANCELLED'
+          ? 'platformAdmin.passkey.error.cancelled' : 'platformAdmin.microsoftOperation.failed'));reject(error);
+      } else resolve();
     }
     const abort=()=>finish(cancelled());
     async function poll() {
       try {
-        if (controller.signal.aborted || Date.now()>=deadline || ++polls>60) throw cancelled();
+        if (controller.signal.aborted) return;
+        if (Date.now()>=deadline || ++polls>60) throw failed();
         const result=await readStatus({ signal: controller.signal });
-        if (controller.signal.aborted || Date.now()>=deadline) throw cancelled();
+        if (controller.signal.aborted) return;
+        if (Date.now()>=deadline) throw failed();
         if (result==='verified') { finish();return; }
-        if (result!=='pending') throw cancelled();
+        if (result!=='pending') throw failed();
         timer=setTimeout(poll,2000);
-      } catch { finish(cancelled()); }
+      } catch { finish(failed()); }
     }
-    if (typeof readStatus!=='function' || signal?.aborted) { finish(cancelled());return; }
+    if (signal?.aborted) { finish(cancelled());return; }
+    if (typeof readStatus!=='function') { finish(failed());return; }
     cancel.addEventListener('click',abort);
     dialog=openDialog({ title: t('platformAdmin.microsoftOperation.title'),
       description: t('platformAdmin.microsoftOperation.description'),content: el('div',{},[link,status]),
@@ -47,6 +54,6 @@ export function confirmPlatformMicrosoftOperation(pending,{ signal,readStatus }=
       clearTimeout(timer);update();timer=setTimeout(poll,1000);
     });
     signal?.addEventListener('abort',abort,{ once: true });window.addEventListener('conference-language-changed',update);
-    timer=setTimeout(abort,115000);update();
+    timer=setTimeout(()=>finish(failed()),115000);update();
   });
 }

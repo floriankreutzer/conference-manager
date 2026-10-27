@@ -1,5 +1,6 @@
 import { expect,test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { microsoftOperationChallenge } from '../support/platform-microsoft-operation-fixture.js';
 
 const ORIGIN='https://ops-int.example.com',ID='11111111-1111-4111-8111-111111111111';
 const state=Buffer.alloc(32,1).toString('base64url');
@@ -15,7 +16,8 @@ function payload(ownerRoles=false) {
       approvalReference: 'owner-role-test',sessionsRevoked: 1,transactionsRevoked: 0 } });
   return value;
 }
-async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,changedContext=null,ownerRoles=false }={}) {
+async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,changedContext=null,ownerRoles=false,
+  microsoft=false,statusFailure=false }={}) {
   const exports=[],cursors=[];
   await page.addInitScript(()=>{
     const bytes=length=>new Uint8Array(length).fill(1).buffer;
@@ -36,7 +38,12 @@ async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,ch
       assurance: { level: 'mfa',authenticatedAt: '2099-01-01T00:00:00.000Z' },expiresAt: '2099-01-01T04:00:00.000Z',
       stepUpExpiresAt: null,csrfToken: 'C'.repeat(43) };
     } else if (url.pathname==='/api/v1/platform/auth/passkey/configuration') {
-      body={ mode: 'application_passkey',environment: 'int',minimumPasskeys: 2,requestId: ID };
+      if (microsoft) { code=404;body={ error: { code: 'PLATFORM_NOT_FOUND' } }; }
+      else body={ mode: 'application_passkey',environment: 'int',minimumPasskeys: 2,requestId: ID };
+    } else if (url.pathname==='/api/v1/platform/auth/microsoft/operation/configuration') {
+      body={ mode: 'microsoft_mfa',environment: 'int' };
+    } else if (url.pathname==='/api/v1/platform/auth/microsoft/operation/status') {
+      code=statusFailure ? 503 : 200;body=statusFailure ? { error: { code: 'UNAVAILABLE' } } : { status: 'pending',requestId: ID };
     } else if (url.pathname==='/api/v1/platform/tenants') {
       body={ schemaVersion: 1,snapshotAt: '2026-10-21T12:00:00.000Z',items: [],nextCursor: null };
     } else if (url.pathname==='/api/v1/platform/audit/events') {
@@ -55,8 +62,8 @@ async function setup(page,{ forged=false,eventCount=1,emptyContinuation=false,ch
       if (forged) body.audit.legacy.verification='verified';
     } else if (url.pathname==='/api/v1/platform/audit/exports') {
       exports.push({ url: request.url(),headers: request.headers() });
-      if (!request.headers()['x-platform-passkey-proof']) {
-        code=428;body={ status: 'passkey_required',state,requestId: ID,options: { challenge: state,
+      if (!request.headers()['x-platform-passkey-proof'] && !request.headers()['x-platform-microsoft-proof']) {
+        code=428;body=microsoft ? microsoftOperationChallenge(ORIGIN) : { status: 'passkey_required',state,requestId: ID,options: { challenge: state,
           rpId: 'ops-int.example.com',allowCredentials: [{ id: state,type: 'public-key' }],userVerification: 'required' } };
       } else body=payload(ownerRoles);
     } else { code=404;body={ error: { code: 'PLATFORM_NOT_FOUND' } }; }
@@ -80,6 +87,37 @@ test('current audit warning is localized, reflows and exports unavailable legacy
     window.dispatchEvent(new CustomEvent('conference-language-changed')); });
   await expect(page.getByText(/Signature verification is unavailable for the 124 older events/)).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+});
+
+for (const locale of ['de','en']) {
+  test(`cancelled Microsoft audit export preserves verified events and keyboard focus: ${locale}`,async({ page })=>{
+    const { exports }=await setup(page,{ microsoft: true });let downloads=0;page.on('download',()=>downloads++);
+    if (locale==='en') await page.evaluate(async()=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage('en'); });
+    await page.setViewportSize({ width: 375,height: 812 });
+    const control=page.getByRole('button',{ name: locale==='de' ? 'Bis zu 100 aktuelle Ereignisse exportieren' : 'Export up to 100 current events' });
+    await control.focus();await control.press('Enter');
+    const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();await dialog.press('Escape');
+    await expect(dialog).toHaveCount(0);await expect(control).toBeEnabled();await expect(control).toBeFocused();
+    await expect(page.locator('#mainContent').getByRole('status').getByText(locale==='de'
+      ? 'Der Vorgang wurde abgebrochen. Du kannst es erneut versuchen.' : 'The action was cancelled. You can try again.',{ exact: true })).toBeVisible();
+    await expect(page.locator('.platform-admin-audit-list > li')).toHaveCount(1);
+    await expect(page.locator('.platform-admin-error[role="alert"]')).toHaveCount(0);
+    expect(exports).toHaveLength(1);expect(downloads).toBe(0);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  });
+}
+test('failed Microsoft status is a confirmation failure and preserves the independently verified audit',async({ page })=>{
+  const { exports }=await setup(page,{ microsoft: true,statusFailure: true });
+  // Exercise the actual polling listener without opening a real provider page.
+  await page.getByRole('button',{ name: 'Bis zu 100 aktuelle Ereignisse exportieren' }).click();
+  const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
+  await dialog.getByRole('link').evaluate(link=>{ link.addEventListener('click',event=>event.preventDefault());link.click(); });
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.platform-admin-audit-list > li')).toHaveCount(1);
+  await expect(page.locator('.platform-admin-error[role="alert"]')).toHaveCount(0);
+  await expect(page.locator('#mainContent').getByRole('status').getByText('Der Schritt konnte nicht abgeschlossen werden. Lade den aktuellen Stand erneut oder melde dich neu an.',{ exact: true })).toBeVisible();
+  await expect(page.getByText('Der Vorgang wurde abgebrochen. Du kannst es erneut versuchen.',{ exact: true })).toHaveCount(0);
+  expect(exports).toHaveLength(1);
 });
 
 test('owner all-role upgrade receipt stays readable and exportable in the current signed segment',async({ page })=>{

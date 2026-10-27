@@ -36,11 +36,11 @@ test('required e2e aggregate rejects failed, cancelled, skipped, absent and ambi
 test('qualified protected acceptance pins the API, retains both engines and actual TLS without weakening permanent gates',()=>{
   const protectedJob=workflow.slice(workflow.indexOf('\n  protected-browser-e2e:'));
   assert.match(protectedJob,/browser: \[chromium, webkit\]/);assert.match(protectedJob,/needs: quality/);
-  assert.match(protectedJob,/ref: ccb7e584988edf4d6f5d415b17875f15b924be70/);
+  assert.match(protectedJob,/ref: 0c84b853f4754e477e6cddc977eabbf5f4a0f10f/);
   assert.match(protectedJob,/node frontend\/scripts\/check-platform-passkey-wire.mjs "\$PWD\/api"/);
   const refs=[...workflow.matchAll(/repository: floriankreutzer\/conference-manager-api\n\s+ref: ([a-f0-9]{40})/g)]
     .map(match=>match[1]);
-  assert.deepEqual(refs,["ccb7e584988edf4d6f5d415b17875f15b924be70","ccb7e584988edf4d6f5d415b17875f15b924be70"]);
+  assert.deepEqual(refs,["0c84b853f4754e477e6cddc977eabbf5f4a0f10f","0c84b853f4754e477e6cddc977eabbf5f4a0f10f"]);
   assert.match(protectedJob,/node scripts\/test-protected-browser.mjs "\$\{\{ matrix.browser \}\}-protected"/);
   assert.doesNotMatch(protectedJob,/continue-on-error:|--ignore-https-errors|--retries|--grep|--shard/);
   assert.match(workflow,/Run full three-customer progression and two-cycle reset acceptance/);
