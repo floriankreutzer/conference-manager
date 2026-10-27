@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createPlatformMicrosoftOperationsClient } from '../src/platform-admin/production/microsoft-operations-client.js';
+import { createPlatformAdminApi } from '../src/platform-admin/production/platform-api.js';
+import { createPlatformPasskeyOperationsClient } from '../src/platform-admin/production/passkey-operations-client.js';
 import { createPlatformInvitationController } from '../src/platform-admin/customer-invitation-controller.js';
 import { MICROSOFT_OPERATION_ORIGIN as origin,microsoftOperationChallenge } from './support/platform-microsoft-operation-fixture.js';
 
@@ -26,6 +28,21 @@ test('explicit Microsoft cancellation and failed proof are distinct and never re
       assert.equal(f.calls.length,1);
     }
   }
+});
+test('the actual Platform API adapter preserves trusted cancellation through audit export, not arbitrary matching codes',async()=>{
+  const microsoft=fixture({ confirmation: async()=>{ throw error('PLATFORM_MICROSOFT_OPERATION_CANCELLED'); } });
+  const passkey=createPlatformPasskeyOperationsClient({ origin,csrfTokenProvider: ()=>'C'.repeat(43),refreshSession: async()=>true,
+    fetchImpl: async()=>json({ status: 'passkey_required',state: 'S'.repeat(43),requestId: '11111111-1111-4111-8111-111111111111',
+      options: { challenge: 'S'.repeat(43) } },428),browser: { authenticate: async()=>{ throw error('PLATFORM_PASSKEY_BROWSER_CANCELLED'); } } });
+  for (const [apiClient,code] of [[microsoft.client,'PLATFORM_MICROSOFT_OPERATION_CANCELLED'],[passkey,'PLATFORM_PASSKEY_OPERATION_CANCELLED']]) {
+    const api=createPlatformAdminApi({ apiClient });
+    await assert.rejects(api.loadAudit({ exportView: true }),value=>value.code===code);
+  }
+  for (const code of ['PLATFORM_MICROSOFT_OPERATION_CANCELLED','PLATFORM_PASSKEY_OPERATION_CANCELLED','HTTP_403']) {
+    const api=createPlatformAdminApi({ apiClient: { request: async()=>{ throw error(code); } } });
+    await assert.rejects(api.loadAudit({ exportView: true }),value=>value.code==='PLATFORM_AUDIT_UNAVAILABLE');
+  }
+  assert.equal(microsoft.calls.length,1);
 });
 test('aborted dispatched writes keep their unknown outcome and immutable command on explicit retry',async()=>{
   for (const challenged of [false,true]) {

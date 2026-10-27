@@ -161,7 +161,10 @@ client.
 
 Microsoft confirmation distinguishes explicit cancellation from unavailable,
 invalid or expired status. Poll completions after cancellation cannot complete
-the dialog a second time. Audit export feedback describes that operation only;
+the dialog a second time. The Platform API adapter preserves cancellation only
+from its typed Microsoft/passkey operation errors; arbitrary matching codes and
+ordinary failures retain the existing bounded resource error. Audit export
+feedback describes that operation only;
 it does not relabel independently loaded audit events or their verification.
 Keyboard focus returns to the connected export control when dialog closure left
 focus on the document body. A cancelled invitation read uses a neutral status;
