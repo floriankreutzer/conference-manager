@@ -88,6 +88,14 @@ Reissue responses may contain a one-time delivery value. The application display
 
 Readiness, entitlement, integration-health, diagnostics, Platform-audit, recovery, metering, and runtime sections already have bounded presentation and Demo contracts. Until their service owners expose approved Production routes, Production shows an explicit unavailable state and does not fabricate values, call aliases, or load Demo data.
 
+## Shared visual asset reference
+
+Use [ICON-SYSTEM.md](ICON-SYSTEM.md) for versioned functional-icon semantics and
+separate Microsoft manufacturer controls. Customer and Platform retain native
+repo-local rendering, central DE/EN labels and their own trusted server contracts.
+The v0.1 set is an asset draft, not an integrated navigation redesign. Its storage
+does not change the Platform artifact inventory, operation authority or live UI.
+
 ## Frontend ownership and checks
 
 - `src/platform-admin/contracts.js`: exact role, permission, assurance, directory, mutation, and Demo view-model validation.

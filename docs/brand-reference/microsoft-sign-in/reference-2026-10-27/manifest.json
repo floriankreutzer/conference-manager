@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "source_repository": "MicrosoftDocs/entra-docs",
+  "source_commit": "56c0d47471fc07150fecec425f6884270499ae63",
+  "retrieved_at_utc": "2026-10-27T20:19:42.217368+00:00",
+  "third_party_assets": true,
+  "licensing_note": "Original Microsoft third-party branding assets. No Pavurel MIT license is applied. Follow the official Microsoft branding guidance and applicable Microsoft terms; this manifest does not grant trademark or other rights.",
+  "assets": [
+    {
+      "name": "ms-symbollockup_mssymbol_19.svg",
+      "source_path": "docs/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.svg",
+      "source_url": "https://github.com/MicrosoftDocs/entra-docs/blob/56c0d47471fc07150fecec425f6884270499ae63/docs/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.svg",
+      "official_url": "https://learn.microsoft.com/de-de/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.svg",
+      "git_blob_sha": "1f739764834586f6940428a24b87510d29425deb",
+      "bytes": 343,
+      "sha256": "929f48f88c8ca7f3f5d294be47ec4caf51acc28ac25340c19a903125d7ecd84a",
+      "dimensions": {
+        "width": 21,
+        "height": 21,
+        "viewBox": "0 0 21 21"
+      },
+      "unchanged_from_source": true
+    },
+    {
+      "name": "ms-symbollockup_signin_light.svg",
+      "source_path": "docs/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_signin_light.svg",
+      "source_url": "https://github.com/MicrosoftDocs/entra-docs/blob/56c0d47471fc07150fecec425f6884270499ae63/docs/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_signin_light.svg",
+      "official_url": "https://learn.microsoft.com/de-de/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_signin_light.svg",
+      "git_blob_sha": "a5fa6eaf0e76f702fd82ff0508af0445b002adeb",
+      "bytes": 7552,
+      "sha256": "e06fb6b9c489d5719260945b5b9108f12fedd77e61206229f5fdd77a060e77a8",
+      "dimensions": {
+        "width": 215,
+        "height": 41,
+        "viewBox": "0 0 215 41"
+      },
+      "unchanged_from_source": true
+    },
+    {
+      "name": "ms-symbollockup_signin_dark.svg",
+      "source_path": "docs/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_signin_dark.svg",
+      "source_url": "https://github.com/MicrosoftDocs/entra-docs/blob/56c0d47471fc07150fecec425f6884270499ae63/docs/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_signin_dark.svg",
+      "official_url": "https://learn.microsoft.com/de-de/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_signin_dark.svg",
+      "git_blob_sha": "cc8ba38438a3bacc6a27dc95c131e7593f07152d",
+      "bytes": 7414,
+      "sha256": "3f7dfc3df9b510da57a925cf1ece829545fc11a3d30e75a07b3accf55d3b7755",
+      "dimensions": {
+        "width": 215,
+        "height": 41,
+        "viewBox": "0 0 215 41"
+      },
+      "unchanged_from_source": true
+    },
+    {
+      "name": "sign-in-with-microsoft-redlines.png",
+      "source_path": "docs/identity-platform/media/howto-add-branding-in-apps/sign-in-with-microsoft-redlines.png",
+      "source_url": "https://github.com/MicrosoftDocs/entra-docs/blob/56c0d47471fc07150fecec425f6884270499ae63/docs/identity-platform/media/howto-add-branding-in-apps/sign-in-with-microsoft-redlines.png",
+      "official_url": "https://learn.microsoft.com/de-de/entra/identity-platform/media/howto-add-branding-in-apps/sign-in-with-microsoft-redlines.png",
+      "git_blob_sha": "3aaece32f00bbc375d5a7a2a24367841f006c247",
+      "bytes": 85178,
+      "sha256": "b8b8ed2a963df863e6f6d339ee18da7460e2990ba3cf4a557dcba6e53c2a599e",
+      "dimensions": {
+        "width": 1388,
+        "height": 1028
+      },
+      "unchanged_from_source": true
+    }
+  ]
+}

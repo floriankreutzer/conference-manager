@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-calendar-title pavurel-calendar-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-calendar-title">Calendar and date</title>
+  <desc id="pavurel-calendar-desc">A calendar page with one highlighted date cell.</desc>
+  <rect x="3.5" y="5" width="17" height="16" rx="2"/>
+  <path d="M8 3v4M16 3v4M3.5 9.5h17M7.5 13.5h2M7.5 17h2M13.5 17h2"/>
+  <rect x="13.5" y="12.5" width="3" height="2.5" rx="0.25" stroke="currentColor"/>
+</svg>

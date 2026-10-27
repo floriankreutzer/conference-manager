@@ -1,0 +1,33 @@
+name,meaning_de,meaning_en,category,usage_rule_de
+request,Anfrage,Request,workflow,Eine fachliche Besprechungsanfrage; kein allgemeiner Hinzufügen-Button.
+participants,Teilnehmer,Participants,workflow,Personen oder Teilnehmende; Kundenorganisationen verwenden customers.
+room-equipment,Raum und Ausstattung,Room and equipment,workflow,Raum und Ausstattung gemeinsam; keine Server- oder Systemübersicht.
+catering,Catering,Catering,workflow,Verpflegung und Bewirtungsbedarf; keine beliebige Integration.
+changes,Änderungsverlauf,Change history,workflow,Änderungen im Zeitverlauf; technische Auditereignisse verwenden audit.
+coordination,Teamkoordination,Team coordination,workflow,Zusammenarbeit am gemeinsamen Vorgang; keine Nutzer- oder Kundenverwaltung.
+dashboard,Übersicht,Overview,navigation,Bereichsübersicht; zeigt selbst keinen Gesundheitszustand.
+customers,Kundenorganisationen,Customer organisations,navigation,Organisation oder Mandant; Personen verwenden participants.
+integrations,Verbindungen,Integrations,navigation,Verbindungen zu anderen Systemen; keine Anbieter- oder Microsoft-Marke.
+system,System und Laufzeit,System and runtime,navigation,Technischer System- oder Laufzeitbereich; kein automatisch gesundes System.
+usage,Nutzung,Usage,navigation,"Verbrauch oder Nutzung; Balken sind ein Symbol, keine gemessenen Werte."
+delivery,Bereitstellung,Delivery,navigation,Softwarebereitstellung oder Auslieferung; nicht Einladung versendet.
+audit,Auditprotokoll,Audit log,navigation,Nachvollziehbare Auditereignisse; das Symbol beweist keine gültige Signatur.
+diagnostics,Diagnose,Diagnostics,navigation,Systemdiagnose; allgemeine Suche verwendet search.
+recovery,Wiederherstellung,Recovery,action,Explizite Wiederherstellung; nicht allgemeines Neu laden oder Zurück.
+settings,Einstellungen,Settings,navigation,Einstellungen; Berechtigungsstatus niemals allein aus dem Symbol ableiten.
+search,Suchen,Search,action,Informationen suchen; nicht technische Diagnose.
+filter,Filtern,Filter,action,Ergebnismenge filtern; aktiven Filter zusätzlich textlich anzeigen.
+add,Hinzufügen,Add,action,Neues Element hinzufügen; Ziel im Buttontext benennen.
+close,Schließen,Close,action,Ansicht oder Dialog schließen; nicht Löschen oder fachlich Ablehnen.
+chevron-right,Geschlossener Unterbereich,Collapsed section,direction,Aufklapphinweis eines geschlossenen Unterbereichs; kein externer Link.
+chevron-down,Geöffneter Unterbereich,Expanded section,direction,Aufklapphinweis eines geöffneten Unterbereichs; Semantik am Bedienelement.
+arrow-left,Zurück,Back,direction,Rückwärtsnavigation; nicht Wiederherstellung.
+arrow-right,Weiter,Next,direction,Vorwärtsnavigation; nicht automatisch außerhalb der Anwendung.
+external-link,Externes Ziel,External destination,direction,Verlassen des aktuellen Anwendungskontexts; Ziel sichtbar benennen.
+menu,Menü,Menu,action,Navigation öffnen; Sichtbarkeit und aria-expanded am Button führen.
+check,Bestätigt,Confirmed,status,Bestätigung oder Erfolg nur bei belegtem Zustand plus Text; kein pauschales gesund.
+warning,Hinweis mit Handlungsbedarf,Attention required,status,Begründeten Handlungsbedarf anzeigen; Ursache und Schwere separat benennen.
+info,Information,Information,status,Erläuterung oder Hilfe; kein Fehlerzustand.
+lock,Geschützter Zugang,Protected access,status,Zugangs- oder Schutzkontext; kein Sicherheitszertifikat oder Berechtigungsbeweis.
+calendar,Kalender und Termin,Calendar and date,workflow,Termin oder Datumswahl; keine Microsoft-365-Marke.
+sign-out,Abmelden,Sign out,action,Aktuelle Sitzung abmelden; nicht allgemeines Zurück oder Dialog schließen.

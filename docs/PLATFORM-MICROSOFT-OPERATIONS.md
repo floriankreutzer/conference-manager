@@ -22,6 +22,14 @@ treated as permission. The signed server-side proof remains authoritative.
 
 The native dialog reuses existing design tokens/components and central DE/EN
 messages, restores focus, supports Escape/cancellation and translates while open.
+
+Its planned MS-01 presentation follows the [Microsoft control contract](ICON-SYSTEM.md#microsoft-authentication-control):
+keep the unchanged manufacturer symbol/control and explain the exact customer,
+action, additional-authentication purpose and return in the surrounding dialog.
+The scoped vendor styling is distinct from general Bordeaux action buttons.
+This project decision is not a claim that Microsoft forbids every alternative
+step-up label. Reference storage does not implement the redesign or change proof,
+retry, cancellation, focus or server-authorization semantics.
 Only an explicit keyboard/pointer link activation opens a separate noopener,
 noreferrer tab. COOP same-origin stays enabled. The parent does not rely on an
 opener, postMessage, browser storage, redirect fragment or elevated cookie.

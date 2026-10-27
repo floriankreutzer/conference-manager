@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="cm-changes-title cm-changes-desc" focusable="false" xml:lang="en">
+  <title id="cm-changes-title">Changes and history</title>
+  <desc id="cm-changes-desc">A document beside a clock, whose hands are highlighted in Bordeaux.</desc>
+  <path d="M19 10V8l-5-5H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5M14 3v5h5M7.5 11.5h5M7.5 15.5h2"/>
+  <circle cx="17" cy="17" r="4.5"/>
+  <path d="M17 14.5v2.75l1.75 1" stroke="#7A1F3D"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-usage-title pavurel-usage-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-usage-title">Usage</title>
+  <desc id="pavurel-usage-desc">Three bars above a baseline.</desc>
+  <path d="M3 20.5h18"/>
+  <rect x="5" y="12" width="3" height="8.5" rx="0.5"/>
+  <rect x="10.5" y="8" width="3" height="12.5" rx="0.5"/>
+  <rect x="16" y="3.5" width="3" height="17" rx="0.5" stroke="#7A1F3D"/>
+</svg>

@@ -1,0 +1,19 @@
+---
+import { withBasePath } from '@domain/routing/basePath';
+
+interface Props {
+  name: 'request' | 'participants' | 'room-equipment' | 'catering' | 'changes' | 'coordination';
+}
+
+const { name } = Astro.props;
+---
+
+<img
+  src={withBasePath('/assets/icons/' + name + '.svg')}
+  width="24"
+  height="24"
+  alt=""
+  aria-hidden="true"
+  loading="lazy"
+  decoding="async"
+/>

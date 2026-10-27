@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-add-title pavurel-add-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-add-title">Add</title>
+  <desc id="pavurel-add-desc">A plus sign.</desc>
+  <path d="M5 12h14"/>
+  <path d="M12 5v14" stroke="#FFFFFF"/>
+</svg>

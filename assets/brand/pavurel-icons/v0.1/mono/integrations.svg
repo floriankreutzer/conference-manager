@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-integrations-title pavurel-integrations-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-integrations-title">Integrations</title>
+  <desc id="pavurel-integrations-desc">Two linked open chain shapes joined by a diagonal line.</desc>
+  <path d="M10 6.5l2-2a4 4 0 0 1 5.5 5.8l-2 2"/>
+  <path d="M14 17.5l-2 2a4 4 0 0 1-5.5-5.8l2-2"/>
+  <path d="M8.5 15.5l7-7" stroke="currentColor"/>
+</svg>

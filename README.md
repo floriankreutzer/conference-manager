@@ -65,6 +65,10 @@ Backend integration and shared-environment acceptance require their own configur
 
 Read [AGENTS.md](AGENTS.md) and the [coding standards](docs/CODING-STANDARDS.md) before making changes. Follow the existing native-module architecture, localization and design-system conventions. Submit changes through the repository review process.
 
+For UI assets, use the [canonical icon and Microsoft reference](docs/ICON-SYSTEM.md)
+and [brand asset directory](assets/brand/README.md). The versioned v0.1 icon set
+is a working draft; source storage does not imply UI integration or deployment.
+
 ## Security
 
 Do not commit credentials, personal customer data or environment-specific secrets. Report suspected vulnerabilities privately using the route in [SECURITY.md](SECURITY.md).
