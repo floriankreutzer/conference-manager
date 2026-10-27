@@ -113,6 +113,15 @@ The existing explicit demo role switch remains demo-only. Manipulating historica
 
 Production sign-in, session unavailable, authenticated status and logout copy use the canonical DE/EN localization resources. Controls use native buttons and the existing shell/profile dialog semantics, keyboard behavior and focus handling.
 
+The signed-out synthetic Operator-test entry performs a bounded, uncached same-origin
+`GET /api/v1/health/ready` before its initial native form POST. Only the exact ready
+JSON contract permits that POST. Hosting start pages, redirects, unavailable or
+malformed responses and timeouts leave the start unsent, with localized status/error
+presentation and an explicit manual retry. Disposal aborts the read and prevents late
+navigation; concurrent clicks cannot duplicate the start. This check grants no access:
+the existing server approval, browser binding, role and final confirmation still apply.
+It does not retry any mutation or keep a hosting process awake in the background.
+
 ## Verification
 
 Repository evidence includes:

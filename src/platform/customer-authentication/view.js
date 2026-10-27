@@ -1,13 +1,14 @@
 import { formatDateTime,language,setLanguage,t } from '../../core/i18n.js';
 import { button,clear,el,field } from '../../core/ui.js';
 
-export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,operatorTestEnabled=false } = {}) {
+export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,operatorTestEnabled=false,handoffStart=null } = {}) {
   if (!controller || ['snapshot','subscribe','request','verify','select','restart','resume','checkSession']
-    .some(name => typeof controller[name]!=='function') || typeof signInWithMicrosoft!=='function' || typeof operatorTestEnabled!=='boolean') {
+    .some(name => typeof controller[name]!=='function') || typeof signInWithMicrosoft!=='function' || typeof operatorTestEnabled!=='boolean'
+    || operatorTestEnabled && (!handoffStart || ['start','dispose'].some(name=>typeof handoffStart[name]!=='function'))) {
     throw new TypeError('CUSTOMER_EMAIL_LOGIN_VIEW_CONFIGURATION_INVALID');
   }
   const element=el('section',{ className: 'card',attrs: { 'aria-labelledby': 'customerAuthTitle' } });
-  let previousPhase=null;
+  let previousPhase=null,starting=false,startFailed=false,startUnconfirmed=false,disposed=false;
   function update(state=controller.snapshot()) {
     const active=document.activeElement,hadFocus=element.contains(active),focusId=active?.id;
     const samePhase=state.phase===previousPhase;
@@ -24,6 +25,15 @@ export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,op
       setLanguage(languageControl.value); update(); element.querySelector('#customerAuthLanguage')?.focus();
     });
     element.append(field({ id: 'customerAuthLanguage',label: t('customerAuth.language'),control: languageControl }));
+    if (startUnconfirmed) {
+      element.append(el('p',{ text: t('customerHandoff.startUnconfirmed'),attrs: { role: 'alert',tabindex: '-1' } }));
+      if (hadFocus) element.querySelector('[role="alert"]')?.focus();return;
+    }
+    if (starting) {
+      const status=el('p',{ text: t('customerHandoff.starting'),attrs: { role: 'status',tabindex: '-1' } });
+      element.append(status);if (hadFocus) status.focus();return;
+    }
+    if (startFailed) element.append(el('p',{ text: t('customerHandoff.startUnavailable'),attrs: { role: 'alert' } }));
     if (state.error) element.append(el('p',{ id: 'customerAuthError',text: t(`customerAuth.error.${state.error}`),
       attrs: { role: 'alert' } }));
     if (state.phase==='loading') {
@@ -80,9 +90,17 @@ export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,op
     if (actions.length) element.append(el('div',{ className: 'button-row' },actions));
     element.append(el('p',{ text: t('customerAuth.description') }));
     if (operatorTestEnabled && state.phase==='email') {
-      element.append(el('form',{ attrs: { action: '/api/v1/auth/delegation/start',method: 'post' } },[
-        button(t('customerHandoff.start'),{ type: 'submit' }),
-      ]));
+      const start=button(t('customerHandoff.start'),{ id: 'customerHandoffStart' });
+      start.addEventListener('click',async()=>{
+        if (starting || disposed) return;starting=true;startFailed=false;update();
+        try { await handoffStart.start(); }
+        catch (error) {
+          if (disposed) return;starting=false;
+          startUnconfirmed=error?.code==='CUSTOMER_HANDOFF_START_UNCONFIRMED';startFailed=!startUnconfirmed;
+          update();element.querySelector(startUnconfirmed ? '[role="alert"]' : '#customerHandoffStart')?.focus();
+        }
+      });
+      element.append(start);
     }
     if (hadFocus) {
       const target=(samePhase && focusId ? element.querySelector(`#${focusId}`) : null)
@@ -91,5 +109,5 @@ export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,op
     }
   }
   const unsubscribe=controller.subscribe(update); update();
-  return Object.freeze({ element,update,dispose() { unsubscribe(); controller.dispose(); } });
+  return Object.freeze({ element,update,dispose() { disposed=true;unsubscribe();handoffStart?.dispose();controller.dispose(); } });
 }

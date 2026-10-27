@@ -8,6 +8,7 @@ import { createCustomerAccountView } from './account-view.js';
 import { createCustomerHandoffClient,createOwnerCustomerHandoffClient } from './handoff-client.js';
 import { createCustomerHandoffController,createOwnerCustomerHandoffController } from './handoff-controller.js';
 import { createCustomerHandoffView,createOwnerCustomerHandoffView } from './handoff-view.js';
+import { createCustomerHandoffStart } from './handoff-start.js';
 
 function continuation(options) {
   const search=options.location?.search ?? globalThis.location?.search ?? '';
@@ -55,7 +56,8 @@ export async function bootstrapInvitedCustomerAuthentication(options = {}) {
     const controller=createCustomerEmailController({ client: createCustomerEmailClient(options),
       microsoftClient: enabled ? createCustomerMicrosoftClient(options) : null,initialMicrosoftChoice: pending==='membership',
       completeSession });
-    view=createCustomerEmailLoginView({ controller,signInWithMicrosoft: result.runtime.signIn,operatorTestEnabled: handoffEnabled });
+    view=createCustomerEmailLoginView({ controller,signInWithMicrosoft: result.runtime.signIn,operatorTestEnabled: handoffEnabled,
+      handoffStart: handoffEnabled ? createCustomerHandoffStart(options) : null });
     void controller.load(); return view;
   }
   function createAccountView(initialConfirmation=false,heading='h3',onClose=replaceRoot) {
