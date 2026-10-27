@@ -241,6 +241,13 @@ Mandatory rules:
 
 Follow the CSS responsibility boundaries defined in `docs/DESIGN-SYSTEM.md`.
 
+For functional icons and Microsoft authentication branding, follow the canonical
+[ICON-SYSTEM.md](ICON-SYSTEM.md) and its versioned `assets/brand/` sources.
+The Microsoft vendor control has a narrowly scoped manufacturer treatment;
+Pavurel global fonts/button colors must not overwrite that lockup. Any future
+scoped semantic token/check adjustment requires reviewed implementation evidence;
+existing design/security gates remain mandatory. Draft storage is not integration.
+
 ## 9. Security
 
 Implement defensively in line with current OWASP Top 10 principles.

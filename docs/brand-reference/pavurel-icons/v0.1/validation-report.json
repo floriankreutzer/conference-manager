@@ -1,0 +1,549 @@
+{
+  "result": "passed",
+  "performed_utc": "2026-10-27T20:24:21.064775+00:00",
+  "scope": "Local static SVG draft; no live UI or repository change.",
+  "checks": {
+    "requested_unique_motifs": 32,
+    "new_original_motifs": 26,
+    "website_originals": 6,
+    "variants": 3,
+    "validated_icon_files": 96,
+    "xml_parsing": "passed for all 96 icons and the contact sheet",
+    "geometry": "24x24, viewBox 0 0 24 24, fill none, stroke 1.6, round cap/join",
+    "element_attribute_allowlist": "passed; svg/title/desc/path/circle/rect only in icon files",
+    "unsafe_links_scripts_foreign_content": "none",
+    "light_accents": "exactly one Bordeaux element per light icon",
+    "variant_path_equivalence": "all 64 derived variants preserve light geometry",
+    "manifest_sha256": "all 96 match",
+    "original_sha256": "all six match independently pinned website hashes",
+    "de_en_semantics": "32 unique nonempty labels per locale plus usage rules",
+    "preview": "all 32 names and 18 inline 24px variant examples present",
+    "shape_elements_checked": 261
+  },
+  "website_originals": [
+    {
+      "name": "request",
+      "sha256": "e543456cf2445ad83f38202e5ecaed688ce7d466e49fdb626febf772edfccb41",
+      "git_blob_sha": "bc9ed0baa52f2e80e4126788475f96aee06df3bd",
+      "byte_identical": true
+    },
+    {
+      "name": "participants",
+      "sha256": "32eea7718747426b0106d318c9e12132c308018a1b6743b30f9aabe1acf0a904",
+      "git_blob_sha": "849e91dd33d3ecc0c4588b7fb1fe8a6840720e49",
+      "byte_identical": true
+    },
+    {
+      "name": "room-equipment",
+      "sha256": "3fdfbc028d8b8d01ecf46e4ca86629ea73072d6df26c67c628d7287f6df20519",
+      "git_blob_sha": "aace2a46600e1de4b3e8081ab899edad7d17ed4e",
+      "byte_identical": true
+    },
+    {
+      "name": "catering",
+      "sha256": "0feb46703e891a35ec972cb749b6e40b64cc7e3173d42e2f6d4b002059be5f18",
+      "git_blob_sha": "e6696559a0ad99b09ae9edf96186dbbbcb154559",
+      "byte_identical": true
+    },
+    {
+      "name": "changes",
+      "sha256": "65532164a892895bef0fef6da9297e8f9266cb3d79aca17db5bc9c96fb6e5b0a",
+      "git_blob_sha": "435716461c1ad1e17f5a9dac9cd6875acc4aa211",
+      "byte_identical": true
+    },
+    {
+      "name": "coordination",
+      "sha256": "b82bd25ee75bfc377c2364d7c48fb535d666762247c9e75b951ac8e9c3010ea7",
+      "git_blob_sha": "4c16475c53b9ac28f4e3487d1f73ab2d82d0d04c",
+      "byte_identical": true
+    }
+  ],
+  "files": [
+    {
+      "path": "light/request.svg",
+      "sha256": "e543456cf2445ad83f38202e5ecaed688ce7d466e49fdb626febf772edfccb41",
+      "valid": true
+    },
+    {
+      "path": "mono/request.svg",
+      "sha256": "8e2235aa125b011105ecfa7f792713acf30aa69578d4d9f5f58754e7bbe954fe",
+      "valid": true
+    },
+    {
+      "path": "inverse/request.svg",
+      "sha256": "de93b5509cfc57528a6a1b85d790e7f609525a755952bc5b06f5ce8e83341143",
+      "valid": true
+    },
+    {
+      "path": "light/participants.svg",
+      "sha256": "32eea7718747426b0106d318c9e12132c308018a1b6743b30f9aabe1acf0a904",
+      "valid": true
+    },
+    {
+      "path": "mono/participants.svg",
+      "sha256": "0689ce8ff1aa44288560b1165fc5e747feef1353590b82c9f057cf46b8620c38",
+      "valid": true
+    },
+    {
+      "path": "inverse/participants.svg",
+      "sha256": "81163984452c558377e54c835aae03291937d2aa26a64de9b49176033e081035",
+      "valid": true
+    },
+    {
+      "path": "light/room-equipment.svg",
+      "sha256": "3fdfbc028d8b8d01ecf46e4ca86629ea73072d6df26c67c628d7287f6df20519",
+      "valid": true
+    },
+    {
+      "path": "mono/room-equipment.svg",
+      "sha256": "40c489b585f6e0460ac6ae1865476551531efdfc07a1e69816d95037566965ed",
+      "valid": true
+    },
+    {
+      "path": "inverse/room-equipment.svg",
+      "sha256": "b935cb50a24d9d84a14192aa72fcd6434a7e69a20b4156eff0ebe337a4eb009a",
+      "valid": true
+    },
+    {
+      "path": "light/catering.svg",
+      "sha256": "0feb46703e891a35ec972cb749b6e40b64cc7e3173d42e2f6d4b002059be5f18",
+      "valid": true
+    },
+    {
+      "path": "mono/catering.svg",
+      "sha256": "19ce038de48b113b03c4f7094edfbcbee4facdc2e65e94b2e410a8ebec1a95aa",
+      "valid": true
+    },
+    {
+      "path": "inverse/catering.svg",
+      "sha256": "9390fea29d752995e020a5d2c7339a917e7702d36bad168fc69b3d2c3611a1dd",
+      "valid": true
+    },
+    {
+      "path": "light/changes.svg",
+      "sha256": "65532164a892895bef0fef6da9297e8f9266cb3d79aca17db5bc9c96fb6e5b0a",
+      "valid": true
+    },
+    {
+      "path": "mono/changes.svg",
+      "sha256": "7728fcce81040bd89ccc319ddd00b0ab6ec5dd377ae1ce4d43cc43bfc6c70065",
+      "valid": true
+    },
+    {
+      "path": "inverse/changes.svg",
+      "sha256": "72e116ec276acb126b1085fbdb5415c0a57a96179aa62e342904d5dc2c3990e5",
+      "valid": true
+    },
+    {
+      "path": "light/coordination.svg",
+      "sha256": "b82bd25ee75bfc377c2364d7c48fb535d666762247c9e75b951ac8e9c3010ea7",
+      "valid": true
+    },
+    {
+      "path": "mono/coordination.svg",
+      "sha256": "68dce95580de53089424986b768be43a7b24acb6ce6cbb43e10f8fe84be73e07",
+      "valid": true
+    },
+    {
+      "path": "inverse/coordination.svg",
+      "sha256": "e6890868bf391889d9ba6b9083dfa972e47632f1b239b9513bcda06a0cb7ef34",
+      "valid": true
+    },
+    {
+      "path": "light/dashboard.svg",
+      "sha256": "a12986458f8429dcfeea07298c4b4133bbdccad8a083bc2ba44d16c00ab81cd9",
+      "valid": true
+    },
+    {
+      "path": "mono/dashboard.svg",
+      "sha256": "99b8d753aee8fb259ab97e3dbc4af17c3fd5e7da33401e1c3083e792238dbe91",
+      "valid": true
+    },
+    {
+      "path": "inverse/dashboard.svg",
+      "sha256": "6624e5199813eaea01ec92d1407860480d6138183ca2cce551ac02c375025a91",
+      "valid": true
+    },
+    {
+      "path": "light/customers.svg",
+      "sha256": "d445eca5a557319b611bfec4b55f89a84a5f8fe98bda6024984aabc22e82f23e",
+      "valid": true
+    },
+    {
+      "path": "mono/customers.svg",
+      "sha256": "2711efa1fdff201589b6903c8339a6f18bd56b5273bbc62a1c94869a0c4436f0",
+      "valid": true
+    },
+    {
+      "path": "inverse/customers.svg",
+      "sha256": "bfa3b608baa45ea3f26c168048adf2cff00467b9c1643ca6c9c399b53e70e9c1",
+      "valid": true
+    },
+    {
+      "path": "light/integrations.svg",
+      "sha256": "679b9d066e6b72d6150c9c6914e155870babb247990f2ded0913e92e530e40fa",
+      "valid": true
+    },
+    {
+      "path": "mono/integrations.svg",
+      "sha256": "f3c5f31d1bd0fde9aa728a5b999e79782721219d1162dab042417f024632ee90",
+      "valid": true
+    },
+    {
+      "path": "inverse/integrations.svg",
+      "sha256": "7def41d814d7186680a5acb2f3e13c5f304a53b75cacfe449795bad60667d890",
+      "valid": true
+    },
+    {
+      "path": "light/system.svg",
+      "sha256": "3cae8f6e74c1e67ff29a3595b0f77c653c47fd2fb4b46d6670a7cf140d2d70bd",
+      "valid": true
+    },
+    {
+      "path": "mono/system.svg",
+      "sha256": "85ca1e8a38636e3c1ad61af483e9a388b0e8b38b327e914eeb6a9c95fb14b622",
+      "valid": true
+    },
+    {
+      "path": "inverse/system.svg",
+      "sha256": "e3a61657bc9c07710a5c7b7081dbe47b013e209b4fb9e7fdb498bbc73cd6a9f1",
+      "valid": true
+    },
+    {
+      "path": "light/usage.svg",
+      "sha256": "7ec426c2f1f819de9d2d517135cf320e511d8ff5d0a6b28c3337fb002b41ddc2",
+      "valid": true
+    },
+    {
+      "path": "mono/usage.svg",
+      "sha256": "0c83d83718fc2f00e2aa7877453239030a6cad33e180b67948149f33672ee309",
+      "valid": true
+    },
+    {
+      "path": "inverse/usage.svg",
+      "sha256": "831dd1c334baf3bc4f1dd1e015cc6f4584a136a3d0c6c1d23f278d3a0d769847",
+      "valid": true
+    },
+    {
+      "path": "light/delivery.svg",
+      "sha256": "c725488e9095840dc18b181028d524246bd0d4d0c61bb98bdb91ce311a920d6d",
+      "valid": true
+    },
+    {
+      "path": "mono/delivery.svg",
+      "sha256": "0bb21f0210bc4b6fea8159907384c96a13af254f9d635cb738e39398c1cd119b",
+      "valid": true
+    },
+    {
+      "path": "inverse/delivery.svg",
+      "sha256": "37ea6d8ece360668c170529c9f07ebcb9b147cdb15a1bf04b435bf9a7a7a1e23",
+      "valid": true
+    },
+    {
+      "path": "light/audit.svg",
+      "sha256": "5735ab007b714e84e7faa8001265d9c1015e59aaae83508f9f944cec172dc44f",
+      "valid": true
+    },
+    {
+      "path": "mono/audit.svg",
+      "sha256": "0df4e544f3315bba1a968667fb028306ed290647e56e1d7b328532b112164509",
+      "valid": true
+    },
+    {
+      "path": "inverse/audit.svg",
+      "sha256": "f390c483c1eb5fb9769279eafa8e562b52eb7672524c2873d382719dbf92db67",
+      "valid": true
+    },
+    {
+      "path": "light/diagnostics.svg",
+      "sha256": "6ce661c652e908d5ef532bd57e5fe3e1674f0c4d20fb359019e278391137a4b0",
+      "valid": true
+    },
+    {
+      "path": "mono/diagnostics.svg",
+      "sha256": "7be1fb30128d13d772033a8bc10785d35d6b40e22b2fbbbc0ed33dfa43a85c32",
+      "valid": true
+    },
+    {
+      "path": "inverse/diagnostics.svg",
+      "sha256": "ff0eace06932641f66eabb6d3c86b232e79e802f403e9147b55a3cac4d266208",
+      "valid": true
+    },
+    {
+      "path": "light/recovery.svg",
+      "sha256": "5be0726b396579aa20fce332b80cfd7d3edaa3acfe9751fbd3110f723a97d098",
+      "valid": true
+    },
+    {
+      "path": "mono/recovery.svg",
+      "sha256": "a4ce50e8404bf1654767f4e7146e402560db977e1356a0ee2138a633ab4ab977",
+      "valid": true
+    },
+    {
+      "path": "inverse/recovery.svg",
+      "sha256": "ca8f8714b9c302bfeb41cde1c24e843905e8354258b74b0b66874396e9397c16",
+      "valid": true
+    },
+    {
+      "path": "light/settings.svg",
+      "sha256": "ab60e54c86bfcd537e611c5d5622e5193f60780ee3525d19065412ebe1ee54ac",
+      "valid": true
+    },
+    {
+      "path": "mono/settings.svg",
+      "sha256": "d1e0dc96cf82dfcdb3bc521527b74237f58917e26fdb3089870fd2b105bf9db7",
+      "valid": true
+    },
+    {
+      "path": "inverse/settings.svg",
+      "sha256": "cbb8694eb51a9818146bcc6c2d12f09aa8cd5c3fdf0f9ce4a3dba06a9bdf057f",
+      "valid": true
+    },
+    {
+      "path": "light/search.svg",
+      "sha256": "bf90bde823c81bed13d29bafde5aa72af1963ea46bbb7cb68199399f2446658f",
+      "valid": true
+    },
+    {
+      "path": "mono/search.svg",
+      "sha256": "c25f13cb810b3c6a941037bb68c6e76c5bc119abe53d995a601bb28c76eea4fc",
+      "valid": true
+    },
+    {
+      "path": "inverse/search.svg",
+      "sha256": "c99d88a1cf05e263b0c0fad2041d48b11a1b5b59939bc43db62157ce48fc139c",
+      "valid": true
+    },
+    {
+      "path": "light/filter.svg",
+      "sha256": "7cfac41149fb1a3507e72cf3cdc969aa9286c0524b9e836d0d43f83b1671be19",
+      "valid": true
+    },
+    {
+      "path": "mono/filter.svg",
+      "sha256": "afb02aefc0c1a43995007d8ec0bc34f661e99ce7681f05a9b1bffcceb59bd1e8",
+      "valid": true
+    },
+    {
+      "path": "inverse/filter.svg",
+      "sha256": "ca5e256cdbf59a6f43fcab8cc47bc5c3d6a479ab637b2c32fb99433d92be7fb1",
+      "valid": true
+    },
+    {
+      "path": "light/add.svg",
+      "sha256": "1d497fdcc394d22b993718d810426476404e6a16ad888d3d66f665650181b1f5",
+      "valid": true
+    },
+    {
+      "path": "mono/add.svg",
+      "sha256": "00ac96dba4ceb159b20c86283652583639a4cd713fa6eceb3876f5f52b617596",
+      "valid": true
+    },
+    {
+      "path": "inverse/add.svg",
+      "sha256": "e84c902c8bb482eae270c616dd3f1f454459e9564855e72844d99cef986d8299",
+      "valid": true
+    },
+    {
+      "path": "light/close.svg",
+      "sha256": "d92d7e73f5867e8f4109fb6ba595a99f49f05d3243b64c1f7080f9178c05ee1a",
+      "valid": true
+    },
+    {
+      "path": "mono/close.svg",
+      "sha256": "8086f71fa0744307f6f0b582bfdb6a26bbad252a7ba9052d482d7ea4c1541531",
+      "valid": true
+    },
+    {
+      "path": "inverse/close.svg",
+      "sha256": "6552868a8ad130e7aa8217cb6ec9e30d0387c2d04470bce05f90898e1a2ca6bc",
+      "valid": true
+    },
+    {
+      "path": "light/chevron-right.svg",
+      "sha256": "9b2b62c96fca57e60753f63b546520d1175d84d180b7100e22599dc816f08321",
+      "valid": true
+    },
+    {
+      "path": "mono/chevron-right.svg",
+      "sha256": "3fa66e8e88ed17273096860b3272fd1a7eb21293a9484194b216c1312c52084f",
+      "valid": true
+    },
+    {
+      "path": "inverse/chevron-right.svg",
+      "sha256": "443f812c694687227527ddf79cec00bae63a10b9d191946db2fa4829a1735e09",
+      "valid": true
+    },
+    {
+      "path": "light/chevron-down.svg",
+      "sha256": "ff2896bb353c3fb71e46666ef89dab026fd9531adc2f399c33eb6d2792046509",
+      "valid": true
+    },
+    {
+      "path": "mono/chevron-down.svg",
+      "sha256": "00020002d74058175ed48a63b854997d49534b53b6e934763a62b4a426f3fc30",
+      "valid": true
+    },
+    {
+      "path": "inverse/chevron-down.svg",
+      "sha256": "d2851570fe1c894d14e6684fbe20d6e64494534246c5e7d7dc4c98bcb5aa0081",
+      "valid": true
+    },
+    {
+      "path": "light/arrow-left.svg",
+      "sha256": "0d00599ba8abb0587bc7722826926e33607bf439f639772f3a157a4177c47550",
+      "valid": true
+    },
+    {
+      "path": "mono/arrow-left.svg",
+      "sha256": "72f711860a57b1f2fb37fe49ef3f01d0de17cbaa25d3ab1016eec4ceeec932c1",
+      "valid": true
+    },
+    {
+      "path": "inverse/arrow-left.svg",
+      "sha256": "7e5c2760978413b17833af9b3b0b936963ea0fdf63e84724d965b42db64654b6",
+      "valid": true
+    },
+    {
+      "path": "light/arrow-right.svg",
+      "sha256": "6d3178a4d444b1993e43b4a3410e2cca8424fbb74d0d3c5005313ada78070dea",
+      "valid": true
+    },
+    {
+      "path": "mono/arrow-right.svg",
+      "sha256": "f8079a97f42657eb15f4b31de081da2714be8c6f5a475752a2e3a36dcaa5cb0e",
+      "valid": true
+    },
+    {
+      "path": "inverse/arrow-right.svg",
+      "sha256": "652cb28150a83d800355e0172253546cc6e55c07f000931e17f467f5a98d8f43",
+      "valid": true
+    },
+    {
+      "path": "light/external-link.svg",
+      "sha256": "d48a2ce0c7d0377488f8179031952ab18ad58ffc5a6001ec751fcd3d5b2e9e83",
+      "valid": true
+    },
+    {
+      "path": "mono/external-link.svg",
+      "sha256": "0b68c4b3b64bbc3a7c62dff88c581e657dce7acf6a4b3aad7d3eb5b3d666f3a5",
+      "valid": true
+    },
+    {
+      "path": "inverse/external-link.svg",
+      "sha256": "1e7b2053f7f5e67bace8afa24178dd67c1fa2b753b1b21f0caa4f8dbaa8b9096",
+      "valid": true
+    },
+    {
+      "path": "light/menu.svg",
+      "sha256": "2f59bd3c70bee9e0403ead89e126e7823d8e97765942eb5c71ba2f4a1a0ea8fc",
+      "valid": true
+    },
+    {
+      "path": "mono/menu.svg",
+      "sha256": "6815e8678cded363294e5d8dad90d5ac2491f951ab54d90a325e5352ece6f2a2",
+      "valid": true
+    },
+    {
+      "path": "inverse/menu.svg",
+      "sha256": "0d2333590c811b2bfdb8fba3f39e38923c363e0a63c063297e76970f292b85f0",
+      "valid": true
+    },
+    {
+      "path": "light/check.svg",
+      "sha256": "b6024ad3b2efd8ec3d5c2534316b4694431d6dffc473f27ffb92f503de16c715",
+      "valid": true
+    },
+    {
+      "path": "mono/check.svg",
+      "sha256": "dd700ca6dc403fecb177d2a6f39df78ba50b3655f265675ac57ffa1fa0b9bce1",
+      "valid": true
+    },
+    {
+      "path": "inverse/check.svg",
+      "sha256": "326a52b45f2d6f17f07aea0479f69619516f03def5ad1b450f11e0332076c8b8",
+      "valid": true
+    },
+    {
+      "path": "light/warning.svg",
+      "sha256": "bd772384fc1e255c7d79d07a5706edc601a6eaf00f0f468cc1f6c8b6968a20be",
+      "valid": true
+    },
+    {
+      "path": "mono/warning.svg",
+      "sha256": "2b6e803ad8c3fdd2a55f2c398654fa0996fc4e82e9e92b09368755dbb1fc5c02",
+      "valid": true
+    },
+    {
+      "path": "inverse/warning.svg",
+      "sha256": "2d9e573eb2b7b153a9a27f2ffea0ec7cc8f3137ad820858b4bca6445524c4683",
+      "valid": true
+    },
+    {
+      "path": "light/info.svg",
+      "sha256": "e7d90d2637e39e591c02ccd5890d59b0ff06f722bdea6b3baf35d91a2e57e899",
+      "valid": true
+    },
+    {
+      "path": "mono/info.svg",
+      "sha256": "2ca3b7d4fa8bc829c4f4fde06e64d03b3c4ecb5f314f6f602890c9d80aa74ae3",
+      "valid": true
+    },
+    {
+      "path": "inverse/info.svg",
+      "sha256": "9621ed9d6a2f5b594a916d2e81daff7eeab48598bac0f9fda72805067533062c",
+      "valid": true
+    },
+    {
+      "path": "light/lock.svg",
+      "sha256": "af859a5309a7541da1074373c70a1226c13cdec2ee8768ab220ae8c24933be0b",
+      "valid": true
+    },
+    {
+      "path": "mono/lock.svg",
+      "sha256": "45266bd44694a9801990e1b523b13bb0bd4740d9278e382eee4254fe6ed6c70d",
+      "valid": true
+    },
+    {
+      "path": "inverse/lock.svg",
+      "sha256": "d8487859e0541f4f64750f2f2cbc35e8e0798a451d718a68b7d0924669769fee",
+      "valid": true
+    },
+    {
+      "path": "light/calendar.svg",
+      "sha256": "8ce74af0ec4bfc3ffbbf629a90477c2947b5fec668bda80e9083e069b7551460",
+      "valid": true
+    },
+    {
+      "path": "mono/calendar.svg",
+      "sha256": "cd3abad1a1f281b45471ea5ea05d822bed6d6f0bcaa929161f4d76718e223163",
+      "valid": true
+    },
+    {
+      "path": "inverse/calendar.svg",
+      "sha256": "d867e85afc093debd46efda0c95c9b97b17ec8f1cb49bd46fa3dca90272e7e5e",
+      "valid": true
+    },
+    {
+      "path": "light/sign-out.svg",
+      "sha256": "d11180d4f98871893b8d137d2ec84cd1473eb960d648f1298d113e45c3523d17",
+      "valid": true
+    },
+    {
+      "path": "mono/sign-out.svg",
+      "sha256": "33fbc4ecc82967d206602826b08bd91db6f3779b7b12de7a93025a5fcf7e9b7b",
+      "valid": true
+    },
+    {
+      "path": "inverse/sign-out.svg",
+      "sha256": "55ee1ed87e1df40c0fd3f2f3eb541bb52ba538b18cbcbf46704342aa9d00f576",
+      "valid": true
+    }
+  ],
+  "limitations": [
+    "Standalone metadata is English; informative app use must localize and deduplicate IDs.",
+    "External img currentColor does not inherit parent HTML colour.",
+    "No 16px/20px optical or live keyboard/screen-reader acceptance is claimed.",
+    "PNG rendering and visual contact-sheet review are recorded separately in VISUAL-REVIEW.md."
+  ]
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-filter-title pavurel-filter-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-filter-title">Filter</title>
+  <desc id="pavurel-filter-desc">A funnel with a narrow lower section.</desc>
+  <path d="M3.5 5.5h17L14 13h-4L3.5 5.5Z"/>
+  <path d="M10 13v7l4-2v-5" stroke="currentColor"/>
+</svg>

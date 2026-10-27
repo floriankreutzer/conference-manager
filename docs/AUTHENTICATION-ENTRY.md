@@ -9,6 +9,13 @@ content-driven desktop breakpoint the login takes priority and the decorative
 image is omitted. German/English text, semantic headings, native labels, skip
 navigation, visible keyboard focus and document reflow remain required.
 
+Future Microsoft control integration follows [ICON-SYSTEM.md](ICON-SYSTEM.md#microsoft-authentication-control)
+and the unchanged third-party assets under `assets/brand/microsoft-sign-in/`.
+The manufacturer control is a scoped exception to generic product button/font
+styling. Keep normal sign-in, admin consent and exact-operation purpose distinct;
+put customer/action/return context in the surrounding localized presentation.
+The reference assets do not alter the currently implemented frame or protocol.
+
 The frame hides the existing application shell only while authentication is
 shown, preserves its previous hidden state and skip-link target, and restores
 both on disposal. An authenticated session enters the existing application

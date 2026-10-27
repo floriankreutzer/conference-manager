@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-arrow-left-title pavurel-arrow-left-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-arrow-left-title">Back</title>
+  <desc id="pavurel-arrow-left-desc">A horizontal arrow pointing left.</desc>
+  <path d="M20 12H4"/>
+  <path d="m10 6-6 6 6 6" stroke="#FFFFFF"/>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="cm-participants-title cm-participants-desc" focusable="false" xml:lang="en">
+  <title id="cm-participants-title">Participants</title>
+  <desc id="cm-participants-desc">Two people, with the second person&#x27;s head highlighted in Bordeaux.</desc>
+  <circle cx="8.5" cy="8" r="3"/>
+  <path d="M2.5 20v-1.5a6 6 0 0 1 12 0V20M17 14.5a4.5 4.5 0 0 1 4.5 4.5v1"/>
+  <circle cx="17" cy="9" r="2.5" stroke="#7A1F3D"/>
+</svg>

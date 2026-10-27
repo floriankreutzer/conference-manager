@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#171717" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-diagnostics-title pavurel-diagnostics-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-diagnostics-title">Diagnostics</title>
+  <desc id="pavurel-diagnostics-desc">A monitor displaying a diagnostic pulse line.</desc>
+  <rect x="3" y="4" width="18" height="13" rx="1.5"/>
+  <path d="M12 17v4M8 21h8"/>
+  <path d="M6 11h3l2-4 3 7 2-3h2" stroke="#7A1F3D"/>
+</svg>

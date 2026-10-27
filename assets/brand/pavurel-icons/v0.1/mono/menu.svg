@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="pavurel-menu-title pavurel-menu-desc" focusable="false" xml:lang="en">
+  <title id="pavurel-menu-title">Menu</title>
+  <desc id="pavurel-menu-desc">Three horizontal strokes.</desc>
+  <path d="M4 6h16M4 18h16"/>
+  <path d="M4 12h16" stroke="currentColor"/>
+</svg>
