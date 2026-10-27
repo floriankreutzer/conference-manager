@@ -3,9 +3,8 @@ import { createPlatformOperationClient } from './operation-client.js';
 import { requirePlatformMicrosoftConfiguration,requirePlatformMicrosoftOperationChallenge,requirePlatformMicrosoftOperationStatus }
   from './microsoft-operation-contracts.js';
 
-export class PlatformMicrosoftOperationError extends Error {
-  constructor(code='PLATFORM_MICROSOFT_OPERATION_FAILED') { super(code);this.name='PlatformMicrosoftOperationError';this.code=code; }
-}
+import { PlatformMicrosoftOperationError } from '../operation-errors.js';
+export { PlatformMicrosoftOperationError } from '../operation-errors.js';
 export async function loadPlatformMicrosoftConfiguration(apiClient) {
   try { return requirePlatformMicrosoftConfiguration(await apiClient.request('auth/microsoft/operation/configuration')); }
   catch (error) { if (error?.code==='HTTP_404') return null;throw new PlatformMicrosoftOperationError(); }

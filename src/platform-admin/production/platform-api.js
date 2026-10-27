@@ -32,8 +32,6 @@ import {
   normalizePlatformTenantRuntime,
   platformRecoveryDefinition,
 } from '../resource-contracts.js';
-import { PlatformMicrosoftOperationError } from './microsoft-operations-client.js';
-import { PlatformPasskeyOperationError } from './passkey-operations-client.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SAFE_CODE_PATTERN = /^[a-z][a-z0-9_.-]{0,95}$/;
@@ -122,8 +120,6 @@ function canonicalInstant(value, errorCode) {
 }
 
 function requestFailure(code, error) {
-  if (error instanceof PlatformMicrosoftOperationError && error.code==='PLATFORM_MICROSOFT_OPERATION_CANCELLED'
-    || error instanceof PlatformPasskeyOperationError && error.code==='PLATFORM_PASSKEY_OPERATION_CANCELLED') throw error;
   throw new PlatformAdminApiError(code, { cause: error });
 }
 
@@ -269,7 +265,7 @@ export function createPlatformAdminApi({
       try {
         payload = await apiClient.request(`tenants?${parameters.toString()}`);
       } catch (error) {
-        requestFailure('PLATFORM_FLEET_UNAVAILABLE', error);
+        throw new PlatformAdminApiError('PLATFORM_FLEET_UNAVAILABLE', { cause: error });
       }
       return wrapContract(fleetFromDirectory, payload, 'PLATFORM_FLEET_RESPONSE_INVALID');
     },
@@ -284,7 +280,7 @@ export function createPlatformAdminApi({
           idempotencyKey: newIdempotencyKey(),
         });
       } catch (error) {
-        requestFailure('PLATFORM_TENANT_CREATE_FAILED', error);
+        throw new PlatformAdminApiError('PLATFORM_TENANT_CREATE_FAILED', { cause: error });
       }
       return wrapContract(
         normalizePlatformTenantCreateResponse,
@@ -317,7 +313,7 @@ export function createPlatformAdminApi({
           idempotencyKey,
         });
       } catch (error) {
-        requestFailure('PLATFORM_ACTION_FAILED', error);
+        throw new PlatformAdminApiError('PLATFORM_ACTION_FAILED', { cause: error });
       }
       return wrapContract(
         (value) => mutationResponse(value, normalized, configuration),

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createPlatformMicrosoftOperationsClient } from '../src/platform-admin/production/microsoft-operations-client.js';
-import { createPlatformAdminApi } from '../src/platform-admin/production/platform-api.js';
+import { createPlatformAdminApi } from '../src/platform-admin/platform-api.js';
 import { createPlatformPasskeyOperationsClient } from '../src/platform-admin/production/passkey-operations-client.js';
 import { createPlatformInvitationController } from '../src/platform-admin/customer-invitation-controller.js';
 import { MICROSOFT_OPERATION_ORIGIN as origin,microsoftOperationChallenge } from './support/platform-microsoft-operation-fixture.js';

@@ -177,6 +177,14 @@ They do not establish a cause or repair for401/403/404 invitation access failure
 enable synthetic admission, change global routes or entitlement presentation, or
 complete real-provider or Hosted acceptance.
 
+`platform-api.js` is the active shared API adapter selected by both bootstraps.
+Its outcome types live in the adapter-free `operation-errors.js`, and the existing
+Production client exports retain those same class identities. Both artifact
+manifests include that shared contract without making Demo depend on Production.
+The cancellation unit regression imports the same active API adapter as the
+Production bootstrap. Its visible DE/EN browser regressions run early in each
+engine and again in the unchanged full suite; permanent Demo/reset gates remain.
+
 ## Protected insight navigation
 
 The active application-passkey composition injects independent protected insight

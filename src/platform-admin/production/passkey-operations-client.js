@@ -2,9 +2,8 @@ import { createPlatformOperationClient } from './operation-client.js';
 import { createPlatformPasskeyBrowser } from './passkey-browser.js';
 import { requirePlatformPasskeyConfiguration,requirePlatformPasskeyChallenge } from './passkey-contracts.js';
 
-export class PlatformPasskeyOperationError extends Error {
-  constructor(code = 'PLATFORM_PASSKEY_OPERATION_FAILED') { super(code); this.name = 'PlatformPasskeyOperationError'; this.code = code; }
-}
+import { PlatformPasskeyOperationError } from '../operation-errors.js';
+export { PlatformPasskeyOperationError } from '../operation-errors.js';
 function reject() { throw new PlatformPasskeyOperationError(); }
 function encodedProof(state, response) {
   const bytes = new TextEncoder().encode(JSON.stringify({ state, response })); let text = '';
