@@ -1462,3 +1462,34 @@ for (const locale of ['de','en']) test(`Platform context groups retain customer 
   await expect(page.locator('.platform-admin-fleet-card')).toContainText('Dune Collective');
   expect(state.requests.filter(({ method })=>method!=='GET')).toHaveLength(0);
 });
+
+for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unknown']) {
+  test(`Runtime ${locale} prioritizes ${freshness} observation without inventing a current outage`,async({ page },testInfo)=>{
+    await installDemoRoutes(page);
+    const fixture=JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json',import.meta.url),'utf8'));
+    const runtime=fixture.deployments[0];
+    runtime.freshness={ ...runtime.freshness,state: freshness,observedAt: freshness==='unknown' ? null : '2026-10-25T11:50:00.000Z' };
+    runtime.overallState=freshness==='fresh' ? 'ready' : freshness;
+    await page.route('**/api/v1/platform/runtime/deployments',route=>route.fulfill({ contentType: 'application/json',
+      body: JSON.stringify({ schemaVersion: 1,deployments: [runtime] }) }));
+    await page.goto('/platform-admin-demo/');
+    await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+    await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
+    const card=page.locator(`[data-runtime-observation="${freshness}"]`),details=card.locator('details');
+    await expect(card).toBeVisible();
+    await expect(card.getByRole('heading',{ name: locale==='de' ? 'Conference Manager · Anwendungsdienst' : 'Conference Manager · application service' })).toBeVisible();
+    await expect(card).toContainText('Test');
+    if (freshness==='unknown') await expect(card.locator('time')).toHaveCount(0);
+    else await expect(card.locator('time')).toHaveAttribute('datetime',runtime.freshness.observedAt);
+    if (freshness==='stale') await expect(card).toContainText(locale==='de' ? 'Dies bestätigt keinen aktuellen Ausfall.' : 'This does not confirm a current outage.');
+    await expect(details).not.toHaveAttribute('open','');
+    await expect(details.locator('dd').first()).toBeHidden();
+    await details.locator('summary').focus();await page.keyboard.press('Enter');
+    await expect(details.locator('dd').first()).toHaveText(runtime.deployment.reference);
+    for (const width of [320,1280]) {
+      await page.setViewportSize({ width,height: 900 });
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      if (freshness==='stale') await testInfo.attach(`runtime-observation-${locale}-${width}`,{ body: await card.screenshot(),contentType: 'image/png' });
+    }
+  });
+}

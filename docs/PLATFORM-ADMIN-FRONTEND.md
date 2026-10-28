@@ -341,3 +341,25 @@ The directory retains customer cards and puts search/filter controls before the
 compact create action. Creation retains its existing Owner explanation and full
 confirmation/proof flow. The shell uses Conference Manager with subordinate
 by Pavurel; the operator/runtime context remains separately visible.
+
+### Runtime observations
+
+Global and customer runtime views share one presentation of the normalized API
+observation. Service relevance, environment, reported state, observation instant
+and its stated validity window precede collapsed version/schema/reference details.
+Stale and unknown observations explicitly avoid claiming a current outage.
+Reloading stored evidence does not imply new collection. The deployment environment
+is not a classification of customer data as real or synthetic; no such inference
+is made from a name or runtime mode. This presentation does not implement a missing
+collector or replace the separate operational work in #113.
+
+The overview separates lifecycle/setup/identity from functional Microsoft readiness
+and directs users to the existing setup/invitation route with role responsibilities.
+Metering names and units follow the canonical API `docs/PLATFORM-METERING.md`:
+gauges describe the reconciliation watermark; counters describe the UTC period.
+Unknown is not zero. Inclusive warning/limit metadata is distinguished from each
+consuming server operation's enforcement; no billing or automatic email is implied.
+Recovery explains preview versus final execution and empty eligible target pages.
+The compact Audit filter searches only already-loaded authorized events, performs
+no server request and explicitly requires reapplication after refresh/pagination.
+Technical sequence/action metadata remains in native expandable details.

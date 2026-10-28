@@ -1,5 +1,6 @@
+import { renderRuntimeObservation } from './runtime-observation.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
-import { button, el } from '../core/ui.js';
+import { button, el, field } from '../core/ui.js';
 import { readinessBlockerPresentation } from './readiness-blockers.js';
 import { auditEventPresentation } from './audit-event-presentation.js';
 import { microsoftMappingSummaryPresentation } from './microsoft-mapping-summary.js';
@@ -154,22 +155,33 @@ function microsoftHealth(resource, onSelectTenant, onLoadMore) {
 
 function audit(resource, onLoadMore,onExportAudit) {
   const list = el('ol', { className: 'platform-admin-audit-list' });
+  const query = el('input', { type: 'search', attrs: { maxlength: '160', autocomplete: 'off' } });
+  const resultCount = el('p', { className: 'platform-admin-data-note', attrs: { role: 'status' } });
+  const records = [];
   resource.data.items.forEach((event) => {
     const presentation = auditEventPresentation(event.action);
-    list.append(el('li', { className: 'card' }, [
+    const row = el('li', { className: 'card platform-admin-audit-row' }, [
       el('div', { className: 'platform-admin-record-heading' }, [
         el('p', { className: 'platform-admin-audit-action', text: t(presentation.messageKey) }),
         status(event.outcome),
       ]),
-      el('p', { text: formatDateTime(event.occurredAt) }),
-      el('small', { text: t('platformAdmin.audit.sequence', { sequence: formatNumber(event.sequence) }) }),
+      el('time', { text: formatDateTime(event.occurredAt), attrs: { datetime: event.occurredAt } }),
       ...(event.targetTenantId ? [el('small', { text: t('platformAdmin.audit.tenantTarget', { tenantId: event.targetTenantId }) })] : []),
       el('details', { className: 'platform-admin-audit-event-details' }, [
         el('summary', { text: t('platformAdmin.audit.event.technicalDetails') }),
-        dataCode(event.action),
+        el('p', { text: t('platformAdmin.audit.sequence', { sequence: formatNumber(event.sequence) }) }), dataCode(event.action),
       ]),
-    ]));
+    ]);
+    records.push({ row, text: [t(presentation.messageKey), event.action, event.targetTenantId ?? '', event.outcome, t(`platformAdmin.state.${event.outcome}`), formatDateTime(event.occurredAt)].join(' ').toLowerCase() });
+    list.append(row);
   });
+  function filterLoaded() {
+    const needle = query.value.trim().toLowerCase();
+    let shown = 0;
+    records.forEach(({ row, text }) => { row.hidden = !text.includes(needle); if (!row.hidden) shown += 1; });
+    resultCount.textContent = t('platformAdmin.audit.localCount', { shown: formatNumber(shown), loaded: formatNumber(records.length) });
+  }
+  query.addEventListener('input', filterLoaded); filterLoaded();
   const beforeSequence = resource.data.items.at(-1)?.sequence ?? null;
   const hasMore=resource.data.schemaVersion===2 ? resource.auditHasMore===true : resource.data.items.length===100;
   const next = beforeSequence && hasMore && typeof onLoadMore === 'function'
@@ -196,31 +208,16 @@ function audit(resource, onLoadMore,onExportAudit) {
   }
   return el('section', {}, [
     ...verification,
+    field({ id: 'platformAdminAuditLocalSearch', label: t('platformAdmin.audit.localSearch'), control: query, hint: t('platformAdmin.audit.localScope') }), resultCount,
     ...(resource.data.items.length ? [list] : [el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.audit.empty') })]),
     next,
   ].filter(Boolean));
 }
 
-function runtimeCard(item) {
-  const reference = item.deployment.reference || t('common.unknown');
-  return el('article', { className: 'card platform-admin-record' }, [
-    el('div', { className: 'platform-admin-record-heading' }, [
-      el('div', {}, [el('h3', { text: reference }), el('small', { text: item.environment })]),
-      status(item.overallState),
-    ]),
-    el('dl', { className: 'platform-admin-definition-list' }, [
-      el('div', {}, [el('dt', { text: t('platformAdmin.runtime.frontendVersion') }), el('dd', { text: item.components.frontend.version || t('common.unknown') })]),
-      el('div', {}, [el('dt', { text: t('platformAdmin.runtime.apiVersion') }), el('dd', { text: item.components.api.version || t('common.unknown') })]),
-      el('div', {}, [el('dt', { text: t('platformAdmin.runtime.schemaVersion') }), el('dd', { text: item.databaseSchema.currentVersion === null ? t('common.unknown') : formatNumber(item.databaseSchema.currentVersion) })]),
-      el('div', {}, [el('dt', { text: t('platformAdmin.runtime.freshness') }), el('dd', {}, [status(item.freshness.state)])]),
-    ]),
-    ...(item.reasonCodes.length ? [el('p', { className: 'platform-admin-data-note' }, item.reasonCodes.map(dataCode))] : []),
-  ]);
-}
 
 function runtime(resource) {
   if (!resource.data.deployments.length) return el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.resource.empty') });
-  return el('section', { className: 'platform-admin-record-list' }, resource.data.deployments.map(runtimeCard));
+  return el('section', { className: 'platform-admin-record-list' }, resource.data.deployments.map(renderRuntimeObservation));
 }
 
 export function renderPlatformFleetView({ view, resource, onRetry, onSelectTenant, onLoadMore,onExportAudit }) {

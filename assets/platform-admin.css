@@ -907,3 +907,22 @@
     grid-row: 1 / span 3;
   }
 }
+
+.platform-admin-audit-row {
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.platform-admin-audit-row .platform-admin-audit-action {
+  margin-block: 0;
+}
+
+.platform-admin-runtime-details {
+  margin-block-start: var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-audit-list .platform-admin-audit-row[hidden] {
+  display: none;
+}

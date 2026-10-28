@@ -38,6 +38,7 @@
     "src/platform-admin/contracts.js",
     "src/platform-admin/operation-errors.js",
     "src/platform-admin/fleet-sections.js",
+    "src/platform-admin/runtime-observation.js",
     "src/platform-admin/microsoft-mapping-summary.js",
     "src/platform-admin/readiness-blockers.js",
     "src/platform-admin/audit-event-presentation.js",

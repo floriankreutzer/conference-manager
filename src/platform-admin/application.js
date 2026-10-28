@@ -1336,6 +1336,7 @@ export function createPlatformAdminApplication({
       operator: currentOperator,
       resource,
       onAction: (action) => confirmAction(tenant, action),
+      onOpenLifecycle: () => navigate(platformAdminTenantHash(tenant.id, 'lifecycle')),
       onStepUp,
       onRetry: () => reloadTenantResource(tenant, definition.id),
       onEntitlementPreview: (proposals) => previewEntitlements(tenant, proposals),
