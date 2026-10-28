@@ -1,6 +1,7 @@
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
+import { formatProductionDateTimeInput, productionUtcInstant } from '../core/production-time.js';
 import {
   platformActionNeedsStepUp,
   shouldPresentPlatformAction,
@@ -291,14 +292,24 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
   ]);
   const mayLookup = operator.permissions.includes('platform:diagnostics:sensitive');
   if (mayLookup && shouldPresentPlatformPermission(operator, 'platform:diagnostics:sensitive', Date.now(), operationProofAvailable)) {
-    const correlationId = el('input', { type: 'text', attrs: { required: 'required', pattern: '[0-9a-fA-F-]{36}', maxlength: '36', autocomplete: 'off' } });
-    const to = new Date();
-    const from = new Date(to.getTime() - (24 * 60 * 60 * 1_000));
-    const fromControl = el('input', { type: 'datetime-local', value: from.toISOString().slice(0, 16), attrs: { required: 'required' } });
-    const toControl = el('input', { type: 'datetime-local', value: to.toISOString().slice(0, 16), attrs: { required: 'required' } });
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const correlationId = el('input', { type: 'text', value: result?.lookupCorrelationId || '', attrs: {
+      required: 'required', pattern: '[0-9a-fA-F-]{36}', maxlength: '36', autocomplete: 'off',
+      'aria-describedby': 'platformAdminCorrelationHelp',
+    } });
+    const to = result ? new Date(result.to) : new Date();
+    const from = result ? new Date(result.from) : new Date(to.getTime() - (24 * 60 * 60 * 1_000));
+    const fromControl = el('input', { type: 'datetime-local', value: formatProductionDateTimeInput(from.toISOString(), timeZone),
+      attrs: { required: 'required', 'aria-describedby': 'platformAdminCorrelationTimeZone' } });
+    const toControl = el('input', { type: 'datetime-local', value: formatProductionDateTimeInput(to.toISOString(), timeZone),
+      attrs: { required: 'required', 'aria-describedby': 'platformAdminCorrelationTimeZone' } });
     const submit = button(t('platformAdmin.diagnostics.lookup'), { type: 'submit', className: 'secondary' });
     const form = el('form', { className: 'card platform-admin-filter-form' }, [
-      el('h3', { text: t('platformAdmin.diagnostics.lookupTitle') }),
+      el('div', { className: 'platform-admin-filter-introduction' }, [
+        el('h3', { text: t('platformAdmin.diagnostics.lookupTitle') }),
+        el('p', { id: 'platformAdminCorrelationHelp', className: 'platform-admin-data-note', text: t('platformAdmin.diagnostics.correlationHelp') }),
+        el('p', { id: 'platformAdminCorrelationTimeZone', className: 'platform-admin-data-note', text: t('platformAdmin.diagnostics.timeZone', { timeZone }) }),
+      ]),
       field({ id: 'platformAdminCorrelationId', label: t('platformAdmin.diagnostics.correlationId'), control: correlationId, required: true }),
       field({ id: 'platformAdminCorrelationFrom', label: t('platformAdmin.diagnostics.from'), control: fromControl, required: true }),
       field({ id: 'platformAdminCorrelationTo', label: t('platformAdmin.diagnostics.to'), control: toControl, required: true }),
@@ -306,9 +317,22 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
     ]);
     form.addEventListener('submit', (event) => {
       event.preventDefault();
+      for (const control of [fromControl, toControl]) control.setCustomValidity('');
       if (!form.reportValidity()) return;
-      onCorrelationLookup({ correlationId: correlationId.value.toLowerCase(), from: new Date(fromControl.value).toISOString(), to: new Date(toControl.value).toISOString() });
+      const instants = [fromControl, toControl].map((control) => {
+        const [date, time] = control.value.split('T');
+        return productionUtcInstant(date, time, timeZone);
+      });
+      const invalid = instants.findIndex((instant) => instant === null);
+      if (invalid !== -1) {
+        const control = [fromControl, toControl][invalid];
+        control.setCustomValidity(t('platformAdmin.diagnostics.invalidLocalTime'));
+        control.reportValidity();
+        return;
+      }
+      onCorrelationLookup({ correlationId: correlationId.value.toLowerCase(), from: instants[0], to: instants[1] });
     });
+    for (const control of [fromControl, toControl]) control.addEventListener('input', () => control.setCustomValidity(''));
     content.append(form);
   } else if (mayLookup && typeof onStepUp === 'function') {
     const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });

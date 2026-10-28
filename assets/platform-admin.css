@@ -107,6 +107,11 @@
   margin: 0;
 }
 
+.platform-admin-filter-introduction {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
 .platform-admin-fleet-list,
 .platform-admin-record-list,
 .platform-admin-audit-list,

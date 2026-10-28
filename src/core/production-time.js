@@ -85,6 +85,15 @@ export function productionUtcInstant(dateValue, timeValue, timeZone) {
   return matches.length === 1 ? new Date(matches[0]).toISOString() : null;
 }
 
+export function formatProductionDateTimeInput(value, timeZone) {
+  const timestamp = typeof value === 'string' ? Date.parse(value) : Number.NaN;
+  if (!Number.isFinite(timestamp) || !isProductionTimeZone(timeZone)) return '';
+  const parts = wallTimeParts(timestamp, timeZone);
+  const year = parts.year.padStart(4, '0');
+  if (!/^\d{4}$/.test(year)) return '';
+  return `${year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
 export function formatProductionDateTime(value, { locale = 'de-DE', timeZone } = {}) {
   if (!isProductionTimeZone(timeZone)) return '';
   const timestamp = typeof value === 'string' ? Date.parse(value) : Number.NaN;

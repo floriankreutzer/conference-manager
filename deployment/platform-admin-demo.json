@@ -28,6 +28,7 @@
     "src/core/i18n-tenant-admin-settings-messages.js",
     "src/core/i18n-tenant-settings-domain-messages.js",
     "src/core/i18n.js",
+    "src/core/production-time.js",
     "src/core/preferences.js",
     "src/core/ui.js",
     "src/core/microsoft-sign-in-control.js",
