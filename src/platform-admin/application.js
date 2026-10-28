@@ -307,8 +307,16 @@ export function createPlatformAdminApplication({
 
   function renderWithFocusHandoff({ restoreTab = null } = {}) {
     const focused = documentRef.activeElement;
+    const navigationKey = focused && nodes.navigation.contains(focused)
+      ? ['platformAdminFleetView', 'platformAdminNavigate'].find((key) => focused.dataset?.[key]) : null;
+    const navigationValue = navigationKey ? focused.dataset[navigationKey] : null;
     const tab = focusedInsightTab() || ((focused === nodes.title || focused === documentRef.body) ? restoreTab : null);
     render();
+    if (navigationKey) {
+      const replacement = [...nodes.navigation.querySelectorAll('button')]
+        .find((control) => control.dataset[navigationKey] === navigationValue);
+      if (replacement) { replacement.focus(); return; }
+    }
     if (tab) {
       const replacement = [...nodes.app.querySelectorAll('[data-insights-tab]')].find((control) =>
         control.dataset.insightsTab === tab.tab
@@ -516,8 +524,7 @@ export function createPlatformAdminApplication({
     if (view === 'providers') providerFreshness.forget();
     const pending = { status: 'loading', data: append ? existing?.data : null };
     fleetResources.set(view, pending);
-    if (observedClock) renderWithFocusHandoff();
-    else render();
+    renderWithFocusHandoff();
     try {
       const requestClock = observedClock?.capture();
       let data;
@@ -550,9 +557,7 @@ export function createPlatformAdminApplication({
       fleetResources.set(view, { status: 'error', data: null });
     }
     if (currentRoute().view === 'fleet' && currentFleetView() === view) {
-      if ((view === 'product-delivery' && productViewIsVisible())
-        || (view === 'providers' && providerViewIsVisible())) renderWithFocusHandoff({ restoreTab: priorTabFocus });
-      else render();
+      renderWithFocusHandoff({ restoreTab: priorTabFocus });
     }
   }
 
