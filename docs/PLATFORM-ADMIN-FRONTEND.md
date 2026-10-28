@@ -233,7 +233,10 @@ can load a global resource. A URL never grants backend authority and carries no
 customer content, identity, command or proof. Tab changes create history entries
 without replacing the active controls; reload and browser history reconstruct the
 selected page/panel. Existing heading focus and asynchronous insight freshness
-handoffs remain. Role/context disposal clears protected caches as before.
+handoffs remain. The bounded in-memory navigation destinations remember the last
+validated tab per global page when revisiting through the menu; they do not replace
+the active URL or persist protected content. Role/context disposal clears these
+destinations and protected caches as before.
 
 The entitlement workspace renders localized capability names, dependencies and
 expandable technical identifiers using native labels/checkboxes and existing

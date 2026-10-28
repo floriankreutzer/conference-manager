@@ -168,6 +168,7 @@ export function createPlatformAdminApplication({
   let navigationGeneration = 0;
   let stopped = false;
   const fleetResources = new Map();
+  const fleetDestinations = new Map();
   const tenantResources = new Map();
   const projectionReadClocks = new Map();
   const projectionRefreshTimers = new Map();
@@ -250,6 +251,7 @@ export function createPlatformAdminApplication({
   }
 
   function clearProjectionState() {
+    fleetDestinations.clear();
     productCache?.forget();
     providerFreshness?.forget();
     for (const view of projectionRefreshTimers.keys()) clearProjectionRefreshTimer(view);
@@ -741,7 +743,7 @@ export function createPlatformAdminApplication({
           dataset: { platformAdminFleetView: definition.id },
         });
         control.addEventListener('click', () => {
-          navigate(platformAdminFleetHash(definition.id));
+          navigate(fleetDestinations.get(definition.id) || platformAdminFleetHash(definition.id));
         });
         list.append(el('li', {}, [control]));
       });
@@ -1352,6 +1354,9 @@ export function createPlatformAdminApplication({
       && !availableFleetViews().some(({ id }) => id === currentFleetView())) {
       navigate(platformAdminFleetHash(), { replace: true });
       return;
+    }
+    if (route.view === 'fleet') {
+      fleetDestinations.set(currentFleetView(), platformAdminFleetHash(currentFleetView(), route.tab ?? null));
     }
     const tenant = route.tenantId ? fleet?.tenants.find(({ id }) => id === route.tenantId) : null;
     renderNavigation(route, tenant);
