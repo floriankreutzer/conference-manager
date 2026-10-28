@@ -3399,6 +3399,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await page.getByRole('button', { name: 'Services & Ausstattung' }).click();
   await expect(page.getByRole('heading', { name: 'Services & Ausstattung', exact: true })).toBeVisible();
   const serviceBulk = page.locator('[data-tenant-bulk-transfer]');
+  await expect(serviceBulk.locator('option')).toHaveCount(2);
   expect(await serviceBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
     .toEqual(['services', 'equipment']);
   await page.locator('[data-add-catalogue-entry="services"]').click();
