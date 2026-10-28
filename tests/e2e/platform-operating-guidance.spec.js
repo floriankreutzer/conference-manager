@@ -19,7 +19,8 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
       start: '2026-10-01T00:00:00.000Z',end: '2026-11-01T00:00:00.000Z',timeZone: 'UTC' },
     dataState: 'partial',measuredAt: null,reconciledAt: null,
     dimensions: dimensions.map((dimension,index)=>({ dimension,value: index===0 ? 0 : null })),
-    quotas: dimensions.map(dimension=>({ dimension,state: 'not_configured',softLimit: null,hardLimit: null,revision: 0 })),
+    quotas: dimensions.map(dimension=>({ dimension,state: dimension==='requests_created' ? 'unknown' : 'not_configured',
+      softLimit: null,hardLimit: null,revision: dimension==='requests_created' ? null : 0 })),
     },tenantId);
     const root=document.querySelector('#guidanceFixture');
     const { renderPlatformFleetView }=await import('/src/platform-admin/fleet-sections.js');
@@ -53,6 +54,8 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
   await expect(records).toHaveCount(5);
   await expect(records.first().locator('strong')).toHaveText('0');
   await expect(records.nth(1).locator('strong')).toHaveText(language==='de' ? 'Unbekannt' : 'Unknown');
+  await expect(records.nth(2).locator('dd').nth(1)).toHaveText(language==='de' ? 'Unbekannt' : 'Unknown');
+  await expect(records.nth(2).locator('dd').nth(2)).toHaveText(language==='de' ? 'Unbekannt' : 'Unknown');
   await expect(records.first().getByRole('heading')).toHaveText(language==='de' ? 'Aktive interne Personen' : 'Active internal people');
   await expect(records.first().locator('code')).toBeHidden();
   await expect(page.getByText(language==='de' ? /Auf dieser geladenen Seite ist kein geeignetes Ziel/ : /No eligible target is available on this loaded page/)).toBeVisible();

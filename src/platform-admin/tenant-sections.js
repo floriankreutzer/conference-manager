@@ -456,8 +456,8 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
       el('strong', { text: dimension.value === null ? t('platformAdmin.value.unknown') : formatNumber(dimension.value) }),
       definitionList([
         { label: t('platformAdmin.metering.quotaState'), value: state(quota.state) },
-        { label: t('platformAdmin.metering.softLimit'), value: quota.softLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.softLimit) },
-        { label: t('platformAdmin.metering.hardLimit'), value: quota.hardLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.hardLimit) },
+        { label: t('platformAdmin.metering.softLimit'), value: quota.state === 'unknown' ? t('platformAdmin.value.unknown') : quota.softLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.softLimit) },
+        { label: t('platformAdmin.metering.hardLimit'), value: quota.state === 'unknown' ? t('platformAdmin.value.unknown') : quota.hardLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.hardLimit) },
       ]),
       el('details', {}, [el('summary', { text: t('platformAdmin.metering.technicalDetails') }), dataCode(dimension.dimension)]),
       el('div', { className: 'button-row' }, controls),
