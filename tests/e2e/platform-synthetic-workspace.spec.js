@@ -224,9 +224,11 @@ for (const locale of ['de','en']) test(`workspace management never invents a dir
   await page.getByRole('button',{ name: locale==='de' ? 'Northwind verwalten' : 'Manage Northwind',exact: true }).click();
   await expect(page).toHaveURL(/#fleet$/);
   await expect(page.locator('[data-platform-admin-section]')).toHaveCount(0);
-  await expect(page.getByText(locale==='de'
+  const message=locale==='de'
     ? 'Der ausgewählte Kunde ist im aktuellen Verzeichnis nicht verfügbar. Prüfen Sie die Auswahl und laden Sie das Verzeichnis bei Bedarf neu.'
-    : 'The selected customer is unavailable in the current directory. Check the selection and reload the directory if needed.',{ exact: true }).first()).toBeVisible();
+    : 'The selected customer is unavailable in the current directory. Check the selection and reload the directory if needed.';
+  await expect(page.locator('#toast')).toHaveClass(/show/);await expect(page.locator('#toast')).toHaveText(message);
+  await expect(page.locator('#alertRegion')).toHaveText(message);
   expect(fixture.directoryReads()).toBe(2);expect(fixture.writes).toHaveLength(0);
 });
 

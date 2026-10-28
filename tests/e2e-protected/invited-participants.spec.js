@@ -17,7 +17,7 @@ async({ browser,browserName })=>{
   }
   const { createProtectedOwnerBrowserRuntimeFixture }=await import(pathToFileURL(
     `${apiRoot}/tests-db/support/protected-owner-browser-runtime-fixture.js`));
-  let runtime,edge,context,written=false,failed=false,phase='setup';
+  let runtime,edge,context,written=false,failed=false,phase='setup',proofCapacityWaits=0;
   function checkpoint(value) { phase=value;console.log('PARTICIPANT_BROWSER_STAGE '+value); }
   try {
     const origins={ customer: 'https://app-int.example.test',platform: 'https://ops-int.example.com' };
@@ -32,6 +32,7 @@ async({ browser,browserName })=>{
       timeout: 30000,maxBuffer: 65536 });written=true;
     expect(JSON.parse(stdout)).toEqual({ apiCommit,frontendCommit,manifestSha256: built.manifestDigests });
     runtime=await createProtectedOwnerBrowserRuntimeFixture({ apiCommit,frontendCommit,hostedFrontend: built.manifestDigests,participants: true });
+    await expect(runtime.waitForMicrosoftOperationCapacity(3)).rejects.toThrow('PARTICIPANT_BROWSER_PROOF_CAPACITY_INVALID');
     edge=await createQualifiedProtectedEdge({ root: ROOT,ports: runtime.ports,certificateDirectory,
       artifactDigests: built.digests,isolatedMicrosoft: true });
     context=await browser.newContext({ proxy: { server: edge.proxy },ignoreHTTPSErrors: false,
@@ -71,6 +72,8 @@ async({ browser,browserName })=>{
       await expect(lifecycle).toBeVisible();await lifecycle.click();
       const panel=page.locator('.platform-admin-invitations');await expect(panel).toBeVisible();
       checkpoint(`invitation-read-${person.slot}`);
+      const readCapacity=await runtime.waitForMicrosoftOperationCapacity(1);
+      if (readCapacity.waitedMs) proofCapacityWaits++;
       await panel.getByRole('button',{ name: 'Aktuellen Stand laden',exact: true }).click();await approveMicrosoft();
       await expect(panel.getByRole('button',{ name: 'Person hinzufügen',exact: true })).toBeEnabled();
       await panel.getByRole('button',{ name: 'Person hinzufügen',exact: true }).click();
@@ -79,6 +82,9 @@ async({ browser,browserName })=>{
       if (person.role) await entry.getByRole('checkbox',{ name: person.role,exact: true }).check();
       await panel.getByRole('textbox',{ name: 'Betriebliche Begründung *',exact: true }).fill('Isolated explicit participant acceptance');
       checkpoint(`invitation-issue-${person.slot}`);
+      // Reserve both the mutation and its independent automatic list-read proof.
+      const issueCapacity=await runtime.waitForMicrosoftOperationCapacity(2);
+      if (issueCapacity.waitedMs) proofCapacityWaits++;
       await panel.getByRole('button',{ name: 'Einladungen vormerken',exact: true }).click();await approveMicrosoft();
       // The controller independently refreshes the committed list with its own
       // exact read proof. Neither approval nor the mutation is replayed.
@@ -176,13 +182,14 @@ async({ browser,browserName })=>{
       await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
     }
+    expect(proofCapacityWaits).toBeGreaterThan(0);
     expect(new Set(identities.map(row=>row.tenantId)).size).toBe(3);expect(new Set(identities.map(row=>row.userId)).size).toBe(3);
     checkpoint('evidence');
     const evidence=await runtime.evidence();expect(evidence.application_keys).toBe(0);
     expect(evidence.participants).toEqual({ registered: 3,accepted: 3 });expect(edge.evidence().deniedConnects).toBe(0);
     expect(errors).toEqual([]);
     console.log('PARTICIPANT_BROWSER_ACCEPTANCE '+JSON.stringify({ browser: browserName,apiCommit,frontendCommit,
-      invited: 3,accepted: 3,employeeBooking: true,managerDecision: true,onboardingActive: true,
+      invited: 3,accepted: 3,proofCapacityWaits,employeeBooking: true,managerDecision: true,onboardingActive: true,
       crossTenantDenied: true,auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));
   } catch (error) { failed=true;console.error('PARTICIPANT_BROWSER_FAILURE '+phase);throw error; }
   finally {

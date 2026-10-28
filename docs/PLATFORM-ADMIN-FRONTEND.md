@@ -297,3 +297,13 @@ regressions cover fresh-generation keyboard management, DE/EN missing targets,
 failed reads and navigation during a deferred response. The protected invited
 participant journey retains the actual new-generation precondition and all three
 role-owned business workflows, without a manual reload or fixture directory seed.
+
+
+The isolated participant case also respects the actual five-unexpired-proof
+Microsoft operation budget, including already consumed proofs until expiry. Its
+fixture reads the database-derived capacity and waits for the original expiry
+before requesting the next operation. Invitation writes reserve capacity for
+their independent post-mutation list-read proof as well. No proof, counter, clock,
+rate, replay rule or browser deadline is changed. The real wait and all actual
+operations remain inside the existing240-second case limit; local fixture code
+is not evidence that the complete paired browser case passed.
