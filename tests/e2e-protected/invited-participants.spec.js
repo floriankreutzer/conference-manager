@@ -117,6 +117,19 @@ async({ browser,browserName })=>{
     for (const state of ['Northwind: Aktiv.','Contoso: Bereit.','Fabrikam: Onboarding.']) {
       await expect(workspace.getByText(state,{ exact: true })).toBeVisible();
     }
+    async function signOutCustomer(slot) {
+      checkpoint(`customer-logout-${slot}`);logoutOutcome=null;
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      const revoked=page.waitForResponse(response=>response.request().method()==='DELETE'
+        && response.url()===origins.customer+'/api/v1/session');
+      const returned=page.waitForEvent('domcontentloaded',{ timeout: 15000 });
+      await Promise.all([returned,revoked.then(response=>{
+        logoutOutcome={ revoked: response.status() };expect(logoutOutcome.revoked).toBe(204);
+      }),page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click()]);
+      logoutOutcome.session=await page.evaluate(async()=>(await fetch('/api/v1/session',{ cache: 'no-store' })).status);
+      expect(logoutOutcome.session).toBe(401);
+      await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
+    }
     async function activateContoso() {
       // Contoso starts ready. Its Manager cannot activate it or inherit Admin.
       // The operator performs that existing prerequisite through actual Admin custody.
@@ -138,10 +151,12 @@ async({ browser,browserName })=>{
       expect(before.roles).toEqual(['employee','tenant_admin']);delegatedContosoUser=before.userId;
       await page.getByRole('button',{ name: 'Kalender und Onboarding',exact: true }).click();
       await page.getByRole('button',{ name: 'Testmandanten aktivieren',exact: true }).click();
-      await page.getByRole('link',{ name: 'Anwendung öffnen',exact: true }).click();
-      const profile=page.locator('#primaryNavigation button[aria-haspopup="dialog"]');await expect(profile).toBeVisible();
-      await profile.click();await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
-      await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
+      checkpoint('contoso-owner-application');
+      // The onboarding shell already has a profile control. Await the new
+      // application document before using it, then prove actual revocation.
+      await Promise.all([page.waitForEvent('domcontentloaded',{ timeout: 15000 }),
+        page.getByRole('link',{ name: 'Anwendung öffnen',exact: true }).click()]);
+      await signOutCustomer('contoso-owner');
       await page.goto(origins.platform+'/platform-admin/');
       await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
       await expect(page.getByRole('button',{ name: 'Contoso verwalten',exact: true })).toBeVisible();
@@ -283,17 +298,7 @@ async({ browser,browserName })=>{
       }
       expect(await page.evaluate(()=>!/(?:csrfToken|browserToken|access_token|refresh_token|approval_proof)/i
         .test(JSON.stringify({ local: Object.entries(localStorage),session: Object.entries(sessionStorage) })))).toBe(true);
-      checkpoint(`customer-logout-${person.slot}`);logoutOutcome=null;
-      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
-      const revoked=page.waitForResponse(response=>response.request().method()==='DELETE'
-        && response.url()===origins.customer+'/api/v1/session');
-      const returned=page.waitForEvent('domcontentloaded',{ timeout: 15000 });
-      await Promise.all([returned,revoked.then(response=>{
-        logoutOutcome={ revoked: response.status() };expect(logoutOutcome.revoked).toBe(204);
-      }),page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click()]);
-      logoutOutcome.session=await page.evaluate(async()=>(await fetch('/api/v1/session',{ cache: 'no-store' })).status);
-      expect(logoutOutcome.session).toBe(401);
-      await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
+      await signOutCustomer(person.slot);
       if (person.slot==='northwind') {
         // Retain API/auth/document/failure/open evidence; compact only successful
         // immutable assets after the complete Customer phase, at most twice.
