@@ -8,7 +8,7 @@ import { createQualifiedProtectedEdge } from './support/qualified-edge.mjs';
 
 const ROOT=fileURLToPath(new URL('../../',import.meta.url));
 
-test('actual invited participants use Microsoft-approved Platform invitations and role-owned three-customer browser workflows',
+for (const journey of ['booking-decision','onboarding']) test(`actual invited participants use Microsoft-approved invitations for ${journey}`,
 async({ browser,browserName })=>{
   const apiRoot=process.env.CM_PROTECTED_API_ROOT,certificateDirectory=process.env.CM_PROTECTED_CERTIFICATE_DIRECTORY;
   const apiCommit=process.env.CM_PROTECTED_API_COMMIT,frontendCommit=process.env.CM_PROTECTED_FRONTEND_COMMIT;
@@ -46,7 +46,7 @@ async({ browser,browserName })=>{
       get() { throw new Error('PARTICIPANT_APPLICATION_PASSKEY_FORBIDDEN'); },
       create() { throw new Error('PARTICIPANT_APPLICATION_ENROLLMENT_FORBIDDEN'); },
     } }); });
-    const page=await context.newPage(),errors=[],identities=[];page.on('pageerror',error=>errors.push(error.name));
+    const page=await context.newPage(),errors=[],identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
     async function approveMicrosoft() {
       const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
       await expect(approval).toBeVisible();const element=await approval.elementHandle();
@@ -62,8 +62,41 @@ async({ browser,browserName })=>{
     await page.getByRole('button',{ name: 'Testmandanten anlegen',exact: true }).click();
     await page.getByRole('button',{ name: 'Anlegen bestätigen',exact: true }).click();await approveMicrosoft();
     await expect(page.getByRole('button',{ name: 'Fabrikam verwalten',exact: true })).toBeVisible();
-    const participants=[{ slot: 'northwind',name: 'Northwind',role: null },
-      { slot: 'contoso',name: 'Contoso',role: 'Conference Manager' },{ slot: 'fabrikam',name: 'Fabrikam',role: 'Tenant Operator' }];
+    const workspace=page.getByRole('dialog',{ name: 'Eigene Testmandanten',exact: true });
+    for (const state of ['Northwind: Aktiv.','Contoso: Bereit.','Fabrikam: Onboarding.']) {
+      await expect(workspace.getByText(state,{ exact: true })).toBeVisible();
+    }
+    if (journey==='booking-decision') {
+      // Contoso starts ready. Its Manager cannot activate it or inherit Admin.
+      // The operator performs that existing prerequisite through actual Admin custody.
+      checkpoint('contoso-owner-activation');
+      await page.goto(origins.customer+'/');
+      await page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true }).click();
+      const tenant=page.getByRole('combobox',{ name: 'Testmandant',exact: true });await expect(tenant).toBeVisible();
+      await tenant.selectOption('contoso');
+      await page.getByRole('combobox',{ name: 'Kundenrolle',exact: true }).selectOption('tenant_admin');
+      const capacity=await runtime.waitForMicrosoftOperationCapacity(1);if (capacity.waitedMs) proofCapacityWaits++;
+      await page.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();await approveMicrosoft();
+      const enter=page.getByRole('button',{ name: 'Testzugang öffnen',exact: true });await expect(enter).toBeVisible();await enter.click();
+      await expect(page.locator('#primaryNavigation button[aria-haspopup="dialog"]')).toBeVisible();
+      const before=await page.evaluate(async()=>{
+        const response=await fetch('/api/v1/session'),value=await response.json();
+        return { status: response.status,tenantStatus: value.tenant.status,roles: value.roles,userId: value.user.id };
+      });expect(before.status).toBe(200);expect(before.tenantStatus).toBe('ready');
+      expect(before.roles).toEqual(['employee','tenant_admin']);delegatedContosoUser=before.userId;
+      await page.getByRole('button',{ name: 'Kalender und Onboarding',exact: true }).click();
+      await page.getByRole('button',{ name: 'Testmandanten aktivieren',exact: true }).click();
+      await page.getByRole('link',{ name: 'Anwendung öffnen',exact: true }).click();
+      const profile=page.locator('#primaryNavigation button[aria-haspopup="dialog"]');await expect(profile).toBeVisible();
+      await profile.click();await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
+      await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
+      await page.goto(origins.platform+'/platform-admin/');
+      await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
+      await expect(page.getByRole('button',{ name: 'Contoso verwalten',exact: true })).toBeVisible();
+    }
+    const participants=journey==='booking-decision' ? [{ slot: 'northwind',name: 'Northwind',role: null },
+      { slot: 'contoso',name: 'Contoso',role: 'Conference Manager' }]
+      : [{ slot: 'fabrikam',name: 'Fabrikam',role: 'Tenant Operator' }];
     for (const [index,person] of participants.entries()) {
       checkpoint(`invitation-navigation-${person.slot}`);
       if (index) await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
@@ -145,6 +178,7 @@ async({ browser,browserName })=>{
         },northwindRequest);
         expect(persisted).toEqual({ status: 200,title: 'Invited participant browser booking' });
       } else if (person.slot==='contoso') {
+        expect(current.userId).not.toBe(delegatedContosoUser);
         expect(await page.evaluate(async id=>(await fetch(`/api/v1/requests/${id}`)).status,northwindRequest)).toBe(404);
         await page.locator('[data-view="manager"]').click();
         await page.getByRole('tab',{ name: 'Anfragen & Buchungen',exact: true }).click();
@@ -182,15 +216,17 @@ async({ browser,browserName })=>{
       await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
     }
-    expect(proofCapacityWaits).toBeGreaterThan(0);
-    expect(new Set(identities.map(row=>row.tenantId)).size).toBe(3);expect(new Set(identities.map(row=>row.userId)).size).toBe(3);
+    if (journey==='booking-decision') expect(proofCapacityWaits).toBeGreaterThan(0);else expect(proofCapacityWaits).toBe(0);
+    expect(new Set(identities.map(row=>row.tenantId)).size).toBe(participants.length);
+    expect(new Set(identities.map(row=>row.userId)).size).toBe(participants.length);
     checkpoint('evidence');
     const evidence=await runtime.evidence();expect(evidence.application_keys).toBe(0);
-    expect(evidence.participants).toEqual({ registered: 3,accepted: 3 });expect(edge.evidence().deniedConnects).toBe(0);
+    expect(evidence.participants).toEqual({ registered: participants.length,accepted: participants.length });expect(edge.evidence().deniedConnects).toBe(0);
     expect(errors).toEqual([]);
     console.log('PARTICIPANT_BROWSER_ACCEPTANCE '+JSON.stringify({ browser: browserName,apiCommit,frontendCommit,
-      invited: 3,accepted: 3,proofCapacityWaits,employeeBooking: true,managerDecision: true,onboardingActive: true,
-      crossTenantDenied: true,auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));
+      journey,invited: participants.length,accepted: participants.length,proofCapacityWaits,
+      employeeBooking: journey==='booking-decision',managerDecision: journey==='booking-decision',onboardingActive: journey==='onboarding',
+      crossTenantDenied: journey==='booking-decision',auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));
   } catch (error) { failed=true;console.error('PARTICIPANT_BROWSER_FAILURE '+phase);throw error; }
   finally {
     let cleanupFailed=false;

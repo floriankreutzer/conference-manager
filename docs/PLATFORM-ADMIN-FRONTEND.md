@@ -295,15 +295,22 @@ Read failure retains the existing unavailable directory state and explicit retry
 no write, Microsoft proof or generation replacement is replayed. Ordinary browser
 regressions cover fresh-generation keyboard management, DE/EN missing targets,
 failed reads and navigation during a deferred response. The protected invited
-participant journey retains the actual new-generation precondition and all three
-role-owned business workflows, without a manual reload or fixture directory seed.
+participant cases each create the full canonical generation through actual UI.
+The Employee/Manager case first activates initially-ready Contoso through the
+operator's actual Tenant Admin handoff; its invited Manager never inherits Admin
+or adopts that delegated identity. A separate complete case proves invited
+Fabrikam Admin onboarding from its initial state. All three role-owned business
+workflows remain actual end-to-end operations, without fixture directory seeding.
+Native three-member/same-generation and all permanent three-customer/two-reset
+acceptance remain independently required and unchanged.
 
 
-The isolated participant case also respects the actual five-unexpired-proof
-Microsoft operation budget, including already consumed proofs until expiry. Its
+The isolated participant cases also respect the actual five-unexpired-proof
+Microsoft operation budget, including already consumed proofs until expiry. Their
 fixture reads the database-derived capacity and waits for the original expiry
 before requesting the next operation. Invitation writes reserve capacity for
 their independent post-mutation list-read proof as well. No proof, counter, clock,
-rate, replay rule or browser deadline is changed. The real wait and all actual
-operations remain inside the existing240-second case limit; local fixture code
+rate, replay rule or browser deadline is changed. Each complete case retains the
+existing240-second limit, including its own setup, real wait where needed and
+actual operations; local fixture code
 is not evidence that the complete paired browser case passed.
