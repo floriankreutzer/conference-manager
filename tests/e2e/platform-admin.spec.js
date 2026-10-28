@@ -1425,3 +1425,40 @@ test('entitlement workspace read-only authority and departed preview remain boun
   await expect(page).toHaveURL(/#fleet$/); await expect(page.locator('.platform-admin-preview')).toHaveCount(0);
   await page.goBack(); await expect(form).toBeVisible(); await expect(page.locator('.platform-admin-preview')).toHaveCount(0);
 });
+
+for (const locale of ['de','en']) test(`Platform context groups retain customer identity, distinct runtime routes and keyboard return in ${locale}`, async ({ page }, testInfo) => {
+  const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+  const navigation=page.locator('#primaryNavigation');
+  await expect(page.locator('#brandTitle')).toHaveText('Conference Manager');
+  await expect(page.locator('#brandSubtitle')).toHaveText('by Pavurel');
+  await expect(navigation.locator('section')).toHaveCount(1);
+  await expect(page.locator('#platformAdminGlobalNavigation')).toHaveText(locale==='de' ? 'Plattform · alle Kunden' : 'Platform · all customers');
+  const filters=page.locator('.platform-admin-filter-form'),create=page.locator('.platform-admin-create-panel');
+  await expect(create).toBeVisible();
+  expect(await filters.evaluate((node)=>Boolean(node.compareDocumentPosition(document.querySelector('.platform-admin-create-panel')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).focus();await page.keyboard.press('Enter');
+  await expect(navigation.locator('section')).toHaveCount(2);
+  await expect(page.locator('#platformAdminCustomerNavigation')).toHaveText(locale==='de' ? 'Kunde · Dune Collective' : 'Customer · Dune Collective');
+  const globalRuntime=navigation.locator('[data-platform-admin-fleet-view="runtime-status"]');
+  const customerRuntime=navigation.locator('[data-platform-admin-navigate="runtime-status"]');
+  await expect(globalRuntime).toHaveText(locale==='de' ? 'Plattformbetrieb' : 'Platform runtime');
+  await expect(customerRuntime).toHaveText(locale==='de' ? 'Kundenbetrieb' : 'Customer runtime');
+  await customerRuntime.focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`#tenant=${ACTIVE_TENANT_ID}&section=runtime-status$`));
+  await expect(navigation.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(customerRuntime).toHaveAttribute('aria-current','page');
+  for (const width of [320,1280]) {
+    await page.setViewportSize({ width,height: 900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await testInfo.attach(`platform-context-${locale}-${width}`,{ body: await navigation.screenshot(),contentType: 'image/png' });
+  }
+  await globalRuntime.focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#fleet=runtime-status$/);
+  await expect(navigation.locator('section')).toHaveCount(1);
+  await navigation.locator('[data-platform-admin-fleet-view="directory"]').focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#fleet$/);
+  await expect(page.locator('.platform-admin-fleet-card')).toContainText('Dune Collective');
+  expect(state.requests.filter(({ method })=>method!=='GET')).toHaveLength(0);
+});

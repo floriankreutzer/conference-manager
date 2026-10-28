@@ -752,10 +752,13 @@ export function createPlatformAdminApplication({
     clear(nodes.navigation);
     nodes.navigation.setAttribute('aria-label', t('platformAdmin.navigation.label'));
     const list = el('ul', { className: 'nav-list' });
+    const globalGroup = el('section', { className: 'platform-admin-nav-group', attrs: { 'aria-labelledby': 'platformAdminGlobalNavigation' } }, [
+      el('h2', { id: 'platformAdminGlobalNavigation', text: t('platformAdmin.navigation.global'), className: 'platform-admin-nav-heading' }), list,
+    ]);
     availableFleetViews()
       .forEach((definition) => {
         const active = route.view === 'fleet' && currentFleetView() === definition.id;
-        const control = button(t(definition.titleKey), {
+        const control = button(t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.globalRuntime' : definition.titleKey), {
           className: `nav-item${active ? ' active' : ''}`,
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminFleetView: definition.id },
@@ -765,19 +768,24 @@ export function createPlatformAdminApplication({
         });
         list.append(el('li', {}, [control]));
       });
+    nodes.navigation.appendChild(globalGroup);
     if (tenant) {
+      const tenantList = el('ul', { className: 'nav-list' });
+      const tenantGroup = el('section', { className: 'platform-admin-nav-group', attrs: { 'aria-labelledby': 'platformAdminCustomerNavigation' } }, [
+        el('h2', { id: 'platformAdminCustomerNavigation', className: 'platform-admin-nav-heading', text: t('platformAdmin.navigation.customer', { tenant: tenant.displayName }) }), tenantList,
+      ]);
       PLATFORM_ADMIN_SECTION_DEFINITIONS.forEach((definition) => {
         const active = route.section === definition.id;
-        const control = button(t(definition.titleKey), {
+        const control = button(t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.customerRuntime' : definition.titleKey), {
           className: `nav-item${active ? ' active' : ''}`,
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminNavigate: definition.id },
         });
         control.addEventListener('click', () => navigate(platformAdminTenantHash(tenant.id, definition.id)));
-        list.append(el('li', {}, [control]));
+        tenantList.append(el('li', {}, [control]));
       });
+      nodes.navigation.appendChild(tenantGroup);
     }
-    nodes.navigation.appendChild(list);
   }
 
   function renderFleetSummary() {
@@ -845,8 +853,8 @@ export function createPlatformAdminApplication({
         text: t('platformAdmin.fleet.directoryTitle'),
       }),
       renderFleetSummary(),
-      renderCreateTenantControl(),
       renderFleetFilters(),
+      renderCreateTenantControl(),
       el('p', {
         className: 'platform-admin-data-note',
         text: t('platformAdmin.fleet.evaluatedAt', { time: formatDateTime(fleet.evaluatedAt) }),

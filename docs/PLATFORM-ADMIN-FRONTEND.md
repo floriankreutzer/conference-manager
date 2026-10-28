@@ -330,3 +330,14 @@ rate, replay rule or browser deadline is changed. Each complete case retains the
 existing240-second limit, including its own setup, real wait where needed and
 actual operations; local fixture code
 is not evidence that the complete paired browser case passed.
+
+### Platform and customer orientation
+
+The navigation groups permitted cross-customer work separately from the selected
+customer, whose returned display name remains visible. The two runtime routes
+have distinct localized labels. Grouping changes presentation only: permissions,
+route validation, late-response guards and server authorization still apply.
+The directory retains customer cards and puts search/filter controls before the
+compact create action. Creation retains its existing Owner explanation and full
+confirmation/proof flow. The shell uses Conference Manager with subordinate
+by Pavurel; the operator/runtime context remains separately visible.
