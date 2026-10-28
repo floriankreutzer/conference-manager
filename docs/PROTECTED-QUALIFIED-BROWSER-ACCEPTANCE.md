@@ -64,6 +64,38 @@ source refs/artifact hashes, bounded counts and Tenant states. Trace, screenshot
 video and request/cookie/hidden form captures are disabled only in this separate
 sensitive suite; normal existing evidence gates are retained unchanged.
 
+## Invitation-bound participant acceptance
+
+Two additional independent cases retain the existing240s deadline and zero
+retries. Each creates its own complete canonical generation through the actual
+Platform UI and explicit isolated Microsoft approvals. The booking/decision
+case first activates ready Contoso through the existing attributable operator
+Admin handoff, invites a Northwind Employee and a distinct Contoso Manager,
+uses actual invitation-bound email/code admission, books as Employee and
+decides the Manager's own request while rejecting a foreign Tenant target.
+The onboarding case separately invites a Fabrikam Admin and performs actual
+code admission, both local imports and ready/active progression. Both require
+normal logout204, an unauthenticated session401 and the visible email form.
+No generation, invitation or membership is seeded by the participant fixture.
+
+The fixture reads only its fixed synthetic example.test mailboxes from the
+current generation's encrypted outbox. Real recipient delivery and the Microsoft
+provider remain separate operating acceptance. Actual PostgreSQL-clock waits
+honor the existing Microsoft operation capacity; proofs, counters, clocks and
+limits are not rewritten. Application enrollment/credential APIs are forbidden
+in these participant cases. Current Tenant HMAC chains and zero application
+keys remain required.
+
+At two fixed phase boundaries, after generation/optional Admin activation and
+after invitation issuance, the existing edge compacts only successful immutable
+asset events into per-surface counts. It retains every API, authentication,
+document, failed and unfinished event in order. The2000-event limit and the
+two-compaction maximum remain unchanged; each case verifies both counts. This
+addresses the observed Chromium7c2ff5f failure with exactly2000 stored events,
+logout204 and the next session400. That historical failure is retained; the
+change still requires fresh complete acceptance on both engines, all regular
+and permanent gates, review and separate Main qualification.
+
 ## Historical execution checkpoints
 
 Local pure artifact/ref/key/aggregate checks pass. Full local frontend and fresh

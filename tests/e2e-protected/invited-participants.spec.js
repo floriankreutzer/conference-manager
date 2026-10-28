@@ -99,6 +99,9 @@ async({ browser,browserName })=>{
       await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
       await expect(page.getByRole('button',{ name: 'Contoso verwalten',exact: true })).toBeVisible();
     }
+    // Release only successful immutable-asset events at these two fixed phases.
+    // All API, authentication, document, failure and unfinished events remain.
+    edge.compactStaticEvidence();
     const participants=journey==='booking-decision' ? [{ slot: 'northwind',name: 'Northwind',role: null },
       { slot: 'contoso',name: 'Contoso',role: 'Conference Manager' }]
       : [{ slot: 'fabrikam',name: 'Fabrikam',role: 'Tenant Operator' }];
@@ -129,6 +132,7 @@ async({ browser,browserName })=>{
       await approveMicrosoft();
       await expect(panel.getByRole('heading',{ name: `${person.slot}@example.test`,exact: true })).toBeVisible();
     }
+    edge.compactStaticEvidence();
     let northwindRequest=null;
     for (const person of participants) {
       checkpoint(`customer-code-${person.slot}`);
@@ -232,11 +236,16 @@ async({ browser,browserName })=>{
     expect(new Set(identities.map(row=>row.tenantId)).size).toBe(participants.length);
     expect(new Set(identities.map(row=>row.userId)).size).toBe(participants.length);
     checkpoint('evidence');
+    const traffic=edge.evidence();expect(traffic.staticCompactions).toBe(2);
+    expect(traffic.completedStatic.platform).toBeGreaterThan(0);
+    if (journey==='booking-decision') expect(traffic.completedStatic.customer).toBeGreaterThan(0);
+    expect(traffic.requests.length).toBeLessThan(2000);
     const evidence=await runtime.evidence();expect(evidence.application_keys).toBe(0);
     expect(evidence.participants).toEqual({ registered: participants.length,accepted: participants.length });expect(edge.evidence().deniedConnects).toBe(0);
     expect(errors).toEqual([]);
     console.log('PARTICIPANT_BROWSER_ACCEPTANCE '+JSON.stringify({ browser: browserName,apiCommit,frontendCommit,
       journey,invited: participants.length,accepted: participants.length,proofCapacityWaits,
+      edge: { requests: traffic.requests.length,staticCompactions: traffic.staticCompactions,completedStatic: traffic.completedStatic },
       employeeBooking: journey==='booking-decision',managerDecision: journey==='booking-decision',onboardingActive: journey==='onboarding',
       crossTenantDenied: journey==='booking-decision',auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));
   } catch (error) {
