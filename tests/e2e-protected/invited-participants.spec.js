@@ -17,7 +17,7 @@ async({ browser,browserName })=>{
   }
   const { createProtectedOwnerBrowserRuntimeFixture }=await import(pathToFileURL(
     `${apiRoot}/tests-db/support/protected-owner-browser-runtime-fixture.js`));
-  let runtime,edge,context,written=false,failed=false,phase='setup',proofCapacityWaits=0;
+  let runtime,edge,context,page,written=false,failed=false,phase='setup',proofCapacityWaits=0,logoutOutcome=null;
   function checkpoint(value) { phase=value;console.log('PARTICIPANT_BROWSER_STAGE '+value); }
   try {
     const origins={ customer: 'https://app-int.example.test',platform: 'https://ops-int.example.com' };
@@ -46,7 +46,7 @@ async({ browser,browserName })=>{
       get() { throw new Error('PARTICIPANT_APPLICATION_PASSKEY_FORBIDDEN'); },
       create() { throw new Error('PARTICIPANT_APPLICATION_ENROLLMENT_FORBIDDEN'); },
     } }); });
-    const page=await context.newPage(),errors=[],identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
+    page=await context.newPage();const errors=[],identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
     async function approveMicrosoft({ returnToCustomer=false }={}) {
       const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
       await expect(approval).toBeVisible();const element=await approval.elementHandle();
@@ -216,9 +216,16 @@ async({ browser,browserName })=>{
       }
       expect(await page.evaluate(()=>!/(?:csrfToken|browserToken|access_token|refresh_token|approval_proof)/i
         .test(JSON.stringify({ local: Object.entries(localStorage),session: Object.entries(sessionStorage) })))).toBe(true);
-      checkpoint(`customer-logout-${person.slot}`);
+      checkpoint(`customer-logout-${person.slot}`);logoutOutcome=null;
       await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
-      await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
+      const revoked=page.waitForResponse(response=>response.request().method()==='DELETE'
+        && response.url()===origins.customer+'/api/v1/session');
+      const returned=page.waitForEvent('domcontentloaded',{ timeout: 15000 });
+      await Promise.all([returned,revoked.then(response=>{
+        logoutOutcome={ revoked: response.status() };expect(logoutOutcome.revoked).toBe(204);
+      }),page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click()]);
+      logoutOutcome.session=await page.evaluate(async()=>(await fetch('/api/v1/session',{ cache: 'no-store' })).status);
+      expect(logoutOutcome.session).toBe(401);
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
     }
     if (journey==='booking-decision') expect(proofCapacityWaits).toBeGreaterThan(0);else expect(proofCapacityWaits).toBe(0);
@@ -232,7 +239,22 @@ async({ browser,browserName })=>{
       journey,invited: participants.length,accepted: participants.length,proofCapacityWaits,
       employeeBooking: journey==='booking-decision',managerDecision: journey==='booking-decision',onboardingActive: journey==='onboarding',
       crossTenantDenied: journey==='booking-decision',auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));
-  } catch (error) { failed=true;console.error('PARTICIPANT_BROWSER_FAILURE '+phase);throw error; }
+  } catch (error) {
+    failed=true;console.error('PARTICIPANT_BROWSER_FAILURE '+phase);
+    if (phase.startsWith('customer-logout-')) {
+      try {
+        const view=await page.evaluate(()=>({
+          language: ['de','en'].includes(document.documentElement.lang) ? document.documentElement.lang : 'other',
+          email: Boolean(document.querySelector('#customerAuthEmail')),code: Boolean(document.querySelector('#customerAuthCode')),
+          choices: Boolean(document.querySelector('#customerAuthOrganisation')),
+          authenticationError: Boolean(document.querySelector('#customerAuthError')),
+          authenticated: Boolean(document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]')),
+        }));
+        console.error('PARTICIPANT_BROWSER_LOGOUT '+JSON.stringify({ outcome: logoutOutcome,view }));
+      } catch { console.error('PARTICIPANT_BROWSER_LOGOUT_VIEW_UNAVAILABLE'); }
+    }
+    throw error;
+  }
   finally {
     let cleanupFailed=false;
     for (const [index,cleanup] of [()=>context?.close(),()=>edge?.close(),()=>runtime?.close(),
