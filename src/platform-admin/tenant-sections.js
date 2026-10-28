@@ -137,7 +137,7 @@ function resourcePanel(resource, onRetry) {
 function previewPanel(preview, onApply) {
   if (!preview) return null;
   const panel = el('section', { className: 'card platform-admin-preview', attrs: { 'aria-labelledby': 'platformAdminEntitlementPreviewTitle' } }, [
-    el('h3', { id: 'platformAdminEntitlementPreviewTitle', text: t('platformAdmin.entitlements.previewTitle') }),
+    el('h3', { id: 'platformAdminEntitlementPreviewTitle', text: t('platformAdmin.entitlements.previewTitle'), attrs: { tabindex: '-1' } }),
     el('p', { text: preview.plan.changed ? t('platformAdmin.entitlements.previewChanged') : t('platformAdmin.entitlements.previewUnchanged') }),
   ]);
   if (preview.plan.changes.length) {
@@ -155,62 +155,117 @@ function previewPanel(preview, onApply) {
   return panel;
 }
 
+function capabilityName(capabilityId) {
+  return t(['microsoft.directory', 'microsoft.calendar', 'microsoft.calendar.write'].includes(capabilityId)
+    ? `platformAdmin.entitlements.name.${capabilityId}` : 'platformAdmin.entitlements.name.unknown');
+}
+
 function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPackagePreview, onEntitlementApply, onPackageApply, onStepUp, operationProofAvailable }) {
   if (!operator.permissions.includes('platform:entitlement:read')) return denied();
   const pending = resourcePanel(resource, onRetry);
   if (pending) return pending;
-  const { workspace, preview } = resource.data;
+  const { workspace, preview, draft = [] } = resource.data;
   const tenantState = workspace.entitlements.entitlements;
   const stateByCapability = new Map(tenantState.entries.map((entry) => [entry.capabilityId, entry]));
+  const draftByCapability = new Map(draft.map(entry => [entry.capabilityId, entry.enabled]));
   const form = el('form', { className: 'card platform-admin-entitlement-form' }, [
     el('h3', { text: t('platformAdmin.entitlements.directTitle') }),
     el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.entitlements.revision', { revision: formatNumber(tenantState.revision) }) }),
   ]);
   const checkboxes = new Map();
-  workspace.capabilities.items.forEach(({ capabilityId, dependencies }) => {
-    const current = stateByCapability.get(capabilityId);
-    const control = el('input', { type: 'checkbox' });
-    control.checked = current.enabled;
+  const initialSelection = new Map();
+  let busy = false;
+  workspace.capabilities.items.forEach(({ capabilityId, dependencies }, index) => {
+    const control = el('input', { id: `platformAdminEntitlement${index}`, type: 'checkbox' });
+    control.checked = draftByCapability.get(capabilityId) ?? stateByCapability.get(capabilityId).enabled;
     checkboxes.set(capabilityId, control);
-    form.append(el('label', { className: 'platform-admin-entitlement-option' }, [
-      control, el('span', {}, [dataCode(capabilityId)]),
-      ...(dependencies.length ? [el('small', { text: t('platformAdmin.entitlements.dependencies', { dependencies: dependencies.join(', ') }) })] : []),
+    initialSelection.set(capabilityId, control.checked);
+    const details = el('details', { className: 'platform-admin-blocker-details' }, [
+      el('summary', { text: t('platformAdmin.entitlements.technicalDetails') }), dataCode(capabilityId),
+      ...dependencies.map(dependency => dataCode(dependency)),
+    ]);
+    form.append(el('div', { className: 'platform-admin-entitlement-option' }, [
+      el('label', { attrs: { for: control.id } }, [control, el('strong', { text: capabilityName(capabilityId) })]),
+      el('p', { className: 'platform-admin-data-note', text: dependencies.length
+        ? t('platformAdmin.entitlements.dependencies', { dependencies: dependencies.map(capabilityName).join(', ') })
+        : t('platformAdmin.entitlements.noDependencies') }), details,
     ]));
   });
-  const mayManage = operator.permissions.includes('platform:entitlement:manage');
-  if (mayManage && shouldPresentPlatformPermission(operator, 'platform:entitlement:manage', Date.now(), operationProofAvailable)) {
-    const previewControl = button(t('platformAdmin.entitlements.preview'), { type: 'submit', className: 'secondary' });
+  const feedback = el('p', { attrs: { role: 'status' } });
+  const previewControl = button(t('platformAdmin.entitlements.preview'), { type: 'submit', className: 'secondary' });
+  const packageControls = [];
+  const mayPreview = shouldPresentPlatformPermission(operator, 'platform:entitlement:manage', Date.now(), operationProofAvailable);
+  const previewElement = previewPanel(preview, preview?.source === 'package' ? onPackageApply : onEntitlementApply);
+  const proposals = () => [...checkboxes].filter(([id, control]) => control.checked !== stateByCapability.get(id).enabled)
+    .map(([capabilityId, control]) => ({ capabilityId, enabled: control.checked }));
+
+  function updateControls() {
+    checkboxes.forEach(control => { control.disabled = !mayPreview || busy; });
+    previewControl.disabled = busy || !proposals().length;
+    packageControls.forEach(control => { control.disabled = busy; });
+    form.setAttribute('aria-busy', String(busy));
+  }
+  async function requestPreview(load, source) {
+    if (busy || !mayPreview) return;
+    busy = true; updateControls();
+    if (previewElement) previewElement.hidden = true;
+    feedback.setAttribute('role', 'status');
+    feedback.textContent = t('platformAdmin.entitlements.previewLoading');
+    try { await load(); }
+    catch (error) {
+      if (!form.isConnected) return;
+      const cancelled = ['PLATFORM_MICROSOFT_OPERATION_CANCELLED', 'PLATFORM_PASSKEY_OPERATION_CANCELLED'].includes(error?.code);
+      feedback.setAttribute('role', cancelled ? 'status' : 'alert');
+      feedback.textContent = t(cancelled ? 'platformAdmin.passkey.error.cancelled' : 'platformAdmin.entitlements.previewFailed');
+    } finally {
+      busy = false;
+      if (form.isConnected) {
+        updateControls();
+        if (document.activeElement === document.body) source.focus();
+      }
+    }
+  }
+  checkboxes.forEach(control => control.addEventListener('change', () => {
+    feedback.setAttribute('role', 'status');
+    feedback.textContent = t(proposals().length ? 'platformAdmin.entitlements.changesSelected' : 'platformAdmin.entitlements.noChanges');
+    if (previewElement) previewElement.hidden = [...checkboxes].some(([id, input]) => input.checked !== initialSelection.get(id));
+    updateControls();
+  }));
+  if (mayPreview) {
+    feedback.textContent = t(proposals().length ? 'platformAdmin.entitlements.changesSelected' : 'platformAdmin.entitlements.noChanges');
     form.append(el('div', { className: 'button-row' }, [previewControl]));
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', event => {
       event.preventDefault();
-      const proposals = [...checkboxes].filter(([capabilityId, control]) => control.checked !== stateByCapability.get(capabilityId).enabled)
-        .map(([capabilityId, control]) => ({ capabilityId, enabled: control.checked }));
-      onEntitlementPreview(proposals);
+      const changes = proposals();
+      if (changes.length) void requestPreview(() => onEntitlementPreview(changes), previewControl);
     });
-  } else if (mayManage && typeof onStepUp === 'function') {
+  } else if (operator.permissions.includes('platform:entitlement:manage') && typeof onStepUp === 'function') {
     const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
     stepUp.addEventListener('click', onStepUp);
     form.append(el('p', { className: 'platform-admin-empty', text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp]));
-  } else {
-    checkboxes.forEach((control) => { control.disabled = true; });
   }
-
+  form.append(feedback);
   const packages = el('section', { className: 'platform-admin-record-list', attrs: { 'aria-labelledby': 'platformAdminPackagesTitle' } }, [
     el('h3', { id: 'platformAdminPackagesTitle', text: t('platformAdmin.entitlements.packagesTitle') }),
   ]);
-  workspace.packages.items.forEach((packageValue) => {
-    const previewPackage = button(t('platformAdmin.entitlements.previewPackage'), { className: 'secondary' });
-    previewPackage.addEventListener('click', () => onPackagePreview(packageValue.packageId));
-    packages.append(el('article', { className: 'card platform-admin-record' }, [
+  if (!workspace.packages.items.length) packages.append(el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.entitlements.noPackages') }));
+  workspace.packages.items.forEach(packageValue => {
+    const card = el('article', { className: 'card platform-admin-record' }, [
       el('div', { className: 'platform-admin-record-heading' }, [
         el('div', {}, [el('h4', { text: packageValue.name }), dataCode(packageValue.packageId)]), state(packageValue.status),
       ]),
       el('p', { text: packageValue.description }),
       el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.entitlements.packageRevision', { revision: formatNumber(packageValue.revision) }) }),
-      el('div', { className: 'button-row' }, [previewPackage]),
-    ]));
+    ]);
+    if (mayPreview && packageValue.status === 'active') {
+      const control = button(t('platformAdmin.entitlements.previewPackage'), { className: 'secondary' });
+      control.addEventListener('click', () => { void requestPreview(() => onPackagePreview(packageValue.packageId), control); });
+      packageControls.push(control);
+      card.append(el('div', { className: 'button-row' }, [control]));
+    }
+    packages.append(card);
   });
-  const previewElement = previewPanel(preview, preview?.source === 'package' ? onPackageApply : onEntitlementApply);
+  updateControls();
   return el('div', {}, [form, packages, previewElement].filter(Boolean));
 }
 

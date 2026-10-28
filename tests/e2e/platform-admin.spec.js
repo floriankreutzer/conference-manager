@@ -1115,6 +1115,13 @@ for (const { area, fleetView, tabs } of [
       await expect(page.locator('[data-insights-panel]:visible')).toHaveCount(1);
     }
     const selected = tabs.at(-1);
+    // Leave immediately after tab selection: no locale change or report refresh
+    // may be needed to remember the current destination.
+    await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+    await navigation.click();
+    await expect(page).toHaveURL(new RegExp(`#fleet=${fleetView}&tab=${selected}$`));
+    await selectedInsightsPanel(page, area, selected);
+    expect(reads).toBe(1);
     await page.locator('select[aria-label="Sprache"]').selectOption('en');
     await selectedInsightsPanel(page, area, selected);
     await insightsTab(page, area, selected).focus();
@@ -1298,4 +1305,123 @@ test('Platform runtime accepts actual API support references and reflows long me
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   }
   await expect(page.locator('.platform-admin-error')).toHaveCount(0);
+});
+
+for (const locale of ['de', 'en']) {
+  test(`persistent global routes restore deep links, reload, tabs and browser history: ${locale}`, async ({ page }) => {
+    await installDemoRoutes(page);
+    const report = JSON.parse(readFileSync(new URL('../support/product-delivery-known-fixture.json', import.meta.url), 'utf8'));
+    await page.route('**/api/v1/platform/demo/product-delivery', route => route.fulfill({
+      contentType: 'application/json', body: JSON.stringify(report),
+    }));
+    await page.goto('/platform-admin-demo/#fleet=product-delivery&tab=feedback');
+    await page.evaluate(async value => { const { setLanguage } = await import('/src/core/i18n.js'); setLanguage(value); }, locale);
+    await selectedInsightsPanel(page, 'product', 'feedback');
+    const navigation = page.locator('[data-platform-admin-fleet-view="product-delivery"]');
+    await expect(navigation).toHaveAttribute('aria-current', 'page');
+    const heading = await page.locator('#viewTitle').textContent();
+    await page.reload();
+    await selectedInsightsPanel(page, 'product', 'feedback');
+    await expect(page.locator('#viewTitle')).toHaveText(heading);
+    await insightsTab(page, 'product', 'delivery').focus();
+    await insightsTab(page, 'product', 'delivery').press('Enter');
+    await expect(page).toHaveURL(/#fleet=product-delivery&tab=delivery$/);
+    await expect(insightsTab(page, 'product', 'delivery')).toBeFocused();
+    await page.goBack(); await selectedInsightsPanel(page, 'product', 'feedback');
+    await expect(page.locator('#viewTitle')).toBeFocused();
+    await page.goForward(); await selectedInsightsPanel(page, 'product', 'delivery');
+    await expect(navigation).toHaveAttribute('aria-current', 'page');
+    await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+    await expect(page).toHaveURL(/#fleet$/);
+    await page.goBack(); await selectedInsightsPanel(page, 'product', 'delivery');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+test('persistent global routes cannot reveal an unavailable or unauthorized view', async ({ page }) => {
+  const state = await installDemoRoutes(page);
+  await page.goto('/platform-admin-demo/#fleet=platform-audit');
+  await expect(page).toHaveURL(/#fleet$/);
+  await expect(page.locator('[data-platform-admin-fleet-view="platform-audit"]')).toHaveCount(0);
+  expect(state.requests.some(request => request.path.includes('/audit/'))).toBe(false);
+  await page.goto('/platform-admin-demo/#fleet=product-delivery&tab=%3Cscript%3E');
+  await expect(page.locator('[data-platform-admin-fleet-view="directory"]')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('[data-product-delivery-report]')).toHaveCount(0);
+});
+
+async function installEntitlementRoutes(page, { reader = false, delayed = false } = {}) {
+  const state = await installDemoRoutes(page, { initialPersona: reader ? 'support_reader' : 'tenant_operator' });
+  const ids = ['microsoft.directory', 'microsoft.calendar', 'microsoft.calendar.write'];
+  const previews = []; let failure = true; let release;
+  await page.route('**/api/v1/platform/capabilities', route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ schemaVersion: 1, items: ids.map((capabilityId, index) => ({ capabilityId,
+      dependencies: index ? [ids[index - 1]] : [] })) }),
+  }));
+  await page.route('**/api/v1/platform/packages?*', route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ schemaVersion: 1, snapshotAt: '2026-10-28T00:00:00.000Z', items: [], nextCursor: null }),
+  }));
+  await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/entitlements`, route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ schemaVersion: 1, entitlements: { tenantId: ACTIVE_TENANT_ID, tenantStatus: 'active', revision: 3,
+      entries: ids.map(capabilityId => ({ capabilityId, enabled: false, effectiveAt: null })) } }),
+  }));
+  await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/entitlement-previews`, async route => {
+    previews.push(route.request().postDataJSON());
+    if (delayed) await new Promise(resolve => { release = resolve; });
+    await route.fulfill({ status: failure ? 503 : 200, contentType: 'application/json', body: JSON.stringify(failure
+      ? { error: { code: 'SOURCE_UNAVAILABLE' } }
+      : { schemaVersion: 1, source: 'direct', plan: { tenantId: ACTIVE_TENANT_ID, tenantStatus: 'active', sourceRevision: 3,
+        changed: true, changes: previews.at(-1).proposals.map(entry => ({ ...entry, previousEnabled: false })) } }) });
+  });
+  return { state, previews, succeed: () => { failure = false; }, release: () => release?.() };
+}
+
+for (const locale of ['de', 'en']) {
+  test(`entitlement workspace explains empty states and preserves selection through failed and successful preview: ${locale}`, async ({ page }) => {
+    const fixture = await installEntitlementRoutes(page, { delayed: true });
+    await page.goto(`/platform-admin-demo/#tenant=${ACTIVE_TENANT_ID}&section=entitlements`);
+    await page.evaluate(async value => { const { setLanguage } = await import('/src/core/i18n.js'); setLanguage(value); }, locale);
+    const form = page.locator('.platform-admin-entitlement-form');
+    const preview = form.getByRole('button', { name: locale === 'de' ? 'Änderungen prüfen' : 'Review changes' });
+    const directory = form.getByRole('checkbox', { name: locale === 'de' ? 'Microsoft-Verzeichnis lesen' : 'Read Microsoft directory' });
+    await expect(form.getByRole('status')).toContainText(locale === 'de' ? 'Keine Änderungen ausgewählt' : 'No changes selected');
+    await expect(page.getByText(locale === 'de' ? /derzeit keine Funktionspakete/ : /No capability packages/)).toBeVisible();
+    await expect(preview).toBeDisabled();
+    await directory.focus(); await directory.press('Space'); await expect(preview).toBeEnabled();
+    await preview.click(); await expect.poll(() => fixture.previews.length).toBe(1);
+    await expect(form).toHaveAttribute('aria-busy', 'true'); await expect(directory).toBeDisabled();
+    await expect(form.getByRole('status')).toContainText(locale === 'de' ? 'Vorschau wird geladen' : 'Loading the preview');
+    fixture.release();
+    await expect(form.getByRole('alert')).toContainText(locale === 'de' ? 'Auswahl bleibt erhalten' : 'selection is preserved');
+    await expect(directory).toBeChecked(); await expect(preview).toBeEnabled(); await expect(preview).toBeFocused();
+    fixture.succeed(); await preview.click(); await expect.poll(() => fixture.previews.length).toBe(2); fixture.release();
+    await expect(page.locator('#platformAdminEntitlementPreviewTitle')).toBeFocused();
+    await expect(directory).toBeChecked();
+    const apply = page.locator('[data-platform-admin-apply-entitlements="direct"]'); await expect(apply).toBeVisible();
+    await directory.uncheck(); await expect(apply).not.toBeVisible(); await expect(preview).toBeDisabled();
+    await directory.check(); await expect(apply).toBeVisible();
+    expect(fixture.previews).toEqual([{ proposals: [{ capabilityId: 'microsoft.directory', enabled: true }] },
+      { proposals: [{ capabilityId: 'microsoft.directory', enabled: true }] }]);
+    expect(fixture.state.requests.some(request => request.path.includes('entitlement-applications'))).toBe(false);
+    for (const width of [320, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  });
+}
+
+test('entitlement workspace read-only authority and departed preview remain bounded', async ({ page }) => {
+  let fixture = await installEntitlementRoutes(page, { reader: true });
+  await page.goto(`/platform-admin-demo/#tenant=${ACTIVE_TENANT_ID}&section=entitlements`);
+  const form = page.locator('.platform-admin-entitlement-form');
+  await expect(form.getByRole('checkbox')).toHaveCount(3);
+  for (const control of await form.getByRole('checkbox').all()) await expect(control).toBeDisabled();
+  await expect(form.getByRole('button', { name: 'Änderungen prüfen' })).toHaveCount(0);
+  expect(fixture.previews.length).toBe(0);
+  await page.unrouteAll({ behavior: 'wait' }); fixture = await installEntitlementRoutes(page, { delayed: true });
+  await page.reload(); await form.getByRole('checkbox').first().check();
+  await form.getByRole('button', { name: 'Änderungen prüfen' }).click(); await expect.poll(() => fixture.previews.length).toBe(1);
+  await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+  fixture.succeed(); fixture.release();
+  await expect(page).toHaveURL(/#fleet$/); await expect(page.locator('.platform-admin-preview')).toHaveCount(0);
+  await page.goBack(); await expect(form).toBeVisible(); await expect(page.locator('.platform-admin-preview')).toHaveCount(0);
 });
