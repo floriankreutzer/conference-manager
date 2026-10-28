@@ -160,3 +160,22 @@ for (const changedContext of ['segment','legacy','schema']) {
     await expect(page.getByRole('button',{ name: /100.*exportieren/ })).toHaveCount(0);
   });
 }
+
+for (const language of ['de','en']) test(`loaded audit filter discloses its scope and preserves technical detail in ${language}`,async({ page })=>{
+  const { cursors,exports }=await setup(page,{ eventCount: 2 });
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },language);
+  const rows=page.locator('.platform-admin-audit-row');
+  await expect(rows).toHaveCount(2);
+  const search=page.locator('#platformAdminAuditLocalSearch');
+  await expect(page.getByText(language==='de' ? /keine vollständige Serversuche/ : /not a complete server search/)).toBeVisible();
+  const readsBefore=cursors.length;
+  await search.fill('platform.operator.changed');
+  await expect(page.locator('.platform-admin-audit-row:visible')).toHaveCount(1);
+  await expect(page.locator('.platform-admin-audit-row:visible details')).not.toHaveAttribute('open','');
+  await search.fill('no-matching-loaded-event');
+  await expect(page.locator('.platform-admin-audit-row:visible')).toHaveCount(0);
+  await search.fill('');await expect(page.locator('.platform-admin-audit-row:visible')).toHaveCount(2);
+  const details=rows.last().locator('details');await details.locator('summary').focus();await page.keyboard.press('Enter');
+  await expect(details.locator('code')).toBeVisible();
+  expect(cursors).toHaveLength(readsBefore);expect(exports).toHaveLength(0);
+});

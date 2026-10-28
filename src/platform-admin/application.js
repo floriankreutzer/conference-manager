@@ -1,3 +1,4 @@
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import {
   formatDateTime,
@@ -475,9 +476,11 @@ export function createPlatformAdminApplication({
     }
   }
 
-  function openTenantFromFleet(tenantId) {
+  function openTenantFromFleet(tenantId, section = 'overview') {
     const tenant = fleet?.tenants.find(({ id }) => id === tenantId);
-    if (tenant) navigate(platformAdminTenantHash(tenant.id));
+    const destination = platformAdminTenantHash(tenantId, section);
+    if (tenant && destination !== platformAdminFleetHash()) navigate(destination);
+    else { announce(t('platformAdmin.navigation.tenantUnavailable'), { assertive: true }); showToast(t('platformAdmin.navigation.tenantUnavailable')); }
   }
 
   async function openWorkspaceTenant(tenantId) {
@@ -752,32 +755,44 @@ export function createPlatformAdminApplication({
     clear(nodes.navigation);
     nodes.navigation.setAttribute('aria-label', t('platformAdmin.navigation.label'));
     const list = el('ul', { className: 'nav-list' });
+    const globalGroup = el('section', { className: 'platform-admin-nav-group', attrs: { 'aria-labelledby': 'platformAdminGlobalNavigation' } }, [
+      el('h2', { id: 'platformAdminGlobalNavigation', text: t('platformAdmin.navigation.global'), className: 'platform-admin-nav-heading' }), list,
+    ]);
     availableFleetViews()
       .forEach((definition) => {
         const active = route.view === 'fleet' && currentFleetView() === definition.id;
-        const control = button(t(definition.titleKey), {
+        const control = button(t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.globalRuntime' : definition.titleKey), {
           className: `nav-item${active ? ' active' : ''}`,
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminFleetView: definition.id },
         });
+        const iconName = { directory: 'customers', readiness: 'info', 'integration-health': 'integrations', 'platform-audit': 'audit', 'runtime-status': 'system', providers: 'usage', 'product-delivery': 'delivery' }[definition.id];
+        if (iconName) { control.classList.add('pavurel-icon-label'); control.prepend(pavurelFunctionalIcon(iconName, { variant: 'inverse' })); }
         control.addEventListener('click', () => {
           navigate(fleetDestinations.get(definition.id) || platformAdminFleetHash(definition.id));
         });
         list.append(el('li', {}, [control]));
       });
+    nodes.navigation.appendChild(globalGroup);
     if (tenant) {
+      const tenantList = el('ul', { className: 'nav-list' });
+      const tenantGroup = el('section', { className: 'platform-admin-nav-group', attrs: { 'aria-labelledby': 'platformAdminCustomerNavigation' } }, [
+        el('h2', { id: 'platformAdminCustomerNavigation', className: 'platform-admin-nav-heading', text: t('platformAdmin.navigation.customer', { tenant: tenant.displayName }) }), tenantList,
+      ]);
       PLATFORM_ADMIN_SECTION_DEFINITIONS.forEach((definition) => {
         const active = route.section === definition.id;
-        const control = button(t(definition.titleKey), {
+        const control = button(t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.customerRuntime' : definition.titleKey), {
           className: `nav-item${active ? ' active' : ''}`,
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminNavigate: definition.id },
         });
+        const iconName = { overview: 'dashboard', lifecycle: 'settings', entitlements: 'settings', diagnostics: 'diagnostics', recovery: 'recovery', metering: 'usage', 'runtime-status': 'system' }[definition.id];
+        if (iconName) { control.classList.add('pavurel-icon-label'); control.prepend(pavurelFunctionalIcon(iconName, { variant: 'inverse' })); }
         control.addEventListener('click', () => navigate(platformAdminTenantHash(tenant.id, definition.id)));
-        list.append(el('li', {}, [control]));
+        tenantList.append(el('li', {}, [control]));
       });
+      nodes.navigation.appendChild(tenantGroup);
     }
-    nodes.navigation.appendChild(list);
   }
 
   function renderFleetSummary() {
@@ -845,8 +860,8 @@ export function createPlatformAdminApplication({
         text: t('platformAdmin.fleet.directoryTitle'),
       }),
       renderFleetSummary(),
-      renderCreateTenantControl(),
       renderFleetFilters(),
+      renderCreateTenantControl(),
       el('p', {
         className: 'platform-admin-data-note',
         text: t('platformAdmin.fleet.evaluatedAt', { time: formatDateTime(fleet.evaluatedAt) }),
@@ -1054,7 +1069,7 @@ export function createPlatformAdminApplication({
     });
     const message = el('p', { className: 'platform-admin-dialog-message', attrs: { role: 'alert' } });
     const cancel = button(t('common.cancel'), { className: 'secondary' });
-    const confirm = button(t('platformAdmin.action.confirm'), {
+    const confirm = button(t(`platformAdmin.action.${action}`), {
       className: ['archive', 'suspend', 'invitation_revoke', 'disable_calendar_write'].includes(action)
         ? 'danger'
         : 'primary',
@@ -1157,7 +1172,7 @@ export function createPlatformAdminApplication({
     const confirmation = el('input', { type: 'text', attrs: { maxlength: '160', autocomplete: 'off', required: 'required' } });
     const message = el('p', { className: 'platform-admin-dialog-message', attrs: { role: 'alert' } });
     const cancel = button(t('common.cancel'), { className: 'secondary' });
-    const confirm = button(t('platformAdmin.action.confirm'), { className: 'danger' });
+    const confirm = button(t(titleKey), { className: 'danger' });
     const dialog = openDialog({
       title: t(titleKey),
       description: t(effectKey),
@@ -1215,9 +1230,11 @@ export function createPlatformAdminApplication({
     const cancel = button(t('common.cancel'), { className: 'secondary' });
     const save = button(t('platformAdmin.metering.saveQuota'), { className: 'danger' });
     const dialog = openDialog({
-      title: t('platformAdmin.metering.editQuotaTitle', { dimension: quota.dimension }),
+      title: t('platformAdmin.metering.editQuotaTitle', { dimension: t(`platformAdmin.metering.name.${quota.dimension}`) }),
       description: t('platformAdmin.metering.editQuotaDescription'),
       content: el('div', {}, [
+        el('p', { text: t('platformAdmin.action.target', { tenant: tenant.displayName, reference: tenant.reference || tenant.id }) }),
+        el('p', { text: t('platformAdmin.metering.limitEffect') }),
         field({ id: 'platformAdminQuotaState', label: t('platformAdmin.metering.quotaState'), control: stateControl }),
         field({ id: 'platformAdminQuotaSoft', label: t('platformAdmin.metering.softLimit'), control: softLimit }),
         field({ id: 'platformAdminQuotaHard', label: t('platformAdmin.metering.hardLimit'), control: hardLimit }),
@@ -1328,6 +1345,7 @@ export function createPlatformAdminApplication({
       operator: currentOperator,
       resource,
       onAction: (action) => confirmAction(tenant, action),
+      onOpenLifecycle: () => navigate(platformAdminTenantHash(tenant.id, 'lifecycle')),
       onStepUp,
       onRetry: () => reloadTenantResource(tenant, definition.id),
       onEntitlementPreview: (proposals) => previewEntitlements(tenant, proposals),

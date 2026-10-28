@@ -86,7 +86,23 @@ Every mutation supplies a caller-generated UUID in `Idempotency-Key`, a bounded 
 
 Reissue responses may contain a one-time delivery value. The application displays it only in the immediate result dialog, does not persist or log it, and removes it from the DOM when the dialog closes.
 
-Readiness, entitlement, integration-health, diagnostics, Platform-audit, recovery, metering, and runtime sections already have bounded presentation and Demo contracts. Until their service owners expose approved Production routes, Production shows an explicit unavailable state and does not fabricate values, call aliases, or load Demo data.
+Readiness, entitlement, integration-health, diagnostics, Platform-audit, recovery, metering, and runtime sections use their approved Production routes when composed. An unavailable route or source remains explicit; the browser does not fabricate values, call aliases, or load Demo data.
+
+## Diagnostic search time
+
+Correlation lookup explains the identifier's request scope, selected Customer and
+period. Its `datetime-local` fields show local wall time in the explicitly named
+browser IANA timezone. Submission uses the shared strict timezone converter to
+send canonical UTC instants; it does not interpret UTC display text as local time.
+Nonexistent or ambiguous DST times require an unambiguous choice before any
+lookup request. Editing clears that validation state. The returned correlation
+and selected period remain visible after results load.
+
+The presentation/wire regressions cover UTC and Europe/Berlin, DE/EN, winter and
+summer, year rollover, DST gaps/overlaps, actual serialized query parameters and
+narrow reflow. Their bounded screenshots contain only fixed synthetic loopback
+data. These tests do not grant sensitive access or replace the independent
+permission, operation-proof, Hosted or provider acceptance gates.
 
 ## Shared visual asset reference
 
@@ -314,3 +330,43 @@ rate, replay rule or browser deadline is changed. Each complete case retains the
 existing240-second limit, including its own setup, real wait where needed and
 actual operations; local fixture code
 is not evidence that the complete paired browser case passed.
+
+### Platform and customer orientation
+
+The navigation groups permitted cross-customer work separately from the selected
+customer, whose returned display name remains visible. The two runtime routes
+have distinct localized labels. Grouping changes presentation only: permissions,
+route validation, late-response guards and server authorization still apply.
+The directory retains customer cards and puts search/filter controls before the
+compact create action. Creation retains its existing Owner explanation and full
+confirmation/proof flow. The shell uses Conference Manager with subordinate
+by Pavurel; the operator/runtime context remains separately visible.
+
+### Runtime observations
+
+Global and customer runtime views share one presentation of the normalized API
+observation. Service relevance, environment, reported state, observation instant
+and its stated validity window precede collapsed version/schema/reference details.
+Stale and unknown observations explicitly avoid claiming a current outage.
+Reloading stored evidence does not imply new collection. The deployment environment
+is not a classification of customer data as real or synthetic; no such inference
+is made from a name or runtime mode. This presentation does not implement a missing
+collector or replace the separate operational work in #113.
+
+The overview separates lifecycle/setup/identity from functional Microsoft readiness
+and directs users to the existing setup/invitation route with role responsibilities.
+Metering names and units follow the canonical API `docs/PLATFORM-METERING.md`:
+gauges describe the reconciliation watermark; counters describe the UTC period.
+Unknown is not zero. Inclusive warning/limit metadata is distinguished from each
+consuming server operation's enforcement; no billing or automatic email is implied.
+Recovery explains preview versus final execution and empty eligible target pages.
+The compact Audit filter searches only already-loaded authorized events, performs
+no server request and explicitly requires reapplication after refresh/pagination.
+Technical sequence/action metadata remains in native expandable details.
+
+The synthetic workspace includes a native expandable EN/DE entry guide. It keeps
+explicit generation creation, customer-browser intent, specific operator approval,
+separate enabled participant invitations and archival/reset consequences distinct.
+Opening help grants no authority and sends no mutation. Its open state and summary
+focus identity survive normal workspace updates; existing phase/error announcements
+and confirmation/proof flows remain intact. This is not real provider/mail evidence.

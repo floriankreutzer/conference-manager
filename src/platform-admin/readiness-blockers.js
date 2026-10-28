@@ -45,3 +45,17 @@ export function readinessBlockerPresentation(reasonCode) {
 
   return presentation(GENERIC_MESSAGE_KEY);
 }
+
+export function readinessNextTaskPresentation(reasonCode) {
+  if (typeof reasonCode !== 'string') return Object.freeze({ messageKey: 'platformAdmin.readiness.next.unknown', section: null });
+  if (['entitlement.microsoft_directory.missing','entitlement.microsoft_calendar.missing'].includes(reasonCode)) {
+    return Object.freeze({ messageKey: 'platformAdmin.readiness.next.entitlement', section: 'entitlements' });
+  }
+  if (['microsoft.connection.not_connected','microsoft.permission.places_missing','microsoft.permission.calendars_missing','microsoft.room_mapping.missing'].includes(reasonCode)) {
+    return Object.freeze({ messageKey: 'platformAdmin.readiness.next.customerAdmin', section: null });
+  }
+  if (reasonCode.endsWith('.stale') || reasonCode.endsWith('.unknown')) {
+    return Object.freeze({ messageKey: 'platformAdmin.readiness.next.evidence', section: null });
+  }
+  return Object.freeze({ messageKey: 'platformAdmin.readiness.next.unknown', section: null });
+}

@@ -107,6 +107,11 @@
   margin: 0;
 }
 
+.platform-admin-filter-introduction {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
 .platform-admin-fleet-list,
 .platform-admin-record-list,
 .platform-admin-audit-list,
@@ -865,4 +870,59 @@
   min-inline-size: 0;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.platform-admin-nav-group + .platform-admin-nav-group {
+  margin-block-start: var(--space-4);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-on-dark-muted);
+}
+
+.platform-admin-nav-heading {
+  margin-block: 0 var(--space-2);
+  color: var(--color-on-dark-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-create-panel {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.platform-admin-create-panel h2,
+.platform-admin-create-panel p {
+  margin-block: 0;
+}
+
+@media (min-width: 761px) {
+  .platform-admin-create-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .platform-admin-create-panel .button-row {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+}
+
+.platform-admin-audit-row {
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.platform-admin-audit-row .platform-admin-audit-action {
+  margin-block: 0;
+}
+
+.platform-admin-runtime-details {
+  margin-block-start: var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-audit-list .platform-admin-audit-row[hidden] {
+  display: none;
 }

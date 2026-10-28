@@ -255,3 +255,20 @@ test('a failed workspace directory refresh stays unavailable without creating a 
   await expect(page).toHaveURL(/#fleet$/);await expect(page.locator('[data-platform-admin-section]')).toHaveCount(0);
   expect(fixture.directoryReads()).toBe(2);expect(fixture.writes).toHaveLength(0);
 });
+
+for (const language of ['de','en']) test(`synthetic test-entry guide distinguishes invitation, handoff and archival in ${language} without mutations`,async({ page,context })=>{
+  const fixture=await setup(page,context,{ initial: true });
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },language);
+  await page.getByRole('button',{ name: language==='de' ? 'Eigene Testmandanten' : 'Own test organisations',exact: true }).click();
+  const guide=page.locator('[data-synthetic-entry-guide="true"]');
+  await expect(guide).toBeVisible();await expect(guide).not.toHaveAttribute('open','');
+  const summary=guide.locator('summary');await summary.focus();await page.keyboard.press('Enter');
+  await expect(guide.locator('li')).toHaveCount(5);
+  await expect(guide.locator('li').last()).toContainText(language==='de' ? 'nicht automatisch' : 'not automatically');
+  await expect(guide.locator('li').nth(3)).toContainText(language==='de' ? 'separat' : 'separately');
+  for (const width of [320,1280]) {
+    await page.setViewportSize({ width,height: 900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  expect(fixture.writes).toHaveLength(0);
+});

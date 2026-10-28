@@ -190,6 +190,7 @@ test('Demo persona and lifecycle intents carry CSRF and mutation idempotency evi
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
   await page.locator('[data-platform-action="suspend"]').click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Mandant sperren', exact: true })).toBeVisible();
   await page.locator('#platformAdminActionReason').fill('Automated shared Demo lifecycle exercise');
   await page.locator('[data-platform-admin-confirm-action="suspend"]').click();
   await expect(page.locator('[data-platform-admin-section="lifecycle"] [data-state="suspended"]')).toBeVisible();
@@ -1424,4 +1425,104 @@ test('entitlement workspace read-only authority and departed preview remain boun
   fixture.succeed(); fixture.release();
   await expect(page).toHaveURL(/#fleet$/); await expect(page.locator('.platform-admin-preview')).toHaveCount(0);
   await page.goBack(); await expect(form).toBeVisible(); await expect(page.locator('.platform-admin-preview')).toHaveCount(0);
+});
+
+for (const locale of ['de','en']) test(`Platform context groups retain customer identity, distinct runtime routes and keyboard return in ${locale}`, async ({ page }, testInfo) => {
+  const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+  const navigation=page.locator('#primaryNavigation');
+  await expect(page.locator('#brandTitle')).toHaveText('Conference Manager');
+  await expect(page.locator('#brandSubtitle')).toHaveText('by Pavurel');
+  await expect(navigation.locator('section')).toHaveCount(1);
+  await expect(page.locator('#platformAdminGlobalNavigation')).toHaveText(locale==='de' ? 'Plattform · alle Kunden' : 'Platform · all customers');
+  const filters=page.locator('.platform-admin-filter-form'),create=page.locator('.platform-admin-create-panel');
+  await expect(create).toBeVisible();
+  expect(await filters.evaluate((node)=>Boolean(node.compareDocumentPosition(document.querySelector('.platform-admin-create-panel')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).focus();await page.keyboard.press('Enter');
+  await expect(navigation.locator('section')).toHaveCount(2);
+  await expect(page.locator('#platformAdminCustomerNavigation')).toHaveText(locale==='de' ? 'Kunde · Dune Collective' : 'Customer · Dune Collective');
+  const globalRuntime=navigation.locator('[data-platform-admin-fleet-view="runtime-status"]');
+  const customerRuntime=navigation.locator('[data-platform-admin-navigate="runtime-status"]');
+  await expect(globalRuntime).toHaveText(locale==='de' ? 'Plattformbetrieb' : 'Platform runtime');
+  await expect(customerRuntime).toHaveText(locale==='de' ? 'Kundenbetrieb' : 'Customer runtime');
+  await customerRuntime.focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`#tenant=${ACTIVE_TENANT_ID}&section=runtime-status$`));
+  await expect(navigation.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(customerRuntime).toHaveAttribute('aria-current','page');
+  for (const width of [320,1280]) {
+    await page.setViewportSize({ width,height: 900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await testInfo.attach(`platform-context-${locale}-${width}`,{ body: await navigation.screenshot(),contentType: 'image/png' });
+  }
+  await globalRuntime.focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#fleet=runtime-status$/);
+  await expect(navigation.locator('section')).toHaveCount(1);
+  await navigation.locator('[data-platform-admin-fleet-view="directory"]').focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#fleet$/);
+  await expect(page.locator('.platform-admin-fleet-card')).toContainText('Dune Collective');
+  expect(state.requests.filter(({ method })=>method!=='GET')).toHaveLength(0);
+});
+
+for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unknown']) {
+  test(`Runtime ${locale} prioritizes ${freshness} observation without inventing a current outage`,async({ page },testInfo)=>{
+    await installDemoRoutes(page);
+    const fixture=JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json',import.meta.url),'utf8'));
+    const runtime=fixture.deployments[0];
+    runtime.freshness={ ...runtime.freshness,state: freshness,observedAt: freshness==='unknown' ? null : '2026-10-25T11:50:00.000Z' };
+    runtime.overallState=freshness==='fresh' ? 'ready' : freshness;
+    await page.route('**/api/v1/platform/runtime/deployments',route=>route.fulfill({ contentType: 'application/json',
+      body: JSON.stringify({ schemaVersion: 1,deployments: [runtime] }) }));
+    await page.goto('/platform-admin-demo/');
+    await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+    await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
+    const card=page.locator(`[data-runtime-observation="${freshness}"]`),details=card.locator('details');
+    await expect(card).toBeVisible();
+    await expect(card.getByRole('heading',{ name: locale==='de' ? 'Conference Manager · Anwendungsdienst' : 'Conference Manager · application service' })).toBeVisible();
+    await expect(card).toContainText('Test');
+    if (freshness==='unknown') await expect(card.locator('time')).toHaveCount(0);
+    else await expect(card.locator('time')).toHaveAttribute('datetime',runtime.freshness.observedAt);
+    if (freshness==='stale') await expect(card).toContainText(locale==='de' ? 'Dies bestätigt keinen aktuellen Ausfall.' : 'This does not confirm a current outage.');
+    await expect(details).not.toHaveAttribute('open','');
+    await expect(details.locator('dd').first()).toBeHidden();
+    await details.locator('summary').focus();await page.keyboard.press('Enter');
+    await expect(details.locator('dd').first()).toHaveText(runtime.deployment.reference);
+    await expect(page.locator('.skip-link')).not.toBeInViewport();
+    for (const width of [320,1280]) {
+      await page.setViewportSize({ width,height: 900 });
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      if (freshness==='stale') await testInfo.attach(`runtime-observation-${locale}-${width}`,{ body: await card.screenshot(),contentType: 'image/png' });
+    }
+  });
+}
+
+for (const locale of ['de','en']) test(`quota confirmation retains customer, human metric and canonical dimension in ${locale}`,async({ page })=>{
+  const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
+  await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/metering/usage?*`,route=>{
+    const start=new URL(route.request().url()).searchParams.get('periodStart'),end=new Date(start);
+    end.setUTCMonth(end.getUTCMonth()+1);
+    const names=['active_users','active_rooms','requests_created','bookings_confirmed','integration_operations'];
+    return route.fulfill({ contentType: 'application/json',body: JSON.stringify({ schemaVersion: 1,tenantId: ACTIVE_TENANT_ID,
+      period: { start,end: end.toISOString(),timeZone: 'UTC' },dataState: 'partial',measuredAt: null,reconciledAt: null,
+      dimensions: names.map(dimension=>({ dimension,value: 0 })),
+      quotas: names.map(dimension=>({ dimension,state: dimension==='active_users' ? 'configured' : 'not_configured',
+        softLimit: dimension==='active_users' ? 100 : null,hardLimit: dimension==='active_users' ? 200 : null,revision: dimension==='active_users' ? 1 : 0 })),
+    }) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+  await page.locator('[data-platform-admin-navigate="metering"]').click();
+  await page.locator('[data-platform-admin-quota="active_users"]').click();
+  const dialog=page.getByRole('dialog');
+  await expect(dialog.getByRole('heading')).toContainText(locale==='de' ? 'Aktive interne Personen' : 'Active internal people');
+  await expect(dialog).toContainText('Dune Collective');
+  await expect(dialog).toContainText('active_users');
+  await expect(dialog.getByRole('button',{ name: locale==='de' ? 'Kontingent speichern' : 'Save quota',exact: true })).toBeVisible();
+  for (const width of [320,1280]) {
+    await page.setViewportSize({ width,height: 900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  await dialog.press('Escape');await expect(dialog).toBeHidden();
+  expect(state.requests.filter(({ method })=>method!=='GET')).toHaveLength(0);
 });

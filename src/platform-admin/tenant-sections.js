@@ -1,6 +1,8 @@
+import { renderRuntimeObservation } from './runtime-observation.js';
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
+import { formatProductionDateTimeInput, productionUtcInstant } from '../core/production-time.js';
 import {
   platformActionNeedsStepUp,
   shouldPresentPlatformAction,
@@ -61,7 +63,8 @@ function actionPanel(tenant, operator, actions, onAction, onStepUp, operationPro
     el('p', { text: t('platformAdmin.actions.serverAuthority') }),
   ]);
   if (!available.length) {
-    panel.append(el('p', { className: 'platform-admin-empty', text: t('platformAdmin.actions.none') }));
+    panel.append(el('p', { className: 'platform-admin-empty', text: t('platformAdmin.actions.none') }),
+      el('p', { text: t('platformAdmin.actions.noneExplanation') }));
     return panel;
   }
   if (!executable.length) {
@@ -90,13 +93,17 @@ function actionPanel(tenant, operator, actions, onAction, onStepUp, operationPro
   return panel;
 }
 
-function overview(tenant) {
-  return el('div', { className: 'platform-admin-metric-grid' }, [
+function overview(tenant, onOpenLifecycle) {
+  const metrics = el('div', { className: 'platform-admin-metric-grid' }, [
     el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.lifecycle') }), state(tenant.lifecycleState)]),
     el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.onboarding') }), state(tenant.onboardingState, 'onboarding')]),
     el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.identity') }), state(tenant.identityState, 'identity')]),
     el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.version') }), el('strong', { text: formatNumber(tenant.version) })]),
   ]);
+  const next = typeof onOpenLifecycle === 'function' ? button(t('platformAdmin.overview.openSetup'), { className: 'secondary' }) : null;
+  next?.addEventListener('click', onOpenLifecycle);
+  return el('div', {}, [metrics, el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.overview.stateMeaning') }),
+    el('p', { text: t('platformAdmin.overview.nextResponsibility') }), ...(next ? [next] : [])]);
 }
 
 function lifecycle(tenant, operator, onAction, onStepUp, operationProofAvailable) {
@@ -291,14 +298,24 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
   ]);
   const mayLookup = operator.permissions.includes('platform:diagnostics:sensitive');
   if (mayLookup && shouldPresentPlatformPermission(operator, 'platform:diagnostics:sensitive', Date.now(), operationProofAvailable)) {
-    const correlationId = el('input', { type: 'text', attrs: { required: 'required', pattern: '[0-9a-fA-F-]{36}', maxlength: '36', autocomplete: 'off' } });
-    const to = new Date();
-    const from = new Date(to.getTime() - (24 * 60 * 60 * 1_000));
-    const fromControl = el('input', { type: 'datetime-local', value: from.toISOString().slice(0, 16), attrs: { required: 'required' } });
-    const toControl = el('input', { type: 'datetime-local', value: to.toISOString().slice(0, 16), attrs: { required: 'required' } });
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const correlationId = el('input', { type: 'text', value: result?.lookupCorrelationId || '', attrs: {
+      required: 'required', pattern: '[0-9a-fA-F-]{36}', maxlength: '36', autocomplete: 'off',
+      'aria-describedby': 'platformAdminCorrelationHelp',
+    } });
+    const to = result ? new Date(result.to) : new Date();
+    const from = result ? new Date(result.from) : new Date(to.getTime() - (24 * 60 * 60 * 1_000));
+    const fromControl = el('input', { type: 'datetime-local', value: formatProductionDateTimeInput(from.toISOString(), timeZone),
+      attrs: { required: 'required', 'aria-describedby': 'platformAdminCorrelationTimeZone' } });
+    const toControl = el('input', { type: 'datetime-local', value: formatProductionDateTimeInput(to.toISOString(), timeZone),
+      attrs: { required: 'required', 'aria-describedby': 'platformAdminCorrelationTimeZone' } });
     const submit = button(t('platformAdmin.diagnostics.lookup'), { type: 'submit', className: 'secondary' });
     const form = el('form', { className: 'card platform-admin-filter-form' }, [
-      el('h3', { text: t('platformAdmin.diagnostics.lookupTitle') }),
+      el('div', { className: 'platform-admin-filter-introduction' }, [
+        el('h3', { text: t('platformAdmin.diagnostics.lookupTitle') }),
+        el('p', { id: 'platformAdminCorrelationHelp', className: 'platform-admin-data-note', text: t('platformAdmin.diagnostics.correlationHelp') }),
+        el('p', { id: 'platformAdminCorrelationTimeZone', className: 'platform-admin-data-note', text: t('platformAdmin.diagnostics.timeZone', { timeZone }) }),
+      ]),
       field({ id: 'platformAdminCorrelationId', label: t('platformAdmin.diagnostics.correlationId'), control: correlationId, required: true }),
       field({ id: 'platformAdminCorrelationFrom', label: t('platformAdmin.diagnostics.from'), control: fromControl, required: true }),
       field({ id: 'platformAdminCorrelationTo', label: t('platformAdmin.diagnostics.to'), control: toControl, required: true }),
@@ -306,9 +323,22 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
     ]);
     form.addEventListener('submit', (event) => {
       event.preventDefault();
+      for (const control of [fromControl, toControl]) control.setCustomValidity('');
       if (!form.reportValidity()) return;
-      onCorrelationLookup({ correlationId: correlationId.value.toLowerCase(), from: new Date(fromControl.value).toISOString(), to: new Date(toControl.value).toISOString() });
+      const instants = [fromControl, toControl].map((control) => {
+        const [date, time] = control.value.split('T');
+        return productionUtcInstant(date, time, timeZone);
+      });
+      const invalid = instants.findIndex((instant) => instant === null);
+      if (invalid !== -1) {
+        const control = [fromControl, toControl][invalid];
+        control.setCustomValidity(t('platformAdmin.diagnostics.invalidLocalTime'));
+        control.reportValidity();
+        return;
+      }
+      onCorrelationLookup({ correlationId: correlationId.value.toLowerCase(), from: instants[0], to: instants[1] });
     });
+    for (const control of [fromControl, toControl]) control.addEventListener('input', () => control.setCustomValidity(''));
     content.append(form);
   } else if (mayLookup && typeof onStepUp === 'function') {
     const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
@@ -376,6 +406,8 @@ function recovery({
       el('h3', { text: t(`platformAdmin.recovery.action.${definition.id}`) }),
       el('p', { text: t(`platformAdmin.recovery.effect.${definition.id}`) }),
       ...(target ? [field({ id: `platformAdminRecoveryTarget-${definition.id}`, label: t(`platformAdmin.recovery.target.${definition.targetField}`), control: target, required: true })] : []),
+      ...(target && targetPage && !targetPage.items.some(item => item.eligible) ? [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.noEligibleTarget') })] : []),
+      el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.previewEffect') }),
       controls,
     ]);
     if (targetPage?.nextCursor && typeof onRecoveryTargetsMore === 'function') {
@@ -419,13 +451,15 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
       controls.push(edit);
     }
     list.append(el('article', { className: 'card platform-admin-record' }, [
-      el('div', { className: 'platform-admin-record-heading' }, [dataCode(dimension.dimension), state(usage.dataState)]),
+      el('div', { className: 'platform-admin-record-heading' }, [el('h3', { text: t(`platformAdmin.metering.name.${dimension.dimension}`) }), state(usage.dataState)]),
+      el('p', { text: t(`platformAdmin.metering.meaning.${dimension.dimension}`) }),
       el('strong', { text: dimension.value === null ? t('platformAdmin.value.unknown') : formatNumber(dimension.value) }),
       definitionList([
         { label: t('platformAdmin.metering.quotaState'), value: state(quota.state) },
-        { label: t('platformAdmin.metering.softLimit'), value: quota.softLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.softLimit) },
-        { label: t('platformAdmin.metering.hardLimit'), value: quota.hardLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.hardLimit) },
+        { label: t('platformAdmin.metering.softLimit'), value: quota.state === 'unknown' ? t('platformAdmin.value.unknown') : quota.softLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.softLimit) },
+        { label: t('platformAdmin.metering.hardLimit'), value: quota.state === 'unknown' ? t('platformAdmin.value.unknown') : quota.hardLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.hardLimit) },
       ]),
+      el('details', {}, [el('summary', { text: t('platformAdmin.metering.technicalDetails') }), dataCode(dimension.dimension)]),
       el('div', { className: 'button-row' }, controls),
     ]));
   });
@@ -434,7 +468,11 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
     stepUp.addEventListener('click', onStepUp);
     list.prepend(el('section', { className: 'card' }, [el('p', { text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp])]));
   }
-  return el('div', {}, [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.period', { start: formatDateTime(usage.period.start), end: formatDateTime(usage.period.end) }) }), list]);
+  return el('div', {}, [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.period', { start: formatDateTime(usage.period.start), end: formatDateTime(usage.period.end) }) }),
+    el('details', { className: 'platform-admin-data-note', dataset: { meteringHelp: 'true' } }, [
+      el('summary', { text: t('platformAdmin.metering.explanation') }),
+      el('p', { text: t('platformAdmin.metering.counting') }), el('p', { text: t('platformAdmin.metering.limitEffect') }),
+    ]), list]);
 }
 
 function runtimeStatus({ operator, resource, onRetry }) {
@@ -442,22 +480,7 @@ function runtimeStatus({ operator, resource, onRetry }) {
   const pending = resourcePanel(resource, onRetry);
   if (pending) return pending;
   if (resource.data.correlationState === 'unknown') return el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.runtime.unmapped') });
-  const runtime = resource.data.runtime;
-  const reasons = el('ul', { className: 'platform-admin-detail-list' });
-  runtime.reasonCodes.forEach((entry) => reasons.append(el('li', {}, [dataCode(entry)])));
-  return el('section', { className: 'card' }, [
-    definitionList([
-      { label: t('platformAdmin.field.runtime'), value: state(runtime.overallState) },
-      { label: t('platformAdmin.runtime.environment'), value: runtime.environment },
-      { label: t('platformAdmin.runtime.deployment'), value: runtime.deployment.reference || t('platformAdmin.value.unknown') },
-      { label: t('platformAdmin.runtime.frontendVersion'), value: runtime.components.frontend.version || t('platformAdmin.value.unknown') },
-      { label: t('platformAdmin.runtime.apiVersion'), value: runtime.components.api.version || t('platformAdmin.value.unknown') },
-      { label: t('platformAdmin.runtime.schemaVersion'), value: runtime.databaseSchema.currentVersion === null ? t('platformAdmin.value.unknown') : formatNumber(runtime.databaseSchema.currentVersion) },
-      { label: t('platformAdmin.runtime.freshness'), value: state(runtime.freshness.state) },
-    ]),
-    ...(runtime.reasonCodes.length ? [el('h3', { text: t('platformAdmin.runtime.reasons') }), reasons] : []),
-    el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.runtime.dataNote') }),
-  ]);
+  return renderRuntimeObservation(resource.data.runtime);
 }
 
 export function renderPlatformAdminTenantSection(options) {
@@ -468,5 +491,5 @@ export function renderPlatformAdminTenantSection(options) {
   if (sectionId === 'recovery') return recovery(options);
   if (sectionId === 'metering') return metering(options);
   if (sectionId === 'runtime-status') return runtimeStatus(options);
-  return overview(tenant);
+  return overview(tenant, options.onOpenLifecycle);
 }
