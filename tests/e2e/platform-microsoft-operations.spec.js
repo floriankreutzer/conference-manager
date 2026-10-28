@@ -85,7 +85,7 @@ async function requestAction(page) {
 test('Microsoft confirmation survives different-site COOP isolation and executes only the original exact request',async({ page,context })=>{
   const f=await setup(page,context);await requestAction(page);
   const dialog=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen' });await expect(dialog).toBeVisible();
-  const link=dialog.getByRole('link',{ name: 'Microsoft-Bestätigung öffnen' });
+  const link=dialog.getByRole('link',{ name: 'Mit Microsoft anmelden' });
   await expect(link).toBeFocused();await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel',/noopener/);
   const opened=context.waitForEvent('page');await link.press('Enter');const provider=await opened;
   await provider.waitForLoadState();expect(await provider.evaluate(()=>window.opener===null)).toBe(true);
@@ -108,7 +108,7 @@ test('Microsoft confirmation reflows, translates while open and cancels by Escap
   await expect(page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen' })).toBeVisible();
   await page.evaluate(async()=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage('en'); });
   const dialog=page.getByRole('dialog',{ name: 'Confirm action with Microsoft' });await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('link',{ name: 'Open Microsoft confirmation' })).toBeFocused();
+  await expect(dialog.getByRole('link',{ name: 'Sign in with Microsoft' })).toBeFocused();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await dialog.press('Escape');await expect(dialog).toHaveCount(0);
   expect(f.writes).toHaveLength(1);expect(f.callbacks).toHaveLength(0);expect(f.statusReads()).toBe(0);

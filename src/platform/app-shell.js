@@ -1,3 +1,4 @@
+import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import { REQUEST_STATUS } from '../core/domain.js';
 import { formatDateTime, language, locale, setLanguage, t } from '../core/i18n.js';
 import {
@@ -264,7 +265,7 @@ export function createAppShell({
       signInView.update(); return;
     }
     setPageHeading(t('auth.production.signInTitle'), t('auth.production.signInText'));
-    const signIn = button(t('auth.production.signInAction'), { className: 'primary' });
+    const signIn = microsoftSignInControl({ label: t('auth.production.signInAction') });
     signIn.addEventListener('click', () => authentication?.signIn());
     showEntry(el('section', { className: 'card' }, [
       el('p', { text: t('auth.production.signInText') }),

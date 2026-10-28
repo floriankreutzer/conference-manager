@@ -142,7 +142,7 @@ test('unknown reset outcome requires current-session checking and a read-only op
   await expect(dialog.getByRole('alert')).toContainText('nicht sicher bestätigt');
   expect(f.writes.filter(x=>x.path.endsWith('/replace'))).toHaveLength(1);
   await dialog.getByRole('button',{ name: 'Aktuellen Zustand prüfen',exact: true }).click();
-  await expect(dialog.getByRole('button',{ name: 'Erneut anmelden',exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button',{ name: 'Mit Microsoft anmelden',exact: true })).toBeVisible();
   expect(f.writes.filter(x=>x.path.endsWith('/replace'))).toHaveLength(1);
   await dialog.getByRole('button',{ name: 'Schließen',exact: true }).click();
   const reader=await setup(page,context,{ reader: true });
@@ -160,7 +160,7 @@ async({ page,context })=>{
   await workspace.getByRole('button',{ name: 'Anlegen bestätigen',exact: true }).click();
   const confirmation=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
   await expect(confirmation).toBeVisible();const opened=context.waitForEvent('page');
-  await confirmation.getByRole('link',{ name: 'Microsoft-Bestätigung öffnen',exact: true }).press('Enter');
+  await confirmation.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
   const provider=await opened;await provider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();
   await expect(provider).toHaveURL('https://127.0.0.1:4173/api/v1/platform/auth/microsoft/operation/complete');
   await expect(workspace.getByText('Northwind: Aktiv.',{ exact: true })).toBeVisible();
@@ -176,7 +176,7 @@ async({ page,context })=>{
   await workspace.getByRole('combobox',{ name: 'Kundenrolle',exact: true }).selectOption('tenant_admin');
   await workspace.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();
   await expect(confirmation).toBeVisible();const nextOpened=context.waitForEvent('page');
-  await confirmation.getByRole('link',{ name: 'Microsoft-Bestätigung öffnen',exact: true }).press('Enter');
+  await confirmation.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
   const nextProvider=await nextOpened;
   await nextProvider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();
   await page.waitForURL(`${CUSTOMER}/__cm-platform-handoff-result`);

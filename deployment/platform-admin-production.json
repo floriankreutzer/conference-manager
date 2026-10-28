@@ -5,6 +5,7 @@
   "files": [
     "platform-admin/index.html",
     "assets/brand/pavurel-app-icon.svg",
+    "assets/brand/microsoft-sign-in/reference-2026-10-27/ms-symbollockup_mssymbol_19.svg",
     "assets/brand/pavurel-signet-monochrome-white.svg",
     "assets/fonts/FONTLOG.txt",
     "assets/fonts/Manrope[wght].ttf",
@@ -29,6 +30,7 @@
     "src/core/i18n.js",
     "src/core/preferences.js",
     "src/core/ui.js",
+    "src/core/microsoft-sign-in-control.js",
     "src/platform-admin/application.js",
     "src/platform-admin/audit-export.js",
     "src/platform-admin/audit-page-continuation.js",

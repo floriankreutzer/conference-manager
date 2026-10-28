@@ -1,3 +1,4 @@
+import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
 import {
@@ -65,7 +66,7 @@ function actionPanel(tenant, operator, actions, onAction, onStepUp, operationPro
   }
   if (!executable.length) {
     if (needsStepUp && typeof onStepUp === 'function') {
-      const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
+      const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
       stepUp.addEventListener('click', onStepUp);
       panel.append(
         el('p', { className: 'platform-admin-empty', text: t('platformAdmin.actions.stepUpRequired') }),
@@ -240,7 +241,7 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
       if (changes.length) void requestPreview(() => onEntitlementPreview(changes), previewControl);
     });
   } else if (operator.permissions.includes('platform:entitlement:manage') && typeof onStepUp === 'function') {
-    const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
+    const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
     stepUp.addEventListener('click', onStepUp);
     form.append(el('p', { className: 'platform-admin-empty', text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp]));
   }
@@ -310,7 +311,7 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
     });
     content.append(form);
   } else if (mayLookup && typeof onStepUp === 'function') {
-    const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
+    const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
     stepUp.addEventListener('click', onStepUp);
     content.append(el('section', { className: 'card' }, [el('p', { text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp])]));
   }
@@ -395,7 +396,7 @@ function recovery({
     return operator.permissions.includes(permission) && !shouldPresentPlatformPermission(operator, permission, Date.now(), operationProofAvailable);
   });
   if (needsStepUp && typeof onStepUp === 'function') {
-    const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
+    const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
     stepUp.addEventListener('click', onStepUp);
     cards.prepend(el('section', { className: 'card' }, [el('p', { text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp])]));
   }
@@ -429,7 +430,7 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
     ]));
   });
   if (operator.permissions.includes('platform:quota:manage') && !shouldPresentPlatformPermission(operator, 'platform:quota:manage', Date.now(), operationProofAvailable) && typeof onStepUp === 'function') {
-    const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
+    const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
     stepUp.addEventListener('click', onStepUp);
     list.prepend(el('section', { className: 'card' }, [el('p', { text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp])]));
   }

@@ -318,7 +318,7 @@ test('Production privileged actions start only the fixed step-up route and requi
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
   await expect(page.locator('[data-platform-action="suspend"]')).toHaveCount(0);
   expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
-  await page.getByRole('button', { name: /step-up|erhöhte bestätigung/i }).click();
+  await page.getByRole('button', { name: 'Mit Microsoft anmelden', exact: true }).click();
   const request = await stepUpRequest;
   expect(request.method()).toBe('GET');
   expect(new URL(request.url()).search).toBe('');
