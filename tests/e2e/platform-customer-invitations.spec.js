@@ -115,7 +115,7 @@ for (const locale of ['de','en']) {
       f.setListStatus(status);
       const refresh=page.getByRole('button',{ name: locale==='de' ? 'Aktuellen Stand laden' : 'Load current status',exact: true });
       await refresh.focus();await refresh.press('Enter');
-      await expect(page.getByRole('alert')).toHaveText(copy[locale]);
+      await expect(page.getByRole('alert').locator('p')).toHaveText(copy[locale]);
       const add=page.getByRole('button',{ name: locale==='de' ? 'Person hinzufügen' : 'Add a person',exact: true });
       await expect(add).toBeDisabled();
       expect(f.requests.filter(row=>row.method==='GET')).toHaveLength(2);
