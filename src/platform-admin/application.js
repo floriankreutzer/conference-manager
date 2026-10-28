@@ -1,3 +1,4 @@
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import {
   formatDateTime,
@@ -763,6 +764,8 @@ export function createPlatformAdminApplication({
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminFleetView: definition.id },
         });
+        const iconName = { directory: 'customers', readiness: 'info', 'integration-health': 'integrations', 'platform-audit': 'audit', 'runtime-status': 'system', providers: 'usage', 'product-delivery': 'delivery' }[definition.id];
+        if (iconName) { control.classList.add('pavurel-icon-label'); control.prepend(pavurelFunctionalIcon(iconName, { variant: 'inverse' })); }
         control.addEventListener('click', () => {
           navigate(fleetDestinations.get(definition.id) || platformAdminFleetHash(definition.id));
         });
@@ -781,6 +784,8 @@ export function createPlatformAdminApplication({
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminNavigate: definition.id },
         });
+        const iconName = { overview: 'dashboard', lifecycle: 'settings', entitlements: 'settings', diagnostics: 'diagnostics', recovery: 'recovery', metering: 'usage', 'runtime-status': 'system' }[definition.id];
+        if (iconName) { control.classList.add('pavurel-icon-label'); control.prepend(pavurelFunctionalIcon(iconName, { variant: 'inverse' })); }
         control.addEventListener('click', () => navigate(platformAdminTenantHash(tenant.id, definition.id)));
         tenantList.append(el('li', {}, [control]));
       });

@@ -1,3 +1,4 @@
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import { REQUEST_STATUS } from '../core/domain.js';
 import { formatDateTime, language, locale, setLanguage, t } from '../core/i18n.js';
@@ -175,6 +176,11 @@ export function createAppShell({
       attrs: view === targetView ? { 'aria-current': 'page' } : {},
       dataset: { view: targetView },
     });
+    const iconName = { welcome: 'dashboard', employee: 'add', requests: 'request', manager: 'coordination', tenantAdmin: 'settings' }[targetView];
+    if (iconName) {
+      item.classList.add('pavurel-icon-label');
+      item.replaceChildren(pavurelFunctionalIcon(iconName, { variant: 'inverse' }), el('span', { text: t(key) }));
+    }
     item.addEventListener('click', () => setView(targetView));
     return el('li', {}, item);
   }

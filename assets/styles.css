@@ -1312,3 +1312,21 @@ html:has(meta[name="conference-runtime"][content="production"]):not([data-authen
   .authentication-entry-visual { display: block; position: relative; }
   .authentication-entry-visual img { position: absolute; inset: 0; }
 }
+
+/* Canonical decorative functional icons; visible localized labels remain. */
+.pavurel-functional-icon {
+  inline-size: var(--space-6);
+  block-size: var(--space-6);
+  flex: 0 0 var(--space-6);
+}
+
+.pavurel-icon-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pavurel-icon-label > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}

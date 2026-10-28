@@ -110,3 +110,22 @@ both built manifests and the unchanged API reader against the exact source pair.
 Retain hashes, source commits, actual commands/results and the distinction between
 asset verification, browser acceptance and deployed evidence. Required repository
 checks and cross-repository gates continue to apply.
+
+## Native application integration candidate
+
+`src/core/pavurel-functional-icon.js` is the native decorative renderer for the
+canonical v0.1 files. Its closed name/variant lists select same-origin local files;
+there is no inline SVG parsing, runtime fetch from another repository, inherited
+external `currentColor`, caller HTML or new package. Images retain 24 by24 intrinsic
+size, empty alt and aria-hidden; a visible localized control label remains required.
+External documents isolate the originals' metadata IDs. Microsoft controls remain
+separate. Both explicit Platform inventories include all96 canonical variants and
+the renderer; Customer packaging includes its native Core module and local assets.
+
+Customer and Platform navigation use inverse icons on the existing dark surface.
+Names describe tasks, not health or permission: readiness uses information, runtime
+uses system, invitations/setup use settings, and people are not customer symbols.
+The immutable draft manifest describes asset provenance, not current deployment.
+Source integration, all-variant decoding/contact sheets, actual navigation checks
+and separate Main/Hosted acceptance remain distinct. No optical acceptance below
+24px, Website integration or deployment is implied by this candidate.
