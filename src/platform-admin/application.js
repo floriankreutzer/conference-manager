@@ -165,9 +165,7 @@ export function createPlatformAdminApplication({
   let loadError = false;
   let actionError = false;
   let fleetRequestGeneration = 0;
-  let fleetView = 'directory';
-  let providerTab = 'overview';
-  let productTab = 'overview';
+  let navigationGeneration = 0;
   let stopped = false;
   const fleetResources = new Map();
   const tenantResources = new Map();
@@ -189,7 +187,7 @@ export function createPlatformAdminApplication({
     monotonicNow: () => windowRef.performance.now(),
     onExpire(resource) {
       if (fleetResources.get('product-delivery') !== resource) return;
-      const selected = currentRoute().view === 'fleet' && fleetView === 'product-delivery';
+      const selected = currentRoute().view === 'fleet' && currentFleetView() === 'product-delivery';
       const restoreTab = focusedInsightTab();
       fleetResources.delete('product-delivery');
       if (selected) {
@@ -202,13 +200,13 @@ export function createPlatformAdminApplication({
 
   function productViewIsVisible() {
     return !stopped && productDelivery && sessionState === 'authenticated' && fleet
-      && currentRoute().view === 'fleet' && fleetView === 'product-delivery'
+      && currentRoute().view === 'fleet' && currentFleetView() === 'product-delivery'
       && documentRef.visibilityState !== 'hidden';
   }
 
   function providerViewIsVisible() {
     return !stopped && providerUsage && sessionState === 'authenticated' && fleet
-      && currentRoute().view === 'fleet' && fleetView === 'providers'
+      && currentRoute().view === 'fleet' && currentFleetView() === 'providers'
       && documentRef.visibilityState !== 'hidden';
   }
 
@@ -256,8 +254,6 @@ export function createPlatformAdminApplication({
     providerFreshness?.forget();
     for (const view of projectionRefreshTimers.keys()) clearProjectionRefreshTimer(view);
     projectionReadClocks.clear();
-    providerTab = 'overview';
-    productTab = 'overview';
   }
 
   function revalidateProjectionClocks() {
@@ -272,6 +268,16 @@ export function createPlatformAdminApplication({
     }
   }
 
+
+  function currentFleetView() {
+    return currentRoute().fleetView || 'directory';
+  }
+
+  function selectInsightTab(view, tab) {
+    if (stopped || currentRoute().view !== 'fleet' || currentFleetView() !== view) return;
+    const hash = platformAdminFleetHash(view, tab);
+    if (windowRef.location.hash !== hash) windowRef.history.pushState(null, '', hash);
+  }
 
   function currentRoute() {
     return platformAdminRouteFromHash(windowRef.location.hash);
@@ -316,6 +322,7 @@ export function createPlatformAdminApplication({
   }
 
   function navigate(hash, { replace = false } = {}) {
+    navigationGeneration += 1;
     clearRouteAnnouncements();
     if (windowRef.location.hash !== hash) {
       windowRef.history[replace ? 'replaceState' : 'pushState'](null, '', hash);
@@ -387,7 +394,7 @@ export function createPlatformAdminApplication({
           if (!nextOperator) throw new TypeError('PLATFORM_ADMIN_DEMO_OPERATOR_REQUIRED');
           currentOperator = nextOperator;
           actionError = false;
-          fleetView = 'directory';
+          windowRef.history.replaceState(null, '', platformAdminFleetHash());
           clearProjectionState();
           fleetResources.clear();
           tenantResources.clear();
@@ -422,7 +429,7 @@ export function createPlatformAdminApplication({
             if (!nextOperator) throw new TypeError('PLATFORM_ADMIN_DEMO_OPERATOR_REQUIRED');
             currentOperator = nextOperator;
             filters = normalizePlatformDirectoryQuery();
-            fleetView = 'directory';
+            windowRef.history.replaceState(null, '', platformAdminFleetHash());
             clearProjectionState();
             fleetResources.clear();
             tenantResources.clear();
@@ -519,7 +526,7 @@ export function createPlatformAdminApplication({
       if (observedClock) projectionReadClocks.set(view, observedClock.capture());
       fleetResources.set(view, { status: 'error', data: null });
     }
-    if (currentRoute().view === 'fleet' && fleetView === view) {
+    if (currentRoute().view === 'fleet' && currentFleetView() === view) {
       if ((view === 'product-delivery' && productViewIsVisible())
         || (view === 'providers' && providerViewIsVisible())) renderWithFocusHandoff({ restoreTab: priorTabFocus });
       else render();
@@ -581,33 +588,40 @@ export function createPlatformAdminApplication({
     if (stopped || !fleet || sessionState !== 'authenticated') return;
     const route = currentRoute();
     if (route.view === 'fleet') {
-      if (projectionClock(fleetView)) {
+      if (projectionClock(currentFleetView())) {
         revalidateProjectionClocks();
         return;
       }
-      await loadFleetResource(fleetView);
+      await loadFleetResource(currentFleetView());
       return;
     }
     const tenant = fleet.tenants.find(({ id }) => id === route.tenantId);
     if (tenant) ensureTenantResource(tenant, route.section || 'overview');
   }
 
-  async function previewEntitlements(tenant, proposals) {
-    if (!proposals.length) return;
+  async function loadEntitlementPreview(tenant, load, draft = undefined) {
     const key = `${tenant.id}:entitlements`;
     const resource = tenantResources.get(key);
-    const knownCapabilities = resource.data.workspace.capabilities.items.map(({ capabilityId }) => capabilityId);
-    const preview = await dataSource.previewEntitlements({ tenantId: tenant.id, proposals, knownCapabilities });
-    tenantResources.set(key, { status: 'ready', data: { ...resource.data, preview } });
+    const generation = navigationGeneration;
+    const preview = await load(resource.data.workspace);
+    const route = currentRoute();
+    if (stopped || generation !== navigationGeneration || tenantResources.get(key) !== resource
+      || route.view !== 'tenant' || route.tenantId !== tenant.id || route.section !== 'entitlements') return;
+    tenantResources.set(key, { status: 'ready', data: { ...resource.data, preview,
+      ...(draft === undefined ? {} : { draft }) } });
     render();
+    nodes.app.querySelector('#platformAdminEntitlementPreviewTitle')?.focus();
   }
 
-  async function previewPackage(tenant, packageId) {
-    const key = `${tenant.id}:entitlements`;
-    const resource = tenantResources.get(key);
-    const preview = await dataSource.previewPackage({ tenantId: tenant.id, packageId });
-    tenantResources.set(key, { status: 'ready', data: { ...resource.data, preview } });
-    render();
+  function previewEntitlements(tenant, proposals) {
+    if (!proposals.length) return;
+    return loadEntitlementPreview(tenant, workspace => dataSource.previewEntitlements({
+      tenantId: tenant.id, proposals, knownCapabilities: workspace.capabilities.items.map(({ capabilityId }) => capabilityId),
+    }), proposals);
+  }
+
+  function previewPackage(tenant, packageId) {
+    return loadEntitlementPreview(tenant, () => dataSource.previewPackage({ tenantId: tenant.id, packageId }));
   }
 
   function applyEntitlementPreview(tenant, preview) {
@@ -707,25 +721,27 @@ export function createPlatformAdminApplication({
     });
   }
 
+  function availableFleetViews() {
+    return [...PLATFORM_FLEET_VIEW_DEFINITIONS,
+      ...(providerUsage && currentOperator ? [{ id: 'providers', titleKey: 'platformAdmin.providers.title', permission: null }] : []),
+      ...(productDelivery && currentOperator ? [{ id: 'product-delivery', titleKey: 'platformAdmin.productDelivery.title', permission: null }] : [])]
+      .filter(({ permission }) => permission === null || currentOperator?.permissions.includes(permission));
+  }
+
   function renderNavigation(route, tenant) {
     clear(nodes.navigation);
     nodes.navigation.setAttribute('aria-label', t('platformAdmin.navigation.label'));
     const list = el('ul', { className: 'nav-list' });
-    const views = [...PLATFORM_FLEET_VIEW_DEFINITIONS,
-      ...(providerUsage && currentOperator ? [{ id: 'providers', titleKey: 'platformAdmin.providers.title', permission: null }] : []),
-      ...(productDelivery && currentOperator ? [{ id: 'product-delivery', titleKey: 'platformAdmin.productDelivery.title', permission: null }] : [])];
-    views
-      .filter(({ permission }) => permission === null || currentOperator?.permissions.includes(permission))
+    availableFleetViews()
       .forEach((definition) => {
-        const active = route.view === 'fleet' && fleetView === definition.id;
+        const active = route.view === 'fleet' && currentFleetView() === definition.id;
         const control = button(t(definition.titleKey), {
           className: `nav-item${active ? ' active' : ''}`,
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminFleetView: definition.id },
         });
         control.addEventListener('click', () => {
-          fleetView = definition.id;
-          navigate(platformAdminFleetHash());
+          navigate(platformAdminFleetHash(definition.id));
         });
         list.append(el('li', {}, [control]));
       });
@@ -865,31 +881,31 @@ export function createPlatformAdminApplication({
   }
 
   function renderSelectedFleetView() {
-    if (fleetView === 'product-delivery' && productDelivery) {
+    if (currentFleetView() === 'product-delivery' && productDelivery) {
       setHeading(t('platformAdmin.productDelivery.title'), t('platformAdmin.productDelivery.subtitle'));
-      return renderProductDelivery({ resource: fleetResources.get(fleetView),
-        activeTab: productTab, onTabChange: (value) => { productTab = value; },
+      return renderProductDelivery({ resource: fleetResources.get(currentFleetView()),
+        activeTab: currentRoute().tab, onTabChange: (value) => selectInsightTab('product-delivery', value),
         onRetry: () => loadFleetResource('product-delivery', { force: true }) });
     }
-    if (fleetView === 'providers' && providerUsage) {
+    if (currentFleetView() === 'providers' && providerUsage) {
       setHeading(t('platformAdmin.providers.title'), t('platformAdmin.providers.subtitle'));
-      const resource = fleetResources.get(fleetView);
+      const resource = fleetResources.get(currentFleetView());
       const now = providerFreshness.capture();
       const elapsedMs = resource?.requestClock ? Math.max(0,
         now.wall - resource.requestClock.wall, now.monotonic - resource.requestClock.monotonic) : 0;
       return renderProviderUsage({ resource, elapsedMs,
-        activeTab: providerTab, onTabChange: (value) => { providerTab = value; },
-        isStale: !providerFreshness.isReusable(fleetResources.get(fleetView)),
+        activeTab: currentRoute().tab, onTabChange: (value) => selectInsightTab('providers', value),
+        isStale: !providerFreshness.isReusable(fleetResources.get(currentFleetView())),
         onRetry: () => loadFleetResource('providers', { force: true }) });
     }
-    const definition = PLATFORM_FLEET_VIEW_DEFINITIONS.find(({ id }) => id === fleetView);
-    setHeading(t(definition.titleKey), t(`platformAdmin.fleetView.${fleetView}.description`));
+    const definition = PLATFORM_FLEET_VIEW_DEFINITIONS.find(({ id }) => id === currentFleetView());
+    setHeading(t(definition.titleKey), t(`platformAdmin.fleetView.${currentFleetView()}.description`));
     return renderPlatformFleetView({
-      view: fleetView,
-      resource: fleetResources.get(fleetView),
-      onRetry: () => loadFleetResource(fleetView, { force: true }),
+      view: currentFleetView(),
+      resource: fleetResources.get(currentFleetView()),
+      onRetry: () => loadFleetResource(currentFleetView(), { force: true }),
       onSelectTenant: openTenantFromFleet,
-      onLoadMore: (cursor) => loadFleetResource(fleetView, { cursor, append: true }),
+      onLoadMore: (cursor) => loadFleetResource(currentFleetView(), { cursor, append: true }),
       onExportAudit: operationProofAvailable && currentOperator?.permissions.includes('platform:audit:export')
         ? ()=>downloadPlatformAuditExport(dataSource) : null,
     });
@@ -1332,6 +1348,11 @@ export function createPlatformAdminApplication({
       return;
     }
     const route = currentRoute();
+    if (route.view === 'fleet' && currentFleetView() !== 'directory'
+      && !availableFleetViews().some(({ id }) => id === currentFleetView())) {
+      navigate(platformAdminFleetHash(), { replace: true });
+      return;
+    }
     const tenant = route.tenantId ? fleet?.tenants.find(({ id }) => id === route.tenantId) : null;
     renderNavigation(route, tenant);
     if (loading) {
@@ -1359,7 +1380,7 @@ export function createPlatformAdminApplication({
     }
     nodes.app.append(route.view === 'tenant'
       ? renderTenant(route, tenant)
-      : fleetView === 'directory'
+      : currentFleetView() === 'directory'
         ? renderFleetDirectory()
         : renderSelectedFleetView());
   }
@@ -1402,6 +1423,7 @@ export function createPlatformAdminApplication({
   }
 
   function routeChanged() {
+    navigationGeneration += 1;
     clearRouteAnnouncements();
     actionError = false;
     render();
@@ -1423,6 +1445,7 @@ export function createPlatformAdminApplication({
   }
 
   function stop() {
+    navigationGeneration += 1;
     stopped = true;
     customerInvitationPresentation?.clear();
     fleetRequestGeneration += 1;
@@ -1435,7 +1458,7 @@ export function createPlatformAdminApplication({
     clearProjectionState();
     fleetResources.delete('providers');
     fleetResources.delete('product-delivery');
-    if (((productDelivery && fleetView === 'product-delivery') || (providerUsage && fleetView === 'providers'))
+    if (((productDelivery && currentFleetView() === 'product-delivery') || (providerUsage && currentFleetView() === 'providers'))
       && currentRoute().view === 'fleet') clear(nodes.app);
   }
 

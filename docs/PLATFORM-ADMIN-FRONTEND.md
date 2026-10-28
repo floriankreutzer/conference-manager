@@ -219,3 +219,37 @@ runtime Product extraction and Operations/Feedback writers are not activated by
 this transport; no live metrics or collection acceptance is implied. Tenant detail
 menus still require a selected Tenant; optional synthetic controls retain their
 separate authentication policy and rollout decision.
+
+## Persistent global routes and entitlement previews
+
+Global navigation uses the validated hash as its presentation source of truth:
+`#fleet` retains the directory entry point, while `#fleet=product-delivery&tab=feedback`
+and `#fleet=providers&tab=sources` identify an allowed global view and its tab.
+Other global sections use `#fleet=<view>`; existing `#tenant=<uuid>&section=<section>`
+links remain supported. Unknown views/tabs, duplicate keys, mixed global/Tenant
+parameters and oversized hashes fall back to the directory. Optional ports and
+operator presentation permissions are checked independently before a deep link
+can load a global resource. A URL never grants backend authority and carries no
+customer content, identity, command or proof. Tab changes create history entries
+without replacing the active controls; reload and browser history reconstruct the
+selected page/panel. Existing heading focus and asynchronous insight freshness
+handoffs remain. Role/context disposal clears protected caches as before.
+
+The entitlement workspace renders localized capability names, dependencies and
+expandable technical identifiers using native labels/checkboxes and existing
+tokens. An unchanged selection explains why preview is disabled. Missing packages
+have an explicit empty state; package preview controls require the existing manage
+presentation permission. Preview requests are explicit, show loading/confirmation
+context, prevent concurrent local submissions and preserve the selection/focus on
+failure or cancellation. Successful direct previews retain their reviewed draft;
+changing that selection hides its previous Apply control until it matches again
+or receives a new authoritative preview. Apply still requires the unchanged exact
+server revision, action, target confirmation and operational reason.
+
+Navigation generation and resource identity checks discard late preview results
+after departure, authority/context replacement or stop, including leave-and-return
+to the same Tenant. This does not add browser persistence, authorization or automatic
+retries. Targeted DE/EN, history, permission, failure, selection, focus and late-response
+browser cases accompany the ordinary complete engine and permanent Demo/reset gates.
+The source change covers399 UX-03/UX-04; invitation admission, real-provider proof,
+email delivery and Hosted acceptance remain separate open evidence.

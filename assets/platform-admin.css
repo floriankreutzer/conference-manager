@@ -186,6 +186,38 @@
   color: var(--color-muted);
 }
 
+.platform-admin-entitlement-form,
+.platform-admin-entitlement-option {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.platform-admin-entitlement-option {
+  padding-block: var(--space-3);
+  border-block-end: 1px solid var(--color-border-soft);
+}
+
+.platform-admin-entitlement-option label {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  min-block-size: var(--control-height);
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-entitlement-option input[type="checkbox"] {
+  flex: 0 0 auto;
+  inline-size: var(--space-5);
+  block-size: var(--space-5);
+  margin: 0;
+}
+
+.platform-admin-entitlement-option p,
+.platform-admin-entitlement-option details {
+  margin: 0;
+}
+
 .platform-admin-tenant-section > .platform-admin-back-link {
   padding: 0;
   border: 0;

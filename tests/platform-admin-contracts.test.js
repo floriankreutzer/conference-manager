@@ -208,3 +208,24 @@ test('an operation-proof transport can present an existing permission without fa
   const reader = normalizePlatformOperator(platformOperatorFixture('platform_support_reader'));
   assert.equal(shouldPresentPlatformAction(reader, tenant, 'reactivate', now, true), false);
 });
+
+test('global view and tab routes round-trip independently of Tenant routes and reject ambiguous input', () => {
+  for (const [view, tabs] of Object.entries({ readiness: [null], 'integration-health': [null],
+    'platform-audit': [null], 'runtime-status': [null], providers: ['overview', 'usage', 'sources'],
+    'product-delivery': ['overview', 'usage', 'delivery', 'feedback'] })) {
+    for (const tab of tabs) {
+      assert.deepEqual(platformAdminRouteFromHash(platformAdminFleetHash(view, tab)), {
+        view: 'fleet', tenantId: null, section: null, fleetView: view, tab,
+      });
+    }
+  }
+  for (const hash of ['#fleet=providers&tab=feedback', '#fleet=readiness&tab=usage',
+    '#fleet=__proto__', '#fleet=providers&fleet=product-delivery', '#fleet=providers&tab=usage&tab=sources',
+    '#tenant=10000000-0000-4000-8000-000000000004&fleet=providers',
+    '#fleet=providers&unknown=1', '#fleet=product-delivery&tab=%3Cscript%3E',
+    '#tenant=10000000-0000-4000-8000-000000000004&tenant=10000000-0000-4000-8000-000000000005']) {
+    assert.deepEqual(platformAdminRouteFromHash(hash), platformAdminRouteFromHash('#fleet'));
+  }
+  assert.equal(platformAdminFleetHash('missing'), '#fleet');
+  assert.equal(platformAdminFleetHash('providers', 'feedback'), '#fleet');
+});
