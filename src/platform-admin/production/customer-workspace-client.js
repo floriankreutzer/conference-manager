@@ -85,14 +85,15 @@ function ownerIntent(value,origin) {
 // this ceremony's binding; no generic428 replay or privileged cookie is used.
 export function createPlatformCustomerWorkspaceClient({ kind, apiClient,runExclusive,refreshSession,csrfTokenProvider,
   browser=null,navigation=null,origin=globalThis.location?.origin,windowRef=globalThis.window,documentRef=globalThis.document,
-  timeoutMs=15000,assuranceMode='application_passkey',microsoftConfirmation=null }={}) {
+  timeoutMs=15000,assuranceMode='application_passkey',microsoftConfirmation=null,
+  describeOperation=()=>null,onTenantsLoaded=()=>{} }={}) {
   if (!['synthetic','owner_real'].includes(kind) || kind==='owner_real' && assuranceMode!=='microsoft_mfa') {
     throw new TypeError('PLATFORM_CUSTOMER_WORKSPACE_KIND_INVALID');
   }
   const legacy=kind==='synthetic',namespace=legacy ? 'delegation' : 'owner';
   if (!['application_passkey','microsoft_mfa'].includes(assuranceMode)
     || assuranceMode==='microsoft_mfa' && typeof microsoftConfirmation!=='function'
-    || typeof apiClient?.request!=='function' || [runExclusive,refreshSession,csrfTokenProvider].some(value=>typeof value!=='function')
+    || typeof apiClient?.request!=='function' || [runExclusive,refreshSession,csrfTokenProvider,describeOperation,onTenantsLoaded].some(value=>typeof value!=='function')
     || !Number.isSafeInteger(timeoutMs) || timeoutMs<1000 || timeoutMs>15000) throw new TypeError('PLATFORM_SYNTHETIC_CLIENT_INVALID');
   const forms=navigation || createAuthenticationFormNavigation({ origin,windowRef,documentRef });
   if (['submit','reset','dispose'].some(name=>typeof forms[name]!=='function')) throw new TypeError('PLATFORM_SYNTHETIC_CLIENT_INVALID');
@@ -108,9 +109,10 @@ export function createPlatformCustomerWorkspaceClient({ kind, apiClient,runExclu
     finally { clearTimeout(timer);for (const source of sources) source.removeEventListener('abort',cancel); }
   }
   async function assertion(path,intent,signal) {
+    const context=describeOperation(new URL('/api/v1/platform/'+path,origin),{ method: 'POST',body: JSON.stringify(intent) });
     const value=await call(path,{ method: 'POST',body: intent },signal);
     if (assuranceMode==='microsoft_mfa') {
-      current(signal);const state=await microsoftConfirmation(value,{ signal });current(signal);
+      current(signal);const state=await microsoftConfirmation(value,{ signal,context });current(signal);
       if (state!==value?.state || typeof state!=='string' || !/^[A-Za-z0-9_-]{43}$/.test(state)) invalid();
       return { ...intent,state };
     }
@@ -150,7 +152,7 @@ export function createPlatformCustomerWorkspaceClient({ kind, apiClient,runExclu
       if (legacy && afterTenantId!==null) invalid();
       const query=afterTenantId===null ? '' : '?afterTenantId='+id(afterTenantId);
       const value=await call(`auth/${namespace}/intent${query}`);
-      if (!legacy) return ownerIntent(value,origin);
+      if (!legacy) { const result=ownerIntent(value,origin);onTenantsLoaded(result.tenants);return result; }
       if (value?.status==='none') { exact(value,['status','requestId']);id(value.requestId);return false; }
       exact(value,['status','slots','roles','requestId']);id(value.requestId);
       if (value.status!=='confirmation_required') invalid();vector(value.slots,SLOTS);vector(value.roles,ROLES);return true;

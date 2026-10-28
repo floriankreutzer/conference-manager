@@ -86,6 +86,7 @@
     "assets/brand/pavurel-login-lounge.webp",
     "src/core/i18n-platform-microsoft-operation-messages.js",
     "src/platform-admin/production/operation-client.js",
+    "src/platform-admin/production/operation-presentation.js",
     "src/platform-admin/production/microsoft-operations-client.js",
     "src/platform-admin/production/microsoft-operation-confirmation.js",
     "src/platform-admin/production/microsoft-operation-contracts.js",

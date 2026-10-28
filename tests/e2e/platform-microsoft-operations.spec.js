@@ -87,6 +87,20 @@ test('Microsoft confirmation survives different-site COOP isolation and executes
   const dialog=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen' });await expect(dialog).toBeVisible();
   const link=dialog.getByRole('link',{ name: 'Mit Microsoft anmelden' });
   await expect(link).toBeFocused();await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel',/noopener/);
+  const summary=dialog.locator('[data-microsoft-operation-context]');
+  await expect(summary.locator('dd')).toHaveText(['Kunden sperren','Synthetic customer']);
+  await expect(dialog).toContainText('aus Sicherheitsgründen');
+  await expect(dialog).toContainText('nur bei gültigem Nachweis');
+  await page.evaluate(async()=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage('en'); });
+  await expect(summary.locator('dd')).toHaveText(['Suspend customer','Synthetic customer']);
+  await expect(dialog).toContainText('only if the proof and your authorization remain valid');
+  for (const width of [320,1280]) {
+    await page.setViewportSize({ width,height: 900 });
+    expect(await dialog.evaluate(node=>node.scrollWidth<=node.clientWidth+1)).toBe(true);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  }
+  await page.evaluate(async()=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage('de'); });
+  await expect(link).toBeFocused();
   const opened=context.waitForEvent('page');await link.press('Enter');const provider=await opened;
   await provider.waitForLoadState();expect(await provider.evaluate(()=>window.opener===null)).toBe(true);
   await provider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();

@@ -236,11 +236,12 @@ function mutationResponse(payload, request, configuration) {
 export function createPlatformAdminApi({
   apiClient,
   idempotencyKeyFactory = () => globalThis.crypto?.randomUUID?.(),
+  onTenantsLoaded = () => {},
 } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') {
     throw new TypeError('PLATFORM_ADMIN_API_CLIENT_REQUIRED');
   }
-  if (typeof idempotencyKeyFactory !== 'function') {
+  if (typeof idempotencyKeyFactory !== 'function' || typeof onTenantsLoaded !== 'function') {
     throw new TypeError('PLATFORM_ADMIN_IDEMPOTENCY_FACTORY_REQUIRED');
   }
 
@@ -270,7 +271,8 @@ export function createPlatformAdminApi({
       } catch (error) {
         requestFailure('PLATFORM_FLEET_UNAVAILABLE', error);
       }
-      return wrapContract(fleetFromDirectory, payload, 'PLATFORM_FLEET_RESPONSE_INVALID');
+      const result=wrapContract(fleetFromDirectory, payload, 'PLATFORM_FLEET_RESPONSE_INVALID');
+      onTenantsLoaded(result.tenants);return result;
     },
 
     async createTenant(request) {

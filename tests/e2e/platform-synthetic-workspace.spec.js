@@ -159,7 +159,9 @@ async({ page,context })=>{
   await workspace.getByRole('button',{ name: 'Testmandanten anlegen',exact: true }).click();
   await workspace.getByRole('button',{ name: 'Anlegen bestätigen',exact: true }).click();
   const confirmation=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
-  await expect(confirmation).toBeVisible();const opened=context.waitForEvent('page');
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.locator('[data-microsoft-operation-context] dd')).toHaveText(['Eigene Demo-Kunden neu aufsetzen','Eigene Demo-Kunden']);
+  const opened=context.waitForEvent('page');
   await confirmation.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
   const provider=await opened;await provider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();
   await expect(provider).toHaveURL('https://127.0.0.1:4173/api/v1/platform/auth/microsoft/operation/complete');
@@ -175,7 +177,9 @@ async({ page,context })=>{
   await workspace.getByRole('combobox',{ name: 'Testmandant',exact: true }).selectOption('fabrikam');
   await workspace.getByRole('combobox',{ name: 'Kundenrolle',exact: true }).selectOption('tenant_admin');
   await workspace.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();
-  await expect(confirmation).toBeVisible();const nextOpened=context.waitForEvent('page');
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.locator('[data-microsoft-operation-context] dd')).toHaveText(['Kundenzugang öffnen','Fabrikam','Tenant Operator']);
+  const nextOpened=context.waitForEvent('page');
   await confirmation.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
   const nextProvider=await nextOpened;
   await nextProvider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();

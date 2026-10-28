@@ -8,8 +8,8 @@ standards. The [official Microsoft guidance](https://learn.microsoft.com/en-us/e
 was rechecked for this implementation. This document describes the shared native
 renderer and its verification boundary; it does not define another branding or
 authentication policy. Source integration does not prove Hosted or real-provider
-acceptance. Issue399 MS-01 retains its complete acceptance scope, including
-operation-specific contextual explanation and live evidence.
+acceptance. Issue399 MS-01 retains its complete acceptance scope and requires
+separate operating evidence.
 
 ## Inventory
 
@@ -61,7 +61,38 @@ Platform inventories include the helper and symbol. Customer packaging continues
 using its existing graph/asset rules; no reader extension, CSP or byte-limit change
 is implied.
 
+## Additional-operation context
+
+The additional-operation dialog describes the requested action, selected customer
+and, for customer access, the selected role. Recovery also names its existing
+canonical procedure. It explains why another Microsoft sign-in is required, that
+it opens in a separate tab, and that proof/current authorization are checked before
+execution and the resulting outcome is shown. It does not promise business success
+from signing in. Sign-in, organization consent and operation approval remain
+distinct; normal MFA and Owner roles are unchanged.
+
+The Platform-owned presentation adapter captures a frozen minimal descriptor from
+the exact fixed URL/method/serialized request before it enters the existing proof
+queue. It never reads the current DOM or route. A bounded200-entry in-memory name
+map receives only already-validated directory/Owner-intent projections and is
+cleared on page exit. Missing names use a localized selected-customer label plus
+the exact identifier in native technical details. Recipient, reason, proof and
+request body are not retained in descriptors or sent as new headers/payloads.
+Later directory or language changes cannot replace an already queued target.
+The shared transport, exact retry URL/body/key, native Owner form, one-use custody
+and status/timeout/cancellation rules remain unchanged. Legacy injected clients
+without this presentation port retain a generic dialog; the actual protected
+bootstrap supplies it. Names describe a target and grant no authority.
+
+Dialog labels update without replacing their native controls or technical details.
+
 ## Verification
+
+Progression tests cover category/target selection, bounded names, immutable queued
+context, unknown cases and current real/Demo workspace targets. Existing actual
+bootstrap browser cases additionally check operation/target/role copy, DE/EN,
+narrow reflow and preserved keyboard focus while retaining their original exact
+request/cookie/native-form assertions. Source tests are not live acceptance.
 
 The added Node regressions bind unchanged symbol bytes and both inventories, and
 execute the design validator against a valid copied fixture and negative global,

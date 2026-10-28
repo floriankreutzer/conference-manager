@@ -25,17 +25,18 @@ async function challenge(response,readPending,ErrorType) {
 // timeout, conflict and provider failures never trigger a mutation retry.
 export function createPlatformOperationClient({ origin = globalThis.location?.origin, fetchImpl = globalThis.fetch,
   csrfTokenProvider,refreshSession,onPrompt=()=>{},readPending,confirm,ErrorType,errorPrefix,
+  describeOperation=()=>null,
   onSessionRefreshRequired = () => globalThis.location?.reload() } = {}) {
   if (typeof fetchImpl !== 'function' || typeof csrfTokenProvider !== 'function' || typeof refreshSession !== 'function'
     || typeof onPrompt!=='function' || typeof onSessionRefreshRequired!=='function' || typeof readPending!=='function'
-    || typeof confirm!=='function' || typeof ErrorType!=='function' || !['PLATFORM_PASSKEY','PLATFORM_MICROSOFT'].includes(errorPrefix)) throw new TypeError('PLATFORM_OPERATION_PORTS_REQUIRED');
+    || typeof confirm!=='function' || typeof describeOperation!=='function' || typeof ErrorType!=='function' || !['PLATFORM_PASSKEY','PLATFORM_MICROSOFT'].includes(errorPrefix)) throw new TypeError('PLATFORM_OPERATION_PORTS_REQUIRED');
   const reject=()=>{ throw new ErrorType(); };
   const operationError=suffix=>new ErrorType(`${errorPrefix}_${suffix}`);
   const stopped = new AbortController(); let tail = Promise.resolve(); let queued = 0;
   function csrf() {
     const token = csrfTokenProvider(); if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) reject(); return token;
   }
-  async function send(url, init) {
+  async function send(url, init, context) {
     const controller = new AbortController();
     let mayHaveMutated = false;
     const abort = () => controller.abort();
@@ -50,7 +51,7 @@ export function createPlatformOperationClient({ origin = globalThis.location?.or
       // Aborting either in-flight write can still hide a committed result.
       mayHaveMutated = false;
       const pending=await challenge(first,readPending,ErrorType);onPrompt();
-      const proofHeaders=await confirm(pending,{ signal: controller.signal });
+      const proofHeaders=await confirm(pending,{ signal: controller.signal,context });
       if (controller.signal.aborted) throw operationError('OPERATION_CANCELLED');
       mayHaveMutated = init.method !== 'GET';
       const completed=await fetchImpl(url,{ ...request,headers: { ...headers,...proofHeaders } });
@@ -89,15 +90,16 @@ export function createPlatformOperationClient({ origin = globalThis.location?.or
   }
   const client = createApiClient({ baseUrl: '/api/v1/platform/', origin, csrfTokenProvider,
     fetchImpl(url, init) {
+      const context=describeOperation(url,init);
       const path = new URL(url).pathname;
       const needsProofQueue = init.method !== 'GET' || path.startsWith('/api/v1/platform/audit/exports')
         || path.includes('/diagnostics/correlations/')
         || /^\/api\/v1\/platform\/tenants\/[0-9a-f-]{36}\/invitations$/i.test(path)
         || /^\/api\/v1\/platform\/tenants\/[0-9a-f-]{36}\/recovery\/[a-z][a-z0-9-]{0,63}\/targets$/i.test(path);
-      if (!needsProofQueue) return send(url, init);
+      if (!needsProofQueue) return send(url, init, context);
       // Serialize proof-capable requests before their initial response can set
       // a cookie, so concurrent operations cannot replace each other's binding.
-      return runExclusive(()=>send(url,init));
+      return runExclusive(()=>send(url,init,context));
     },
   });
   return Object.freeze({ request: client.request,runExclusive, stop() { stopped.abort(); } });
