@@ -95,6 +95,8 @@ jobs:
         run: node scripts/test-hosted-transport.mjs --browsers
       - name: Verify exact Microsoft action and native cookie custody before the full suite
         run: npx playwright test tests/e2e/platform-microsoft-operations.spec.js --project=${{ matrix.project }}
+      - name: Verify Microsoft manufacturer controls on both signed-out entry surfaces
+        run: npx playwright test tests/e2e/authentication-entry.spec.js --project=${{ matrix.project }}
       - name: Verify neutral cancellation across actual Platform bootstrap and invitations
         run: npx playwright test tests/e2e/platform-audit-segment.spec.js tests/e2e/platform-customer-invitations.spec.js --grep "cancelled Microsoft|failed Microsoft|cancelled invitation|unknown creation retry" --project=${{ matrix.project }}
       - name: Verify persistent global navigation and entitlement preview before the full suite

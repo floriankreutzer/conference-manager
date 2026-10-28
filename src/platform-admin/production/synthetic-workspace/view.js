@@ -1,3 +1,4 @@
+import { microsoftSignInControl } from '../../../core/microsoft-sign-in-control.js';
 import { formatDateTime,formatNumber,t } from '../../../core/i18n.js';
 import { button,clear,el,field } from '../../../core/ui.js';
 let nextId=0;
@@ -18,7 +19,9 @@ export function createPlatformSyntheticWorkspaceView({ controller,onTenant }={})
     if (state.error) element.append(el('p',{ text: t(`platformSynthetic.error.${state.error}`),attrs: { role: 'alert' } }));
     const actions=[];
     function action(key,method,primary=false) {
-      const control=button(t(key),{ id: `${id}${method}`,className: primary ? 'primary' : 'secondary' });
+      const control=method==='reauthenticate'
+        ? microsoftSignInControl({ label: t('platformAdmin.session.signIn'),id: `${id}${method}` })
+        : button(t(key),{ id: `${id}${method}`,className: primary ? 'primary' : 'secondary' });
       control.addEventListener('click',()=>{ void controller[method](); });actions.push(control);
     }
     if (state.phase==='replacement_confirmation') {

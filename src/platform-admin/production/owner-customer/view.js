@@ -1,3 +1,4 @@
+import { microsoftSignInControl } from '../../../core/microsoft-sign-in-control.js';
 import { t } from '../../../core/i18n.js';
 import { button,clear,el,field } from '../../../core/ui.js';
 let nextId=0;
@@ -16,7 +17,9 @@ export function createPlatformOwnerCustomerView({ controller }={}) {
     if (state.error) element.append(el('p',{ text: t(`platformOwnerCustomer.error.${state.error}`),attrs: { role: 'alert' } }));
     const actions=[];
     function action(key,method) {
-      const control=button(t(key),{ id: `${id}${method}`,className: 'secondary' });
+      const control=method==='reauthenticate'
+        ? microsoftSignInControl({ label: t('platformAdmin.session.signIn'),id: `${id}${method}` })
+        : button(t(key),{ id: `${id}${method}`,className: 'secondary' });
       control.addEventListener('click',()=>{ void controller[method](); });actions.push(control);
     }
     const directory=state.directory;

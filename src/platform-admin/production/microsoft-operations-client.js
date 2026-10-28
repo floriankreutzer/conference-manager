@@ -16,20 +16,20 @@ export function createPlatformMicrosoftOperationsClient({ origin=globalThis.loca
   const client=createPlatformOperationClient({ ...options,origin,fetchImpl,csrfTokenProvider,
     ErrorType: PlatformMicrosoftOperationError,errorPrefix: 'PLATFORM_MICROSOFT',
     readPending: value=>requirePlatformMicrosoftOperationChallenge(value,origin),
-    async confirm(pending,{ signal }) {
-      await confirmPending(pending,signal);
+    async confirm(pending,{ signal,context }) {
+      await confirmPending(pending,signal,context);
       return { 'X-Platform-Microsoft-Proof': pending.state };
     },
   });
-  async function confirmOperation(value,{ signal }={}) {
+  async function confirmOperation(value,{ signal,context=null }={}) {
     if (!signal || typeof signal.addEventListener!=='function' || signal.aborted) {
       throw new PlatformMicrosoftOperationError('PLATFORM_MICROSOFT_OPERATION_CANCELLED');
     }
     const pending=requirePlatformMicrosoftOperationChallenge(value,origin);
-    await confirmPending(pending,signal);return pending.state;
+    await confirmPending(pending,signal,context);return pending.state;
   }
-  async function confirmPending(pending,signal) {
-    await confirmation(pending,{ signal,async readStatus({ signal: statusSignal }) {
+  async function confirmPending(pending,signal,context) {
+    await confirmation(pending,{ signal,context,async readStatus({ signal: statusSignal }) {
         const controller=new AbortController(),abort=()=>controller.abort(),timer=setTimeout(abort,10000);
         signal.addEventListener('abort',abort,{ once: true });statusSignal.addEventListener('abort',abort,{ once: true });
         if (signal.aborted || statusSignal.aborted) abort();

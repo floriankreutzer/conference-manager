@@ -1,3 +1,4 @@
+import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import {
   formatDateTime,
   language,
@@ -80,11 +81,7 @@ function sessionGate(sessionState, signInPath) {
     el('p', { text: t(unavailable ? 'platformAdmin.session.unavailableText' : 'platformAdmin.session.signInText') }),
   ]);
   if (!unavailable && signInPath) {
-    section.append(el('a', {
-      className: 'primary button-link',
-      href: signInPath,
-      text: t('platformAdmin.session.signIn'),
-    }));
+    section.append(microsoftSignInControl({ href: signInPath, label: t('platformAdmin.session.signIn') }));
   }
   return section;
 }
@@ -939,7 +936,7 @@ export function createPlatformAdminApplication({
       create.addEventListener('click', createPendingTenant);
       controls.appendChild(create);
     } else if (typeof onStepUp === 'function') {
-      const stepUp = button(t('platformAdmin.actions.stepUp'), { className: 'secondary' });
+      const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
       stepUp.addEventListener('click', onStepUp);
       panel.append(el('p', { className: 'platform-admin-empty', text: t('platformAdmin.actions.stepUpRequired') }));
       controls.appendChild(stepUp);
