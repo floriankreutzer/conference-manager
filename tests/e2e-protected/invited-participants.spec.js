@@ -115,7 +115,10 @@ async({ browser,browserName })=>{
       checkpoint(`invitation-read-${person.slot}`);
       const readCapacity=await runtime.waitForMicrosoftOperationCapacity(1);
       if (readCapacity.waitedMs) proofCapacityWaits++;
-      await panel.getByRole('button',{ name: 'Aktuellen Stand laden',exact: true }).click();await approveMicrosoft();
+      checkpoint(`invitation-read-ready-${person.slot}`);
+      const reload=panel.getByRole('button',{ name: 'Aktuellen Stand laden',exact: true });
+      await expect(reload).toBeEnabled();await reload.click();
+      checkpoint(`invitation-read-proof-${person.slot}`);await approveMicrosoft();
       await expect(panel.getByRole('button',{ name: 'Person hinzufügen',exact: true })).toBeEnabled();
       await panel.getByRole('button',{ name: 'Person hinzufügen',exact: true }).click();
       const entry=panel.getByRole('group',{ name: 'Person 1',exact: true });
@@ -188,12 +191,18 @@ async({ browser,browserName })=>{
         expect(persisted).toEqual({ status: 200,title: 'Invited participant browser booking' });
       } else if (person.slot==='contoso') {
         expect(current.userId).not.toBe(delegatedContosoUser);
+        checkpoint('customer-manager-foreign-read');
         expect(await page.evaluate(async id=>(await fetch(`/api/v1/requests/${id}`)).status,northwindRequest)).toBe(404);
-        await page.locator('[data-view="manager"]').click();
-        await page.getByRole('tab',{ name: 'Anfragen & Buchungen',exact: true }).click();
+        checkpoint('customer-manager-navigation');
+        const navigation=page.locator('[data-view="manager"]');await expect(navigation).toBeVisible();await navigation.click();
+        checkpoint('customer-manager-projection');
+        const bookings=page.getByRole('tab',{ name: 'Anfragen & Buchungen',exact: true });
+        await expect(bookings).toBeVisible();await bookings.click();
         const cards=page.locator('[data-production-request-id]');await expect(cards).toHaveCount(3);
         const card=cards.first(),id=await card.getAttribute('data-production-request-id');
-        await card.getByRole('button',{ name: 'Bestätigen',exact: true }).click();
+        checkpoint('customer-manager-review');
+        const review=card.getByRole('button',{ name: 'Bestätigen',exact: true });await expect(review).toBeEnabled();await review.click();
+        checkpoint('customer-manager-confirm');
         const completed=page.waitForResponse(response=>response.request().method()==='POST'
           && new URL(response.url()).pathname===`/api/v1/requests/${id}/transitions`);
         await page.getByRole('dialog').getByRole('button',{ name: 'Bestätigen',exact: true }).click();
@@ -250,6 +259,18 @@ async({ browser,browserName })=>{
       crossTenantDenied: journey==='booking-decision',auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));
   } catch (error) {
     failed=true;console.error('PARTICIPANT_BROWSER_FAILURE '+phase);
+    if (edge) {
+      const traffic=edge.evidence();
+      const pendingOrFailed=traffic.requests.filter(event=>event.path.startsWith('/api/') && (event.status===null || event.status>=400));
+      console.error('PARTICIPANT_BROWSER_TRAFFIC '+JSON.stringify({ requests: traffic.requests.length,
+        staticCompactions: traffic.staticCompactions,pendingOrFailed: pendingOrFailed.slice(-8).map(event=>({
+          route: event.path.includes('/microsoft/operation/') ? 'microsoft-operation'
+            : event.path.includes('/invitations') ? 'invitations' : event.path.includes('/auth/email') ? 'customer-email'
+            : event.path.endsWith('/catalog') ? 'catalog' : event.path.endsWith('/room-context') ? 'room-context'
+            : event.path.includes('/booking-change') ? 'booking-change' : event.path.includes('/requests') ? 'requests' : 'other-api',
+          method: event.method,status: event.status,errorCode: event.errorCode ?? null,
+        })) }));
+    }
     if (phase.startsWith('customer-logout-')) {
       try {
         const view=await page.evaluate(()=>({
@@ -267,8 +288,8 @@ async({ browser,browserName })=>{
   }
   finally {
     let cleanupFailed=false;
-    for (const [index,cleanup] of [()=>context?.close(),()=>edge?.close(),()=>runtime?.close(),
-      ()=>written ? rm(`${apiRoot}/.protected-frontend`,{ recursive: true,force: true }) : undefined].entries()) {
+    for (const [index,cleanup] of [()=>context?.close(),()=>edge?.close(),
+      ()=>written ? rm(`${apiRoot}/.protected-frontend`,{ recursive: true,force: true }) : undefined,()=>runtime?.close()].entries()) {
       if (failed) console.error('PARTICIPANT_BROWSER_CLEANUP_BEGIN '+index);
       try { await cleanup(); } catch { cleanupFailed=true; }
       if (failed) console.error('PARTICIPANT_BROWSER_CLEANUP_END '+index);
