@@ -250,7 +250,8 @@ async({ browser,browserName })=>{
           authenticationError: Boolean(document.querySelector('#customerAuthError')),
           authenticated: Boolean(document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]')),
         }));
-        console.error('PARTICIPANT_BROWSER_LOGOUT '+JSON.stringify({ outcome: logoutOutcome,view }));
+        console.error('PARTICIPANT_BROWSER_LOGOUT '+JSON.stringify({ outcome: logoutOutcome,view,edge: { requests: edge.evidence().requests.length,
+          staticCompactions: edge.evidence().staticCompactions,completedStatic: edge.evidence().completedStatic } }));
       } catch { console.error('PARTICIPANT_BROWSER_LOGOUT_VIEW_UNAVAILABLE'); }
     }
     throw error;
