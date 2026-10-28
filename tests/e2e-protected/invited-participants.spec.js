@@ -102,13 +102,10 @@ async({ browser,browserName })=>{
       await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
       await expect(page.getByRole('button',{ name: 'Contoso verwalten',exact: true })).toBeVisible();
     }
-    // Release only successful immutable-asset events at these two fixed phases.
-    // All API, authentication, document, failure and unfinished events remain.
-    edge.compactStaticEvidence();
     const participants=journey==='booking-decision' ? [{ slot: 'northwind',name: 'Northwind',role: null },
       { slot: 'contoso',name: 'Contoso',role: 'Conference Manager' }]
       : [{ slot: 'fabrikam',name: 'Fabrikam',role: 'Tenant Operator' }];
-    for (const [index,person] of participants.entries()) {
+    async function invite(person,index) {
       checkpoint(`invitation-navigation-${person.slot}`);
       if (index) await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
       await page.getByRole('button',{ name: `${person.name} verwalten`,exact: true }).click();
@@ -141,9 +138,16 @@ async({ browser,browserName })=>{
       checkpoint(`invitation-list-proof-${person.slot}`);await approveMicrosoft();
       await expect(panel.getByRole('heading',{ name: `${person.slot}@example.test`,exact: true })).toBeVisible();
     }
-    edge.compactStaticEvidence();
-    let northwindRequest=null;
-    for (const person of participants) {
+    let northwindRequest=null,lastCustomerUse=null,customerAddressWaitMs=0;
+    for (const [index,person] of participants.entries()) {
+      await invite(person,index);
+      // Retain all API/auth/document/failure/open events. Release only successful
+      // immutable assets at this fixed boundary, at most twice per complete case.
+      edge.compactStaticEvidence();
+      if (lastCustomerUse!==null) {
+        const remaining=Math.max(0,60000-Math.max(0,Date.now()-lastCustomerUse));
+        if (remaining) { checkpoint('customer-address-window');await delay(remaining);customerAddressWaitMs+=remaining; }
+      }
       checkpoint(`customer-code-${person.slot}`);
       await page.goto(origins.customer+'/');
       await page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true }).fill(`${person.slot}@example.test`);
@@ -247,16 +251,16 @@ async({ browser,browserName })=>{
       expect(logoutOutcome.session).toBe(401);
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
       if (person.slot==='northwind') {
-        // Distinct people still share this actual loopback client address. Honor
-        // the unchanged120-request/60s window before the next complete journey.
-        checkpoint('customer-address-window');await delay(60000);
+        // The next invitation uses the real Microsoft capacity interval while
+        // this shared client address is quiet. Wait any remainder before admission.
+        lastCustomerUse=Date.now();await page.goto(origins.platform+'/platform-admin/');
       }
     }
     if (journey==='booking-decision') expect(proofCapacityWaits).toBeGreaterThan(0);else expect(proofCapacityWaits).toBe(0);
     expect(new Set(identities.map(row=>row.tenantId)).size).toBe(participants.length);
     expect(new Set(identities.map(row=>row.userId)).size).toBe(participants.length);
     checkpoint('evidence');
-    const traffic=edge.evidence();expect(traffic.staticCompactions).toBe(2);
+    const traffic=edge.evidence();expect(traffic.staticCompactions).toBe(participants.length);
     expect(traffic.completedStatic.platform).toBeGreaterThan(0);
     if (journey==='booking-decision') expect(traffic.completedStatic.customer).toBeGreaterThan(0);
     expect(traffic.requests.length).toBeLessThan(2000);
@@ -264,7 +268,7 @@ async({ browser,browserName })=>{
     expect(evidence.participants).toEqual({ registered: participants.length,accepted: participants.length });expect(edge.evidence().deniedConnects).toBe(0);
     expect(errors).toEqual([]);
     console.log('PARTICIPANT_BROWSER_ACCEPTANCE '+JSON.stringify({ browser: browserName,apiCommit,frontendCommit,
-      journey,invited: participants.length,accepted: participants.length,proofCapacityWaits,
+      journey,invited: participants.length,accepted: participants.length,proofCapacityWaits,customerAddressWaitMs,
       edge: { requests: traffic.requests.length,staticCompactions: traffic.staticCompactions,completedStatic: traffic.completedStatic },
       employeeBooking: journey==='booking-decision',managerDecision: journey==='booking-decision',onboardingActive: journey==='onboarding',
       crossTenantDenied: journey==='booking-decision',auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));

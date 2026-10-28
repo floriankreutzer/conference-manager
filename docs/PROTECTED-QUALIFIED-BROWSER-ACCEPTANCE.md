@@ -84,18 +84,21 @@ provider remain separate operating acceptance. Actual PostgreSQL-clock waits
 honor the existing Microsoft operation capacity; proofs, counters, clocks and
 limits are not rewritten. Completed neutral provider tabs are closed and the
 source application regains focus before waiting for its independent result.
-Between Northwind logout and Contoso admission, the accelerated booking/decision
-case waits a real60s address window: these distinct people share one actual
-loopback client address and its unchanged120-request budget. The whole wait
-remains inside the original240s case, without retrying a failed request. Application enrollment/credential APIs are forbidden
+The booking/decision case completes Northwind admission/booking/logout before
+issuing Contoso's invitation. Its real Microsoft capacity interval overlaps the
+shared client address's unchanged60s window; any remaining quiet interval is
+waited before Contoso admission. Distinct people still share this loopback
+address and its120-request budget. All work and waits remain within the original
+240s case, without retrying a failed request. Application enrollment/credential APIs are forbidden
 in these participant cases. Current Tenant HMAC chains and zero application
 keys remain required.
 
-At two fixed phase boundaries, after generation/optional Admin activation and
-after invitation issuance, the existing edge compacts only successful immutable
+At the fixed boundary after each participant's invitation and before Customer
+admission, the existing edge compacts only successful immutable
 asset events into per-surface counts. It retains every API, authentication,
 document, failed and unfinished event in order. The2000-event limit and the
-two-compaction maximum remain unchanged; each case verifies both counts. This
+two-compaction maximum remain unchanged; each case verifies one compaction per
+participant and the retained/completed counts. This
 addresses the observed Chromium7c2ff5f failure with exactly2000 stored events,
 logout204 and the next session400. That historical failure is retained; the
 change still requires fresh complete acceptance on both engines, all regular
