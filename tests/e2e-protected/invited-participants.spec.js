@@ -17,7 +17,8 @@ async({ browser,browserName })=>{
   }
   const { createProtectedOwnerBrowserRuntimeFixture }=await import(pathToFileURL(
     `${apiRoot}/tests-db/support/protected-owner-browser-runtime-fixture.js`));
-  let runtime,edge,context,written=false,failed=false;
+  let runtime,edge,context,written=false,failed=false,phase='setup';
+  function checkpoint(value) { phase=value;console.log('PARTICIPANT_BROWSER_STAGE '+value); }
   try {
     const origins={ customer: 'https://app-int.example.test',platform: 'https://ops-int.example.com' };
     const built=await buildProtectedFrontendArtifacts({ root: ROOT,apiCommit,frontendCommit,environment: 'int',
@@ -54,6 +55,7 @@ async({ browser,browserName })=>{
       await provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
       await element.waitForElementState('hidden',{ timeout: 15000 });
     }
+    checkpoint('generation');
     await page.goto(origins.platform+'/platform-admin/');
     await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
     await page.getByRole('button',{ name: 'Testmandanten anlegen',exact: true }).click();
@@ -62,10 +64,13 @@ async({ browser,browserName })=>{
     const participants=[{ slot: 'northwind',name: 'Northwind',role: null },
       { slot: 'contoso',name: 'Contoso',role: 'Conference Manager' },{ slot: 'fabrikam',name: 'Fabrikam',role: 'Tenant Operator' }];
     for (const [index,person] of participants.entries()) {
+      checkpoint(`invitation-navigation-${person.slot}`);
       if (index) await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
       await page.getByRole('button',{ name: `${person.name} verwalten`,exact: true }).click();
-      await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
+      const lifecycle=page.locator('[data-platform-admin-navigate="lifecycle"]');
+      await expect(lifecycle).toBeVisible();await lifecycle.click();
       const panel=page.locator('.platform-admin-invitations');await expect(panel).toBeVisible();
+      checkpoint(`invitation-read-${person.slot}`);
       await panel.getByRole('button',{ name: 'Aktuellen Stand laden',exact: true }).click();await approveMicrosoft();
       await expect(panel.getByRole('button',{ name: 'Person hinzufügen',exact: true })).toBeEnabled();
       await panel.getByRole('button',{ name: 'Person hinzufügen',exact: true }).click();
@@ -73,6 +78,7 @@ async({ browser,browserName })=>{
       await entry.getByRole('textbox',{ name: 'E-Mail-Adresse *',exact: true }).fill(`${person.slot}@example.test`);
       if (person.role) await entry.getByRole('checkbox',{ name: person.role,exact: true }).check();
       await panel.getByRole('textbox',{ name: 'Betriebliche Begründung *',exact: true }).fill('Isolated explicit participant acceptance');
+      checkpoint(`invitation-issue-${person.slot}`);
       await panel.getByRole('button',{ name: 'Einladungen vormerken',exact: true }).click();await approveMicrosoft();
       // The controller independently refreshes the committed list with its own
       // exact read proof. Neither approval nor the mutation is replayed.
@@ -81,15 +87,18 @@ async({ browser,browserName })=>{
     }
     let northwindRequest=null;
     for (const person of participants) {
+      checkpoint(`customer-code-${person.slot}`);
       await page.goto(origins.customer+'/');
       await page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true }).fill(`${person.slot}@example.test`);
       await page.getByRole('button',{ name: 'Code anfordern',exact: true }).click();
       const codeInput=page.getByRole('textbox',{ name: 'Achtstelliger Code',exact: true });await expect(codeInput).toBeVisible();
+      checkpoint(`mailbox-read-${person.slot}`);
       const code=await runtime.mailboxCode(`${person.slot}@example.test`);
       const wrong=(code[0]==='0' ? '1' : '0')+code.slice(1);
       await codeInput.fill(wrong);await page.getByRole('button',{ name: 'Code bestätigen',exact: true }).click();
       await expect(page.getByRole('alert')).toContainText('Die Anmeldung konnte nicht bestätigt werden.');
       await codeInput.fill(code);await page.getByRole('button',{ name: 'Code bestätigen',exact: true }).click();
+      checkpoint(`customer-selection-${person.slot}`);
       const organisation=page.getByRole('combobox',{ name: 'Organisation',exact: true });
       await expect(organisation.locator('option')).toHaveCount(2);await organisation.selectOption({ index: 1 });
       await page.getByRole('button',{ name: 'Organisation öffnen',exact: true }).click();
@@ -100,6 +109,7 @@ async({ browser,browserName })=>{
       });expect(current.status).toBe(200);identities.push(current);
       expect(current.roles).toEqual(person.slot==='northwind' ? ['employee']
         : ['employee',person.slot==='contoso' ? 'conference_manager' : 'tenant_admin']);
+      checkpoint(`customer-workflow-${person.slot}`);
       if (person.slot==='northwind') {
         await page.locator('[data-view="employee"]').click();
         const date=new Date(Date.now()+28*86400000);while ([0,6].includes(date.getUTCDay())) date.setUTCDate(date.getUTCDate()+1);
@@ -161,23 +171,27 @@ async({ browser,browserName })=>{
       }
       expect(await page.evaluate(()=>!/(?:csrfToken|browserToken|access_token|refresh_token|approval_proof)/i
         .test(JSON.stringify({ local: Object.entries(localStorage),session: Object.entries(sessionStorage) })))).toBe(true);
+      checkpoint(`customer-logout-${person.slot}`);
       await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
       await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
     }
     expect(new Set(identities.map(row=>row.tenantId)).size).toBe(3);expect(new Set(identities.map(row=>row.userId)).size).toBe(3);
+    checkpoint('evidence');
     const evidence=await runtime.evidence();expect(evidence.application_keys).toBe(0);
     expect(evidence.participants).toEqual({ registered: 3,accepted: 3 });expect(edge.evidence().deniedConnects).toBe(0);
     expect(errors).toEqual([]);
     console.log('PARTICIPANT_BROWSER_ACCEPTANCE '+JSON.stringify({ browser: browserName,apiCommit,frontendCommit,
       invited: 3,accepted: 3,employeeBooking: true,managerDecision: true,onboardingActive: true,
       crossTenantDenied: true,auditsVerified: true,provider: 'isolated-msal-and-local-calendar',actualMail: false }));
-  } catch (error) { failed=true;throw error; }
+  } catch (error) { failed=true;console.error('PARTICIPANT_BROWSER_FAILURE '+phase);throw error; }
   finally {
     let cleanupFailed=false;
-    for (const cleanup of [()=>context?.close(),()=>edge?.close(),()=>runtime?.close(),
-      ()=>written ? rm(`${apiRoot}/.protected-frontend`,{ recursive: true,force: true }) : undefined]) {
+    for (const [index,cleanup] of [()=>context?.close(),()=>edge?.close(),()=>runtime?.close(),
+      ()=>written ? rm(`${apiRoot}/.protected-frontend`,{ recursive: true,force: true }) : undefined].entries()) {
+      if (failed) console.error('PARTICIPANT_BROWSER_CLEANUP_BEGIN '+index);
       try { await cleanup(); } catch { cleanupFailed=true; }
+      if (failed) console.error('PARTICIPANT_BROWSER_CLEANUP_END '+index);
     }
     if (cleanupFailed) { if (!failed) throw new Error('PARTICIPANT_BROWSER_CLEANUP_FAILED');console.error('PARTICIPANT_BROWSER_CLEANUP_FAILED'); }
   }
