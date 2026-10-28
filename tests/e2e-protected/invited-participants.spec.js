@@ -49,19 +49,40 @@ async({ browser,browserName })=>{
     } }); });
     page=await context.newPage();const errors=[],identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
     async function approveMicrosoft({ returnToCustomer=false }={}) {
-      const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
-      await expect(approval).toBeVisible();const element=await approval.elementHandle();
-      const opened=context.waitForEvent('page');
-      await approval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
-      const provider=await opened;expect(await provider.evaluate(()=>opener===null)).toBe(true);
-      const confirm=()=>provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
-      if (returnToCustomer) {
-        await Promise.all([page.waitForURL(url=>url.origin===origins.customer && url.pathname==='/',{ timeout: 15000 }),confirm()]);
-      } else await confirm();
-      expect(await provider.evaluate(()=>location.origin+location.pathname))
-        .toBe(origins.platform+'/api/v1/platform/auth/microsoft/operation/complete');
-      await provider.close();await page.bringToFront();
-      if (!returnToCustomer) await element.waitForElementState('hidden',{ timeout: 15000 });
+      const sourcePhase=phase;let step='dialog';
+      async function bounded(promise) {
+        let timer;try {
+          return await Promise.race([promise,new Promise((resolve,reject)=>{
+            timer=setTimeout(()=>reject(new Error('PARTICIPANT_BROWSER_MICROSOFT_WAIT_FAILED')),15000);
+          })]);
+        } finally { clearTimeout(timer); }
+      }
+      try {
+        checkpoint(sourcePhase+'-'+step);
+        const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
+        await expect(approval).toBeVisible();const element=await approval.elementHandle();
+        step='provider-open';checkpoint(sourcePhase+'-'+step);
+        const [provider]=await Promise.all([context.waitForEvent('page',{ timeout: 15000 }),
+          approval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter',{ timeout: 15000 })]);
+        step='provider-document';checkpoint(sourcePhase+'-'+step);
+        expect(await bounded(provider.evaluate(()=>opener===null))).toBe(true);
+        const link=provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true });
+        await expect(link).toBeVisible();
+        step='provider-confirm';checkpoint(sourcePhase+'-'+step);
+        const confirm=()=>link.click({ timeout: 15000 });
+        if (returnToCustomer) {
+          await Promise.all([page.waitForURL(url=>url.origin===origins.customer && url.pathname==='/',{ timeout: 15000 }),confirm()]);
+        } else await confirm();
+        step='provider-receipt';checkpoint(sourcePhase+'-'+step);
+        expect(await bounded(provider.evaluate(()=>location.origin+location.pathname)))
+          .toBe(origins.platform+'/api/v1/platform/auth/microsoft/operation/complete');
+        step='provider-close';checkpoint(sourcePhase+'-'+step);
+        await bounded(provider.close());
+        step='source-focus';checkpoint(sourcePhase+'-'+step);await bounded(page.bringToFront());
+        step='source-result';checkpoint(sourcePhase+'-'+step);
+        if (!returnToCustomer) await element.waitForElementState('hidden',{ timeout: 15000 });
+        checkpoint(sourcePhase);
+      } catch { throw new Error('PARTICIPANT_BROWSER_MICROSOFT_'+step.toUpperCase().replaceAll('-','_')+'_FAILED'); }
     }
     checkpoint('generation');
     await page.goto(origins.platform+'/platform-admin/');
@@ -281,7 +302,11 @@ async({ browser,browserName })=>{
       const traffic=edge.evidence();
       const pendingOrFailed=traffic.requests.filter(event=>event.path.startsWith('/api/') && (event.status===null || event.status>=400));
       console.error('PARTICIPANT_BROWSER_TRAFFIC '+JSON.stringify({ requests: traffic.requests.length,
-        staticCompactions: traffic.staticCompactions,pendingOrFailed: pendingOrFailed.slice(-8).map(event=>({
+        staticCompactions: traffic.staticCompactions,providerDocuments: traffic.providerDocuments,
+        microsoftRoutes: traffic.requests.filter(event=>event.path.includes('/microsoft/operation/')).slice(-8).map(event=>({
+          route: ['configuration','start','status','callback','complete'].find(name=>event.path.endsWith('/'+name)) ?? 'other',
+          method: event.method,status: event.status,
+        })),pendingOrFailed: pendingOrFailed.slice(-8).map(event=>({
           route: event.path.includes('/microsoft/operation/') ? 'microsoft-operation'
             : event.path.includes('/invitations') ? 'invitations' : event.path.includes('/auth/email') ? 'customer-email'
             : event.path.endsWith('/catalog') ? 'catalog' : event.path.endsWith('/room-context') ? 'room-context'
