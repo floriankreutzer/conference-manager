@@ -1,7 +1,7 @@
 import { renderRuntimeObservation } from './runtime-observation.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
-import { readinessBlockerPresentation } from './readiness-blockers.js';
+import { readinessBlockerPresentation, readinessNextTaskPresentation } from './readiness-blockers.js';
 import { auditEventPresentation } from './audit-event-presentation.js';
 import { microsoftMappingSummaryPresentation } from './microsoft-mapping-summary.js';
 
@@ -89,8 +89,15 @@ function readiness(resource, onSelectTenant, onLoadMore) {
       const label = t(presentation.messageKey, presentation.checkKey
         ? { check: t(presentation.checkKey) }
         : {});
+      const task = readinessNextTaskPresentation(entry);
+      const followUp = task.section && typeof onSelectTenant === 'function' ? button(t('platformAdmin.readiness.next.openEntitlements'), { className: 'secondary' }) : null;
+      followUp?.addEventListener('click', () => onSelectTenant(item.tenantId, task.section));
+      const check = item.readiness.checks.find(check => check.reasonCode === entry);
       blockers.append(el('li', {}, [
         el('p', { className: 'platform-admin-blocker-label', text: label }),
+        el('p', { text: t(task.messageKey) }),
+        ...(check ? [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.readiness.next.observed', { time: check.observedAt ? formatDateTime(check.observedAt) : t('common.unknown'), state: t(`platformAdmin.state.${check.freshness}`) }) })] : []),
+        ...(followUp ? [followUp] : []),
         el('details', { className: 'platform-admin-blocker-details' }, [
           el('summary', { text: t('platformAdmin.readiness.technicalDetails') }),
           dataCode(entry),

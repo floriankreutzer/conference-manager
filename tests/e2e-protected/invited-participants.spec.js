@@ -49,7 +49,7 @@ async({ browser,browserName })=>{
     } }); });
     page=await context.newPage();const errors=[],identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
     async function approveMicrosoft({ returnToCustomer=false }={}) {
-      const sourcePhase=phase;let step='dialog';
+      const sourcePhase=phase;let step='dialog',control=null;
       async function bounded(promise) {
         let timer;try {
           return await Promise.race([promise,new Promise((resolve,reject)=>{
@@ -61,9 +61,25 @@ async({ browser,browserName })=>{
         checkpoint(sourcePhase+'-'+step);
         const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
         await expect(approval).toBeVisible();const element=await approval.elementHandle();
+        step='source-keyboard-focus';checkpoint(sourcePhase+'-'+step);
+        control=approval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true });
+        const focusBefore=await bounded(page.evaluate(()=>({ focused: document.hasFocus(),visible: document.visibilityState==='visible' })));
+        await bounded(page.bringToFront());await control.focus({ timeout: 15000 });await expect(control).toBeFocused();
+        await expect(control).not.toHaveAttribute('aria-disabled','true');
+        console.log('PARTICIPANT_BROWSER_FOCUS '+JSON.stringify({ phase: sourcePhase,before: focusBefore,
+          after: await bounded(page.evaluate(()=>({ focused: document.hasFocus(),visible: document.visibilityState==='visible' }))) }));
+        await bounded(control.evaluate(element=>{
+          const trace={ clicks: 0,trusted: null,prevented: null,repeat: null,keyUp: false };element.__participantActivation=trace;
+          element.addEventListener('keydown',event=>{ if (event.key==='Enter') trace.repeat=event.repeat; });
+          element.addEventListener('keyup',event=>{ if (event.key==='Enter') trace.keyUp=true; });
+          element.addEventListener('click',event=>{
+            trace.clicks=Math.min(3,trace.clicks+1);trace.trusted=event.isTrusted;
+            queueMicrotask(()=>{ trace.prevented=event.defaultPrevented; });
+          });
+        }));
         step='provider-open';checkpoint(sourcePhase+'-'+step);
         const [provider]=await Promise.all([context.waitForEvent('page',{ timeout: 15000 }),
-          approval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter',{ timeout: 15000 })]);
+          control.press('Enter',{ timeout: 15000 })]);
         step='provider-document';checkpoint(sourcePhase+'-'+step);
         expect(await bounded(provider.evaluate(()=>opener===null))).toBe(true);
         const link=provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true });
@@ -82,7 +98,14 @@ async({ browser,browserName })=>{
         step='source-result';checkpoint(sourcePhase+'-'+step);
         if (!returnToCustomer) await element.waitForElementState('hidden',{ timeout: 15000 });
         checkpoint(sourcePhase);
-      } catch { throw new Error('PARTICIPANT_BROWSER_MICROSOFT_'+step.toUpperCase().replaceAll('-','_')+'_FAILED'); }
+      } catch {
+        if (control && step==='provider-open') try {
+          console.error('PARTICIPANT_BROWSER_ACTIVATION '+JSON.stringify(await bounded(control.evaluate(element=>({
+            ...element.__participantActivation,focused: document.activeElement===element,disabled: element.getAttribute('aria-disabled')==='true',
+          })))));
+        } catch { console.error('PARTICIPANT_BROWSER_ACTIVATION_UNAVAILABLE'); }
+        throw new Error('PARTICIPANT_BROWSER_MICROSOFT_'+step.toUpperCase().replaceAll('-','_')+'_FAILED');
+      }
     }
     checkpoint('generation');
     await page.goto(origins.platform+'/platform-admin/');

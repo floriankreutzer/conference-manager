@@ -22,6 +22,15 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
     quotas: dimensions.map(dimension=>({ dimension,state: 'not_configured',softLimit: null,hardLimit: null,revision: 0 })),
     },tenantId);
     const root=document.querySelector('#guidanceFixture');
+    const { renderPlatformFleetView }=await import('/src/platform-admin/fleet-sections.js');
+    window.guidanceTargets=[];
+    root.append(renderPlatformFleetView({ view: 'readiness',resource: { status: 'ready',data: {
+      snapshotAt: '2026-10-25T12:00:00.000Z',items: [{ tenantId,displayName: 'Guide customer',lifecycle: { status: 'active' },
+        entitlements: { enabledCount: 0 },readiness: { state: 'blocked',blockerCodes: [
+          'entitlement.microsoft_calendar.missing','microsoft.connection.not_connected','microsoft.free_busy.healthy.stale'],
+        checks: [{ reasonCode: 'microsoft.free_busy.healthy.stale',observedAt: null,freshness: 'stale' }] } }],nextCursor: null,
+    } },onSelectTenant(id,section) { window.guidanceTargets.push({ id,section }); } }));
+
     root.append(renderPlatformAdminTenantSection({ sectionId: 'metering',operator: { permissions: ['platform:metering:read'] },
       resource: { status: 'ready',data: usage } }));
     window.guidancePreviewCount=0;
@@ -31,6 +40,10 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
       onRecoveryPreview() { window.guidancePreviewCount+=1; },
     }));
   },language);
+  await page.getByRole('button',{ name: language==='de' ? 'Kundenfunktionen prüfen' : 'Review customer capabilities',exact: true }).click();
+  expect(await page.evaluate(()=>window.guidanceTargets)).toEqual([{ id: '11111111-1111-4111-8111-111111111111',section: 'entitlements' }]);
+  await expect(page.getByText(language==='de' ? /Zuständig ist die Kundenadministration/ : /The customer administrator is responsible/)).toBeVisible();
+  await expect(page.getByText(language==='de' ? /Zuerst ist ein aktueller Nachweis/ : /Current evidence from the responsible operations team/)).toBeVisible();
   const records=page.locator('article.platform-admin-record');
   await expect(records).toHaveCount(5);
   await expect(records.first().locator('strong')).toHaveText('0');

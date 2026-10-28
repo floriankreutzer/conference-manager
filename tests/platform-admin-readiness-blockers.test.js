@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readinessBlockerPresentation } from '../src/platform-admin/readiness-blockers.js';
+import { readinessBlockerPresentation, readinessNextTaskPresentation } from '../src/platform-admin/readiness-blockers.js';
 
 const directReasons = [
   ['tenant.identity.inactive', 'platformAdmin.readiness.reason.identityInactive'],
@@ -50,5 +50,14 @@ test('unmapped and malformed readiness reasons use a safe generic presentation',
       messageKey: 'platformAdmin.readiness.blocker.generic',
       checkKey: null,
     });
+  }
+});
+
+test('readiness follow-up distinguishes Operator configuration, customer setup and unproved evidence without granting authority', () => {
+  assert.equal(readinessNextTaskPresentation('entitlement.microsoft_calendar.missing').section, 'entitlements');
+  assert.equal(readinessNextTaskPresentation('microsoft.connection.not_connected').messageKey, 'platformAdmin.readiness.next.customerAdmin');
+  assert.equal(readinessNextTaskPresentation('microsoft.free_busy.healthy.stale').messageKey, 'platformAdmin.readiness.next.evidence');
+  for (const value of [null, {}, '__proto__', 'new.provider.failure']) {
+    assert.deepEqual(readinessNextTaskPresentation(value), { messageKey: 'platformAdmin.readiness.next.unknown', section: null });
   }
 });

@@ -108,6 +108,18 @@ logout204 and the next session400. That historical failure is retained; the
 change still requires fresh complete acceptance on both engines, all regular
 and permanent gates, review and separate Main qualification.
 
+## CONNECT idle lifecycle
+
+The qualified loopback relay retains its20s idle timeout. Expiry closes both
+network peers, so an unused preconnection cannot remain open on the browser side
+with no upstream. Its shared Node tunnel helper is exercised through actual
+loopback TCP/CONNECT traffic and the real timeout: the preceding one-sided
+close failed the30s downstream observation; symmetric closure passed after20s.
+The regression is chunk-safe and retains no authentication or TLS payloads.
+This is transport-lifecycle evidence, not a provider/device or complete browser
+pass. Host admission, byte-transparent TLS, all limits, no retries and fresh
+full-engine/permanent/Main qualification remain required.
+
 ## Historical execution checkpoints
 
 Local pure artifact/ref/key/aggregate checks pass. Full local frontend and fresh

@@ -363,3 +363,10 @@ Recovery explains preview versus final execution and empty eligible target pages
 The compact Audit filter searches only already-loaded authorized events, performs
 no server request and explicitly requires reapplication after refresh/pagination.
 Technical sequence/action metadata remains in native expandable details.
+
+The synthetic workspace includes a native expandable EN/DE entry guide. It keeps
+explicit generation creation, customer-browser intent, specific operator approval,
+separate enabled participant invitations and archival/reset consequences distinct.
+Opening help grants no authority and sends no mutation. Its open state and summary
+focus identity survive normal workspace updates; existing phase/error announcements
+and confirmation/proof flows remain intact. This is not real provider/mail evidence.

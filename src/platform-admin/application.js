@@ -476,9 +476,11 @@ export function createPlatformAdminApplication({
     }
   }
 
-  function openTenantFromFleet(tenantId) {
+  function openTenantFromFleet(tenantId, section = 'overview') {
     const tenant = fleet?.tenants.find(({ id }) => id === tenantId);
-    if (tenant) navigate(platformAdminTenantHash(tenant.id));
+    const destination = platformAdminTenantHash(tenantId, section);
+    if (tenant && destination !== platformAdminFleetHash()) navigate(destination);
+    else { announce(t('platformAdmin.navigation.tenantUnavailable'), { assertive: true }); showToast(t('platformAdmin.navigation.tenantUnavailable')); }
   }
 
   async function openWorkspaceTenant(tenantId) {

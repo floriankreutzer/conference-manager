@@ -6,6 +6,7 @@ import { once } from 'node:events';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MANAGED_CANARY_PHASES, normalizeManagedCanaryProgress } from '../support/hosted-transport/redaction-guard.mjs';
 
 async function filesUnder(directory) {
   const result = [];
@@ -45,7 +46,22 @@ async function runCase(kind, args = []) {
     }
     assert.equal(bytes.length, 0);
     const summary = JSON.parse(await readFile(summaryPath, 'utf8'));
-    return { status, summary, files: await filesUnder(directory), markerExists: await access(marker).then(() => true, () => false) };
+    let canaryProgress = null;
+    try {
+      const phases = [];
+      for (const phase of MANAGED_CANARY_PHASES) {
+        let entry;
+        try { entry = JSON.parse(await readFile(path.join(directory, `canary-phase-${phase}.json`), 'utf8')); }
+        catch (error) { if (error?.code === 'ENOENT') continue; throw new Error('CANARY_PROGRESS_UNAVAILABLE'); }
+        if (Object.keys(entry).sort().join(',') !== 'elapsedMs,phase,schemaVersion' || entry.schemaVersion !== 1 || entry.phase !== phase) {
+          throw new Error('CANARY_PROGRESS_UNAVAILABLE');
+        }
+        phases.push({ phase, elapsedMs: entry.elapsedMs });
+      }
+      canaryProgress = normalizeManagedCanaryProgress({ schemaVersion: 1, phases });
+    }
+    catch { /* Missing or invalid diagnostic input never reaches output. */ }
+    return { status, summary, canaryProgress, files: await filesUnder(directory), markerExists: await access(marker).then(() => true, () => false) };
   } finally { await rm(directory, { recursive: true, force: true }); await rm(outside, { recursive: true, force: true }); }
 }
 
@@ -80,11 +96,13 @@ if (process.env.CM_TRANSPORT_BROWSERS === '1') {
   for (const name of ['chromium', 'webkit']) test(`${name}: real response/DOM assertion reflection cannot persist the canary`, async () => {
     const result = await runCase(`browser-echo-${name}`);
     assert.notEqual(result.status, 0); assert.equal(result.summary.status, 'failed');
-    // Only the closed reporter counters may diagnose an unexpected result.
+    // Only closed counters and validated fixed phases/timings diagnose failure.
     // Raw browser errors, DOM, headers and exception text remain suppressed.
-    const counts = Object.fromEntries(['total', 'passed', 'failed', 'skipped', 'interrupted', 'timedOut']
+    const counts = Object.fromEntries(['total', 'passed', 'failed', 'skipped', 'interrupted', 'timedOut', 'guardBlockedWrites']
       .map((key) => [key, result.summary[key]]));
-    assert.equal(result.summary.failed, 1, JSON.stringify(counts)); assert.ok(result.summary.guardBlockedWrites > 0);
+    const diagnostic = JSON.stringify({ counts, canaryProgress: result.canaryProgress });
+    assert.equal(result.summary.failed, 1, diagnostic); assert.ok(result.summary.guardBlockedWrites > 0);
+    assert.equal(result.canaryProgress?.phases.at(-1)?.phase, 'complete', diagnostic);
     assert.equal(result.files.some((file) => file.endsWith('scenario-chromium-shared-demo.json')), true);
     assert.equal(result.files.some((file) => /error-context\.md$|\.(png|webm|zip|har)$/.test(file)), false);
   });

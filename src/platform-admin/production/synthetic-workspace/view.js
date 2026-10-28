@@ -12,9 +12,15 @@ export function createPlatformSyntheticWorkspaceView({ controller,onTenant }={})
   function update(state=controller.snapshot()) {
     const active=document.activeElement,hadFocus=element.contains(active),focusId=active?.id,same=phase===state.phase;
     const selectedSlot=element.querySelector(`#${id}Slot`)?.value ?? '',selectedRole=element.querySelector(`#${id}Role`)?.value ?? '';
+    const guideOpen=element.querySelector(`#${id}Guide`)?.open===true;
     phase=state.phase;clear(element);
     const title=el('h3',{ id: `${id}Title`,text: t('platformSynthetic.title'),attrs: { tabindex: '-1' } });element.append(title);
     element.append(el('p',{ text: t('platformSynthetic.disclosure') }));
+    const guide=el('details',{ id: `${id}Guide`,dataset: { syntheticEntryGuide: 'true' } },[
+      el('summary',{ id: `${id}GuideSummary`,text: t('platformSynthetic.guide.title') }),
+      el('ol',{},['create','start','approve','participants','reset'].map(step=>el('li',{ text: t(`platformSynthetic.guide.${step}`) }))),
+    ]);
+    guide.open=guideOpen;element.append(guide);
     element.append(el('p',{ text: t(`platformSynthetic.phase.${state.phase}`),attrs: { role: 'status','aria-live': 'polite' } }));
     if (state.error) element.append(el('p',{ text: t(`platformSynthetic.error.${state.error}`),attrs: { role: 'alert' } }));
     const actions=[];

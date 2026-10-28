@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncBuiltinESMExports } from 'node:module';
+import { performance } from 'node:perf_hooks';
 
 // Explicit, process-local protection for reviewed Playwright 1.63 runners. This
 // is not a sandbox for arbitrary test code, native browser downloads or profiles.
@@ -14,6 +15,8 @@ const original = {
 const CHECKSUM = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';
 const STATUSES = ['passed', 'failed', 'timedout', 'interrupted'];
 const COUNTS = ['total', 'passed', 'failed', 'skipped', 'interrupted', 'timedOut', 'guardBlockedWrites'];
+export const MANAGED_CANARY_PHASES = Object.freeze(['fixture', 'launch', 'context', 'page', 'navigation', 'echo', 'evidence', 'reflection',
+  'close_context', 'close_browser', 'close_fixture', 'complete']);
 const PROJECTS = ['chromium-hosted-demo', 'webkit-hosted-demo', 'chromium-shared-demo', 'webkit-shared-demo'];
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const RESET_REASONS = ['gate_failed', 'transaction_failed', 'transaction_lock_failed', 'preconditions_failed',
@@ -208,6 +211,38 @@ export function writeManagedSummary(value) {
     || value.guardBlockedWrites !== getSecretGuardStatus().guardBlockedWrites
     || (value.guardBlockedWrites > 0 && value.status === 'passed')) reject('CM_ACCEPTANCE_SUMMARY_REJECTED');
   persist(state.summaryPath, value);
+}
+
+export function normalizeManagedCanaryProgress(value) {
+  if (!keysEqual(value, ['schemaVersion', 'phases']) || value.schemaVersion !== 1
+    || !Array.isArray(value.phases) || value.phases.length < 1 || value.phases.length > MANAGED_CANARY_PHASES.length) {
+    reject('CM_ACCEPTANCE_CANARY_PROGRESS_REJECTED');
+  }
+  const phases = [];
+  let previousIndex = -1, previousTime = 0;
+  for (const item of value.phases) {
+    if (!keysEqual(item, ['phase', 'elapsedMs'])) reject('CM_ACCEPTANCE_CANARY_PROGRESS_REJECTED');
+    const phase = item.phase, elapsedMs = item.elapsedMs, index = MANAGED_CANARY_PHASES.indexOf(phase);
+    if (index <= previousIndex || !Number.isSafeInteger(elapsedMs) || elapsedMs < previousTime || elapsedMs > 60000
+      || phases.length === 0 && (phase !== 'fixture' || elapsedMs !== 0)) reject('CM_ACCEPTANCE_CANARY_PROGRESS_REJECTED');
+    phases.push(Object.freeze({ phase, elapsedMs })); previousIndex = index; previousTime = elapsedMs;
+  }
+  return Object.freeze({ schemaVersion: 1, phases: Object.freeze(phases) });
+}
+
+// Only a fixed phase enters this writer. Elapsed time is measured privately;
+// callers cannot supply a payload, numeric channel, filename or timing value.
+export function writeManagedCanaryPhase(phase) {
+  if (!state || !['browser-echo-chromium', 'browser-echo-webkit'].includes(process.env.CM_TRANSPORT_CANARY_CASE)
+    || typeof phase !== 'string' || !MANAGED_CANARY_PHASES.includes(phase)) reject('CM_ACCEPTANCE_CANARY_PROGRESS_REJECTED');
+  const now = performance.now();
+  const startedAt = state.canaryStartedAt ?? now;
+  const phases = [...(state.canaryPhases || []), { phase, elapsedMs: Math.round(now - startedAt) }];
+  const value = normalizeManagedCanaryProgress({ schemaVersion: 1, phases });
+  const entry = value.phases.at(-1);
+  persist(path.join(path.dirname(state.summaryPath), `canary-phase-${phase}.json`), { schemaVersion: 1, ...entry });
+  state.canaryStartedAt = startedAt;
+  state.canaryPhases = value.phases;
 }
 
 function parseScenarioEvidence(attachment) {
