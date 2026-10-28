@@ -84,7 +84,8 @@ async function requestAction(page) {
 }
 test('Microsoft confirmation survives different-site COOP isolation and executes only the original exact request',async({ page,context })=>{
   const f=await setup(page,context);await requestAction(page);
-  const dialog=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen' });await expect(dialog).toBeVisible();
+  const dialog=page.locator('dialog[aria-labelledby="platformMicrosoftOperationTitle"]');
+  await expect(dialog).toBeVisible();await expect(dialog).toHaveAccessibleName('Aktion mit Microsoft bestätigen');
   const link=dialog.getByRole('link',{ name: 'Mit Microsoft anmelden' });
   await expect(link).toBeFocused();await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel',/noopener/);
   const summary=dialog.locator('[data-microsoft-operation-context]');
@@ -92,6 +93,7 @@ test('Microsoft confirmation survives different-site COOP isolation and executes
   await expect(dialog).toContainText('aus Sicherheitsgründen');
   await expect(dialog).toContainText('nur bei gültigem Nachweis');
   await page.evaluate(async()=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage('en'); });
+  await expect(dialog).toHaveAccessibleName('Confirm action with Microsoft');
   await expect(summary.locator('dd')).toHaveText(['Suspend customer','Synthetic customer']);
   await expect(dialog).toContainText('only if the proof and your authorization remain valid');
   for (const width of [320,1280]) {
@@ -100,6 +102,7 @@ test('Microsoft confirmation survives different-site COOP isolation and executes
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
   }
   await page.evaluate(async()=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage('de'); });
+  await expect(dialog).toHaveAccessibleName('Aktion mit Microsoft bestätigen');
   await expect(link).toBeFocused();
   const opened=context.waitForEvent('page');await link.press('Enter');const provider=await opened;
   await provider.waitForLoadState();expect(await provider.evaluate(()=>window.opener===null)).toBe(true);
