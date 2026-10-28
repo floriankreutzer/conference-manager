@@ -190,6 +190,7 @@ test('Demo persona and lifecycle intents carry CSRF and mutation idempotency evi
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
   await page.locator('[data-platform-action="suspend"]').click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Mandant sperren', exact: true })).toBeVisible();
   await page.locator('#platformAdminActionReason').fill('Automated shared Demo lifecycle exercise');
   await page.locator('[data-platform-admin-confirm-action="suspend"]').click();
   await expect(page.locator('[data-platform-admin-section="lifecycle"] [data-state="suspended"]')).toBeVisible();
@@ -1494,3 +1495,34 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     }
   });
 }
+
+for (const locale of ['de','en']) test(`quota confirmation retains customer, human metric and canonical dimension in ${locale}`,async({ page })=>{
+  const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
+  await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/metering/usage?*`,route=>{
+    const start=new URL(route.request().url()).searchParams.get('periodStart'),end=new Date(start);
+    end.setUTCMonth(end.getUTCMonth()+1);
+    const names=['active_users','active_rooms','requests_created','bookings_confirmed','integration_operations'];
+    return route.fulfill({ contentType: 'application/json',body: JSON.stringify({ schemaVersion: 1,tenantId: ACTIVE_TENANT_ID,
+      period: { start,end: end.toISOString(),timeZone: 'UTC' },dataState: 'partial',measuredAt: null,reconciledAt: null,
+      dimensions: names.map(dimension=>({ dimension,value: 0 })),
+      quotas: names.map(dimension=>({ dimension,state: dimension==='active_users' ? 'configured' : 'not_configured',
+        softLimit: dimension==='active_users' ? 100 : null,hardLimit: dimension==='active_users' ? 200 : null,revision: dimension==='active_users' ? 1 : 0 })),
+    }) });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+  await page.locator('[data-platform-admin-navigate="metering"]').click();
+  await page.locator('[data-platform-admin-quota="active_users"]').click();
+  const dialog=page.getByRole('dialog');
+  await expect(dialog.getByRole('heading')).toContainText(locale==='de' ? 'Aktive interne Personen' : 'Active internal people');
+  await expect(dialog).toContainText('Dune Collective');
+  await expect(dialog).toContainText('active_users');
+  await expect(dialog.getByRole('button',{ name: locale==='de' ? 'Kontingent speichern' : 'Save quota',exact: true })).toBeVisible();
+  for (const width of [320,1280]) {
+    await page.setViewportSize({ width,height: 900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  await dialog.press('Escape');await expect(dialog).toBeHidden();
+  expect(state.requests.filter(({ method })=>method!=='GET')).toHaveLength(0);
+});

@@ -1069,7 +1069,7 @@ export function createPlatformAdminApplication({
     });
     const message = el('p', { className: 'platform-admin-dialog-message', attrs: { role: 'alert' } });
     const cancel = button(t('common.cancel'), { className: 'secondary' });
-    const confirm = button(t('platformAdmin.action.confirm'), {
+    const confirm = button(t(`platformAdmin.action.${action}`), {
       className: ['archive', 'suspend', 'invitation_revoke', 'disable_calendar_write'].includes(action)
         ? 'danger'
         : 'primary',
@@ -1172,7 +1172,7 @@ export function createPlatformAdminApplication({
     const confirmation = el('input', { type: 'text', attrs: { maxlength: '160', autocomplete: 'off', required: 'required' } });
     const message = el('p', { className: 'platform-admin-dialog-message', attrs: { role: 'alert' } });
     const cancel = button(t('common.cancel'), { className: 'secondary' });
-    const confirm = button(t('platformAdmin.action.confirm'), { className: 'danger' });
+    const confirm = button(t(titleKey), { className: 'danger' });
     const dialog = openDialog({
       title: t(titleKey),
       description: t(effectKey),
@@ -1230,9 +1230,11 @@ export function createPlatformAdminApplication({
     const cancel = button(t('common.cancel'), { className: 'secondary' });
     const save = button(t('platformAdmin.metering.saveQuota'), { className: 'danger' });
     const dialog = openDialog({
-      title: t('platformAdmin.metering.editQuotaTitle', { dimension: quota.dimension }),
+      title: t('platformAdmin.metering.editQuotaTitle', { dimension: t(`platformAdmin.metering.name.${quota.dimension}`) }),
       description: t('platformAdmin.metering.editQuotaDescription'),
       content: el('div', {}, [
+        el('p', { text: t('platformAdmin.action.target', { tenant: tenant.displayName, reference: tenant.reference || tenant.id }) }),
+        el('p', { text: t('platformAdmin.metering.limitEffect') }),
         field({ id: 'platformAdminQuotaState', label: t('platformAdmin.metering.quotaState'), control: stateControl }),
         field({ id: 'platformAdminQuotaSoft', label: t('platformAdmin.metering.softLimit'), control: softLimit }),
         field({ id: 'platformAdminQuotaHard', label: t('platformAdmin.metering.hardLimit'), control: hardLimit }),
