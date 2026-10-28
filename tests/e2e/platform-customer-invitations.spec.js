@@ -4,7 +4,7 @@ const CSRF='C'.repeat(43),state='S'.repeat(43);
 async function fixture(page,{ lostCreation=false }={}) {
   const configured=new URL(test.info().project.use.baseURL);
   if (configured.protocol!=='https:' || configured.hostname!=='127.0.0.1') throw new Error('LOOPBACK_FIXTURE_REQUIRED');
-  const origin=configured.origin,writes=[],requests=[];let items=[],lost=lostCreation;
+  const origin=configured.origin,writes=[],requests=[];let items=[],lost=lostCreation,listStatus=200;
   const html=`<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/styles.css">
     <link rel="stylesheet" href="/assets/platform-admin.css"></head><body><main id="fixture"></main></body></html>`;
@@ -18,6 +18,9 @@ async function fixture(page,{ lostCreation=false }={}) {
     if (!request.headers()['x-platform-passkey-proof']) {
       await route.fulfill({ status: 428,contentType: 'application/json',body: JSON.stringify({ status: 'passkey_required',
         state,options: { challenge: state },requestId: id(99) }) });return;
+    }
+    if (request.method()==='GET' && url.pathname===`/api/v1/platform/tenants/${id(1)}/invitations` && listStatus!==200) {
+      await route.fulfill({ status: listStatus,contentType: 'application/json',body: JSON.stringify({ error: { code: 'PLATFORM_UNAVAILABLE' } }) });return;
     }
     const value=request.method()==='GET' ? null : request.postDataJSON();let body;
     if (value) writes.push({ path: url.pathname,value,key: request.headers()['idempotency-key'] });
@@ -63,7 +66,7 @@ async function fixture(page,{ lostCreation=false }={}) {
     };
     globalThis.platformInvitationFixture={ render,language: value=>{ setLanguage(value);render(); },stop: ()=>presentation.clear() };
     render();
-  },{ csrf: CSRF,tenantId: id(1) });return { writes,requests };
+  },{ csrf: CSRF,tenantId: id(1) });return { writes,requests,setListStatus: value=>{ listStatus=value; } };
 }
 async function fillCreation(page) {
   await page.getByRole('button',{ name: 'Mandant anlegen',exact: true }).click();
@@ -98,6 +101,34 @@ test('owner-inclusive creation, list and per-person resend/revoke use exact fres
   expect(f.requests.filter(row=>row.method==='GET')).toHaveLength(6,'each list is explicitly challenged and retried once');
 });
 for (const locale of ['de','en']) {
+  for (const [status,copy] of [
+    [401,{ de: 'Ihre Sitzung ist nicht gültig oder abgelaufen. Melden Sie sich erneut an.',en: 'Your session is invalid or expired. Sign in again.' }],
+    [403,{ de: 'Der Zugriff wurde verweigert. Prüfen Sie Ihre Berechtigungen und die Kundenauswahl.',en: 'Access was denied. Check your permissions and customer selection.' }],
+    [404,{ de: 'Einladungen sind für diese Kundenauswahl derzeit nicht verfügbar. Prüfen Sie die Kundenauswahl oder wenden Sie sich an den Plattformverantwortlichen.',
+      en: 'Invitations are currently unavailable for this customer selection. Check the selected customer or contact the platform owner.' }],
+  ]) {
+    test(`invitation access feedback distinguishes HTTP${status} and requires explicit recovery: ${locale}`,async({ page })=>{
+      const f=await fixture(page),dialog=await fillCreation(page);
+      await dialog.getByRole('button',{ name: 'Kunden anlegen und Einladungen vormerken',exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await page.evaluate(value=>globalThis.platformInvitationFixture.language(value),locale);
+      f.setListStatus(status);
+      const refresh=page.getByRole('button',{ name: locale==='de' ? 'Aktuellen Stand laden' : 'Load current status',exact: true });
+      await refresh.focus();await refresh.press('Enter');
+      await expect(page.getByRole('alert').locator('p')).toHaveText(copy[locale]);
+      const add=page.getByRole('button',{ name: locale==='de' ? 'Person hinzufügen' : 'Add a person',exact: true });
+      await expect(add).toBeDisabled();
+      expect(f.requests.filter(row=>row.method==='GET')).toHaveLength(2);
+      expect(f.writes).toHaveLength(1);
+      await page.setViewportSize({ width: 320,height: 900 });
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+      f.setListStatus(200);await refresh.focus();await refresh.press('Enter');
+      await expect(add).toBeEnabled();await expect(page.getByRole('alert')).toHaveCount(0);
+      await expect(page.getByRole('heading',{ name: 'Person@example.test',exact: true })).toBeVisible();
+      expect(f.requests.filter(row=>row.method==='GET')).toHaveLength(4);
+      expect(f.writes).toHaveLength(1);
+    });
+  }
   test(`cancelled invitation read is neutral and cannot enable issuance before refresh: ${locale}`,async({ page })=>{
     const f=await fixture(page),dialog=await fillCreation(page);
     await dialog.getByRole('button',{ name: 'Kunden anlegen und Einladungen vormerken',exact: true }).click();

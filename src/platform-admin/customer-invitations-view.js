@@ -1,5 +1,6 @@
 import { t,language,formatDateTime,formatNumber } from '../core/i18n.js';
 import { button,clear,el,field,openDialog } from '../core/ui.js';
+import { isPlatformInvitationAccessError } from './customer-invitation-controller.js';
 
 const key=value=>`platformInvitations.${value}`;
 const blank=()=>({ recipient: '',roles: [],locale: language() });
@@ -92,7 +93,7 @@ export function createPlatformInvitationView({ controller,draft,creation=false,i
   }
   function render(state) {
     if (!current()) return;
-    fields.disabled=!['ready','error'].includes(state.status) || state.error==='authority';
+    fields.disabled=!['ready','error'].includes(state.status) || isPlatformInvitationAccessError(state.error);
     if (submitted && state.status==='ready') { draft.invitations.splice(0);draft.reason='';reason.value='';renderPeople();submitted=false; }
     if (state.status==='error') submitted=false;
     clear(status);clear(results);status.setAttribute('role',state.error && state.error!=='cancelled' ? 'alert' : 'status');

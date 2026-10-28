@@ -101,6 +101,8 @@ jobs:
         run: npx playwright test tests/e2e/platform-audit-segment.spec.js tests/e2e/platform-customer-invitations.spec.js --grep "cancelled Microsoft|failed Microsoft|cancelled invitation|unknown creation retry" --project=${{ matrix.project }}
       - name: Verify persistent global navigation and entitlement preview before the full suite
         run: npx playwright test tests/e2e/platform-admin.spec.js --grep "persistent global routes|entitlement workspace|insight tabs preserve" --project=${{ matrix.project }}
+      - name: Verify invitation session, refusal and unavailable-scope feedback
+        run: npx playwright test tests/e2e/platform-customer-invitations.spec.js --grep "invitation access feedback" --project=${{ matrix.project }}
       - name: Verify explicit Owner customer navigation before the full suite
         run: npx playwright test tests/e2e/platform-owner-customer.spec.js tests/e2e/customer-owner-handoff.spec.js --project=${{ matrix.project }}
       - name: Verify Guest print loading and recovery in both engines

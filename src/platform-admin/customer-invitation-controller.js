@@ -1,10 +1,12 @@
 const errorCode=error=>error?.code==='PLATFORM_CUSTOMER_INVITATION_INPUT_INVALID' ? 'input'
   : ['HTTP_400','HTTP_409','HTTP_429','HTTP_401','HTTP_403','HTTP_404'].includes(error?.code)
-  ? ({ HTTP_400: 'input',HTTP_409: 'conflict',HTTP_429: 'limited',HTTP_401: 'authority',HTTP_403: 'authority',HTTP_404: 'authority' })[error.code]
+  ? ({ HTTP_400: 'input',HTTP_409: 'conflict',HTTP_429: 'limited',HTTP_401: 'session',HTTP_403: 'denied',HTTP_404: 'unavailable' })[error.code]
   : ['PLATFORM_PASSKEY_OPERATION_CANCELLED','PLATFORM_MICROSOFT_OPERATION_CANCELLED'].includes(error?.code) ? 'cancelled'
   : ['PLATFORM_PASSKEY_OPERATION_NOT_EXECUTED','PLATFORM_MICROSOFT_OPERATION_NOT_EXECUTED'].includes(error?.code)
     ? 'notExecuted' : 'unknown';
 const readError=error=>['unknown','notExecuted'].includes(errorCode(error)) ? 'read' : errorCode(error);
+
+export const isPlatformInvitationAccessError=code=>['session','denied','unavailable'].includes(code);
 
 export function createPlatformInvitationController({ api,tenantId=null,onCreated=async()=>{},idFactory=()=>globalThis.crypto.randomUUID() }={}) {
   if (!api || ['create','list','issue','mutate'].some(key=>typeof api[key]!=='function')
@@ -45,7 +47,7 @@ export function createPlatformInvitationController({ api,tenantId=null,onCreated
         catch (error) { update({ status: pending ? 'retry' : 'refresh_required',error: pending ? 'unknown' : readError(error) }); } });
     },
     issue(value) {
-      if (disposed || busy || pending || state.error==='authority' || !['ready','error'].includes(state.status)) return;
+      if (disposed || busy || pending || isPlatformInvitationAccessError(state.error) || !['ready','error'].includes(state.status)) return;
       pending=Object.freeze({ commandId: idFactory(),reason: value.reason,
         ...(tenantId===null ? { displayName: value.displayName } : { tenantId }),
         invitations: Object.freeze(value.invitations.map(row=>Object.freeze({ recipient: row.recipient,

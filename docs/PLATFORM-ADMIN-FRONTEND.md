@@ -114,24 +114,24 @@ does not change the Platform artifact inventory, operation authority or live UI.
 
 Run `npm run check`, `npm run audit`, and `npm run test:e2e`. The E2E suite verifies the isolated Demo, deterministic reset, role/assurance presentation, Production fail-closed behavior, and the fixed step-up request.
 
-## Prepared individual Customer invitation presentation
+## Individual Customer invitation presentation
 
-The explicit `customerInvitationPresentation` application port selects the new
-real-customer surface. It is rejected in the closed Demo and is not yet injected
-by the Production entrypoint. The centralized optional
-`platform.customer-invitations` registry entry defaults OFF. Protected runtime
-composition must bind that presentation to a validated server capability and the
-new backend invitation services; an unsupported endpoint or malformed response
-never activates a legacy fallback.
+The explicit `customerInvitationPresentation` application port selects the
+real-customer surface and is rejected in the closed Demo. The Production entrypoint
+injects it only when the existing `platform.customer-invitations` protected-document
+flag is enabled; the central registry defaults OFF. The authenticated backend still
+owns capability, REAL eligibility and authorization. An unsupported endpoint or
+malformed response never activates a legacy fallback. Source composition and the
+default flag are not evidence that a named Hosted deployment enabled this surface.
 
 `customer-invitation-api.js` owns the exact direct Platform contracts for owner-
 inclusive Tenant creation and individual list/batch/reissue/revoke. It cannot
 call Customer endpoints or select an external origin. The existing authenticated
-API transport and fresh exact-request passkey decorator retain every recipient,
+API transport and fresh exact-request Microsoft/legacy-passkey decorators retain every recipient,
 Customer role, locale, reason, target, revision, query and command key. Individual
 invitation GETs join the same bounded proof queue as writes. The total adapter
-deadline includes the existing120-second native passkey ceremony; synthetic
-browser assertions are protocol fixtures and are not physical-key acceptance.
+deadline includes the existing120-second ceremony; synthetic browser assertions
+are protocol fixtures and are not real-provider or physical-key acceptance.
 
 `customer-invitation-controller.js` retains only the exact in-memory creation or
 batch command after an unknown outcome. Only an explicit retry resubmits its
@@ -151,8 +151,8 @@ The configured owner is a server-owned contact, never inferred from login claims
 
 Source and fixture checks do not constitute live sender, recipient, key recovery,
 protected INT cutover or real Microsoft acceptance. Current commit-bound CI and
-browser evidence is tracked in SaaS1 issue351; no milestone acceptance is closed by
-preparing this inactive port.
+browser evidence is tracked in SaaS1 issue351; source preparation or conditional
+composition does not close that milestone's operating acceptance.
 
 ## Operation cancellation and invitation read outcomes
 
@@ -182,10 +182,10 @@ other failed list reads report unavailable current data rather than an unknown
 write. Initial issuance remains disabled until an explicit successful read.
 After a confirmed mutation, a failed list refresh cannot resubmit that mutation.
 
-These source changes address the cancellation/read-outcome subset of issue399.
-They do not establish a cause or repair for401/403/404 invitation access failures,
-enable synthetic admission, change global routes or entitlement presentation, or
-complete real-provider or Hosted acceptance.
+The cancellation/read-outcome changes address that subset of issue399. They do
+not themselves repair denied invitation access, enable synthetic admission or
+complete real-provider or Hosted acceptance. Access feedback is described below;
+global routes and entitlement presentation have their separate section.
 
 `platform-api.js` is the active shared API adapter selected by both bootstraps.
 Its outcome types live in the adapter-free `operation-errors.js`, and the existing
@@ -256,3 +256,24 @@ retries. Targeted DE/EN, history, permission, failure, selection, focus and late
 browser cases accompany the ordinary complete engine and permanent Demo/reset gates.
 The source change covers399 UX-03/UX-04; invitation admission, real-provider proof,
 email delivery and Hosted acceptance remain separate open evidence.
+
+## Invitation access feedback
+
+The Platform invitation controller distinguishes an invalid/expired session
+(HTTP401), refused access (HTTP403) and invitations unavailable for the selected
+customer (HTTP404). Only401 recommends signing in again.403 asks users to check
+permissions/customer selection;404 asks them to check the selection or contact the
+platform owner. Neither message claims to know a concealed object's existence or
+the server's internal eligibility reason. DE/EN messages use the existing alert
+and explicit-refresh controls. Issuance stays disabled after a failed list read
+until a successful explicit refresh, and known creation denials cannot be retried
+as new writes from the same blocked controller.
+
+This changes presentation, not backend authorization or synthetic eligibility.
+An earlier unknown write retains its original command and unknown outcome even
+when a later check returns401/403/404; no automatic retry, login or write is added.
+The backend's current strict REAL-only invitation scope remains unchanged. The
+observed source cause was the previous controller's collapse of all three HTTP
+statuses into the same sign-in instruction. The specific status/cause of the
+historical Hosted Demo failure remains unobserved; this source correction does
+not claim successful Demo admission or operating acceptance for issue399 UX-02.
