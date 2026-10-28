@@ -82,7 +82,12 @@ The fixture reads only its fixed synthetic example.test mailboxes from the
 current generation's encrypted outbox. Real recipient delivery and the Microsoft
 provider remain separate operating acceptance. Actual PostgreSQL-clock waits
 honor the existing Microsoft operation capacity; proofs, counters, clocks and
-limits are not rewritten. Application enrollment/credential APIs are forbidden
+limits are not rewritten. Completed neutral provider tabs are closed and the
+source application regains focus before waiting for its independent result.
+Between Northwind logout and Contoso admission, the accelerated booking/decision
+case waits a real60s address window: these distinct people share one actual
+loopback client address and its unchanged120-request budget. The whole wait
+remains inside the original240s case, without retrying a failed request. Application enrollment/credential APIs are forbidden
 in these participant cases. Current Tenant HMAC chains and zero application
 keys remain required.
 

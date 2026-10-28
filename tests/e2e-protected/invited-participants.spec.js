@@ -3,6 +3,7 @@ import { fileURLToPath,pathToFileURL } from 'node:url';
 import { rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { setTimeout as delay } from 'node:timers/promises';
 import { buildProtectedFrontendArtifacts } from '../../scripts/protected-frontend-artifacts.mjs';
 import { createQualifiedProtectedEdge } from './support/qualified-edge.mjs';
 
@@ -56,9 +57,11 @@ async({ browser,browserName })=>{
       const confirm=()=>provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
       if (returnToCustomer) {
         await Promise.all([page.waitForURL(url=>url.origin===origins.customer && url.pathname==='/',{ timeout: 15000 }),confirm()]);
-      } else {
-        await confirm();await element.waitForElementState('hidden',{ timeout: 15000 });
-      }
+      } else await confirm();
+      expect(await provider.evaluate(()=>location.origin+location.pathname))
+        .toBe(origins.platform+'/api/v1/platform/auth/microsoft/operation/complete');
+      await provider.close();await page.bringToFront();
+      if (!returnToCustomer) await element.waitForElementState('hidden',{ timeout: 15000 });
     }
     checkpoint('generation');
     await page.goto(origins.platform+'/platform-admin/');
@@ -129,10 +132,13 @@ async({ browser,browserName })=>{
       // Reserve both the mutation and its independent automatic list-read proof.
       const issueCapacity=await runtime.waitForMicrosoftOperationCapacity(2);
       if (issueCapacity.waitedMs) proofCapacityWaits++;
-      await panel.getByRole('button',{ name: 'Einladungen vormerken',exact: true }).click();await approveMicrosoft();
+      checkpoint(`invitation-issue-ready-${person.slot}`);
+      const issue=panel.getByRole('button',{ name: 'Einladungen vormerken',exact: true });
+      await expect(issue).toBeEnabled();await issue.click();
+      checkpoint(`invitation-issue-proof-${person.slot}`);await approveMicrosoft();
       // The controller independently refreshes the committed list with its own
       // exact read proof. Neither approval nor the mutation is replayed.
-      await approveMicrosoft();
+      checkpoint(`invitation-list-proof-${person.slot}`);await approveMicrosoft();
       await expect(panel.getByRole('heading',{ name: `${person.slot}@example.test`,exact: true })).toBeVisible();
     }
     edge.compactStaticEvidence();
@@ -240,6 +246,11 @@ async({ browser,browserName })=>{
       logoutOutcome.session=await page.evaluate(async()=>(await fetch('/api/v1/session',{ cache: 'no-store' })).status);
       expect(logoutOutcome.session).toBe(401);
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
+      if (person.slot==='northwind') {
+        // Distinct people still share this actual loopback client address. Honor
+        // the unchanged120-request/60s window before the next complete journey.
+        checkpoint('customer-address-window');await delay(60000);
+      }
     }
     if (journey==='booking-decision') expect(proofCapacityWaits).toBeGreaterThan(0);else expect(proofCapacityWaits).toBe(0);
     expect(new Set(identities.map(row=>row.tenantId)).size).toBe(participants.length);
