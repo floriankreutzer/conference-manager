@@ -47,14 +47,18 @@ async({ browser,browserName })=>{
       create() { throw new Error('PARTICIPANT_APPLICATION_ENROLLMENT_FORBIDDEN'); },
     } }); });
     const page=await context.newPage(),errors=[],identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
-    async function approveMicrosoft() {
+    async function approveMicrosoft({ returnToCustomer=false }={}) {
       const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
       await expect(approval).toBeVisible();const element=await approval.elementHandle();
       const opened=context.waitForEvent('page');
       await approval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
       const provider=await opened;expect(await provider.evaluate(()=>opener===null)).toBe(true);
-      await provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
-      await element.waitForElementState('hidden',{ timeout: 15000 });
+      const confirm=()=>provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
+      if (returnToCustomer) {
+        await Promise.all([page.waitForURL(url=>url.origin===origins.customer && url.pathname==='/',{ timeout: 15000 }),confirm()]);
+      } else {
+        await confirm();await element.waitForElementState('hidden',{ timeout: 15000 });
+      }
     }
     checkpoint('generation');
     await page.goto(origins.platform+'/platform-admin/');
@@ -76,7 +80,8 @@ async({ browser,browserName })=>{
       await tenant.selectOption('contoso');
       await page.getByRole('combobox',{ name: 'Kundenrolle',exact: true }).selectOption('tenant_admin');
       const capacity=await runtime.waitForMicrosoftOperationCapacity(1);if (capacity.waitedMs) proofCapacityWaits++;
-      await page.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();await approveMicrosoft();
+      await page.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();
+      await approveMicrosoft({ returnToCustomer: true });
       const enter=page.getByRole('button',{ name: 'Testzugang öffnen',exact: true });await expect(enter).toBeVisible();await enter.click();
       await expect(page.locator('#primaryNavigation button[aria-haspopup="dialog"]')).toBeVisible();
       const before=await page.evaluate(async()=>{
