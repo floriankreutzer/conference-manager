@@ -276,6 +276,7 @@ export function createPlatformAdminApplication({
     if (stopped || currentRoute().view !== 'fleet' || currentFleetView() !== view) return;
     const hash = platformAdminFleetHash(view, tab);
     if (windowRef.location.hash !== hash) windowRef.history.pushState(null, '', hash);
+    fleetDestinations.set(view, hash);
   }
 
   function currentRoute() {

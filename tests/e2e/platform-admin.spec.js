@@ -1115,6 +1115,13 @@ for (const { area, fleetView, tabs } of [
       await expect(page.locator('[data-insights-panel]:visible')).toHaveCount(1);
     }
     const selected = tabs.at(-1);
+    // Leave immediately after tab selection: no locale change or report refresh
+    // may be needed to remember the current destination.
+    await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+    await navigation.click();
+    await expect(page).toHaveURL(new RegExp(`#fleet=${fleetView}&tab=${selected}$`));
+    await selectedInsightsPanel(page, area, selected);
+    expect(reads).toBe(1);
     await page.locator('select[aria-label="Sprache"]').selectOption('en');
     await selectedInsightsPanel(page, area, selected);
     await insightsTab(page, area, selected).focus();
