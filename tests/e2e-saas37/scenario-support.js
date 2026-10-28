@@ -1,7 +1,11 @@
 import { createHash } from 'node:crypto';
-import { expect } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
+import { expect, test } from '@playwright/test';
 
 import { scenarioOrigins } from '../support/demo-origins.js';
+import { acceptanceGateEnabled } from '../support/origin-context.mjs';
+import { localSharedDemoDiagnosticsEnabled } from '../support/local-demo-network-diagnostics.js';
+import { observeLocalDemoContextSwitch } from '../support/demo-context-diagnostics.js';
 
 export { scenarioOrigins } from '../support/demo-origins.js';
 
@@ -58,12 +62,28 @@ export async function applyContextThroughUi(page) {
 }
 
 export async function selectContext(page, tenantId, persona) {
-  await page.getByLabel('Demo-Tenant').selectOption(tenantId);
-  await page.getByLabel('Demo-Persona').selectOption(persona);
-  await applyContextThroughUi(page);
-  await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
-  await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
-  return customerSession(page.context());
+  const info = test.info();
+  const diagnostics = observeLocalDemoContextSwitch(page, localSharedDemoDiagnosticsEnabled({
+    projectName: info.project.name, customerOrigin: ORIGINS.customer, hosted: ORIGINS.hosted,
+    gated: acceptanceGateEnabled(process.env),
+  }));
+  try {
+    await page.getByLabel('Demo-Tenant').selectOption(tenantId);
+    await page.getByLabel('Demo-Persona').selectOption(persona);
+    await applyContextThroughUi(page);
+    await expect(page.getByLabel('Demo-Tenant')).toHaveValue(tenantId);
+    await expect(page.getByLabel('Demo-Persona')).toHaveValue(persona);
+    return await customerSession(page.context());
+  } catch (error) {
+    if (diagnostics) {
+      try {
+        const path = info.outputPath('demo-context-switch.json');
+        await writeFile(path, JSON.stringify({ schemaVersion: 1, ...await diagnostics.snapshot() }), { mode: 0o600 });
+        await info.attach('demo-context-switch', { path, contentType: 'application/json' });
+      } catch { /* Failure diagnostics must not replace the original failed assertion. */ }
+    }
+    throw error;
+  } finally { diagnostics?.dispose(); }
 }
 
 export async function uiResponse(page, method, path, action, expected = 200) {
