@@ -69,8 +69,9 @@ sensitive suite; normal existing evidence gates are retained unchanged.
 Two additional independent cases retain the existing240s deadline and zero
 retries. Each creates its own complete canonical generation through the actual
 Platform UI and explicit isolated Microsoft approvals. The booking/decision
-case first activates ready Contoso through the existing attributable operator
-Admin handoff, invites a Northwind Employee and a distinct Contoso Manager,
+case invites a Northwind Employee and a distinct Contoso Manager, activates
+ready Contoso through the existing attributable operator Admin handoff before
+Manager admission,
 uses actual invitation-bound email/code admission, books as Employee and
 decides the Manager's own request while rejecting a foreign Tenant target.
 The onboarding case separately invites a Fabrikam Admin and performs actual
@@ -87,7 +88,9 @@ source application regains focus before waiting for its independent result.
 The booking/decision case completes Northwind admission/booking/logout before
 issuing Contoso's invitation. Its real Microsoft capacity interval overlaps the
 shared client address's unchanged60s window; any remaining quiet interval is
-waited before Contoso admission. Distinct people still share this loopback
+waited before the Contoso Admin prerequisite and Manager admission. Northwind
+uses the initial untouched Customer window; the Admin activation follows its
+logout and the actual quiet interval. Distinct people still share this loopback
 address and its120-request budget. All work and waits remain within the original
 240s case, without retrying a failed request. Application enrollment/credential APIs are forbidden
 in these participant cases. Current Tenant HMAC chains and zero application

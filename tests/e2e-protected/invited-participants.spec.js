@@ -73,7 +73,7 @@ async({ browser,browserName })=>{
     for (const state of ['Northwind: Aktiv.','Contoso: Bereit.','Fabrikam: Onboarding.']) {
       await expect(workspace.getByText(state,{ exact: true })).toBeVisible();
     }
-    if (journey==='booking-decision') {
+    async function activateContoso() {
       // Contoso starts ready. Its Manager cannot activate it or inherit Admin.
       // The operator performs that existing prerequisite through actual Admin custody.
       checkpoint('contoso-owner-activation');
@@ -148,6 +148,7 @@ async({ browser,browserName })=>{
         const remaining=Math.max(0,60000-Math.max(0,Date.now()-lastCustomerUse));
         if (remaining) { checkpoint('customer-address-window');await delay(remaining);customerAddressWaitMs+=remaining; }
       }
+      if (person.slot==='contoso') await activateContoso();
       checkpoint(`customer-code-${person.slot}`);
       await page.goto(origins.customer+'/');
       await page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true }).fill(`${person.slot}@example.test`);
