@@ -480,6 +480,26 @@ export function createPlatformAdminApplication({
     if (tenant) navigate(platformAdminTenantHash(tenant.id));
   }
 
+  async function openWorkspaceTenant(tenantId) {
+    const destination = platformAdminTenantHash(tenantId, 'lifecycle');
+    if (stopped || runtime !== 'production' || sessionState !== 'authenticated' || !currentOperator
+      || destination === platformAdminFleetHash()) return false;
+    // An explicit workspace target needs a fresh directory projection, independent
+    // of filters/cursors that preceded generation creation or replacement.
+    filters = normalizePlatformDirectoryQuery();
+    navigate(platformAdminFleetHash());
+    const generation = navigationGeneration;
+    await loadFleet();
+    if (stopped || generation !== navigationGeneration || loadError) return false;
+    if (!fleet?.tenants.some(tenant => tenant.id === tenantId)) {
+      announce(t('platformAdmin.navigation.tenantUnavailable'), { assertive: true });
+      showToast(t('platformAdmin.navigation.tenantUnavailable'));
+      return false;
+    }
+    navigate(destination);
+    return true;
+  }
+
   async function loadFleetResource(view, { cursor = null, append = false, force = false, restoreTab = null } = {}) {
     if (stopped || view === 'directory') return;
     const existing = fleetResources.get(view);
@@ -1468,5 +1488,5 @@ export function createPlatformAdminApplication({
   if (PLATFORM_ADMIN_SECTION_DEFINITIONS.length !== PLATFORM_ADMIN_SECTIONS.length) {
     throw new TypeError('PLATFORM_ADMIN_SECTION_REGISTRY_INCOMPLETE');
   }
-  return Object.freeze({ start, stop, render });
+  return Object.freeze({ start, stop, render, openWorkspaceTenant });
 }

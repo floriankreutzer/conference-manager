@@ -96,7 +96,7 @@ async({ browser,browserName })=>{
       const code=await runtime.mailboxCode(`${person.slot}@example.test`);
       const wrong=(code[0]==='0' ? '1' : '0')+code.slice(1);
       await codeInput.fill(wrong);await page.getByRole('button',{ name: 'Code bestätigen',exact: true }).click();
-      await expect(page.getByRole('alert')).toContainText('Die Anmeldung konnte nicht bestätigt werden.');
+      await expect(page.locator('#customerAuthError')).toContainText('Die Anmeldung konnte nicht bestätigt werden.');
       await codeInput.fill(code);await page.getByRole('button',{ name: 'Code bestätigen',exact: true }).click();
       checkpoint(`customer-selection-${person.slot}`);
       const organisation=page.getByRole('combobox',{ name: 'Organisation',exact: true });

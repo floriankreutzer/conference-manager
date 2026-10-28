@@ -9,7 +9,7 @@ function generation(index=1) {
   return { generationId: uuid(index+1),revision: 1,available: true,tenants: ['northwind','contoso','fabrikam'].map((slot,offset)=>({
     slot,tenantId: uuid(10*index+offset),status: ['active','ready','onboarding'][offset] })) };
 }
-async function setup(page,context,{ initial=false,pending=false,unknownCommit=false,reader=false,microsoft=false }={}) {
+async function setup(page,context,{ initial=false,pending=false,unknownCommit=false,reader=false,microsoft=false,workspaceDirectory=false,deferDirectory=false,directoryFailure=false }={}) {
   const origin=test.info().project.use.baseURL;
   if (origin!=='https://127.0.0.1:4173') throw new Error('LOOPBACK_FIXTURE_REQUIRED');
   const html=createProtectedPlatformHtml({ source: await readFile(new URL('../../platform-admin/index.html',import.meta.url),'utf8'),
@@ -24,6 +24,7 @@ async function setup(page,context,{ initial=false,pending=false,unknownCommit=fa
       verified=true;await route.continue();
     });
   }
+  let directoryReads=0,releaseDirectory=()=>{};
   const writes=[],reads=[];let current=initial ? generation() : null,retained=initial ? 1 : 0,csrf='C'.repeat(43),authenticated=true;
   await context.addCookies([{ name: 'cm_fixture_platform',value: 'present',domain: '127.0.0.1',path: '/api/v1/platform',
     secure: true,httpOnly: true,sameSite: 'Strict' }]);
@@ -69,7 +70,15 @@ async function setup(page,context,{ initial=false,pending=false,unknownCommit=fa
       expect(microsoft).toBe(true);expect(request.postDataJSON()).toEqual({ state: STATE });
       value={ status: verified ? 'verified' : 'pending',requestId: uuid(1) };
     } else if (path==='/api/v1/platform/tenants') {
-      value={ schemaVersion: 1,snapshotAt: new Date().toISOString(),items: [],nextCursor: null };
+      directoryReads++;
+      if (directoryReads>1 && deferDirectory) await new Promise(resolve=>{ releaseDirectory=resolve; });
+      if (directoryReads>1 && directoryFailure) status=503;
+      value={ schemaVersion: 1,snapshotAt: new Date().toISOString(),
+        items: directoryReads>1 && workspaceDirectory && current ? current.tenants.map(tenant=>({
+          tenantId: tenant.tenantId,displayName: `${tenant.slot} current fixture`,lifecycle: { status: tenant.status,revision: 1 },
+          onboardingState: 'not_started',identityState: 'unbound',invitation: { id: null,state: 'none',revision: null,expiresAt: null },
+          updatedAt: new Date().toISOString(),
+        })) : [],nextCursor: null };
     } else if (path==='/api/v1/platform/synthetic/generation') value={ generation: current,retainedGenerations: retained,
       canReplace: true,replaceAfter: null,requestId: uuid(1) };
     else if (path==='/api/v1/platform/auth/delegation/intent') value=pending
@@ -90,7 +99,7 @@ async function setup(page,context,{ initial=false,pending=false,unknownCommit=fa
     if (status>=400) value={ error: { code: 'PLATFORM_NOT_FOUND',requestId: uuid(1) } };
     await route.fulfill({ status,contentType: 'application/json',body: JSON.stringify(value) });
   });
-  await page.goto(`${origin}/platform-admin/`);return { writes,reads };
+  await page.goto(`${origin}/platform-admin/`);return { writes,reads,directoryReads: ()=>directoryReads,releaseDirectory: ()=>releaseDirectory() };
 }
 
 test('own generation creation/reset is explicit, signed per operation and keeps localized retained states and enlarged-text reflow',async({ page,context })=>{
@@ -190,4 +199,57 @@ async({ page,context })=>{
   expect(JSON.parse(form.get('payload'))).toEqual({ generationId: generation().generationId,
     slot: 'fabrikam',role: 'tenant_admin',state: STATE });
   expect((await context.cookies(CUSTOMER)).some(cookie=>cookie.name==='cm_session')).toBe(false);await nextProvider.close();
+});
+
+
+test('fresh generation management revalidates the authoritative directory before opening lifecycle and focuses its heading',async({ page,context })=>{
+  const fixture=await setup(page,context,{ workspaceDirectory: true });
+  await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
+  await page.getByRole('button',{ name: 'Testmandanten anlegen',exact: true }).click();
+  await page.getByRole('button',{ name: 'Anlegen bestätigen',exact: true }).click();
+  const manage=page.getByRole('button',{ name: 'Northwind verwalten',exact: true });await expect(manage).toBeVisible();
+  expect(fixture.directoryReads()).toBe(1);await manage.focus();await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`#tenant=${uuid(10)}&section=lifecycle$`));
+  await expect(page.locator('#viewTitle')).toHaveText('northwind current fixture');
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  await expect(page.locator('[data-platform-admin-section="lifecycle"]')).toBeVisible();
+  expect(fixture.directoryReads()).toBe(2);
+  expect(fixture.writes.filter(value=>value.path.endsWith('/replace'))).toHaveLength(1);
+});
+
+for (const locale of ['de','en']) test(`workspace management never invents a directory target and explains its absence in ${locale}`,async({ page,context })=>{
+  const fixture=await setup(page,context,{ initial: true });
+  if (locale==='en') await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await page.getByRole('button',{ name: locale==='de' ? 'Eigene Testmandanten' : 'Own test organisations',exact: true }).click();
+  await page.getByRole('button',{ name: locale==='de' ? 'Northwind verwalten' : 'Manage Northwind',exact: true }).click();
+  await expect(page).toHaveURL(/#fleet$/);
+  await expect(page.locator('[data-platform-admin-section]')).toHaveCount(0);
+  await expect(page.getByText(locale==='de'
+    ? 'Der ausgewählte Kunde ist im aktuellen Verzeichnis nicht verfügbar. Prüfen Sie die Auswahl und laden Sie das Verzeichnis bei Bedarf neu.'
+    : 'The selected customer is unavailable in the current directory. Check the selection and reload the directory if needed.',{ exact: true }).first()).toBeVisible();
+  expect(fixture.directoryReads()).toBe(2);expect(fixture.writes).toHaveLength(0);
+});
+
+test('a late workspace directory response cannot reopen the target after navigation',async({ page,context })=>{
+  const fixture=await setup(page,context,{ initial: true,workspaceDirectory: true,deferDirectory: true });
+  await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
+  const pending=page.waitForRequest(request=>new URL(request.url()).pathname==='/api/v1/platform/tenants');
+  await page.getByRole('button',{ name: 'Northwind verwalten',exact: true }).click();await pending;
+  const loading=page.getByRole('heading',{ name: 'Mandantenverzeichnis wird geladen',exact: true });
+  await expect(loading).toBeVisible();
+  await page.evaluate(()=>{ location.hash='#fleet=runtime-status'; });await expect(page).toHaveURL(/#fleet=runtime-status$/);
+  const completed=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/v1/platform/tenants');
+  fixture.releaseDirectory();await completed;await expect(loading).toHaveCount(0);
+  await expect(page).toHaveURL(/#fleet=runtime-status$/);
+  await expect(page.locator('[data-platform-admin-section]')).toHaveCount(0);
+  expect(fixture.directoryReads()).toBe(2);expect(fixture.writes).toHaveLength(0);
+});
+
+test('a failed workspace directory refresh stays unavailable without creating a target or retrying',async({ page,context })=>{
+  const fixture=await setup(page,context,{ initial: true,workspaceDirectory: true,directoryFailure: true });
+  await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
+  await page.getByRole('button',{ name: 'Northwind verwalten',exact: true }).click();
+  await expect(page.locator('#app').getByRole('alert')).toContainText('Die Antwort konnte nicht sicher geladen oder validiert werden.');
+  await expect(page).toHaveURL(/#fleet$/);await expect(page.locator('[data-platform-admin-section]')).toHaveCount(0);
+  expect(fixture.directoryReads()).toBe(2);expect(fixture.writes).toHaveLength(0);
 });

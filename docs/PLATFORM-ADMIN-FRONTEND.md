@@ -277,3 +277,23 @@ observed source cause was the previous controller's collapse of all three HTTP
 statuses into the same sign-in instruction. The specific status/cause of the
 historical Hosted Demo failure remains unobserved; this source correction does
 not claim successful Demo admission or operating acceptance for issue399 UX-02.
+
+
+## Fresh synthetic workspace management
+
+The production workspace delegates an explicit Manage selection to the Platform
+application's owned navigation port. That port clears the preceding directory
+filters/cursor and reads a fresh authorized directory page before selecting the
+existing lifecycle route. The workspace's generation projection and its URL are
+not a substitute for that directory projection or backend authority. A target
+absent from the current page remains in the directory with a localized unavailable
+notice; no missing Tenant record is synthesized. Existing directory pagination
+and server authorization remain unchanged.
+
+Navigation generations suppress a late target handoff after departure or stop.
+Read failure retains the existing unavailable directory state and explicit retry;
+no write, Microsoft proof or generation replacement is replayed. Ordinary browser
+regressions cover fresh-generation keyboard management, DE/EN missing targets,
+failed reads and navigation during a deferred response. The protected invited
+participant journey retains the actual new-generation precondition and all three
+role-owned business workflows, without a manual reload or fixture directory seed.
