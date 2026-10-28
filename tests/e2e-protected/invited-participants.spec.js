@@ -141,14 +141,13 @@ async({ browser,browserName })=>{
     let northwindRequest=null,lastCustomerUse=null,customerAddressWaitMs=0;
     for (const [index,person] of participants.entries()) {
       await invite(person,index);
-      // Retain all API/auth/document/failure/open events. Release only successful
-      // immutable assets at this fixed boundary, at most twice per complete case.
-      edge.compactStaticEvidence();
       if (lastCustomerUse!==null) {
         const remaining=Math.max(0,60000-Math.max(0,Date.now()-lastCustomerUse));
         if (remaining) { checkpoint('customer-address-window');await delay(remaining);customerAddressWaitMs+=remaining; }
       }
-      if (person.slot==='contoso') await activateContoso();
+      if (person.slot==='contoso') {
+        await activateContoso();edge.compactStaticEvidence();
+      } else if (person.slot==='fabrikam') edge.compactStaticEvidence();
       checkpoint(`customer-code-${person.slot}`);
       await page.goto(origins.customer+'/');
       await page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true }).fill(`${person.slot}@example.test`);
@@ -252,6 +251,9 @@ async({ browser,browserName })=>{
       expect(logoutOutcome.session).toBe(401);
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
       if (person.slot==='northwind') {
+        // Retain API/auth/document/failure/open evidence; compact only successful
+        // immutable assets after the complete Customer phase, at most twice.
+        edge.compactStaticEvidence();
         // The next invitation uses the real Microsoft capacity interval while
         // this shared client address is quiet. Wait any remainder before admission.
         lastCustomerUse=Date.now();await page.goto(origins.platform+'/platform-admin/');
