@@ -1429,6 +1429,11 @@ test('entitlement workspace read-only authority and departed preview remain boun
 
 for (const locale of ['de','en']) test(`Platform context groups retain customer identity, distinct runtime routes and keyboard return in ${locale}`, async ({ page }, testInfo) => {
   const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
+  let releaseRuntime=null;
+  await page.route('**/api/v1/platform/runtime/deployments',async route=>{
+    await new Promise(resolve=>{ releaseRuntime=resolve; });
+    await route.fulfill({ status: 503,contentType: 'application/json',body: JSON.stringify({ error: { code: 'RUNTIME_UNAVAILABLE' } }) });
+  });
   await page.goto('/platform-admin-demo/');
   await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
   const navigation=page.locator('#primaryNavigation');
@@ -1458,7 +1463,14 @@ for (const locale of ['de','en']) test(`Platform context groups retain customer 
   await globalRuntime.focus();await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#fleet=runtime-status$/);
   await expect(navigation.locator('section')).toHaveCount(1);
-  await navigation.locator('[data-platform-admin-fleet-view="directory"]').focus();await page.keyboard.press('Enter');
+  await expect.poll(()=>typeof releaseRuntime).toBe('function');
+  const directory=navigation.locator('[data-platform-admin-fleet-view="directory"]');
+  try {
+    await directory.focus();await expect(directory).toBeFocused();
+  } finally { releaseRuntime(); }
+  await expect(page.locator('.platform-admin-error')).toBeVisible();
+  // A completed background read must retain the current keyboard destination.
+  await expect(directory).toBeFocused();await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#fleet$/);
   await expect(page.locator('.platform-admin-fleet-card')).toContainText('Dune Collective');
   expect(state.requests.filter(({ method })=>method!=='GET')).toHaveLength(0);
