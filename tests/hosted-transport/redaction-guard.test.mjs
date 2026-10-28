@@ -12,7 +12,7 @@ const base = `import fs from 'node:fs'; import fsp from 'node:fs/promises'; impo
 import assert from 'node:assert/strict'; import * as guard from ${JSON.stringify(new URL(`file://${guard}`).href)};
 const root = process.env.CM_ACCEPTANCE_ARTIFACT_ROOT; const token = process.env.CM_DEMO_CUSTOMER_ACCEPTANCE_TOKEN;
 `;
-function run(source, { preload = true, prepare = () => {}, gate = true, sharedRoot } = {}) {
+function run(source, { preload = true, prepare = () => {}, gate = true, sharedRoot, canaryCase } = {}) {
   const folder = sharedRoot || fs.mkdtempSync(path.join(os.tmpdir(), 'cm-guard-test-'));
   const output = path.join(folder, 'artifacts');
   fs.mkdirSync(output, { recursive: true });
@@ -22,6 +22,8 @@ function run(source, { preload = true, prepare = () => {}, gate = true, sharedRo
     CM_DEMO_CUSTOMER_ACCEPTANCE_TOKEN: randomBytes(32).toString('hex'),
     CM_DEMO_PLATFORM_ACCEPTANCE_TOKEN: randomBytes(32).toString('hex') };
   delete env.NODE_OPTIONS;
+  delete env.CM_TRANSPORT_CANARY_CASE;
+  if (canaryCase) env.CM_TRANSPORT_CANARY_CASE = canaryCase;
   if (gate) env.CM_DEMO_ACCEPTANCE_MODE = 'gate'; else delete env.CM_DEMO_ACCEPTANCE_MODE;
   const result = spawnSync(process.execPath, [...(preload ? ['--import', guard] : []), '--input-type=module', '-e', base + source],
     { env, encoding: 'utf8', timeout: 10_000 });
@@ -167,4 +169,48 @@ test('journey evidence retains phase and cleanup outcomes using fixed enums only
   assert.equal(result.status, 0);
   const evidence = JSON.parse(fs.readFileSync(path.join(result.output,'journey-phases.json')));
   assert.equal(evidence.shared,'failed'); assert.equal(evidence.cleanup,'passed'); clean(result);
+});
+
+test('canary progress writes only fixed ordered phases and privately measured elapsed time', () => {
+  const result = run(`
+    assert.throws(() => guard.writeManagedCanaryPhase('launch'), /CANARY_PROGRESS_REJECTED/);
+    await new Promise(resolve=>setTimeout(resolve,2));
+    guard.writeManagedCanaryPhase('fixture');
+    guard.writeManagedCanaryPhase('launch');
+    assert.throws(() => guard.writeManagedCanaryPhase(token), /CANARY_PROGRESS_REJECTED/);
+    assert.throws(() => guard.writeManagedCanaryPhase({phase:'context',payload:token}), /CANARY_PROGRESS_REJECTED/);
+    assert.throws(() => guard.writeManagedCanaryPhase('fixture'), /CANARY_PROGRESS_REJECTED/);
+    guard.writeManagedCanaryPhase('close_context');
+    guard.writeManagedCanaryPhase('close_browser');
+    guard.writeManagedCanaryPhase('close_fixture');
+    guard.writeManagedCanaryPhase('complete');
+  `, { canaryCase: 'browser-echo-chromium' });
+  assert.equal(result.status, 0);
+  const phases = ['fixture', 'launch', 'close_context', 'close_browser', 'close_fixture', 'complete'];
+  const entries = phases.map(phase => JSON.parse(fs.readFileSync(path.join(result.output, `canary-phase-${phase}.json`))));
+  assert.deepEqual(entries.map(item => item.phase), phases);
+  assert.equal(entries[0].elapsedMs, 0);
+  assert.deepEqual(fs.readdirSync(result.output).sort(), phases.map(phase => `canary-phase-${phase}.json`).sort()); clean(result);
+});
+
+test('ordinary guarded acceptance cannot write local canary progress', () => {
+  const result = run(`assert.throws(() => guard.writeManagedCanaryPhase('fixture'), /CANARY_PROGRESS_REJECTED/);`);
+  assert.equal(result.status, 0); assert.deepEqual(fs.readdirSync(result.output), []); clean(result);
+});
+
+test('canary progress reader rejects payloads, unknown phases and unsafe or unordered timing', () => {
+  const result = run(`
+    const initial = {phase:'fixture',elapsedMs:0};
+    for (const value of [
+      {schemaVersion:1,phases:[initial],payload:token},
+      {schemaVersion:1,phases:[initial,{phase:token,elapsedMs:1}]},
+      {schemaVersion:1,phases:[{phase:'fixture',elapsedMs:1}]},
+      {schemaVersion:1,phases:[initial,{phase:'launch',elapsedMs:60001}]},
+      {schemaVersion:1,phases:[initial,{phase:'launch',elapsedMs:1.5}]},
+      {schemaVersion:1,phases:[initial,{phase:'launch',elapsedMs:10},{phase:'context',elapsedMs:9}]},
+      {schemaVersion:1,phases:[initial,{phase:'launch',elapsedMs:1,payload:token}]},
+      {schemaVersion:1,phases:Array.from({length:13},()=>initial)},
+    ]) assert.throws(() => guard.normalizeManagedCanaryProgress(value), /CANARY_PROGRESS_REJECTED/);
+  `);
+  assert.equal(result.status, 0); assert.deepEqual(fs.readdirSync(result.output), []); clean(result);
 });

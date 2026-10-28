@@ -67,7 +67,7 @@ async function bootstrapProductionPlatformAdmin() {
       ? createPlatformInvitationPresentation({ api: createPlatformCustomerInvitationApi({ apiClient: protectedClient ?? apiClient }) }) : null;
     const syntheticWorkspace=protectedClient && ['dev','int'].includes((configuration ?? microsoftConfiguration)?.environment)
       && session.operator.permissions.includes('platform:lifecycle:manage') && presentationFlags.isEnabled('platform.synthetic-workspace')
-      ? createPlatformSyntheticWorkspacePresentation({ apiFactory: ()=>createPlatformSyntheticWorkspaceClient({
+      ? createPlatformSyntheticWorkspacePresentation({ onTenant: tenantId=>application.openWorkspaceTenant(tenantId),apiFactory: ()=>createPlatformSyntheticWorkspaceClient({
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
         assuranceMode: microsoftConfiguration ? 'microsoft_mfa' : 'application_passkey',
         microsoftConfirmation: microsoftConfiguration ? protectedClient.confirmOperation : null,

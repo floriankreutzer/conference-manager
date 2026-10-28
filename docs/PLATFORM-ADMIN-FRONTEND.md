@@ -277,3 +277,40 @@ observed source cause was the previous controller's collapse of all three HTTP
 statuses into the same sign-in instruction. The specific status/cause of the
 historical Hosted Demo failure remains unobserved; this source correction does
 not claim successful Demo admission or operating acceptance for issue399 UX-02.
+
+
+## Fresh synthetic workspace management
+
+The production workspace delegates an explicit Manage selection to the Platform
+application's owned navigation port. That port clears the preceding directory
+filters/cursor and reads a fresh authorized directory page before selecting the
+existing lifecycle route. The workspace's generation projection and its URL are
+not a substitute for that directory projection or backend authority. A target
+absent from the current page remains in the directory with a localized unavailable
+notice; no missing Tenant record is synthesized. Existing directory pagination
+and server authorization remain unchanged.
+
+Navigation generations suppress a late target handoff after departure or stop.
+Read failure retains the existing unavailable directory state and explicit retry;
+no write, Microsoft proof or generation replacement is replayed. Ordinary browser
+regressions cover fresh-generation keyboard management, DE/EN missing targets,
+failed reads and navigation during a deferred response. The protected invited
+participant cases each create the full canonical generation through actual UI.
+The Employee/Manager case first activates initially-ready Contoso through the
+operator's actual Tenant Admin handoff; its invited Manager never inherits Admin
+or adopts that delegated identity. A separate complete case proves invited
+Fabrikam Admin onboarding from its initial state. All three role-owned business
+workflows remain actual end-to-end operations, without fixture directory seeding.
+Native three-member/same-generation and all permanent three-customer/two-reset
+acceptance remain independently required and unchanged.
+
+
+The isolated participant cases also respect the actual five-unexpired-proof
+Microsoft operation budget, including already consumed proofs until expiry. Their
+fixture reads the database-derived capacity and waits for the original expiry
+before requesting the next operation. Invitation writes reserve capacity for
+their independent post-mutation list-read proof as well. No proof, counter, clock,
+rate, replay rule or browser deadline is changed. Each complete case retains the
+existing240-second limit, including its own setup, real wait where needed and
+actual operations; local fixture code
+is not evidence that the complete paired browser case passed.

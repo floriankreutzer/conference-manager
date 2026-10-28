@@ -64,6 +64,62 @@ source refs/artifact hashes, bounded counts and Tenant states. Trace, screenshot
 video and request/cookie/hidden form captures are disabled only in this separate
 sensitive suite; normal existing evidence gates are retained unchanged.
 
+## Invitation-bound participant acceptance
+
+Two additional independent cases retain the existing240s deadline and zero
+retries. Each creates its own complete canonical generation through the actual
+Platform UI and explicit isolated Microsoft approvals. The booking/decision
+case invites a Northwind Employee and a distinct Contoso Manager, activates
+ready Contoso through the existing attributable operator Admin handoff before
+Manager admission,
+uses actual invitation-bound email/code admission, books as Employee and
+decides the Manager's own request while rejecting a foreign Tenant target.
+The onboarding case separately invites a Fabrikam Admin and performs actual
+code admission, both local imports and ready/active progression. Both require
+normal logout204, an unauthenticated session401 and the visible email form.
+No generation, invitation or membership is seeded by the participant fixture.
+
+The fixture reads only its fixed synthetic example.test mailboxes from the
+current generation's encrypted outbox. Real recipient delivery and the Microsoft
+provider remain separate operating acceptance. Actual PostgreSQL-clock waits
+honor the existing Microsoft operation capacity; proofs, counters, clocks and
+limits are not rewritten. Completed neutral provider tabs are closed and the
+source application regains focus before waiting for its independent result.
+The booking/decision case completes Northwind admission/booking/logout before
+issuing Contoso's invitation. Its real Microsoft capacity interval overlaps the
+shared client address's unchanged60s window; any remaining quiet interval is
+waited before the Contoso Admin prerequisite and Manager admission. Northwind
+uses the initial untouched Customer window; the Admin activation follows its
+logout and the actual quiet interval. Distinct people still share this loopback
+address and its120-request budget. All work and waits remain within the original
+240s case, without retrying a failed request. Application enrollment/credential APIs are forbidden
+in these participant cases. Current Tenant HMAC chains and zero application
+keys remain required.
+
+The existing edge compacts successful immutable assets at fixed boundaries:
+after Northwind logout and after the Contoso Admin prerequisite, before Manager
+admission; the independent onboarding case compacts after its invitation.
+Only successful immutable-asset events become per-surface counts. It retains every API, authentication,
+document, failed and unfinished event in order. The2000-event limit and the
+two-compaction maximum remain unchanged; each case verifies the exact planned phase count
+(two booking/decision, one onboarding) and the retained/completed counts. This
+addresses the observed Chromium7c2ff5f failure with exactly2000 stored events,
+logout204 and the next session400. That historical failure is retained; the
+change still requires fresh complete acceptance on both engines, all regular
+and permanent gates, review and separate Main qualification.
+
+## CONNECT idle lifecycle
+
+The qualified loopback relay retains its20s idle timeout. Expiry closes both
+network peers, so an unused preconnection cannot remain open on the browser side
+with no upstream. Its shared Node tunnel helper is exercised through actual
+loopback TCP/CONNECT traffic and the real timeout: the preceding one-sided
+close failed the30s downstream observation; symmetric closure passed after20s.
+The regression is chunk-safe and retains no authentication or TLS payloads.
+This is transport-lifecycle evidence, not a provider/device or complete browser
+pass. Host admission, byte-transparent TLS, all limits, no retries and fresh
+full-engine/permanent/Main qualification remain required.
+
 ## Historical execution checkpoints
 
 Local pure artifact/ref/key/aggregate checks pass. Full local frontend and fresh

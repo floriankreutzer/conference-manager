@@ -430,3 +430,29 @@ click, deadline, retry, response, Tenant, role or reset assertion. The existing
 CSV evidence format is preserved through the same network observer. New checks
 must qualify the exact candidate and its immutable API counterpart; this
 instrumentation alone neither explains nor resolves the historical failure.
+
+## Isolated invited participant browser candidate — 28 October 2026
+
+The next paired candidate pins API `74943a54447ec3595a676de38cb45b2a835ff100`
+(API348, dependent on342–347). Its new opt-in test fixture uses actual owned
+Microsoft-MFA Platform/Customer roots, restricted TLS/SCRAM roles and sealed
+real-origin frontend bytes. The existing default Owner and delegated browser
+journeys remain required. This API source is a review candidate, not a deployed
+or accepted Main claim.
+
+The new protected Chromium/WebKit case creates the owned generation and three
+role-specific invitations through the actual Platform UI and one-use Microsoft
+operation confirmations. It retrieves only the current encrypted local fixture
+mailbox codes, exercises a wrong code and the actual Customer code/choice/session
+UI, then performs a Northwind Employee booking, Contoso Manager decision and
+Fabrikam Tenant Admin import/ready/active progression. Current identity/roles,
+cross-Tenant denial, audit chains, zero application keys, credential-free browser
+storage and complete cleanup are checked. Provider documents/SDK responses remain
+isolated protocol fixtures; no operating Microsoft or email acceptance is inferred.
+
+Both immutable counterpart pins move together, with exact pin assertions retained.
+No retry, test deadline, permanent scenario/seed/checksum or existing protected
+journey is removed. Local static tests cannot establish this new native/browser
+progression; both full engines and all existing paired/permanent checks must
+execute at the exact candidate before readiness. Source and separate Main/operating
+evidence remain distinct.

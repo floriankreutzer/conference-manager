@@ -1,10 +1,10 @@
 import { createServer as httpsServer } from 'node:https';
 import { createServer as httpServer,request as httpRequest } from 'node:http';
-import { connect } from 'node:net';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isolatedOwnerMicrosoftDocument } from './isolated-owner-microsoft.mjs';
 import { buildProtectedFrontendArtifacts } from '../../../scripts/protected-frontend-artifacts.mjs';
+import { connectQualifiedTunnel } from './qualified-connect-tunnel.mjs';
 
 const HOSTS=Object.freeze({ 'app-int.example.test': 'customer','ops-int.example.com': 'platform' });
 const ORIGINS=Object.freeze({ customer: 'https://app-int.example.test',platform: 'https://ops-int.example.com' });
@@ -93,12 +93,7 @@ export async function createQualifiedProtectedEdge({ root,ports,certificateDirec
     if (!allowed) {
       deniedConnects++;socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;
     }
-    const upstream=connect({ host: '127.0.0.1',port: edgePort });sockets.add(upstream);
-    upstream.on('close',()=>sockets.delete(upstream));upstream.on('error',()=>socket.destroy());socket.on('error',()=>upstream.destroy());
-    socket.on('close',()=>upstream.destroy());upstream.setTimeout(20000,()=>upstream.destroy());
-    upstream.once('connect',()=>{ socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-      if (head.length) upstream.write(head);socket.pipe(upstream);upstream.pipe(socket);
-    });
+    connectQualifiedTunnel({ socket,head,edgePort,sockets });
   });const proxyPort=await listen(proxy);
   return Object.freeze({ proxy: `http://127.0.0.1:${proxyPort}`,origins: ORIGINS,
     compactStaticEvidence() {

@@ -2,6 +2,7 @@ import { test, expect, chromium, webkit } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
 import { createOriginContext, createBoundContext } from '../../support/origin-context.mjs';
 import { localFixture, ORIGIN } from '../local-fixture.mjs';
+import { writeManagedCanaryPhase } from '../../support/hosted-transport/redaction-guard.mjs';
 
 const checksum = '7e22005f1e9689fbea4ccfc75084f5f3d224fe10e60a6af23c1cb600f2b70014';
 async function evidence(testInfo) {
@@ -28,19 +29,31 @@ test('managed acceptance diagnostic boundary', async ({}, testInfo) => {
   }
   if (process.env.CM_TRANSPORT_CANARY_CASE?.startsWith('browser-echo-')) {
     const engine = process.env.CM_TRANSPORT_CANARY_CASE === 'browser-echo-chromium' ? chromium : webkit;
+    writeManagedCanaryPhase('fixture');
     const fixture = await localFixture(); let browser; let context;
     try {
+      writeManagedCanaryPhase('launch');
       browser = await engine.launch({ headless: true });
+      writeManagedCanaryPhase('context');
       context = await createBoundContext((options) => browser.newContext(options), {
         origin: ORIGIN, token, expiresAt: Date.now() + 30_000, ignoreHTTPSErrors: false,
       }, { connectSocket: fixture.connectSocket });
-      const page = await context.newPage(); await page.goto(`${ORIGIN}/echo`);
+      writeManagedCanaryPhase('page');
+      const page = await context.newPage();
+      writeManagedCanaryPhase('navigation'); await page.goto(`${ORIGIN}/echo`);
+      writeManagedCanaryPhase('echo');
       expect(await page.locator('p').textContent()).toBe(token);
       // A closed-schema success marker is emitted only after the real page
       // received the echoed canary through the bound, TLS-verifying context.
-      await evidence(testInfo);
+      writeManagedCanaryPhase('evidence'); await evidence(testInfo);
+      writeManagedCanaryPhase('reflection');
       await expect(page.locator('p')).toHaveText('expected-safe-text', { timeout: 200 });
-    } finally { await context?.close(); await browser?.close(); await fixture.close(); }
+    } finally {
+      writeManagedCanaryPhase('close_context'); await context?.close();
+      writeManagedCanaryPhase('close_browser'); await browser?.close();
+      writeManagedCanaryPhase('close_fixture'); await fixture.close();
+      writeManagedCanaryPhase('complete');
+    }
     return;
   }
   if (process.env.CM_TRANSPORT_CANARY_CASE === 'caught-write') {
