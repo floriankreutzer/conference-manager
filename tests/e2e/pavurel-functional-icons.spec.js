@@ -9,7 +9,7 @@ for (const language of ['de','en']) test(`canonical functional icons decode in e
   await page.goto('/platform-admin/');
   await page.addStyleTag({ content: '#iconFixture section { padding: var(--space-3); display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:var(--space-2); }'
     + '#iconFixture h2 { grid-column:1/-1; } #iconFixture .inverse { background:var(--color-sidebar); color:var(--color-on-dark); }'
-    + '#iconFixture button { text-align:start; white-space:normal; } #iconFixture .inverse button { color:var(--color-on-dark); }' });
+    + '#iconFixture button { text-align:start; white-space:normal; } #iconFixture .inverse button { background:var(--color-sidebar); color:var(--color-on-dark); border-color:var(--color-on-dark); }' });
   await page.evaluate(async({ icons,language })=>{
     const { pavurelFunctionalIcon }=await import('/src/core/pavurel-functional-icon.js');
     const { el,button }=await import('/src/core/ui.js');
@@ -29,6 +29,10 @@ for (const language of ['de','en']) test(`canonical functional icons decode in e
   expect(await images.evaluateAll(nodes=>nodes.every(node=>node.naturalWidth===24 && node.naturalHeight===24
     && node.alt==='' && node.getAttribute('aria-hidden')==='true'))).toBe(true);
   await expect(page.getByRole('img')).toHaveCount(0);
+  const inverse=page.locator('#iconFixture .inverse');
+  const inverseBackground=await inverse.evaluate(node=>getComputedStyle(node).backgroundColor);
+  await expect(inverse.getByRole('button').first()).toHaveCSS('background-color',inverseBackground);
+  await expect(inverse.getByRole('button').first()).not.toHaveCSS('color',inverseBackground);
   const first=page.locator('#iconFixture button').first();
   await expect(first).toHaveAccessibleName(manifest.icons[0].meaning[language]);
   await first.focus();await page.keyboard.press('Enter');expect(await page.evaluate(()=>window.iconFixtureActivations)).toBe(1);
