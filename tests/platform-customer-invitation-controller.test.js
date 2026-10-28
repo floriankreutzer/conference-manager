@@ -66,6 +66,23 @@ test('failed or cancelled invitation reads cannot enable issuance before an expl
     await c.issue(draft);assert.equal(f.calls.length,1);
   }
 });
+test('invitation access failures distinguish session, refusal and unavailable customer scope without retrying writes',async()=>{
+  for (const [code,expected] of [['HTTP_401','session'],['HTTP_403','denied'],['HTTP_404','unavailable']]) {
+    const failure=()=>{ throw Object.assign(new Error(),{ code }); };
+    const creation=fixture({ create: failure });
+    const create=createPlatformInvitationController({ api: creation.api });
+    await create.issue(draft);assert.equal(create.snapshot().error,expected);
+    await create.issue(draft);await create.retry();assert.equal(creation.calls.length,1);
+    let denied=true;
+    const existing=fixture({ list: async()=>denied ? failure() : [] });
+    const manage=createPlatformInvitationController({ api: existing.api,tenantId: 'tenant' });
+    await manage.load();assert.equal(manage.snapshot().error,expected);
+    assert.equal(manage.snapshot().status,'refresh_required');
+    await manage.issue(draft);assert.equal(existing.calls.length,0);
+    denied=false;await manage.load();assert.equal(manage.snapshot().error,null);
+    await manage.issue(draft);assert.equal(existing.calls.length,1);
+  }
+});
 test('mutations use displayed revisions, serialize work and require a read after unknown outcome',async()=>{
   const item={ id: 'invitation',revision: 7,state: 'pending' };let reads=0,writes=0;
   const f=fixture({ list: async()=>{ reads++;return [item]; },mutate: async(operation,value)=>{

@@ -182,10 +182,10 @@ other failed list reads report unavailable current data rather than an unknown
 write. Initial issuance remains disabled until an explicit successful read.
 After a confirmed mutation, a failed list refresh cannot resubmit that mutation.
 
-These source changes address the cancellation/read-outcome subset of issue399.
-They do not establish a cause or repair for401/403/404 invitation access failures,
-enable synthetic admission, change global routes or entitlement presentation, or
-complete real-provider or Hosted acceptance.
+The cancellation/read-outcome changes address that subset of issue399. They do
+not themselves repair denied invitation access, enable synthetic admission or
+complete real-provider or Hosted acceptance. Access feedback is described below;
+global routes and entitlement presentation have their separate section.
 
 `platform-api.js` is the active shared API adapter selected by both bootstraps.
 Its outcome types live in the adapter-free `operation-errors.js`, and the existing
@@ -256,3 +256,24 @@ retries. Targeted DE/EN, history, permission, failure, selection, focus and late
 browser cases accompany the ordinary complete engine and permanent Demo/reset gates.
 The source change covers399 UX-03/UX-04; invitation admission, real-provider proof,
 email delivery and Hosted acceptance remain separate open evidence.
+
+## Invitation access feedback
+
+The Platform invitation controller distinguishes an invalid/expired session
+(HTTP401), refused access (HTTP403) and invitations unavailable for the selected
+customer (HTTP404). Only401 recommends signing in again.403 asks users to check
+permissions/customer selection;404 asks them to check the selection or contact the
+platform owner. Neither message claims to know a concealed object's existence or
+the server's internal eligibility reason. DE/EN messages use the existing alert
+and explicit-refresh controls. Issuance stays disabled after a failed list read
+until a successful explicit refresh, and known creation denials cannot be retried
+as new writes from the same blocked controller.
+
+This changes presentation, not backend authorization or synthetic eligibility.
+An earlier unknown write retains its original command and unknown outcome even
+when a later check returns401/403/404; no automatic retry, login or write is added.
+The backend's current strict REAL-only invitation scope remains unchanged. The
+observed source cause was the previous controller's collapse of all three HTTP
+statuses into the same sign-in instruction. The specific status/cause of the
+historical Hosted Demo failure remains unobserved; this source correction does
+not claim successful Demo admission or operating acceptance for issue399 UX-02.
