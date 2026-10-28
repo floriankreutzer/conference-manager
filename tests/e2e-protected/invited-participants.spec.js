@@ -64,6 +64,7 @@ async({ browser,browserName })=>{
     for (const [index,person] of participants.entries()) {
       if (index) await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).click();
       await page.getByRole('button',{ name: `${person.name} verwalten`,exact: true }).click();
+      await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
       const panel=page.locator('.platform-admin-invitations');await expect(panel).toBeVisible();
       await panel.getByRole('button',{ name: 'Aktuellen Stand laden',exact: true }).click();await approveMicrosoft();
       await expect(panel.getByRole('button',{ name: 'Person hinzufügen',exact: true })).toBeEnabled();
