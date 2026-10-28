@@ -404,3 +404,29 @@ reject the older live runtime. DAST must continue rejecting any runtime other
 than its explicitly bound deployed version; update that binding only with actual
 deployment evidence. A source pin cannot establish hosted readiness, real-Neon
 storage acceptance, or SaaS 3.8 milestone completion.
+
+## Local context-switch failure evidence — 28 October 2026
+
+API candidate `c2c4fa99cf25c9eb9408e89223726022bf294726` failed its permanent
+WebKit/object-storage row in run `40706487409`, job `122881005990`, during
+second-cycle restoration. The real pointer trial and click completed, while the
+context PUT, session GET and document-load waits expired without observed
+responses. The retained report and screenshots do not establish the cause.
+That historical failure remains failed; no retry or timeout increase accepts it.
+
+The local Shared `selectContext` helper now attaches a file-backed
+`demo-context-switch.json` only on failure. A shared bounded observer records
+fixed local endpoint classes, methods, statuses and request completion states;
+it does not read request/response bodies, headers, cookies or raw errors. The
+context attachment adds capped document-load/error counts and finite control
+states, selection indices and centrally translated status classifications. It
+contains no selected Tenant/persona values or status prose. It retains at most
+64 requests and caps durations at five minutes. A retired document cannot
+replace the original failure with a diagnostic error.
+
+This observer is disabled for Hosted/gated acceptance and every origin/project
+outside the exact local Shared allowlist. It issues no requests and changes no
+click, deadline, retry, response, Tenant, role or reset assertion. The existing
+CSV evidence format is preserved through the same network observer. New checks
+must qualify the exact candidate and its immutable API counterpart; this
+instrumentation alone neither explains nor resolves the historical failure.
