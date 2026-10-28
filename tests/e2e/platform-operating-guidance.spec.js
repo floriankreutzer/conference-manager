@@ -44,6 +44,11 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
   expect(await page.evaluate(()=>window.guidanceTargets)).toEqual([{ id: '11111111-1111-4111-8111-111111111111',section: 'entitlements' }]);
   await expect(page.getByText(language==='de' ? /Zuständig ist die Kundenadministration/ : /The customer administrator is responsible/)).toBeVisible();
   await expect(page.getByText(language==='de' ? /Zuerst ist ein aktueller Nachweis/ : /Current evidence from the responsible operations team/)).toBeVisible();
+  const help=page.locator('[data-metering-help]');
+  await expect(help).not.toHaveAttribute('open','');
+  await help.locator('summary').focus();await page.keyboard.press('Enter');
+  await expect(help.locator('p').first()).toContainText(language==='de' ? 'UTC-Kalendermonat' : 'UTC calendar month');
+  await help.locator('summary').press('Enter');
   const records=page.locator('article.platform-admin-record');
   await expect(records).toHaveCount(5);
   await expect(records.first().locator('strong')).toHaveText('0');
@@ -57,6 +62,6 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
   for (const width of [320,1280]) {
     await page.setViewportSize({ width,height: 900 });
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-    await testInfo.attach(`operating-guidance-${language}-${width}`,{ body: await page.screenshot(),contentType: 'image/png' });
+    await testInfo.attach(`operating-guidance-${language}-${width}`,{ body: await records.first().screenshot(),contentType: 'image/png' });
   }
 });

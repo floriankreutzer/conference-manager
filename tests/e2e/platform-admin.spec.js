@@ -1486,6 +1486,7 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     await expect(details.locator('dd').first()).toBeHidden();
     await details.locator('summary').focus();await page.keyboard.press('Enter');
     await expect(details.locator('dd').first()).toHaveText(runtime.deployment.reference);
+    await expect(page.locator('.skip-link')).not.toBeInViewport();
     for (const width of [320,1280]) {
       await page.setViewportSize({ width,height: 900 });
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

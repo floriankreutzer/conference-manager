@@ -468,8 +468,11 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
     stepUp.addEventListener('click', onStepUp);
     list.prepend(el('section', { className: 'card' }, [el('p', { text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp])]));
   }
-  return el('div', {}, [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.period', { start: formatDateTime(usage.period.start), end: formatDateTime(usage.period.end) }) }), el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.counting') }),
-    el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.limitEffect') }), list]);
+  return el('div', {}, [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.period', { start: formatDateTime(usage.period.start), end: formatDateTime(usage.period.end) }) }),
+    el('details', { className: 'platform-admin-data-note', dataset: { meteringHelp: 'true' } }, [
+      el('summary', { text: t('platformAdmin.metering.explanation') }),
+      el('p', { text: t('platformAdmin.metering.counting') }), el('p', { text: t('platformAdmin.metering.limitEffect') }),
+    ]), list]);
 }
 
 function runtimeStatus({ operator, resource, onRetry }) {
