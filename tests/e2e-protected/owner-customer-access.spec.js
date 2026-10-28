@@ -57,7 +57,7 @@ async({ browser,browserName })=>{
       await target.selectOption({ label: 'Owner browser Customer' });await owner.getByRole('combobox',{ name: 'Rolle',exact: true }).selectOption(role);
       await owner.getByRole('button',{ name: 'Mit Microsoft bestätigen und fortfahren',exact: true }).click();
       const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });await expect(approval).toBeVisible();
-      const open=context.waitForEvent('page');await approval.getByRole('link',{ name: 'Microsoft-Bestätigung öffnen',exact: true }).press('Enter');
+      const open=context.waitForEvent('page');await approval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
       const provider=await open;expect(await provider.evaluate(()=>opener===null)).toBe(true);
       await provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
       const finish=page.getByRole('button',{ name: /^(Kundenanwendung öffnen|Open customer application)$/ });

@@ -52,6 +52,43 @@ a {
   color: var(--brand-primary-hover);
 }
 
+.microsoft-sign-in {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-block-size: var(--control-height);
+  max-inline-size: 100%;
+  padding-block: var(--space-2);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--microsoft-sign-in-border);
+  border-radius: 0;
+  background: var(--color-surface);
+  color: var(--microsoft-sign-in-ink);
+  font-family: var(--font-family-microsoft-sign-in);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  text-align: start;
+  text-decoration: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.microsoft-sign-in img {
+  flex: 0 0 auto;
+  inline-size: var(--microsoft-sign-in-symbol-size);
+  block-size: var(--microsoft-sign-in-symbol-size);
+}
+
+.microsoft-sign-in:hover {
+  background: var(--color-surface-subtle);
+}
+
+.microsoft-sign-in[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: var(--focus-width) solid var(--focus-color);
   outline-offset: 3px;

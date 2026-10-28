@@ -65,7 +65,7 @@ framework, new CSS system or alternative i18n mechanism is introduced.
 Use the [official Microsoft guidance](https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-branding-in-apps)
 and its [German version](https://learn.microsoft.com/de-de/entra/identity-platform/howto-add-branding-in-apps)
 with the unchanged [versioned originals](../assets/brand/microsoft-sign-in/reference-2026-10-27/README.md).
-For the planned MS-01 integration, the Microsoft sign-in control is a deliberately
+The [MS-01 renderer](MICROSOFT-SIGN-IN-CONTROL.md) is a deliberately
 scoped vendor component: retain the manufacturer's symbol, light/dark treatment,
 typography and spacing instead of applying the general Bordeaux button and
 Manrope/Inter styling to the vendor lockup. This exception does not change global

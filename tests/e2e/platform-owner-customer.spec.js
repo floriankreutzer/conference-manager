@@ -65,8 +65,10 @@ test('owner chooses current customer and role, explicitly confirms Microsoft and
   await workspace.getByRole('combobox',{ name: 'Rolle',exact: true }).selectOption('conference_manager');
   await workspace.getByRole('button',{ name: 'Mit Microsoft bestätigen und fortfahren',exact: true }).focus();await page.keyboard.press('Enter');
   const confirmation=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
-  await expect(confirmation).toBeVisible();const opened=context.waitForEvent('page');
-  await confirmation.getByRole('link',{ name: 'Microsoft-Bestätigung öffnen',exact: true }).press('Enter');
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.locator('[data-microsoft-operation-context] dd')).toHaveText(['Kundenzugang öffnen','Customer','Conference Manager']);
+  const opened=context.waitForEvent('page');
+  await confirmation.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
   const provider=await opened;await provider.getByRole('link',{ name: 'Confirm synthetic Microsoft fixture' }).click();
   await page.waitForURL(CUSTOMER+'/__cm-platform-handoff-result');
   const approval=f.writes.filter(x=>x.path.endsWith('/approve'));expect(approval).toHaveLength(1);expect(approval[0].navigation).toBe(true);

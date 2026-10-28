@@ -10,6 +10,7 @@ import { createPlatformPasskeyManagement } from './passkey-management.js';
 import { createPlatformPasskeyOperationsClient, loadPlatformPasskeyConfiguration } from './passkey-operations-client.js';
 import { createPlatformMicrosoftOperationsClient,loadPlatformMicrosoftConfiguration } from './microsoft-operations-client.js';
 import { confirmPlatformMicrosoftOperation } from './microsoft-operation-confirmation.js';
+import { createPlatformOperationPresentation } from './operation-presentation.js';
 import { featureFlags } from '../../platform/feature-flags.js';
 import { createPlatformCustomerInvitationApi } from '../customer-invitation-api.js';
 import { createPlatformInvitationPresentation } from '../customer-invitations-presentation.js';
@@ -52,9 +53,12 @@ async function bootstrapProductionPlatformAdmin() {
       if (!refreshed) return false;
       csrfToken = refreshed.csrfToken; return true;
     }
+    const operationPresentation=createPlatformOperationPresentation();
+    globalThis.addEventListener('pagehide',()=>operationPresentation.clear(),{ once: true });
     const protectedClient = configuration?.mode === 'application_passkey' ? createPlatformPasskeyOperationsClient({
       csrfTokenProvider: () => csrfToken, onPrompt: () => announce(t('platformAdmin.passkey.busy')), refreshSession,
     }) : microsoftConfiguration ? createPlatformMicrosoftOperationsClient({ csrfTokenProvider: ()=>csrfToken,refreshSession,
+      describeOperation: operationPresentation.describe,
       confirmation: confirmPlatformMicrosoftOperation }) : null;
     const keyManagement = configuration?.mode==='application_passkey' ? createPlatformPasskeyManagement({ apiClient, refreshSession }) : null;
     if (keyManagement) globalThis.addEventListener('pagehide', () => keyManagement.stop(), { once: true });
@@ -67,6 +71,7 @@ async function bootstrapProductionPlatformAdmin() {
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
         assuranceMode: microsoftConfiguration ? 'microsoft_mfa' : 'application_passkey',
         microsoftConfirmation: microsoftConfiguration ? protectedClient.confirmOperation : null,
+        describeOperation: operationPresentation.describe,onTenantsLoaded: operationPresentation.rememberTenants,
       }) }) : null;
     if (syntheticWorkspace) globalThis.addEventListener('pagehide',()=>syntheticWorkspace.stop(),{ once: true });
     const ownerCustomer=protectedClient && microsoftConfiguration && presentationFlags.isEnabled('platform.owner-customer-access')
@@ -75,6 +80,7 @@ async function bootstrapProductionPlatformAdmin() {
       ? createPlatformOwnerCustomerPresentation({ apiFactory: ()=>createPlatformOwnerCustomerClient({
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
         microsoftConfirmation: protectedClient.confirmOperation,
+        describeOperation: operationPresentation.describe,onTenantsLoaded: operationPresentation.rememberTenants,
       }) }) : null;
     if (ownerCustomer) globalThis.addEventListener('pagehide',()=>ownerCustomer.stop(),{ once: true });
     const insights=session.operator.permissions.includes('platform:runtime:read')
@@ -83,7 +89,7 @@ async function bootstrapProductionPlatformAdmin() {
       runtime: 'production',
       sessionState: 'authenticated',
       operator: session.operator,
-      dataSource: createPlatformAdminApi({ apiClient: protectedClient ?? apiClient }),
+      dataSource: createPlatformAdminApi({ apiClient: protectedClient ?? apiClient,onTenantsLoaded: operationPresentation.rememberTenants }),
       providerUsage: session.operator.roles.includes('platform_security_admin') ? insights?.providerUsage ?? null : null,
       productDelivery: insights?.productDelivery ?? null,
       operationProofAvailable: protectedClient !== null,customerInvitationPresentation: customerInvitations,

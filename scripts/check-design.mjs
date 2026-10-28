@@ -23,6 +23,13 @@ const allowedComponentFontFamilies = new Set([
 const allowedComponentFontShorthands = new Set(['inherit']);
 let failures = 0;
 
+function isMicrosoftControlFont(file, source, match) {
+  const start = source.lastIndexOf('{', match.index);
+  const selector = source.slice(source.lastIndexOf('}', start) + 1, start).trim();
+  return file === join(assetsDir, 'styles.css') && selector === '.microsoft-sign-in'
+    && match[1].trim() === 'var(--font-family-microsoft-sign-in)';
+}
+
 for (const file of componentCss) {
   const source = readFileSync(file, 'utf8');
   const matches = [...source.matchAll(hexPattern)].map((match) => match[0]);
@@ -31,8 +38,9 @@ for (const file of componentCss) {
     failures += 1;
   }
 
-  const fontFamilies = [...source.matchAll(fontFamilyPattern)].map((match) => match[1].trim());
-  const uncontrolledFamilies = fontFamilies.filter((value) => !allowedComponentFontFamilies.has(value));
+  const uncontrolledFamilies = [...source.matchAll(fontFamilyPattern)]
+    .filter(match => !allowedComponentFontFamilies.has(match[1].trim()) && !isMicrosoftControlFont(file, source, match))
+    .map(match => match[1].trim());
   if (uncontrolledFamilies.length) {
     console.error(`${file}: uncontrolled font-family declarations found (${[...new Set(uncontrolledFamilies)].join(', ')}). Use semantic typography tokens.`);
     failures += 1;

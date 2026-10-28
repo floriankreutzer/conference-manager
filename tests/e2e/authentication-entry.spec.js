@@ -2,6 +2,22 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { asProductionHtml } from './fixtures/production-html.js';
 
+async function microsoftControl(control, name) {
+  await expect(control).toHaveAccessibleName(name);
+  await expect(control).toHaveClass('microsoft-sign-in');
+  const image = control.locator('img');
+  await expect(image).toHaveAttribute('alt', ''); await expect(image).toHaveAttribute('aria-hidden', 'true');
+  await expect(image).toHaveAttribute('src', /\/assets\/brand\/microsoft-sign-in\/reference-2026-10-27\/ms-symbollockup_mssymbol_19\.svg$/);
+  await expect.poll(() => image.evaluate(node => node.complete && node.naturalWidth === 21)).toBe(true);
+  const style = await control.evaluate(node => ({ family: getComputedStyle(node).fontFamily,
+    background: getComputedStyle(node).backgroundColor, color: getComputedStyle(node).color,
+    height: node.getBoundingClientRect().height }));
+  expect(style.family).toContain('Segoe UI'); expect(style.background).toBe('rgb(255, 255, 255)');
+  expect(style.color).toBe('rgb(94, 94, 94)'); expect(style.height).toBeGreaterThanOrEqual(44);
+  await control.focus(); await expect(control).toBeFocused();
+}
+
+
 test('signed-out Platform has a separate bilingual entry with Microsoft, no application chrome and the local Pavurel image', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.route('**/api/v1/platform/**', route => route.fulfill({
@@ -15,12 +31,14 @@ test('signed-out Platform has a separate bilingual entry with Microsoft, no appl
   await expect(page.locator('.app-shell')).toBeHidden();
   await expect(entry.getByRole('link', { name: 'Mit Microsoft anmelden' })).toHaveAttribute('href',
     new URL('/api/v1/platform/auth/microsoft/login', page.url()).href);
+  await microsoftControl(entry.getByRole('link', { name: 'Mit Microsoft anmelden' }), 'Mit Microsoft anmelden');
   await expect(entry.getByRole('button', { name: /Passkey/ })).toHaveCount(0);
   await expect(page.locator('#skipLink')).toHaveAttribute('href', '#authenticationContent');
   await entry.getByRole('combobox', { name: 'Sprache', exact: true }).selectOption('en');
   await expect(entry.getByRole('heading', { level: 1 })).toHaveText('Welcome to platform administration');
   await expect(page).toHaveTitle('Sign in · Pavurel Platform');
   await expect(entry.getByRole('combobox', { name: 'Language', exact: true })).toBeFocused();
+  await microsoftControl(entry.getByRole('link', { name: 'Sign in with Microsoft' }), 'Sign in with Microsoft');
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -55,7 +73,9 @@ test('signed-out Customer retains both Microsoft and email-code methods on its o
   await expect(page.locator('.app-shell')).toBeHidden();
   await expect(entry.getByRole('textbox', { name: 'E-Mail-Adresse', exact: true })).toBeVisible();
   await expect(entry.getByRole('button', { name: 'Code anfordern', exact: true })).toBeVisible();
-  await expect(entry.getByRole('button', { name: 'Mit Microsoft anmelden', exact: true })).toBeVisible();
+  await microsoftControl(entry.getByRole('button', { name: 'Mit Microsoft anmelden', exact: true }), 'Mit Microsoft anmelden');
+  await entry.getByRole('combobox', { name: 'Sprache', exact: true }).selectOption('en');
+  await microsoftControl(entry.getByRole('button', { name: 'Sign in with Microsoft', exact: true }), 'Sign in with Microsoft');
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

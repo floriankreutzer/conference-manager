@@ -1,5 +1,6 @@
 import { formatDateTime,language,setLanguage,t } from '../../core/i18n.js';
 import { button,clear,el,field } from '../../core/ui.js';
+import { microsoftSignInControl } from '../../core/microsoft-sign-in-control.js';
 
 export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,operatorTestEnabled=false,handoffStart=null } = {}) {
   if (!controller || ['snapshot','subscribe','request','verify','select','restart','resume','checkSession']
@@ -85,7 +86,7 @@ export function createCustomerEmailLoginView({ controller,signInWithMicrosoft,op
       const restart=button(t('customerAuth.restart')); restart.addEventListener('click',controller.restart); actions.push(restart);
     }
     if (state.phase!=='authenticated') {
-      const microsoft=button(t('customerAuth.microsoft')); microsoft.addEventListener('click',signInWithMicrosoft); actions.push(microsoft);
+      const microsoft=microsoftSignInControl({ label: t('customerAuth.microsoft') }); microsoft.addEventListener('click',signInWithMicrosoft); actions.push(microsoft);
     }
     if (actions.length) element.append(el('div',{ className: 'button-row' },actions));
     element.append(el('p',{ text: t('customerAuth.description') }));

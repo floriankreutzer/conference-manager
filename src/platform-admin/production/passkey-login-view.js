@@ -1,3 +1,4 @@
+import { microsoftSignInControl } from '../../core/microsoft-sign-in-control.js';
 import { createPlatformPasskeyGrantDeliveryView } from './passkey-grant-delivery-view.js';
 import { t } from '../../core/i18n.js';
 import { button, clear, el, field } from '../../core/ui.js';
@@ -61,8 +62,8 @@ export function createPlatformPasskeyLoginView({ controller } = {}) {
       const cancel = button(t('common.cancel')); cancel.addEventListener('click', () => controller.cancel()); element.append(cancel);
     } else if (!state.busy) {
       const controls = el('div', { className: 'button-row' });
-      controls.append(el('a', { href: PLATFORM_ADMIN_SIGN_IN_PATH, className: 'primary button-link',
-        text: t('platformAdmin.session.signIn'),
+      controls.append(microsoftSignInControl({ href: PLATFORM_ADMIN_SIGN_IN_PATH,
+        label: t('platformAdmin.session.signIn'),
         ...(delivery.hasRequest() ? { attrs: { target: '_blank', rel: 'noopener noreferrer' } } : {}) }));
       if (state.error || phase === 'loading' || delivery.hasRequest()) {
         const reload = button(t('platformAdmin.passkey.resume')); reload.addEventListener('click', () => { void controller.load(); });
