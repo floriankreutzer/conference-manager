@@ -130,6 +130,17 @@ cleanup nor identity. A missing or invalid reset
 request ID fails the request and journey; it never counts as a matched audit
 event. No secret-bearing response body or exception cause is persisted.
 
+The two dedicated local browser-echo canaries additionally retain at most twelve
+fixed `canary-phase-<phase>.json` markers to locate unexpected startup or cleanup
+timeouts. Each file is write-once with exact schema, ordered fixed phase and
+privately measured bounded elapsed time. Callers supply no payload, path or
+timing value. The reader rejects unknown fields/phases and nonmonotonic timing;
+only that validated progress and existing closed counters can diagnose failure.
+The controlled reflection and all cleanup must still complete. The original 10s
+canary deadline, 200ms intentional assertion, TLS checks and redaction stay intact.
+These local markers are not Hosted/scenario receipts and do not expand the
+Hosted workflow's enumerated upload paths.
+
 Native readiness, reset, identity and audit requests bind to their exact service
 origin with ordinary TLS verification, redirect rejection and absolute deadline
 abort. The gate header supplements the existing session, Origin and CSRF headers;
