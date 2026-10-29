@@ -1440,3 +1440,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-list .platform-admin-audit-row[hidden] {
+  display: none;
+}

@@ -193,7 +193,9 @@ test('Demo persona and lifecycle intents carry CSRF and mutation idempotency evi
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Mandant sperren', exact: true })).toBeVisible();
   await page.locator('#platformAdminActionReason').fill('Automated shared Demo lifecycle exercise');
   await page.locator('[data-platform-admin-confirm-action="suspend"]').click();
-  await expect(page.locator('[data-platform-admin-section="lifecycle"] [data-state="suspended"]')).toBeVisible();
+  const suspendedStatuses = page.locator('[data-platform-admin-section="lifecycle"] [data-state="suspended"]');
+  await expect(suspendedStatuses).toHaveCount(2);
+  await expect(suspendedStatuses.first()).toBeVisible();
 
   const personaIntent = state.requests.find(({ path }) => path.endsWith('/demo/session/persona'));
   expect(personaIntent).toMatchObject({ method: 'PUT', body: { persona: 'tenant_operator' } });
