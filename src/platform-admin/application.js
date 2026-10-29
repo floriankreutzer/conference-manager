@@ -1346,6 +1346,23 @@ export function createPlatformAdminApplication({
       ]),
     ]);
     section.querySelector('.platform-admin-back-link').addEventListener('click', () => navigate(platformAdminFleetHash()));
+    const sectionTabs = el('nav', {
+      className: 'platform-admin-section-tabs',
+      dataset: { platformAdminSectionTabs: 'true' },
+      attrs: { 'aria-label': t('platformAdmin.navigation.customer', { tenant: tenant.displayName }) },
+    }, [el('ul', { className: 'platform-admin-section-tabs-list' })]);
+    const sectionTabList = sectionTabs.querySelector('ul');
+    PLATFORM_ADMIN_SECTION_DEFINITIONS.forEach((sectionDefinition) => {
+      const active = route.section === sectionDefinition.id;
+      const tab = button(t(sectionDefinition.titleKey), {
+        className: `platform-admin-section-tab${active ? ' active' : ''}`,
+        attrs: active ? { 'aria-current': 'page' } : {},
+        dataset: { platformAdminNavigate: sectionDefinition.id },
+      });
+      tab.addEventListener('click', () => navigate(platformAdminTenantHash(tenant.id, sectionDefinition.id)));
+      sectionTabList.append(el('li', {}, [tab]));
+    });
+    section.append(sectionTabs);
     if (actionError) {
       section.append(el('div', { className: 'platform-admin-error', attrs: { role: 'alert' } }, [
         el('strong', { text: t('platformAdmin.action.failedTitle') }),
