@@ -1,4 +1,5 @@
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { el } from '../core/ui.js';
 
 // Both contexts consume the same normalized observation. An old observation is
@@ -20,7 +21,7 @@ export function renderRuntimeObservation(runtime) {
   ]);
   return el('article',{ className: 'card platform-admin-record',dataset: { runtimeObservation: runtime.freshness.state } },[
     el('div',{ className: 'platform-admin-record-heading' },[
-      el('h3',{ text: t('platformAdmin.runtime.service') }),badge(runtime.overallState),
+      el('h3',{ className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('system'), el('span', { text: t('platformAdmin.runtime.service') })]),badge(runtime.overallState),
     ]),
     el('p',{ text: t('platformAdmin.runtime.relevance') }),
     el('dl',{ className: 'platform-admin-definition-list' },[

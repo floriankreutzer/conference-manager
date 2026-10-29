@@ -179,7 +179,9 @@ function audit(resource, onLoadMore,onExportAudit) {
     const presentation = auditEventPresentation(event.action);
     const row = el('li', { className: 'card platform-admin-audit-row' }, [
       el('div', { className: 'platform-admin-record-heading' }, [
-        el('p', { className: 'platform-admin-audit-action', text: t(presentation.messageKey) }),
+        el('p', { className: 'platform-admin-audit-action pavurel-icon-label' }, [
+          pavurelFunctionalIcon('audit'), el('span', { text: t(presentation.messageKey) }),
+        ]),
         status(event.outcome),
       ]),
       el('time', { text: formatDateTime(event.occurredAt), attrs: { datetime: event.occurredAt } }),
