@@ -185,7 +185,7 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
   const stateByCapability = new Map(tenantState.entries.map((entry) => [entry.capabilityId, entry]));
   const draftByCapability = new Map(draft.map(entry => [entry.capabilityId, entry.enabled]));
   const form = el('form', { className: 'card platform-admin-entitlement-form' }, [
-    el('h3', { text: t('platformAdmin.entitlements.directTitle') }),
+    platformHeading('settings', t('platformAdmin.entitlements.directTitle')),
     el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.entitlements.revision', { revision: formatNumber(tenantState.revision) }) }),
   ]);
   const checkboxes = new Map();

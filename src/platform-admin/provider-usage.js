@@ -1,4 +1,5 @@
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { button, el } from '../core/ui.js';
 import { renderInsightTabs } from './insight-tabs.js';
 import { formatLiveMetric, liveMetricState, renderLiveMetrics } from './live-metrics.js';
@@ -117,7 +118,7 @@ function providerCard(report, id, elapsedMs) {
   return el('article', { className: 'card platform-admin-insights-provider-card',
     dataset: { platformProvider: id } }, [
     el('header', {}, [
-      el('h3', { text: t(`platformAdmin.insights.providers.name.${id}`) }),
+      el('h3', { className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('usage'), el('span', { text: t(`platformAdmin.insights.providers.name.${id}`) })]),
       el('p', { className: 'platform-admin-insights-eyebrow', text: t(`platformAdmin.insights.providers.role.${id}`) }),
       el('span', { className: 'platform-admin-status', dataset: { tone: state === 'fresh' ? 'positive' : 'warning' },
         text: t(`platformAdmin.insights.sourceState.${state}`) }),
