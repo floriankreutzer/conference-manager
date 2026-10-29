@@ -193,7 +193,9 @@ test('Demo persona and lifecycle intents carry CSRF and mutation idempotency evi
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Mandant sperren', exact: true })).toBeVisible();
   await page.locator('#platformAdminActionReason').fill('Automated shared Demo lifecycle exercise');
   await page.locator('[data-platform-admin-confirm-action="suspend"]').click();
-  await expect(page.locator('[data-platform-admin-section="lifecycle"] [data-state="suspended"]')).toBeVisible();
+  const suspendedStatuses = page.locator('[data-platform-admin-section="lifecycle"] [data-state="suspended"]');
+  await expect(suspendedStatuses).toHaveCount(2);
+  await expect(suspendedStatuses.first()).toBeVisible();
 
   const personaIntent = state.requests.find(({ path }) => path.endsWith('/demo/session/persona'));
   expect(personaIntent).toMatchObject({ method: 'PUT', body: { persona: 'tenant_operator' } });
@@ -1572,4 +1574,27 @@ test('Platform headings use Bordeaux light icons while dark navigation retains w
   await expect(metricIcon).toHaveAttribute('aria-hidden', 'true');
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
   await expectTitleIcon('settings');
+});
+
+test('tenant workbench presents localized horizontal section navigation without changing route contracts', async ({ page }) => {
+  await installDemoRoutes(page);
+  await page.goto('/platform-admin-demo/');
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+
+  const tabs = page.locator('[data-platform-admin-section-tabs]');
+  await expect(tabs).toBeVisible();
+  await expect(tabs.locator('[data-platform-admin-section-tab]')).toHaveCount(7);
+  await expect(tabs.locator('[aria-current="page"]')).toContainText('Übersicht');
+
+  const entitlements = tabs.locator('[data-platform-admin-section-tab="entitlements"]');
+  await entitlements.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/section=entitlements/);
+  await expect(tabs.locator('[aria-current="page"]')).toHaveAttribute('data-platform-admin-section-tab', 'entitlements');
+  await expect(page.locator('#viewTitle')).toBeFocused();
+
+  await page.locator('select[aria-label="Sprache"]').selectOption('en');
+  await expect(tabs.locator('[aria-current="page"]')).toContainText('Entitlements');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    .toBeLessThanOrEqual(1);
 });

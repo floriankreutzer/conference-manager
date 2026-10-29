@@ -288,7 +288,7 @@ function renderHeader(resource, refresh) {
   return el('section', { className: 'card platform-admin-insights-header' }, [
     el('div', { className: 'platform-admin-insights-heading' }, [
       el('div', {}, [
-        el('h2', { text: t('platformAdmin.productDelivery.title') }),
+        el('h2', { className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('delivery'), el('span', { text: t('platformAdmin.productDelivery.title') })]),
         el('p', { className: 'platform-admin-data-note',
           text: t(`platformAdmin.productDelivery.environment.${primary.environment}`) }),
       ]), refresh,

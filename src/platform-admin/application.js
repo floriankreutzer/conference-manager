@@ -868,7 +868,11 @@ export function createPlatformAdminApplication({
 
   function renderFleetDirectory() {
     setHeading(t('platformAdmin.fleet.title'), t('platformAdmin.fleet.subtitle'));
-    const section = el('section', { attrs: { 'aria-labelledby': 'platformAdminFleetTitle' } }, [
+    const section = el('section', {
+      className: 'platform-admin-page',
+      dataset: { platformAdminPage: 'directory' },
+      attrs: { 'aria-labelledby': 'platformAdminFleetTitle' },
+    }, [
       el('h2', {
         id: 'platformAdminFleetTitle',
         className: 'sr-only',
@@ -933,9 +937,12 @@ export function createPlatformAdminApplication({
   function renderSelectedFleetView() {
     if (currentFleetView() === 'product-delivery' && productDelivery) {
       setHeading(t('platformAdmin.productDelivery.title'), t('platformAdmin.productDelivery.subtitle'));
-      return renderProductDelivery({ resource: fleetResources.get(currentFleetView()),
+      return el('div', {
+        className: 'platform-admin-page',
+        dataset: { platformAdminPage: 'product-delivery' },
+      }, [renderProductDelivery({ resource: fleetResources.get(currentFleetView()),
         activeTab: currentRoute().tab, onTabChange: (value) => selectInsightTab('product-delivery', value),
-        onRetry: () => loadFleetResource('product-delivery', { force: true }) });
+        onRetry: () => loadFleetResource('product-delivery', { force: true }) })]);
     }
     if (currentFleetView() === 'providers' && providerUsage) {
       setHeading(t('platformAdmin.providers.title'), t('platformAdmin.providers.subtitle'));
@@ -943,14 +950,20 @@ export function createPlatformAdminApplication({
       const now = providerFreshness.capture();
       const elapsedMs = resource?.requestClock ? Math.max(0,
         now.wall - resource.requestClock.wall, now.monotonic - resource.requestClock.monotonic) : 0;
-      return renderProviderUsage({ resource, elapsedMs,
+      return el('div', {
+        className: 'platform-admin-page',
+        dataset: { platformAdminPage: 'providers' },
+      }, [renderProviderUsage({ resource, elapsedMs,
         activeTab: currentRoute().tab, onTabChange: (value) => selectInsightTab('providers', value),
         isStale: !providerFreshness.isReusable(fleetResources.get(currentFleetView())),
-        onRetry: () => loadFleetResource('providers', { force: true }) });
+        onRetry: () => loadFleetResource('providers', { force: true }) })]);
     }
     const definition = PLATFORM_FLEET_VIEW_DEFINITIONS.find(({ id }) => id === currentFleetView());
     setHeading(t(definition.titleKey), t(`platformAdmin.fleetView.${currentFleetView()}.description`));
-    return renderPlatformFleetView({
+    return el('div', {
+      className: 'platform-admin-page',
+      dataset: { platformAdminPage: currentFleetView() },
+    }, [renderPlatformFleetView({
       view: currentFleetView(),
       resource: fleetResources.get(currentFleetView()),
       onRetry: () => loadFleetResource(currentFleetView(), { force: true }),
@@ -958,7 +971,7 @@ export function createPlatformAdminApplication({
       onLoadMore: (cursor) => loadFleetResource(currentFleetView(), { cursor, append: true }),
       onExportAudit: operationProofAvailable && currentOperator?.permissions.includes('platform:audit:export')
         ? ()=>downloadPlatformAuditExport(dataSource) : null,
-    });
+    })]);
   }
 
   function renderCreateTenantControl() {
@@ -1339,20 +1352,64 @@ export function createPlatformAdminApplication({
       el('div', { className: 'platform-admin-section-heading' }, [
         el('h2', {
           id: 'platformAdminSectionTitle',
-          text: t(definition.titleKey),
+          className: 'pavurel-icon-label',
           attrs: { tabindex: '-1' },
-        }),
+        }, [
+          pavurelFunctionalIcon({
+            overview: 'dashboard',
+            lifecycle: 'settings',
+            entitlements: 'settings',
+            diagnostics: 'diagnostics',
+            recovery: 'recovery',
+            metering: 'usage',
+            'runtime-status': 'system',
+          }[definition.id] || 'customers'),
+          el('span', { text: t(definition.titleKey) }),
+        ]),
         el('p', { text: t(definition.descriptionKey) }),
       ]),
     ]);
     section.querySelector('.platform-admin-back-link').addEventListener('click', () => navigate(platformAdminFleetHash()));
+    section.append(el('div', {
+      className: 'platform-admin-tenant-context',
+      dataset: { platformAdminTenantContext: 'true' },
+    }, [
+      el('div', { className: 'platform-admin-tenant-context-identity' }, [
+        pavurelFunctionalIcon('customers'),
+        el('div', {}, [
+          el('strong', { text: tenant.displayName }),
+          el('small', { text: tenant.reference || tenant.id }),
+        ]),
+      ]),
+      stateBadge(tenant.lifecycleState),
+    ]));
+    const sectionTabs = el('nav', {
+      className: 'platform-admin-section-tabs',
+      dataset: { platformAdminSectionTabs: 'true' },
+      attrs: { 'aria-label': t('platformAdmin.navigation.customer', { tenant: tenant.displayName }) },
+    }, [el('ul', { className: 'platform-admin-section-tabs-list' })]);
+    const sectionTabList = sectionTabs.querySelector('ul');
+    PLATFORM_ADMIN_SECTION_DEFINITIONS.forEach((sectionDefinition) => {
+      const active = route.section === sectionDefinition.id;
+      const tab = button(t(sectionDefinition.titleKey), {
+        className: `platform-admin-section-tab${active ? ' active' : ''}`,
+        attrs: active ? { 'aria-current': 'page' } : {},
+        dataset: { platformAdminSectionTab: sectionDefinition.id },
+      });
+      tab.addEventListener('click', () => navigate(platformAdminTenantHash(tenant.id, sectionDefinition.id)));
+      sectionTabList.append(el('li', {}, [tab]));
+    });
+    section.append(sectionTabs);
     if (actionError) {
       section.append(el('div', { className: 'platform-admin-error', attrs: { role: 'alert' } }, [
         el('strong', { text: t('platformAdmin.action.failedTitle') }),
         el('p', { text: t('platformAdmin.action.failed') }),
       ]));
     }
-    section.append(renderPlatformAdminTenantSection({
+    section.append(el('div', {
+      className: 'platform-admin-tenant-content',
+      dataset: { platformAdminSectionContent: definition.id },
+    }, [renderPlatformAdminTenantSection({
       sectionId: definition.id,
       operationProofAvailable,
       tenant: customerInvitationPresentation ? { ...tenant,
@@ -1372,7 +1429,7 @@ export function createPlatformAdminApplication({
       onRecoveryExecute: (recoveryId, preview) => executeRecovery(tenant, recoveryId, preview),
       onRecoveryTargetsMore: (recoveryId, cursor) => loadMoreRecoveryTargets(tenant, recoveryId, cursor),
       onQuotaSet: (quota) => editQuota(tenant, quota),
-    }));
+    })]));
     if (customerInvitationPresentation && definition.id === 'lifecycle') {
       const panel=customerInvitationPresentation.renderTenantPanel({ tenant,operator: currentOperator,operationProofAvailable,onStepUp,
         isCurrent: () => !stopped && currentRoute().tenantId === tenant.id && currentRoute().section === 'lifecycle' });
