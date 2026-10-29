@@ -12,6 +12,20 @@ The Demo has one public static launch surface and two separately hosted applicat
 
 The German launch route is `https://floriankreutzer.github.io/conference-manager-website/de/demo/`.
 
+## Planned protected INT domain cutover
+
+[Shared SaaS1 issue #415](https://github.com/floriankreutzer/conference-manager/issues/415)
+prepares `https://app.int.pavurel.eu` for Customer and
+`https://platform.int.pavurel.eu` for Platform. These are the selected future
+canonical INT origins; this source change does not establish their live
+activation or replace the recorded Render URLs above. The existing apps retain
+their separate same-origin API, identity and session boundaries.
+
+See [Pavurel INT application domain cutover](PAVUREL-INT-DOMAIN-CUTOVER.md) for
+immutable artifact inputs, Microsoft-MFA alignment, provider health-check
+coordination, operating acceptance and rollback. Historical Demo acceptance
+contracts must not be mechanically re-targeted to the new protected domains.
+
 ## Trust boundary
 
 The public website launchpad is not an application host or trust boundary for Conference Manager. It remains a static navigation surface linking directly to the canonical Render origins.
