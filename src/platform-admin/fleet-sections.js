@@ -1,4 +1,5 @@
 import { renderRuntimeObservation } from './runtime-observation.js';
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
 import { readinessBlockerPresentation, readinessNextTaskPresentation } from './readiness-blockers.js';
@@ -12,6 +13,13 @@ export const PLATFORM_FLEET_VIEW_DEFINITIONS = Object.freeze([
   Object.freeze({ id: 'platform-audit', permission: 'platform:audit:read', titleKey: 'platformAdmin.fleetView.audit' }),
   Object.freeze({ id: 'runtime-status', permission: 'platform:runtime:read', titleKey: 'platformAdmin.fleetView.runtime' }),
 ]);
+
+function platformHeading(iconName, text, tag = 'h3') {
+  return el(tag, { className: 'pavurel-icon-label' }, [
+    pavurelFunctionalIcon(iconName),
+    el('span', { text }),
+  ]);
+}
 
 function tone(value) {
   if (['ready', 'healthy', 'verified', 'success', 'current', 'fresh'].includes(value)) return 'positive';
@@ -41,7 +49,7 @@ function mappingSummary(mappings) {
 
 function heading(item, onSelectTenant) {
   const content = [
-    el('div', {}, [el('h3', { text: item.displayName }), el('small', { text: item.tenantId })]),
+    el('div', {}, [platformHeading('customers', item.displayName), el('small', { text: item.tenantId })]),
     status(item.lifecycle.status),
   ];
   if (typeof onSelectTenant === 'function') {
@@ -125,7 +133,7 @@ function readiness(resource, onSelectTenant, onLoadMore) {
         { count: formatNumber(item.readiness.checks.length) },
       ) }),
       ...(item.readiness.blockerCodes.length
-        ? [el('h4', { text: t('platformAdmin.readiness.blockers') }), blockers]
+        ? [platformHeading('warning', t('platformAdmin.readiness.blockers'), 'h4'), blockers]
         : [el('p', { className: 'platform-admin-empty', text: t('platformAdmin.readiness.noBlockers') })]),
     ]));
   });
