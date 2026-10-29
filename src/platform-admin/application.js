@@ -1357,7 +1357,7 @@ export function createPlatformAdminApplication({
       const tab = button(t(sectionDefinition.titleKey), {
         className: `platform-admin-section-tab${active ? ' active' : ''}`,
         attrs: active ? { 'aria-current': 'page' } : {},
-        dataset: { platformAdminNavigate: sectionDefinition.id },
+        dataset: { platformAdminSectionTab: sectionDefinition.id },
       });
       tab.addEventListener('click', () => navigate(platformAdminTenantHash(tenant.id, sectionDefinition.id)));
       sectionTabList.append(el('li', {}, [tab]));
