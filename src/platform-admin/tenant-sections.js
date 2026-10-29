@@ -1,5 +1,6 @@
 import { renderRuntimeObservation } from './runtime-observation.js';
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
 import { formatProductionDateTimeInput, productionUtcInstant } from '../core/production-time.js';
@@ -23,6 +24,13 @@ export const PLATFORM_ADMIN_SECTION_DEFINITIONS = Object.freeze([
 const LIFECYCLE_ACTIONS = Object.freeze([
   'invitation_revoke', 'invitation_reissue', 'mark_ready', 'activate', 'suspend', 'reactivate', 'archive',
 ]);
+
+function platformHeading(iconName, text, attrs = {}) {
+  return el('h3', { ...attrs, className: 'pavurel-icon-label' }, [
+    pavurelFunctionalIcon(iconName),
+    el('span', { text }),
+  ]);
+}
 
 function tone(value) {
   if (['ready', 'active', 'healthy', 'clear', 'enabled', 'current', 'succeeded', 'success', 'complete', 'fresh', 'configured'].includes(value)) return 'positive';
@@ -95,10 +103,10 @@ function actionPanel(tenant, operator, actions, onAction, onStepUp, operationPro
 
 function overview(tenant, onOpenLifecycle) {
   const metrics = el('div', { className: 'platform-admin-metric-grid' }, [
-    el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.lifecycle') }), state(tenant.lifecycleState)]),
-    el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.onboarding') }), state(tenant.onboardingState, 'onboarding')]),
-    el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.identity') }), state(tenant.identityState, 'identity')]),
-    el('article', { className: 'card platform-admin-metric' }, [el('h3', { text: t('platformAdmin.field.version') }), el('strong', { text: formatNumber(tenant.version) })]),
+    el('article', { className: 'card platform-admin-metric' }, [platformHeading('settings', t('platformAdmin.field.lifecycle')), state(tenant.lifecycleState)]),
+    el('article', { className: 'card platform-admin-metric' }, [platformHeading('info', t('platformAdmin.field.onboarding')), state(tenant.onboardingState, 'onboarding')]),
+    el('article', { className: 'card platform-admin-metric' }, [platformHeading('integrations', t('platformAdmin.field.identity')), state(tenant.identityState, 'identity')]),
+    el('article', { className: 'card platform-admin-metric' }, [platformHeading('diagnostics', t('platformAdmin.field.version')), el('strong', { text: formatNumber(tenant.version) })]),
   ]);
   const next = typeof onOpenLifecycle === 'function' ? button(t('platformAdmin.overview.openSetup'), { className: 'secondary' }) : null;
   next?.addEventListener('click', onOpenLifecycle);
@@ -177,7 +185,7 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
   const stateByCapability = new Map(tenantState.entries.map((entry) => [entry.capabilityId, entry]));
   const draftByCapability = new Map(draft.map(entry => [entry.capabilityId, entry.enabled]));
   const form = el('form', { className: 'card platform-admin-entitlement-form' }, [
-    el('h3', { text: t('platformAdmin.entitlements.directTitle') }),
+    platformHeading('settings', t('platformAdmin.entitlements.directTitle')),
     el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.entitlements.revision', { revision: formatNumber(tenantState.revision) }) }),
   ]);
   const checkboxes = new Map();
@@ -254,7 +262,7 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
   }
   form.append(feedback);
   const packages = el('section', { className: 'platform-admin-record-list', attrs: { 'aria-labelledby': 'platformAdminPackagesTitle' } }, [
-    el('h3', { id: 'platformAdminPackagesTitle', text: t('platformAdmin.entitlements.packagesTitle') }),
+    platformHeading('settings', t('platformAdmin.entitlements.packagesTitle'), { id: 'platformAdminPackagesTitle' }),
   ]);
   if (!workspace.packages.items.length) packages.append(el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.entitlements.noPackages') }));
   workspace.packages.items.forEach(packageValue => {
@@ -312,7 +320,7 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
     const submit = button(t('platformAdmin.diagnostics.lookup'), { type: 'submit', className: 'secondary' });
     const form = el('form', { className: 'card platform-admin-filter-form' }, [
       el('div', { className: 'platform-admin-filter-introduction' }, [
-        el('h3', { text: t('platformAdmin.diagnostics.lookupTitle') }),
+        platformHeading('diagnostics', t('platformAdmin.diagnostics.lookupTitle')),
         el('p', { id: 'platformAdminCorrelationHelp', className: 'platform-admin-data-note', text: t('platformAdmin.diagnostics.correlationHelp') }),
         el('p', { id: 'platformAdminCorrelationTimeZone', className: 'platform-admin-data-note', text: t('platformAdmin.diagnostics.timeZone', { timeZone }) }),
       ]),
@@ -352,7 +360,7 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
       el('p', { text: formatDateTime(entry.occurredAt) }), el('small', {}, [dataCode(entry.category)]),
     ])));
     content.append(el('section', { attrs: { 'aria-labelledby': 'platformAdminCorrelationResultsTitle' } }, [
-      el('h3', { id: 'platformAdminCorrelationResultsTitle', text: t('platformAdmin.diagnostics.results') }),
+      platformHeading('search', t('platformAdmin.diagnostics.results'), { id: 'platformAdminCorrelationResultsTitle' }),
       ...(result.items.length ? [list] : [el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.diagnostics.noResults') })]),
     ]));
   }
@@ -403,7 +411,7 @@ function recovery({
       }
     }
     const card = el('article', { className: 'card platform-admin-warning' }, [
-      el('h3', { text: t(`platformAdmin.recovery.action.${definition.id}`) }),
+      platformHeading('recovery', t(`platformAdmin.recovery.action.${definition.id}`)),
       el('p', { text: t(`platformAdmin.recovery.effect.${definition.id}`) }),
       ...(target ? [field({ id: `platformAdminRecoveryTarget-${definition.id}`, label: t(`platformAdmin.recovery.target.${definition.targetField}`), control: target, required: true })] : []),
       ...(target && targetPage && !targetPage.items.some(item => item.eligible) ? [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.noEligibleTarget') })] : []),
@@ -451,7 +459,7 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
       controls.push(edit);
     }
     list.append(el('article', { className: 'card platform-admin-record' }, [
-      el('div', { className: 'platform-admin-record-heading' }, [el('h3', { text: t(`platformAdmin.metering.name.${dimension.dimension}`) }), state(usage.dataState)]),
+      el('div', { className: 'platform-admin-record-heading' }, [platformHeading('usage', t(`platformAdmin.metering.name.${dimension.dimension}`)), state(usage.dataState)]),
       el('p', { text: t(`platformAdmin.metering.meaning.${dimension.dimension}`) }),
       el('strong', { text: dimension.value === null ? t('platformAdmin.value.unknown') : formatNumber(dimension.value) }),
       definitionList([

@@ -1,4 +1,5 @@
 import { formatDate, formatDateTime, formatNumber, t } from '../core/i18n.js';
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { button, el } from '../core/ui.js';
 import { renderInsightTabs } from './insight-tabs.js';
 import { renderLiveMetrics } from './live-metrics.js';

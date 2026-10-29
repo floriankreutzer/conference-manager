@@ -122,10 +122,14 @@ External documents isolate the originals' metadata IDs. Microsoft controls remai
 separate. Both explicit Platform inventories include all96 canonical variants and
 the renderer; Customer packaging includes its native Core module and local assets.
 
-Customer and Platform navigation use inverse icons on the existing dark surface.
-Names describe tasks, not health or permission: readiness uses information, runtime
-uses system, invitations/setup use settings, and people are not customer symbols.
-The immutable draft manifest describes asset provenance, not current deployment.
-Source integration, all-variant decoding/contact sheets, actual navigation checks
-and separate Main/Hosted acceptance remain distinct. No optical acceptance below
-24px, Website integration or deployment is implied by this candidate.
+Customer and Platform navigation keep white inverse icons on their existing
+dark surfaces. Platform page titles and relevant content headings use the light
+variant on light surfaces: Ink linework with a Bordeaux accent. Each icon remains
+decorative and supplements its visible localized heading; it never replaces the
+text or communicates health or permission by itself. Preserve stable meanings:
+readiness uses information, runtime uses system, invitations/setup use settings,
+and people are not customer symbols. The immutable draft manifest describes asset
+provenance, not current deployment. All-variant decoding/contact sheets, actual
+navigation and heading checks, and separate Main/Hosted acceptance remain distinct.
+No optical acceptance below 24px, Website integration or deployment is implied by
+this Platform implementation.

@@ -285,7 +285,17 @@ export function createPlatformAdminApplication({
   }
 
   function setHeading(title, subtitle) {
-    nodes.title.textContent = title;
+    const route = currentRoute();
+    const iconName = route.view === 'tenant'
+      ? ({ overview: 'dashboard', lifecycle: 'settings', entitlements: 'settings', diagnostics: 'diagnostics', recovery: 'recovery', metering: 'usage', 'runtime-status': 'system' })[route.section]
+      : ({ directory: 'customers', readiness: 'info', 'integration-health': 'integrations', 'platform-audit': 'audit', 'runtime-status': 'system', providers: 'usage', 'product-delivery': 'delivery' })[currentFleetView()];
+    if (iconName) {
+      nodes.title.classList.add('pavurel-icon-label');
+      nodes.title.replaceChildren(pavurelFunctionalIcon(iconName), el('span', { text: title }));
+    } else {
+      nodes.title.classList.remove('pavurel-icon-label');
+      nodes.title.textContent = title;
+    }
     nodes.subtitle.textContent = subtitle;
   }
 
@@ -893,7 +903,7 @@ export function createPlatformAdminApplication({
       list.append(el('li', { className: 'card platform-admin-fleet-card' }, [
         el('div', { className: 'platform-admin-record-heading' }, [
           el('div', {}, [
-            el('h3', { text: tenant.displayName }),
+            el('h3', { className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('customers'), el('span', { text: tenant.displayName })]),
             el('small', { text: tenant.reference || tenant.id }),
           ]),
           stateBadge(tenant.lifecycleState),
