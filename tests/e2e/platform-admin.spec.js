@@ -1566,6 +1566,9 @@ test('Platform headings use Bordeaux light icons while dark navigation retains w
 
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await expectTitleIcon('dashboard');
+  const metricIcon = page.locator('.platform-admin-metric h3 img.pavurel-functional-icon').first();
+  await expect(metricIcon).toHaveAttribute('src', /\/light\/settings\.svg$/);
+  await expect(metricIcon).toHaveAttribute('aria-hidden', 'true');
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
   await expectTitleIcon('settings');
 });
