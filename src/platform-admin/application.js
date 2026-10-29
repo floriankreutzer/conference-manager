@@ -870,7 +870,7 @@ export function createPlatformAdminApplication({
     setHeading(t('platformAdmin.fleet.title'), t('platformAdmin.fleet.subtitle'));
     const section = el('section', {
       className: 'platform-admin-page',
-      dataset: { platformAdminFleetView: 'directory' },
+      dataset: { platformAdminPage: 'directory' },
       attrs: { 'aria-labelledby': 'platformAdminFleetTitle' },
     }, [
       el('h2', {
@@ -939,7 +939,7 @@ export function createPlatformAdminApplication({
       setHeading(t('platformAdmin.productDelivery.title'), t('platformAdmin.productDelivery.subtitle'));
       return el('div', {
         className: 'platform-admin-page',
-        dataset: { platformAdminFleetView: 'product-delivery' },
+        dataset: { platformAdminPage: 'product-delivery' },
       }, [renderProductDelivery({ resource: fleetResources.get(currentFleetView()),
         activeTab: currentRoute().tab, onTabChange: (value) => selectInsightTab('product-delivery', value),
         onRetry: () => loadFleetResource('product-delivery', { force: true }) })]);
@@ -952,7 +952,7 @@ export function createPlatformAdminApplication({
         now.wall - resource.requestClock.wall, now.monotonic - resource.requestClock.monotonic) : 0;
       return el('div', {
         className: 'platform-admin-page',
-        dataset: { platformAdminFleetView: 'providers' },
+        dataset: { platformAdminPage: 'providers' },
       }, [renderProviderUsage({ resource, elapsedMs,
         activeTab: currentRoute().tab, onTabChange: (value) => selectInsightTab('providers', value),
         isStale: !providerFreshness.isReusable(fleetResources.get(currentFleetView())),
@@ -962,7 +962,7 @@ export function createPlatformAdminApplication({
     setHeading(t(definition.titleKey), t(`platformAdmin.fleetView.${currentFleetView()}.description`));
     return el('div', {
       className: 'platform-admin-page',
-      dataset: { platformAdminFleetView: currentFleetView() },
+      dataset: { platformAdminPage: currentFleetView() },
     }, [renderPlatformFleetView({
       view: currentFleetView(),
       resource: fleetResources.get(currentFleetView()),

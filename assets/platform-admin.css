@@ -1025,18 +1025,18 @@
   color: var(--color-on-dark);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="directory"] .platform-admin-metric-grid {
+.platform-admin-page[data-platform-admin-page="directory"] .platform-admin-metric-grid {
   margin-block: 0;
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="directory"] .platform-admin-metric {
+.platform-admin-page[data-platform-admin-page="directory"] .platform-admin-metric {
   min-block-size: 6.5rem;
   align-content: center;
   border-block-start-color: var(--brand-primary);
   box-shadow: var(--shadow-sm);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="directory"] .platform-admin-filter-form {
+.platform-admin-page[data-platform-admin-page="directory"] .platform-admin-filter-form {
   padding: var(--app-card-padding);
   border-inline-start: 4px solid var(--color-camel-500);
 }
@@ -1289,77 +1289,77 @@
   border-inline-start: 4px solid var(--color-camel-500);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="readiness"] .platform-admin-record-list,
-.platform-admin-page[data-platform-admin-fleet-view="integration-health"] .platform-admin-record-list {
+.platform-admin-page[data-platform-admin-page="readiness"] .platform-admin-record-list,
+.platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record-list {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
   align-items: start;
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="readiness"] .platform-admin-record {
+.platform-admin-page[data-platform-admin-page="readiness"] .platform-admin-record {
   display: grid;
   align-content: start;
   gap: var(--space-3);
   border-inline-start: 4px solid var(--brand-primary);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="readiness"] .platform-admin-record > * {
+.platform-admin-page[data-platform-admin-page="readiness"] .platform-admin-record > * {
   margin-block: 0;
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="integration-health"] .platform-admin-record {
+.platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record {
   display: grid;
   align-content: start;
   gap: var(--space-3);
   border-inline-start: 4px solid var(--color-camel-500);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="integration-health"] .platform-admin-record > * {
+.platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record > * {
   margin-block: 0;
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="platform-audit"] .platform-admin-audit-list {
+.platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-list {
   gap: var(--space-2);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="platform-audit"] .platform-admin-audit-row {
+.platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-2) var(--space-4);
   padding-block: var(--space-3);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="platform-audit"] .platform-admin-audit-row .platform-admin-record-heading {
+.platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-row .platform-admin-record-heading {
   grid-column: 1 / -1;
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="platform-audit"] .platform-admin-audit-event-details {
+.platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-event-details {
   grid-column: 1 / -1;
   margin-block-start: 0;
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="runtime-status"] .platform-admin-record-list {
+.platform-admin-page[data-platform-admin-page="runtime-status"] .platform-admin-record-list {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
   align-items: start;
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="providers"] .platform-admin-insights-report,
-.platform-admin-page[data-platform-admin-fleet-view="product-delivery"] .platform-admin-product-delivery {
+.platform-admin-page[data-platform-admin-page="providers"] .platform-admin-insights-report,
+.platform-admin-page[data-platform-admin-page="product-delivery"] .platform-admin-product-delivery {
   display: grid;
   gap: var(--app-section-gap);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="providers"] .platform-admin-insights-header,
-.platform-admin-page[data-platform-admin-fleet-view="product-delivery"] .platform-admin-insights-header {
+.platform-admin-page[data-platform-admin-page="providers"] .platform-admin-insights-header,
+.platform-admin-page[data-platform-admin-page="product-delivery"] .platform-admin-insights-header {
   padding-block-end: var(--space-3);
   border-block-end: 1px solid var(--color-border);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="providers"] .platform-admin-insights-primary-value {
+.platform-admin-page[data-platform-admin-page="providers"] .platform-admin-insights-primary-value {
   color: var(--brand-primary-hover);
   font-family: var(--font-family-display);
 }
 
-.platform-admin-page[data-platform-admin-fleet-view="product-delivery"] .platform-admin-delivery-component {
+.platform-admin-page[data-platform-admin-page="product-delivery"] .platform-admin-delivery-component {
   padding: var(--space-3);
   border-inline-start: 3px solid var(--color-camel-500);
   background: var(--color-surface-subtle);
@@ -1414,11 +1414,11 @@
     grid-row: auto;
   }
 
-  .platform-admin-page[data-platform-admin-fleet-view="platform-audit"] .platform-admin-audit-row {
+  .platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-row {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .platform-admin-page[data-platform-admin-fleet-view="platform-audit"] .platform-admin-audit-row > * {
+  .platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-row > * {
     grid-column: 1;
   }
 }
@@ -1432,11 +1432,11 @@
     display: grid;
   }
 
-  .platform-admin-page[data-platform-admin-fleet-view="directory"] .platform-admin-metric-grid {
+  .platform-admin-page[data-platform-admin-page="directory"] .platform-admin-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .platform-admin-page[data-platform-admin-fleet-view="directory"] .platform-admin-fleet-card .platform-admin-inline-status {
+  .platform-admin-page[data-platform-admin-page="directory"] .platform-admin-fleet-card .platform-admin-inline-status {
     grid-template-columns: minmax(0, 1fr);
   }
 }
