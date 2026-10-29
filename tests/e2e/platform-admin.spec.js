@@ -1563,6 +1563,7 @@ test('Platform headings use Bordeaux light icons while dark navigation retains w
 
   await page.locator('[data-platform-admin-fleet-view="readiness"]').click();
   await expectTitleIcon('info');
+  await page.locator('[data-platform-admin-fleet-view="directory"]').click();
 
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await expectTitleIcon('dashboard');

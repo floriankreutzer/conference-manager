@@ -907,7 +907,7 @@ export function createPlatformAdminApplication({
       list.append(el('li', { className: 'card platform-admin-fleet-card' }, [
         el('div', { className: 'platform-admin-record-heading' }, [
           el('div', {}, [
-            el('h3', { text: tenant.displayName }),
+            el('h3', { className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('customers'), el('span', { text: tenant.displayName })]),
             el('small', { text: tenant.reference || tenant.id }),
           ]),
           stateBadge(tenant.lifecycleState),
