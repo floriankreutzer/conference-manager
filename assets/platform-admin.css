@@ -1169,32 +1169,32 @@
   font-family: var(--font-family-sans);
 }
 
-.platform-admin-tenant-section > [data-platform-admin-section] {
+.platform-admin-tenant-content {
   display: grid;
   gap: var(--app-section-gap);
   min-inline-size: 0;
 }
 
-.platform-admin-tenant-section [data-platform-admin-section] > .platform-admin-metric-grid {
+.platform-admin-tenant-content > .platform-admin-metric-grid {
   margin-block-end: 0;
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="overview"] .platform-admin-metric {
+.platform-admin-tenant-section[data-platform-admin-section="overview"] .platform-admin-tenant-content .platform-admin-metric {
   min-block-size: 7rem;
   align-content: center;
   border-block-start-color: var(--brand-primary);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="overview"] > p {
+.platform-admin-tenant-section[data-platform-admin-section="overview"] .platform-admin-tenant-content > p {
   max-inline-size: 72ch;
   margin-block: 0;
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="lifecycle"] .platform-admin-definition-list {
+.platform-admin-tenant-section[data-platform-admin-section="lifecycle"] .platform-admin-tenant-content .platform-admin-definition-list {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="lifecycle"] .platform-admin-definition-list > div {
+.platform-admin-tenant-section[data-platform-admin-section="lifecycle"] .platform-admin-tenant-content .platform-admin-definition-list > div {
   grid-template-columns: 1fr;
   gap: var(--space-2);
   padding: var(--space-3);
@@ -1203,14 +1203,14 @@
   background: var(--color-surface-subtle);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="entitlements"] {
+.platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: var(--app-section-gap);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="entitlements"] > .platform-admin-entitlement-form {
+.platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content > .platform-admin-entitlement-form {
   grid-row: span 2;
 }
 
@@ -1234,24 +1234,24 @@
   line-height: var(--line-height-base);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="diagnostics"] {
+.platform-admin-tenant-section[data-platform-admin-section="diagnostics"] .platform-admin-tenant-content {
   gap: var(--app-section-gap);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="diagnostics"] > div:first-child > section:first-child {
+.platform-admin-tenant-section[data-platform-admin-section="diagnostics"] .platform-admin-tenant-content > div:first-child > section:first-child {
   border-inline-start: 4px solid var(--brand-primary);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="diagnostics"] .platform-admin-filter-form {
+.platform-admin-tenant-section[data-platform-admin-section="diagnostics"] .platform-admin-tenant-content .platform-admin-filter-form {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="recovery"] .platform-admin-record-list {
+.platform-admin-tenant-section[data-platform-admin-section="recovery"] .platform-admin-tenant-content .platform-admin-record-list {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
   align-items: start;
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="recovery"] .platform-admin-warning {
+.platform-admin-tenant-section[data-platform-admin-section="recovery"] .platform-admin-tenant-content .platform-admin-warning {
   display: grid;
   align-content: start;
   gap: var(--space-3);
@@ -1260,18 +1260,18 @@
   box-shadow: var(--shadow-sm);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="recovery"] .platform-admin-warning > * {
+.platform-admin-tenant-section[data-platform-admin-section="recovery"] .platform-admin-tenant-content .platform-admin-warning > * {
   margin-block: 0;
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="metering"] > div:last-child {
+.platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content > div:last-child {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
   align-items: start;
   gap: var(--app-section-gap);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="metering"] .platform-admin-record {
+.platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content .platform-admin-record {
   display: grid;
   align-content: start;
   justify-content: stretch;
@@ -1280,12 +1280,12 @@
   box-shadow: var(--shadow-sm);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="metering"] .platform-admin-record > strong {
+.platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content .platform-admin-record > strong {
   font-family: var(--font-family-display);
   font-size: var(--font-size-2xl);
 }
 
-.platform-admin-tenant-section [data-platform-admin-section="runtime-status"] [data-runtime-observation] {
+.platform-admin-tenant-section[data-platform-admin-section="runtime-status"] .platform-admin-tenant-content [data-runtime-observation] {
   border-inline-start: 4px solid var(--color-camel-500);
 }
 
@@ -1406,11 +1406,11 @@
     align-items: flex-start;
   }
 
-  .platform-admin-tenant-section [data-platform-admin-section="entitlements"] {
+  .platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .platform-admin-tenant-section [data-platform-admin-section="entitlements"] > .platform-admin-entitlement-form {
+  .platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content > .platform-admin-entitlement-form {
     grid-row: auto;
   }
 
