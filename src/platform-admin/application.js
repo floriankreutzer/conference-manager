@@ -1406,7 +1406,10 @@ export function createPlatformAdminApplication({
         el('p', { text: t('platformAdmin.action.failed') }),
       ]));
     }
-    section.append(renderPlatformAdminTenantSection({
+    section.append(el('div', {
+      className: 'platform-admin-tenant-content',
+      dataset: { platformAdminSectionContent: definition.id },
+    }, [renderPlatformAdminTenantSection({
       sectionId: definition.id,
       operationProofAvailable,
       tenant: customerInvitationPresentation ? { ...tenant,
@@ -1426,7 +1429,7 @@ export function createPlatformAdminApplication({
       onRecoveryExecute: (recoveryId, preview) => executeRecovery(tenant, recoveryId, preview),
       onRecoveryTargetsMore: (recoveryId, cursor) => loadMoreRecoveryTargets(tenant, recoveryId, cursor),
       onQuotaSet: (quota) => editQuota(tenant, quota),
-    }));
+    })]));
     if (customerInvitationPresentation && definition.id === 'lifecycle') {
       const panel=customerInvitationPresentation.renderTenantPanel({ tenant,operator: currentOperator,operationProofAvailable,onStepUp,
         isCurrent: () => !stopped && currentRoute().tenantId === tenant.id && currentRoute().section === 'lifecycle' });
