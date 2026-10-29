@@ -1538,3 +1538,34 @@ for (const locale of ['de','en']) test(`quota confirmation retains customer, hum
   await dialog.press('Escape');await expect(dialog).toBeHidden();
   expect(state.requests.filter(({ method })=>method!=='GET')).toHaveLength(0);
 });
+
+test('Platform headings use Bordeaux light icons while dark navigation retains white inverse icons', async ({ page }) => {
+  await installDemoRoutes(page);
+  await page.goto('/platform-admin-demo/');
+
+  const title = page.locator('#viewTitle');
+  const expectTitleIcon = async (name) => {
+    const icon = title.locator('img.pavurel-functional-icon');
+    await expect(icon).toHaveAttribute('src', new RegExp(`/light/${name}\\.svg$`));
+    await expect(icon).toHaveAttribute('alt', '');
+    await expect(icon).toHaveAttribute('aria-hidden', 'true');
+    await expect(title.locator('span')).toBeVisible();
+    expect((await title.locator('span').textContent()).trim()).not.toBe('');
+  };
+
+  await expectTitleIcon('customers');
+  const inverseIcons = page.locator('nav img.pavurel-functional-icon');
+  await expect(inverseIcons).not.toHaveCount(0);
+  for (const icon of await inverseIcons.all()) {
+    await expect(icon).toHaveAttribute('src', /\/inverse\//);
+    await expect(icon).toHaveAttribute('aria-hidden', 'true');
+  }
+
+  await page.locator('[data-platform-admin-fleet-view="readiness"]').click();
+  await expectTitleIcon('info');
+
+  await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+  await expectTitleIcon('dashboard');
+  await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
+  await expectTitleIcon('settings');
+});
