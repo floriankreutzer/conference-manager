@@ -1625,6 +1625,13 @@ for (const locale of ['de', 'en']) test(`customer target composes sourced status
   await expect(workbench.locator('.platform-admin-customer-readiness')).toContainText(locale === 'de' ? 'Blockiert' : 'Blocked');
   await expect(workbench.locator('.platform-admin-customer-activity')).toContainText(locale === 'de' ? 'keine Leseberechtigung' : 'does not have read permission');
   await expect(workbench.locator('.platform-admin-workbench-technical')).not.toHaveAttribute('open', '');
+  const customerId = page.locator('.platform-admin-customer-id');
+  await expect(customerId.locator('code')).toBeHidden();
+  await customerId.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(customerId.locator('code')).toHaveText(ACTIVE_TENANT_ID);
+  await expect(customerId.locator('code')).toBeVisible();
+  await customerId.locator('summary').press('Enter');
+  await expect(customerId.locator('code')).toBeHidden();
   const task = workbench.locator('[data-platform-admin-next-task]');
   await task.getByRole('button').focus(); await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/section=entitlements$/);
