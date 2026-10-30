@@ -12,7 +12,7 @@ export class PlatformOperatorSessionError extends Error {
 }
 
 function isPasskeyPendingRead(url, options) {
-  if (typeof url !== 'string' || (options.method ?? 'GET').toUpperCase() !== 'GET') return false;
+  if ((typeof url !== 'string' && !(url instanceof URL)) || (options.method ?? 'GET').toUpperCase() !== 'GET') return false;
   const origin = globalThis.location?.origin ?? 'https://platform-session.invalid';
   const target = new URL(url, origin);
   return target.origin === origin && !target.search && [
@@ -42,25 +42,19 @@ export function createPlatformSessionBoundary({ fetchImpl = globalThis.fetch, on
     stop() { lifetime.abort(); },
     async fetch(url, options = {}) {
       if (expired) throw new PlatformOperatorSessionError('HTTP_401');
-      const controller = new AbortController(), abort = () => controller.abort();
-      const signals = [lifetime.signal, options.signal].filter(Boolean);
-      for (const signal of signals) {
-        if (signal.aborted) abort(); else signal.addEventListener('abort', abort, { once: true });
+      // Native composition retains cancellation through response-body reads,
+      // without document-lifetime listener closures for completed requests.
+      const signal = options.signal ? AbortSignal.any([lifetime.signal, options.signal]) : lifetime.signal;
+      const response = await fetchImpl(url, { ...options, signal });
+      // These two authentication-ceremony reads use 401 for "no pending
+      // ceremony". They do not authenticate the operator session. Own-key
+      // management follows with an independently protected keys read.
+      if (active && response.status === 401 && !isPasskeyPendingRead(url, options)) expire();
+      if (expired) {
+        try { await response.body?.cancel(); } catch {}
+        throw new PlatformOperatorSessionError('HTTP_401');
       }
-      try {
-        const response = await fetchImpl(url, { ...options, signal: controller.signal });
-        // These two authentication-ceremony reads use 401 for "no pending
-        // ceremony". They do not authenticate the operator session. Own-key
-        // management follows with an independently protected keys read.
-        if (active && response.status === 401 && !isPasskeyPendingRead(url, options)) expire();
-        if (expired) {
-          try { await response.body?.cancel(); } catch {}
-          throw new PlatformOperatorSessionError('HTTP_401');
-        }
-        return response;
-      } finally {
-        for (const signal of signals) signal.removeEventListener('abort', abort);
-      }
+      return response;
     },
   });
 }

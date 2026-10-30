@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { once } from 'node:events';
 import test from 'node:test';
+import { createApiClient } from '../src/core/api-client.js';
 import { createPlatformSessionBoundary } from '../src/platform-admin/production/operator-session.js';
 
 const response=status=>new Response('{}',{ status,headers: { 'content-type': 'application/json' } });
@@ -55,9 +58,29 @@ test('absence of a pending passkey ceremony preserves the session but protected 
   for (const path of ['pending','enrollment/pending']) {
     assert.equal((await boundary.fetch(`/api/v1/platform/auth/passkey/${path}`)).status,401);
   }
+  const api=createApiClient({ origin: 'https://platform-session.invalid',baseUrl: '/api/v1/platform/',fetchImpl: boundary.fetch });
+  await assert.rejects(api.request('auth/passkey/enrollment/pending'),{ code: 'HTTP_401' });
   assert.equal(expired,0);
   await assert.rejects(boundary.fetch('/api/v1/platform/auth/passkey/manage/keys'),{ code: 'HTTP_401' });
   assert.equal(expired,1);
+});
+
+for (const source of ['caller','session','document']) test(`a stalled response body remains cancellable by ${source} after headers`,
+{ timeout: 5000 },async()=>{
+  const server=createServer((_request,res)=>{
+    res.writeHead(200,{ 'content-type': 'application/json' });res.write('{"pending":');
+  });
+  server.listen(0,'127.0.0.1');await once(server,'listening');
+  try {
+    const caller=new AbortController();
+    const boundary=createPlatformSessionBoundary({ onExpired() {} });boundary.activate();
+    const result=await boundary.fetch(`http://127.0.0.1:${server.address().port}/stream`,{ signal: caller.signal });
+    const rejected=assert.rejects(result.json(),error=>error.name==='AbortError');
+    if (source==='caller') caller.abort();else if (source==='session') boundary.expire();else boundary.stop();
+    await rejected;
+  } finally {
+    server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
+  }
 });
 
 test('the ceremony exception applies only to exact same-origin GET paths',async()=>{
