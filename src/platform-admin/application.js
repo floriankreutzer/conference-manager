@@ -603,19 +603,7 @@ export function createPlatformAdminApplication({
       return { summary: await dataSource.loadDiagnostics(tenant.id), correlation: null };
     }
     if (sectionId === 'recovery') {
-      const targets = {};
-      for (const definition of ['last-tenant-admin', 'room-mapping-repair', 'user-session-revocation']) {
-        const permission = definition.includes('session-revocation')
-          ? 'platform:session:revoke'
-          : 'platform:recovery:execute';
-        if (shouldPresentPlatformPermission(currentOperator, permission, Date.now(), operationProofAvailable)) {
-          targets[definition] = await dataSource.loadRecoveryTargets({
-            tenantId: tenant.id,
-            recoveryId: definition,
-          });
-        }
-      }
-      return { previews: {}, targets: Object.freeze(targets) };
+      return { previews: {}, targets: Object.freeze({}) };
     }
     if (sectionId === 'metering') {
       const now = new Date();
@@ -760,11 +748,13 @@ export function createPlatformAdminApplication({
     nodes.app.querySelector(`[data-platform-admin-recovery-execute="${recoveryId}"]`)?.focus();
   }
 
-  async function loadMoreRecoveryTargets(tenant, recoveryId, cursor) {
+  async function loadRecoveryTargets(tenant, recoveryId, cursor = null) {
     const key = `${tenant.id}:recovery`;
     const resource = tenantResources.get(key);
+    if (resource?.status !== 'ready') return;
     const generation = navigationGeneration;
     const current = resource.data.targets[recoveryId];
+    if (cursor !== null && current?.nextCursor !== cursor) return;
     const page = await dataSource.loadRecoveryTargets({
       tenantId: tenant.id,
       recoveryId,
@@ -773,17 +763,19 @@ export function createPlatformAdminApplication({
     const route = currentRoute();
     if (stopped || generation !== navigationGeneration || tenantResources.get(key) !== resource
       || route.view !== 'tenant' || route.tenantId !== tenant.id || route.section !== 'recovery') return;
+    const targets = cursor === null ? page
+      : { ...page, items: Object.freeze([...current.items, ...page.items]) };
     tenantResources.set(key, {
       status: 'ready',
       data: {
         ...resource.data,
         targets: {
           ...resource.data.targets,
-          [recoveryId]: { ...page, items: Object.freeze([...current.items, ...page.items]) },
+          [recoveryId]: targets,
         },
       },
     });
-    render();
+    return targets;
   }
 
   function executeRecovery(tenant, recoveryId, preview) {
@@ -1483,7 +1475,8 @@ export function createPlatformAdminApplication({
       onCorrelationLookup: (query) => lookupCorrelation(tenant, query),
       onRecoveryPreview: (recoveryId, target) => previewRecovery(tenant, recoveryId, target),
       onRecoveryExecute: (recoveryId, preview) => executeRecovery(tenant, recoveryId, preview),
-      onRecoveryTargetsMore: (recoveryId, cursor) => loadMoreRecoveryTargets(tenant, recoveryId, cursor),
+      onRecoveryTargetsLoad: (recoveryId) => loadRecoveryTargets(tenant, recoveryId),
+      onRecoveryTargetsMore: (recoveryId, cursor) => loadRecoveryTargets(tenant, recoveryId, cursor),
       onQuotaSet: (quota) => editQuota(tenant, quota),
     })]));
     if (customerInvitationPresentation && definition.id === 'lifecycle') {

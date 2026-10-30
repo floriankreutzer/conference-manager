@@ -403,6 +403,7 @@ function recovery({
   onRetry,
   onRecoveryPreview,
   onRecoveryExecute,
+  onRecoveryTargetsLoad,
   onRecoveryTargetsMore,
   onStepUp,
   operationProofAvailable,
@@ -412,57 +413,97 @@ function recovery({
   const previews = resource?.data?.previews || {};
   const targets = resource?.data?.targets || {};
   const cards = el('div', { className: 'platform-admin-record-list' });
+  let activeCard = null;
+  const controlUpdaters = [];
+  const refreshControls = () => controlUpdaters.forEach(update => update());
   PLATFORM_RECOVERY_DEFINITIONS.forEach((definition) => {
     const permission = definition.id.includes('session-revocation') ? 'platform:session:revoke' : 'platform:recovery:execute';
     if (!operator.permissions.includes(permission)) return;
     const preview = previews[definition.id];
-    const targetPage = targets[definition.id];
-    const eligibleTargets = new Set((targetPage?.items || []).filter(item => item.eligible)
-      .map(item => item[definition.targetField]));
+    let targetPage = targets[definition.id];
+    const eligibleTargets = new Set();
     const target = definition.targetField ? el('select', { attrs: { required: 'required' } }) : null;
-    if (target) {
+    function fillTargetOptions() {
+      if (!target) return;
+      const selected = target.value || preview?.targetId;
+      eligibleTargets.clear();
+      target.replaceChildren();
       target.append(el('option', { value: '', text: t('platformAdmin.recovery.target.select') }));
       (targetPage?.items || []).forEach((item) => {
         const targetId = item[definition.targetField];
+        if (item.eligible) eligibleTargets.add(targetId);
         target.append(el('option', {
           value: targetId,
           text: `${targetId} · ${item.eligible ? t('platformAdmin.state.ready') : t('platformAdmin.state.blocked')}`,
           attrs: item.eligible ? {} : { disabled: 'disabled' },
         }));
       });
-      if (preview && eligibleTargets.has(preview.targetId)) target.value = preview.targetId;
+      if (eligibleTargets.has(selected)) target.value = selected;
     }
+    fillTargetOptions();
     const controls = el('div', { className: 'button-row' });
     const feedback = el('p', { attrs: { role: 'status' } });
     let busy = false;
     let previewControl = null;
     let executeControl = null;
+    let loadControl = null;
+    let moreControl = null;
+    const targetNote = target ? el('p', { className: 'platform-admin-data-note' }) : null;
+    function updateTargetPresentation() {
+      if (targetNote) {
+        targetNote.hidden = eligibleTargets.size > 0;
+        targetNote.textContent = t(targetPage ? 'platformAdmin.recovery.noEligibleTarget'
+          : typeof onRecoveryTargetsLoad === 'function' ? 'platformAdmin.recovery.targetsNotLoaded'
+            : 'platformAdmin.recovery.targetsUnavailable');
+      }
+      if (loadControl) loadControl.textContent = t(targetPage
+        ? 'platformAdmin.recovery.reloadTargets' : 'platformAdmin.recovery.loadTargets');
+      if (moreControl) moreControl.hidden = !targetPage?.nextCursor;
+    }
+    function applyTargetPage(page) {
+      if (!card.isConnected || !page) return;
+      targetPage = page;
+      fillTargetOptions();
+      updateTargetPresentation();
+    }
     function updateControls() {
-      for (const control of card.querySelectorAll('button, select')) control.disabled = busy;
-      if (previewControl && target) previewControl.disabled = busy || !eligibleTargets.has(target.value);
-      if (executeControl && target) executeControl.disabled = busy || target.value !== preview.targetId;
+      const blocked = activeCard !== null;
+      for (const control of card.querySelectorAll('button, select')) control.disabled = blocked;
+      if (previewControl && target) previewControl.disabled = blocked || !eligibleTargets.has(target.value);
+      if (executeControl && target) executeControl.disabled = blocked || target.value !== preview.targetId;
       card.setAttribute('aria-busy', String(busy));
     }
-    async function run(work, source) {
-      if (busy) return;
-      busy = true; updateControls();
+    async function run(work, source, successKey = null) {
+      if (activeCard) return;
+      busy = true; activeCard = card; refreshControls();
       feedback.setAttribute('role', 'status');
       feedback.textContent = t('platformAdmin.recovery.loading');
-      try { await work(); }
+      try {
+        await work();
+        if (card.isConnected) feedback.textContent = successKey ? t(successKey) : '';
+      }
       catch (error) {
         if (!card.isConnected) return;
         const cancelled = ['PLATFORM_MICROSOFT_OPERATION_CANCELLED', 'PLATFORM_PASSKEY_OPERATION_CANCELLED'].includes(error?.code);
         feedback.setAttribute('role', cancelled ? 'status' : 'alert');
         feedback.textContent = t(cancelled ? 'platformAdmin.passkey.error.cancelled' : 'platformAdmin.recovery.failed');
       } finally {
-        busy = false;
+        busy = false; activeCard = null;
         if (card.isConnected) {
-          updateControls();
-          if (document.activeElement === document.body) source.focus();
+          refreshControls();
+          if (document.activeElement === document.body) (source.hidden ? loadControl || target || source : source).focus();
         }
       }
     }
     if (shouldPresentPlatformPermission(operator, permission, Date.now(), operationProofAvailable)) {
+      if (target && typeof onRecoveryTargetsLoad === 'function') {
+        loadControl = button('', { className: 'secondary', dataset: { platformAdminRecoveryTargetsLoad: definition.id } });
+        loadControl.addEventListener('click', () => {
+          void run(async () => applyTargetPage(await onRecoveryTargetsLoad(definition.id)), loadControl,
+            'platformAdmin.recovery.targetsLoaded');
+        });
+        controls.append(loadControl);
+      }
       previewControl = button(t('platformAdmin.recovery.preview'), { className: 'secondary', dataset: { platformAdminRecoveryPreview: definition.id } });
       previewControl.addEventListener('click', () => {
         if (target && !target.reportValidity()) return;
@@ -481,27 +522,34 @@ function recovery({
       platformHeading('recovery', t(`platformAdmin.recovery.action.${definition.id}`)),
       el('p', { text: t(`platformAdmin.recovery.effect.${definition.id}`) }),
       ...(target ? [field({ id: `platformAdminRecoveryTarget-${definition.id}`, label: t(`platformAdmin.recovery.target.${definition.targetField}`), control: target, required: true })] : []),
-      ...(target && !eligibleTargets.size ? [el('p', { className: 'platform-admin-data-note',
-        text: t(targetPage ? 'platformAdmin.recovery.noEligibleTarget' : 'platformAdmin.recovery.targetsUnavailable') })] : []),
+      ...(targetNote ? [targetNote] : []),
       el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.previewEffect') }),
       controls, feedback,
     ]);
     target?.addEventListener('change', updateControls);
-    if (target && !targetPage && typeof onRetry === 'function') {
+    if (target && !targetPage && typeof onRecoveryTargetsLoad !== 'function' && typeof onRetry === 'function') {
       const retry = button(t('platformAdmin.load.retry'), { className: 'secondary' });
       retry.addEventListener('click', onRetry);
       card.append(retry);
     }
-    if (targetPage?.nextCursor && typeof onRecoveryTargetsMore === 'function') {
-      const more = button(t('platformAdmin.pagination.next'), { className: 'secondary' });
-      more.addEventListener('click', () => { void run(() => onRecoveryTargetsMore(definition.id, targetPage.nextCursor), more); });
-      card.append(el('div', { className: 'button-row platform-admin-pagination' }, [more]));
+    if (target && typeof onRecoveryTargetsMore === 'function') {
+      moreControl = button(t('platformAdmin.pagination.next'), {
+        className: 'secondary', dataset: { platformAdminRecoveryTargetsMore: definition.id },
+      });
+      moreControl.addEventListener('click', () => {
+        if (!targetPage?.nextCursor) return;
+        void run(async () => applyTargetPage(await onRecoveryTargetsMore(definition.id, targetPage.nextCursor)), moreControl,
+          'platformAdmin.recovery.targetsLoaded');
+      });
+      card.append(el('div', { className: 'button-row platform-admin-pagination' }, [moreControl]));
     }
     if (preview) {
       const impacts = el('ul', { className: 'platform-admin-detail-list' });
       preview.impactCodes.forEach((entry) => impacts.append(el('li', {}, [dataCode(entry)])));
       card.append(el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.previewExpires', { time: formatDateTime(preview.expiresAt) }) }), impacts);
     }
+    controlUpdaters.push(updateControls);
+    updateTargetPresentation();
     updateControls();
     cards.append(card);
   });
