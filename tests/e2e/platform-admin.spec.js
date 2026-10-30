@@ -6,6 +6,13 @@ const REQUEST_ID = '20000000-0000-4000-8000-000000000001';
 const CSRF_TOKEN = 'c'.repeat(43);
 
 const ROLE_PROJECTIONS = Object.freeze({
+  security_admin: Object.freeze({
+    role: 'platform_security_admin',
+    permissions: ['platform:tenant:read', 'platform:diagnostics:read', 'platform:diagnostics:sensitive',
+      'platform:recovery:execute', 'platform:audit:read', 'platform:session:revoke',
+      'platform:operator:manage', 'platform:break-glass:manage'],
+    assurance: 'step_up',
+  }),
   security_auditor: Object.freeze({
     role: 'platform_security_auditor',
     permissions: ['platform:tenant:read', 'platform:diagnostics:read', 'platform:diagnostics:sensitive',
@@ -1793,3 +1800,118 @@ test('a departed diagnostic search cannot repaint a subsequently reopened custom
   await expect(page.locator('#platformAdminCorrelationId')).toHaveValue('');
   await expect(page.locator('#viewTitle')).toBeFocused();
 });
+
+const RECOVERY_USER = '11111111-1111-4111-8111-111111111111';
+const RECOVERY_OTHER_USER = '22222222-2222-4222-8222-222222222222';
+const RECOVERY_BLOCKED_USER = '33333333-3333-4333-8333-333333333333';
+
+function recoveryTargetPayload({ items = [], nextCursor = null } = {}) {
+  return { schemaVersion: 1, tenantId: ACTIVE_TENANT_ID, operation: 'last-tenant-admin',
+    snapshotAt: '2026-10-30T12:00:00.000Z', nextCursor,
+    items: items.map(([targetUserId, eligible]) => ({ targetUserId, eligible, userState: 'active',
+      activeSessionCount: 0, identityState: 'active', alreadyTenantAdmin: false, currentTenantAdminCount: 0 })),
+  };
+}
+
+async function openExplicitRecoveryFixture(page, locale, respond) {
+  const state = await installDemoRoutes(page, { initialPersona: 'security_admin' });
+  const reads = [];
+  await page.route(url => url.pathname.startsWith(`/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/recovery/`)
+    && url.pathname.endsWith('/targets'), async route => {
+    expect(route.request().method()).toBe('GET');
+    const url = new URL(route.request().url());
+    reads.push({ path: url.pathname, limit: url.searchParams.get('limit'), cursor: url.searchParams.get('cursor') });
+    await respond(route, reads.length);
+  });
+  await page.goto(`/platform-admin-demo/#tenant=${ACTIVE_TENANT_ID}&section=recovery`);
+  await page.evaluate(async value => { const { setLanguage } = await import('/src/core/i18n.js'); setLanguage(value); }, locale);
+  await expect(page.locator('[data-platform-admin-section="recovery"] article')).toHaveCount(8);
+  expect(reads).toEqual([]);
+  return { reads, state };
+}
+
+for (const locale of ['de', 'en']) {
+  test(`recovery targets are explicit and pagination preserves selection in ${locale}`, async ({ page }, testInfo) => {
+    let release;
+    const { reads, state } = await openExplicitRecoveryFixture(page, locale, async (route, attempt) => {
+      if (attempt === 1) await new Promise(resolve => { release = resolve; });
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify(attempt === 1
+        ? recoveryTargetPayload({ items: [[RECOVERY_USER, true], [RECOVERY_BLOCKED_USER, false]], nextCursor: 'next-page' })
+        : recoveryTargetPayload({ items: [[RECOVERY_OTHER_USER, true]] })) });
+    });
+    const load = page.locator('[data-platform-admin-recovery-targets-load="last-tenant-admin"]');
+    const preview = page.locator('[data-platform-admin-recovery-preview="last-tenant-admin"]');
+    const card = page.locator('article').filter({ has: load });
+    const target = page.locator('#platformAdminRecoveryTarget-last-tenant-admin');
+    await expect(card).toContainText(locale === 'de' ? 'Die Zielliste ist noch nicht geladen' : 'The target list has not been loaded');
+    await expect(preview).toBeDisabled();
+    await load.focus(); await page.keyboard.press('Enter');
+    await expect.poll(() => typeof release).toBe('function');
+    await expect(card).toHaveAttribute('aria-busy', 'true'); await expect(load).toBeDisabled();
+    await expect(page.locator('[data-platform-admin-recovery-targets-load="user-session-revocation"]')).toBeDisabled();
+    expect(reads).toHaveLength(1); expect(reads[0].path).toContain('/last-tenant-admin/targets');
+    release();
+    await expect(card.getByRole('status')).toContainText(locale === 'de' ? 'Die Zielliste wurde geladen' : 'The target list was loaded');
+    await expect(load).toBeFocused();
+    await expect(target.locator(`option[value="${RECOVERY_BLOCKED_USER}"]`)).toBeDisabled();
+    await target.selectOption(RECOVERY_USER); await expect(preview).toBeEnabled();
+    await page.locator('[data-platform-admin-recovery-targets-more="last-tenant-admin"]').click();
+    await expect(target.locator('option')).toHaveCount(4); await expect(target).toHaveValue(RECOVERY_USER);
+    await expect(target.locator(`option[value="${RECOVERY_OTHER_USER}"]`)).toBeEnabled();
+    await expect(page.locator('[data-platform-admin-recovery-targets-more="last-tenant-admin"]')).toBeHidden();
+    expect(reads.map(value => value.cursor)).toEqual([null, 'next-page']);
+    expect(reads.every(value => value.limit === '50' && value.path.includes('/last-tenant-admin/targets'))).toBe(true);
+    expect(state.requests.filter(value => value.method !== 'GET')).toEqual([]);
+    for (const width of [320, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await testInfo.attach(`explicit-targets-${locale}-${width}`, { body: await card.screenshot(), contentType: 'image/png' });
+    }
+  });
+
+  test(`recovery target failure is local and retries only after explicit input in ${locale}`, async ({ page }) => {
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    const { reads, state } = await openExplicitRecoveryFixture(page, locale, async (route, attempt) => {
+      await route.fulfill({ status: attempt === 1 ? 503 : 200, contentType: 'application/json',
+        body: JSON.stringify(attempt === 1 ? { error: { code: 'UNAVAILABLE' } } : recoveryTargetPayload()) });
+    });
+    const load = page.locator('[data-platform-admin-recovery-targets-load="last-tenant-admin"]');
+    const card = page.locator('article').filter({ has: load });
+    await load.click();
+    await expect(card.getByRole('alert')).toContainText(locale === 'de' ? 'Auswahl bleibt erhalten' : 'selection is preserved');
+    await expect(load).toBeEnabled(); await expect(load).toBeFocused();
+    await expect(page.locator('[data-platform-admin-recovery-targets-load="room-mapping-repair"]')).toBeEnabled();
+    await expect(page.locator('[data-platform-admin-section="recovery"] article')).toHaveCount(8);
+    expect(reads).toHaveLength(1);
+    await load.press('Enter');
+    await expect(card.getByRole('alert')).toHaveCount(0);
+    await expect(card).toContainText(locale === 'de' ? 'Auf dieser geladenen Seite ist kein geeignetes Ziel' : 'No eligible target is available');
+    await expect(page.locator('[data-platform-admin-recovery-preview="last-tenant-admin"]')).toBeDisabled();
+    expect(reads).toHaveLength(2); expect(errors).toEqual([]);
+    expect(state.requests.filter(value => value.method !== 'GET')).toEqual([]);
+  });
+
+  test(`departed recovery target read cannot clear the current draft or populate a reopened view in ${locale}`, async ({ page }) => {
+    let release;
+    const { reads } = await openExplicitRecoveryFixture(page, locale, async route => {
+      await new Promise(resolve => { release = resolve; });
+      await route.fulfill({ contentType: 'application/json',
+        body: JSON.stringify(recoveryTargetPayload({ items: [[RECOVERY_USER, true]] })) });
+    });
+    await page.locator('[data-platform-admin-recovery-targets-load="last-tenant-admin"]').click();
+    await expect.poll(() => typeof release).toBe('function');
+    await page.locator('#primaryNavigation [data-platform-admin-fleet-view="directory"]').click();
+    const query = page.locator('#platformAdminQuery');
+    await query.fill('unsubmitted recovery departure draft');
+    const response = page.waitForResponse(value => value.url().includes('/recovery/last-tenant-admin/targets'));
+    release(); await (await response).finished();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    await expect(query).toHaveValue('unsubmitted recovery departure draft'); await expect(query).toBeFocused();
+    await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+    await page.locator('#primaryNavigation [data-platform-admin-navigate="recovery"]').click();
+    await expect(page.locator('#platformAdminRecoveryTarget-last-tenant-admin option')).toHaveCount(1);
+    await expect(page.locator('[data-platform-admin-recovery-targets-load="last-tenant-admin"]'))
+      .toHaveText(locale === 'de' ? 'Ziele laden' : 'Load targets');
+    expect(reads).toHaveLength(1);
+  });
+}

@@ -85,16 +85,19 @@ async({ browser,browserName })=>{
         const link=provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true });
         await expect(link).toBeVisible();
         step='provider-confirm';checkpoint(sourcePhase+'-'+step);
+        const receipt=provider.waitForResponse(response=>
+          response.url()===origins.platform+'/api/v1/platform/auth/microsoft/operation/complete',{ timeout: 15000 });
+        const closed=provider.waitForEvent('close',{ timeout: 15000 });
         const confirm=()=>link.click({ timeout: 15000 });
         if (returnToCustomer) {
           await Promise.all([page.waitForURL(url=>url.origin===origins.customer && url.pathname==='/',{ timeout: 15000 }),confirm()]);
         } else await confirm();
         step='provider-receipt';checkpoint(sourcePhase+'-'+step);
-        expect(await bounded(provider.evaluate(()=>location.origin+location.pathname)))
-          .toBe(origins.platform+'/api/v1/platform/auth/microsoft/operation/complete');
+        expect((await bounded(receipt)).status()).toBe(200);
         step='provider-close';checkpoint(sourcePhase+'-'+step);
-        await bounded(provider.close());
-        step='source-focus';checkpoint(sourcePhase+'-'+step);await bounded(page.bringToFront());
+        await bounded(closed);
+        step='source-focus';checkpoint(sourcePhase+'-'+step);
+        await expect.poll(()=>page.evaluate(()=>document.visibilityState==='visible' && document.hasFocus()),{ timeout: 15000 }).toBe(true);
         step='source-result';checkpoint(sourcePhase+'-'+step);
         if (!returnToCustomer) await element.waitForElementState('hidden',{ timeout: 15000 });
         checkpoint(sourcePhase);
