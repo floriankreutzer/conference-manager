@@ -1,4 +1,4 @@
-// Mirrors the Operations API closed Product runtime contract.
+// Mirrors the Operations API product-runtime-contract.js; keep the closed wire contract synchronized.
 import { DAY_MS, PRODUCT_METRIC_IDS, exactProductObject, productInstant,
   productMetric, requireProductCondition } from './product-delivery-contracts.js';
 

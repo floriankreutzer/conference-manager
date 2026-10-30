@@ -1,10 +1,13 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API e0c8367e572f19ad6c44c9cfd6c127de504ad4ef, the Main merge of API PR354
-(including PR353). Its candidate and independent Main CI41098389898 passed all
-required gates. The paired rollout remains a separate requirement; this is not
-yet the current hosted API.
+API 2eb277d51597a7577580fbf4163ade1edb55a597, the protected Product collector
+candidate in API PR360. This source includes the prior Recovery and telemetry
+corrections. The immutable pair requires fresh complete CI; it is not a hosted
+release. The insight wire gate now exercises the real API route, authorization
+service, epoch-bound runtime snapshot and frontend adapter together. It preserves
+capture time, the separate evaluation clock and the synthetic INT label.
+
 Both refs are checked before setup and copied into unchanged closed runtime
 configuration and bounded evidence. It adds to the full regular Chromium/WebKit
 suites and unchanged permanent three-customer/two-reset/shared/zoom gates.
@@ -12,7 +15,7 @@ The required e2e status requires both complete browser matrices;
 failures/cancellation/skips cannot pass the aggregate. Its negative truth table
 covers both matrix results.
 
-Main counterpart update — 30 October 2026: both API checkouts, the protected environment
+Historical Recovery counterpart update — 30 October 2026: both API checkouts, the protected environment
 pin and fixed test expectations identify the same combined Customer Microsoft
 routing, Recovery target proof/transaction and neutral confirmation-return source. The
 owner browser journey now requires an explicit target read, cancellation, a fresh

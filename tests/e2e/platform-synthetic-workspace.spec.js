@@ -151,9 +151,12 @@ test('unknown reset outcome requires current-session checking and a read-only op
   await expect(dialog.getByRole('alert')).toContainText('nicht sicher bestätigt');
   expect(f.writes.filter(x=>x.path.endsWith('/replace'))).toHaveLength(1);
   await dialog.getByRole('button',{ name: 'Aktuellen Zustand prüfen',exact: true }).click();
-  await expect(dialog.getByRole('button',{ name: 'Mit Microsoft anmelden',exact: true })).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+  const entry=page.locator('[data-authentication-surface="platform"]');
+  await expect(entry.getByRole('heading',{ name: 'Sitzung beendet',exact: true })).toBeVisible();
+  await expect(entry.locator('main')).toBeFocused();
+  await expect(page.locator('html')).not.toHaveAttribute('data-authentication-ready','true');
   expect(f.writes.filter(x=>x.path.endsWith('/replace'))).toHaveLength(1);
-  await dialog.getByRole('button',{ name: 'Schließen',exact: true }).click();
   const reader=await setup(page,context,{ reader: true });
   await expect(page.getByRole('button',{ name: 'Passkeys verwalten',exact: true })).toBeVisible();
   expect(await page.getByRole('button',{ name: 'Eigene Testmandanten',exact: true }).count()).toBe(0);
