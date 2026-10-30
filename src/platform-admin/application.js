@@ -621,21 +621,30 @@ export function createPlatformAdminApplication({
   function ensureTenantResource(tenant, sectionId) {
     const key = `${tenant.id}:${sectionId}`;
     if (tenantResources.has(key)) return;
-    tenantResources.set(key, { status: 'loading', data: null });
-    void reloadTenantResource(tenant, sectionId);
+    void reloadTenantResource(tenant, sectionId, { background: true });
   }
 
-  async function reloadTenantResource(tenant, sectionId) {
+  async function reloadTenantResource(tenant, sectionId, { background = false } = {}) {
+    if (stopped) return;
     const key = `${tenant.id}:${sectionId}`;
-    tenantResources.set(key, { status: 'loading', data: tenantResources.get(key)?.data ?? null });
-    render();
+    const pending = { status: 'loading', data: tenantResources.get(key)?.data ?? null };
+    tenantResources.set(key, pending);
+    const routeAtStart = currentRoute();
+    if (!background && routeAtStart.view === 'tenant' && routeAtStart.tenantId === tenant.id && routeAtStart.section === sectionId) {
+      renderWithFocusHandoff();
+    }
     try {
       const data = await tenantResourceData(tenant, sectionId);
+      if (stopped || tenantResources.get(key) !== pending) return;
       tenantResources.set(key, { status: 'ready', data });
     } catch {
+      if (stopped || tenantResources.get(key) !== pending) return;
       tenantResources.set(key, { status: 'error', data: null });
     }
-    render();
+    const route = currentRoute();
+    if (route.view === 'tenant' && route.tenantId === tenant.id && route.section === sectionId) {
+      renderWithFocusHandoff();
+    }
   }
 
   async function ensureVisibleResource() {
