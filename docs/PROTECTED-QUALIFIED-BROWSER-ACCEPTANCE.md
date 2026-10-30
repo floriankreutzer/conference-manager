@@ -1,21 +1,22 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-APIea1f4f08e45dc5a5c63b75517ed0fd4cc2a2de7b. Both refs are checked before setup
-and copied into unchanged closed runtime configuration and bounded evidence.
-It adds to the full regular Chromium/WebKit suites and unchanged permanent
-three-customer/two-reset/shared/zoom gates. Existing required e2e status now
-requires both complete browser matrices; failures/cancellation/skips cannot pass
-the aggregate. Its negative truth table covers both matrix results.
+APIca1f06b5b5181965f7c3aeffdc235aa44c638771, the current hosted INT API source.
+Both refs are checked before setup and copied into unchanged closed runtime
+configuration and bounded evidence. It adds to the full regular Chromium/WebKit
+suites and unchanged permanent three-customer/two-reset/shared/zoom gates.
+The required e2e status requires both complete browser matrices;
+failures/cancellation/skips cannot pass the aggregate. Its negative truth table
+covers both matrix results.
 
-Current candidate status — 21 October 2026: both API checkouts and their fixed
-test expectations use that same immutable API288 integration candidate, which
-includes accepted mainb31430e7. Compared with the fully feature-tested1dc5b011
-application, only documentation and the inherited exact secret-scan inventory
-changed. Full actual-main API and frontend acceptance remain mandatory before
-merging; neither running candidates nor the eventual merge commit grant operating
-readiness. The known public-pin inventory has three exact observed fingerprints,
-with no broad rule/path/value exclusion. The execution notes below are historical.
+Candidate update — 30 October 2026: both API checkouts, the protected environment
+pin and their fixed test expectations now identify that same current API Main.
+This replaces the earlierb306eb49 fixture pin without reducing either browser
+matrix or the three-customer/two-reset acceptance. The API application roots and
+contracts are unchanged between those refs; the later commits update offline
+observation and its participant audit-action qualification. Exact-candidate and
+separate Main execution remain mandatory; this source document alone is not
+passing CI, deployment, Microsoft-provider or live browser acceptance evidence.
 
 The test-only API288 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
 fresh restricted roles and separate max1 Customer/Platform business+lease pools.
