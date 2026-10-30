@@ -2,6 +2,7 @@ import { createApiClient } from '../../core/api-client.js';
 import { createPlatformAdminApplication } from '../index.js';
 import {
   createPlatformOperatorSessionApi,
+  createPlatformSessionBoundary,
   PLATFORM_ADMIN_STEP_UP_PATH,
 } from './operator-session.js';
 import { createPlatformPasskeyLogin } from './passkey-login.js';
@@ -26,9 +27,28 @@ import { mountAuthenticationPage } from '../../shared/authentication-page.js';
 
 async function bootstrapProductionPlatformAdmin() {
   let csrfToken = null;const presentationFlags=featureFlags.forProtectedDocument(globalThis.document);
+  let application=null,operationPresentation=null,protectedClient=null,keyManagement=null;
+  let customerInvitations=null,syntheticWorkspace=null,ownerCustomer=null;
+  const boundary=createPlatformSessionBoundary({ onExpired() {
+    csrfToken=null;
+    delete document.documentElement.dataset.authenticationReady;
+    protectedClient?.stop();keyManagement?.stop();syntheticWorkspace?.stop();ownerCustomer?.stop();
+    customerInvitations?.clear();operationPresentation?.clear();application?.invalidateSession();
+    const title=el('h2'),description=el('p'),retry=button('',{ className: 'primary' });
+    const content=el('section',{ className: 'card platform-admin-session-gate',attrs: { role: 'alert' } },[title,description,retry]);
+    const translate=()=>{
+      title.textContent=t('platformAdmin.session.expiredTitle');description.textContent=t('platformAdmin.session.expiredText');
+      retry.textContent=t('platformAdmin.session.signIn');
+    };
+    translate();retry.addEventListener('click',()=>globalThis.location.reload());
+    const entry=mountAuthenticationPage({ content,surface: 'platform',onLanguageChange: translate });
+    entry.element.querySelector('main').focus();
+    globalThis.addEventListener('pagehide',()=>entry.dispose(),{ once: true });
+  } });
+  globalThis.addEventListener('pagehide',()=>{ boundary.stop();application?.stop(); },{ once: true });
   try {
     const apiClient = createApiClient({
-      baseUrl: '/api/v1/platform/',
+      baseUrl: '/api/v1/platform/',fetchImpl: boundary.fetch,
       csrfTokenProvider: () => csrfToken,
     });
     const sessionApi = createPlatformOperatorSessionApi({ apiClient });
@@ -43,6 +63,7 @@ async function bootstrapProductionPlatformAdmin() {
       await login.load();
       return;
     }
+    boundary.activate();
     csrfToken = session.csrfToken;
     document.documentElement.dataset.authenticationReady = 'true';
     const configuration = await loadPlatformPasskeyConfiguration(apiClient);
@@ -50,22 +71,23 @@ async function bootstrapProductionPlatformAdmin() {
     if (configuration?.mode === 'passkey_setup') throw new TypeError('PLATFORM_SETUP_SESSION_REJECTED');
     async function refreshSession() {
       const refreshed = await sessionApi.loadSession();
-      if (!refreshed) return false;
+      if (!refreshed) { boundary.expire();return false; }
       csrfToken = refreshed.csrfToken; return true;
     }
-    const operationPresentation=createPlatformOperationPresentation();
+    operationPresentation=createPlatformOperationPresentation();
     globalThis.addEventListener('pagehide',()=>operationPresentation.clear(),{ once: true });
-    const protectedClient = configuration?.mode === 'application_passkey' ? createPlatformPasskeyOperationsClient({
+    protectedClient = configuration?.mode === 'application_passkey' ? createPlatformPasskeyOperationsClient({
+      fetchImpl: boundary.fetch,onSessionRefreshRequired: boundary.expire,
       csrfTokenProvider: () => csrfToken, onPrompt: () => announce(t('platformAdmin.passkey.busy')), refreshSession,
-    }) : microsoftConfiguration ? createPlatformMicrosoftOperationsClient({ csrfTokenProvider: ()=>csrfToken,refreshSession,
+    }) : microsoftConfiguration ? createPlatformMicrosoftOperationsClient({ fetchImpl: boundary.fetch,onSessionRefreshRequired: boundary.expire,csrfTokenProvider: ()=>csrfToken,refreshSession,
       describeOperation: operationPresentation.describe,
       confirmation: confirmPlatformMicrosoftOperation }) : null;
-    const keyManagement = configuration?.mode==='application_passkey' ? createPlatformPasskeyManagement({ apiClient, refreshSession }) : null;
+    keyManagement = configuration?.mode==='application_passkey' ? createPlatformPasskeyManagement({ apiClient, refreshSession }) : null;
     if (keyManagement) globalThis.addEventListener('pagehide', () => keyManagement.stop(), { once: true });
     if (protectedClient) globalThis.addEventListener('pagehide', () => protectedClient.stop(), { once: true });
-    const customerInvitations=presentationFlags.isEnabled('platform.customer-invitations')
+    customerInvitations=presentationFlags.isEnabled('platform.customer-invitations')
       ? createPlatformInvitationPresentation({ api: createPlatformCustomerInvitationApi({ apiClient: protectedClient ?? apiClient }) }) : null;
-    const syntheticWorkspace=protectedClient && ['dev','int'].includes((configuration ?? microsoftConfiguration)?.environment)
+    syntheticWorkspace=protectedClient && ['dev','int'].includes((configuration ?? microsoftConfiguration)?.environment)
       && session.operator.permissions.includes('platform:lifecycle:manage') && presentationFlags.isEnabled('platform.synthetic-workspace')
       ? createPlatformSyntheticWorkspacePresentation({ onTenant: tenantId=>application.openWorkspaceTenant(tenantId),apiFactory: ()=>createPlatformSyntheticWorkspaceClient({
         apiClient,runExclusive: protectedClient.runExclusive,refreshSession,csrfTokenProvider: ()=>csrfToken,
@@ -74,7 +96,7 @@ async function bootstrapProductionPlatformAdmin() {
         describeOperation: operationPresentation.describe,onTenantsLoaded: operationPresentation.rememberTenants,
       }) }) : null;
     if (syntheticWorkspace) globalThis.addEventListener('pagehide',()=>syntheticWorkspace.stop(),{ once: true });
-    const ownerCustomer=protectedClient && microsoftConfiguration && presentationFlags.isEnabled('platform.owner-customer-access')
+    ownerCustomer=protectedClient && microsoftConfiguration && presentationFlags.isEnabled('platform.owner-customer-access')
       && ['platform_security_admin','platform_tenant_operator','platform_security_auditor','platform_support_reader']
         .every(role=>session.operator.roles.includes(role))
       ? createPlatformOwnerCustomerPresentation({ apiFactory: ()=>createPlatformOwnerCustomerClient({
@@ -85,7 +107,7 @@ async function bootstrapProductionPlatformAdmin() {
     if (ownerCustomer) globalThis.addEventListener('pagehide',()=>ownerCustomer.stop(),{ once: true });
     const insights=session.operator.permissions.includes('platform:runtime:read')
       ? createProtectedPlatformInsights({ apiClient,accessMode: configuration ? 'application_passkey' : 'microsoft_mfa' }) : null;
-    const application = createPlatformAdminApplication({
+    application = createPlatformAdminApplication({
       runtime: 'production',
       sessionState: 'authenticated',
       operator: session.operator,
@@ -102,12 +124,14 @@ async function bootstrapProductionPlatformAdmin() {
       onStepUp: protectedClient ? null : () => globalThis.location.assign(PLATFORM_ADMIN_STEP_UP_PATH),
     });
     await application.start();
+    if (boundary.expired) return;
     // An explicit return intent owns automatic presentation. Otherwise resume
     // only the first pending workspace; both controls remain available manually.
     if (globalThis.location.search==='?auth=owner_intent') await ownerCustomer?.resume();
     else if (globalThis.location.search==='?auth=synthetic_intent') await syntheticWorkspace?.resume();
     else if (!await syntheticWorkspace?.resume()) await ownerCustomer?.resume();
   } catch {
+    if (boundary.expired) return;
     const retry = button(t('auth.production.retry'), { className: 'primary' });
     retry.addEventListener('click', () => globalThis.location.reload());
     const content = el('section', { className: 'card platform-admin-session-gate', attrs: { role: 'alert' } }, [
