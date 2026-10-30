@@ -11,6 +11,16 @@ export class PlatformOperatorSessionError extends Error {
   }
 }
 
+function isPasskeyPendingRead(url, options) {
+  if (typeof url !== 'string' || (options.method ?? 'GET').toUpperCase() !== 'GET') return false;
+  const origin = globalThis.location?.origin ?? 'https://platform-session.invalid';
+  const target = new URL(url, origin);
+  return target.origin === origin && !target.search && [
+    '/api/v1/platform/auth/passkey/pending',
+    '/api/v1/platform/auth/passkey/enrollment/pending',
+  ].includes(target.pathname);
+}
+
 // One document owns one authenticated session. A rejected session cannot be
 // revived by a late successful response, nor can it replay an interrupted write.
 export function createPlatformSessionBoundary({ fetchImpl = globalThis.fetch, onExpired } = {}) {
@@ -39,7 +49,10 @@ export function createPlatformSessionBoundary({ fetchImpl = globalThis.fetch, on
       }
       try {
         const response = await fetchImpl(url, { ...options, signal: controller.signal });
-        if (active && response.status === 401) expire();
+        // These two authentication-ceremony reads use 401 for "no pending
+        // ceremony". They do not authenticate the operator session. Own-key
+        // management follows with an independently protected keys read.
+        if (active && response.status === 401 && !isPasskeyPendingRead(url, options)) expire();
         if (expired) {
           try { await response.body?.cancel(); } catch {}
           throw new PlatformOperatorSessionError('HTTP_401');

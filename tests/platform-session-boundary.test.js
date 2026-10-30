@@ -47,3 +47,29 @@ test('network failures preserve the session and caller cancellation reaches the 
   assert.equal(signal.aborted,true);
   assert.equal(expired,0);
 });
+
+test('absence of a pending passkey ceremony preserves the session but protected own-key denial ends it',async()=>{
+  let expired=0;
+  const boundary=createPlatformSessionBoundary({ fetchImpl: async()=>response(401),onExpired: ()=>expired++ });
+  boundary.activate();
+  for (const path of ['pending','enrollment/pending']) {
+    assert.equal((await boundary.fetch(`/api/v1/platform/auth/passkey/${path}`)).status,401);
+  }
+  assert.equal(expired,0);
+  await assert.rejects(boundary.fetch('/api/v1/platform/auth/passkey/manage/keys'),{ code: 'HTTP_401' });
+  assert.equal(expired,1);
+});
+
+test('the ceremony exception applies only to exact same-origin GET paths',async()=>{
+  for (const [url,options] of [
+    ['/api/v1/platform/auth/passkey/pending',{ method: 'POST' }],
+    ['/api/v1/platform/auth/passkey/pending?unexpected=1',{}],
+    ['/api/v1/platform/auth/passkey/pending/other',{}],
+    ['https://other.example/api/v1/platform/auth/passkey/pending',{}],
+  ]) {
+    const boundary=createPlatformSessionBoundary({ fetchImpl: async()=>response(401),onExpired() {} });
+    boundary.activate();
+    await assert.rejects(boundary.fetch(url,options),{ code: 'HTTP_401' });
+    assert.equal(boundary.expired,true);
+  }
+});
