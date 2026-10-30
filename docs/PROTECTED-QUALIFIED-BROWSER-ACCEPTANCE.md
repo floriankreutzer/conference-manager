@@ -1,7 +1,8 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-APIca1f06b5b5181965f7c3aeffdc235aa44c638771, the current hosted INT API source.
+APIa5814cf10ad47d09a179f3879c53bceca7f220ef, the combined review candidate in
+API PR354. This is not the current hosted API or an accepted Main claim.
 Both refs are checked before setup and copied into unchanged closed runtime
 configuration and bounded evidence. It adds to the full regular Chromium/WebKit
 suites and unchanged permanent three-customer/two-reset/shared/zoom gates.
@@ -10,13 +11,16 @@ failures/cancellation/skips cannot pass the aggregate. Its negative truth table
 covers both matrix results.
 
 Candidate update — 30 October 2026: both API checkouts, the protected environment
-pin and their fixed test expectations now identify that same current API Main.
-This replaces the earlierb306eb49 fixture pin without reducing either browser
-matrix or the three-customer/two-reset acceptance. The API application roots and
-contracts are unchanged between those refs; the later commits update offline
-observation and its participant audit-action qualification. Exact-candidate and
-separate Main execution remain mandatory; this source document alone is not
-passing CI, deployment, Microsoft-provider or live browser acceptance evidence.
+pin and fixed test expectations identify the same combined Customer Microsoft
+routing, Recovery target proof and neutral confirmation-return candidate. The
+owner browser journey now requires an explicit target read, cancellation, a fresh
+Microsoft-confirmed200, native confirmation-tab close, return focus and unchanged
+customer/section. A separately labeled close-refusal simulation checks the
+accessible bilingual fallback. All original owner-role and invited-participant
+journeys, proof capacity, negative boundaries and time limits remain required.
+No existing case is removed. Final accepted API Main must replace this candidate
+pin and receive fresh paired checks before release; source or fixture results
+alone do not prove real Microsoft or hosted acceptance.
 
 The test-only API288 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
 fresh restricted roles and separate max1 Customer/Platform business+lease pools.
