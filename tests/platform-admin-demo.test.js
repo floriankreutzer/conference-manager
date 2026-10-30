@@ -19,8 +19,10 @@ test('Platform Admin Demo bootstraps only the server-backed session and API boun
   }
 });
 
-test('Platform Admin detail headings fall back to the canonical Tenant ID', async () => {
+test('Platform Admin detail context retains the canonical Tenant ID in technical details', async () => {
   const application = await readFile('src/platform-admin/application.js', 'utf8');
 
-  assert.match(application, /`\$\{tenant\.reference \|\| tenant\.id\} · \$\{t\(definition\.titleKey\)\}`/);
+  assert.match(application, /setHeading\(tenant\.displayName, t\(definition\.titleKey\)\)/);
+  assert.match(application, /className: 'platform-admin-customer-id'/);
+  assert.match(application, /el\('code', \{ text: tenant\.reference \|\| tenant\.id \}\)/);
 });

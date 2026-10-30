@@ -1012,11 +1012,28 @@
   min-block-size: var(--control-height);
   border-inline-start: 3px solid transparent;
   text-align: start;
+  justify-content: flex-start;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-base);
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+}
+
+.platform-admin-shell .nav-item > span {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  line-height: var(--line-height-base);
+}
+
+.platform-admin-shell .nav-item .pavurel-functional-icon {
+  flex: 0 0 auto;
 }
 
 .platform-admin-shell .nav-item.active {
   border-inline-start-color: var(--color-camel-500);
-  background: var(--color-sidebar-hover);
+  background: var(--brand-primary);
   color: var(--color-on-dark);
 }
 
@@ -1090,29 +1107,225 @@
   margin-block-start: var(--space-2);
 }
 
+.platform-admin-page[data-platform-admin-page="directory"] .platform-admin-fleet-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.platform-admin-customer-card-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.platform-admin-customer-statuses {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.platform-admin-customer-statuses > div,
+.platform-admin-customer-next {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.platform-admin-customer-statuses dt,
+.platform-admin-customer-next small {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-customer-statuses dd {
+  margin: 0;
+}
+
+.platform-admin-customer-next {
+  padding-inline-start: var(--space-4);
+  border-inline-start: 1px solid var(--color-border);
+}
+
+.platform-admin-customer-workbench,
+.platform-admin-lifecycle-workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--app-section-gap);
+  align-items: start;
+}
+
+.platform-admin-customer-workbench {
+  font-size: var(--font-size-md);
+}
+
+.platform-admin-customer-workbench > *,
+.platform-admin-lifecycle-workspace > * {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.platform-admin-customer-workbench > .card {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  block-size: 100%;
+  padding: var(--app-card-padding);
+}
+
+.platform-admin-customer-workbench .platform-admin-definition-list > div {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--space-2);
+  padding-block-end: var(--space-2);
+}
+
+.platform-admin-customer-workbench .button-row > button,
+.platform-admin-customer-workbench > .card > button {
+  font-size: var(--font-size-md);
+}
+
+.platform-admin-customer-workbench h3,
+.platform-admin-customer-workbench h4,
+.platform-admin-customer-workbench p,
+.platform-admin-onboarding-progress h3 {
+  margin: 0;
+}
+
+.platform-admin-next-task {
+  border-inline-start: 4px solid var(--brand-primary);
+}
+
+.platform-admin-next-task > button {
+  justify-self: start;
+}
+
+.platform-admin-onboarding-progress {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.platform-admin-onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-size: var(--font-size-xs);
+}
+
+.platform-admin-onboarding-steps li {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-inline-size: 0;
+  overflow-wrap: normal;
+}
+
+.platform-admin-step-marker {
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-subtle);
+}
+
+.platform-admin-onboarding-steps [aria-current="step"] {
+  color: var(--brand-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.platform-admin-onboarding-steps [aria-current="step"] .platform-admin-step-marker {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary);
+}
+
+.platform-admin-workbench-technical,
+.platform-admin-lifecycle-workspace > .platform-admin-onboarding-progress {
+  grid-column: 1 / -1;
+}
+
+.platform-admin-customer-events {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.platform-admin-customer-events li {
+  display: grid;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 3px solid var(--color-camel-500);
+}
+
+.platform-admin-customer-events time {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-entitlements-workspace > .platform-admin-preview {
+  grid-column: 1 / -1;
+}
+
 .platform-admin-tenant-section > .platform-admin-back-link {
   justify-self: start;
   min-block-size: var(--control-height);
+}
+
+.platform-admin-tenant-section {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.platform-admin-tenant-section > * {
+  grid-column: 1 / -1;
+}
+
+.platform-admin-tenant-section > .platform-admin-back-link {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-tenant-section > .platform-admin-tenant-context {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
+  padding: var(--space-2);
+  border: 0;
+  background: transparent;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-customer-id {
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
 }
 
 .platform-admin-tenant-section > .platform-admin-section-heading {
   display: grid;
   gap: var(--space-2);
   margin: 0;
-  padding-block-end: var(--space-3);
-  border-block-end: 1px solid var(--color-border);
+  padding-block-end: 0;
+  border-block-end: 0;
 }
 
 .platform-admin-section-heading h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);
 }
 
 .platform-admin-section-heading > p {
   max-inline-size: 70ch;
   color: var(--color-muted);
+  font-size: var(--font-size-sm);
 }
 
 .platform-admin-section-heading .pavurel-functional-icon {
@@ -1203,15 +1416,11 @@
   background: var(--color-surface-subtle);
 }
 
-.platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content {
+.platform-admin-entitlements-workspace {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: var(--app-section-gap);
-}
-
-.platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content > .platform-admin-entitlement-form {
-  grid-row: span 2;
 }
 
 .platform-admin-tenant-section .platform-admin-entitlement-form > h3 {
@@ -1264,11 +1473,17 @@
   margin-block: 0;
 }
 
-.platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content > div:last-child {
+.platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-record-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
   align-items: start;
   gap: var(--app-section-gap);
+}
+
+.platform-admin-metering-workspace {
+  display: grid;
+  gap: var(--app-section-gap);
+  min-inline-size: 0;
 }
 
 .platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content .platform-admin-record {
@@ -1315,6 +1530,55 @@
 
 .platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record > * {
   margin-block: 0;
+}
+
+.platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record {
+  min-inline-size: 0;
+}
+
+.platform-admin-integration-scroll {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.platform-admin-fleet-resource {
+  display: grid;
+  gap: var(--app-section-gap);
+  min-inline-size: 0;
+}
+
+.platform-admin-integration-permissions {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.platform-admin-integration-table {
+  inline-size: 100%;
+  min-inline-size: 48rem;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-integration-table th,
+.platform-admin-integration-table td {
+  padding: var(--space-3);
+  border-block-end: 1px solid var(--color-border-soft);
+  text-align: start;
+  vertical-align: top;
+}
+
+.platform-admin-integration-table thead {
+  background: var(--color-surface-subtle);
+}
+
+.platform-admin-integration-table small {
+  display: block;
+  margin-block-start: var(--space-2);
+  color: var(--color-muted);
 }
 
 .platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-list {
@@ -1376,6 +1640,16 @@
   color: var(--color-on-dark);
 }
 
+.platform-admin-sidebar-group {
+  margin-block-start: var(--space-4);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-on-dark-muted);
+}
+
+.platform-admin-sidebar-group .platform-admin-sidebar-field {
+  margin-block-start: var(--space-2);
+}
+
 .platform-admin-shell .platform-admin-operator :focus-visible {
   outline: var(--focus-width) solid var(--color-on-dark);
   outline-offset: var(--space-1);
@@ -1392,7 +1666,41 @@
   overflow-wrap: anywhere;
 }
 
+@media (max-width: 1100px) {
+  .platform-admin-customer-workbench,
+  .platform-admin-lifecycle-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 760px) {
+  .platform-admin-tenant-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-admin-tenant-section > .platform-admin-back-link,
+  .platform-admin-tenant-section > .platform-admin-tenant-context {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .platform-admin-tenant-section > .platform-admin-tenant-context {
+    justify-self: stretch;
+  }
+
+  .platform-admin-customer-workbench,
+  .platform-admin-lifecycle-workspace,
+  .platform-admin-customer-card-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-admin-customer-next {
+    padding-inline-start: 0;
+    padding-block-start: var(--space-3);
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--color-border);
+  }
+
   .platform-admin-create-panel {
     align-items: stretch;
   }
@@ -1406,12 +1714,8 @@
     align-items: flex-start;
   }
 
-  .platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content {
+  .platform-admin-entitlements-workspace {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content > .platform-admin-entitlement-form {
-    grid-row: auto;
   }
 
   .platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-row {
@@ -1424,6 +1728,16 @@
 }
 
 @media (max-width: 480px) {
+  .platform-admin-customer-statuses,
+  .platform-admin-onboarding-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-admin-onboarding-steps li {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
   .platform-admin-create-panel {
     padding: var(--space-3);
   }

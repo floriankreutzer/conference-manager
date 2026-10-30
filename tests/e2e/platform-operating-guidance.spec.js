@@ -17,7 +17,7 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
     const dimensions=['active_users','active_rooms','requests_created','bookings_confirmed','integration_operations'];
     const usage=normalizePlatformMeteringUsage({ schemaVersion: 1,tenantId,period: {
       start: '2026-10-01T00:00:00.000Z',end: '2026-11-01T00:00:00.000Z',timeZone: 'UTC' },
-    dataState: 'partial',measuredAt: null,reconciledAt: null,
+    dataState: 'partial',measuredAt: '2026-10-25T12:00:00.000Z',reconciledAt: null,
     dimensions: dimensions.map((dimension,index)=>({ dimension,value: index===0 ? 0 : null })),
     quotas: dimensions.map(dimension=>({ dimension,state: dimension==='requests_created' ? 'unknown' : 'not_configured',
       softLimit: null,hardLimit: null,revision: dimension==='requests_created' ? null : 0 })),
@@ -51,6 +51,9 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
   await expect(help.locator('p').first()).toContainText(language==='de' ? 'UTC-Kalendermonat' : 'UTC calendar month');
   await help.locator('summary').press('Enter');
   const records=page.locator('article.platform-admin-record');
+  const observation=page.locator('[data-metering-observation]');
+  await expect(observation.locator('time')).toHaveAttribute('datetime','2026-10-25T12:00:00.000Z');
+  await expect(observation.locator('dd').last()).toHaveText(language==='de' ? 'Unbekannt' : 'Unknown');
   await expect(records).toHaveCount(5);
   await expect(records.first().locator('strong')).toHaveText('0');
   await expect(records.nth(1).locator('strong')).toHaveText(language==='de' ? 'Unbekannt' : 'Unknown');

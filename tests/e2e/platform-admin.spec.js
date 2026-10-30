@@ -179,9 +179,16 @@ test('Demo bootstraps from the server session and fleet without browser authorit
   await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(1);
   await expect(page.locator('.platform-admin-fleet-card')).toContainText('Dune Collective');
   await expect(demoRoleSelect(page)).toHaveValue('support_reader');
-  expect(state.requests.map(({ path, method }) => `${method} ${path}`)).toEqual([
+  const requests = state.requests.map(({ path, method }) => `${method} ${path}`);
+  expect(requests.slice(0, 2)).toEqual([
     'GET /api/v1/platform/demo/session',
     'GET /api/v1/platform/tenants',
+  ]);
+  // These independent, permission-qualified reads hydrate the customer cards.
+  // Keep the exact allowlist: no writes, audit access or browser-selected source.
+  expect(requests.slice(2).sort()).toEqual([
+    'GET /api/v1/platform/microsoft365/health',
+    'GET /api/v1/platform/readiness',
   ]);
   expect(await page.evaluate(() => ({ ...localStorage }))).toEqual({
     platform_admin_demo_v1: JSON.stringify({ role: 'platform_security_admin' }),
@@ -375,6 +382,37 @@ test('Production directory survives ordinary renders and exposes every cursor pa
   await page.locator('[data-platform-admin-directory-next]').click();
   await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(2);
   expect(directoryRequests).toEqual([null, 'next_page']);
+});
+
+for (const locale of ['de', 'en']) test(`late directory summaries retain keyboard navigation in ${locale}`, async ({ page }) => {
+  await installDemoRoutes(page);
+  let releaseSummary;
+  const summaryPending = new Promise(resolve => { releaseSummary = resolve; });
+  let summaryReads = 0;
+  await page.route('**/api/v1/platform/readiness**', async route => {
+    summaryReads++;
+    await summaryPending;
+    await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 'NOT_FOUND' } }) });
+  });
+  let providerReads = 0;
+  const report = readFileSync(new URL('../support/provider-usage-fixture.json', import.meta.url), 'utf8');
+  await page.route('**/api/v1/platform/demo/provider-usage', async route => {
+    providerReads++;
+    await route.fulfill({ contentType: 'application/json', body: report });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.getByRole('combobox', { name: 'Sprache', exact: true }).selectOption(locale);
+  await expect.poll(() => summaryReads).toBe(1);
+  const open = page.locator('[data-platform-admin-fleet-view="providers"]');
+  await open.focus();
+  releaseSummary();
+  await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(1);
+  await expect(open).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-platform-provider-report]')).toBeVisible();
+  await expect(page.locator('#viewTitle')).toHaveText(locale === 'de' ? 'Anbieter & Verbrauch' : 'Providers & usage');
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  expect(providerReads).toBe(1);
 });
 
 test('private provider cards show dated usage, native meters, thresholds and unknown billing in both languages', async ({ page }) => {
@@ -1414,6 +1452,14 @@ for (const locale of ['de', 'en']) {
     for (const width of [320, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width === 1280) {
+        const geometry = await page.locator('.platform-admin-entitlements-workspace').evaluate(node => {
+          const [form, packages] = [...node.children].map(child => child.getBoundingClientRect());
+          return { form: form.x, packages: packages.x, workspace: node.getBoundingClientRect().width, width: form.width };
+        });
+        expect(geometry.packages).toBeGreaterThan(geometry.form);
+        expect(geometry.width).toBeGreaterThan(geometry.workspace * 0.4);
+      }
     }
   });
 }
@@ -1575,11 +1621,69 @@ test('Platform headings use Bordeaux light icons while dark navigation retains w
 
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await expectTitleIcon('dashboard');
-  const metricIcon = page.locator('.platform-admin-metric h3 img.pavurel-functional-icon').first();
+  const metricIcon = page.locator('.platform-admin-onboarding-progress h3 img.pavurel-functional-icon').first();
   await expect(metricIcon).toHaveAttribute('src', /\/light\/settings\.svg$/);
   await expect(metricIcon).toHaveAttribute('aria-hidden', 'true');
   await page.locator('[data-platform-admin-navigate="lifecycle"]').click();
   await expectTitleIcon('settings');
+});
+
+for (const locale of ['de', 'en']) test(`customer target composes sourced status, responsibility and desktop columns in ${locale}`, async ({ page }, testInfo) => {
+  const state = await installDemoRoutes(page);
+  const snapshotAt = '2026-10-29T12:00:00.000Z';
+  await page.route('**/api/v1/platform/readiness**', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+    schemaVersion: 1, snapshotAt, nextCursor: null, items: [{ tenantId: ACTIVE_TENANT_ID, displayName: 'Dune Collective',
+      lifecycle: { status: 'active', revision: 3 }, onboardingState: 'complete',
+      readiness: { state: 'blocked', blockerCodes: ['entitlement.microsoft_calendar.missing'], checks: [] },
+      entitlements: { enabledCount: 0, requiredMissingCount: 1 }, evidence: [] }],
+  }) }));
+  await page.route('**/api/v1/platform/microsoft365/health**', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+    schemaVersion: 1, snapshotAt, nextCursor: null, items: [{ tenantId: ACTIVE_TENANT_ID, displayName: 'Dune Collective',
+      lifecycle: { status: 'active', revision: 3 }, connectionState: 'connected', permissions: { places: 'unknown', calendars: 'unknown' },
+      mappings: { active: 0, missing: 0, total: 0 }, capabilities: [] }],
+  }) }));
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value => { const { setLanguage } = await import('/src/core/i18n.js'); setLanguage(value); }, locale);
+  const card = page.locator('.platform-admin-fleet-card');
+  await expect(card).toContainText(locale === 'de' ? 'Blockiert' : 'Blocked');
+  await expect(card).toContainText(locale === 'de' ? 'Verbunden' : 'Connected');
+  await expect(card).toContainText(locale === 'de' ? 'Readiness-Voraussetzung klären' : 'Resolve readiness prerequisite');
+  await card.getByRole('button', { name: locale === 'de' ? 'Dune Collective öffnen' : 'Open Dune Collective' }).click();
+  const workbench = page.locator('.platform-admin-customer-workbench');
+  await expect(workbench.locator('section.card')).toHaveCount(6);
+  await expect(workbench.locator('[aria-current="step"]')).toHaveText(locale === 'de' ? 'Abgeschlossen' : 'Complete');
+  await expect(workbench.locator('.platform-admin-customer-readiness')).toContainText(locale === 'de' ? 'Blockiert' : 'Blocked');
+  await expect(workbench.locator('.platform-admin-customer-activity')).toContainText(locale === 'de' ? 'keine Leseberechtigung' : 'does not have read permission');
+  await expect(workbench.locator('.platform-admin-workbench-technical')).not.toHaveAttribute('open', '');
+  const customerId = page.locator('.platform-admin-customer-id');
+  await expect(customerId.locator('code')).toBeHidden();
+  await customerId.locator('summary').focus(); await page.keyboard.press('Enter');
+  await expect(customerId.locator('code')).toHaveText(ACTIVE_TENANT_ID);
+  await expect(customerId.locator('code')).toBeVisible();
+  await customerId.locator('summary').press('Enter');
+  await expect(customerId.locator('code')).toBeHidden();
+  const task = workbench.locator('[data-platform-admin-next-task]');
+  await task.getByRole('button').focus(); await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/section=entitlements$/);
+  await page.goBack(); await expect(workbench).toBeVisible();
+  for (const width of [320, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 1440) {
+      const columns = await workbench.evaluate(node => [...node.children].slice(0, 2).map(child => child.getBoundingClientRect().x));
+      expect(columns[1]).toBeGreaterThan(columns[0]);
+      const directoryLabel = page.locator('[data-platform-admin-fleet-view="directory"] > span');
+      const labelGeometry = await directoryLabel.evaluate(node => ({ height: node.getBoundingClientRect().height,
+        lineHeight: Number.parseFloat(getComputedStyle(node).lineHeight), width: node.getBoundingClientRect().width }));
+      expect(labelGeometry.height, JSON.stringify(labelGeometry)).toBeLessThanOrEqual(labelGeometry.lineHeight + 1);
+      const currentStep = workbench.locator('[aria-current="step"] > span:last-child');
+      expect(await currentStep.evaluate(node => node.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(node).lineHeight) + 1)).toBe(true);
+    }
+    await testInfo.attach(`customer-target-${locale}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+  }
+  expect(errors).toEqual([]);
+  expect(state.requests.filter(request => request.method !== 'GET')).toHaveLength(0);
 });
 
 test('tenant workbench presents localized horizontal section navigation without changing route contracts', async ({ page }) => {
