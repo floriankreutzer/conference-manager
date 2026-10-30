@@ -1853,11 +1853,14 @@ for (const locale of ['de', 'en']) {
     release();
     await expect(card.getByRole('status')).toContainText(locale === 'de' ? 'Die Zielliste wurde geladen' : 'The target list was loaded');
     await expect(load).toBeFocused();
-    await expect(target.locator(`option[value="${RECOVERY_BLOCKED_USER}"]`)).toBeDisabled();
-    await target.selectOption(RECOVERY_USER); await expect(preview).toBeEnabled();
+    // State matchers follow the wrapping label to its select; inspect the native option itself.
+    await expect(target.locator(`option[value="${RECOVERY_BLOCKED_USER}"]`)).toHaveJSProperty('disabled', true);
+    await target.selectOption(RECOVERY_USER);
+    await target.press('ArrowDown');
+    await expect(target).toHaveValue(RECOVERY_USER); await expect(preview).toBeEnabled();
     await page.locator('[data-platform-admin-recovery-targets-more="last-tenant-admin"]').click();
     await expect(target.locator('option')).toHaveCount(4); await expect(target).toHaveValue(RECOVERY_USER);
-    await expect(target.locator(`option[value="${RECOVERY_OTHER_USER}"]`)).toBeEnabled();
+    await expect(target.locator(`option[value="${RECOVERY_OTHER_USER}"]`)).toHaveJSProperty('disabled', false);
     await expect(page.locator('[data-platform-admin-recovery-targets-more="last-tenant-admin"]')).toBeHidden();
     expect(reads.map(value => value.cursor)).toEqual([null, 'next-page']);
     expect(reads.every(value => value.limit === '50' && value.path.includes('/last-tenant-admin/targets'))).toBe(true);
