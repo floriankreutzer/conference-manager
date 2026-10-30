@@ -360,6 +360,29 @@ gauges describe the reconciliation watermark; counters describe the UTC period.
 Unknown is not zero. Inclusive warning/limit metadata is distinguished from each
 consuming server operation's enforcement; no billing or automatic email is implied.
 Recovery explains preview versus final execution and empty eligible target pages.
+Opening Recovery does not read sensitive target lists or start an operation-proof
+ceremony. Each target-dependent procedure has an explicit Load targets control.
+The existing authorized, bounded read loads only that procedure; a required proof
+remains bound to its exact customer, procedure and pagination query. Lists that
+are not loaded, failed, cancelled or successfully empty remain distinct. Explicit
+reload replaces that list; pagination retains its selected eligible target and
+other procedure drafts without rebuilding the page. One pending recovery request
+disables the procedure controls until it settles; navigation remains available.
+Late target reads cannot populate a departed or reopened customer context.
+This does not change preview/execution authorization, perform a recovery or grant
+customer access. Protocol/browser fixtures are not live provider acceptance.
+
+The exact Microsoft confirmation keeps the originating document, customer,
+section and in-memory workflow alive while the provider opens separately with
+`noopener noreferrer`. The API-owned, query-scrubbed completion page attempts
+native close through one static CSP-hashed close-only script. It does not send a
+message, read an opener or pass a destination/proof to the application. Only the
+existing authenticated status/final-request flow authorizes continuation. A
+native bilingual close button and fixed Platform link remain when close is
+blocked or the original view no longer exists. Protected engine acceptance
+checks native close, return focus, preserved customer/section, cancellation and
+an explicitly simulated close refusal; it retains all original owner and
+participant journeys, proofs, time limits and negative boundaries.
 The compact Audit filter searches only already-loaded authorized events, performs
 no server request and explicitly requires reapplication after refresh/pagination.
 Technical sequence/action metadata remains in native expandable details.

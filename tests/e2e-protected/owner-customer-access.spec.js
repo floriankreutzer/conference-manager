@@ -45,6 +45,54 @@ async({ browser,browserName })=>{
       get() { throw new Error('OWNER_APPLICATION_PASSKEY_FORBIDDEN'); },create() { throw new Error('OWNER_APPLICATION_PASSKEY_FORBIDDEN'); },
     } }); });
     const page=await context.newPage(),errors=[],users=[];page.on('pageerror',error=>errors.push(error.name));
+    const recoveryReplies=[];
+    page.on('response',response=>{
+      if (new URL(response.url()).pathname.endsWith('/recovery/room-mapping-repair/targets')) {
+        recoveryReplies.push(response.status());
+      }
+    });
+    // Exercise the actual protected sensitive GET and Microsoft proof wrapper
+    // before the unchanged owner-role journeys. No recovery is executed.
+    await page.goto(origins.platform+'/platform-admin/');
+    await page.getByRole('button',{ name: 'Owner browser Customer öffnen',exact: true }).click();
+    await page.locator('#primaryNavigation [data-platform-admin-navigate="recovery"]').click();
+    const targetLoad=page.locator('[data-platform-admin-recovery-targets-load="room-mapping-repair"]');
+    const recoveryCard=page.locator('article').filter({ has: targetLoad });
+    const recoverySource=page.url();
+    await expect(targetLoad).toBeVisible();expect(recoveryReplies).toEqual([]);
+    await targetLoad.press('Enter');
+    const readApproval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });
+    await expect(readApproval).toBeVisible();
+    await readApproval.getByRole('button',{ name: 'Abbrechen',exact: true }).click();
+    await expect(recoveryCard.getByRole('status')).toContainText('Der Vorgang wurde abgebrochen.');
+    expect(recoveryReplies).toEqual([428]);await expect(targetLoad).toBeEnabled();
+    await targetLoad.press('Enter');await expect(readApproval).toBeVisible();
+    const recoveryOpen=context.waitForEvent('page');
+    await readApproval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
+    const recoveryProvider=await recoveryOpen;expect(await recoveryProvider.evaluate(()=>opener===null)).toBe(true);
+    const recoveryCompleted=recoveryProvider.waitForResponse(response=>
+      response.url()===origins.platform+'/api/v1/platform/auth/microsoft/operation/complete');
+    const recoveryClosed=recoveryProvider.waitForEvent('close');
+    await recoveryProvider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
+    expect((await recoveryCompleted).status()).toBe(200);await recoveryClosed;
+    await expect(recoveryCard.getByRole('status')).toContainText('Die Zielliste wurde geladen.');
+    await expect.poll(()=>page.evaluate(()=>document.visibilityState==='visible' && document.hasFocus())).toBe(true);
+    expect(page.url()).toBe(recoverySource);await expect(page.locator('#viewTitle')).toHaveText('Owner browser Customer');
+    await expect(targetLoad).toHaveText('Ziele neu laden');
+    await expect(recoveryCard.getByRole('combobox').locator('option')).toHaveCount(1);
+    await expect(page.locator('[data-platform-admin-recovery-preview="room-mapping-repair"]')).toBeDisabled();
+    expect(recoveryReplies).toEqual([428,428,200]);
+    // Simulate a browser refusing close only on this anonymous neutral page.
+    // No proof/status or application API is mocked; the fallback grants nothing.
+    const fallback=await context.newPage();await fallback.addInitScript(()=>{ window.close=()=>{}; });
+    await fallback.goto(origins.platform+'/api/v1/platform/auth/microsoft/operation/complete');
+    await expect(fallback.getByRole('heading',{ name: 'Zurück zur Anwendung',exact: true })).toBeVisible();
+    const closeFallback=fallback.getByRole('button',{ name: 'Fenster schließen / Close window',exact: true });
+    await closeFallback.focus();await closeFallback.press('Enter');await expect(closeFallback).toBeFocused();
+    await expect(fallback.getByText(/If it remains open, close it and return to the original application window/)).toBeVisible();
+    for (const link of await fallback.getByRole('link').all()) await expect(link).toHaveAttribute('href','/platform-admin/');
+    expect(new URL(fallback.url()).search).toBe('');expect(recoveryReplies).toEqual([428,428,200]);
+    await fallback.close();await page.bringToFront();
     const roles=['employee','conference_manager','tenant_admin'];
     for (const [index,role] of roles.entries()) {
       await page.goto(origins.customer+'/?auth=owner_start');
@@ -59,7 +107,8 @@ async({ browser,browserName })=>{
       const approval=page.getByRole('dialog',{ name: 'Aktion mit Microsoft bestätigen',exact: true });await expect(approval).toBeVisible();
       const open=context.waitForEvent('page');await approval.getByRole('link',{ name: 'Mit Microsoft anmelden',exact: true }).press('Enter');
       const provider=await open;expect(await provider.evaluate(()=>opener===null)).toBe(true);
-      await provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();
+      const providerClosed=provider.waitForEvent('close');
+      await provider.getByRole('link',{ name: 'Confirm isolated Microsoft fixture',exact: true }).click();await providerClosed;
       const finish=page.getByRole('button',{ name: /^(Kundenanwendung öffnen|Open customer application)$/ });
       if (index>0) {
         const logout=page.getByRole('button',{ name: /^(Aktuelles Kundenkonto abmelden|Sign out the current customer account)$/ });
@@ -102,7 +151,7 @@ async({ browser,browserName })=>{
       const session=await page.evaluate(async()=>{ const response=await fetch('/api/v1/session'),value=await response.json();
         return { status: response.status,userId: value.user?.id,roles: value.roles }; });
       expect(session.status).toBe(200);expect(session.roles).toEqual(role==='employee' ? ['employee'] : ['employee',role]);
-      users.push(session.userId);await provider.close();
+      users.push(session.userId);
       if (index<roles.length-1) edge.compactStaticEvidence();
     }
     expect(new Set(users).size).toBe(1);expect(typeof users[0]).toBe('string');expect(errors).toEqual([]);
@@ -111,15 +160,15 @@ async({ browser,browserName })=>{
     const traffic=edge.evidence();
     expect(traffic.staticCompactions).toBe(2);expect(traffic.completedStatic.customer).toBeGreaterThan(0);
     expect(traffic.completedStatic.platform).toBeGreaterThan(0);
-    for (const [path,method,site,count] of [['/api/v1/platform/auth/microsoft/operation/callback','GET','cross-site',3],
+    for (const [path,method,site,count] of [['/api/v1/platform/auth/microsoft/operation/callback','GET','cross-site',4],
       ['/api/v1/platform/auth/owner/approve','POST','same-origin',3],['/api/v1/auth/owner/callback','GET','cross-site',3],
       ['/api/v1/auth/owner/complete','POST','same-origin',3]]) {
       expect(traffic.requests.filter(event=>event.path===path && event.method===method && event.status===303 && event.fetchSite===site)).toHaveLength(count);
     }
-    expect(traffic.deniedConnects).toBe(0);expect(traffic.providerDocuments).toBe(3);const evidence=await runtime.evidence();
+    expect(traffic.deniedConnects).toBe(0);expect(traffic.providerDocuments).toBe(4);const evidence=await runtime.evidence();
     expect(evidence).toMatchObject({ application_keys: 0,own_bindings: 1,distinct_own_users: 1,consumed_flows: 3,
       ordinary_user_grants: 0,tenantChainVerified: true,platformChainVerified: true });
-    console.log('OWNER_PROTECTED_BROWSER_EVIDENCE '+JSON.stringify({ engine: browserName,...evidence,
+    console.log('OWNER_PROTECTED_BROWSER_EVIDENCE '+JSON.stringify({ engine: browserName,...evidence,recoveryReplies,
       scope: 'actual roots and browser custody; initial MFA and provider network isolated; real Microsoft/device unproved' }));
   } finally {
     let failed=false;for (const close of [()=>context?.close(),()=>edge?.close(),()=>runtime?.close()]) {
