@@ -1635,6 +1635,10 @@ for (const locale of ['de', 'en']) test(`customer target composes sourced status
     if (width === 1440) {
       const columns = await workbench.evaluate(node => [...node.children].slice(0, 2).map(child => child.getBoundingClientRect().x));
       expect(columns[1]).toBeGreaterThan(columns[0]);
+      const directoryLabel = page.locator('[data-platform-admin-fleet-view="directory"] > span');
+      expect(await directoryLabel.evaluate(node => node.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(node).lineHeight) + 1)).toBe(true);
+      const currentStep = workbench.locator('[aria-current="step"] > span:last-child');
+      expect(await currentStep.evaluate(node => node.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(node).lineHeight) + 1)).toBe(true);
     }
     await testInfo.attach(`customer-target-${locale}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   }

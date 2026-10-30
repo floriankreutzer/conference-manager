@@ -1367,7 +1367,7 @@ export function createPlatformAdminApplication({
       || PLATFORM_ADMIN_SECTION_DEFINITIONS[0];
     ensureTenantResource(tenant, definition.id);
     const resource = tenantResources.get(`${tenant.id}:${definition.id}`);
-    setHeading(tenant.displayName, `${tenant.reference || tenant.id} · ${t(definition.titleKey)}`);
+    setHeading(tenant.displayName, t(definition.titleKey));
     const section = el('section', {
       className: 'platform-admin-tenant-section',
       dataset: { platformAdminSection: definition.id },
@@ -1407,7 +1407,10 @@ export function createPlatformAdminApplication({
         pavurelFunctionalIcon('customers'),
         el('div', {}, [
           el('strong', { text: tenant.displayName }),
-          el('small', { text: tenant.reference || tenant.id }),
+          el('details', { className: 'platform-admin-customer-id' }, [
+            el('summary', { text: t('platformAdmin.workbench.customerId') }),
+            el('code', { text: tenant.reference || tenant.id }),
+          ]),
         ]),
       ]),
       stateBadge(tenant.lifecycleState),

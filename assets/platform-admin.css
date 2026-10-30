@@ -1016,6 +1016,8 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-base);
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
 }
 
 .platform-admin-shell .nav-item > span {
@@ -1153,6 +1155,10 @@
   align-items: start;
 }
 
+.platform-admin-customer-workbench {
+  font-size: var(--font-size-md);
+}
+
 .platform-admin-customer-workbench > *,
 .platform-admin-lifecycle-workspace > * {
   min-inline-size: 0;
@@ -1164,6 +1170,18 @@
   gap: var(--space-3);
   align-content: start;
   block-size: 100%;
+  padding: var(--app-card-padding);
+}
+
+.platform-admin-customer-workbench .platform-admin-definition-list > div {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--space-2);
+  padding-block-end: var(--space-2);
+}
+
+.platform-admin-customer-workbench .button-row > button,
+.platform-admin-customer-workbench > .card > button {
+  font-size: var(--font-size-md);
 }
 
 .platform-admin-customer-workbench h3,
@@ -1193,7 +1211,7 @@
   padding: 0;
   margin: 0;
   list-style: none;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
 }
 
 .platform-admin-onboarding-steps li {
@@ -1201,7 +1219,7 @@
   gap: var(--space-2);
   align-content: start;
   min-inline-size: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
 }
 
 .platform-admin-step-marker {
@@ -1256,24 +1274,57 @@
   min-block-size: var(--control-height);
 }
 
+.platform-admin-tenant-section {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.platform-admin-tenant-section > * {
+  grid-column: 1 / -1;
+}
+
+.platform-admin-tenant-section > .platform-admin-back-link {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-tenant-section > .platform-admin-tenant-context {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
+  padding: var(--space-2);
+  border: 0;
+  background: transparent;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-customer-id {
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
 .platform-admin-tenant-section > .platform-admin-section-heading {
   display: grid;
   gap: var(--space-2);
   margin: 0;
-  padding-block-end: var(--space-3);
-  border-block-end: 1px solid var(--color-border);
+  padding-block-end: 0;
+  border-block-end: 0;
 }
 
 .platform-admin-section-heading h2 {
   margin: 0;
   font-family: var(--font-family-display);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);
 }
 
 .platform-admin-section-heading > p {
   max-inline-size: 70ch;
   color: var(--color-muted);
+  font-size: var(--font-size-sm);
 }
 
 .platform-admin-section-heading .pavurel-functional-icon {
@@ -1565,7 +1616,28 @@
   overflow-wrap: anywhere;
 }
 
+@media (max-width: 1100px) {
+  .platform-admin-customer-workbench,
+  .platform-admin-lifecycle-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 760px) {
+  .platform-admin-tenant-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-admin-tenant-section > .platform-admin-back-link,
+  .platform-admin-tenant-section > .platform-admin-tenant-context {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .platform-admin-tenant-section > .platform-admin-tenant-context {
+    justify-self: stretch;
+  }
+
   .platform-admin-customer-workbench,
   .platform-admin-lifecycle-workspace,
   .platform-admin-customer-card-summary {
