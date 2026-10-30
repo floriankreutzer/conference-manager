@@ -1,7 +1,7 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API 2ad3d94721defb290e7b324a78b7500bce7a65b7, the protected Product collector
+API fcd577aaadf83abfbc0d849ba363883f120463ca, the protected Product collector
 candidate in API PR360, stacked on schema75/service-identity PR359. This source
 also includes the prior Recovery and telemetry
 corrections. The immutable pair requires fresh complete CI; it is not a hosted

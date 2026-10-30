@@ -168,7 +168,7 @@ function sourceCoverage(model) {
     el('h2', { text: t('platformAdmin.insights.product.sourceOverview') }),
     el('dl', { className: 'platform-admin-definition-list' }, sourceRows.map(({ kind, source, detail, reason }) =>
       el('div', {}, [
-        el('dt', { text: t(kind === 'runtime' && report.environment === 'production'
+        el('dt', { text: t(kind === 'runtime' && (runtime?.environment ?? report?.environment) === 'production'
           ? 'platformAdmin.insights.product.protectedProvenance' : `platformAdmin.insights.source.${kind}`) }),
         el('dd', {}, [
           el('p', { text: detail }),
