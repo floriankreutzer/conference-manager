@@ -105,13 +105,14 @@ jobs:
         run: npx playwright test tests/e2e/platform-customer-invitations.spec.js --grep "invitation access feedback" --project=${{ matrix.project }}
       - name: Verify explicit Owner customer navigation before the full suite
         run: npx playwright test tests/e2e/platform-owner-customer.spec.js tests/e2e/customer-owner-handoff.spec.js --project=${{ matrix.project }}
-      - name: Verify Guest print loading and recovery in both engines
-        run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled"
+      # Both engines remain in the matrix; do not repeat the other row's canaries.
+      - name: Verify Guest print loading and recovery for the selected engine
+        run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled" --project=${{ matrix.project }}
       - name: Verify Tenant Admin keyboard lifecycle after navigation focus
-        run: npx playwright test tests/e2e/tenant-role-administration.spec.js --grep "Tenant Admin lifecycle"
+        run: npx playwright test tests/e2e/tenant-role-administration.spec.js --grep "Tenant Admin lifecycle" --project=${{ matrix.project }}
       - name: Verify Employee draft restoration after wizard navigation focus
         run: |
-          npx playwright test tests/e2e/production-application.spec.js --grep "EMP-09: scoped session draft"
+          npx playwright test tests/e2e/production-application.spec.js --grep "EMP-09: scoped session draft" --project=${{ matrix.project }}
       - name: Run complete browser suite for the selected engine
         run: npm run test:e2e -- --project=${{ matrix.project }}
       - name: Upload browser report and Guest PDF evidence

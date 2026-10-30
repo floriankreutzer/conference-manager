@@ -14,6 +14,9 @@ test('regular browser CI retains both full projects, a bounded aggregate budget 
     'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft']) {
     assert.ok(matrix.includes(proof));
   }
+  const canaries=matrix.split('\n').filter(line=>line.includes('npx playwright test '));
+  assert.equal(canaries.length,9);
+  for (const command of canaries) assert.match(command,/--project=\$\{\{ matrix\.project \}\}/);
   assert.doesNotMatch(matrix,/continue-on-error:|--grep-invert|--shard|--retries|--workers/);
 });
 test('required e2e aggregate rejects failed, cancelled, skipped, absent and ambiguous matrix results',() => {
