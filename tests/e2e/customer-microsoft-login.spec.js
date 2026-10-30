@@ -8,9 +8,10 @@ async function setup(page,{ ceremony='membership',lostConfirmation=false,reauthe
   if (configured.protocol!=='https:' || configured.hostname!=='127.0.0.1') throw new Error('LOOPBACK_FIXTURE_REQUIRED');
   const origin=configured.origin,html=asProductionHtml(await readFile(new URL('../../index.html',import.meta.url),'utf8'));
   let authenticated=ceremony!=='membership',linked=false;const writes=[],reads=[];
-  let releaseAccountRead,markAccountRead;
+  let releaseAccountRead,markAccountRead,markAccountReadCompleted;
   const accountReadGate=new Promise(resolve=>{ releaseAccountRead=resolve; });
   const accountReadStarted=new Promise(resolve=>{ markAccountRead=resolve; });
+  const accountReadCompleted=new Promise(resolve=>{ markAccountReadCompleted=resolve; });
   await page.route('**/*',async route=>{
     const request=route.request(),url=new URL(request.url());
     if (url.origin!==origin) { await route.abort('blockedbyclient');throw new Error('UNEXPECTED_NON_LOOPBACK_REQUEST'); }
@@ -63,10 +64,11 @@ async function setup(page,{ ceremony='membership',lostConfirmation=false,reauthe
     } else { status=url.pathname.endsWith('/email/pending') ? 401 : 404; }
     if (status>=400) response={ error: { code: 'AUTHENTICATION_REJECTED',requestId: ID } };
     await route.fulfill({ status,contentType: 'application/json',...(status===204 ? {} : { body: JSON.stringify(response) }) });
+    if (url.pathname===`${ROOT}/link/status`) markAccountReadCompleted();
   });
   const query=ceremony==='membership' ? '?auth=microsoft_membership_required'
     : ceremony==='link' ? '?auth=microsoft_link_confirmation_required' : '';
-  await page.goto(`${origin}/${query}`);return { writes,reads,accountReadStarted,releaseAccountRead };
+  await page.goto(`${origin}/${query}`);return { writes,reads,accountReadStarted,accountReadCompleted,releaseAccountRead };
 }
 test('Microsoft continuation requires explicit organization choice and safely renders server labels with no email/code replay',async({ page })=>{
   const f=await setup(page);const select=page.getByRole('combobox',{ name: 'Organisation',exact: true });
@@ -137,7 +139,8 @@ for (const activation of ['pointer','keyboard']) test(`profile logout remains av
     await expect(page.getByLabel('E-Mail-Adresse',{ exact: true })).toBeVisible();
     const revocations=f.writes.filter(value=>value.path==='/api/v1/session');expect(revocations).toHaveLength(1);
     expect(revocations[0].headers['x-csrf-token']).toBe(SESSION_CSRF);
-    f.releaseAccountRead();
+    f.releaseAccountRead();await f.accountReadCompleted;
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
     await expect(page.getByRole('button',{ name: 'Profil',exact: true })).toHaveCount(0);
     await expect(page.getByLabel('E-Mail-Adresse',{ exact: true })).toBeVisible();
   } finally { f.releaseAccountRead(); }
