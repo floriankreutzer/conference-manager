@@ -179,9 +179,16 @@ test('Demo bootstraps from the server session and fleet without browser authorit
   await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(1);
   await expect(page.locator('.platform-admin-fleet-card')).toContainText('Dune Collective');
   await expect(demoRoleSelect(page)).toHaveValue('support_reader');
-  expect(state.requests.map(({ path, method }) => `${method} ${path}`)).toEqual([
+  const requests = state.requests.map(({ path, method }) => `${method} ${path}`);
+  expect(requests.slice(0, 2)).toEqual([
     'GET /api/v1/platform/demo/session',
     'GET /api/v1/platform/tenants',
+  ]);
+  // These independent, permission-qualified reads hydrate the customer cards.
+  // Keep the exact allowlist: no writes, audit access or browser-selected source.
+  expect(requests.slice(2).sort()).toEqual([
+    'GET /api/v1/platform/microsoft365/health',
+    'GET /api/v1/platform/readiness',
   ]);
   expect(await page.evaluate(() => ({ ...localStorage }))).toEqual({
     platform_admin_demo_v1: JSON.stringify({ role: 'platform_security_admin' }),
