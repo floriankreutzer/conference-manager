@@ -105,13 +105,14 @@ jobs:
         run: npx playwright test tests/e2e/platform-customer-invitations.spec.js --grep "invitation access feedback" --project=${{ matrix.project }}
       - name: Verify explicit Owner customer navigation before the full suite
         run: npx playwright test tests/e2e/platform-owner-customer.spec.js tests/e2e/customer-owner-handoff.spec.js --project=${{ matrix.project }}
-      - name: Verify Guest print loading and recovery in both engines
-        run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled"
+      # Both engines remain in the matrix; do not repeat the other row's canaries.
+      - name: Verify Guest print loading and recovery for the selected engine
+        run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled" --project=${{ matrix.project }}
       - name: Verify Tenant Admin keyboard lifecycle after navigation focus
-        run: npx playwright test tests/e2e/tenant-role-administration.spec.js --grep "Tenant Admin lifecycle"
+        run: npx playwright test tests/e2e/tenant-role-administration.spec.js --grep "Tenant Admin lifecycle" --project=${{ matrix.project }}
       - name: Verify Employee draft restoration after wizard navigation focus
         run: |
-          npx playwright test tests/e2e/production-application.spec.js --grep "EMP-09: scoped session draft"
+          npx playwright test tests/e2e/production-application.spec.js --grep "EMP-09: scoped session draft" --project=${{ matrix.project }}
       - name: Run complete browser suite for the selected engine
         run: npm run test:e2e -- --project=${{ matrix.project }}
       - name: Upload browser report and Guest PDF evidence
@@ -165,7 +166,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: ca1f06b5b5181965f7c3aeffdc235aa44c638771
+          ref: e0c8367e572f19ad6c44c9cfd6c127de504ad4ef
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -308,7 +309,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: ca1f06b5b5181965f7c3aeffdc235aa44c638771
+      PROTECTED_BROWSER_COUNTERPART_REF: e0c8367e572f19ad6c44c9cfd6c127de504ad4ef
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
     services:
       postgres:
@@ -334,7 +335,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: ca1f06b5b5181965f7c3aeffdc235aa44c638771
+          ref: e0c8367e572f19ad6c44c9cfd6c127de504ad4ef
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
