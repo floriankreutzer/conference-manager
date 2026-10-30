@@ -10,6 +10,7 @@ import {
   shouldPresentPlatformPermission,
 } from './contracts.js';
 import { PLATFORM_RECOVERY_DEFINITIONS } from './resource-contracts.js';
+import { renderCustomerOverview, renderOnboardingProgress } from './customer-workbench.js';
 
 export const PLATFORM_ADMIN_SECTION_DEFINITIONS = Object.freeze([
   Object.freeze({ id: 'overview', titleKey: 'platformAdmin.section.overview.title', descriptionKey: 'platformAdmin.section.overview.description' }),
@@ -101,28 +102,16 @@ function actionPanel(tenant, operator, actions, onAction, onStepUp, operationPro
   return panel;
 }
 
-function overview(tenant, onOpenLifecycle) {
-  const metrics = el('div', { className: 'platform-admin-metric-grid' }, [
-    el('article', { className: 'card platform-admin-metric' }, [platformHeading('settings', t('platformAdmin.field.lifecycle')), state(tenant.lifecycleState)]),
-    el('article', { className: 'card platform-admin-metric' }, [platformHeading('info', t('platformAdmin.field.onboarding')), state(tenant.onboardingState, 'onboarding')]),
-    el('article', { className: 'card platform-admin-metric' }, [platformHeading('integrations', t('platformAdmin.field.identity')), state(tenant.identityState, 'identity')]),
-    el('article', { className: 'card platform-admin-metric' }, [platformHeading('diagnostics', t('platformAdmin.field.version')), el('strong', { text: formatNumber(tenant.version) })]),
-  ]);
-  const next = typeof onOpenLifecycle === 'function' ? button(t('platformAdmin.overview.openSetup'), { className: 'secondary' }) : null;
-  next?.addEventListener('click', onOpenLifecycle);
-  return el('div', {}, [metrics, el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.overview.stateMeaning') }),
-    el('p', { text: t('platformAdmin.overview.nextResponsibility') }), ...(next ? [next] : [])]);
-}
-
 function lifecycle(tenant, operator, onAction, onStepUp, operationProofAvailable) {
-  return el('div', {}, [
-    el('section', { className: 'card' }, [definitionList([
+  return el('div', { className: 'platform-admin-lifecycle-workspace' }, [
+    renderOnboardingProgress(tenant),
+    el('section', { className: 'card' }, [platformHeading('customers', t('platformAdmin.workbench.currentState')), definitionList([
       { label: t('platformAdmin.field.lifecycle'), value: state(tenant.lifecycleState) },
       { label: t('platformAdmin.field.onboarding'), value: state(tenant.onboardingState, 'onboarding') },
       { label: t('platformAdmin.field.identity'), value: state(tenant.identityState, 'identity') },
       { label: t('platformAdmin.field.invitation'), value: state(tenant.invitationState, 'invitation') },
       { label: t('platformAdmin.field.version'), value: formatNumber(tenant.version) },
-    ])]),
+    ]), el('p', { text: t('platformAdmin.overview.nextResponsibility') })]),
     actionPanel(tenant, operator, LIFECYCLE_ACTIONS, onAction, onStepUp, operationProofAvailable),
   ]);
 }
@@ -282,7 +271,7 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
     packages.append(card);
   });
   updateControls();
-  return el('div', {}, [form, packages, previewElement].filter(Boolean));
+  return el('div', { className: 'platform-admin-entitlements-workspace' }, [form, packages, previewElement].filter(Boolean));
 }
 
 function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepUp, operationProofAvailable }) {
@@ -583,5 +572,5 @@ export function renderPlatformAdminTenantSection(options) {
   if (sectionId === 'recovery') return recovery(options);
   if (sectionId === 'metering') return metering(options);
   if (sectionId === 'runtime-status') return runtimeStatus(options);
-  return overview(tenant, options.onOpenLifecycle);
+  return renderCustomerOverview(options);
 }

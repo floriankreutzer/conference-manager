@@ -1012,11 +1012,25 @@
   min-block-size: var(--control-height);
   border-inline-start: 3px solid transparent;
   text-align: start;
+  justify-content: flex-start;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-base);
+}
+
+.platform-admin-shell .nav-item > span {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: auto;
+}
+
+.platform-admin-shell .nav-item .pavurel-functional-icon {
+  flex: 0 0 auto;
 }
 
 .platform-admin-shell .nav-item.active {
   border-inline-start-color: var(--color-camel-500);
-  background: var(--color-sidebar-hover);
+  background: var(--brand-primary);
   color: var(--color-on-dark);
 }
 
@@ -1088,6 +1102,153 @@
 
 .platform-admin-fleet-card .button-row {
   margin-block-start: var(--space-2);
+}
+
+.platform-admin-page[data-platform-admin-page="directory"] .platform-admin-fleet-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.platform-admin-customer-card-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.platform-admin-customer-statuses {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.platform-admin-customer-statuses > div,
+.platform-admin-customer-next {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.platform-admin-customer-statuses dt,
+.platform-admin-customer-next small {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-customer-statuses dd {
+  margin: 0;
+}
+
+.platform-admin-customer-next {
+  padding-inline-start: var(--space-4);
+  border-inline-start: 1px solid var(--color-border);
+}
+
+.platform-admin-customer-workbench,
+.platform-admin-lifecycle-workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--app-section-gap);
+  align-items: start;
+}
+
+.platform-admin-customer-workbench > *,
+.platform-admin-lifecycle-workspace > * {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.platform-admin-customer-workbench > .card {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  block-size: 100%;
+}
+
+.platform-admin-customer-workbench h3,
+.platform-admin-customer-workbench h4,
+.platform-admin-customer-workbench p,
+.platform-admin-onboarding-progress h3 {
+  margin: 0;
+}
+
+.platform-admin-next-task {
+  border-inline-start: 4px solid var(--brand-primary);
+}
+
+.platform-admin-next-task > button {
+  justify-self: start;
+}
+
+.platform-admin-onboarding-progress {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.platform-admin-onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-onboarding-steps li {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-step-marker {
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-subtle);
+}
+
+.platform-admin-onboarding-steps [aria-current="step"] {
+  color: var(--brand-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.platform-admin-onboarding-steps [aria-current="step"] .platform-admin-step-marker {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary);
+}
+
+.platform-admin-workbench-technical,
+.platform-admin-lifecycle-workspace > .platform-admin-onboarding-progress {
+  grid-column: 1 / -1;
+}
+
+.platform-admin-customer-events {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.platform-admin-customer-events li {
+  display: grid;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 3px solid var(--color-camel-500);
+}
+
+.platform-admin-customer-events time {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-entitlements-workspace > .platform-admin-preview {
+  grid-column: 1 / -1;
 }
 
 .platform-admin-tenant-section > .platform-admin-back-link {
@@ -1203,15 +1364,11 @@
   background: var(--color-surface-subtle);
 }
 
-.platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content {
+.platform-admin-entitlements-workspace {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: var(--app-section-gap);
-}
-
-.platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content > .platform-admin-entitlement-form {
-  grid-row: span 2;
 }
 
 .platform-admin-tenant-section .platform-admin-entitlement-form > h3 {
@@ -1264,7 +1421,7 @@
   margin-block: 0;
 }
 
-.platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content > div:last-child {
+.platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-record-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
   align-items: start;
@@ -1393,6 +1550,19 @@
 }
 
 @media (max-width: 760px) {
+  .platform-admin-customer-workbench,
+  .platform-admin-lifecycle-workspace,
+  .platform-admin-customer-card-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-admin-customer-next {
+    padding-inline-start: 0;
+    padding-block-start: var(--space-3);
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--color-border);
+  }
+
   .platform-admin-create-panel {
     align-items: stretch;
   }
@@ -1406,12 +1576,8 @@
     align-items: flex-start;
   }
 
-  .platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content {
+  .platform-admin-entitlements-workspace {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .platform-admin-tenant-section[data-platform-admin-section="entitlements"] .platform-admin-tenant-content > .platform-admin-entitlement-form {
-    grid-row: auto;
   }
 
   .platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-row {
@@ -1424,6 +1590,16 @@
 }
 
 @media (max-width: 480px) {
+  .platform-admin-customer-statuses,
+  .platform-admin-onboarding-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .platform-admin-onboarding-steps li {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
   .platform-admin-create-panel {
     padding: var(--space-3);
   }

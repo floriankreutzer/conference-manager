@@ -40,6 +40,8 @@ import { createProductDeliveryCache } from './product-delivery-cache.js';
 import { createProviderUsageFreshness } from './provider-usage-freshness.js';
 import { downloadPlatformAuditExport } from './audit-export.js';
 import { assertPlatformAuditContinuation } from './audit-page-continuation.js';
+import { customerWorkbenchSummary } from './customer-workbench-model.js';
+import { renderCustomerDirectorySummary } from './customer-workbench.js';
 
 const LIFECYCLE_FILTERS = Object.freeze(['all', 'pending', 'onboarding', 'ready', 'active', 'suspended', 'archived']);
 const HEALTH_FILTERS = Object.freeze(['all', 'healthy', 'degraded', 'unavailable', 'not_configured']);
@@ -521,7 +523,7 @@ export function createPlatformAdminApplication({
     return true;
   }
 
-  async function loadFleetResource(view, { cursor = null, append = false, force = false, restoreTab = null } = {}) {
+  async function loadFleetResource(view, { cursor = null, append = false, force = false, restoreTab = null, background = false } = {}) {
     if (stopped || view === 'directory') return;
     const existing = fleetResources.get(view);
     const observedClock = projectionClock(view);
@@ -534,7 +536,7 @@ export function createPlatformAdminApplication({
     if (view === 'providers') providerFreshness.forget();
     const pending = { status: 'loading', data: append ? existing?.data : null };
     fleetResources.set(view, pending);
-    renderWithFocusHandoff();
+    if (!background) renderWithFocusHandoff();
     try {
       const requestClock = observedClock?.capture();
       let data;
@@ -569,6 +571,13 @@ export function createPlatformAdminApplication({
     if (currentRoute().view === 'fleet' && currentFleetView() === view) {
       renderWithFocusHandoff({ restoreTab: priorTabFocus });
     }
+  }
+
+  async function loadCustomerSummaries() {
+    const views = ['readiness', 'integration-health', 'platform-audit'];
+    const allowed = availableFleetViews().map(view => view.id);
+    await Promise.allSettled(views.filter(view => allowed.includes(view) && !fleetResources.has(view))
+      .map(view => loadFleetResource(view, { background: true })));
   }
 
   async function tenantResourceData(tenant, sectionId) {
@@ -790,11 +799,13 @@ export function createPlatformAdminApplication({
     availableFleetViews()
       .forEach((definition) => {
         const active = route.view === 'fleet' && currentFleetView() === definition.id;
-        const control = button(t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.globalRuntime' : definition.titleKey), {
+        const label = t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.globalRuntime' : definition.titleKey);
+        const control = button('', {
           className: `nav-item${active ? ' active' : ''}`,
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminFleetView: definition.id },
         });
+        control.append(el('span', { text: label }));
         const iconName = { directory: 'customers', readiness: 'info', 'integration-health': 'integrations', 'platform-audit': 'audit', 'runtime-status': 'system', providers: 'usage', 'product-delivery': 'delivery' }[definition.id];
         if (iconName) { control.classList.add('pavurel-icon-label'); control.prepend(pavurelFunctionalIcon(iconName, { variant: 'inverse' })); }
         control.addEventListener('click', () => {
@@ -810,11 +821,13 @@ export function createPlatformAdminApplication({
       ]);
       PLATFORM_ADMIN_SECTION_DEFINITIONS.forEach((definition) => {
         const active = route.section === definition.id;
-        const control = button(t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.customerRuntime' : definition.titleKey), {
+        const label = t(definition.id === 'runtime-status' ? 'platformAdmin.navigation.customerRuntime' : definition.titleKey);
+        const control = button('', {
           className: `nav-item${active ? ' active' : ''}`,
           attrs: active ? { 'aria-current': 'page' } : {},
           dataset: { platformAdminNavigate: definition.id },
         });
+        control.append(el('span', { text: label }));
         const iconName = { overview: 'dashboard', lifecycle: 'settings', entitlements: 'settings', diagnostics: 'diagnostics', recovery: 'recovery', metering: 'usage', 'runtime-status': 'system' }[definition.id];
         if (iconName) { control.classList.add('pavurel-icon-label'); control.prepend(pavurelFunctionalIcon(iconName, { variant: 'inverse' })); }
         control.addEventListener('click', () => navigate(platformAdminTenantHash(tenant.id, definition.id)));
@@ -926,12 +939,7 @@ export function createPlatformAdminApplication({
           ]),
           stateBadge(tenant.lifecycleState),
         ]),
-        ...(tenant.readiness && tenant.integration ? [el('div', { className: 'platform-admin-inline-status' }, [
-          el('span', { text: t('platformAdmin.field.readiness') }),
-          stateBadge(tenant.readiness.state),
-          el('span', { text: t('platformAdmin.field.integration') }),
-          stateBadge(tenant.integration.state),
-        ])] : []),
+        renderCustomerDirectorySummary(tenant, customerWorkbenchSummary(tenant, fleetResources, currentOperator)),
         el('div', { className: 'button-row' }, [open]),
       ]));
     });
@@ -1430,8 +1438,16 @@ export function createPlatformAdminApplication({
         allowedActions: tenant.allowedActions.filter(action => !['invitation_revoke','invitation_reissue'].includes(action)) } : tenant,
       operator: currentOperator,
       resource,
+      summary: customerWorkbenchSummary(tenant, fleetResources, currentOperator),
       onAction: (action) => confirmAction(tenant, action),
       onOpenLifecycle: () => navigate(platformAdminTenantHash(tenant.id, 'lifecycle')),
+      onOpenSection: section => navigate(platformAdminTenantHash(tenant.id, section)),
+      onOpenReadiness: currentOperator.permissions.includes('platform:readiness:read')
+        ? () => navigate(platformAdminFleetHash('readiness')) : null,
+      onOpenIntegrations: currentOperator.permissions.includes('platform:integration-health:read')
+        ? () => navigate(platformAdminFleetHash('integration-health')) : null,
+      onOpenAudit: currentOperator.permissions.includes('platform:audit:read')
+        ? () => navigate(platformAdminFleetHash('platform-audit')) : null,
       onStepUp,
       onRetry: () => reloadTenantResource(tenant, definition.id),
       onEntitlementPreview: (proposals) => previewEntitlements(tenant, proposals),
@@ -1528,6 +1544,8 @@ export function createPlatformAdminApplication({
           tenants: Object.freeze([...fleet.tenants, ...result.tenants]),
         })
         : result;
+      await loadCustomerSummaries();
+      if (currentGeneration !== fleetRequestGeneration) return;
     } catch {
       if (currentGeneration !== fleetRequestGeneration) return;
       if (append) actionError = true;
