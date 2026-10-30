@@ -167,6 +167,13 @@ export function createPlatformAdminApplication({
   let fleetRequestGeneration = 0;
   let navigationGeneration = 0;
   let stopped = false;
+  const dialogs = new Set();
+  function openApplicationDialog(options) {
+    const dialog = openDialog(options);
+    dialogs.add(dialog);
+    dialog.addEventListener('close', () => dialogs.delete(dialog), { once: true });
+    return dialog;
+  }
   const fleetResources = new Map();
   const fleetDestinations = new Map();
   const tenantResources = new Map();
@@ -438,7 +445,7 @@ export function createPlatformAdminApplication({
       reset.addEventListener('click', () => {
         const cancel = button(t('common.cancel'), { className: 'secondary' });
         const confirm = button(t('platformAdmin.demo.resetConfirm'), { className: 'primary' });
-        const dialog = openDialog({
+        const dialog = openApplicationDialog({
           title: t('platformAdmin.demo.resetConfirmTitle'),
           description: t('platformAdmin.demo.resetConfirmText'),
           actions: [cancel, confirm],
@@ -1064,7 +1071,7 @@ export function createPlatformAdminApplication({
       className: 'primary',
       dataset: { platformAdminConfirmCreate: 'true' },
     });
-    const dialog = openDialog({
+    const dialog = openApplicationDialog({
       title: t('platformAdmin.create.confirmTitle'),
       description: t('platformAdmin.create.confirmDescription'),
       content: el('div', {}, [
@@ -1160,7 +1167,7 @@ export function createPlatformAdminApplication({
       }),
       message,
     ]);
-    const dialog = openDialog({
+    const dialog = openApplicationDialog({
       title: t('platformAdmin.action.confirmTitle', { action: t(`platformAdmin.action.${action}`) }),
       description: t('platformAdmin.action.confirmDescription'),
       content,
@@ -1213,7 +1220,7 @@ export function createPlatformAdminApplication({
       text: delivery.token,
     });
     const close = button(t('common.close'), { className: 'primary' });
-    const dialog = openDialog({
+    const dialog = openApplicationDialog({
       title: t('platformAdmin.delivery.title'),
       description: t('platformAdmin.delivery.description'),
       content: el('div', {}, [
@@ -1239,7 +1246,7 @@ export function createPlatformAdminApplication({
     const message = el('p', { className: 'platform-admin-dialog-message', attrs: { role: 'alert' } });
     const cancel = button(t('common.cancel'), { className: 'secondary' });
     const confirm = button(t(titleKey), { className: 'danger' });
-    const dialog = openDialog({
+    const dialog = openApplicationDialog({
       title: t(titleKey),
       description: t(effectKey),
       content: el('div', {}, [
@@ -1295,7 +1302,7 @@ export function createPlatformAdminApplication({
     const message = el('p', { className: 'platform-admin-dialog-message', attrs: { role: 'alert' } });
     const cancel = button(t('common.cancel'), { className: 'secondary' });
     const save = button(t('platformAdmin.metering.saveQuota'), { className: 'danger' });
-    const dialog = openDialog({
+    const dialog = openApplicationDialog({
       title: t('platformAdmin.metering.editQuotaTitle', { dimension: t(`platformAdmin.metering.name.${quota.dimension}`) }),
       description: t('platformAdmin.metering.editQuotaDescription'),
       content: el('div', {}, [
@@ -1611,6 +1618,8 @@ export function createPlatformAdminApplication({
   function stop() {
     navigationGeneration += 1;
     stopped = true;
+    for (const dialog of dialogs) dialog.close();
+    dialogs.clear();
     customerInvitationPresentation?.clear();
     fleetRequestGeneration += 1;
     windowRef.removeEventListener('hashchange', routeChanged);
@@ -1626,8 +1635,21 @@ export function createPlatformAdminApplication({
       && currentRoute().view === 'fleet') clear(nodes.app);
   }
 
+  function invalidateSession() {
+    stop();
+    sessionState = 'unauthenticated';
+    currentOperator = null;
+    fleet = null;
+    fleetResources.clear();
+    tenantResources.clear();
+    fleetDestinations.clear();
+    loading = false;
+    directoryLoadingMore = false;
+    render();
+  }
+
   if (PLATFORM_ADMIN_SECTION_DEFINITIONS.length !== PLATFORM_ADMIN_SECTIONS.length) {
     throw new TypeError('PLATFORM_ADMIN_SECTION_REGISTRY_INCOMPLETE');
   }
-  return Object.freeze({ start, stop, render, openWorkspaceTenant });
+  return Object.freeze({ start, stop, render, openWorkspaceTenant, invalidateSession });
 }

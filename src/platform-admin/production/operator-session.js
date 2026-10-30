@@ -11,6 +11,47 @@ export class PlatformOperatorSessionError extends Error {
   }
 }
 
+// One document owns one authenticated session. A rejected session cannot be
+// revived by a late successful response, nor can it replay an interrupted write.
+export function createPlatformSessionBoundary({ fetchImpl = globalThis.fetch, onExpired } = {}) {
+  if (typeof fetchImpl !== 'function' || typeof onExpired !== 'function') {
+    throw new TypeError('PLATFORM_SESSION_BOUNDARY_PORTS_REQUIRED');
+  }
+  let active = false, expired = false;
+  const lifetime = new AbortController();
+  function expire() {
+    if (!active || expired) return;
+    expired = true;
+    lifetime.abort();
+    onExpired();
+  }
+  return Object.freeze({
+    activate() { if (!expired) active = true; },
+    expire,
+    get expired() { return expired; },
+    stop() { lifetime.abort(); },
+    async fetch(url, options = {}) {
+      if (expired) throw new PlatformOperatorSessionError('HTTP_401');
+      const controller = new AbortController(), abort = () => controller.abort();
+      const signals = [lifetime.signal, options.signal].filter(Boolean);
+      for (const signal of signals) {
+        if (signal.aborted) abort(); else signal.addEventListener('abort', abort, { once: true });
+      }
+      try {
+        const response = await fetchImpl(url, { ...options, signal: controller.signal });
+        if (active && response.status === 401) expire();
+        if (expired) {
+          try { await response.body?.cancel(); } catch {}
+          throw new PlatformOperatorSessionError('HTTP_401');
+        }
+        return response;
+      } finally {
+        for (const signal of signals) signal.removeEventListener('abort', abort);
+      }
+    },
+  });
+}
+
 export function createPlatformOperatorSessionApi({ apiClient } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') {
     throw new TypeError('PLATFORM_OPERATOR_SESSION_API_CLIENT_REQUIRED');
