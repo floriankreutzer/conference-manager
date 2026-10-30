@@ -108,6 +108,7 @@ for (const [authHint,title] of [
   const f=await setup(page,context,{ syntheticPending: true,authHint });
   const dialog=page.getByRole('dialog',{ name: title,exact: true });
   await expect(dialog).toBeVisible();await expect(page.getByRole('dialog')).toHaveCount(1);
+  await expect(dialog.getByRole('heading',{ name: title,exact: true })).toHaveCount(1);
   await dialog.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
   const other=title==='Eigene Testmandanten' ? 'Owner-Kundenzugang' : 'Eigene Testmandanten';
   await page.getByRole('button',{ name: other,exact: true }).click();

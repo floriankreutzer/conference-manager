@@ -1,8 +1,9 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API 2eb277d51597a7577580fbf4163ade1edb55a597, the protected Product collector
-candidate in API PR360. This source includes the prior Recovery and telemetry
+API 2ad3d94721defb290e7b324a78b7500bce7a65b7, the protected Product collector
+candidate in API PR360, stacked on schema75/service-identity PR359. This source
+also includes the prior Recovery and telemetry
 corrections. The immutable pair requires fresh complete CI; it is not a hosted
 release. The insight wire gate now exercises the real API route, authorization
 service, epoch-bound runtime snapshot and frontend adapter together. It preserves

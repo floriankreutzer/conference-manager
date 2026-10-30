@@ -74,6 +74,8 @@ test('protected Product renders every panel with unknown sources and no Demo ret
       assert.equal(nodes.filter(node => node.dataset.productMetric).length, 72);
       assert.ok(model.storedReport.product.every(metric => metric.value === null));
       assert.equal(nodes.some(node => node.dataset.insightFallback), false);
+      assert.ok(nodes.some(node => node.textContent?.includes('Neuladen ruft den gespeicherten Produktbericht erneut ab.')));
+      assert.equal(nodes.some(node => node.textContent?.includes('Produktdaten, Tagesbericht und Betreiberquellen getrennt')), false);
       const text=nodes.map(node=>node.textContent || '').join(' ');
       assert.ok(!text.includes('Produktdaten aus der laufenden Demo'));
       if (runtimeProduct) {

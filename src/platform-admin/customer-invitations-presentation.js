@@ -26,8 +26,9 @@ export function createPlatformInvitationPresentation({ api,windowRef=globalThis.
     creation={ dialog,view: null };
     function translate() {
       if (!creation || stopped) return;
-      creation.view?.dispose();dialog.querySelector('h2').textContent=t('platformInvitations.createTitle');close.textContent=t('common.close');
-      creation.view=createPlatformInvitationView({ controller,draft,creation: true,isCurrent: ()=>!stopped && isCurrent() });
+      creation.view?.dispose();const heading=dialog.querySelector('h2');heading.textContent=t('platformInvitations.createTitle');heading.tabIndex=-1;
+      close.textContent=t('common.close');
+      creation.view=createPlatformInvitationView({ controller,draft,creation: true,heading,isCurrent: ()=>!stopped && isCurrent() });
       content.replaceChildren(creation.view.element);
     }
     translate();content.querySelector('input')?.focus();
