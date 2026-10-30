@@ -105,13 +105,13 @@ jobs:
         run: npx playwright test tests/e2e/platform-customer-invitations.spec.js --grep "invitation access feedback" --project=${{ matrix.project }}
       - name: Verify explicit Owner customer navigation before the full suite
         run: npx playwright test tests/e2e/platform-owner-customer.spec.js tests/e2e/customer-owner-handoff.spec.js --project=${{ matrix.project }}
-      - name: Verify Guest print loading and recovery in both engines
-        run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled"
+      - name: Verify Guest print loading and recovery in the selected engine
+        run: npx playwright test tests/e2e/production-application.spec.js --grep "EMP-14 EMP-15|EMP-15 unavailable|EMP-15 stalled" --project=${{ matrix.project }}
       - name: Verify Tenant Admin keyboard lifecycle after navigation focus
-        run: npx playwright test tests/e2e/tenant-role-administration.spec.js --grep "Tenant Admin lifecycle"
+        run: npx playwright test tests/e2e/tenant-role-administration.spec.js --grep "Tenant Admin lifecycle" --project=${{ matrix.project }}
       - name: Verify Employee draft restoration after wizard navigation focus
         run: |
-          npx playwright test tests/e2e/production-application.spec.js --grep "EMP-09: scoped session draft"
+          npx playwright test tests/e2e/production-application.spec.js --grep "EMP-09: scoped session draft" --project=${{ matrix.project }}
       - name: Run complete browser suite for the selected engine
         run: npm run test:e2e -- --project=${{ matrix.project }}
       - name: Upload browser report and Guest PDF evidence
@@ -173,6 +173,10 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            api/package-lock.json
       - name: Verify private projection fixtures against immutable API
         run: |
           node frontend/scripts/check-product-delivery-contract.mjs api
@@ -346,6 +350,10 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            api/package-lock.json
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci --ignore-scripts --no-audit --no-fund

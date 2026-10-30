@@ -15,6 +15,13 @@ test('regular browser CI retains both full projects, a bounded aggregate budget 
     assert.ok(matrix.includes(proof));
   }
   assert.doesNotMatch(matrix,/continue-on-error:|--grep-invert|--shard|--retries|--workers/);
+  // Every Playwright preflight must use its matrix engine; the full suite and
+  // the separate transport probe above still cover both supported projects.
+  const preflights = matrix.split('\n').filter(line => line.includes('npx playwright test'));
+  assert.ok(preflights.length >= 3);
+  for (const command of preflights) {
+    assert.match(command, /--project=\$\{\{ matrix\.project \}\}/);
+  }
 });
 test('required e2e aggregate rejects failed, cancelled, skipped, absent and ambiguous matrix results',() => {
   const aggregate = workflow.slice(workflow.indexOf('\n  e2e:'),workflow.indexOf('\n  shared-demo-e2e:'));
