@@ -1,5 +1,6 @@
 import { normalizeProviderUsage } from '../provider-usage-contracts.js';
-import { normalizeProductDelivery } from '../product-delivery-contracts.js';
+import { normalizeRuntimeProductReport } from '../product-runtime-contract.js';
+import { normalizeProductDelivery, exactProductObject } from '../product-delivery-contracts.js';
 
 // Deliberate protected ports: no Demo route, fallback, provider URL or browser
 // storage. Session/authorization failures and malformed successes propagate.
@@ -12,10 +13,17 @@ export function createProtectedPlatformInsights({ apiClient, accessMode = 'appli
       return Object.freeze({ ...report, liveMetrics: null, retrieval: null });
     } }),
     productDelivery: Object.freeze({ async load() {
-      const storedReport = normalizeProductDelivery(await read('insights/product-delivery'), {
+      const payload = await read('insights/product-delivery?schemaVersion=2');
+      let runtimeProduct = null;
+      if (payload?.schemaVersion === 2) {
+        exactProductObject(payload,['schemaVersion','storedReport','runtimeProduct']);
+        if (payload.runtimeProduct !== null) runtimeProduct = normalizeRuntimeProductReport(payload.runtimeProduct,
+          { environment: 'production',accessMode });
+      }
+      const storedReport = normalizeProductDelivery(payload?.schemaVersion === 2 ? payload.storedReport : payload, {
         environment: 'production', expectedAccessMode: accessMode,
       });
-      return Object.freeze({ storedReport, runtimeProduct: null, liveMetrics: null, operatorSources: null, retrieval: null });
+      return Object.freeze({ storedReport, runtimeProduct, liveMetrics: null, operatorSources: null, retrieval: null });
     } }),
   });
 }

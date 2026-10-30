@@ -1,3 +1,4 @@
+import { groupRuntimeObservations } from './runtime-groups.js';
 import { renderRuntimeObservation } from './runtime-observation.js';
 import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
@@ -283,7 +284,25 @@ function audit(resource, onLoadMore,onExportAudit) {
 
 function runtime(resource) {
   if (!resource.data.deployments.length) return el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.resource.empty') });
-  return el('section', { className: 'platform-admin-record-list' }, resource.data.deployments.map(renderRuntimeObservation));
+  const { instances,unassigned } = groupRuntimeObservations(resource.data.deployments);
+  return el('section', { className: 'platform-admin-record-list' }, [
+    el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.orderNote') }),
+    ...instances.map(({ key,latest,history })=>el('section',{ dataset: { runtimeInstance: key } },[
+      el('h2',{ text: t(`platformAdmin.runtime.surface.${latest.serviceInstance.surface}`) }),
+      el('p',{ text: t('platformAdmin.runtime.instance',{ key: latest.serviceInstance.key }) }),
+      el('p',{ text: t('platformAdmin.runtime.latest') }),
+      renderRuntimeObservation(latest),
+      ...(history.length ? [el('details',{ dataset: { runtimeHistory: key } },[
+        el('summary',{ text: t('platformAdmin.runtime.history') }),
+        ...history.map(entry=>renderRuntimeObservation(entry)),
+      ])] : []),
+    ])),
+    ...(unassigned.length ? [el('section',{ dataset: { runtimeUnassigned: 'true' } },[
+      el('h2',{ text: t('platformAdmin.runtime.unassigned') }),
+      el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.unassignedNote') }),
+      ...unassigned.map(entry=>renderRuntimeObservation(entry)),
+    ])] : []),
+  ]);
 }
 
 export function renderPlatformFleetView({ view, resource, onRetry, onSelectTenant, onLoadMore,onExportAudit }) {

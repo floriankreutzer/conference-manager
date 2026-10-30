@@ -99,7 +99,7 @@ for (const locale of ['de','en']) {
     const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();await dialog.press('Escape');
     await expect(dialog).toHaveCount(0);await expect(control).toBeEnabled();await expect(control).toBeFocused();
     await expect(page.locator('#mainContent').getByRole('status').getByText(locale==='de'
-      ? 'Der Vorgang wurde abgebrochen. Du kannst es erneut versuchen.' : 'The action was cancelled. You can try again.',{ exact: true })).toBeVisible();
+      ? 'Der Vorgang wurde abgebrochen. Sie können es erneut versuchen.' : 'The action was cancelled. You can try again.',{ exact: true })).toBeVisible();
     await expect(page.locator('.platform-admin-audit-list > li')).toHaveCount(1);
     await expect(page.locator('.platform-admin-error[role="alert"]')).toHaveCount(0);
     expect(exports).toHaveLength(1);expect(downloads).toBe(0);
@@ -115,8 +115,8 @@ test('failed Microsoft status is a confirmation failure and preserves the indepe
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('.platform-admin-audit-list > li')).toHaveCount(1);
   await expect(page.locator('.platform-admin-error[role="alert"]')).toHaveCount(0);
-  await expect(page.locator('#mainContent').getByRole('status').getByText('Der Schritt konnte nicht abgeschlossen werden. Lade den aktuellen Stand erneut oder melde dich neu an.',{ exact: true })).toBeVisible();
-  await expect(page.getByText('Der Vorgang wurde abgebrochen. Du kannst es erneut versuchen.',{ exact: true })).toHaveCount(0);
+  await expect(page.locator('#mainContent').getByRole('status').getByText('Der Schritt konnte nicht abgeschlossen werden. Laden Sie den aktuellen Stand erneut oder melden Sie sich neu an.',{ exact: true })).toBeVisible();
+  await expect(page.getByText('Der Vorgang wurde abgebrochen. Sie können es erneut versuchen.',{ exact: true })).toHaveCount(0);
   expect(exports).toHaveLength(1);
 });
 

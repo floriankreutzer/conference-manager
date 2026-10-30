@@ -550,7 +550,7 @@ export function createPlatformAdminApi({
 
     async loadRuntimeDeployments() {
       try {
-        const payload = await apiClient.request('runtime/deployments');
+        const payload = await apiClient.request('runtime/deployments?schemaVersion=2');
         return wrapContract(normalizePlatformRuntimeDeployments, payload, 'PLATFORM_RUNTIME_RESPONSE_INVALID');
       } catch (error) {
         requestFailure('PLATFORM_RUNTIME_UNAVAILABLE', error);

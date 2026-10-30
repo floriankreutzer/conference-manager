@@ -71,6 +71,7 @@ async function fixture(page,{ lostCreation=false }={}) {
 async function fillCreation(page) {
   await page.getByRole('button',{ name: 'Mandant anlegen',exact: true }).click();
   const dialog=page.getByRole('dialog');
+  await expect(dialog.getByRole('heading')).toHaveCount(1);
   await dialog.getByRole('textbox',{ name: 'Mandanten-Anzeigename *',exact: true }).fill('Synthetic customer');
   await dialog.getByRole('button',{ name: 'Person hinzufügen',exact: true }).click();
   const person=dialog.getByRole('group',{ name: 'Person 1',exact: true });

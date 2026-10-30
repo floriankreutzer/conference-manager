@@ -2,19 +2,20 @@ import { microsoftSignInControl } from '../../../core/microsoft-sign-in-control.
 import { formatDateTime,formatNumber,t } from '../../../core/i18n.js';
 import { button,clear,el,field } from '../../../core/ui.js';
 let nextId=0;
-export function createPlatformSyntheticWorkspaceView({ controller,onTenant }={}) {
+export function createPlatformSyntheticWorkspaceView({ controller,onTenant,heading=null }={}) {
   if (!controller || ['snapshot','subscribe','prepareReplacement','cancelReplacement','replace','approve','check','reauthenticate']
     .some(name=>typeof controller[name]!=='function') || typeof onTenant!=='function') {
     throw new TypeError('PLATFORM_SYNTHETIC_VIEW_INVALID');
   }
-  const id=`platformSynthetic${++nextId}`,element=el('section',{ className: 'platform-admin-synthetic-workspace',attrs: { 'aria-labelledby': `${id}Title` } });
+  const id=`platformSynthetic${++nextId}`,element=el('section',{ className: 'platform-admin-synthetic-workspace',attrs: { 'aria-labelledby': heading?.id ?? `${id}Title` } });
   let phase=null;
   function update(state=controller.snapshot()) {
     const active=document.activeElement,hadFocus=element.contains(active),focusId=active?.id,same=phase===state.phase;
     const selectedSlot=element.querySelector(`#${id}Slot`)?.value ?? '',selectedRole=element.querySelector(`#${id}Role`)?.value ?? '';
     const guideOpen=element.querySelector(`#${id}Guide`)?.open===true;
     phase=state.phase;clear(element);
-    const title=el('h3',{ id: `${id}Title`,text: t('platformSynthetic.title'),attrs: { tabindex: '-1' } });element.append(title);
+    const title=heading ?? el('h3',{ id: `${id}Title`,text: t('platformSynthetic.title'),attrs: { tabindex: '-1' } });
+    if (!heading) element.append(title);
     element.append(el('p',{ text: t('platformSynthetic.disclosure') }));
     const guide=el('details',{ id: `${id}Guide`,dataset: { syntheticEntryGuide: 'true' } },[
       el('summary',{ id: `${id}GuideSummary`,text: t('platformSynthetic.guide.title') }),

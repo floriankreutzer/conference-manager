@@ -1348,12 +1348,12 @@ test('Platform navigation clears an obsolete action announcement without retryin
 test('Platform runtime accepts actual API support references and reflows long metadata on mobile',async({ page })=>{
   await installDemoRoutes(page);
   const payload=JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json',import.meta.url),'utf8'));
-  await page.route('**/api/v1/platform/runtime/deployments',route=>route.fulfill({
+  await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',route=>route.fulfill({
     contentType: 'application/json',body: JSON.stringify(payload),
   }));
   await page.goto('/platform-admin-demo/');
   await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
-  await expect(page.locator('.platform-admin-record-list > article')).toHaveCount(4);
+  await expect(page.locator('.platform-admin-record-list article')).toHaveCount(4);
   for (const width of [320,1280]) {
     await page.setViewportSize({ width,height: 900 });
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -1491,7 +1491,7 @@ test('entitlement workspace read-only authority and departed preview remain boun
 for (const locale of ['de','en']) test(`Platform context groups retain customer identity, distinct runtime routes and keyboard return in ${locale}`, async ({ page }, testInfo) => {
   const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
   let releaseRuntime=null;
-  await page.route('**/api/v1/platform/runtime/deployments',async route=>{
+  await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',async route=>{
     await new Promise(resolve=>{ releaseRuntime=resolve; });
     await route.fulfill({ status: 503,contentType: 'application/json',body: JSON.stringify({ error: { code: 'RUNTIME_UNAVAILABLE' } }) });
   });
@@ -1544,14 +1544,15 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     const runtime=fixture.deployments[0];
     runtime.freshness={ ...runtime.freshness,state: freshness,observedAt: freshness==='unknown' ? null : '2026-10-25T11:50:00.000Z' };
     runtime.overallState=freshness==='fresh' ? 'ready' : freshness;
-    await page.route('**/api/v1/platform/runtime/deployments',route=>route.fulfill({ contentType: 'application/json',
+    await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',route=>route.fulfill({ contentType: 'application/json',
       body: JSON.stringify({ schemaVersion: 1,deployments: [runtime] }) }));
     await page.goto('/platform-admin-demo/');
     await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
     await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
     const card=page.locator(`[data-runtime-observation="${freshness}"]`),details=card.locator('details');
     await expect(card).toBeVisible();
-    await expect(card.getByRole('heading',{ name: locale==='de' ? 'Conference Manager · Anwendungsdienst' : 'Conference Manager · application service' })).toBeVisible();
+    await expect(card.getByRole('heading')).toContainText(runtime.deployment.reference);
+    await expect(card.getByText(locale==='de' ? 'Conference Manager · Anwendungsdienst' : 'Conference Manager · application service',{ exact: true })).toBeVisible();
     await expect(card).toContainText('Test');
     if (freshness==='unknown') await expect(card.locator('time')).toHaveCount(0);
     else await expect(card.locator('time')).toHaveAttribute('datetime',runtime.freshness.observedAt);
@@ -1559,7 +1560,7 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     await expect(details).not.toHaveAttribute('open','');
     await expect(details.locator('dd').first()).toBeHidden();
     await details.locator('summary').focus();await page.keyboard.press('Enter');
-    await expect(details.locator('dd').first()).toHaveText(runtime.deployment.reference);
+    await expect(details.locator('dd').first()).toHaveText(runtime.components.frontend.version);
     await expect(page.locator('.skip-link')).not.toBeInViewport();
     for (const width of [320,1280]) {
       await page.setViewportSize({ width,height: 900 });
@@ -1711,7 +1712,7 @@ test('tenant workbench presents localized horizontal section navigation without 
   await expect(page.locator('#viewTitle')).toBeFocused();
 
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
-  await expect(tabs.locator('[aria-current="page"]')).toContainText('Entitlements');
+  await expect(tabs.locator('[aria-current="page"]')).toContainText('Feature access');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
     .toBeLessThanOrEqual(1);
 });
@@ -1801,6 +1802,26 @@ test('a departed diagnostic search cannot repaint a subsequently reopened custom
   await expect(page.locator('#viewTitle')).toBeFocused();
 });
 
+
+test('fleet totals account for every lifecycle state in the current filtered directory',async({ page })=>{
+  const state=await installDemoRoutes(page);
+  const states=['pending','onboarding','ready','active','suspended','archived'];
+  await page.route('**/api/v1/platform/tenants?*',route=>{
+    const payload=directoryPayload(),filter=new URL(route.request().url()).searchParams.get('lifecycleStatus');
+    payload.items=states.map((status,index)=>({ ...payload.items[0],
+      tenantId: `10000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,
+      displayName: `Lifecycle ${status}`,lifecycle: { status,revision: 1 } }))
+      .filter(item=>!filter || item.lifecycle.status===filter);
+    return route.fulfill({ contentType: 'application/json',body: JSON.stringify(payload) });
+  });
+  await page.goto('/platform-admin-demo/');
+  const counts=page.locator('.platform-admin-metric-grid .platform-admin-metric strong');
+  await expect(counts).toHaveText(['6','1','1','1','1','1','1']);
+  await page.locator('#platformAdminLifecycle').selectOption('onboarding');
+  await page.locator('.platform-admin-filter-form').getByRole('button',{ name: 'Filter anwenden',exact: true }).click();
+  await expect(counts).toHaveText(['1','0','1','0','0','0','0']);
+  expect(state.requests.some(request=>request.method!=='GET')).toBe(false);
+});
 const RECOVERY_USER = '11111111-1111-4111-8111-111111111111';
 const RECOVERY_OTHER_USER = '22222222-2222-4222-8222-222222222222';
 const RECOVERY_BLOCKED_USER = '33333333-3333-4333-8333-333333333333';
@@ -1918,3 +1939,25 @@ for (const locale of ['de', 'en']) {
     expect(reads).toHaveLength(1);
   });
 }
+
+for (const locale of ['de','en']) test(`Runtime service identity separates latest evidence and keyboard-accessible history: ${locale}`,async({ page })=>{
+  await installDemoRoutes(page);
+  const template=JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json',import.meta.url),'utf8')).deployments[0];
+  const entry=(reference,key,at)=>({ ...template,schemaVersion:2,
+    serviceInstance:key ? { key,surface:'customer' } : null,
+    deployment:{ ...template.deployment,reference },freshness:{ ...template.freshness,observedAt:at } });
+  await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',route=>route.fulfill({ contentType:'application/json',
+    body:JSON.stringify({ schemaVersion:2,deployments:[entry('old','customer-a','2026-10-29T12:00:00.000Z'),
+      entry('current','customer-a','2026-10-30T12:00:00.000Z'),entry('legacy',null,null)] }) }));
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+  await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
+  const instance=page.locator('[data-runtime-instance]'),history=page.locator('[data-runtime-history]');
+  await expect(instance).toHaveCount(1);await expect(instance.locator(':scope > article')).toContainText('current');
+  await expect(history.locator('article')).toBeHidden();
+  await history.locator(':scope > summary').focus();await page.keyboard.press('Enter');
+  await expect(history.locator('article')).toContainText('old');
+  await expect(page.locator('[data-runtime-unassigned]')).toContainText('legacy');
+  for (const width of [320,1280]) { await page.setViewportSize({ width,height:900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); }
+});

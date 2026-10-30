@@ -10,7 +10,7 @@ const permissions = ['platform:tenant:read','platform:readiness:read','platform:
 test('protected insight views retain DE/EN mobile navigation without a Tenant or Demo requests', async ({ page }) => {
   const requests = [], pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
-  let providerAvailable = true;
+  let providerAvailable = true, runtimeAvailable = false;
   await page.route('**/api/v1/platform/**', async route => {
     const path = new URL(route.request().url()).pathname; requests.push(path);
     let status = 200, body;
@@ -29,6 +29,12 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
       else { status = 503; body = { error: { code: 'PLATFORM_INSIGHT_SOURCE_UNAVAILABLE' } }; }
     } else if (path === '/api/v1/platform/insights/product-delivery') {
       body = fixture('product-delivery'); body.accessMode = 'application_passkey'; body.environment = 'production';
+      if (runtimeAvailable) {
+        const runtimeProduct={ ...fixture('product-runtime'),environment:'production',accessMode:'application_passkey',
+          sourceContext:{ runtimeEnvironment:'int',dataProfile:'synthetic',securityEpochDigest:'a'.repeat(64) } };
+        body={ schemaVersion:2,storedReport:body,runtimeProduct };
+        expect(new URL(route.request().url()).search).toBe('?schemaVersion=2');
+      }
     } else { status = 404; body = { error: { code: 'PLATFORM_NOT_FOUND' } }; }
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   });
@@ -41,6 +47,7 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
   await expect(page.locator('#viewTitle')).toBeFocused();
   await product.click(); await expect(page.locator('[data-product-delivery-report]')).toBeVisible();
   await expect(page.getByText('Berichtskontext: Produktion · beobachtete Deployment-Umgebung siehe Plattformbetrieb', { exact: true })).toBeVisible();
+  await expect(page.getByText('Neuladen ruft den gespeicherten Produktbericht erneut ab.', { exact: false })).toBeVisible();
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -49,6 +56,13 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
   await expect(product).toContainText('Product');
   await expect(provider).toContainText('Providers');
   await expect(page.getByText('Report context: Production · see Platform runtime for the observed deployment environment', { exact: true })).toBeVisible();
+  runtimeAvailable = true;await page.reload();
+  await expect(page.getByText(/Synthetic INT data: these values come from test workflows/)).toBeVisible();
+  await page.locator('[data-insights-tab="usage"]').click();
+  await expect(page.locator('[data-product-outcomes] [data-product-metric="request_started"] strong')).toHaveText('2');
+  await expect(page.locator('[data-product-outcomes]')).toContainText('From the protected INT collection');
+  for (const width of [320,1280]) { await page.setViewportSize({ width,height:900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); }
   providerAvailable = false;
   await page.reload(); await page.locator('[data-platform-admin-fleet-view="providers"]').click();
   await expect(page.locator('.platform-admin-error')).toBeVisible();

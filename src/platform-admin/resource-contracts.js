@@ -579,8 +579,15 @@ function runtimeReference(value,maximum,pattern) {
 
 function runtime(value) {
   const errorCode = 'PLATFORM_RUNTIME_RESPONSE_INVALID';
-  exact(value, ['schemaVersion', 'environment', 'deployment', 'components', 'databaseSchema', 'dependencies', 'freshness', 'evidence', 'metadataState', 'operationalState', 'overallState', 'reasonCodes'], errorCode);
-  if (value.schemaVersion !== 1) invalid(errorCode);
+  exact(value, ['schemaVersion', 'environment', 'deployment', 'components', 'databaseSchema', 'dependencies', 'freshness', 'evidence', 'metadataState', 'operationalState', 'overallState', 'reasonCodes',
+    ...(value.schemaVersion === 2 ? ['serviceInstance'] : [])], errorCode);
+  if (![1,2].includes(value.schemaVersion)) invalid(errorCode);
+  let serviceInstance = null;
+  if (value.schemaVersion === 2 && value.serviceInstance !== null) {
+    exact(value.serviceInstance, ['key','surface'], errorCode);
+    serviceInstance = Object.freeze({ key: text(value.serviceInstance.key,64,errorCode,{ pattern: RUNTIME_IDENTIFIER_PATTERN }),
+      surface: oneOf(value.serviceInstance.surface,new Set(['customer','platform','shared']),errorCode) });
+  }
   exact(value.deployment, ['reference', 'deployedAt'], errorCode);
   exact(value.components, ['frontend', 'api'], errorCode);
   function component(entry) {
@@ -602,7 +609,8 @@ function runtime(value) {
     evidence[key] = runtimeReference(value.evidence[key],255,RUNTIME_EVIDENCE_PATTERN);
   }
   return Object.freeze({
-    schemaVersion: 1,
+    schemaVersion: value.schemaVersion,
+    ...(value.schemaVersion === 2 ? { serviceInstance } : {}),
     environment: oneOf(value.environment, new Set(['development', 'test', 'pilot', 'production']), errorCode),
     deployment: Object.freeze({
       reference: runtimeReference(value.deployment.reference,128,RUNTIME_DEPLOYMENT_PATTERN),
@@ -635,10 +643,19 @@ function runtime(value) {
 export function normalizePlatformRuntimeDeployments(value) {
   const errorCode = 'PLATFORM_RUNTIME_RESPONSE_INVALID';
   exact(value, ['schemaVersion', 'deployments'], errorCode);
-  if (value.schemaVersion !== 1) invalid(errorCode);
-  return Object.freeze({ schemaVersion: 1, deployments: list(value.deployments,50,runtime,errorCode,{
+  if (![1,2].includes(value.schemaVersion) || !Array.isArray(value.deployments)
+    || value.deployments.some(entry=>entry?.schemaVersion!==value.schemaVersion)) invalid(errorCode);
+  const deployments=list(value.deployments,50,runtime,errorCode,{
     uniqueBy: entry=>`${entry.environment}\u0000${entry.deployment.reference ?? ''}`,
-  }) });
+  });
+  const surfaces=new Map();
+  for (const entry of deployments) {
+    if (!entry.serviceInstance) continue;
+    const key=`${entry.environment}:${entry.serviceInstance.key}`;
+    if (surfaces.has(key) && surfaces.get(key)!==entry.serviceInstance.surface) invalid(errorCode);
+    surfaces.set(key,entry.serviceInstance.surface);
+  }
+  return Object.freeze({ schemaVersion: value.schemaVersion, deployments });
 }
 
 export function normalizePlatformTenantRuntime(value, expectedTenantId) {

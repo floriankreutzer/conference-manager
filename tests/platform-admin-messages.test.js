@@ -9,6 +9,7 @@ import { PLATFORM_ADMIN_MESSAGES } from '../src/core/i18n-platform-admin-message
 const PLATFORM_ADMIN_SOURCE_ROOT = fileURLToPath(new URL('../src/platform-admin/', import.meta.url));
 
 const DYNAMIC_PLATFORM_ADMIN_KEYS = Object.freeze([
+  ...['customer','platform','shared'].map(id=>`platformAdmin.runtime.surface.${id}`),
   ...['positive', 'neutral', 'negative'].map((id) => `platformAdmin.productDelivery.sentiment.${id}`),
   ...['onboarding_started', 'onboarding_completed', 'request_started', 'request_submitted',
     'request_abandoned', 'time_to_submit', 'manager_decisions', 'manager_decision_time',
