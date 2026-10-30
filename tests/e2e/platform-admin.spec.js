@@ -1348,12 +1348,12 @@ test('Platform navigation clears an obsolete action announcement without retryin
 test('Platform runtime accepts actual API support references and reflows long metadata on mobile',async({ page })=>{
   await installDemoRoutes(page);
   const payload=JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json',import.meta.url),'utf8'));
-  await page.route('**/api/v1/platform/runtime/deployments',route=>route.fulfill({
+  await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',route=>route.fulfill({
     contentType: 'application/json',body: JSON.stringify(payload),
   }));
   await page.goto('/platform-admin-demo/');
   await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
-  await expect(page.locator('.platform-admin-record-list > article')).toHaveCount(4);
+  await expect(page.locator('.platform-admin-record-list article')).toHaveCount(4);
   for (const width of [320,1280]) {
     await page.setViewportSize({ width,height: 900 });
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -1491,7 +1491,7 @@ test('entitlement workspace read-only authority and departed preview remain boun
 for (const locale of ['de','en']) test(`Platform context groups retain customer identity, distinct runtime routes and keyboard return in ${locale}`, async ({ page }, testInfo) => {
   const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
   let releaseRuntime=null;
-  await page.route('**/api/v1/platform/runtime/deployments',async route=>{
+  await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',async route=>{
     await new Promise(resolve=>{ releaseRuntime=resolve; });
     await route.fulfill({ status: 503,contentType: 'application/json',body: JSON.stringify({ error: { code: 'RUNTIME_UNAVAILABLE' } }) });
   });
@@ -1544,7 +1544,7 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     const runtime=fixture.deployments[0];
     runtime.freshness={ ...runtime.freshness,state: freshness,observedAt: freshness==='unknown' ? null : '2026-10-25T11:50:00.000Z' };
     runtime.overallState=freshness==='fresh' ? 'ready' : freshness;
-    await page.route('**/api/v1/platform/runtime/deployments',route=>route.fulfill({ contentType: 'application/json',
+    await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',route=>route.fulfill({ contentType: 'application/json',
       body: JSON.stringify({ schemaVersion: 1,deployments: [runtime] }) }));
     await page.goto('/platform-admin-demo/');
     await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
@@ -1939,3 +1939,25 @@ for (const locale of ['de', 'en']) {
     expect(reads).toHaveLength(1);
   });
 }
+
+for (const locale of ['de','en']) test(`Runtime service identity separates latest evidence and keyboard-accessible history: ${locale}`,async({ page })=>{
+  await installDemoRoutes(page);
+  const template=JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json',import.meta.url),'utf8')).deployments[0];
+  const entry=(reference,key,at)=>({ ...template,schemaVersion:2,
+    serviceInstance:key ? { key,surface:'customer' } : null,
+    deployment:{ ...template.deployment,reference },freshness:{ ...template.freshness,observedAt:at } });
+  await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2',route=>route.fulfill({ contentType:'application/json',
+    body:JSON.stringify({ schemaVersion:2,deployments:[entry('old','customer-a','2026-10-29T12:00:00.000Z'),
+      entry('current','customer-a','2026-10-30T12:00:00.000Z'),entry('legacy',null,null)] }) }));
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
+  await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
+  const instance=page.locator('[data-runtime-instance]'),history=page.locator('[data-runtime-history]');
+  await expect(instance).toHaveCount(1);await expect(instance.locator(':scope > article')).toContainText('current');
+  await expect(history.locator('article')).toBeHidden();
+  await history.locator(':scope > summary').focus();await page.keyboard.press('Enter');
+  await expect(history.locator('article')).toContainText('old');
+  await expect(page.locator('[data-runtime-unassigned]')).toContainText('legacy');
+  for (const width of [320,1280]) { await page.setViewportSize({ width,height:900 });
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true); }
+});

@@ -4,7 +4,8 @@ import { el } from '../core/ui.js';
 
 // Both contexts consume the same normalized observation. An old observation is
 // not a new outage, and the deployment environment says nothing about data profile.
-export function renderRuntimeObservation(runtime) {
+
+export function renderRuntimeObservation(runtime, { headingLevel = 'h3' } = {}) {
   const row=(key,value)=>el('div',{},[el('dt',{ text: t(key) }),el('dd',{},[value])]);
   const badge=(value)=>el('span',{ className: 'platform-admin-status',text: t(`platformAdmin.state.${value}`),
     dataset: { state: value,tone: ['ready','fresh'].includes(value) ? 'positive' : ['not_ready','mismatch'].includes(value) ? 'critical' : 'neutral' } });
@@ -20,7 +21,7 @@ export function renderRuntimeObservation(runtime) {
   ]);
   return el('article',{ className: 'card platform-admin-record',dataset: { runtimeObservation: runtime.freshness.state } },[
     el('div',{ className: 'platform-admin-record-heading' },[
-      el('h3',{ className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('system'), el('span', {
+      el(headingLevel,{ className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('system'), el('span', {
         text: t('platformAdmin.runtime.observationTitle',{ reference: runtime.deployment.reference || t('common.unknown') }) })]),badge(runtime.overallState),
     ]),
     el('p',{ text: t('platformAdmin.runtime.service') }),
