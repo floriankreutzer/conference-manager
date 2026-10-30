@@ -1709,6 +1709,57 @@ test('tenant workbench presents localized horizontal section navigation without 
     .toBeLessThanOrEqual(1);
 });
 
+for (const locale of ['de', 'en']) {
+  test(`late customer resource failure preserves keyboard navigation in ${locale}`, async ({ page }) => {
+    const state = await installDemoRoutes(page);
+    let release;
+    await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/diagnostics`, async route => {
+      await new Promise(resolve => { release = resolve; });
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAVAILABLE' } }) });
+    });
+    await page.goto(`/platform-admin-demo/#tenant=${ACTIVE_TENANT_ID}&section=diagnostics`);
+    await expect.poll(() => typeof release).toBe('function');
+    await expect(page.locator('.platform-admin-tenant-section')).toHaveCount(1);
+    await page.evaluate(async value => { const { setLanguage } = await import('/src/core/i18n.js'); setLanguage(value); }, locale);
+    const directory = page.locator('#primaryNavigation [data-platform-admin-fleet-view="directory"]');
+    await directory.focus();
+    release();
+    await expect(page.locator('.platform-admin-error')).toBeVisible();
+    await expect(directory).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/#fleet$/);
+    await expect(page.locator('.platform-admin-fleet-card')).toContainText('Dune Collective');
+    expect(state.requests.filter(({ method }) => method !== 'GET')).toHaveLength(0);
+  });
+
+  test(`departed customer read preserves the current directory draft in ${locale}`, async ({ page }) => {
+    await installDemoRoutes(page);
+    let release; let reads = 0;
+    const path = `/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/diagnostics`;
+    await page.route(`**${path}`, async route => {
+      reads++;
+      await new Promise(resolve => { release = resolve; });
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'UNAVAILABLE' } }) });
+    });
+    await page.goto(`/platform-admin-demo/#tenant=${ACTIVE_TENANT_ID}&section=diagnostics`);
+    await page.evaluate(async value => { const { setLanguage } = await import('/src/core/i18n.js'); setLanguage(value); }, locale);
+    await expect.poll(() => typeof release).toBe('function');
+    await page.locator('#primaryNavigation [data-platform-admin-fleet-view="directory"]').click();
+    const query = page.locator('#platformAdminQuery');
+    await query.fill('unsubmitted customer query');
+    const response = page.waitForResponse(value => new URL(value.url()).pathname === path);
+    release(); await (await response).finished();
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+    await expect(query).toHaveValue('unsubmitted customer query');
+    await expect(query).toBeFocused();
+    await expect(page).toHaveURL(/#fleet$/);
+    await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
+    await page.locator('#primaryNavigation [data-platform-admin-navigate="diagnostics"]').click();
+    await expect(page.locator('.platform-admin-error')).toBeVisible();
+    expect(reads).toBe(1);
+  });
+}
+
 test('a departed diagnostic search cannot repaint a subsequently reopened customer', async ({ page }) => {
   await installDemoRoutes(page, { initialPersona: 'security_auditor' });
   const correlationId = '22222222-2222-4222-8222-222222222222';
