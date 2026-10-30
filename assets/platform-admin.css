@@ -1023,7 +1023,8 @@
 .platform-admin-shell .nav-item > span {
   overflow-wrap: normal;
   word-break: normal;
-  hyphens: auto;
+  hyphens: none;
+  line-height: var(--line-height-base);
 }
 
 .platform-admin-shell .nav-item .pavurel-functional-icon {
@@ -1529,6 +1530,55 @@
 
 .platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record > * {
   margin-block: 0;
+}
+
+.platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.platform-admin-page[data-platform-admin-page="integration-health"] .platform-admin-record {
+  min-inline-size: 0;
+}
+
+.platform-admin-integration-scroll {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.platform-admin-fleet-resource {
+  display: grid;
+  gap: var(--app-section-gap);
+  min-inline-size: 0;
+}
+
+.platform-admin-integration-permissions {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.platform-admin-integration-table {
+  inline-size: 100%;
+  min-inline-size: 48rem;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.platform-admin-integration-table th,
+.platform-admin-integration-table td {
+  padding: var(--space-3);
+  border-block-end: 1px solid var(--color-border-soft);
+  text-align: start;
+  vertical-align: top;
+}
+
+.platform-admin-integration-table thead {
+  background: var(--color-surface-subtle);
+}
+
+.platform-admin-integration-table small {
+  display: block;
+  margin-block-start: var(--space-2);
+  color: var(--color-muted);
 }
 
 .platform-admin-page[data-platform-admin-page="platform-audit"] .platform-admin-audit-list {

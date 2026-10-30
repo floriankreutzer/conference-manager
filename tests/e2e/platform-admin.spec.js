@@ -1643,7 +1643,9 @@ for (const locale of ['de', 'en']) test(`customer target composes sourced status
       const columns = await workbench.evaluate(node => [...node.children].slice(0, 2).map(child => child.getBoundingClientRect().x));
       expect(columns[1]).toBeGreaterThan(columns[0]);
       const directoryLabel = page.locator('[data-platform-admin-fleet-view="directory"] > span');
-      expect(await directoryLabel.evaluate(node => node.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(node).lineHeight) + 1)).toBe(true);
+      const labelGeometry = await directoryLabel.evaluate(node => ({ height: node.getBoundingClientRect().height,
+        lineHeight: Number.parseFloat(getComputedStyle(node).lineHeight), width: node.getBoundingClientRect().width }));
+      expect(labelGeometry.height, JSON.stringify(labelGeometry)).toBeLessThanOrEqual(labelGeometry.lineHeight + 1);
       const currentStep = workbench.locator('[aria-current="step"] > span:last-child');
       expect(await currentStep.evaluate(node => node.getBoundingClientRect().height <= Number.parseFloat(getComputedStyle(node).lineHeight) + 1)).toBe(true);
     }

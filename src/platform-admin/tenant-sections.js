@@ -148,8 +148,9 @@ function previewPanel(preview, onApply) {
   if (preview.plan.changes.length) {
     const changes = el('ul', { className: 'platform-admin-detail-list' });
     preview.plan.changes.forEach((change) => changes.append(el('li', {}, [
-      dataCode(change.capabilityId), state(change.previousEnabled ? 'enabled' : 'disabled'),
+      el('strong', { text: capabilityName(change.capabilityId) }), state(change.previousEnabled ? 'enabled' : 'disabled'),
       el('span', { text: t('platformAdmin.entitlements.changeArrow') }), state(change.enabled ? 'enabled' : 'disabled'),
+      el('details', {}, [el('summary', { text: t('platformAdmin.entitlements.technicalDetails') }), dataCode(change.capabilityId)]),
     ])));
     const apply = button(t('platformAdmin.entitlements.apply'), {
       className: 'primary', dataset: { platformAdminApplyEntitlements: preview.source },
@@ -257,10 +258,11 @@ function entitlements({ operator, resource, onRetry, onEntitlementPreview, onPac
   workspace.packages.items.forEach(packageValue => {
     const card = el('article', { className: 'card platform-admin-record' }, [
       el('div', { className: 'platform-admin-record-heading' }, [
-        el('div', {}, [el('h4', { text: packageValue.name }), dataCode(packageValue.packageId)]), state(packageValue.status),
+        el('h4', { text: packageValue.name }), state(packageValue.status),
       ]),
       el('p', { text: packageValue.description }),
       el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.entitlements.packageRevision', { revision: formatNumber(packageValue.revision) }) }),
+      el('details', {}, [el('summary', { text: t('platformAdmin.entitlements.technicalDetails') }), dataCode(packageValue.packageId)]),
     ]);
     if (mayPreview && packageValue.status === 'active') {
       const control = button(t('platformAdmin.entitlements.previewPackage'), { className: 'secondary' });
