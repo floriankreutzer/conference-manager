@@ -283,7 +283,12 @@ function audit(resource, onLoadMore,onExportAudit) {
 
 function runtime(resource) {
   if (!resource.data.deployments.length) return el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.resource.empty') });
-  return el('section', { className: 'platform-admin-record-list' }, resource.data.deployments.map(renderRuntimeObservation));
+  const deployments = [...resource.data.deployments].sort((left,right) =>
+    (right.freshness.observedAt || '').localeCompare(left.freshness.observedAt || ''));
+  return el('section', { className: 'platform-admin-record-list' }, [
+    el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.orderNote') }),
+    ...deployments.map(renderRuntimeObservation),
+  ]);
 }
 
 export function renderPlatformFleetView({ view, resource, onRetry, onSelectTenant, onLoadMore,onExportAudit }) {

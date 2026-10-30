@@ -303,7 +303,9 @@ function renderHeader(resource, refresh) {
       definition(t('platformAdmin.insights.product.loaded'), resource.loadedAt
         ? formatDateTime(resource.loadedAt) : t('common.unknown')),
     ]),
-    el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.insights.product.refreshNote') }),
+    el('p', { className: 'platform-admin-data-note', text: t(
+      ['microsoft_mfa','application_passkey'].includes(primary.accessMode)
+        ? 'platformAdmin.insights.product.storedRefreshNote' : 'platformAdmin.insights.product.refreshNote') }),
     el('details', { className: 'platform-admin-insights-details' }, [
       el('summary', { text: t('platformAdmin.insights.product.contextDetails') }),
       el('p', { text: t('platformAdmin.productDelivery.privateNotice') }),

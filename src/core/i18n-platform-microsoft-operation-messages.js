@@ -31,7 +31,7 @@ export const PLATFORM_MICROSOFT_OPERATION_MESSAGES=Object.freeze({
     'platformAdmin.microsoftOperation.title': 'Aktion mit Microsoft bestätigen',
     'platformAdmin.microsoftOperation.description': 'Diese Aktion benötigt aus Sicherheitsgründen eine erneute Microsoft-Anmeldung. Öffne Microsoft in einem separaten Tab und lass dieses Fenster geöffnet. Anschließend prüfen wir die Bestätigung und führen die angeforderte Aktion nur bei gültigem Nachweis und weiterhin bestehender Berechtigung aus. Das Ergebnis wird danach angezeigt.',
     'platformAdmin.microsoftOperation.open': 'Mit Microsoft anmelden',
-    'platformAdmin.microsoftOperation.waiting': 'Die Microsoft-Bestätigung wird geprüft. Du kannst den anderen Tab anschließend schließen.',
+    'platformAdmin.microsoftOperation.waiting': 'Die Microsoft-Bestätigung wird geprüft. Sie können den anderen Tab anschließend schließen.',
     'platformAdmin.microsoftOperation.cancel': 'Abbrechen',
     'platformAdmin.microsoftOperation.failed': 'Die Aktion wurde nicht bestätigt. Prüfe deine Anmeldung und versuche es erneut.',
   }),

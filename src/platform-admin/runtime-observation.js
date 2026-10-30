@@ -11,7 +11,6 @@ export function renderRuntimeObservation(runtime) {
   const technical=el('details',{ className: 'platform-admin-runtime-details' },[
     el('summary',{ text: t('platformAdmin.runtime.technicalDetails') }),
     el('dl',{ className: 'platform-admin-definition-list' },[
-      row('platformAdmin.runtime.deployment',runtime.deployment.reference || t('common.unknown')),
       row('platformAdmin.runtime.frontendVersion',runtime.components.frontend.version || t('common.unknown')),
       row('platformAdmin.runtime.apiVersion',runtime.components.api.version || t('common.unknown')),
       row('platformAdmin.runtime.schemaVersion',runtime.databaseSchema.currentVersion===null ? t('common.unknown') : formatNumber(runtime.databaseSchema.currentVersion)),
@@ -21,8 +20,10 @@ export function renderRuntimeObservation(runtime) {
   ]);
   return el('article',{ className: 'card platform-admin-record',dataset: { runtimeObservation: runtime.freshness.state } },[
     el('div',{ className: 'platform-admin-record-heading' },[
-      el('h3',{ className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('system'), el('span', { text: t('platformAdmin.runtime.service') })]),badge(runtime.overallState),
+      el('h3',{ className: 'pavurel-icon-label' }, [pavurelFunctionalIcon('system'), el('span', {
+        text: t('platformAdmin.runtime.observationTitle',{ reference: runtime.deployment.reference || t('common.unknown') }) })]),badge(runtime.overallState),
     ]),
+    el('p',{ text: t('platformAdmin.runtime.service') }),
     el('p',{ text: t('platformAdmin.runtime.relevance') }),
     el('dl',{ className: 'platform-admin-definition-list' },[
       row('platformAdmin.runtime.environment',t(`platformAdmin.runtime.environment.${runtime.environment}`)),

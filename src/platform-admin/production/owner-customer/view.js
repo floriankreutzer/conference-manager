@@ -2,17 +2,18 @@ import { microsoftSignInControl } from '../../../core/microsoft-sign-in-control.
 import { t } from '../../../core/i18n.js';
 import { button,clear,el,field } from '../../../core/ui.js';
 let nextId=0;
-export function createPlatformOwnerCustomerView({ controller }={}) {
+export function createPlatformOwnerCustomerView({ controller,heading=null }={}) {
   if (!controller || ['snapshot','subscribe','approve','check','nextPage','firstPage','reauthenticate']
     .some(name=>typeof controller[name]!=='function')) throw new TypeError('PLATFORM_OWNER_CUSTOMER_VIEW_INVALID');
   const id=`platformOwnerCustomer${++nextId}`,element=el('section',{
-    className: 'platform-admin-synthetic-workspace',attrs: { 'aria-labelledby': `${id}Title` } });let phase=null;
+    className: 'platform-admin-synthetic-workspace',attrs: { 'aria-labelledby': heading?.id ?? `${id}Title` } });let phase=null;
   function update(state=controller.snapshot()) {
     const active=document.activeElement,hadFocus=element.contains(active),focusId=active?.id,same=phase===state.phase;
     const tenantId=element.querySelector(`#${id}Tenant`)?.value,selectedRole=element.querySelector(`#${id}Role`)?.value;
     phase=state.phase;clear(element);
-    const title=el('h3',{ id: `${id}Title`,text: t('platformOwnerCustomer.title'),attrs: { tabindex: '-1' } });
-    element.append(title,el('p',{ text: t('platformOwnerCustomer.disclosure') }),el('p',{
+    const title=heading ?? el('h3',{ id: `${id}Title`,text: t('platformOwnerCustomer.title'),attrs: { tabindex: '-1' } });
+    if (!heading) element.append(title);
+    element.append(el('p',{ text: t('platformOwnerCustomer.disclosure') }),el('p',{
       text: t(`platformOwnerCustomer.phase.${state.phase}`),attrs: { role: 'status','aria-live': 'polite' } }));
     if (state.error) element.append(el('p',{ text: t(`platformOwnerCustomer.error.${state.error}`),attrs: { role: 'alert' } }));
     const actions=[];

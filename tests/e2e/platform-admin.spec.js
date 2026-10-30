@@ -1544,7 +1544,8 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
     const card=page.locator(`[data-runtime-observation="${freshness}"]`),details=card.locator('details');
     await expect(card).toBeVisible();
-    await expect(card.getByRole('heading',{ name: locale==='de' ? 'Conference Manager · Anwendungsdienst' : 'Conference Manager · application service' })).toBeVisible();
+    await expect(card.getByRole('heading')).toContainText(runtime.deployment.reference);
+    await expect(card.getByText(locale==='de' ? 'Conference Manager · Anwendungsdienst' : 'Conference Manager · application service',{ exact: true })).toBeVisible();
     await expect(card).toContainText('Test');
     if (freshness==='unknown') await expect(card.locator('time')).toHaveCount(0);
     else await expect(card.locator('time')).toHaveAttribute('datetime',runtime.freshness.observedAt);
@@ -1552,7 +1553,7 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     await expect(details).not.toHaveAttribute('open','');
     await expect(details.locator('dd').first()).toBeHidden();
     await details.locator('summary').focus();await page.keyboard.press('Enter');
-    await expect(details.locator('dd').first()).toHaveText(runtime.deployment.reference);
+    await expect(details.locator('dd').first()).toHaveText(runtime.components.frontend.version);
     await expect(page.locator('.skip-link')).not.toBeInViewport();
     for (const width of [320,1280]) {
       await page.setViewportSize({ width,height: 900 });
@@ -1704,7 +1705,7 @@ test('tenant workbench presents localized horizontal section navigation without 
   await expect(page.locator('#viewTitle')).toBeFocused();
 
   await page.locator('select[aria-label="Sprache"]').selectOption('en');
-  await expect(tabs.locator('[aria-current="page"]')).toContainText('Entitlements');
+  await expect(tabs.locator('[aria-current="page"]')).toContainText('Feature access');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
     .toBeLessThanOrEqual(1);
 });
@@ -1792,4 +1793,25 @@ test('a departed diagnostic search cannot repaint a subsequently reopened custom
   await expect(page.locator('#platformAdminCorrelationResultsTitle')).toHaveCount(0);
   await expect(page.locator('#platformAdminCorrelationId')).toHaveValue('');
   await expect(page.locator('#viewTitle')).toBeFocused();
+});
+
+
+test('fleet totals account for every lifecycle state in the current filtered directory',async({ page })=>{
+  const state=await installDemoRoutes(page);
+  const states=['pending','onboarding','ready','active','suspended','archived'];
+  await page.route('**/api/v1/platform/tenants?*',route=>{
+    const payload=directoryPayload(),filter=new URL(route.request().url()).searchParams.get('lifecycleStatus');
+    payload.items=states.map((status,index)=>({ ...payload.items[0],
+      tenantId: `10000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,
+      displayName: `Lifecycle ${status}`,lifecycle: { status,revision: 1 } }))
+      .filter(item=>!filter || item.lifecycle.status===filter);
+    return route.fulfill({ contentType: 'application/json',body: JSON.stringify(payload) });
+  });
+  await page.goto('/platform-admin-demo/');
+  const counts=page.locator('.platform-admin-metric-grid .platform-admin-metric strong');
+  await expect(counts).toHaveText(['6','1','1','1','1','1','1']);
+  await page.locator('#platformAdminLifecycle').selectOption('onboarding');
+  await page.locator('.platform-admin-filter-form').getByRole('button',{ name: 'Filter anwenden',exact: true }).click();
+  await expect(counts).toHaveText(['1','0','1','0','0','0','0']);
+  expect(state.requests.some(request=>request.method!=='GET')).toBe(false);
 });

@@ -2,6 +2,7 @@ import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import {
   formatDateTime,
+  formatNumber,
   language,
   setLanguage,
   t,
@@ -857,12 +858,12 @@ export function createPlatformAdminApplication({
     const grid = el('div', { className: 'platform-admin-metric-grid' });
     const metrics = [
       ['platformAdmin.fleet.total', fleet.tenants.length],
-      ['platformAdmin.state.active', fleet.tenants.filter(({ lifecycleState }) => lifecycleState === 'active').length],
-      ['platformAdmin.state.pending', fleet.tenants.filter(({ lifecycleState }) => lifecycleState === 'pending').length],
-      ['platformAdmin.state.suspended', fleet.tenants.filter(({ lifecycleState }) => lifecycleState === 'suspended').length],
+      ...LIFECYCLE_FILTERS.filter(value => value !== 'all').map(value => [
+        `platformAdmin.state.${value}`, fleet.tenants.filter(({ lifecycleState }) => lifecycleState === value).length,
+      ]),
     ];
     metrics.forEach(([key, value]) => grid.append(el('article', { className: 'card platform-admin-metric' }, [
-      el('strong', { text: String(value) }),
+      el('strong', { text: formatNumber(value) }),
       el('span', { text: t(key) }),
     ])));
     return grid;

@@ -4,11 +4,11 @@ import { isPlatformInvitationAccessError } from './customer-invitation-controlle
 
 const key=value=>`platformInvitations.${value}`;
 const blank=()=>({ recipient: '',roles: [],locale: language() });
-export function createPlatformInvitationView({ controller,draft,creation=false,isCurrent=()=>true }={}) {
+export function createPlatformInvitationView({ controller,draft,creation=false,heading=null,isCurrent=()=>true }={}) {
   if (typeof controller?.subscribe!=='function' || !draft || !Array.isArray(draft.invitations)) {
     throw new TypeError('PLATFORM_INVITATION_VIEW_INVALID');
   }
-  const root=el('section',{ className: 'platform-admin-invitations' }),heading=el('h3',{
+  const root=el('section',{ className: 'platform-admin-invitations' }),title=heading ?? el('h3',{
     text: t(key(creation ? 'createTitle' : 'title')),attrs: { tabindex: '-1' } });
   const form=el('form',{ className: 'card platform-admin-invitation-form' }),fields=el('fieldset');
   const people=el('div',{ className: 'platform-admin-invitation-people' });
@@ -30,7 +30,8 @@ export function createPlatformInvitationView({ controller,draft,creation=false,i
     hint: t('platformAdmin.create.confirmationHint'),control: confirmation,required: true }));
   confirmation?.addEventListener('input',()=>{ draft.confirmation=confirmation.value; });
   fields.append(el('div',{ className: 'button-row' },[submit]));form.append(fields);
-  root.append(heading,el('p',{ text: t(key(creation ? 'ownerNote' : 'description')) }),
+  if (heading) root.setAttribute('aria-labelledby',heading.id);else root.append(title);
+  root.append(el('p',{ text: t(key(creation ? 'ownerNote' : 'description')) }),
     el('p',{ text: t('platformAdmin.passkey.operationNote') }),form,status,results);
   function current() { return !disposed && isCurrent(); }
   function renderPeople(focusIndex=null) {
@@ -124,7 +125,7 @@ export function createPlatformInvitationView({ controller,draft,creation=false,i
       if (state.hasNext) pages.push(action('next',()=>controller.load({ afterId: state.items.at(-1).id })));
       if (pages.length) results.append(el('div',{ className: 'button-row' },pages));
     }
-    if (focusResult) { (state.status==='loading' ? status : heading).focus();if (state.status!=='loading') focusResult=false; }
+    if (focusResult) { (state.status==='loading' ? status : title).focus();if (state.status!=='loading') focusResult=false; }
   }
   renderPeople();const unsubscribe=controller.subscribe(render);render(controller.snapshot());
   return Object.freeze({ element: root,dispose() { disposed=true;unsubscribe();mutationDialog?.close(); } });

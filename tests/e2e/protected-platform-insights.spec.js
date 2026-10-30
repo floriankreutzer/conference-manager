@@ -41,6 +41,7 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
   await expect(page.locator('#viewTitle')).toBeFocused();
   await product.click(); await expect(page.locator('[data-product-delivery-report]')).toBeVisible();
   await expect(page.getByText('Berichtskontext: Produktion · beobachtete Deployment-Umgebung siehe Plattformbetrieb', { exact: true })).toBeVisible();
+  await expect(page.getByText('Neuladen ruft den gespeicherten Produktbericht erneut ab.', { exact: false })).toBeVisible();
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
