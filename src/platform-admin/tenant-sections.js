@@ -549,7 +549,17 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
     stepUp.addEventListener('click', onStepUp);
     list.prepend(el('section', { className: 'card' }, [el('p', { text: t('platformAdmin.actions.stepUpRequired') }), el('div', { className: 'button-row' }, [stepUp])]));
   }
-  return el('div', {}, [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.period', { start: formatDateTime(usage.period.start), end: formatDateTime(usage.period.end) }) }),
+  const observedTime = value => value ? el('time', { text: formatDateTime(value), attrs: { datetime: value } }) : t('common.unknown');
+  return el('div', { className: 'platform-admin-metering-workspace' }, [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.metering.period', { start: formatDateTime(usage.period.start), end: formatDateTime(usage.period.end) }) }),
+    el('section', { className: 'card', dataset: { meteringObservation: 'true' } }, [
+      platformHeading('usage', t('platformAdmin.metering.observation')),
+      definitionList([
+        { label: t('platformAdmin.metering.dataState'), value: state(usage.dataState) },
+        { label: t('platformAdmin.metering.measuredAt'), value: observedTime(usage.measuredAt) },
+        { label: t('platformAdmin.metering.reconciledAt'), value: observedTime(usage.reconciledAt) },
+      ]),
+      ...(usage.dataState !== 'complete' ? [el('p', { className: 'platform-admin-data-note', text: t(`platformAdmin.metering.observation.${usage.dataState}`) })] : []),
+    ]),
     el('details', { className: 'platform-admin-data-note', dataset: { meteringHelp: 'true' } }, [
       el('summary', { text: t('platformAdmin.metering.explanation') }),
       el('p', { text: t('platformAdmin.metering.counting') }), el('p', { text: t('platformAdmin.metering.limitEffect') }),

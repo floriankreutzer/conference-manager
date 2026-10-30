@@ -3,6 +3,12 @@ import { PLATFORM_MICROSOFT_OPERATION_MESSAGES } from './i18n-platform-microsoft
 export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
   de: Object.freeze({
     ...PLATFORM_MICROSOFT_OPERATION_MESSAGES.de,
+    'platformAdmin.metering.observation': 'Erhebungsstand der Nutzung',
+    'platformAdmin.metering.dataState': 'Vollständigkeit',
+    'platformAdmin.metering.measuredAt': 'Gemessen am',
+    'platformAdmin.metering.reconciledAt': 'Abgeglichen am',
+    'platformAdmin.metering.observation.unknown': 'Für diesen Zeitraum liegt keine bestätigte Nutzungsmessung vor. Unbekannte Werte bleiben offen; der Konfigurationsstand der Kontingente wird unabhängig davon angezeigt.',
+    'platformAdmin.metering.observation.partial': 'Die Quelle bestätigt nur einen Teil der Nutzung. Einzelwerte und Erhebungszeit sind sichtbar; eine vollständige Erfassung für diesen Zeitraum ist noch nicht bestätigt.',
     'platformAdmin.workbench.preferences': 'Darstellung',
     'platformAdmin.workbench.security': 'Sitzung und Zugänge',
     "platformAdmin.workbench.nextResponsibility": "Nächste Verantwortung",
@@ -895,6 +901,12 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
   }),
   en: Object.freeze({
     ...PLATFORM_MICROSOFT_OPERATION_MESSAGES.en,
+    'platformAdmin.metering.observation': 'Usage collection state',
+    'platformAdmin.metering.dataState': 'Completeness',
+    'platformAdmin.metering.measuredAt': 'Measured at',
+    'platformAdmin.metering.reconciledAt': 'Reconciled at',
+    'platformAdmin.metering.observation.unknown': 'No confirmed usage measurement is available for this period. Unknown values remain open; quota configuration is shown independently.',
+    'platformAdmin.metering.observation.partial': 'The source confirms only part of the usage. Individual values and the observation time are visible; complete collection for this period is still unconfirmed.',
     'platformAdmin.workbench.preferences': 'Appearance',
     'platformAdmin.workbench.security': 'Session and access',
     "platformAdmin.workbench.nextResponsibility": "Next responsibility",

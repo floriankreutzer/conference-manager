@@ -1428,6 +1428,12 @@
   gap: var(--app-section-gap);
 }
 
+.platform-admin-metering-workspace {
+  display: grid;
+  gap: var(--app-section-gap);
+  min-inline-size: 0;
+}
+
 .platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content .platform-admin-record {
   display: grid;
   align-content: start;
