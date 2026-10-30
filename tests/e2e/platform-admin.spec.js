@@ -6,6 +6,12 @@ const REQUEST_ID = '20000000-0000-4000-8000-000000000001';
 const CSRF_TOKEN = 'c'.repeat(43);
 
 const ROLE_PROJECTIONS = Object.freeze({
+  security_auditor: Object.freeze({
+    role: 'platform_security_auditor',
+    permissions: ['platform:tenant:read', 'platform:diagnostics:read', 'platform:diagnostics:sensitive',
+      'platform:audit:read', 'platform:audit:export', 'platform:runtime:read'],
+    assurance: 'step_up',
+  }),
   support_reader: Object.freeze({
     role: 'platform_support_reader',
     permissions: [
@@ -1597,4 +1603,38 @@ test('tenant workbench presents localized horizontal section navigation without 
   await expect(tabs.locator('[aria-current="page"]')).toContainText('Entitlements');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
     .toBeLessThanOrEqual(1);
+});
+
+test('a departed diagnostic search cannot repaint a subsequently reopened customer', async ({ page }) => {
+  await installDemoRoutes(page, { initialPersona: 'security_auditor' });
+  const correlationId = '22222222-2222-4222-8222-222222222222';
+  await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/diagnostics`, route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ schemaVersion: 1, summary: {
+      tenant: { tenantId: ACTIVE_TENANT_ID, displayName: 'Dune Collective', lifecycleStatus: 'active', lifecycleRevision: 3 },
+      readiness: { state: 'ready', blockerCodes: [], evaluatedAt: '2026-07-01T12:00:00.000Z' },
+      entitlements: { revision: 1, enabledCount: 2 },
+      microsoft: { connectionState: 'connected', healthState: 'healthy', freshness: 'fresh', lastCheckedAt: null },
+      mappings: { active: 1, missing: 0, total: 1 }, deployment: { release: null, observedAt: null }, recentFailures: [],
+    } }),
+  }));
+  let release;
+  await page.route(`**/diagnostics/correlations/${correlationId}?*`, async route => {
+    const url = new URL(route.request().url());
+    await new Promise(resolve => { release = resolve; });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ schemaVersion: 1,
+      tenantId: ACTIVE_TENANT_ID, lookupCorrelationId: correlationId,
+      from: url.searchParams.get('from'), to: url.searchParams.get('to'), items: [] }) });
+  });
+  await page.goto(`/platform-admin-demo/#tenant=${ACTIVE_TENANT_ID}&section=diagnostics`);
+  await page.locator('#platformAdminCorrelationId').fill(correlationId);
+  await page.getByRole('button', { name: 'Korrelation suchen', exact: true }).click();
+  await expect.poll(() => typeof release).toBe('function');
+  await page.locator('[data-platform-admin-fleet-view="directory"]').click();
+  await page.goBack(); await expect(page.locator('#platformAdminCorrelationId')).toBeVisible();
+  const response = page.waitForResponse(value => value.url().includes(`/diagnostics/correlations/${correlationId}`));
+  release(); await (await response).finished();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+  await expect(page.locator('#platformAdminCorrelationResultsTitle')).toHaveCount(0);
+  await expect(page.locator('#platformAdminCorrelationId')).toHaveValue('');
+  await expect(page.locator('#viewTitle')).toBeFocused();
 });

@@ -7,13 +7,14 @@ const CORRELATION = '22222222-2222-4222-8222-222222222222';
 // Isolated presentation/wire regression, not an authentication or Hosted claim.
 // Render the actual section and production API adapter; only the loopback API
 // response is substituted. Existing full authorization suites remain required.
-async function setup(browser, timezoneId, language) {
+async function setup(browser, timezoneId, language, { delayed = false, failure = false } = {}) {
   const { viewport, deviceScaleFactor, isMobile, hasTouch, userAgent } = test.info().project.use;
   const context = await browser.newContext({ viewport, deviceScaleFactor, isMobile, hasTouch, userAgent,
     timezoneId, ignoreHTTPSErrors: true });
   const page = await context.newPage();
   await page.clock.install({ time: new Date('2026-07-01T12:34:00.000Z') });
   const requests = [];
+  let release;
   await page.route(`${ORIGIN}/platform-admin/`, route => route.fulfill({ contentType: 'text/html', body:
     '<!doctype html><html lang="de"><meta name="viewport" content="width=device-width,initial-scale=1">'
     + '<title>Isolated diagnostic form</title><link rel="stylesheet" href="/assets/tokens.css">'
@@ -24,6 +25,11 @@ async function setup(browser, timezoneId, language) {
     const url = new URL(route.request().url());
     expect(url.pathname).toBe(`/api/v1/platform/tenants/${TENANT}/diagnostics/correlations/${CORRELATION}`);
     const query = Object.fromEntries(url.searchParams); requests.push(query);
+    if (delayed) await new Promise(resolve => { release = resolve; });
+    if (failure) {
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'SOURCE_UNAVAILABLE' } }) });
+      return;
+    }
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ schemaVersion: 1,
       tenantId: TENANT, lookupCorrelationId: CORRELATION, from: query.from, to: query.to, items: [] }) });
   });
@@ -49,7 +55,53 @@ async function setup(browser, timezoneId, language) {
     }));
     render();
   }, { tenantId: TENANT, language });
-  return { context, page, requests };
+  return { context, page, requests, release: () => release?.(), succeed: () => { failure = false; } };
+}
+
+for (const language of ['de', 'en']) {
+  test(`diagnostic ${language} rejects malformed identifiers and reversed ranges without HTTP`, async ({ browser }) => {
+    const { context, page, requests } = await setup(browser, 'UTC', language);
+    try {
+      const identifier = page.locator('#platformAdminCorrelationId');
+      const submit = page.getByRole('button', { name: language === 'de' ? 'Korrelation suchen' : 'Find correlation', exact: true });
+      for (const value of ['ungueltig', 'a'.repeat(36), '22222222-2222-0222-8222-222222222222']) {
+        await identifier.fill(value); await submit.click();
+        expect(await identifier.evaluate(control => control.validity.valid)).toBe(false);
+        await expect(identifier).toBeFocused();
+        expect(await identifier.evaluate(control => control.validationMessage)).toContain(language === 'de' ? 'gültige Korrelationskennung' : 'valid correlation');
+        expect(requests).toEqual([]);
+      }
+      await identifier.fill(CORRELATION);
+      await page.locator('#platformAdminCorrelationFrom').fill('2026-07-01T10:00');
+      await page.locator('#platformAdminCorrelationTo').fill('2026-07-01T09:00');
+      await submit.click(); await expect(page.locator('#platformAdminCorrelationTo')).toBeFocused();
+      expect(requests).toEqual([]);
+      // Correcting either boundary must clear the cross-field error.
+      await page.locator('#platformAdminCorrelationFrom').fill('2026-07-01T08:00');
+      await submit.click(); await expect.poll(() => requests.length).toBe(1);
+    } finally { await context.close(); }
+  });
+
+  test(`diagnostic ${language} preserves input and announces a failed pending search`, async ({ browser }) => {
+    const fixture = await setup(browser, 'UTC', language, { delayed: true, failure: true });
+    const { context, page, requests } = fixture;
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    try {
+      const identifier = page.locator('#platformAdminCorrelationId');
+      const submit = page.getByRole('button', { name: language === 'de' ? 'Korrelation suchen' : 'Find correlation', exact: true });
+      await identifier.fill(CORRELATION); await submit.click();
+      await expect.poll(() => requests.length).toBe(1);
+      await expect(submit).toBeDisabled(); await expect(page.locator('form')).toHaveAttribute('aria-busy', 'true');
+      await page.locator('form').evaluate(form => form.requestSubmit());
+      expect(requests.length).toBe(1);
+      fixture.release();
+      await expect(page.getByRole('alert')).toContainText(language === 'de' ? 'Eingaben bleiben erhalten' : 'inputs are preserved');
+      await expect(identifier).toHaveValue(CORRELATION); await expect(submit).toBeEnabled(); await expect(submit).toBeFocused();
+      fixture.succeed(); await submit.click(); await expect.poll(() => requests.length).toBe(2); fixture.release();
+      await expect(page.getByText(language === 'de' ? /keine Ereignisse gefunden/ : /No events were found/)).toBeVisible();
+      expect(errors).toEqual([]);
+    } finally { await context.close(); }
+  });
 }
 
 for (const zone of ['UTC', 'Europe/Berlin']) for (const language of ['de', 'en']) {
