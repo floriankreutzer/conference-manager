@@ -162,6 +162,7 @@
     "src/platform-admin/live-metrics-contracts.js",
     "src/platform-admin/live-metrics-freshness.js",
     "src/platform-admin/product-delivery-contracts.js",
+    "src/platform-admin/product-runtime-contract.js",
     "src/platform-admin/insight-tabs.js",
     "src/platform-admin/insight-source.js",
     "src/platform-admin/product-delivery-trend.js",

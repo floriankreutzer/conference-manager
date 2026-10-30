@@ -20,7 +20,7 @@ test('protected insight ports use only their fixed bounded authenticated GETs an
   assert.equal(product.storedReport.environment, 'production');
   assert.ok(product.storedReport.product.every(row => row.value === null));
   assert.equal(product.liveMetrics, null);
-  assert.deepEqual(calls.map(row => row.path), ['insights/providers', 'insights/product-delivery']);
+  assert.deepEqual(calls.map(row => row.path), ['insights/providers', 'insights/product-delivery?schemaVersion=2']);
   assert.ok(calls.every(row => row.options.method === 'GET' && row.options.body === undefined && row.options.signal));
 });
 
@@ -62,8 +62,10 @@ test('protected Product renders every panel with unknown sources and no Demo ret
     } } });
     const model = await api.productDelivery.load();
     assert.equal(model.retrieval, null);
-    for (const retrieval of [null, undefined]) {
-      const view = renderProductDelivery({ resource: { status: 'ready', data: { ...model, retrieval } }, onRetry() {} });
+    const projected={ ...fixture('product-runtime'),environment:'production',accessMode:'application_passkey',
+      sourceContext:{ runtimeEnvironment:'int',dataProfile:'synthetic',securityEpochDigest:'a'.repeat(64) } };
+    for (const runtimeProduct of [null,projected]) for (const retrieval of [null, undefined]) {
+      const view = renderProductDelivery({ resource: { status: 'ready', data: { ...model, runtimeProduct, retrieval } }, onRetry() {} });
       const descendants = node => [node, ...node.children.flatMap(descendants)];
       const nodes = descendants(view);
       assert.equal(view.dataset.productDeliveryReport, 'true');
@@ -72,8 +74,32 @@ test('protected Product renders every panel with unknown sources and no Demo ret
       assert.equal(nodes.filter(node => node.dataset.productMetric).length, 72);
       assert.ok(model.storedReport.product.every(metric => metric.value === null));
       assert.equal(nodes.some(node => node.dataset.insightFallback), false);
+      const text=nodes.map(node=>node.textContent || '').join(' ');
+      assert.ok(!text.includes('Produktdaten aus der laufenden Demo'));
+      if (runtimeProduct) {
+        assert.ok(text.includes('Synthetische INT-Daten:'));
+        assert.ok(text.includes('Aus der geschützten INT-Erhebung'));
+        assert.ok(!text.includes('Aus der laufenden Demo'));
+      }
     }
   } finally {
     globalThis.document = previousDocument; globalThis.Node = previousNode;
+  }
+});
+
+
+test('protected Product v2 retains independent source clocks and validates the exact source authority',async()=>{
+  const runtime={ ...fixture('product-runtime'),environment:'production',accessMode:'microsoft_mfa',
+    sourceContext:{ runtimeEnvironment:'int',dataProfile:'synthetic',securityEpochDigest:'a'.repeat(64) } };
+  const stored={ ...fixture('product-delivery'),environment:'production',accessMode:'microsoft_mfa' };
+  const bundle={ schemaVersion:2,storedReport:stored,runtimeProduct:runtime };
+  const client=value=>createProtectedPlatformInsights({ accessMode:'microsoft_mfa',apiClient:{ async request(){ return value; } } });
+  const model=await client(bundle).productDelivery.load();
+  assert.equal(model.runtimeProduct.observedAt,runtime.observedAt);assert.equal(model.storedReport.observedAt,stored.observedAt);
+  assert.equal(model.runtimeProduct.sourceContext.dataProfile,'synthetic');assert.equal(model.retrieval,null);
+  for (const change of [value=>{ value.tenantId='foreign'; },value=>{ value.runtimeProduct=fixture('product-runtime'); },
+    value=>{ value.runtimeProduct.sourceContext.dataProfile='pilot'; },value=>{ value.runtimeProduct.accessMode='application_passkey'; },
+    value=>{ delete value.runtimeProduct; }]) {
+    const invalid=structuredClone(bundle);change(invalid);await assert.rejects(client(invalid).productDelivery.load());
   }
 });
