@@ -1544,7 +1544,7 @@ export function createPlatformAdminApplication({
     directoryLoadingMore = append;
     if (!append) loadError = false;
     actionError = false;
-    render();
+    renderWithFocusHandoff();
     try {
       const result = await dataSource.loadFleet({ ...filters, cursor });
       if (currentGeneration !== fleetRequestGeneration) return;
@@ -1567,7 +1567,7 @@ export function createPlatformAdminApplication({
       if (currentGeneration === fleetRequestGeneration) {
         loading = false;
         directoryLoadingMore = false;
-        render();
+        renderWithFocusHandoff();
         void ensureVisibleResource();
       }
     }

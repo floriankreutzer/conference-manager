@@ -384,6 +384,37 @@ test('Production directory survives ordinary renders and exposes every cursor pa
   expect(directoryRequests).toEqual([null, 'next_page']);
 });
 
+for (const locale of ['de', 'en']) test(`late directory summaries retain keyboard navigation in ${locale}`, async ({ page }) => {
+  await installDemoRoutes(page);
+  let releaseSummary;
+  const summaryPending = new Promise(resolve => { releaseSummary = resolve; });
+  let summaryReads = 0;
+  await page.route('**/api/v1/platform/readiness**', async route => {
+    summaryReads++;
+    await summaryPending;
+    await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: { code: 'NOT_FOUND' } }) });
+  });
+  let providerReads = 0;
+  const report = readFileSync(new URL('../support/provider-usage-fixture.json', import.meta.url), 'utf8');
+  await page.route('**/api/v1/platform/demo/provider-usage', async route => {
+    providerReads++;
+    await route.fulfill({ contentType: 'application/json', body: report });
+  });
+  await page.goto('/platform-admin-demo/');
+  await page.getByRole('combobox', { name: 'Sprache', exact: true }).selectOption(locale);
+  await expect.poll(() => summaryReads).toBe(1);
+  const open = page.locator('[data-platform-admin-fleet-view="providers"]');
+  await open.focus();
+  releaseSummary();
+  await expect(page.locator('.platform-admin-fleet-card')).toHaveCount(1);
+  await expect(open).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-platform-provider-report]')).toBeVisible();
+  await expect(page.locator('#viewTitle')).toHaveText(locale === 'de' ? 'Anbieter & Verbrauch' : 'Providers & usage');
+  await expect(page.locator('#viewTitle')).toBeFocused();
+  expect(providerReads).toBe(1);
+});
+
 test('private provider cards show dated usage, native meters, thresholds and unknown billing in both languages', async ({ page }) => {
   await installDemoRoutes(page);
   const report = {
