@@ -3,11 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { asProductionHtml } from './fixtures/production-html.js';
 const ID='ba000000-0000-4000-8000-000000000001',TENANT='ba000000-0000-4000-8000-000000000002';
 const FLOW_CSRF='c'.repeat(64),SESSION_CSRF='s'.repeat(43),ROOT='/api/v1/auth/microsoft';
-async function setup(page,{ ceremony='membership',lostConfirmation=false,reauthentication=false }={}) {
+async function setup(page,{ ceremony='membership',lostConfirmation=false,reauthentication=false,holdAccountState=false }={}) {
   const configured=new URL(test.info().project.use.baseURL);
   if (configured.protocol!=='https:' || configured.hostname!=='127.0.0.1') throw new Error('LOOPBACK_FIXTURE_REQUIRED');
   const origin=configured.origin,html=asProductionHtml(await readFile(new URL('../../index.html',import.meta.url),'utf8'));
   let authenticated=ceremony!=='membership',linked=false;const writes=[],reads=[];
+  let releaseAccountRead,markAccountRead;
+  const accountReadGate=new Promise(resolve=>{ releaseAccountRead=resolve; });
+  const accountReadStarted=new Promise(resolve=>{ markAccountRead=resolve; });
   await page.route('**/*',async route=>{
     const request=route.request(),url=new URL(request.url());
     if (url.origin!==origin) { await route.abort('blockedbyclient');throw new Error('UNEXPECTED_NON_LOOPBACK_REQUEST'); }
@@ -47,8 +50,11 @@ async function setup(page,{ ceremony='membership',lostConfirmation=false,reauthe
       if (request.headers()['x-csrf-token']!==FLOW_CSRF || JSON.stringify(body)!==JSON.stringify({ membershipId: ID })) status=403;
       else { authenticated=true;status=204; }
     } else if (url.pathname===`${ROOT}/link/confirmation`) response={ status: 'link_confirmation_required',csrfToken: FLOW_CSRF,requestId: ID };
-    else if (url.pathname===`${ROOT}/link/status`) response={ status: 'account',microsoftLinked: linked,
-      emailReauthenticationRequired: reauthentication || linked,requestId: ID };
+    else if (url.pathname===`${ROOT}/link/status`) {
+      if (holdAccountState) { markAccountRead();await accountReadGate; }
+      response={ status: 'account',microsoftLinked: linked,
+        emailReauthenticationRequired: reauthentication || linked,requestId: ID };
+    }
     else if (url.pathname===`${ROOT}/link/start`) response={
       authorizationUrl: 'https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize?state=synthetic',requestId: ID };
     else if (url.pathname===`${ROOT}/link/confirm`) {
@@ -60,7 +66,7 @@ async function setup(page,{ ceremony='membership',lostConfirmation=false,reauthe
   });
   const query=ceremony==='membership' ? '?auth=microsoft_membership_required'
     : ceremony==='link' ? '?auth=microsoft_link_confirmation_required' : '';
-  await page.goto(`${origin}/${query}`);return { writes,reads };
+  await page.goto(`${origin}/${query}`);return { writes,reads,accountReadStarted,releaseAccountRead };
 }
 test('Microsoft continuation requires explicit organization choice and safely renders server labels with no email/code replay',async({ page })=>{
   const f=await setup(page);const select=page.getByRole('combobox',{ name: 'Organisation',exact: true });
@@ -117,4 +123,22 @@ test('profile uses authoritative fresh-email status and reauthentication require
   expect(f.writes.filter(value=>value.path==='/api/v1/session')).toHaveLength(1);
   expect(f.writes[0].headers['x-csrf-token']).toBe(SESSION_CSRF);
   expect(f.writes.some(value=>value.path.includes('/link/start') || value.path.includes('/email/challenges'))).toBe(false);
+});
+
+for (const activation of ['pointer','keyboard']) test(`profile logout remains available during an unfinished account read: ${activation}`,async({ page })=>{
+  const f=await setup(page,{ ceremony: 'profile',holdAccountState: true });
+  try {
+    await page.getByRole('button',{ name: 'Profil',exact: true }).click();await f.accountReadStarted;
+    const profile=page.getByRole('dialog',{ name: 'Profil',exact: true });
+    await expect(profile.locator('section[aria-labelledby^="customerAccount"]')).toHaveAttribute('aria-busy','true');
+    const logout=profile.getByRole('button',{ name: 'Logout',exact: true });await expect(logout).toBeEnabled();
+    const returned=page.waitForEvent('domcontentloaded');
+    await Promise.all([returned,activation==='keyboard' ? logout.press('Enter') : logout.click()]);
+    await expect(page.getByLabel('E-Mail-Adresse',{ exact: true })).toBeVisible();
+    const revocations=f.writes.filter(value=>value.path==='/api/v1/session');expect(revocations).toHaveLength(1);
+    expect(revocations[0].headers['x-csrf-token']).toBe(SESSION_CSRF);
+    f.releaseAccountRead();
+    await expect(page.getByRole('button',{ name: 'Profil',exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('E-Mail-Adresse',{ exact: true })).toBeVisible();
+  } finally { f.releaseAccountRead(); }
 });

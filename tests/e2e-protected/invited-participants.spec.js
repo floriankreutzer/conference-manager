@@ -18,7 +18,8 @@ async({ browser,browserName })=>{
   }
   const { createProtectedOwnerBrowserRuntimeFixture }=await import(pathToFileURL(
     `${apiRoot}/tests-db/support/protected-owner-browser-runtime-fixture.js`));
-  let runtime,edge,context,page,written=false,failed=false,phase='setup',proofCapacityWaits=0,logoutOutcome=null;
+  let runtime,edge,context,page,written=false,failed=false,phase='setup',proofCapacityWaits=0,logoutOutcome=null,logoutControl=null;
+  const errors=[];
   function checkpoint(value) { phase=value;console.log('PARTICIPANT_BROWSER_STAGE '+value); }
   try {
     const origins={ customer: 'https://app-int.example.test',platform: 'https://ops-int.example.com' };
@@ -47,7 +48,7 @@ async({ browser,browserName })=>{
       get() { throw new Error('PARTICIPANT_APPLICATION_PASSKEY_FORBIDDEN'); },
       create() { throw new Error('PARTICIPANT_APPLICATION_ENROLLMENT_FORBIDDEN'); },
     } }); });
-    page=await context.newPage();const errors=[],identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
+    page=await context.newPage();const identities=[];let delegatedContosoUser=null;page.on('pageerror',error=>errors.push(error.name));
     async function approveMicrosoft({ returnToCustomer=false }={}) {
       const sourcePhase=phase;let step='dialog',control=null;
       async function bounded(promise) {
@@ -121,14 +122,26 @@ async({ browser,browserName })=>{
       await expect(workspace.getByText(state,{ exact: true })).toBeVisible();
     }
     async function signOutCustomer(slot) {
-      checkpoint(`customer-logout-${slot}`);logoutOutcome=null;
+      checkpoint(`customer-logout-${slot}`);logoutOutcome=null;logoutControl=null;
       await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      const profile=page.getByRole('dialog',{ name: 'Profil',exact: true });
+      await expect(profile.locator('section[aria-labelledby^="customerAccount"]')).toHaveAttribute('aria-busy','false');
+      const logout=profile.getByRole('button',{ name: 'Logout',exact: true });
+      await expect(logout).toBeEnabled();await logout.focus();await expect(logout).toBeFocused();
+      logoutControl=await logout.elementHandle();
+      await logoutControl.evaluate(element=>{
+        element.__participantLogout={ pointerDown: 0,pointerUp: 0,clicks: 0,trusted: null };
+        for (const [type,key] of [['pointerdown','pointerDown'],['pointerup','pointerUp'],['click','clicks']]) {
+          element.addEventListener(type,event=>{ element.__participantLogout[key]=Math.min(3,element.__participantLogout[key]+1);
+            if (type==='click') element.__participantLogout.trusted=event.isTrusted; });
+        }
+      });
       const revoked=page.waitForResponse(response=>response.request().method()==='DELETE'
         && response.url()===origins.customer+'/api/v1/session');
       const returned=page.waitForEvent('domcontentloaded',{ timeout: 15000 });
       await Promise.all([returned,revoked.then(response=>{
         logoutOutcome={ revoked: response.status() };expect(logoutOutcome.revoked).toBe(204);
-      }),page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click()]);
+      }),logout.click()]);
       logoutOutcome.session=await page.evaluate(async()=>(await fetch('/api/v1/session',{ cache: 'no-store' })).status);
       expect(logoutOutcome.session).toBe(401);
       await expect(page.getByRole('textbox',{ name: 'E-Mail-Adresse',exact: true })).toBeVisible();
@@ -354,7 +367,9 @@ async({ browser,browserName })=>{
           authenticationError: Boolean(document.querySelector('#customerAuthError')),
           authenticated: Boolean(document.querySelector('#primaryNavigation button[aria-haspopup="dialog"]')),
         }));
-        console.error('PARTICIPANT_BROWSER_LOGOUT '+JSON.stringify({ outcome: logoutOutcome,view,edge: { requests: edge.evidence().requests.length,
+        const activation=logoutControl ? await logoutControl.evaluate(element=>({ ...element.__participantLogout,
+          disabled: element.disabled,connected: element.isConnected,focused: document.activeElement===element })) : null;
+        console.error('PARTICIPANT_BROWSER_LOGOUT '+JSON.stringify({ outcome: logoutOutcome,activation,view,errors: errors.slice(-3),edge: { requests: edge.evidence().requests.length,
           staticCompactions: edge.evidence().staticCompactions,completedStatic: edge.evidence().completedStatic } }));
       } catch { console.error('PARTICIPANT_BROWSER_LOGOUT_VIEW_UNAVAILABLE'); }
     }
