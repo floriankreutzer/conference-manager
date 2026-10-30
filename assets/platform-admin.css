@@ -1533,6 +1533,16 @@
   color: var(--color-on-dark);
 }
 
+.platform-admin-sidebar-group {
+  margin-block-start: var(--space-4);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-on-dark-muted);
+}
+
+.platform-admin-sidebar-group .platform-admin-sidebar-field {
+  margin-block-start: var(--space-2);
+}
+
 .platform-admin-shell .platform-admin-operator :focus-visible {
   outline: var(--focus-width) solid var(--color-on-dark);
   outline-offset: var(--space-1);

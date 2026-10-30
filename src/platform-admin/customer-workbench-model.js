@@ -15,7 +15,8 @@ export function customerNextTask(tenant, readiness) {
   if (blocker) {
     const next = readinessNextTaskPresentation(blocker);
     return { titleKey: 'platformAdmin.workbench.task.readiness', descriptionKey: next.messageKey,
-      ownerKey: next.messageKey.endsWith('customerAdmin') ? 'platformAdmin.workbench.owner.customerAdmin' : 'platformAdmin.workbench.owner.operator',
+      ownerKey: next.messageKey.endsWith('customerAdmin') ? 'platformAdmin.workbench.owner.customerAdmin'
+        : next.messageKey.endsWith('evidence') ? 'platformAdmin.workbench.owner.operations' : 'platformAdmin.workbench.owner.operator',
       section: next.section || 'readiness', blocker };
   }
   if (readiness?.state === 'ready') return {
@@ -28,6 +29,8 @@ export function customerNextTask(tenant, readiness) {
 
 export function customerWorkbenchSummary(tenant, resources, operator) {
   const permitted = permission => operator?.permissions.includes(permission);
+  const readinessAllowed = permitted('platform:readiness:read');
+  const integrationAllowed = permitted('platform:integration-health:read');
   const readinessResource = permitted('platform:readiness:read') ? resources.get('readiness') : null;
   const integrationResource = permitted('platform:integration-health:read') ? resources.get('integration-health') : null;
   const readinessItem = readinessResource?.data?.items.find(item => item.tenantId === tenant.id);
@@ -35,10 +38,11 @@ export function customerWorkbenchSummary(tenant, resources, operator) {
   const readiness = readinessItem?.readiness || (permitted('platform:readiness:read') && tenant.readiness
     ? { ...tenant.readiness, blockerCodes: [] } : null);
   return {
-    readiness, readinessAt: readinessResource?.data?.snapshotAt || tenant.readiness?.evaluatedAt || null,
+    readiness, readinessAllowed, integrationAllowed,
+    readinessAt: readinessAllowed ? readinessResource?.data?.snapshotAt || tenant.readiness?.evaluatedAt || null : null,
     connectionState: integrationItem?.connectionState
       || (permitted('platform:integration-health:read') ? tenant.integration?.state : null) || 'unknown',
-    integrationAt: integrationResource?.data?.snapshotAt || tenant.integration?.checkedAt || null,
+    integrationAt: integrationAllowed ? integrationResource?.data?.snapshotAt || tenant.integration?.checkedAt || null : null,
     audit: permitted('platform:audit:read') ? resources.get('platform-audit') : null,
     auditAllowed: permitted('platform:audit:read'),
     task: customerNextTask(tenant, readiness),

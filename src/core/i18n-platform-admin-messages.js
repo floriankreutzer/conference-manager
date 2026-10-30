@@ -3,6 +3,8 @@ import { PLATFORM_MICROSOFT_OPERATION_MESSAGES } from './i18n-platform-microsoft
 export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
   de: Object.freeze({
     ...PLATFORM_MICROSOFT_OPERATION_MESSAGES.de,
+    'platformAdmin.workbench.preferences': 'Darstellung',
+    'platformAdmin.workbench.security': 'Sitzung und Zugänge',
     "platformAdmin.workbench.nextResponsibility": "Nächste Verantwortung",
     "platformAdmin.workbench.nextTask": "Nächste Aufgabe",
     "platformAdmin.workbench.customer": "Kunde",
@@ -893,6 +895,8 @@ export const PLATFORM_ADMIN_MESSAGES = Object.freeze({
   }),
   en: Object.freeze({
     ...PLATFORM_MICROSOFT_OPERATION_MESSAGES.en,
+    'platformAdmin.workbench.preferences': 'Appearance',
+    'platformAdmin.workbench.security': 'Session and access',
     "platformAdmin.workbench.nextResponsibility": "Next responsibility",
     "platformAdmin.workbench.nextTask": "Next task",
     "platformAdmin.workbench.customer": "Customer",

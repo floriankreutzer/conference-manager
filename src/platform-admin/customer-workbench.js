@@ -92,7 +92,8 @@ export function renderCustomerOverview({ tenant, summary, onOpenSection, onOpenR
     el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.workbench.integrationObserved', {
       time: summary.integrationAt ? formatDateTime(summary.integrationAt) : t('common.unknown'),
     }) }),
-    ...(!summary.readiness ? [el('p', { text: t('platformAdmin.workbench.noReadiness') })] : []),
+    ...(!summary.readiness ? [el('p', { text: t(summary.readinessAllowed
+      ? 'platformAdmin.workbench.noReadiness' : 'platformAdmin.permission.readDenied') })] : []),
     ...(readinessControls.length ? [el('div', { className: 'button-row' }, readinessControls)] : []),
   ]);
   const usageControls = [

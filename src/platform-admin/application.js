@@ -369,7 +369,8 @@ export function createPlatformAdminApplication({
     if (currentOperator) {
       nodes.sidebarFooter.append(el('section', { className: 'platform-admin-operator' }, [
         el('strong', { text: t('platformAdmin.operator.identity') }),
-        el('span', { text: t(`platformAdmin.role.${currentOperator.roles[0]}`) }),
+        el('span', { text: new Intl.ListFormat(language(), { style: 'short', type: 'conjunction' })
+          .format(currentOperator.roles.map(role => t(`platformAdmin.role.${role}`))) }),
         el('small', {
           text: t('platformAdmin.operator.assurance', {
             assurance: t(`platformAdmin.assurance.${currentOperator.assurance.level}`),
@@ -385,7 +386,11 @@ export function createPlatformAdminApplication({
     ['de', 'en'].forEach((value) => localeSelect.append(selectedOption(value, 'platformAdmin.language', documentRef)));
     localeSelect.value = language();
     localeSelect.addEventListener('change', () => setLanguage(localeSelect.value));
-    nodes.sidebarFooter.append(el('label', { className: 'platform-admin-sidebar-field' }, [
+    const preferences = el('section', { className: 'platform-admin-sidebar-group', attrs: { 'aria-labelledby': 'platformAdminPreferencesTitle' } }, [
+      el('h2', { id: 'platformAdminPreferencesTitle', className: 'platform-admin-nav-heading', text: t('platformAdmin.workbench.preferences') }),
+    ]);
+    nodes.sidebarFooter.append(preferences);
+    preferences.append(el('label', { className: 'platform-admin-sidebar-field' }, [
       el('span', { text: t('platformAdmin.language.label') }),
       localeSelect,
     ]));
@@ -476,9 +481,11 @@ export function createPlatformAdminApplication({
       ]), reset);
     }
 
-    if (runtime === 'production' && currentOperator && renderSecurityControls) {
-      nodes.sidebarFooter.append(renderSecurityControls());
-    }
+    const security = runtime === 'production' && currentOperator ? el('section', {
+      className: 'platform-admin-sidebar-group', attrs: { 'aria-labelledby': 'platformAdminSecurityTitle' },
+    }, [el('h2', { id: 'platformAdminSecurityTitle', className: 'platform-admin-nav-heading', text: t('platformAdmin.workbench.security') })]) : null;
+    if (security) nodes.sidebarFooter.append(security);
+    if (security && renderSecurityControls) security.append(renderSecurityControls());
 
     if (runtime === 'production' && typeof onSignOut === 'function' && currentOperator) {
       const signOut = button(t('platformAdmin.session.signOut'), { className: 'platform-admin-reset' });
@@ -492,7 +499,7 @@ export function createPlatformAdminApplication({
           announce(t('platformAdmin.session.signOutFailed'), { assertive: true });
         }
       });
-      nodes.sidebarFooter.appendChild(signOut);
+      security.appendChild(signOut);
     }
   }
 

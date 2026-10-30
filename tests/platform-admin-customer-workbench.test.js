@@ -37,6 +37,9 @@ test('unknown and failed source reads remain unknown and retained resources do n
   assert.equal(summary.connectionState, 'unknown');
   assert.equal(summary.audit, null);
   assert.equal(summary.auditAllowed, false);
+  assert.equal(summary.readinessAt, null);
+  assert.equal(summary.integrationAt, null);
+  assert.equal(summary.readinessAllowed, false);
 });
 
 test('next responsibility keeps customer setup, lifecycle review and current evidence distinct', () => {
