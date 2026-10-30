@@ -702,31 +702,45 @@ export function createPlatformAdminApplication({
   async function lookupCorrelation(tenant, query) {
     const key = `${tenant.id}:diagnostics`;
     const resource = tenantResources.get(key);
+    const generation = navigationGeneration;
     const correlation = await dataSource.lookupCorrelation({ tenantId: tenant.id, ...query });
+    const route = currentRoute();
+    if (stopped || generation !== navigationGeneration || tenantResources.get(key) !== resource
+      || route.view !== 'tenant' || route.tenantId !== tenant.id || route.section !== 'diagnostics') return;
     tenantResources.set(key, { status: 'ready', data: { ...resource.data, correlation } });
     render();
+    nodes.app.querySelector('#platformAdminCorrelationResultsTitle')?.focus();
   }
 
   async function previewRecovery(tenant, recoveryId, target) {
     const key = `${tenant.id}:recovery`;
     const resource = tenantResources.get(key);
+    const generation = navigationGeneration;
     const preview = await dataSource.previewRecovery({ tenantId: tenant.id, recoveryId, ...target });
+    const route = currentRoute();
+    if (stopped || generation !== navigationGeneration || tenantResources.get(key) !== resource
+      || route.view !== 'tenant' || route.tenantId !== tenant.id || route.section !== 'recovery') return;
     tenantResources.set(key, {
       status: 'ready',
       data: { ...resource.data, previews: { ...resource.data.previews, [recoveryId]: preview } },
     });
     render();
+    nodes.app.querySelector(`[data-platform-admin-recovery-execute="${recoveryId}"]`)?.focus();
   }
 
   async function loadMoreRecoveryTargets(tenant, recoveryId, cursor) {
     const key = `${tenant.id}:recovery`;
     const resource = tenantResources.get(key);
+    const generation = navigationGeneration;
     const current = resource.data.targets[recoveryId];
     const page = await dataSource.loadRecoveryTargets({
       tenantId: tenant.id,
       recoveryId,
       cursor,
     });
+    const route = currentRoute();
+    if (stopped || generation !== navigationGeneration || tenantResources.get(key) !== resource
+      || route.view !== 'tenant' || route.tenantId !== tenant.id || route.section !== 'recovery') return;
     tenantResources.set(key, {
       status: 'ready',
       data: {

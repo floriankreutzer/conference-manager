@@ -59,7 +59,8 @@ for (const language of ['de','en']) test(`operating guidance distinguishes zero,
   await expect(records.first().getByRole('heading')).toHaveText(language==='de' ? 'Aktive interne Personen' : 'Active internal people');
   await expect(records.first().locator('code')).toBeHidden();
   await expect(page.getByText(language==='de' ? /Auf dieser geladenen Seite ist kein geeignetes Ziel/ : /No eligible target is available on this loaded page/)).toBeVisible();
-  await page.locator('[data-platform-admin-recovery-preview="last-tenant-admin"]').focus();await page.keyboard.press('Enter');
+  await expect(page.locator('[data-platform-admin-recovery-preview="last-tenant-admin"]')).toBeDisabled();
+  await page.locator('#platformAdminRecoveryTarget-last-tenant-admin').focus();
   await expect(page.locator('#platformAdminRecoveryTarget-last-tenant-admin')).toBeFocused();
   expect(await page.evaluate(()=>window.guidancePreviewCount)).toBe(0);
   for (const width of [320,1280]) {

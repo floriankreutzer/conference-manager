@@ -291,6 +291,7 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
   if (pending) return pending;
   const { summary } = resource.data.summary;
   const result = resource.data.correlation;
+  let resultsPanel = null;
   const content = el('div', {}, [
     el('section', { className: 'card' }, [
       definitionList([
@@ -307,8 +308,9 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
   const mayLookup = operator.permissions.includes('platform:diagnostics:sensitive');
   if (mayLookup && shouldPresentPlatformPermission(operator, 'platform:diagnostics:sensitive', Date.now(), operationProofAvailable)) {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const identifierPattern = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}';
     const correlationId = el('input', { type: 'text', value: result?.lookupCorrelationId || '', attrs: {
-      required: 'required', pattern: '[0-9a-fA-F-]{36}', maxlength: '36', autocomplete: 'off',
+      required: 'required', pattern: identifierPattern, maxlength: '36', autocomplete: 'off',
       'aria-describedby': 'platformAdminCorrelationHelp',
     } });
     const to = result ? new Date(result.to) : new Date();
@@ -318,6 +320,8 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
     const toControl = el('input', { type: 'datetime-local', value: formatProductionDateTimeInput(to.toISOString(), timeZone),
       attrs: { required: 'required', 'aria-describedby': 'platformAdminCorrelationTimeZone' } });
     const submit = button(t('platformAdmin.diagnostics.lookup'), { type: 'submit', className: 'secondary' });
+    const feedback = el('p', { attrs: { role: 'status' } });
+    let busy = false;
     const form = el('form', { className: 'card platform-admin-filter-form' }, [
       el('div', { className: 'platform-admin-filter-introduction' }, [
         platformHeading('diagnostics', t('platformAdmin.diagnostics.lookupTitle')),
@@ -327,10 +331,13 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
       field({ id: 'platformAdminCorrelationId', label: t('platformAdmin.diagnostics.correlationId'), control: correlationId, required: true }),
       field({ id: 'platformAdminCorrelationFrom', label: t('platformAdmin.diagnostics.from'), control: fromControl, required: true }),
       field({ id: 'platformAdminCorrelationTo', label: t('platformAdmin.diagnostics.to'), control: toControl, required: true }),
-      el('div', { className: 'button-row' }, [submit]),
+      el('div', { className: 'button-row' }, [submit]), feedback,
     ]);
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      if (busy) return;
+      correlationId.setCustomValidity(new RegExp(`^(?:${identifierPattern})$`).test(correlationId.value)
+        ? '' : t('platformAdmin.diagnostics.invalidIdentifier'));
       for (const control of [fromControl, toControl]) control.setCustomValidity('');
       if (!form.reportValidity()) return;
       const instants = [fromControl, toControl].map((control) => {
@@ -344,9 +351,40 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
         control.reportValidity();
         return;
       }
-      onCorrelationLookup({ correlationId: correlationId.value.toLowerCase(), from: instants[0], to: instants[1] });
+      if (Date.parse(instants[0]) >= Date.parse(instants[1])) {
+        toControl.setCustomValidity(t('platformAdmin.diagnostics.invalidRange'));
+        toControl.reportValidity(); return;
+      }
+      busy = true;
+      form.setAttribute('aria-busy', 'true');
+      for (const control of [correlationId, fromControl, toControl, submit]) control.disabled = true;
+      if (resultsPanel) resultsPanel.hidden = true;
+      feedback.setAttribute('role', 'status');
+      feedback.textContent = t('platformAdmin.diagnostics.searching');
+      try {
+        await onCorrelationLookup({ correlationId: correlationId.value.toLowerCase(), from: instants[0], to: instants[1] });
+      } catch (error) {
+        if (!form.isConnected) return;
+        const cancelled = ['PLATFORM_MICROSOFT_OPERATION_CANCELLED', 'PLATFORM_PASSKEY_OPERATION_CANCELLED'].includes(error?.code);
+        feedback.setAttribute('role', cancelled ? 'status' : 'alert');
+        feedback.textContent = t(cancelled ? 'platformAdmin.passkey.error.cancelled' : 'platformAdmin.diagnostics.lookupFailed');
+      } finally {
+        busy = false;
+        if (form.isConnected) {
+          form.setAttribute('aria-busy', 'false');
+          for (const control of [correlationId, fromControl, toControl, submit]) control.disabled = false;
+          if (document.activeElement === document.body) submit.focus();
+        }
+      }
     });
-    for (const control of [fromControl, toControl]) control.addEventListener('input', () => control.setCustomValidity(''));
+    for (const control of [correlationId, fromControl, toControl]) control.addEventListener('input', () => {
+      for (const input of [correlationId, fromControl, toControl]) input.setCustomValidity('');
+      feedback.textContent = '';
+      if (resultsPanel) resultsPanel.hidden = true;
+    });
+    correlationId.addEventListener('invalid', () => {
+      correlationId.setCustomValidity(t('platformAdmin.diagnostics.invalidIdentifier'));
+    });
     content.append(form);
   } else if (mayLookup && typeof onStepUp === 'function') {
     const stepUp = microsoftSignInControl({ label: t('platformAdmin.session.signIn') });
@@ -359,10 +397,11 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
       el('div', { className: 'platform-admin-record-heading' }, [dataCode(entry.action), state(entry.outcome)]),
       el('p', { text: formatDateTime(entry.occurredAt) }), el('small', {}, [dataCode(entry.category)]),
     ])));
-    content.append(el('section', { attrs: { 'aria-labelledby': 'platformAdminCorrelationResultsTitle' } }, [
-      platformHeading('search', t('platformAdmin.diagnostics.results'), { id: 'platformAdminCorrelationResultsTitle' }),
+    resultsPanel = el('section', { attrs: { 'aria-labelledby': 'platformAdminCorrelationResultsTitle' } }, [
+      platformHeading('search', t('platformAdmin.diagnostics.results'), { id: 'platformAdminCorrelationResultsTitle', attrs: { tabindex: '-1' } }),
       ...(result.items.length ? [list] : [el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.diagnostics.noResults') })]),
-    ]));
+    ]);
+    content.append(resultsPanel);
   }
   return content;
 }
@@ -370,12 +409,15 @@ function diagnostics({ operator, resource, onRetry, onCorrelationLookup, onStepU
 function recovery({
   operator,
   resource,
+  onRetry,
   onRecoveryPreview,
   onRecoveryExecute,
   onRecoveryTargetsMore,
   onStepUp,
   operationProofAvailable,
 }) {
+  const pending = resourcePanel(resource, onRetry);
+  if (pending) return pending;
   const previews = resource?.data?.previews || {};
   const targets = resource?.data?.targets || {};
   const cards = el('div', { className: 'platform-admin-record-list' });
@@ -384,6 +426,8 @@ function recovery({
     if (!operator.permissions.includes(permission)) return;
     const preview = previews[definition.id];
     const targetPage = targets[definition.id];
+    const eligibleTargets = new Set((targetPage?.items || []).filter(item => item.eligible)
+      .map(item => item[definition.targetField]));
     const target = definition.targetField ? el('select', { attrs: { required: 'required' } }) : null;
     if (target) {
       target.append(el('option', { value: '', text: t('platformAdmin.recovery.target.select') }));
@@ -395,32 +439,71 @@ function recovery({
           attrs: item.eligible ? {} : { disabled: 'disabled' },
         }));
       });
+      if (preview && eligibleTargets.has(preview.targetId)) target.value = preview.targetId;
     }
     const controls = el('div', { className: 'button-row' });
+    const feedback = el('p', { attrs: { role: 'status' } });
+    let busy = false;
+    let previewControl = null;
+    let executeControl = null;
+    function updateControls() {
+      for (const control of card.querySelectorAll('button, select')) control.disabled = busy;
+      if (previewControl && target) previewControl.disabled = busy || !eligibleTargets.has(target.value);
+      if (executeControl && target) executeControl.disabled = busy || target.value !== preview.targetId;
+      card.setAttribute('aria-busy', String(busy));
+    }
+    async function run(work, source) {
+      if (busy) return;
+      busy = true; updateControls();
+      feedback.setAttribute('role', 'status');
+      feedback.textContent = t('platformAdmin.recovery.loading');
+      try { await work(); }
+      catch (error) {
+        if (!card.isConnected) return;
+        const cancelled = ['PLATFORM_MICROSOFT_OPERATION_CANCELLED', 'PLATFORM_PASSKEY_OPERATION_CANCELLED'].includes(error?.code);
+        feedback.setAttribute('role', cancelled ? 'status' : 'alert');
+        feedback.textContent = t(cancelled ? 'platformAdmin.passkey.error.cancelled' : 'platformAdmin.recovery.failed');
+      } finally {
+        busy = false;
+        if (card.isConnected) {
+          updateControls();
+          if (document.activeElement === document.body) source.focus();
+        }
+      }
+    }
     if (shouldPresentPlatformPermission(operator, permission, Date.now(), operationProofAvailable)) {
-      const previewControl = button(t('platformAdmin.recovery.preview'), { className: 'secondary', dataset: { platformAdminRecoveryPreview: definition.id } });
+      previewControl = button(t('platformAdmin.recovery.preview'), { className: 'secondary', dataset: { platformAdminRecoveryPreview: definition.id } });
       previewControl.addEventListener('click', () => {
         if (target && !target.reportValidity()) return;
-        onRecoveryPreview(definition.id, target ? { [definition.targetField]: target.value.toLowerCase() } : {});
+        void run(() => onRecoveryPreview(definition.id, target ? { [definition.targetField]: target.value.toLowerCase() } : {}), previewControl);
       });
       controls.append(previewControl);
       if (preview) {
-        const execute = button(t('platformAdmin.recovery.execute'), { className: 'danger', dataset: { platformAdminRecoveryExecute: definition.id } });
-        execute.addEventListener('click', () => onRecoveryExecute(definition.id, preview));
-        controls.append(execute);
+        executeControl = button(t('platformAdmin.recovery.execute'), { className: 'danger', dataset: { platformAdminRecoveryExecute: definition.id } });
+        executeControl.addEventListener('click', () => {
+          if (!target || target.value === preview.targetId) onRecoveryExecute(definition.id, preview);
+        });
+        controls.append(executeControl);
       }
     }
     const card = el('article', { className: 'card platform-admin-warning' }, [
       platformHeading('recovery', t(`platformAdmin.recovery.action.${definition.id}`)),
       el('p', { text: t(`platformAdmin.recovery.effect.${definition.id}`) }),
       ...(target ? [field({ id: `platformAdminRecoveryTarget-${definition.id}`, label: t(`platformAdmin.recovery.target.${definition.targetField}`), control: target, required: true })] : []),
-      ...(target && targetPage && !targetPage.items.some(item => item.eligible) ? [el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.noEligibleTarget') })] : []),
+      ...(target && !eligibleTargets.size ? [el('p', { className: 'platform-admin-data-note',
+        text: t(targetPage ? 'platformAdmin.recovery.noEligibleTarget' : 'platformAdmin.recovery.targetsUnavailable') })] : []),
       el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.previewEffect') }),
-      controls,
+      controls, feedback,
     ]);
+    target?.addEventListener('change', updateControls);
+    if (target && !targetPage && typeof onRetry === 'function') {
+      const retry = button(t('platformAdmin.load.retry'), { className: 'secondary' });
+      retry.addEventListener('click', onRetry);
+      card.append(retry);
+    }
     if (targetPage?.nextCursor && typeof onRecoveryTargetsMore === 'function') {
       const more = button(t('platformAdmin.pagination.next'), { className: 'secondary' });
-      more.addEventListener('click', () => onRecoveryTargetsMore(definition.id, targetPage.nextCursor));
+      more.addEventListener('click', () => { void run(() => onRecoveryTargetsMore(definition.id, targetPage.nextCursor), more); });
       card.append(el('div', { className: 'button-row platform-admin-pagination' }, [more]));
     }
     if (preview) {
@@ -428,6 +511,7 @@ function recovery({
       preview.impactCodes.forEach((entry) => impacts.append(el('li', {}, [dataCode(entry)])));
       card.append(el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.recovery.previewExpires', { time: formatDateTime(preview.expiresAt) }) }), impacts);
     }
+    updateControls();
     cards.append(card);
   });
   if (!cards.childElementCount) return denied();
