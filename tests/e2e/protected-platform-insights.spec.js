@@ -40,6 +40,7 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
   await expect(page.locator('[data-platform-provider]')).toHaveCount(4);
   await expect(page.locator('#viewTitle')).toBeFocused();
   await product.click(); await expect(page.locator('[data-product-delivery-report]')).toBeVisible();
+  await expect(page.getByText('Berichtskontext: Produktion · beobachtete Deployment-Umgebung siehe Plattformbetrieb', { exact: true })).toBeVisible();
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -47,6 +48,7 @@ test('protected insight views retain DE/EN mobile navigation without a Tenant or
   await page.getByRole('combobox', { name: 'Sprache', exact: true }).selectOption('en');
   await expect(product).toContainText('Product');
   await expect(provider).toContainText('Providers');
+  await expect(page.getByText('Report context: Production · see Platform runtime for the observed deployment environment', { exact: true })).toBeVisible();
   providerAvailable = false;
   await page.reload(); await page.locator('[data-platform-admin-fleet-view="providers"]').click();
   await expect(page.locator('.platform-admin-error')).toBeVisible();
