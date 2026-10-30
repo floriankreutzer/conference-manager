@@ -1,7 +1,7 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-APIa5814cf10ad47d09a179f3879c53bceca7f220ef, the combined review candidate in
+API5ed5f450f829348467ca11de559d12a7f01be53e, the combined review candidate in
 API PR354. This is not the current hosted API or an accepted Main claim.
 Both refs are checked before setup and copied into unchanged closed runtime
 configuration and bounded evidence. It adds to the full regular Chromium/WebKit
