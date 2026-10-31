@@ -1631,8 +1631,13 @@ for (const locale of ['de', 'en']) test(`Runtime ${locale} keeps current service
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const bounds = await instances.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().bottom));
-    expect((await legacy.boundingBox()).y).toBeGreaterThanOrEqual(Math.max(...bounds));
+    // Read both bounds in one layout frame: mobile viewport resizing can adjust
+    // the scroll position between separate browser protocol measurements.
+    const layout = await page.evaluate(() => ({
+      currentBottom: Math.max(...Array.from(document.querySelectorAll('[data-runtime-instance]'), node => node.getBoundingClientRect().bottom)),
+      historyTop: document.querySelector('[data-runtime-unassigned]').getBoundingClientRect().top,
+    }));
+    expect(layout.historyTop).toBeGreaterThanOrEqual(layout.currentBottom);
   }
   const history = page.locator('[data-runtime-history]');
   await history.locator(':scope > summary').press('Enter');
