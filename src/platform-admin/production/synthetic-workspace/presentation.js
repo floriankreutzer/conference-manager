@@ -18,8 +18,9 @@ export function createPlatformSyntheticWorkspacePresentation({ apiFactory,onTena
     dialog=openDialog({ title: t('platformSynthetic.title'),content,actions: [close],labelledById: 'platformSyntheticDialogTitle' });
     dialog.classList.add('platform-admin-synthetic-dialog');
     const translate=()=>{
-      view?.dispose();dialog.querySelector('h2').textContent=t('platformSynthetic.title');close.textContent=t('common.close');
-      view=createPlatformSyntheticWorkspaceView({ controller,onTenant: tenantId=>{
+      view?.dispose();const heading=dialog.querySelector('h2');heading.textContent=t('platformSynthetic.title');heading.tabIndex=-1;
+      close.textContent=t('common.close');
+      view=createPlatformSyntheticWorkspaceView({ controller,heading,onTenant: tenantId=>{
         dialog.close();void onTenant(tenantId);
       } });content.replaceChildren(view.element);
     };

@@ -18,8 +18,9 @@ export function createPlatformOwnerCustomerPresentation({ apiFactory,windowRef=g
     dialog=openDialog({ title: t('platformOwnerCustomer.title'),content,actions: [close],labelledById: 'platformOwnerCustomerDialogTitle' });
     dialog.classList.add('platform-admin-synthetic-dialog');
     const translate=()=>{
-      view?.dispose();dialog.querySelector('h2').textContent=t('platformOwnerCustomer.title');close.textContent=t('common.close');
-      view=createPlatformOwnerCustomerView({ controller });content.replaceChildren(view.element);
+      view?.dispose();const heading=dialog.querySelector('h2');heading.textContent=t('platformOwnerCustomer.title');heading.tabIndex=-1;
+      close.textContent=t('common.close');
+      view=createPlatformOwnerCustomerView({ controller,heading });content.replaceChildren(view.element);
     };
     translate();close.addEventListener('click',()=>dialog?.close());
     windowRef.addEventListener('conference-language-changed',translate);

@@ -10,6 +10,7 @@ export function createCustomerAccountView({ controller,heading='h2',languageCont
   const id=`customerAccount${++nextId}`,element=el('section',{ className: 'card',attrs: { 'aria-labelledby': `${id}Title` } });
   let previousPhase=null;
   function update(state=controller.snapshot()) {
+    element.setAttribute('aria-busy',String(['loading','redirecting'].includes(state.phase)));
     const active=document.activeElement,hadFocus=element.contains(active),focusId=active?.id;
     const samePhase=state.phase===previousPhase;previousPhase=state.phase;clear(element);
     const title=el(heading,{ id: `${id}Title`,text: t('customerAccount.title'),attrs: { tabindex: '-1' } });element.append(title);

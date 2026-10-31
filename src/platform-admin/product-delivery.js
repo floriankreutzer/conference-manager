@@ -12,6 +12,7 @@ function definition(label, value) {
 }
 
 function sourceLabel(provenance) {
+  if (provenance === 'protected_runtime') return t('platformAdmin.insights.product.protectedProvenance');
   if (provenance === 'runtime') return t('platformAdmin.insights.product.runtimeProvenance');
   return t(provenance === 'stored' ? 'platformAdmin.insights.product.stored'
     : `platformAdmin.operatorSources.${provenance}`);
@@ -167,7 +168,8 @@ function sourceCoverage(model) {
     el('h2', { text: t('platformAdmin.insights.product.sourceOverview') }),
     el('dl', { className: 'platform-admin-definition-list' }, sourceRows.map(({ kind, source, detail, reason }) =>
       el('div', {}, [
-        el('dt', { text: t(`platformAdmin.insights.source.${kind}`) }),
+        el('dt', { text: t(kind === 'runtime' && (runtime?.environment ?? report?.environment) === 'production'
+          ? 'platformAdmin.insights.product.protectedProvenance' : `platformAdmin.insights.source.${kind}`) }),
         el('dd', {}, [
           el('p', { text: detail }),
           renderInsightSourceStatus(source, kind, { showLabel: false }),
@@ -187,7 +189,7 @@ function renderOverview(report) {
 function renderUsage(model) {
   const report = model.runtimeProduct || model.storedReport;
   const manual = operatorSource(model, 'manual');
-  const provenance = model.runtimeProduct ? 'runtime' : 'stored';
+  const provenance = model.runtimeProduct ? (model.runtimeProduct.environment === 'production' ? 'protected_runtime' : 'runtime') : 'stored';
   return [
     el('section', { className: 'card', dataset: { productOutcomes: 'true' } }, [
       el('h2', { text: t('platformAdmin.productDelivery.outcomes') }),
@@ -303,7 +305,9 @@ function renderHeader(resource, refresh) {
       definition(t('platformAdmin.insights.product.loaded'), resource.loadedAt
         ? formatDateTime(resource.loadedAt) : t('common.unknown')),
     ]),
-    el('p', { className: 'platform-admin-data-note', text: t('platformAdmin.insights.product.refreshNote') }),
+    el('p', { className: 'platform-admin-data-note', text: t(
+      ['microsoft_mfa','application_passkey'].includes(primary.accessMode)
+        ? 'platformAdmin.insights.product.storedRefreshNote' : 'platformAdmin.insights.product.refreshNote') }),
     el('details', { className: 'platform-admin-insights-details' }, [
       el('summary', { text: t('platformAdmin.insights.product.contextDetails') }),
       el('p', { text: t('platformAdmin.productDelivery.privateNotice') }),
@@ -327,6 +331,9 @@ export function renderProductDelivery({ resource, onRetry, activeTab = 'overview
   return el('section', { className: 'platform-admin-product-delivery',
     dataset: { productDeliveryReport: 'true', operatorSources: report.operatorSources ? 'true' : 'unknown' } }, [
     renderHeader(resource, refresh),
+    ...(report.runtimeProduct?.sourceContext ? [el('p',{ className:'platform-admin-data-note',attrs:{ role:'status' },
+      text:t(report.runtimeProduct.sourceContext.dataProfile === 'synthetic'
+        ? 'platformAdmin.insights.product.protectedSynthetic' : 'platformAdmin.insights.product.protectedReal') })] : []),
     renderInsightRetrievalNotice(report.retrieval),
     renderInsightTabs({
       id: 'product-insights', label: t('platformAdmin.insights.product.navigation'), activeTab, onTabChange,

@@ -14,7 +14,8 @@ export function renderInsightSourceStatus(source, kind, { showLabel = true } = {
   const freshness = source?.freshness || 'unknown';
   return el('div', { className: 'platform-admin-insights-source-meta', dataset: { insightSource: kind } }, [
     ...(showLabel ? [el('span', { className: 'platform-admin-insights-source-label',
-      text: t(`platformAdmin.insights.source.${kind}`) })] : []),
+      text: t(kind === 'runtime' && source?.environment === 'production'
+        ? 'platformAdmin.insights.product.protectedProvenance' : `platformAdmin.insights.source.${kind}`) })] : []),
     el('span', { className: 'platform-admin-status', attrs: { role: 'status' },
       dataset: { tone: freshness === 'stale' ? 'warning' : 'neutral', productSourceFreshness: freshness },
       text: t(`platformAdmin.insights.sourceFreshness.${kind}.${freshness}`) }),
