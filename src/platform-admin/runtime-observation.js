@@ -37,3 +37,17 @@ export function renderRuntimeObservation(runtime, { headingLevel = 'h3' } = {}) 
     technical,el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.dataNote') }),
   ]);
 }
+
+export function renderRuntimeHistory(entries) {
+  return el('ul', { className: 'platform-admin-runtime-history-list' }, entries.map(runtime => el('li', {}, [
+    el('details', { className: 'platform-admin-runtime-history-entry' }, [
+      el('summary', {}, [
+        el('span', { text: runtime.deployment.reference || t('common.unknown') }),
+        el('span', { className: 'platform-admin-data-note', text: runtime.freshness.observedAt
+          ? formatDateTime(runtime.freshness.observedAt) : t('common.unknown') }),
+        el('span', { className: 'platform-admin-status', text: t(`platformAdmin.state.${runtime.freshness.state}`) }),
+      ]),
+      renderRuntimeObservation(runtime),
+    ]),
+  ])));
+}

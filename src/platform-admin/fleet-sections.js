@@ -1,5 +1,5 @@
 import { groupRuntimeObservations } from './runtime-groups.js';
-import { renderRuntimeObservation } from './runtime-observation.js';
+import { renderRuntimeHistory, renderRuntimeObservation } from './runtime-observation.js';
 import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
@@ -285,22 +285,22 @@ function audit(resource, onLoadMore,onExportAudit) {
 function runtime(resource) {
   if (!resource.data.deployments.length) return el('p', { className: 'card platform-admin-empty', text: t('platformAdmin.resource.empty') });
   const { instances,unassigned } = groupRuntimeObservations(resource.data.deployments);
-  return el('section', { className: 'platform-admin-record-list' }, [
+  return el('section', { className: 'platform-admin-runtime-workspace' }, [
     el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.orderNote') }),
-    ...instances.map(({ key,latest,history })=>el('section',{ dataset: { runtimeInstance: key } },[
+    el('div', { className: 'platform-admin-runtime-instances' }, instances.map(({ key,latest,history })=>el('section',{ dataset: { runtimeInstance: key } },[
       el('h2',{ text: t(`platformAdmin.runtime.surface.${latest.serviceInstance.surface}`) }),
       el('p',{ text: t('platformAdmin.runtime.instance',{ key: latest.serviceInstance.key }) }),
       el('p',{ text: t('platformAdmin.runtime.latest') }),
       renderRuntimeObservation(latest),
-      ...(history.length ? [el('details',{ dataset: { runtimeHistory: key } },[
-        el('summary',{ text: t('platformAdmin.runtime.history') }),
-        ...history.map(entry=>renderRuntimeObservation(entry)),
+      ...(history.length ? [el('details',{ className: 'platform-admin-runtime-history', dataset: { runtimeHistory: key } },[
+        el('summary',{ text: t('platformAdmin.runtime.historyCount', { count: formatNumber(history.length) }) }),
+        renderRuntimeHistory(history),
       ])] : []),
-    ])),
-    ...(unassigned.length ? [el('section',{ dataset: { runtimeUnassigned: 'true' } },[
-      el('h2',{ text: t('platformAdmin.runtime.unassigned') }),
+    ]))),
+    ...(unassigned.length ? [el('details',{ className: 'card platform-admin-runtime-history', dataset: { runtimeUnassigned: 'true' } },[
+      el('summary',{ text: t('platformAdmin.runtime.unassignedCount', { count: formatNumber(unassigned.length) }) }),
       el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.unassignedNote') }),
-      ...unassigned.map(entry=>renderRuntimeObservation(entry)),
+      renderRuntimeHistory(unassigned),
     ])] : []),
   ]);
 }

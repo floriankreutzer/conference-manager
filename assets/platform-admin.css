@@ -425,6 +425,7 @@
 }
 .platform-admin-provider-grid {
   display: grid;
+  grid-auto-rows: 1fr;
   gap: var(--app-section-gap);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   margin-block: var(--app-section-gap);
@@ -550,6 +551,8 @@
 }
 
 .platform-admin-insights-provider-card {
+  display: flex;
+  flex-direction: column;
   min-inline-size: 0;
   margin: 0;
   padding: var(--space-4);
@@ -1085,7 +1088,7 @@
 
 .platform-admin-fleet-card {
   display: grid;
-  align-content: start;
+  grid-template-rows: auto 1fr auto;
   gap: var(--space-3);
   border-inline-start: 4px solid var(--color-camel-500);
   box-shadow: var(--shadow-sm);
@@ -1109,6 +1112,7 @@
 
 .platform-admin-page[data-platform-admin-page="directory"] .platform-admin-fleet-list {
   grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: 1fr;
 }
 
 .platform-admin-customer-card-summary {
@@ -1157,6 +1161,8 @@
 }
 
 .platform-admin-customer-workbench {
+  grid-template-rows: repeat(3, 1fr) auto;
+  align-items: stretch;
   font-size: var(--font-size-md);
 }
 
@@ -1167,11 +1173,25 @@
 }
 
 .platform-admin-customer-workbench > .card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
-  align-content: start;
-  block-size: 100%;
   padding: var(--app-card-padding);
+}
+
+.platform-admin-customer-workbench > .card > button:last-child,
+.platform-admin-customer-workbench > .card > .button-row:last-child,
+.platform-admin-card-footer {
+  margin-block-start: auto;
+}
+
+.platform-admin-customer-workbench > .card > button:last-child {
+  align-self: flex-start;
+}
+
+.platform-admin-card-body,
+.platform-admin-card-footer {
+  min-inline-size: 0;
 }
 
 .platform-admin-customer-workbench .platform-admin-definition-list > div {
@@ -1476,7 +1496,8 @@
 .platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-record-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
-  align-items: start;
+  align-items: stretch;
+  grid-auto-rows: 1fr;
   gap: var(--app-section-gap);
 }
 
@@ -1487,8 +1508,9 @@
 }
 
 .platform-admin-tenant-section[data-platform-admin-section="metering"] .platform-admin-tenant-content .platform-admin-record {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: stretch;
   gap: var(--space-3);
   border-block-start: 3px solid var(--brand-primary);
@@ -1601,9 +1623,59 @@
   margin-block-start: 0;
 }
 
-.platform-admin-page[data-platform-admin-page="runtime-status"] .platform-admin-record-list {
+.platform-admin-runtime-workspace,
+.platform-admin-runtime-instances {
+  display: grid;
+  gap: var(--app-section-gap);
+  min-inline-size: 0;
+}
+
+.platform-admin-runtime-instances {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
-  align-items: start;
+  align-items: stretch;
+}
+
+.platform-admin-runtime-instances > section,
+[data-runtime-observation] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-inline-size: 0;
+}
+
+.platform-admin-runtime-instances [data-runtime-observation] {
+  flex: 1;
+}
+
+.platform-admin-runtime-history {
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.platform-admin-runtime-history-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0 0;
+}
+
+.platform-admin-runtime-history-list > li {
+  border-block-start: 1px solid var(--color-border-soft);
+}
+
+.platform-admin-runtime-history summary,
+.platform-admin-card-footer summary {
+  min-block-size: var(--control-height);
+  padding-block: var(--space-3);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.platform-admin-runtime-history-entry > summary > span {
+  margin-inline-end: var(--space-3);
+}
+
+.platform-admin-runtime-history-entry [data-runtime-observation] {
+  margin-block: var(--space-3);
 }
 
 .platform-admin-page[data-platform-admin-page="providers"] .platform-admin-insights-report,
@@ -1667,6 +1739,10 @@
 }
 
 @media (max-width: 1100px) {
+  .platform-admin-customer-workbench {
+    grid-template-rows: repeat(6, 1fr) auto;
+  }
+
   .platform-admin-customer-workbench,
   .platform-admin-lifecycle-workspace {
     grid-template-columns: minmax(0, 1fr);

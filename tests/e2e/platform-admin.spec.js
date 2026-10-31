@@ -5,6 +5,27 @@ const ACTIVE_TENANT_ID = '10000000-0000-4000-8000-000000000004';
 const REQUEST_ID = '20000000-0000-4000-8000-000000000001';
 const CSRF_TOKEN = 'c'.repeat(43);
 
+async function expectAlignedCards(cards, footerSelector) {
+  const geometry = await cards.evaluateAll((nodes, selector) => nodes.map(node => {
+    const box = node.getBoundingClientRect(), heading = node.querySelector('h3')?.getBoundingClientRect();
+    const footer = node.querySelector(selector)?.getBoundingClientRect();
+    return { x: box.x, y: box.y, right: box.right, bottom: box.bottom, width: box.width, height: box.height,
+      heading: heading ? heading.top - box.top : null, footer: footer ? box.bottom - footer.bottom : null,
+      contained: [...node.children].every(child => child.getBoundingClientRect().bottom <= box.bottom + 1) };
+  }), footerSelector);
+  expect(geometry.length).toBeGreaterThan(1);
+  for (const key of ['width', 'height', 'heading', 'footer']) {
+    const values = geometry.map(card => card[key]).filter(value => value !== null);
+    if (values.length) expect(Math.max(...values) - Math.min(...values), `${key}: ${JSON.stringify(geometry)}`).toBeLessThanOrEqual(2);
+  }
+  for (const [index, box] of geometry.entries()) {
+    expect(box.contained, JSON.stringify(box)).toBe(true);
+    for (const other of geometry.slice(index + 1)) {
+      expect(box.right <= other.x + 1 || other.right <= box.x + 1 || box.bottom <= other.y + 1 || other.bottom <= box.y + 1).toBe(true);
+    }
+  }
+}
+
 const ROLE_PROJECTIONS = Object.freeze({
   security_admin: Object.freeze({
     role: 'platform_security_admin',
@@ -459,6 +480,11 @@ test('private provider cards show dated usage, native meters, thresholds and unk
   await expect(page.locator('label[for="platformProviderNeonMeter"]')).toContainText('52');
   const neonDetails = overview.locator('[data-platform-provider="neon"] details');
   await expect(neonDetails).not.toHaveAttribute('open');
+  for (const width of [320, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expectAlignedCards(overview.locator('[data-platform-provider]'), 'footer summary');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
   await neonDetails.locator(':scope > summary').focus(); await page.keyboard.press('Enter');
   await expect(neonDetails).toHaveAttribute('open', '');
   await expect(page.locator('[data-platform-provider="neon"]')).toContainText('keine Ausgabensperre');
@@ -1550,6 +1576,11 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
     await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
     await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
     const card=page.locator(`[data-runtime-observation="${freshness}"]`),details=card.locator('details');
+    const legacy=page.locator('[data-runtime-unassigned]');
+    await expect(legacy).not.toHaveAttribute('open');
+    await expect(card).toBeHidden();
+    await legacy.locator(':scope > summary').press('Enter');
+    await legacy.locator('.platform-admin-runtime-history-entry > summary').press('Enter');
     await expect(card).toBeVisible();
     await expect(card.getByRole('heading')).toContainText(runtime.deployment.reference);
     await expect(card.getByText(locale==='de' ? 'Conference Manager · Anwendungsdienst' : 'Conference Manager · application service',{ exact: true })).toBeVisible();
@@ -1570,6 +1601,45 @@ for (const locale of ['de','en']) for (const freshness of ['fresh','stale','unkn
   });
 }
 
+for (const locale of ['de', 'en']) test(`Runtime ${locale} keeps current services above compact keyboard-accessible history`, async ({ page }) => {
+  await installDemoRoutes(page);
+  const template = JSON.parse(readFileSync(new URL('../support/platform-runtime-output-fixture.json', import.meta.url), 'utf8')).deployments[0];
+  const entry = (reference, surface, observedAt) => ({ ...structuredClone(template), schemaVersion: 2,
+    serviceInstance: surface ? { key: `protected-int-${surface}`, surface } : null,
+    deployment: { ...template.deployment, reference }, freshness: { ...template.freshness, observedAt } });
+  const deployments = [entry('current-customer', 'customer', '2026-10-31T12:00:00.000Z'),
+    entry('current-platform', 'platform', '2026-10-31T12:00:00.000Z'),
+    entry('older-customer', 'customer', '2026-10-30T12:00:00.000Z'),
+    ...Array.from({ length: 5 }, (_, index) => entry(`legacy-${index}`, null, '2026-10-29T12:00:00.000Z'))];
+  await page.route('**/api/v1/platform/runtime/deployments?schemaVersion=2', route => route.fulfill({ contentType: 'application/json',
+    body: JSON.stringify({ schemaVersion: 2, deployments }) }));
+  await page.goto('/platform-admin-demo/');
+  await page.evaluate(async value => { const { setLanguage } = await import('/src/core/i18n.js'); setLanguage(value); }, locale);
+  await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
+  const instances = page.locator('[data-runtime-instance]'), legacy = page.locator('[data-runtime-unassigned]');
+  await expect(instances).toHaveCount(2);
+  await expect(page.locator('[data-runtime-observation]:visible')).toHaveCount(2);
+  await expect(legacy.locator(':scope > summary')).toContainText('(5)');
+  await expect(legacy).not.toHaveAttribute('open');
+  for (const width of [320, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const bounds = await instances.evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().bottom));
+    expect((await legacy.boundingBox()).y).toBeGreaterThanOrEqual(Math.max(...bounds));
+  }
+  const history = page.locator('[data-runtime-history]');
+  await history.locator(':scope > summary').press('Enter');
+  await history.locator('.platform-admin-runtime-history-entry > summary').press('Enter');
+  await expect(history.locator('[data-runtime-observation]')).toBeVisible();
+  await legacy.locator(':scope > summary').press('Enter');
+  const first = legacy.locator('.platform-admin-runtime-history-entry').first();
+  await first.locator(':scope > summary').press('Enter');
+  await expect(first.locator('[data-runtime-observation]')).toBeVisible();
+  await first.locator(':scope > summary').press('Enter');
+  await expect(first.locator('[data-runtime-observation]')).toBeHidden();
+  await expect(first.locator(':scope > summary')).toBeFocused();
+});
+
 for (const locale of ['de','en']) test(`quota confirmation retains customer, human metric and canonical dimension in ${locale}`,async({ page })=>{
   const state=await installDemoRoutes(page,{ initialPersona: 'tenant_operator' });
   await page.route(`**/api/v1/platform/tenants/${ACTIVE_TENANT_ID}/metering/usage?*`,route=>{
@@ -1587,6 +1657,11 @@ for (const locale of ['de','en']) test(`quota confirmation retains customer, hum
   await page.evaluate(async value=>{ const { setLanguage }=await import('/src/core/i18n.js');setLanguage(value); },locale);
   await page.locator(`[data-platform-admin-tenant="${ACTIVE_TENANT_ID}"]`).click();
   await page.locator('[data-platform-admin-navigate="metering"]').click();
+  for (const width of [320, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expectAlignedCards(page.locator('[data-metering-dimension]'), 'footer');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
   await page.locator('[data-platform-admin-quota="active_users"]').click();
   const dialog=page.getByRole('dialog');
   await expect(dialog.getByRole('heading')).toContainText(locale==='de' ? 'Aktive interne Personen' : 'Active internal people');
@@ -1678,6 +1753,7 @@ for (const locale of ['de', 'en']) test(`customer target composes sourced status
   for (const width of [320, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectAlignedCards(workbench.locator('section.card'), ':scope > button:last-child, :scope > .button-row:last-child');
     if (width === 1440) {
       const columns = await workbench.evaluate(node => [...node.children].slice(0, 2).map(child => child.getBoundingClientRect().x));
       expect(columns[1]).toBeGreaterThan(columns[0]);
