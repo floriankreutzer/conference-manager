@@ -14,8 +14,8 @@ function remainingLifetime(model) {
     .map((row) => observationLifetime(row, model.operatorSources.evaluatedAt));
   // The daily feed ages independently of its embedded Product report. Already
   // stale data expires at retention, not immediately on every successful reload.
-  const dailyLifetime = model.liveMetrics
-    ? observationLifetime(model.liveMetrics, model.liveMetrics.evaluatedAt) : Infinity;
+  const daily = model.liveMetrics || model.dailySource;
+  const dailyLifetime = daily ? observationLifetime(daily, daily.evaluatedAt) : Infinity;
   const lifetime = Math.min(...reportLifetimes, dailyLifetime, ...sourceLifetimes);
   if (!Number.isFinite(lifetime) || lifetime <= 0 || lifetime > 30 * DAY_MS) {
     throw new TypeError('PLATFORM_PRODUCT_CACHE_INVALID');

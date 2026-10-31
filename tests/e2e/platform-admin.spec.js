@@ -681,7 +681,7 @@ test('Resend quota meters require complete matching windows while retaining the 
   const resend = page.locator('[data-platform-provider="resend"]');
   const meter = resend.locator('#provider-resend-monthly-meter');
   await expect(resend.locator('.platform-admin-insights-primary-value')).toHaveText('2');
-  await expect(resend.locator(':scope > .platform-admin-insights-card-values')).toContainText('100');
+  await expect(resend.locator('.platform-admin-card-body > .platform-admin-insights-card-values')).toContainText('100');
   await expect(meter).toHaveCount(0);
   sent.periodStart = limit.periodStart = '2026-10-15T00:00:00.000Z';
   await page.locator('[data-platform-provider-refresh]').click();
@@ -693,7 +693,7 @@ test('Resend quota meters require complete matching windows while retaining the 
   await expect(resend).toBeVisible();
   await expect(meter).toHaveCount(0);
   await expect(resend.locator('.platform-admin-insights-primary-value')).toHaveText('2');
-  await expect(resend.locator(':scope > .platform-admin-insights-card-values')).toContainText('100');
+  await expect(resend.locator('.platform-admin-card-body > .platform-admin-insights-card-values')).toContainText('100');
 });
 
 test('private provider failures retry safely and malformed provider payloads do not render', async ({ page }) => {
@@ -1379,7 +1379,14 @@ test('Platform runtime accepts actual API support references and reflows long me
   }));
   await page.goto('/platform-admin-demo/');
   await page.locator('[data-platform-admin-fleet-view="runtime-status"]').click();
-  await expect(page.locator('.platform-admin-record-list article')).toHaveCount(4);
+  const archive = page.locator('[data-runtime-unassigned]');
+  await expect(archive.locator('[data-runtime-observation]')).toHaveCount(4);
+  await expect(archive).not.toHaveAttribute('open');
+  await archive.locator(':scope > summary').press('Enter');
+  for (const entry of await archive.locator('.platform-admin-runtime-history-entry').all()) {
+    await entry.locator(':scope > summary').press('Enter');
+    await entry.locator('[data-runtime-observation] details > summary').press('Enter');
+  }
   for (const width of [320,1280]) {
     await page.setViewportSize({ width,height: 900 });
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

@@ -1,13 +1,17 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API fcd577aaadf83abfbc0d849ba363883f120463ca, the protected Product collector
-candidate in API PR360, stacked on schema75/service-identity PR359. This source
-also includes the prior Recovery and telemetry
-corrections. The immutable pair requires fresh complete CI; it is not a hosted
-release. The insight wire gate now exercises the real API route, authorization
-service, epoch-bound runtime snapshot and frontend adapter together. It preserves
-capture time, the separate evaluation clock and the synthetic INT label.
+API c9be2ceb4c0b6e833ce99577f2d3de292480c239, the private daily reader
+candidate in API PR365, based on Main8fe13556 including its reviewed dependencies.
+The immutable pair requires fresh complete CI; this document is not a hosted
+release receipt. The insight wire gate exercises the actual API route,
+authorization, minimized daily adapter, epoch-bound runtime snapshot and production
+frontend client together. It preserves independent observation/evaluation clocks,
+last-good state, unknown Product outcomes and the synthetic INT label.
+
+Historical counterpart: fcd577aaadf83abfbc0d849ba363883f120463ca was the prior
+protected Product collector candidate in API PR360, stacked on the schema75 and
+service-identity change. Its evidence remains bound to that earlier pair.
 
 Both refs are checked before setup and copied into unchanged closed runtime
 configuration and bounded evidence. It adds to the full regular Chromium/WebKit
