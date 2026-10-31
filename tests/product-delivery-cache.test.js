@@ -158,3 +158,13 @@ test('a runtime-only model has a bounded cache and does not require invented del
   h.advance(DAY); h.cache.check(); assert.deepEqual(h.expired, [value]);
   assert.equal(value.data.storedReport, null);
 });
+
+test('protected daily metadata expires independently when its stored Delivery report is already stale', () => {
+  for (const [age, freshness] of [[DAY - 1000, 'fresh'], [30 * DAY - 1000, 'stale']]) {
+    const h = harness();const value = withDailyFeed(resource('product-delivery-fixture.json'), { age, freshness });
+    value.data.dailySource = value.data.liveMetrics;value.data.liveMetrics = null;
+    assert.equal(h.cache.retain(value), true);assert.equal(h.latest().delay, 1000);
+    const original = structuredClone(value);h.advance(1000);h.cache.check();
+    assert.deepEqual(h.expired, [value]);assert.equal(h.timers.size, 0);assert.deepEqual(value, original);
+  }
+});

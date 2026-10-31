@@ -14,6 +14,7 @@ const { compileRuntimeProductReport } = await import(pathToFileURL(join(apiRoot,
 const { createPlatformInsightService } = await import(pathToFileURL(join(apiRoot, 'src/platform/application/insight-service.js')));
 const { createPlatformInsightRoutes } = await import(pathToFileURL(join(apiRoot, 'src/platform/http/insight-routes.js')));
 const { createPlatformAuthorizationPolicy, permissionsForPlatformRoles } = await import(pathToFileURL(join(apiRoot, 'src/platform/identity/policy.js')));
+const { createProtectedDailyInsights } = await import(pathToFileURL(join(apiRoot, 'src/observability/protected-daily-insights.js')));
 const now = Date.parse('2026-10-23T12:00:00.000Z');
 const securityEpoch = '11111111-1111-4111-8111-111111111111';
 const sourceContext = { runtimeEnvironment: 'int', dataProfile: 'synthetic',
@@ -38,7 +39,7 @@ const operatorContext = { operatorId: securityEpoch, roles, permissions: permiss
   session: { id: '22222222-2222-4222-8222-222222222222', securityVersion: 1, securityEpoch: 2,
     issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + 3600000).toISOString(), stepUpExpiresAt: null } };
 const service = createPlatformInsightService({ sources, authorizationPolicy: createPlatformAuthorizationPolicy(), clock: () => now });
-const handler = createPlatformInsightRoutes(service).createHandler({ maxResponseBytes: 100000,
+let handler = createPlatformInsightRoutes(service).createHandler({ maxResponseBytes: 100000,
   platformPrincipalGuard: { async require() { return operatorContext; } } });
 const seen = [];
 const insights = createProtectedPlatformInsights({ apiClient: { async request(path, options) {
@@ -61,5 +62,22 @@ assert.equal(loaded.runtimeProduct.observedAt, runtimeProduct.observedAt);
 assert.equal(loaded.runtimeProduct.evaluatedAt, new Date(now).toISOString());
 assert.deepEqual(loaded.runtimeProduct.sourceContext, sourceContext);
 assert.deepEqual(loaded.runtimeProduct.product, runtimeProduct.product);
-assert.deepEqual(seen, ['insights/providers', 'insights/product-delivery?schemaVersion=2']);
+assert.deepEqual(seen, ['insights/providers?schemaVersion=2', 'insights/product-delivery?schemaVersion=3']);
+const rawDaily = readFileSync(join(apiRoot, 'tests/support/daily-live-source-fixture.json'), 'utf8');
+const dailyInsights = createProtectedDailyInsights({ accessMode: 'application_passkey', clock: () => now,
+  storage: { async read() { return rawDaily; } } });
+const dailyService = createPlatformInsightService({ sources, dailyInsights,
+  authorizationPolicy: createPlatformAuthorizationPolicy(), clock: () => now });
+handler = createPlatformInsightRoutes(dailyService).createHandler({ maxResponseBytes: 100000,
+  platformPrincipalGuard: { async require() { return operatorContext; } } });
+const dailyProvider = await insights.providerUsage.load();
+assert.equal(dailyProvider.liveMetrics.observedAt, JSON.parse(rawDaily).observedAt);
+assert.equal(dailyProvider.liveMetrics.freshness, 'stale');
+assert.equal(dailyProvider.neon, undefined);
+assert.ok(dailyProvider.liveMetrics.measurements.slice(11).every(row => row.value === null));
+const dailyProduct = await insights.productDelivery.load();
+assert.equal(dailyProduct.dailySource.observedAt, JSON.parse(rawDaily).observedAt);
+assert.equal(dailyProduct.runtimeProduct.observedAt, runtimeProduct.observedAt);
+assert.ok(dailyProduct.storedReport.product.every(row => row.value === null));
+assert.equal(dailyProduct.storedReport.delivery[1].buckets[3].metrics[1].value, 1);
 console.log('PLATFORM_INSIGHT_API_WIRE_VERIFIED');
