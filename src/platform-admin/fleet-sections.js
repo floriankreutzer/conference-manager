@@ -287,16 +287,18 @@ function runtime(resource) {
   const { instances,unassigned } = groupRuntimeObservations(resource.data.deployments);
   return el('section', { className: 'platform-admin-runtime-workspace' }, [
     el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.orderNote') }),
-    el('div', { className: 'platform-admin-runtime-instances' }, instances.map(({ key,latest,history })=>el('section',{ dataset: { runtimeInstance: key } },[
+    el('div', { className: 'platform-admin-runtime-instances' }, instances.map(({ key,latest })=>el('section',{ dataset: { runtimeInstance: key } },[
       el('h2',{ text: t(`platformAdmin.runtime.surface.${latest.serviceInstance.surface}`) }),
       el('p',{ text: t('platformAdmin.runtime.instance',{ key: latest.serviceInstance.key }) }),
       el('p',{ text: t('platformAdmin.runtime.latest') }),
       renderRuntimeObservation(latest),
-      ...(history.length ? [el('details',{ className: 'platform-admin-runtime-history', dataset: { runtimeHistory: key } },[
-        el('summary',{ text: t('platformAdmin.runtime.historyCount', { count: formatNumber(history.length) }) }),
-        renderRuntimeHistory(history),
-      ])] : []),
     ]))),
+    ...instances.filter(({ history }) => history.length).map(({ key,latest,history }) => el('details', {
+      className: 'card platform-admin-runtime-history', dataset: { runtimeHistory: key },
+    }, [
+      el('summary', { text: `${t(`platformAdmin.runtime.surface.${latest.serviceInstance.surface}`)} · ${t('platformAdmin.runtime.historyCount', { count: formatNumber(history.length) })}` }),
+      renderRuntimeHistory(history),
+    ])),
     ...(unassigned.length ? [el('details',{ className: 'card platform-admin-runtime-history', dataset: { runtimeUnassigned: 'true' } },[
       el('summary',{ text: t('platformAdmin.runtime.unassignedCount', { count: formatNumber(unassigned.length) }) }),
       el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.unassignedNote') }),

@@ -34,7 +34,9 @@ export function renderRuntimeObservation(runtime, { headingLevel = 'h3' } = {}) 
       row('platformAdmin.runtime.maxAge',t('platformAdmin.runtime.ageSeconds',{ count: formatNumber(runtime.freshness.maxAgeSeconds) })),
     ]),
     el('p',{ className: 'platform-admin-data-note',text: t(`platformAdmin.runtime.observation.${runtime.freshness.state}`) }),
-    technical,el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.dataNote') }),
+    el('footer', { className: 'platform-admin-card-footer' }, [
+      technical,el('p',{ className: 'platform-admin-data-note',text: t('platformAdmin.runtime.dataNote') }),
+    ]),
   ]);
 }
 

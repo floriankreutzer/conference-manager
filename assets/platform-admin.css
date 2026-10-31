@@ -1632,6 +1632,7 @@
 
 .platform-admin-runtime-instances {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
+  grid-auto-rows: 1fr;
   align-items: stretch;
 }
 
