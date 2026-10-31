@@ -296,7 +296,9 @@ function runtime(resource) {
     ...instances.filter(({ history }) => history.length).map(({ key,latest,history }) => el('details', {
       className: 'card platform-admin-runtime-history', dataset: { runtimeHistory: key },
     }, [
-      el('summary', { text: `${t(`platformAdmin.runtime.surface.${latest.serviceInstance.surface}`)} · ${t('platformAdmin.runtime.historyCount', { count: formatNumber(history.length) })}` }),
+      el('summary', { text: t('platformAdmin.runtime.historyCount', {
+        surface: t(`platformAdmin.runtime.surface.${latest.serviceInstance.surface}`), count: formatNumber(history.length),
+      }) }),
       renderRuntimeHistory(history),
     ])),
     ...(unassigned.length ? [el('details',{ className: 'card platform-admin-runtime-history', dataset: { runtimeUnassigned: 'true' } },[
