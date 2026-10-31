@@ -1,8 +1,9 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API c9be2ceb4c0b6e833ce99577f2d3de292480c239, the private daily reader
-candidate in API PR365, based on Main8fe13556 including its reviewed dependencies.
+API d65e5c797687c493bd3f860553e602171536f0d4, the private daily reader
+candidate in API PR365, based on Main2c67a8f6 including the reviewed dependencies
+and authenticated private-build preparation from API PR364.
 The immutable pair requires fresh complete CI; this document is not a hosted
 release receipt. The insight wire gate exercises the actual API route,
 authorization, minimized daily adapter, epoch-bound runtime snapshot and production
