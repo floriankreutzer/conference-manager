@@ -52,7 +52,8 @@ jobs:
     needs: quality
     # Includes browser installation, canaries, the full suite and evidence upload.
     # Individual test deadlines and the complete engine matrix remain unchanged.
-    timeout-minutes: 25
+    # WebKit-mobile completed all 418 tests before the 25-minute job budget cancelled post-test completion.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
