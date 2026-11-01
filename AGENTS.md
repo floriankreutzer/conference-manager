@@ -144,10 +144,10 @@ If a required test cannot be executed, report that limitation explicitly. Never 
 
 ## 9. Git and pull-request discipline
 
-- Respect branch protection and repository rules.
-- Do not write directly to protected `main` when the repository requires a pull request.
-- Use the latest current file content/SHA before updates.
-- Keep changes scoped and reviewable.
+- Respect branch protection and repository rules. Jira is authoritative for internal backlog, priority, workflow, release scope, product acceptance and delivery/audit coordination; GitHub remains authoritative for implementation and native engineering evidence.
+- Do not write directly to protected `main` when the repository requires a pull request. Every productive change must reference an existing `CO-*` Jira work item; use the key in branch and PR titles where practical.
+- Use the latest current file content/SHA before updates. One Jira work item may span multiple repositories; do not create duplicate internal GitHub Issues or Milestones for the same work.
+- Keep changes scoped and reviewable. PR descriptions are concise engineering-review artifacts, not audit records; durable requirements/decisions belong in Confluence and acceptance/audit coordination belongs in Jira.
 - Do not overwrite unrelated work.
 - Do not claim a PR is ready while required checks are failing or still pending.
 - Review open PR comments and unresolved review threads before finalizing a change.
@@ -218,9 +218,3 @@ Required reviews, security checks, regression/progression tests and release gate
 Reconcile current documentation with the exact merged implementation and named deployment evidence. Distinguish current main, unmerged pull requests, deployed immutable counterparts, dated test evidence and planned behavior. Keep historical failures and accepted scope limits explicitly historical. A closed milestone does not prove every later change passed its own gates.
 ## Confluence documentation governance
 Before any Conference Manager Confluence create/edit/move/rename/restructure/archive work, read the authenticated internal Confluence pages `AGENT.md – Confluence Governance` and, before creating or materially restructuring documentation, `AGENT.1 – Documentation Standard & Page Templates`. Follow their page classes and milestone Overview → Requirements & Design → Audit & Acceptance Evidence pattern; keep current normative content separate from dated evidence; treat current repository `main` as authoritative for implemented code/runtime facts and explicitly reconcile Confluence rather than creating parallel implementation truth; preserve historical failures, waivers and superseded states as historical evidence; and never copy credentials, customer data, sensitive vulnerability/provider evidence, internal Confluence URLs, or unnecessary internal material into public repository files.
-
-## Jira-led delivery governance
-
-- Jira owns internal backlog, workflow, release scope, product acceptance and delivery/audit coordination; GitHub owns engineering implementation and native technical evidence; Confluence owns durable requirements and decisions.
-- Do not create new internal GitHub Issues or Milestones. Every productive change references an existing `CO-*` work item; use the key in branch and PR titles where practical, and reuse one Jira item across repositories when it represents one outcome.
-- Keep PRs concise engineering-review artifacts. Do not duplicate long acceptance/audit histories; retain native GitHub evidence in GitHub and durable decisions in Confluence.
