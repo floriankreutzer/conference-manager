@@ -143,7 +143,6 @@ Do not remove, weaken, skip, or rewrite tests merely to make an incorrect implem
 If a required test cannot be executed, report that limitation explicitly. Never claim a test or compliance result that was not actually verified.
 
 ## 9. Git and pull-request discipline
-
 - Respect branch protection and repository rules. Jira is authoritative for internal backlog, priority, workflow, release scope, product acceptance and delivery/audit coordination; GitHub remains authoritative for implementation and native engineering evidence.
 - Do not write directly to protected `main` when the repository requires a pull request. Every productive change must reference an existing `CO-*` Jira work item; use the key in branch and PR titles where practical.
 - Use the latest current file content/SHA before updates. One Jira work item may span multiple repositories; do not create duplicate internal GitHub Issues or Milestones for the same work.
