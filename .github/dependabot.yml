@@ -8,6 +8,9 @@ updates:
       time: "06:00"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "CO-291 "
+      prefix-development: "CO-291 "
     groups:
       npm-minor-patch:
         applies-to: version-updates
@@ -21,6 +24,8 @@ updates:
       time: "06:15"
       timezone: Europe/Berlin
     open-pull-requests-limit: 5
+    commit-message:
+      prefix: "CO-291 "
     groups:
       actions-version-updates:
         applies-to: version-updates
