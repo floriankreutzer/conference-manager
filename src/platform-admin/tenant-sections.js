@@ -581,7 +581,7 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
       edit.addEventListener('click', () => onQuotaSet(quota));
       controls.push(edit);
     }
-    list.append(el('article', { className: 'card platform-admin-record' }, [
+    list.append(el('article', { className: 'card platform-admin-record', dataset: { meteringDimension: dimension.dimension } }, [
       el('div', { className: 'platform-admin-record-heading' }, [platformHeading('usage', t(`platformAdmin.metering.name.${dimension.dimension}`)), state(usage.dataState)]),
       el('p', { text: t(`platformAdmin.metering.meaning.${dimension.dimension}`) }),
       el('strong', { text: dimension.value === null ? t('platformAdmin.value.unknown') : formatNumber(dimension.value) }),
@@ -590,8 +590,10 @@ function metering({ operator, resource, onRetry, onQuotaSet, onStepUp, operation
         { label: t('platformAdmin.metering.softLimit'), value: quota.state === 'unknown' ? t('platformAdmin.value.unknown') : quota.softLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.softLimit) },
         { label: t('platformAdmin.metering.hardLimit'), value: quota.state === 'unknown' ? t('platformAdmin.value.unknown') : quota.hardLimit === null ? t('platformAdmin.value.none') : formatNumber(quota.hardLimit) },
       ]),
-      el('details', {}, [el('summary', { text: t('platformAdmin.metering.technicalDetails') }), dataCode(dimension.dimension)]),
-      el('div', { className: 'button-row' }, controls),
+      el('footer', { className: 'platform-admin-card-footer' }, [
+        el('details', {}, [el('summary', { text: t('platformAdmin.metering.technicalDetails') }), dataCode(dimension.dimension)]),
+        ...(controls.length ? [el('div', { className: 'button-row' }, controls)] : []),
+      ]),
     ]));
   });
   if (operator.permissions.includes('platform:quota:manage') && !shouldPresentPlatformPermission(operator, 'platform:quota:manage', Date.now(), operationProofAvailable) && typeof onStepUp === 'function') {

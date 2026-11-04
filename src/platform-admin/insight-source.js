@@ -4,7 +4,7 @@ import { el } from '../core/ui.js';
 const SOURCE_KINDS = Object.freeze(['daily', 'product_daily', 'runtime', 'manual', 'feedback', 'legacy']);
 
 export function storedInsightSourceKind(model) {
-  return !model.liveMetrics && model.storedReport ? 'legacy' : 'product_daily';
+  return !model.liveMetrics && !model.dailySource && model.storedReport ? 'legacy' : 'product_daily';
 }
 
 // Source age and source completeness are independent. In particular, an old
@@ -29,6 +29,8 @@ export function renderInsightSourceStatus(source, kind, { showLabel = true } = {
 }
 
 export function renderInsightRetrievalNotice(retrieval) {
+  if (retrieval?.dailyState === 'last_good') return el('p', { className: 'platform-admin-insights-quality',
+    attrs: { role: 'status' }, text: t('platformAdmin.insights.sourceLastGood') });
   if (!retrieval?.dailyReason) return null;
   return el('div', { className: 'platform-admin-insights-quality',
     dataset: { insightFallback: 'daily' }, attrs: { role: 'status' } }, [

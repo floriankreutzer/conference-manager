@@ -82,7 +82,8 @@ jobs:
     needs: quality
     # Includes browser installation, canaries, the full suite and evidence upload.
     # Individual test deadlines and the complete engine matrix remain unchanged.
-    timeout-minutes: 25
+    # WebKit-mobile completed all 418 tests before the 25-minute job budget cancelled post-test completion.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -196,7 +197,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: fcd577aaadf83abfbc0d849ba363883f120463ca
+          ref: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -343,7 +344,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: fcd577aaadf83abfbc0d849ba363883f120463ca
+      PROTECTED_BROWSER_COUNTERPART_REF: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
     services:
       postgres:
@@ -369,7 +370,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: fcd577aaadf83abfbc0d849ba363883f120463ca
+          ref: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api

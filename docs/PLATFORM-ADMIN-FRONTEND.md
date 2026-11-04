@@ -213,28 +213,45 @@ engine and again in the unchanged full suite; permanent Demo/reset gates remain.
 
 ## Protected insight navigation
 
-The active application-passkey composition injects independent protected insight
-ports for the existing Providers & usage and Product & delivery views. They are
-available without selecting a Tenant. Provider navigation additionally requires
-the Security Admin role; both ports require runtime-read presentation permission.
-The backend independently enforces current passkey assurance, permission and
-all-Tenant scope before consulting private aggregate sources.
+The active application-passkey or Microsoft MFA composition injects independent
+protected insight ports for Providers & usage and Product & delivery without a
+selected customer. Provider navigation additionally requires Security Admin;
+both ports require runtime-read presentation permission. The API independently
+checks the current session, assurance, permission and global scope before IO.
 
 `production/insights-api.js` uses only fixed bodyless GETs to
-`insights/providers` and `insights/product-delivery`, with bounded deadlines,
-closed response validation and the exact `application_passkey` source identity.
-It cannot call Demo routes or fall back on another source after an authentication,
-authorization, availability or malformed-response failure. The Demo adapters and
-their default wire validation remain unchanged. Existing cards, tabs, source
-clocks, DE/EN messages, locale formatting, error/retry states and design tokens
-are reused. The production manifest inventories the newly reachable adapter.
+`insights/providers?schemaVersion=2` and `insights/product-delivery?schemaVersion=3`,
+with bounded deadlines, closed response validation and the configured protected
+source identity. Deploy the API supporting these versions first. The client
+retains legacy response validation for staged compatibility; it never retries a
+failed version through another route. Session, authorization and malformed-success
+failures propagate without Demo or alternate-source fallback.
 
-Missing Provider observations remain unavailable. Missing Product collection is
-an explicitly uncollected production report with unknown values. Daily feeds,
-runtime Product extraction and Operations/Feedback writers are not activated by
-this transport; no live metrics or collection acceptance is implied. Tenant detail
-menus still require a selected Tenant; optional synthetic controls retain their
-separate authentication policy and rollout decision.
+The optional API-owned private daily reader supplies 11 global provider dimensions
+and independent Delivery aggregates. The frontend validates observation/evaluation
+clocks, freshness and `available`, `last_good`, `unavailable` or `not_configured`.
+Missing sources and configured startup fallback are explicit. Five Demo inventory
+and activity dimensions cannot become protected Product use. Protected Product
+continues through the independent epoch-bound snapshot; no browser provider call,
+storage credential, collection trigger or Operations/Feedback writer is added.
+Original source times survive reload. The daily collection and the five-minute
+storage read cache are explained separately in DE/EN. Missing data remains unknown;
+a current daily envelope cannot renew a component's older observation.
+
+The provider cards share header, body and bottom-aligned details. Customer overview
+and metering cards use equal grid tracks with actions at a consistent bottom
+position, including narrow layouts and differing content lengths. Current runtime
+services remain first; historical observations use native collapsed list entries.
+Legacy observations without an authoritative service identity remain in a separate
+collapsed group and are never assigned from a name or runtime mode. Keyboard
+opening and closing preserve summary focus; version/schema details stay available.
+
+`check-platform-insight-wire.mjs` exercises actual API-generated responses through
+the production client, including the daily adapter and independent Product clock.
+DE/EN browser regressions cover daily/last-good states, source separation, aligned
+provider actions and 320/768/1440-pixel reflow. These synthetic checks are not live
+collection acceptance. Customer detail menus still require a selected customer;
+optional synthetic controls keep their separate policy and rollout decision.
 
 ## Persistent global routes and entitlement previews
 

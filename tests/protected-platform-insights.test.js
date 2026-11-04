@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { protectedDailyFixture } from './support/protected-daily-fixture.js';
 import { createProtectedPlatformInsights } from '../src/platform-admin/production/insights-api.js';
 
 const fixture = name => JSON.parse(readFileSync(new URL(`./support/${name}-fixture.json`, import.meta.url), 'utf8'));
@@ -9,7 +10,7 @@ test('protected insight ports use only their fixed bounded authenticated GETs an
   const calls = [];
   const api = createProtectedPlatformInsights({ apiClient: { async request(path, options) {
     calls.push({ path, options });
-    const value = fixture(path.endsWith('providers') ? 'provider-usage' : 'product-delivery');
+    const value = fixture(path.startsWith('insights/providers') ? 'provider-usage' : 'product-delivery');
     value.accessMode = 'application_passkey';
     if (value.environment) value.environment = 'production';
     return value;
@@ -20,7 +21,7 @@ test('protected insight ports use only their fixed bounded authenticated GETs an
   assert.equal(product.storedReport.environment, 'production');
   assert.ok(product.storedReport.product.every(row => row.value === null));
   assert.equal(product.liveMetrics, null);
-  assert.deepEqual(calls.map(row => row.path), ['insights/providers', 'insights/product-delivery?schemaVersion=2']);
+  assert.deepEqual(calls.map(row => row.path), ['insights/providers?schemaVersion=2', 'insights/product-delivery?schemaVersion=3']);
   assert.ok(calls.every(row => row.options.method === 'GET' && row.options.body === undefined && row.options.signal));
 });
 
@@ -104,4 +105,39 @@ test('protected Product v2 retains independent source clocks and validates the e
     value=>{ delete value.runtimeProduct; }]) {
     const invalid=structuredClone(bundle);change(invalid);await assert.rejects(client(invalid).productDelivery.load());
   }
+});
+
+
+test('protected daily bundles preserve separate source clocks, provider-only measurements and last-good metadata', async () => {
+  const client = value => createProtectedPlatformInsights({ apiClient: { async request() { return value; } } });
+  for (const state of ['available', 'last_good']) {
+    const provider = await client(protectedDailyFixture('providers', state)).providerUsage.load();
+    assert.equal(provider.liveMetrics.sourceState, state);
+    assert.equal(provider.retrieval.dailyState, state);
+    assert.ok(provider.liveMetrics.measurements.slice(11).every(row => row.value === null));
+    assert.equal(provider.liveMetrics.measurements[1].value, 0.5);
+    assert.equal(provider.neon, undefined);
+    const product = await client(protectedDailyFixture('product', state)).productDelivery.load();
+    assert.equal(product.dailySource.sourceState, state);
+    assert.equal(product.liveMetrics, null);assert.equal(product.runtimeProduct, null);
+    assert.ok(product.storedReport.product.every(row => row.value === null));
+    assert.equal(product.storedReport.delivery[1].buckets[3].metrics[1].value, 1);
+  }
+  const fallback = { schemaVersion: 3, dailyState: 'unavailable', daily: null, runtimeProduct: null,
+    storedReport: { ...fixture('product-delivery'), environment: 'production', accessMode: 'application_passkey' } };
+  assert.equal((await client(fallback).productDelivery.load()).retrieval.dailyReason, 'unavailable');
+  for (const kind of ['providers', 'product']) {
+    for (const mutate of [value => { value.accountId = 'private'; }, value => { value.daily.tenantId = 'private'; },
+      value => { value.daily.sourceState = 'unavailable'; }, value => { value.dailyState = 'not_configured'; },
+      value => { value.daily.evaluatedAt = '2026-10-14T12:00:00.000Z'; },
+      value => { value.daily.freshness = 'stale'; }, value => { value.daily = null; }]) {
+      const value = protectedDailyFixture(kind);mutate(value);
+      await assert.rejects(client(value)[kind === 'providers' ? 'providerUsage' : 'productDelivery'].load());
+    }
+  }
+  const leaked = protectedDailyFixture();leaked.daily.measurements[0].id = 'tenants';
+  await assert.rejects(client(leaked).providerUsage.load());
+  const future = protectedDailyFixture('product');future.storedReport.observedAt = '2099-01-01T00:00:00.000Z';
+  await assert.rejects(client(future).productDelivery.load());
+  await assert.rejects(client({ schemaVersion: 2, dailyState: 'unavailable', daily: null, providerUsage: null }).providerUsage.load());
 });

@@ -123,31 +123,35 @@ function providerCard(report, id, elapsedMs) {
       el('span', { className: 'platform-admin-status', dataset: { tone: state === 'fresh' ? 'positive' : 'warning' },
         text: t(`platformAdmin.insights.sourceState.${state}`) }),
     ]),
-    el('p', { className: 'platform-admin-insights-primary-value', text: n ? amount(n.usedBytes) : formatLiveMetric(main) }),
-    el('p', { className: 'platform-admin-insights-value-label', text: t(`platformAdmin.insights.providers.primary.${id}`) }),
-    ...(n ? [
-      el('label', { attrs: { for: 'platformProviderNeonMeter' },
-        text: t('platformAdmin.providers.utilization', { percent: percent(n.utilizationPercent) }) }),
-      el('meter', { id: 'platformProviderNeonMeter', className: 'platform-admin-provider-meter',
-        attrs: { min: '0', max: String(n.referenceBytes), value: String(Math.min(n.usedBytes, n.referenceBytes)),
-          'aria-describedby': 'platformProviderModelNote' } }),
-      el('p', { id: 'platformProviderModelNote', className: 'platform-admin-data-note',
-        text: t('platformAdmin.insights.providers.referenceShort', { amount: amount(n.referenceBytes) }) }),
-    ] : []),
-    ...(lines.length ? [el('dl', { className: 'platform-admin-insights-card-values' }, lines)] : []),
-    ...(id === 'resend' ? [quotaMeter(report, 'daily'), quotaMeter(report, 'monthly')] : []),
-    ...(observedAt ? [el('p', { className: 'platform-admin-insights-timestamp',
-      text: t('platformAdmin.insights.observedAt', { time: formatDateTime(observedAt) }) })] : []),
-    ...(main?.sampleAt ? [el('p', { className: 'platform-admin-insights-timestamp',
-      text: t('platformAdmin.liveMetrics.sampleAt', { time: formatDateTime(main.sampleAt) }) })] : []),
-    el('details', { className: 'platform-admin-insights-details' }, [
-      el('summary', { text: t('platformAdmin.insights.providers.cardDetails') }),
-      el('p', { text: t(notesKey) }),
-      ...(id === 'neon' ? [el('p', { text: t('platformAdmin.insights.providers.neonDetailsHint') })] : [
-        el('dl', { className: 'platform-admin-insights-card-values' }, rowsFor(report, id).map((row) => detail(
-          `platformAdmin.liveMetrics.metric.${row.id}`, formatLiveMetric(row)))),
+    el('div', { className: 'platform-admin-card-body' }, [
+      el('p', { className: 'platform-admin-insights-primary-value', text: n ? amount(n.usedBytes) : formatLiveMetric(main) }),
+      el('p', { className: 'platform-admin-insights-value-label', text: t(`platformAdmin.insights.providers.primary.${id}`) }),
+      ...(n ? [
+        el('label', { attrs: { for: 'platformProviderNeonMeter' },
+          text: t('platformAdmin.providers.utilization', { percent: percent(n.utilizationPercent) }) }),
+        el('meter', { id: 'platformProviderNeonMeter', className: 'platform-admin-provider-meter',
+          attrs: { min: '0', max: String(n.referenceBytes), value: String(Math.min(n.usedBytes, n.referenceBytes)),
+            'aria-describedby': 'platformProviderModelNote' } }),
+        el('p', { id: 'platformProviderModelNote', className: 'platform-admin-data-note',
+          text: t('platformAdmin.insights.providers.referenceShort', { amount: amount(n.referenceBytes) }) }),
+      ] : []),
+      ...(lines.length ? [el('dl', { className: 'platform-admin-insights-card-values' }, lines)] : []),
+      ...(id === 'resend' ? [quotaMeter(report, 'daily'), quotaMeter(report, 'monthly')] : []),
+    ]),
+    el('footer', { className: 'platform-admin-card-footer' }, [
+      ...(observedAt ? [el('p', { className: 'platform-admin-insights-timestamp',
+        text: t('platformAdmin.insights.observedAt', { time: formatDateTime(observedAt) }) })] : []),
+      ...(main?.sampleAt ? [el('p', { className: 'platform-admin-insights-timestamp',
+        text: t('platformAdmin.liveMetrics.sampleAt', { time: formatDateTime(main.sampleAt) }) })] : []),
+      el('details', { className: 'platform-admin-insights-details' }, [
+        el('summary', { text: t('platformAdmin.insights.providers.cardDetails') }),
+        el('p', { text: t(notesKey) }),
+        ...(id === 'neon' ? [el('p', { text: t('platformAdmin.insights.providers.neonDetailsHint') })] : [
+          el('dl', { className: 'platform-admin-insights-card-values' }, rowsFor(report, id).map((row) => detail(
+            `platformAdmin.liveMetrics.metric.${row.id}`, formatLiveMetric(row)))),
+        ]),
+        ...(state === 'unknown' || state === 'partial' ? [el('p', { text: t('platformAdmin.insights.sourceMissing') })] : []),
       ]),
-      ...(state === 'unknown' || state === 'partial' ? [el('p', { text: t('platformAdmin.insights.sourceMissing') })] : []),
     ]),
   ]);
 }

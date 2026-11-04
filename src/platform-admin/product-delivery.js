@@ -181,7 +181,11 @@ function sourceCoverage(model) {
 
 function renderOverview(report) {
   return [
-    renderLiveMetrics(report.liveMetrics, 'product'),
+    ...(report.dailySource ? [el('section', { className: 'card' }, [
+      el('h2', { text: t('platformAdmin.insights.source.product_daily') }),
+      renderInsightSourceStatus(report.dailySource, 'daily'),
+      el('p', { text: t('platformAdmin.insights.product.protectedDailyScope') }),
+    ])] : [renderLiveMetrics(report.liveMetrics, 'product')]),
     sourceCoverage(report),
   ];
 }
@@ -224,7 +228,7 @@ function renderDelivery(model) {
       ...(report ? [
         el('p', { className: 'platform-admin-data-note', text: windowLabel(report) }),
         el('div', { className: 'platform-admin-provider-grid' }, report.delivery.map((component) => deliveryComponent(component))),
-        sourceDetails(report, [], model.liveMetrics ? [
+        sourceDetails(report, [], model.liveMetrics || model.dailySource ? [
           'platformAdmin.productDelivery.deliveryNote',
           'platformAdmin.insights.product.deliverySource.application',
           'platformAdmin.insights.product.deliverySource.api',
@@ -296,8 +300,8 @@ function renderHeader(resource, refresh) {
       ]), refresh,
     ]),
     el('dl', { className: 'platform-admin-insights-clock-grid' }, [
-      definition(t('platformAdmin.insights.product.dailyObserved'), report.liveMetrics?.observedAt
-        ? formatDateTime(report.liveMetrics.observedAt) : t('common.unknown')),
+      definition(t('platformAdmin.insights.product.dailyObserved'), (report.liveMetrics || report.dailySource)?.observedAt
+        ? formatDateTime((report.liveMetrics || report.dailySource).observedAt) : t('common.unknown')),
       definition(t('platformAdmin.insights.product.runtimeObserved'), report.runtimeProduct?.observedAt
         ? formatDateTime(report.runtimeProduct.observedAt) : t('common.unknown')),
       definition(t('platformAdmin.insights.product.storedObserved'), report.storedReport?.observedAt
@@ -306,7 +310,7 @@ function renderHeader(resource, refresh) {
         ? formatDateTime(resource.loadedAt) : t('common.unknown')),
     ]),
     el('p', { className: 'platform-admin-data-note', text: t(
-      ['microsoft_mfa','application_passkey'].includes(primary.accessMode)
+      report.dailySource ? 'platformAdmin.insights.product.dailyRefreshNote' : ['microsoft_mfa','application_passkey'].includes(primary.accessMode)
         ? 'platformAdmin.insights.product.storedRefreshNote' : 'platformAdmin.insights.product.refreshNote') }),
     el('details', { className: 'platform-admin-insights-details' }, [
       el('summary', { text: t('platformAdmin.insights.product.contextDetails') }),
