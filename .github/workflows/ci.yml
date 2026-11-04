@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
 
 permissions:
   contents: read
@@ -17,6 +18,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Require matching Jira key in PR title and branch
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.head_ref }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$PR_TITLE" =~ ^(CO-[1-9][0-9]*)[[:space:]]+[^[:space:]] ]]; then
+            echo "::error title=Missing Jira work item key::PR title must start with CO-123 followed by a descriptive title."
+            exit 1
+          fi
+          TITLE_KEY="${BASH_REMATCH[1]}"
+
+          if [[ "$ACTOR" == "dependabot[bot]" ]]; then
+            echo "Dependabot branch naming is provider-controlled; Jira traceability is enforced through PR key $TITLE_KEY."
+            exit 0
+          fi
+
+          if [[ ! "$HEAD_REF" =~ (^|[/_-])(CO-[1-9][0-9]*)([/_-]|$) ]]; then
+            echo "::error title=Missing Jira branch key::Branch name must contain the PR Jira key, for example CO-123-short-description or feature/CO-123-short-description."
+            exit 1
+          fi
+          BRANCH_KEY="${BASH_REMATCH[2]}"
+          if [[ "$BRANCH_KEY" != "$TITLE_KEY" ]]; then
+            echo "::error title=Jira key mismatch::Branch key $BRANCH_KEY must match PR key $TITLE_KEY."
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node.js
@@ -167,7 +197,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: d65e5c797687c493bd3f860553e602171536f0d4
+          ref: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
@@ -314,7 +344,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: d65e5c797687c493bd3f860553e602171536f0d4
+      PROTECTED_BROWSER_COUNTERPART_REF: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
     services:
       postgres:
@@ -340,7 +370,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: d65e5c797687c493bd3f860553e602171536f0d4
+          ref: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
           token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
           persist-credentials: false
           path: api
