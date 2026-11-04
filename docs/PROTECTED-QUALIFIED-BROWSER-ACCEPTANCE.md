@@ -1,9 +1,13 @@
 # Qualified protected browser acceptance
 
 The separate acceptance matrix runs the exact frontend candidate against pinned
-API d65e5c797687c493bd3f860553e602171536f0d4, the private daily reader
-candidate in API PR365, based on Main2c67a8f6 including the reviewed dependencies
-and authenticated private-build preparation from API PR364.
+API 0ef08b5eaec473a1458b8d22ecc5a798c20a81da, the private daily reader
+with current Jira governance and protected deployment identity (CO-84 / API PR376).
+Frontend PR446 (CO-81) passed the complete candidate matrix in CI41865825475;
+API PR376 passed CI41865832585. Their earlier cancelled runs remain historical.
+The selected API863e8220 differs only in its protected frontend Gitlink and build
+document; application, tests, dependency locks and wrapper are byte-identical.
+Independent Main and actual provider acceptance remain separate release gates.
 The immutable pair requires fresh complete CI; this document is not a hosted
 release receipt. The insight wire gate exercises the actual API route,
 authorization, minimized daily adapter, epoch-bound runtime snapshot and production
@@ -38,7 +42,9 @@ Regular canaries are bound to the selected matrix engine, just like the full
 suite. The Guest print, Tenant Admin and Employee canaries previously ran both
 engines in each row, duplicating the same engine/case pairs. Both complete
 projects, all distinct canary cases, the two-engine transport check, fail-closed
-aggregate and existing 25-minute row budgets remain. The c4b0 attempt's WebKit
+aggregate remain. The regular browser rows now have a bounded 30-minute budget
+for installation, canaries, the complete suite and evidence upload; individual test
+deadlines and the full engine matrix are unchanged. The earlier c4b0 attempt's WebKit
 log reports 406 passed immediately before cancellation at that budget; its failed
 workflow result remains historical evidence and is not accepted as a pass.
 
