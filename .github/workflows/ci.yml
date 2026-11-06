@@ -173,6 +173,7 @@ jobs:
     timeout-minutes: 50
     env:
       DEMO_RATE_LIMIT_MAX: '1000'
+      HAS_SOURCE_APP: ${{ secrets.CM_CI_READER_APP_ID != '' || secrets.CM_CI_READER_PRIVATE_KEY != '' }}
     services:
       postgres:
         image: docker.io/library/postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
@@ -193,12 +194,34 @@ jobs:
         with:
           persist-credentials: false
           path: frontend
+      - name: Require complete private source credentials
+        shell: bash
+        env:
+          HAS_SOURCE_APP_ID: ${{ secrets.CM_CI_READER_APP_ID != '' }}
+          HAS_SOURCE_PRIVATE_KEY: ${{ secrets.CM_CI_READER_PRIVATE_KEY != '' }}
+          SOURCE_REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          set -euo pipefail
+          case "$HAS_SOURCE_APP_ID:$HAS_SOURCE_PRIVATE_KEY:$SOURCE_REPOSITORY_PRIVATE" in
+            true:true:true|true:true:false|false:false:false) ;;
+            *) echo '::error::Complete CI Reader credentials are required for private sources; partial or unknown configuration is rejected.'; exit 1 ;;
+          esac
+      - name: Create short-lived private source token
+        id: source-token
+        if: env.HAS_SOURCE_APP == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.CM_CI_READER_APP_ID }}
+          private-key: ${{ secrets.CM_CI_READER_PRIVATE_KEY }}
+          owner: floriankreutzer
+          repositories: conference-manager-api
+          permission-contents: read
       - name: Checkout immutable API commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
           ref: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
-          token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
+          token: ${{ steps.source-token.outputs.token || github.token }}
           persist-credentials: false
           path: api
       - name: Setup Node.js
@@ -346,6 +369,7 @@ jobs:
     env:
       PROTECTED_BROWSER_COUNTERPART_REF: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+      HAS_SOURCE_APP: ${{ secrets.CM_CI_READER_APP_ID != '' || secrets.CM_CI_READER_PRIVATE_KEY != '' }}
     services:
       postgres:
         image: docker.io/library/postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
@@ -366,12 +390,34 @@ jobs:
         with:
           persist-credentials: false
           path: frontend
+      - name: Require complete private source credentials
+        shell: bash
+        env:
+          HAS_SOURCE_APP_ID: ${{ secrets.CM_CI_READER_APP_ID != '' }}
+          HAS_SOURCE_PRIVATE_KEY: ${{ secrets.CM_CI_READER_PRIVATE_KEY != '' }}
+          SOURCE_REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          set -euo pipefail
+          case "$HAS_SOURCE_APP_ID:$HAS_SOURCE_PRIVATE_KEY:$SOURCE_REPOSITORY_PRIVATE" in
+            true:true:true|true:true:false|false:false:false) ;;
+            *) echo '::error::Complete CI Reader credentials are required for private sources; partial or unknown configuration is rejected.'; exit 1 ;;
+          esac
+      - name: Create short-lived private source token
+        id: source-token
+        if: env.HAS_SOURCE_APP == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.CM_CI_READER_APP_ID }}
+          private-key: ${{ secrets.CM_CI_READER_PRIVATE_KEY }}
+          owner: floriankreutzer
+          repositories: conference-manager-api
+          permission-contents: read
       - name: Checkout immutable protected API bootstrap
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
           ref: 0ef08b5eaec473a1458b8d22ecc5a798c20a81da
-          token: ${{ secrets.SHARED_DEMO_API_READ_TOKEN || github.token }}
+          token: ${{ steps.source-token.outputs.token || github.token }}
           persist-credentials: false
           path: api
       - name: Verify immutable counterpart and candidate refs

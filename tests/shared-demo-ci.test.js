@@ -35,7 +35,7 @@ test('shared Demo cookie isolation inspects the cookies on their bounded API pat
 test('shared Demo CI pins the API and uses read-only checkout authority for public or private sources', async () => {
   const workflow = await readFile(workflowUrl, 'utf8');
   const apiCheckout = workflow.match(
-    /repository: floriankreutzer\/conference-manager-api\s+ref: ([a-f0-9]{40})\s+token: \$\{\{ secrets\.SHARED_DEMO_API_READ_TOKEN \|\| github\.token \}\}\s+persist-credentials: false/,
+    /repository: floriankreutzer\/conference-manager-api\s+ref: ([a-f0-9]{40})\s+token: \$\{\{ steps\.source-token\.outputs\.token \|\| github\.token \}\}\s+persist-credentials: false/,
   );
 
   assert.ok(apiCheckout, 'expected an immutable API checkout with bounded credential fallback');
@@ -54,7 +54,7 @@ test('shared Demo CI uses bounded request capacity only for the complete cross-b
   assert.equal(capacityDeclarations.length, 1);
   assert.match(
     workflow,
-    /shared-demo-e2e:[\s\S]*?timeout-minutes: 50\s+env:\s+DEMO_RATE_LIMIT_MAX: '1000'\s+services:/,
+    /shared-demo-e2e:[\s\S]*?timeout-minutes: 50\s+env:\s+DEMO_RATE_LIMIT_MAX: '1000'\s+HAS_SOURCE_APP: [^\n]+\s+services:/,
   );
   assert.doesNotMatch(
     workflow,
