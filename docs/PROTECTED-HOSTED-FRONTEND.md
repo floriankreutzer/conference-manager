@@ -16,6 +16,11 @@ PROTECTED_PRESENTATION_INVITATIONS_ENABLED defaultfalse. These are public
 presentation choices, never authorization or operating-readiness evidence.
 No runtime credentials belong in a frontend build.
 
+For the selected Pavurel INT domains, use the explicit existing build inputs and
+coordinated release requirements in [Pavurel INT application domain cutover](PAVUREL-INT-DOMAIN-CUTOVER.md),
+tracked by shared issue415. Preparing these artifacts does not activate a domain
+or establish live identity/provider acceptance.
+
 The CLI checks actual HEAD and a clean checkout before reading browser source.
 The reusable builder captures the existing production reachable Customer graph
 and existing independent Platform production inventory, applying the established
