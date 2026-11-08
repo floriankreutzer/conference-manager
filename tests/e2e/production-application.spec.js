@@ -5221,3 +5221,44 @@ test('EMP-03: room cards and review resolve catalogue equipment references witho
   await expect(review).toContainText('Display 86 Zoll · Whiteboard · Ausstattung nicht verfügbar');
   await expect(review).not.toContainText(id);await expect(review).not.toContainText(unknown);expect(fixture.writes).toHaveLength(0);
 });
+
+
+for (const language of ['de', 'en']) {
+  test(`CO-297 calendar columns remain equal with long titles across all weekdays (${language})`, async ({ page }) => {
+    const fixture = await installProductionApplicationFixture(page);
+    const title = 'L'.repeat(160);
+    for (let index = 0; index < 7; index += 1) {
+      const request = confirmedV2RequestFixture();
+      request.id = `10000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`;
+      request.status = 'Submitted';
+      request.startsAt = `2099-06-${String(1 + index).padStart(2, '0')}T07:00:00.000Z`;
+      request.endsAt = `2099-06-${String(1 + index).padStart(2, '0')}T08:00:00.000Z`;
+      request.details.title = index === 0 ? title : `Meeting ${index}`;
+      fixture.requests().unshift(request);
+    }
+    if (language === 'en') await page.addInitScript(() => localStorage.setItem('conference_language_v1', 'en'));
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="requests"]').click();
+    await page.getByRole('button', { name: language === 'de' ? 'Kalender' : 'Calendar', exact: true }).click();
+    const events = page.locator('.calendar-event');
+    await expect(events).toHaveCount(7);
+    await expect(events.first()).toHaveAccessibleName(new RegExp(title));
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      const dimensions = await page.locator('.calendar-table').evaluate(table => ({
+        widths: [...table.querySelectorAll('th')].map(cell => cell.getBoundingClientRect().width),
+        viewport: innerWidth, documentWidth: document.documentElement.scrollWidth,
+        overflowing: [...table.querySelectorAll('.calendar-event')].some(event =>
+          event.getBoundingClientRect().right > event.closest('td').getBoundingClientRect().right + 1),
+      }));
+      expect(Math.max(...dimensions.widths) - Math.min(...dimensions.widths)).toBeLessThan(1);
+      expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewport + 1);
+      expect(dimensions.overflowing).toBe(false);
+    }
+    await events.first().focus();
+    await events.first().press('Enter');
+    await expect(page.locator('[data-production-request-id="10000000-0000-4000-8000-000000000001"]')).toBeFocused();
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    expect(fixture.writes).toHaveLength(0);
+  });
+}

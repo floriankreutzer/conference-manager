@@ -969,6 +969,7 @@ main {
 }
 
 .calendar-table {
+  table-layout: fixed;
   width: 100%;
   min-width: 760px;
   border-collapse: collapse;
@@ -982,6 +983,7 @@ main {
 }
 
 .calendar-table th {
+  width: calc(100% / 7);
   background: var(--color-surface-subtle);
   font-size: var(--font-size-sm);
   text-align: left;
@@ -1010,6 +1012,22 @@ main {
   background: var(--brand-secondary-surface);
   color: var(--color-ink);
   text-align: left;
+}
+
+.calendar-event > span {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-event-time {
+  font-weight: var(--font-weight-medium);
+}
+
+.calendar-event-status {
+  font-size: var(--font-size-sm);
 }
 
 /* Dialogs */
