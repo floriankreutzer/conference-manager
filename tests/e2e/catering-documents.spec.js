@@ -87,3 +87,30 @@ test('manual document preflight authority loss clears the Manager surface withou
   await expect(page.getByRole('button', { name: 'CSV herunterladen' })).toHaveCount(0);
   expect(downloads).toBe(0); expect(fixture.writes).toHaveLength(0);
 });
+
+
+for (const language of ['de', 'en']) {
+  test(`CO-301 ${language}: multiline catering requirements remain readable in order and print views`, async ({ page }) => {
+    const fixture = await install(page, { language, multilineRequirements: true });
+    const requirements = page.locator('.request-detail-text');
+    await expect(requirements).toHaveCount(2);
+    await expect(requirements.first()).toContainText('Vegan\nNo nuts');
+    await expect(requirements.first()).toHaveCSS('white-space', 'pre-line');
+    const popupPromise = page.waitForEvent('popup');
+    await page.getByRole('button', { name: language === 'de' ? 'PDF / Druckansicht öffnen' : 'Open PDF / print view' }).click();
+    const popup = await popupPromise;
+    const print = popup.getByRole('button', { name: language === 'de' ? 'Drucken / als PDF speichern' : 'Print / save as PDF' });
+    await expect(print).toBeEnabled();
+    const paragraphs = popup.locator('.guest-print-requirements');
+    await expect(paragraphs).toHaveCount(2);
+    await expect(paragraphs.first()).toContainText('Vegan\nNo nuts');
+    await expect(paragraphs.last()).toContainText('First line\nSecond line');
+    await expect(paragraphs.first()).toHaveCSS('white-space', 'pre-line');
+    for (const width of [390, 768, 1366]) {
+      await popup.setViewportSize({ width, height: 900 });
+      expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    expect(fixture.writes).toHaveLength(0);
+    await popup.close();
+  });
+}
