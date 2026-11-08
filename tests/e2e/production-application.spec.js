@@ -2636,6 +2636,132 @@ for (const language of ['de', 'en']) {
   });
 }
 
+async function failRepeatedRequest(page, options = {}, language = 'de') {
+  await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+  const fixture = await installProductionApplicationFixture(page, {
+    requestCreateErrors: [{ status: 503, code: 'SERVICE_UNAVAILABLE' }],
+    ...options,
+  });
+  fixture.requests().push({
+    ...confirmedV2RequestFixture(),
+    id: '66666666-6666-4666-8666-666666666666',
+    status: 'Cancelled',
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: language === 'de' ? 'Erneut anfragen' : 'Request again', exact: true }).click();
+  await page.locator('#productionTitle').fill('Edited repeated request');
+  await page.locator('#productionSpecial').fill('First retained line\nSecond retained line');
+  await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+  await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+  for (let step = 3; step <= 6; step += 1) {
+    await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+  }
+  await page.getByRole('button', { name: language === 'de' ? 'Anfrage absenden' : 'Submit request', exact: true }).click();
+  await expect(page.getByRole('button', {
+    name: language === 'de' ? 'Ergebnis in Meine Anfragen prüfen' : 'Check result in My requests',
+  })).toBeFocused();
+  return fixture;
+}
+
+test('CO-301: repeated-request outcome inspection preserves the editor and workflow for retry', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page);
+  const inspect = page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' });
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Updated conference');
+  await expect(dialog.getByRole('button', { name: 'Schließen', exact: true })).toBeFocused();
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(inspect).toBeFocused();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  await expect(page.locator('#productionSpecial')).toHaveValue('First retained line\nSecond retained line');
+  await page.getByRole('button', { name: 'Raum erneut prüfen' }).click();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  expect(fixture.requestEnvelopes).toHaveLength(2);
+  expect(fixture.requestEnvelopes[1]).toEqual(fixture.requestEnvelopes[0]);
+  expect(fixture.workflowWrites).toHaveLength(1);
+  expect(fixture.requests()).toHaveLength(2);
+});
+
+test('CO-301: repeated-request lost response can be inspected without another write', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page, { requestCreateErrors: [], loseCreatedResponse: true });
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog).toContainText('Edited repeated request');
+  await expect(dialog).toContainText('Zur Prüfung');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.workflowWrites).toHaveLength(1);
+  expect(fixture.requests()).toHaveLength(2);
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+});
+
+test('CO-301: English repeated-request inspection keeps native dialog focus and bounded layout', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page, {}, 'en');
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'My requests', exact: true });
+  await expect(dialog).toContainText('Updated conference');
+  await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+  await expect(dialog).toContainText('Cancelled');
+  expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Check result in My requests' })).toBeFocused();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+});
+
+test('CO-301: repeated-request inspection read failure retains the draft and does not write', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page);
+  fixture.failNextRequestRead(503);
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog).toContainText('Die Aktion konnte nicht sicher abgeschlossen werden.');
+  await expect(dialog.locator('[aria-busy="true"]')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.workflowWrites).toHaveLength(1);
+});
+
+test('CO-301: closing repeated-request inspection ignores its delayed read without losing the draft', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page);
+  const release = fixture.holdNextRequestRead();
+  const response = page.waitForResponse(value => new URL(value.url()).pathname === '/api/v1/application/requests'
+    && value.request().method() === 'GET');
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog.locator('[aria-busy="true"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  release();
+  await response;
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  await expect(page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' })).toBeFocused();
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+});
+
+for (const authorityStatus of [401, 403]) {
+  test(`CO-301: repeated-request inspection ${authorityStatus} clears editor authority and the dialog`, async ({ page }) => {
+    const fixture = await failRepeatedRequest(page);
+    fixture.failNextRequestRead(authorityStatus);
+    await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+    await expect(page.locator('[data-authority-invalid="true"]')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Meine Anfragen', exact: true })).toHaveCount(0);
+    await expect(page.locator('#productionTitle')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+    expect(fixture.requestEnvelopes).toHaveLength(1);
+    expect(fixture.workflowWrites).toHaveLength(1);
+  });
+}
+
 test('CO-301: failed submission exposes keyboard recovery and retains the same workflow for an explicit retry', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     requestCreateErrors: [{ status: 503, code: 'SERVICE_UNAVAILABLE' }],
