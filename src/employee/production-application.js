@@ -1180,6 +1180,9 @@ export function createProductionEmployeeApplication({
     const recheckRoom = button(t('production.employee.recheckRoom'));
     recheckRoom.addEventListener('click', () => moveToStep(2));
     const inspectRequests = button(t('production.employee.inspectRequests'));
+    for (const control of [inspectRequests, recheckRoom]) {
+      control.setAttribute('aria-describedby', 'productionSubmissionRecovery');
+    }
     inspectRequests.addEventListener('click', () => {
       if (!isCurrentEditor() || workflowMutationPending) return;
       scheduleDraftSave({ immediate: true });
@@ -1346,6 +1349,7 @@ export function createProductionEmployeeApplication({
       attrs: { role: 'group' },
     });
     const recoveryHint = el('p', {
+      id: 'productionSubmissionRecovery',
       className: 'muted', text: t(isResubmission
         ? 'production.employee.resubmissionRecovery' : 'production.employee.submissionRecovery'),
     });
@@ -1901,6 +1905,8 @@ export function createProductionEmployeeApplication({
           activeStep = 2;
           renderActiveStep();
           focusStep();
+        } else {
+          (isResubmission ? recheckRoom : inspectRequests).focus();
         }
       } finally {
         unlockDraft();

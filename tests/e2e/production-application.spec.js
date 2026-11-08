@@ -2649,8 +2649,11 @@ test('CO-301: failed submission exposes keyboard recovery and retains the same w
   await page.getByRole('button', { name: 'Anfrage absenden' }).click();
   await expect(page.getByRole('button', { name: 'Anfrage absenden' })).toBeDisabled();
   await expect(page.getByText('Ihre Eingaben bleiben erhalten.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' })).toBeFocused();
   const recover = page.getByRole('button', { name: 'Raum erneut prüfen' });
-  await recover.focus();
+  await page.keyboard.press('Tab');
+  await expect(recover).toBeFocused();
+  await expect(recover).toHaveAttribute('aria-describedby', 'productionSubmissionRecovery');
   await page.keyboard.press('Enter');
   await expect(page.locator('[data-step-panel="2"] h2')).toBeFocused();
   await expect(page.locator('#productionTitle')).toHaveValue('Customer workshop');
