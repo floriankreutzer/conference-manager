@@ -158,7 +158,7 @@ function renderHistory(history) {
 export function createLocationsSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('LOCATIONS_SECTION_ADAPTER_INVALID');
 
-  async function render({ root, isCurrent, rerender }) {
+  async function render({ root, isCurrent, rerender, registerEditor }) {
     renderSectionLoading(root, TITLE);
     let snapshot;
     let history;
@@ -224,6 +224,18 @@ export function createLocationsSection({ adapter = null } = {}) {
     const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
     let mutationPending = false;
     form.prepend(el('div', { className: 'button-row catalogue-save-actions' }, [save]), status);
+    const editorState = registerEditor?.({
+      // Search/filter inputs are presentation state, not unsaved configuration.
+      read: () => JSON.stringify([...form.querySelectorAll('fieldset input, fieldset select, fieldset textarea')]
+        .map((control) => [control.id, control.type === 'checkbox' ? control.checked : control.value])),
+      isCurrent,
+    });
+    const updateDirtyStatus = () => {
+      if (!mutationPending) status.textContent = editorState?.isDirty() ? t('tenantAdmin.unsaved.title') : '';
+    };
+    form.addEventListener('input', updateDirtyStatus);
+    form.addEventListener('change', updateDirtyStatus);
+    addSite.addEventListener('click', updateDirtyStatus);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;
@@ -231,6 +243,8 @@ export function createLocationsSection({ adapter = null } = {}) {
       save.disabled = true;
       addSite.disabled = true;
       mutationPending = true;
+      const locked = [...form.querySelectorAll('input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)')];
+      locked.forEach((control) => { control.disabled = true; });
       status.textContent = t('tenantSettings.status.saving');
       try {
         const sites = siteEditors.map(siteValue);
@@ -252,6 +266,7 @@ export function createLocationsSection({ adapter = null } = {}) {
           configuration,
         });
         if (!isCurrent()) return;
+        editorState?.saved();
         status.textContent = t('tenantSettings.status.saved');
         showToast(t('tenantSettings.status.saved'));
         rerender();
@@ -262,6 +277,13 @@ export function createLocationsSection({ adapter = null } = {}) {
         mutationPending = false;
         status.textContent = t('tenantSettings.status.saveFailed');
         showToast(t('tenantSettings.status.saveFailed'));
+      } finally {
+        if (isCurrent()) {
+          locked.forEach((control) => { control.disabled = false; });
+          save.disabled = false;
+          addSite.disabled = false;
+          mutationPending = false;
+        }
       }
     });
 
