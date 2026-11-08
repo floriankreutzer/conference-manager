@@ -1,5 +1,6 @@
 import { t } from '../core/i18n.js';
-import { button, clear, el } from '../core/ui.js';
+import { button, clear, el, openDialog } from '../core/ui.js';
+import { createEditorNavigation } from './editor-navigation.js';
 import {
   tenantAdminHashForSection,
   tenantAdminSectionFromHash,
@@ -25,6 +26,26 @@ export function createTenantAdminSettingsShell({
 
   let generation = 0;
   let focusSectionId = null;
+  let renderedHash = location?.hash;
+  const editorNavigation = createEditorNavigation({
+    onStay: () => history?.replaceState?.(null, '', renderedHash),
+    confirmDiscard: (answer) => {
+      const stay = button(t('tenantAdmin.unsaved.stay'), { className: 'primary' });
+      const discard = button(t('tenantAdmin.unsaved.discard'));
+      const dialog = openDialog({ title: t('tenantAdmin.unsaved.title'),
+        description: t('tenantAdmin.unsaved.description'), actions: [stay, discard],
+        labelledById: 'tenantUnsavedTitle' });
+      let discardChosen = false;
+      stay.addEventListener('click', () => dialog.close());
+      discard.addEventListener('click', () => { discardChosen = true; dialog.close(); });
+      dialog.addEventListener('close', () => answer(discardChosen), { once: true });
+    },
+  });
+  globalThis.addEventListener?.('beforeunload', (event) => {
+    if (!editorNavigation.dirty()) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 
   function focusActiveHeading(sectionId, currentGeneration, shell) {
     const isCurrent = () => generation === currentGeneration
@@ -42,6 +63,7 @@ export function createTenantAdminSettingsShell({
   }
 
   function navigate(sectionId) {
+    if (!editorNavigation.allow(() => navigate(sectionId))) return;
     const nextHash = tenantAdminHashForSection(sectionId);
     if (location?.hash !== nextHash) history?.replaceState?.(null, '', nextHash);
     focusSectionId = sectionId;
@@ -103,6 +125,8 @@ export function createTenantAdminSettingsShell({
   }
 
   function render() {
+    if (!editorNavigation.allow(render)) return;
+    editorNavigation.clear();
     generation += 1;
     const currentGeneration = generation;
     const availableSections = sections.filter((section) => section.available);
@@ -117,6 +141,7 @@ export function createTenantAdminSettingsShell({
       activeSection ? t(activeSection.titleKey) : t('tenantAdmin.title'),
       activeSection ? t(activeSection.descriptionKey) : t('tenantAdmin.subtitle'),
     );
+    renderedHash = location?.hash;
     clear(appRoot);
 
     const shell = el('div', { className: 'tenant-admin-settings-shell', dataset: { tenantAdminShell: 'true' } });
@@ -145,6 +170,7 @@ export function createTenantAdminSettingsShell({
       isCurrent,
       navigate: guardedNavigate,
       rerender,
+      registerEditor: editorNavigation.register,
     });
     // Section renderers attach their heading synchronously before loading data.
     // Consume explicit-navigation focus now so it cannot override a later,
@@ -166,5 +192,6 @@ export function createTenantAdminSettingsShell({
     });
   }
 
-  return Object.freeze({ render, navigate });
+  return Object.freeze({ render, navigate, allowNavigation: editorNavigation.allow,
+    invalidateEditor: editorNavigation.clear });
 }

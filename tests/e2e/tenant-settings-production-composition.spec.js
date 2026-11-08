@@ -577,6 +577,44 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });
 
+for (const language of ['de', 'en']) {
+  test(`CO-307 ${language}: organization edits survive Stay and require explicit discard before navigation`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+    await openTenantSettings(page);
+    const content = await openSection(page, 'organization', 'organization');
+    const registration = content.locator('#tenant-organization-registration-number');
+    await registration.fill('QA-UNSAVED');
+    await page.locator('[data-tenant-admin-section="booking-policies"]').click();
+    const dialog = page.getByRole('dialog');
+    const stay = dialog.getByRole('button', { name: language === 'de' ? 'Hier bleiben' : 'Stay here' });
+    await expect(stay).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(registration).toHaveValue('QA-UNSAVED');
+    expect(fixture.writes).toHaveLength(0);
+    await page.locator('[data-view="welcome"]').click();
+    await dialog.getByRole('button', { name: language === 'de' ? 'Änderungen verwerfen' : 'Discard changes' }).click();
+    await expect(page.locator('#welcomeHeading')).toBeVisible();
+    await openTenantSettings(page);
+    const restored = await openSection(page, 'organization', 'organization');
+    await expect(restored.locator('#tenant-organization-registration-number')).toHaveValue('HRB 12345');
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+test('CO-307 successful organization save allows navigation without a discard warning', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'organization', 'organization');
+  await content.locator('#tenant-organization-registration-number').fill('QA-SAVED');
+  await submit(content, 'organization');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  await expect(content.locator('#tenant-organization-registration-number')).toHaveValue('QA-SAVED');
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('#welcomeHeading')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('deferred section navigation focus preserves an active settings edit', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
   await openTenantSettings(page);
@@ -643,6 +681,7 @@ test('detached Tenant Admin conflict reapply stops before a second privileged wr
   await expect.poll(() => fixture.organizationReads()).toBe(2);
 
   await page.locator('[data-view="welcome"]').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Änderungen verwerfen' }).click();
   const reapplyRead = page.waitForResponse((response) => (
     new URL(response.url()).pathname === '/api/v1/tenant/settings/organization'
     && response.request().method() === 'GET'
