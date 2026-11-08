@@ -117,7 +117,8 @@ main,
   position: absolute;
   inset-inline-start: var(--timeline-start);
   inline-size: var(--timeline-width);
-  min-inline-size: var(--control-height);
+  min-inline-size: 0;
+  padding-inline: 0;
   max-inline-size: calc(100% - var(--timeline-start));
   min-block-size: var(--control-height);
   overflow: hidden;
