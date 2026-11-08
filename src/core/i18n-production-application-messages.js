@@ -1,5 +1,13 @@
 export const PRODUCTION_APPLICATION_MESSAGES = Object.freeze({
   de: Object.freeze({
+    'production.employee.scheduleTime': 'Datum und Zeit',
+    'production.employee.scheduleParticipants': 'Teilnehmende',
+    'production.employee.multiDay': 'Termin über mehrere Tage',
+    'production.employee.roomSearch': 'Räume nach Namen suchen',
+    'production.employee.roomSuitableOnly': 'Nur passende Kapazität',
+    'production.employee.roomSelected': 'Ausgewählt: {name}. Ihre Auswahl bleibt beim Filtern sichtbar.',
+    'production.employee.cateringOptions': 'Bewirtung auswählen oder ändern',
+    'production.employee.cateringOptionsHint': 'Ohne Auswahl können Sie ohne Bewirtung fortfahren. Bereits gewählte Pakete und Mengen bleiben beim Zuklappen erhalten.',
     'production.common.requestDetails': 'Anfragedetails',
     'production.employee.title': 'Konferenzanfrage',
     'production.employee.subtitle': 'Wählen Sie einen verfügbaren Raum und stellen Sie Ihre Anfrage zusammen.',
@@ -180,6 +188,14 @@ export const PRODUCTION_APPLICATION_MESSAGES = Object.freeze({
     'production.error.generic': 'Die Aktion konnte nicht sicher abgeschlossen werden.',
   }),
   en: Object.freeze({
+    'production.employee.scheduleTime': 'Date and time',
+    'production.employee.scheduleParticipants': 'Participants',
+    'production.employee.multiDay': 'Event spans multiple days',
+    'production.employee.roomSearch': 'Search rooms by name',
+    'production.employee.roomSuitableOnly': 'Suitable capacity only',
+    'production.employee.roomSelected': 'Selected: {name}. Your selection stays visible when filtering.',
+    'production.employee.cateringOptions': 'Choose or change catering',
+    'production.employee.cateringOptionsHint': 'Continue without catering if nothing is selected. Collapsing this section retains selected packages and quantities.',
     'production.common.requestDetails': 'Request details',
     'production.employee.title': 'Conference request',
     'production.employee.subtitle': 'Choose an available room and prepare your request.',

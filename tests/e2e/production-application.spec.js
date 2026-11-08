@@ -1927,6 +1927,7 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   const itemGroup = page.getByRole('group', { name: 'Einzeloptionen' });
   const packageChoice = packageGroup.getByRole('radio', { name: 'Workshop package · Standard' });
   await expect(page.getByRole('heading', { name: 'Bewirtung', exact: true })).toBeFocused();
+  await page.locator('[data-catering-options] > summary').click();
   await packageChoice.focus();
   await packageChoice.press('Space');
   await expect(packageChoice).toBeFocused();
@@ -2133,6 +2134,7 @@ test('EMP-09: scoped session draft resumes the exact active wizard step and stat
   await expect(page.getByRole('heading', { name: 'Bewirtung', exact: true })).toBeFocused();
   await page.locator('#productionCateringParticipants').fill('2');
   await expect(page.locator('#productionCateringParticipants')).toHaveValue('2');
+  await page.locator('[data-catering-options] > summary').click();
   await page.getByLabel('Menge für Coffee').fill('2');
 
   await expect.poll(() => page.evaluate(() => JSON.parse(
@@ -2399,6 +2401,7 @@ test('EMP-03 EMP-04: English asset placeholders, Service, and Equipment states a
   await expect(equipmentGroup.getByRole('checkbox', { name: /Portable display/ })).toBeVisible();
   await expect(equipmentGroup.locator('.price')).toContainText('per request');
   await page.getByRole('button', { name: 'Next' }).click();
+  await page.locator('[data-catering-options] > summary').click();
   const packageGroup = page.getByRole('group', { name: 'Catering packages and variants' });
   await expect(packageGroup.getByRole('radio', { name: 'No catering package' })).toBeChecked();
   await expect(packageGroup.getByText(
@@ -2483,7 +2486,7 @@ test('EMP-02: Employee schedule keeps both participant counts required', async (
   await page.locator('#productionTitle').fill('Pflichtfeldprüfung');
   await page.locator('#productionDate').fill(requestDate);
   await page.locator('#productionStart').fill('09:00');
-  await page.locator('#productionEndDate').fill(requestDate);
+  await expect(page.locator('#productionEndDate')).toHaveValue(requestDate);
   await page.locator('#productionEnd').fill('10:30');
   const externalParticipants = page.locator('#productionExternal');
   await externalParticipants.fill('');
@@ -2783,6 +2786,9 @@ test('CO-301: multiline requirements survive review, submission and the returned
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="employee"]').click();
   await fillEmployeeSchedule(page);
+  if (!await page.locator('[data-request-optional-notes]').evaluate((node) => node.open)) {
+    await page.locator('[data-request-optional-notes] > summary').click();
+  }
   await page.locator('#productionSpecial').fill(special);
   await page.getByRole('button', { name: 'Weiter' }).click();
   await page.getByRole('radio', { name: /Room A/ }).check();
@@ -2816,6 +2822,9 @@ for (const language of ['de', 'en']) {
     await page.goto(`${ORIGIN}/`);
     await page.locator('[data-view="employee"]').click();
     await fillEmployeeSchedule(page);
+    if (!await page.locator('[data-request-optional-notes]').evaluate((node) => node.open)) {
+    await page.locator('[data-request-optional-notes] > summary').click();
+  }
     const special = page.locator('#productionSpecial');
     await special.fill('<script>alert(1)</script>');
     await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
@@ -2845,6 +2854,9 @@ async function failRepeatedRequest(page, options = {}, language = 'de') {
   await page.locator('[data-view="requests"]').click();
   await page.getByRole('button', { name: language === 'de' ? 'Erneut anfragen' : 'Request again', exact: true }).click();
   await page.locator('#productionTitle').fill('Edited repeated request');
+  if (!await page.locator('[data-request-optional-notes]').evaluate((node) => node.open)) {
+    await page.locator('[data-request-optional-notes] > summary').click();
+  }
   await page.locator('#productionSpecial').fill('First retained line\nSecond retained line');
   await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
   await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
@@ -6171,3 +6183,83 @@ test('CO-310 CO-301: repeated-request recovery stays personal for a combined Man
   await page.keyboard.press('Escape');
   await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
 });
+
+for (const language of ['de', 'en']) {
+  test(`CO-308 ${language}: single-day defaults and explicit multi-day drafts survive reload`, async ({ page }, testInfo) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    await installProductionApplicationFixture(page);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const endDate = page.locator('#productionEndDate');
+    await expect(endDate).toBeHidden();
+    await expect(endDate).toHaveValue(futureDate());
+    await page.locator('#productionMultiDay').check();
+    await endDate.fill(futureDate(16));
+    await page.locator('#productionDate').fill(futureDate(15));
+    await expect(endDate).toHaveValue(futureDate(16));
+    await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('conference_server_request_draft_v1'))?.draft?.endDate))
+      .toBe(futureDate(16));
+    await page.reload();
+    await page.locator('[data-view="employee"]').click();
+    await expect(page.locator('#productionMultiDay')).toBeChecked();
+    await expect(endDate).toBeVisible();
+    await expect(endDate).toHaveValue(futureDate(16));
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await testInfo.attach(`schedule-${language}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    }
+    await page.locator('#productionMultiDay').uncheck();
+    await expect(endDate).toHaveValue(futureDate(15));
+    await expect(endDate).toBeHidden();
+  });
+
+  test(`CO-308 ${language}: room filters preserve selection and collapsed catering reveals invalid quantities`, async ({ page }, testInfo) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    const first = catalog.catalog.rooms[0];
+    catalog.catalog.rooms = Array.from({ length: 10 }, (_, index) => ({ ...first,
+      id: index ? `room-${index}` : first.id, name: index ? `Meeting room ${index}` : first.name,
+      capacity: index === 9 ? 1 : 12 }));
+    catalog.catalog.cateringItems = [{ id: 'coffee', name: 'Coffee', description: null, active: true,
+      order: 1, price: { amountMinor: 200, currency: 'EUR' }, siteIds: [], roomIds: [] }];
+    const fixture = await installProductionApplicationFixture(page, { catalog });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page, { internal: '3' });
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    await next.click();
+    await page.locator('#productionRoomSuitable').check();
+    await expect(page.locator('[data-step-panel="2"] [data-room-id]:visible')).toHaveCount(9);
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.locator('#productionRoomSearch').fill('No matching room');
+    await expect(page.locator('[data-step-panel="2"] [data-room-id]:visible')).toHaveCount(1);
+    await expect(page.getByRole('radio', { name: /Room A/ })).toBeChecked();
+    expect(await page.locator('.request-action-bar').evaluate(node => Boolean(
+      node.compareDocumentPosition(document.querySelector('[data-step-panel="2"]')) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await testInfo.attach(`room-selection-${language}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    }
+    await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability', exact: true }).click();
+    await next.click(); await next.click();
+    const offers = page.locator('[data-catering-options]');
+    await expect(offers).not.toHaveAttribute('open', '');
+    await offers.locator(':scope > summary').click();
+    const quantity = offers.locator('input[type="number"]').first();
+    await quantity.fill('1001');
+    await offers.locator(':scope > summary').click();
+    await next.click();
+    await expect(quantity).toBeFocused();
+    await expect(quantity).toHaveAttribute('aria-invalid', 'true');
+    await quantity.fill('2');
+    await offers.locator(':scope > summary').click();
+    await next.click();
+    await expect(page.locator('[data-step-panel="5"]')).toBeVisible();
+    await page.getByRole('button', { name: language === 'de' ? 'Zurück' : 'Back', exact: true }).click();
+    await expect(quantity).toHaveValue('2');
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+  });
+}

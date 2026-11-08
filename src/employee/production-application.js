@@ -659,6 +659,7 @@ export function createProductionEmployeeApplication({
     else if (restoredRoom) room.value = restoredRoom.id;
     const date = el('input', { attrs: { type: 'date', value: sourceStart?.date || restoredDraft?.startDate || '' } });
     const endDate = el('input', { attrs: { type: 'date', value: sourceEnd?.date || restoredDraft?.endDate || sourceStart?.date || '' } });
+    const multiDay = el('input', { type: 'checkbox', checked: Boolean(date.value && endDate.value && date.value !== endDate.value) });
     const start = el('input', { attrs: { type: 'time', value: sourceStart?.time || restoredDraft?.startTime || '' } });
     const end = el('input', { attrs: { type: 'time', value: sourceEnd?.time || restoredDraft?.endTime || '' } });
     const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.internalParticipants ?? restoredDraft?.internalParticipants ?? 1) } });
@@ -734,7 +735,32 @@ export function createProductionEmployeeApplication({
       renderSelections(servicePanel, serviceEditorOptions(requestCatalog, room.value), selectedServices, t('review.services'));
       renderSelections(equipmentPanel, equipmentEditorOptions(requestCatalog, room.value), selectedEquipment, t('production.employee.equipmentHeading'));
     };
+    const roomSearch = el('input', { type: 'search', attrs: { maxlength: '160' } });
+    const suitableOnly = el('input', { type: 'checkbox' });
+    const roomCount = el('p', { attrs: { role: 'status', 'aria-live': 'polite' } });
+    const selectedRoomSummary = el('p', { className: 'info-box' });
+    const resetRoomFilters = button(t('manager.ux.resetFilters'));
     const roomSelectionGrid = el('div', { className: 'selection-grid' });
+    const filterRooms = () => {
+      const query = roomSearch.value.trim().toLocaleLowerCase(locale());
+      let shown = 0;
+      for (const card of roomSelectionGrid.children) {
+        const entry = rooms.find((candidate) => candidate.id === card.dataset.roomId);
+        const selected = room.value === entry.id;
+        card.hidden = !selected && (!entry.name.toLocaleLowerCase(locale()).includes(query)
+          || (suitableOnly.checked && card.querySelector('input').disabled));
+        if (!card.hidden) shown += 1;
+      }
+      roomCount.textContent = t('managerSettings.catalogue.searchCount', { shown: formatNumber(shown), total: formatNumber(rooms.length) });
+      const selected = rooms.find((entry) => entry.id === room.value);
+      selectedRoomSummary.hidden = !selected;
+      selectedRoomSummary.textContent = selected ? t('production.employee.roomSelected', { name: selected.name }) : '';
+    };
+    roomSearch.addEventListener('input', filterRooms);
+    suitableOnly.addEventListener('change', filterRooms);
+    resetRoomFilters.addEventListener('click', () => {
+      roomSearch.value = ''; suitableOnly.checked = false; filterRooms(); roomSearch.focus();
+    });
     const roomSelectionPanel = el('fieldset', { className: 'room-option-fieldset' }, [
       el('legend', { className: 'sr-only', text: t('production.employee.roomOptions') }),
       roomSelectionGrid,
@@ -878,6 +904,7 @@ export function createProductionEmployeeApplication({
         }
         roomSelectionGrid.appendChild(card);
       });
+      filterRooms();
     };
     let roomSelectionWasCleared = false;
     const refreshRoomsForParticipants = () => {
@@ -893,6 +920,7 @@ export function createProductionEmployeeApplication({
     external.addEventListener('input', refreshRoomsForParticipants);
     const cateringPanel = el('section', { attrs: { 'aria-label': t('catering.heading') } });
     const renderCateringControls = () => {
+      const previouslyExpanded = cateringPanel.querySelector('[data-catering-options]')?.open;
       clear(cateringPanel);
       if (!room.value) {
         cateringPanel.append(
@@ -1012,6 +1040,12 @@ export function createProductionEmployeeApplication({
         el('legend', { className: 'selection-group-legend', text: t('catering.items') }),
       ]);
       const itemGrid = el('div', { className: 'catering-item-grid' });
+      const offers = el('details', { dataset: { cateringOptions: 'true' } }, [
+        el('summary', { text: t('production.employee.cateringOptions') }),
+        el('p', { className: 'muted', text: t('production.employee.cateringOptionsHint') }),
+        packageFieldset, itemFieldset,
+      ]);
+      offers.open = previouslyExpanded ?? Boolean(packageSelection || Object.values(itemQuantities).some((value) => Number(value) > 0));
       cateringPanel.append(
         el('h2', { text: t('catering.heading'), attrs: { tabindex: '-1' } }),
         el('p', { className: 'muted', text: t('catering.desc') }),
@@ -1019,8 +1053,7 @@ export function createProductionEmployeeApplication({
           id: 'productionCateringParticipants', label: t('catering.people'), control: cateringParticipants,
           hint: t('catering.peopleHint'),
         }),
-        packageFieldset,
-        itemFieldset,
+        offers,
       );
       if (!options.items.length) {
         itemFieldset.appendChild(el('p', { className: 'muted', text: t('catering.noItems') }));
@@ -1163,6 +1196,10 @@ export function createProductionEmployeeApplication({
       else control.removeAttribute('aria-describedby');
     };
     const showControlValidation = (control, message = t('production.employee.validation')) => {
+      for (let parent = control.parentElement; parent && parent !== root; parent = parent.parentElement) {
+        if (parent.tagName === 'DETAILS') parent.open = true;
+      }
+      if (control === endDate) { multiDay.checked = true; endDateField.hidden = false; }
       control.setAttribute('aria-invalid', 'true');
       const describedBy = new Set((control.getAttribute('aria-describedby') || '').split(' ').filter(Boolean));
       describedBy.add(status.id);
@@ -1303,10 +1340,13 @@ export function createProductionEmployeeApplication({
       renderRoomControls();
       if (actions?.isConnected) renderActiveStep();
     };
-    let previousStartDate = date.value;
     date.addEventListener('input', () => {
-      if (!endDate.value || endDate.value === previousStartDate) endDate.value = date.value;
-      previousStartDate = date.value;
+      if (!multiDay.checked || !endDate.value) endDate.value = date.value;
+    });
+    multiDay.addEventListener('change', () => {
+      endDateField.hidden = !multiDay.checked;
+      if (!multiDay.checked) endDate.value = date.value;
+      endDate.dispatchEvent(new Event('input', { bubbles: true }));
     });
     [room, date, endDate, start, end, internal, external]
       .forEach((control) => control.addEventListener('input', invalidateAvailability));
@@ -1342,16 +1382,35 @@ export function createProductionEmployeeApplication({
     external.addEventListener('input', updateParticipantTotal);
     updateParticipantTotal();
 
-    const scheduleGrid = el('div', { className: 'form-grid two' }, [
+    const endDateField = field({ id: 'productionEndDate', label: t('production.employee.endDate'), control: endDate, required: true });
+    endDateField.hidden = !multiDay.checked;
+    const scheduleGrid = el('div', { className: 'request-schedule-groups' }, [
       field({ id: 'productionTitle', label: t('schedule.title'), control: title, required: true }),
-      field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
-      field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
-      field({ id: 'productionEndDate', label: t('production.employee.endDate'), control: endDate, required: true }),
-      field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
-      field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
-      field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
-      participantTotal,
+      el('fieldset', { className: 'request-schedule-group' }, [
+        el('legend', { text: t('production.employee.scheduleTime') }),
+        el('div', { className: 'form-grid two' }, [
+          field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
+          field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
+          field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
+          field({ id: 'productionMultiDay', label: t('production.employee.multiDay'), control: multiDay }),
+          endDateField,
+        ]),
+      ]),
+      el('fieldset', { className: 'request-schedule-group' }, [
+        el('legend', { text: t('production.employee.scheduleParticipants') }),
+        el('div', { className: 'form-grid two' }, [
+          field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
+          field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
+          participantTotal,
+        ]),
+      ]),
     ]);
+    const optionalNotes = el('details', { dataset: { requestOptionalNotes: 'true' } }, [
+      el('summary', { text: t('schedule.special') }),
+      field({ id: 'productionSpecial', label: t('schedule.special'), control: specialRequirements,
+        hint: t('schedule.specialHint'), optional: true }),
+    ]);
+    optionalNotes.open = Boolean(specialRequirements.value);
     const costPreview = el('section', { dataset: { costPreview: 'true' } });
     const panels = [
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '1' } }, [
@@ -1359,10 +1418,7 @@ export function createProductionEmployeeApplication({
           el('div', {}, [el('h2', { text: t('schedule.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('schedule.desc') })]),
         ]),
         scheduleGrid,
-        field({
-          id: 'productionSpecial', label: t('schedule.special'), control: specialRequirements,
-          hint: t('schedule.specialHint'), optional: true,
-        }),
+        optionalNotes,
       ]),
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '2' } }, [
         el('div', { className: 'section-heading' }, [
@@ -1375,6 +1431,11 @@ export function createProductionEmployeeApplication({
           ]),
         ]),
         room,
+        el('div', { className: 'toolbar' }, [
+          field({ id: 'productionRoomSearch', label: t('production.employee.roomSearch'), control: roomSearch }),
+          field({ id: 'productionRoomSuitable', label: t('production.employee.roomSuitableOnly'), control: suitableOnly }),
+          resetRoomFilters,
+        ]), roomCount, selectedRoomSummary,
         roomSelectionPanel,
         el('aside', {
           className: 'info-box',
@@ -1430,7 +1491,7 @@ export function createProductionEmployeeApplication({
       recoveryHint,
       el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
     ]);
-    const actions = el('footer', { className: 'wizard-actions' });
+    const actions = el('footer', { className: 'wizard-actions request-action-bar' });
     const discardDraft = button(t('production.employee.discardDraft'), { className: 'secondary' });
     const draftActions = el('div', { className: 'request-draft-actions' }, isResubmission ? [] : [discardDraft]);
     draftActions.hidden = isResubmission;
@@ -1697,7 +1758,7 @@ export function createProductionEmployeeApplication({
     stepControls.forEach((control, index) => {
       control.addEventListener('click', () => moveToStep(index + 1));
     });
-    root.append(mobileProgress, stepper, ...panels, actionStatus, actions, draftActions);
+    root.append(mobileProgress, stepper, actionStatus, actions, ...panels, draftActions);
     renderRoomControls();
     renderActiveStep();
     invalidateAvailability();
@@ -1755,8 +1816,11 @@ export function createProductionEmployeeApplication({
         }
       });
     };
-    root.addEventListener('input', () => markDraftEdited());
-    root.addEventListener('change', () => markDraftEdited());
+    const onDraftInput = (event) => {
+      if (event.target !== roomSearch && event.target !== suitableOnly) markDraftEdited();
+    };
+    root.addEventListener('input', onDraftInput);
+    root.addEventListener('change', onDraftInput);
 
     function lockDraftMutation() {
       workflowMutationPending = true;
