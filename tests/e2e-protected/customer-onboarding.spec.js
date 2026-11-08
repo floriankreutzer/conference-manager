@@ -9,7 +9,10 @@ import { installQualifiedAuthenticator } from './support/browser-authenticator.m
 
 const FRONTEND_ROOT=fileURLToPath(new URL('../../',import.meta.url));
 
-test('CO-302 actual qualified roots recover expired native handoff, then complete onboarding and private Room images',async({ browser,browserName })=>{
+// Each complete journey gets its own runtime and rate-limit window. Combining
+// both extra handoffs in one session exceeds the real protected API limit.
+for (const scenario of ['expired-handoff', 'synthetic-users']) {
+test(`CO-302 CO-303 actual qualified roots: ${scenario}, onboarding and private Room images`,async({ browser,browserName })=>{
   const apiRoot=process.env.CM_PROTECTED_API_ROOT,certificateDirectory=process.env.CM_PROTECTED_CERTIFICATE_DIRECTORY;
   const apiCommit=process.env.CM_PROTECTED_API_COMMIT,frontendCommit=process.env.CM_PROTECTED_FRONTEND_COMMIT;
   if (!apiRoot || !certificateDirectory || !/^[a-f0-9]{40}$/.test(apiCommit ?? '') || !/^[a-f0-9]{40}$/.test(frontendCommit ?? '')) {
@@ -62,7 +65,7 @@ test('CO-302 actual qualified roots recover expired native handoff, then complet
         expect(await page.evaluate(()=>location.origin)).toBe(origins.customer);
       }
       await approve();
-      if (slot==='fabrikam') {
+      if (slot==='fabrikam' && scenario==='expired-handoff') {
         // Actual elapsed completion-cookie expiry after a successful confirmation
         // GET. Never modify clocks, cookies, protocol lifetimes or proof rows.
         await new Promise(resolve=>setTimeout(resolve,31000));
@@ -99,7 +102,7 @@ test('CO-302 actual qualified roots recover expired native handoff, then complet
       expect(await page.evaluate(async()=> (await fetch('/api/v1/session')).status)).toBe(200);
     }
     await handoff('fabrikam','tenant_admin');
-    await verifySyntheticUsers();
+    if (scenario==='synthetic-users') await verifySyntheticUsers();
     await page.getByRole('button',{ name: 'Kalender und Onboarding',exact: true }).click();
     const group=page.getByRole('group',{ name: 'Räume für den Import auswählen' });
     await expect(group.getByRole('checkbox')).toHaveCount(2);
@@ -127,14 +130,16 @@ test('CO-302 actual qualified roots recover expired native handoff, then complet
     // Keep all protocol/failure evidence; release only completed immutable assets
     // at this completed customer phase before loading another full document.
     edge.compactStaticEvidence();
-    await handoff('northwind','tenant_admin');
-    await page.locator('[data-view="tenantAdmin"]').click();
-    await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
-    await verifySyntheticUsers();
-    await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
-    await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
-    await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
-    edge.compactStaticEvidence();
+    if (scenario==='synthetic-users') {
+      await handoff('northwind','tenant_admin');
+      await page.locator('[data-view="tenantAdmin"]').click();
+      await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
+      await verifySyntheticUsers();
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
+      await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
+      edge.compactStaticEvidence();
+    }
     await handoff('northwind','employee');
     await page.locator('[data-view="employee"]').click();
     const date=new Date();date.setUTCDate(date.getUTCDate()+14);
@@ -155,17 +160,17 @@ test('CO-302 actual qualified roots recover expired native handoff, then complet
     expect(traffic.requests.some(event=>event.surface==='platform' && event.path==='/api/v1/platform/auth/delegation/arrive'
       && event.method==='GET' && event.status===303 && event.fetchSite==='cross-site' && !event.cookiePresent)).toBe(true);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/callback' && event.method==='GET'
-      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(4);
+      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(3);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/complete' && event.method==='POST'
-      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(4);
+      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(3);
     expect(traffic.requests.some(event=>event.path.startsWith('/api/v1/tenant/catalogue-media/') && event.status===200)).toBe(true);
     expect(traffic.requests.some(event=>event.path.includes('/demo/'))).toBe(false);expect(traffic.deniedConnects).toBe(0);
     const evidence=await runtime.evidence();
     expect(evidence.tenants.some(tenant=>tenant.slot==='fabrikam' && tenant.status==='active' && tenant.rooms===2)).toBe(true);
     expect(evidence.tenantChainsVerified).toBe(3);expect(errors).toEqual([]);
-    console.log('PROTECTED_QUALIFIED_BROWSER_EVIDENCE',JSON.stringify({ engine: browserName,authenticator: authenticator.mode,
+    console.log('PROTECTED_QUALIFIED_BROWSER_EVIDENCE',JSON.stringify({ engine: browserName,scenario,authenticator: authenticator.mode,
       actualOrigins: origins,refs: evidence.refs,artifacts: traffic.artifacts,tenantChainsVerified: evidence.tenantChainsVerified,
-      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: 3,rejectedExpiredCompletions: 1,syntheticUserNavigationChecks: mappingProbes,
+      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: scenario==='expired-handoff' ? 2 : 3,rejectedExpiredCompletions: scenario==='expired-handoff' ? 1 : 0,syntheticUserNavigationChecks: mappingProbes,
       scope: 'initial canonical MFA fixture; Microsoft primary, physical keys and operating cutover unproved' }));
   } catch (error) {
     // Fixed paths/status codes and test bridge counters only. Never include
@@ -179,3 +184,4 @@ test('CO-302 actual qualified roots recover expired native handoff, then complet
     } }
   }
 });
+}
