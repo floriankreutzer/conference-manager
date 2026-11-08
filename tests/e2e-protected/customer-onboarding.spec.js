@@ -9,7 +9,7 @@ import { installQualifiedAuthenticator } from './support/browser-authenticator.m
 
 const FRONTEND_ROOT=fileURLToPath(new URL('../../',import.meta.url));
 
-test('actual qualified different-site roots bind native handoff, local onboarding and current private Room images',async({ browser,browserName })=>{
+test('CO-302 actual qualified roots recover expired native handoff, then complete onboarding and private Room images',async({ browser,browserName })=>{
   const apiRoot=process.env.CM_PROTECTED_API_ROOT,certificateDirectory=process.env.CM_PROTECTED_CERTIFICATE_DIRECTORY;
   const apiCommit=process.env.CM_PROTECTED_API_COMMIT,frontendCommit=process.env.CM_PROTECTED_FRONTEND_COMMIT;
   if (!apiRoot || !certificateDirectory || !/^[a-f0-9]{40}$/.test(apiCommit ?? '') || !/^[a-f0-9]{40}$/.test(frontendCommit ?? '')) {
@@ -52,13 +52,33 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     async function handoff(slot,role) {
       await page.goto(`${origins.customer}/`);
       await page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true }).click();
-      await expect(page.getByRole('combobox',{ name: 'Testmandant',exact: true })).toBeVisible();
-      expect(await page.evaluate(()=>location.origin)).toBe(origins.platform);
-      await page.getByRole('combobox',{ name: 'Testmandant',exact: true }).selectOption(slot);
-      await page.getByRole('combobox',{ name: 'Kundenrolle',exact: true }).selectOption(role);
-      await page.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();
-      await expect(page.getByRole('button',{ name: 'Testzugang öffnen',exact: true })).toBeVisible();
-      expect(await page.evaluate(()=>location.origin)).toBe(origins.customer);
+      async function approve() {
+        await expect(page.getByRole('combobox',{ name: 'Testmandant',exact: true })).toBeVisible();
+        expect(await page.evaluate(()=>location.origin)).toBe(origins.platform);
+        await page.getByRole('combobox',{ name: 'Testmandant',exact: true }).selectOption(slot);
+        await page.getByRole('combobox',{ name: 'Kundenrolle',exact: true }).selectOption(role);
+        await page.getByRole('button',{ name: 'Browserwechsel freigeben',exact: true }).click();
+        await expect(page.getByRole('button',{ name: 'Testzugang öffnen',exact: true })).toBeVisible();
+        expect(await page.evaluate(()=>location.origin)).toBe(origins.customer);
+      }
+      await approve();
+      if (slot==='fabrikam') {
+        // Actual elapsed completion-cookie expiry after a successful confirmation
+        // GET. Never modify clocks, cookies, protocol lifetimes or proof rows.
+        await new Promise(resolve=>setTimeout(resolve,31000));
+        await page.getByRole('button',{ name: 'Testzugang öffnen',exact: true }).click();
+        await expect(page.getByRole('button',{ name: 'Neuen Testzugang starten',exact: true })).toBeVisible();
+        expect(new URL(page.url()).pathname).toBe('/');
+        expect(await page.evaluate(async()=> (await fetch('/api/v1/session')).status)).toBe(401);
+        expect(edge.evidence().requests.filter(event=>event.path==='/api/v1/auth/delegation/complete'
+          && event.method==='POST')).toHaveLength(1);
+        await page.getByRole('combobox',{ name: 'Sprache',exact: true }).selectOption('en');
+        await expect(page.getByRole('button',{ name: 'Start new test access',exact: true })).toBeVisible();
+        await page.getByRole('combobox',{ name: 'Language',exact: true }).selectOption('de');
+        await page.getByRole('button',{ name: 'Neuen Testzugang starten',exact: true }).focus();
+        await page.keyboard.press('Enter');
+        await approve();
+      }
       await page.getByRole('button',{ name: 'Testzugang öffnen',exact: true }).click();
       const profileButton=page.locator('#primaryNavigation button[aria-haspopup="dialog"]');
       await expect(profileButton).toBeVisible();
@@ -109,9 +129,9 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     expect(traffic.requests.some(event=>event.surface==='platform' && event.path==='/api/v1/platform/auth/delegation/arrive'
       && event.method==='GET' && event.status===303 && event.fetchSite==='cross-site' && !event.cookiePresent)).toBe(true);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/callback' && event.method==='GET'
-      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(2);
+      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(3);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/complete' && event.method==='POST'
-      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(2);
+      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(3);
     expect(traffic.requests.some(event=>event.path.startsWith('/api/v1/tenant/catalogue-media/') && event.status===200)).toBe(true);
     expect(traffic.requests.some(event=>event.path.includes('/demo/'))).toBe(false);expect(traffic.deniedConnects).toBe(0);
     const evidence=await runtime.evidence();
@@ -119,7 +139,7 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     expect(evidence.tenantChainsVerified).toBe(3);expect(errors).toEqual([]);
     console.log('PROTECTED_QUALIFIED_BROWSER_EVIDENCE',JSON.stringify({ engine: browserName,authenticator: authenticator.mode,
       actualOrigins: origins,refs: evidence.refs,artifacts: traffic.artifacts,tenantChainsVerified: evidence.tenantChainsVerified,
-      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: 2,
+      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: 2,rejectedExpiredCompletions: 1,
       scope: 'initial canonical MFA fixture; Microsoft primary, physical keys and operating cutover unproved' }));
   } catch (error) {
     // Fixed paths/status codes and test bridge counters only. Never include
