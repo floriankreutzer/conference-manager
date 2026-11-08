@@ -6,6 +6,20 @@ import test from 'node:test';
 const workflow = await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
 const jobs = ['shared-demo-e2e', 'protected-browser-e2e'];
 
+test('metadata edits retain all CI gates without cancelling source validation or independent Main runs', () => {
+  assert.match(workflow, /types: \[opened, synchronize, reopened, edited, ready_for_review\]/);
+  assert.ok(workflow.includes(
+    "group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}",
+  ));
+  assert.ok(workflow.includes(
+    "cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'edited' "
+      + "&& github.event.action != 'ready_for_review' }}",
+  ));
+  assert.match(workflow, /Require matching Jira key in PR title and branch/);
+  assert.match(workflow, /run: npm run check/);
+  assert.doesNotMatch(workflow, /if:.*github\.event\.action/);
+});
+
 function sourceJob(name) {
   const start = workflow.indexOf(`\n  ${name}:`);
   assert.notEqual(start, -1);
@@ -56,6 +70,9 @@ for (const name of jobs) {
     assert.ok(tokenStep);
     assert.match(tokenStep, /id: source-token\n        if: env\.HAS_SOURCE_APP == 'true'/);
     assert.match(tokenStep, /uses: actions\/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510/);
+    assert.match(tokenStep, /client-id: \$\{\{ secrets\.CM_CI_READER_APP_ID \}\}/);
+    assert.match(tokenStep, /private-key: \$\{\{ secrets\.CM_CI_READER_PRIVATE_KEY \}\}/);
+    assert.doesNotMatch(tokenStep, /app-id:/);
     assert.match(tokenStep, /owner: floriankreutzer\n          repositories: conference-manager-api\n          permission-contents: read/);
     assert.equal((tokenStep.match(/permission-[a-z-]+:/g) ?? []).length, 1);
     assert.doesNotMatch(tokenStep, /skip-token-revoke:|continue-on-error:|github-api-url:/);

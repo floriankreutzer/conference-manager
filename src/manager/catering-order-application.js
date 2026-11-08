@@ -110,7 +110,7 @@ export async function renderCateringOrders({ root, requests, adapter, assignment
       el('dt', { text: t(`cateringOrders.${key}`) }), el('dd', { text: value }),
     ])));
     for (const [key, value] of [['dietary', order.dietaryRequirements], ['requirements', order.specialRequirements]]) {
-      if (value) detail.appendChild(el('p', { text: t(`cateringOrders.${key}`, { value }) }));
+      if (value) detail.appendChild(el('p', { className: 'request-detail-text', text: t(`cateringOrders.${key}`, { value }) }));
     }
     const positions = el('ul');
     for (const line of order.positions) {
