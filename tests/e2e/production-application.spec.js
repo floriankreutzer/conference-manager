@@ -13,6 +13,7 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_ID = '22222222-2222-4222-8222-222222222222';
 const CSRF_TOKEN = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 const REQUEST_ID = '66666666-6666-4666-8666-666666666666';
+const REPEAT_SOURCE_ID = '77777777-7777-4777-8777-777777777777';
 const API_REQUEST_ID = '33333333-3333-4333-8333-333333333333';
 const PROVIDER_TENANT_ID = '44444444-4444-4444-8444-444444444444';
 
@@ -1061,7 +1062,7 @@ async function installProductionApplicationFixture(page, {
           },
         };
       }
-      requests = [created];
+      requests = [created, ...requests.filter((entry) => entry.id !== created.id)];
       const workflow = [...workflows.values()].find((entry) => entry.id === created.id);
       if (workflow) { workflow.status = 'submitted'; workflow.endedAt = new Date().toISOString(); }
       if (loseCreatedResponse) {
@@ -2644,7 +2645,7 @@ async function failRepeatedRequest(page, options = {}, language = 'de') {
   });
   fixture.requests().push({
     ...confirmedV2RequestFixture(),
-    id: '66666666-6666-4666-8666-666666666666',
+    id: REPEAT_SOURCE_ID,
     status: 'Cancelled',
   });
   await page.goto(`${ORIGIN}/`);
@@ -2687,6 +2688,10 @@ test('CO-301: repeated-request outcome inspection preserves the editor and workf
   expect(fixture.requestEnvelopes[1]).toEqual(fixture.requestEnvelopes[0]);
   expect(fixture.workflowWrites).toHaveLength(1);
   expect(fixture.requests()).toHaveLength(2);
+  expect(fixture.requests()).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: REPEAT_SOURCE_ID, status: 'Cancelled' }),
+    expect.objectContaining({ id: REQUEST_ID, status: 'Submitted' }),
+  ]));
 });
 
 test('CO-301: repeated-request lost response can be inspected without another write', async ({ page }) => {
@@ -2698,6 +2703,10 @@ test('CO-301: repeated-request lost response can be inspected without another wr
   expect(fixture.requestEnvelopes).toHaveLength(1);
   expect(fixture.workflowWrites).toHaveLength(1);
   expect(fixture.requests()).toHaveLength(2);
+  expect(fixture.requests()).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: REPEAT_SOURCE_ID, status: 'Cancelled' }),
+    expect.objectContaining({ id: REQUEST_ID, status: 'Submitted' }),
+  ]));
   await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
   await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
 });
