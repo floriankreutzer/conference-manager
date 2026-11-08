@@ -22,9 +22,9 @@ function capabilityMessages(language) {
 test('canonical localization catalogs remain synchronized after parity consolidation', () => {
   const inventory = buildLocalizationInventory();
 
-  // CO-316 adds seven profile/help keys and retires two simulated-contact keys.
-  assert.equal(inventory.canonical.deKeys, 371);
-  assert.equal(inventory.canonical.enKeys, 371);
+  // CO-317 adds two guest publication/on-site labels after the CO-316 catalog update.
+  assert.equal(inventory.canonical.deKeys, 373);
+  assert.equal(inventory.canonical.enKeys, 373);
   assert.deepEqual(inventory.canonical.missingInEnglish, []);
   assert.deepEqual(inventory.canonical.missingInGerman, []);
   assert.deepEqual(inventory.canonical.placeholderMismatches, []);

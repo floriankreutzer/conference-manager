@@ -401,3 +401,22 @@
   max-inline-size: 100%;
   overflow-wrap: anywhere;
 }
+
+
+.tenant-policy-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+.tenant-policy-workspace > *, .policy-references, .policy-reference-choice > span { min-inline-size: 0; }
+.policy-references { border: 1px solid var(--color-border); padding: var(--space-3); }
+.policy-reference-choice { display: flex; align-items: center; gap: var(--space-2); min-block-size: var(--control-height); }
+.policy-references :is(span, code, summary) { overflow-wrap: anywhere; }
+.policy-version-list { display: grid; gap: var(--space-4); }
+.tenant-calendar-steps { display: grid; gap: var(--space-3); padding-inline-start: var(--space-5); }
+.tenant-calendar-table-scroll { max-inline-size: 100%; overflow-x: auto; }
+.tenant-calendar-table { inline-size: 100%; border-collapse: collapse; }
+.tenant-calendar-table :is(th, td) { text-align: start; padding: var(--space-3); border-block-end: 1px solid var(--color-border); overflow-wrap: anywhere; }
+.tenant-calendar-table-scroll:focus-visible { outline: var(--focus-width) solid var(--focus-color); outline-offset: var(--space-1); }
+@media (max-width: 60rem) { .tenant-policy-workspace { grid-template-columns: minmax(0, 1fr); } }

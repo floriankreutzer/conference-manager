@@ -272,7 +272,7 @@ async function installProductionSettingsFixture(page, {
 
     if (url.pathname === '/api/v1/tenant/settings/organization' && method === 'GET') {
       organizationReadCount += 1;
-      if (organizationReapplyReadGate && organizationReadCount === 2) {
+      if (organizationReapplyReadGate && writes.some((entry) => entry.path === '/api/v1/tenant/settings/organization')) {
         await organizationReapplyReadGate;
       }
       await fulfillJson(route, {
@@ -790,8 +790,9 @@ test('detached Tenant Admin conflict reapply stops before a second privileged wr
   await expect(reapply).toBeVisible();
   const detachedReapply = await reapply.elementHandle();
   expect(detachedReapply).not.toBeNull();
+  const readsBeforeReapply = fixture.organizationReads();
   await reapply.click();
-  await expect.poll(() => fixture.organizationReads()).toBe(2);
+  await expect.poll(() => fixture.organizationReads()).toBe(readsBeforeReapply + 1);
 
   await page.locator('[data-view="welcome"]').click();
   await page.getByRole('dialog').getByRole('button', { name: 'Änderungen verwerfen' }).click();

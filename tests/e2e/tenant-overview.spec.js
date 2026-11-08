@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 for (const language of ['de', 'en']) {
-  test(`CO-309: setup overview guards unavailable sections and keeps task navigation in ${language}`, async ({ page }) => {
+  test(`CO-309: setup overview guards unavailable sections and keeps task navigation in ${language}`, async ({ page }, testInfo) => {
     await page.goto('/');
     await page.evaluate(async (lang) => {
       const { createTenantAdminSettingsShell } = await import('/src/tenant-admin/settings-shell.js');
@@ -39,5 +39,6 @@ for (const language of ['de', 'en']) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
+    await testInfo.attach(`tenant-overview-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   });
 }

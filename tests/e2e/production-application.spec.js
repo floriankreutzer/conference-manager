@@ -13,6 +13,7 @@ const USER_ID = '11111111-1111-4111-8111-111111111111';
 const TENANT_ID = '22222222-2222-4222-8222-222222222222';
 const CSRF_TOKEN = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 const REQUEST_ID = '66666666-6666-4666-8666-666666666666';
+const REPEAT_SOURCE_ID = '77777777-7777-4777-8777-777777777777';
 const API_REQUEST_ID = '33333333-3333-4333-8333-333333333333';
 const PROVIDER_TENANT_ID = '44444444-4444-4444-8444-444444444444';
 
@@ -1065,7 +1066,7 @@ async function installProductionApplicationFixture(page, {
           },
         };
       }
-      requests = [created];
+      requests = [created, ...requests.filter((entry) => entry.id !== created.id)];
       const workflow = [...workflows.values()].find((entry) => entry.id === created.id);
       if (workflow) { workflow.status = 'submitted'; workflow.endedAt = new Date().toISOString(); }
       if (loseCreatedResponse) {
@@ -2829,6 +2830,140 @@ for (const language of ['de', 'en']) {
   });
 }
 
+async function failRepeatedRequest(page, options = {}, language = 'de') {
+  await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+  const fixture = await installProductionApplicationFixture(page, {
+    requestCreateErrors: [{ status: 503, code: 'SERVICE_UNAVAILABLE' }],
+    ...options,
+  });
+  fixture.requests().push({
+    ...confirmedV2RequestFixture(),
+    id: REPEAT_SOURCE_ID,
+    status: 'Cancelled',
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: language === 'de' ? 'Erneut anfragen' : 'Request again', exact: true }).click();
+  await page.locator('#productionTitle').fill('Edited repeated request');
+  await page.locator('#productionSpecial').fill('First retained line\nSecond retained line');
+  await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+  await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+  for (let step = 3; step <= 6; step += 1) {
+    await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+  }
+  await page.getByRole('button', { name: language === 'de' ? 'Anfrage absenden' : 'Submit request', exact: true }).click();
+  await expect(page.getByRole('button', {
+    name: language === 'de' ? 'Ergebnis in Meine Anfragen prüfen' : 'Check result in My requests',
+  })).toBeFocused();
+  return fixture;
+}
+
+test('CO-301: repeated-request outcome inspection preserves the editor and workflow for retry', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page);
+  const inspect = page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' });
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Updated conference');
+  await expect(dialog.getByRole('button', { name: 'Schließen', exact: true })).toBeFocused();
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(inspect).toBeFocused();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  await expect(page.locator('#productionSpecial')).toHaveValue('First retained line\nSecond retained line');
+  await page.getByRole('button', { name: 'Raum erneut prüfen' }).click();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  expect(fixture.requestEnvelopes).toHaveLength(2);
+  expect(fixture.requestEnvelopes[1]).toEqual(fixture.requestEnvelopes[0]);
+  expect(fixture.workflowWrites).toHaveLength(1);
+  expect(fixture.requests()).toHaveLength(2);
+  expect(fixture.requests()).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: REPEAT_SOURCE_ID, status: 'Cancelled' }),
+    expect.objectContaining({ id: REQUEST_ID, status: 'Submitted' }),
+  ]));
+});
+
+test('CO-301: repeated-request lost response can be inspected without another write', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page, { requestCreateErrors: [], loseCreatedResponse: true });
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog).toContainText('Edited repeated request');
+  await expect(dialog).toContainText('Zur Prüfung');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.workflowWrites).toHaveLength(1);
+  expect(fixture.requests()).toHaveLength(2);
+  expect(fixture.requests()).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: REPEAT_SOURCE_ID, status: 'Cancelled' }),
+    expect.objectContaining({ id: REQUEST_ID, status: 'Submitted' }),
+  ]));
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+});
+
+test('CO-301: English repeated-request inspection keeps native dialog focus and bounded layout', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page, {}, 'en');
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'My requests', exact: true });
+  await expect(dialog).toContainText('Updated conference');
+  await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+  await expect(dialog).toContainText('Cancelled');
+  expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Check result in My requests' })).toBeFocused();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+});
+
+test('CO-301: repeated-request inspection read failure retains the draft and does not write', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page);
+  fixture.failNextRequestRead(503);
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog).toContainText('Die Aktion konnte nicht sicher abgeschlossen werden.');
+  await expect(dialog.locator('[aria-busy="true"]')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Schließen', exact: true }).click();
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.workflowWrites).toHaveLength(1);
+});
+
+test('CO-301: closing repeated-request inspection ignores its delayed read without losing the draft', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page);
+  const release = fixture.holdNextRequestRead();
+  const response = page.waitForResponse(value => new URL(value.url()).pathname === '/api/v1/application/requests'
+    && value.request().method() === 'GET');
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog.locator('[aria-busy="true"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  release();
+  await response;
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+  await expect(page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' })).toBeFocused();
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+});
+
+for (const authorityStatus of [401, 403]) {
+  test(`CO-301: repeated-request inspection ${authorityStatus} clears editor authority and the dialog`, async ({ page }) => {
+    const fixture = await failRepeatedRequest(page);
+    fixture.failNextRequestRead(authorityStatus);
+    await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+    await expect(page.locator('[data-authority-invalid="true"]')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Meine Anfragen', exact: true })).toHaveCount(0);
+    await expect(page.locator('#productionTitle')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+    expect(fixture.requestEnvelopes).toHaveLength(1);
+    expect(fixture.workflowWrites).toHaveLength(1);
+  });
+}
+
 test('CO-301: failed submission exposes keyboard recovery and retains the same workflow for an explicit retry', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     requestCreateErrors: [{ status: 503, code: 'SERVICE_UNAVAILABLE' }],
@@ -3233,8 +3368,8 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(popup.locator('script, style, img')).toHaveCount(0);
   await expect(popup.locator('link[rel="stylesheet"]')).toHaveCount(2);
   await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeEnabled();
-  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
-  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(122, 31, 61)');
   await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
   expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await testInfo.attach('guest-welcome-screen', { body: await popup.screenshot({ fullPage: true }), contentType: 'image/png' });
@@ -4846,7 +4981,7 @@ test('production bootstrap shows localized loading before the session contract r
   await expect(page.locator('#mainContent')).toHaveAttribute('aria-busy', 'true');
 
   fixture.releaseSession();
-  await expect(page.locator('#viewTitle')).toHaveText('Willkommen');
+  await expect(page.locator('#viewTitle')).toHaveText('Willkommen, Demo.');
   await expect(page.locator('#mainContent')).not.toHaveAttribute('aria-busy');
   await expect(page.locator('[data-authentication-surface]')).toHaveCount(0);
   await expect(page.locator('.app-shell')).toBeVisible();
@@ -5889,7 +6024,7 @@ for (const language of ['de', 'en']) {
 }
 
 for (const language of ['de', 'en']) {
-  test(`CO-309: Welcome uses one greeting and Administration opens its editor directly in ${language}`, async ({ page }) => {
+  test(`CO-309: Welcome uses one greeting and Administration opens its editor directly in ${language}`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
     await page.goto(`${ORIGIN}/`);
@@ -5899,6 +6034,7 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('.welcome-hero')).toHaveAttribute('aria-labelledby', 'viewTitle');
     const subtitle = await page.locator('#viewSubtitle').textContent();
     await expect(page.getByText(subtitle, { exact: true })).toHaveCount(1);
+    await testInfo.attach(`welcome-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
     await page.locator('[data-view="manager"]').click();
     await page.getByRole('tab', { name: 'Administration', exact: true }).click();
     const name = language === 'de' ? 'Business-Einstellungen' : 'Business settings';
@@ -5912,7 +6048,7 @@ for (const language of ['de', 'en']) {
 }
 
 for (const language of ['de', 'en']) {
-  test(`CO-316: profile is read-only and help never simulates contact delivery in ${language}`, async ({ page }) => {
+  test(`CO-316: profile is read-only and help never simulates contact delivery in ${language}`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
     const displayName = `Alex ${'Long family name '.repeat(5)}`.trim();
@@ -5931,6 +6067,7 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await testInfo.attach(`profile-${language}-${width}`, { body: await profile.screenshot(), contentType: 'image/png' });
     }
     await profile.getByRole('button', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true }).click();
     const help = page.getByRole('dialog', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true });
@@ -5953,8 +6090,84 @@ for (const language of ['de', 'en']) {
     await expect(help.locator('details:visible p')).toContainText(language === 'de' ? 'Bestätigung' : 'confirmation');
     await search.fill('');
     await expect(help.locator('details:visible')).toHaveCount(4);
+    await testInfo.attach(`help-${language}`, { body: await help.screenshot(), contentType: 'image/png' });
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
     expect(fixture.writes).toHaveLength(0);
   });
 }
+
+
+for (const language of ['de', 'en']) {
+  test(`CO-317: missing public guest data is explicit and keyboard focus returns in ${language}`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    fixture.requests().push(confirmedRequestFixture());
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="requests"]').click();
+    const trigger = page.getByRole('button', { name: language === 'de' ? 'Gästeinformationen' : 'Guest information', exact: true });
+    await trigger.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('.guest-information-section')).toHaveCount(3);
+    await expect(dialog).toContainText(language === 'de' ? 'Nicht veröffentlicht' : 'Not published');
+    await expect(dialog).not.toContainText(REQUEST_ID);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await testInfo.attach(`guest-dialog-${language}`, { body: await dialog.screenshot(), contentType: 'image/png' });
+    const print = dialog.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF' });
+    await print.focus();
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    await expect(print).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    expect(fixture.writes).toHaveLength(0);
+  });
+  for (const changedStatus of ['Confirmed', 'Cancelled']) {
+    test(`CO-317: dialog print refuses an outdated ${changedStatus} booking in ${language}`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page);
+      const request = confirmedRequestFixture();
+      fixture.requests().push(request);
+      await page.goto(`${ORIGIN}/`);
+      await page.locator('[data-view="requests"]').click();
+      await page.getByRole('button', { name: language === 'de' ? 'Gästeinformationen' : 'Guest information', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      // Change authoritative server state after the guest dialog has opened.
+      fixture.replaceRequests([{ ...request, version: 2, status: changedStatus,
+        startsAt: request.startsAt.replace('T07:', 'T09:'), endsAt: request.endsAt.replace('T08:', 'T10:') }]);
+      const popupPromise = page.waitForEvent('popup');
+      await dialog.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF' }).click();
+      const popup = await popupPromise;
+      await expect.poll(() => popup.isClosed()).toBe(true);
+      await expect(dialog).toHaveCount(0);
+      await expect(page.getByText(language === 'de'
+        ? 'Der Vorgang wurde zwischenzeitlich geändert. Laden Sie die Daten erneut.'
+        : 'The request changed concurrently. Refresh the data.', { exact: true })).toBeVisible();
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
+}
+
+
+test('CO-310 CO-301: repeated-request recovery stays personal for a combined Manager role', async ({ page }) => {
+  const fixture = await failRepeatedRequest(page, {
+    roles: ['employee', 'conference_manager'], ownRequestIds: [REPEAT_SOURCE_ID],
+  });
+  const foreign = confirmedV2RequestFixture();
+  fixture.requests().push({ ...foreign, id: '88888888-8888-4888-8888-888888888888',
+    details: { ...foreign.details, title: 'Other employee private request' } });
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Meine Anfragen', exact: true });
+  await expect(dialog).toContainText('Updated conference');
+  await expect(dialog).not.toContainText('Other employee private request');
+  expect(fixture.requestListReads.at(-1)).toBe('own');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#productionTitle')).toHaveValue('Edited repeated request');
+});

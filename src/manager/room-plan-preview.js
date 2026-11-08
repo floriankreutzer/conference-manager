@@ -57,7 +57,16 @@ export function roomPlanPreview({ openRequest }) {
       }
       node.hidden = false;
       control.setAttribute('aria-expanded', 'true');
-      if (moveFocus) heading.focus();
+      if (moveFocus) {
+        heading.focus();
+        // Touch activation can finish native button focus after the click handler.
+        // Restore the requested preview focus only while that activation still owns it.
+        requestAnimationFrame(() => {
+          if (selected?.control !== control || !node.isConnected || node.hidden
+            || document.documentElement.dataset.sessionLocked === 'true') return;
+          if (document.activeElement === control || document.activeElement === document.body) heading.focus();
+        });
+      }
     };
     control.addEventListener('focus', () => show());
     control.addEventListener('pointerenter', (event) => { if (event.pointerType === 'mouse') show(); });

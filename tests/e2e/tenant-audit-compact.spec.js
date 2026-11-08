@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 for (const language of ['de', 'en']) {
-  test(`CO-309: compact audit preserves selection, identifiers, pagination and filters in ${language}`, async ({ page }) => {
+  test(`CO-309: compact audit preserves selection, identifiers, pagination and filters in ${language}`, async ({ page }, testInfo) => {
     await page.goto('/');
     await page.evaluate(async (lang) => {
       const { createAuditSection } = await import('/src/tenant-admin/sections/audit/index.js');
@@ -65,5 +65,6 @@ for (const language of ['de', 'en']) {
     expect(await page.evaluate(() => window.auditReads.at(-1))).toMatchObject({ outcome: 'denied', beforeId: null, limit: 20 });
     await page.getByRole('button', { name: language === 'de' ? 'Filter zurücksetzen' : 'Reset filters' }).click();
     await expect(rows).toHaveCount(20);
+    await testInfo.attach(`audit-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   });
 }

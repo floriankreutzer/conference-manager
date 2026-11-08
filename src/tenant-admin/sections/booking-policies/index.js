@@ -1,3 +1,4 @@
+import { createPolicyReferenceEditor } from './reference-editor.js';
 import { createPolicyDurationEditor } from './duration-editor.js';
 import { formatDateTime, t } from '../../../core/i18n.js';
 import { announce, button, clear, el, field, showToast, validationSummary } from '../../../core/ui.js';
@@ -6,7 +7,6 @@ import { renderSectionConflict, renderSectionError, renderSectionLoading } from 
 import { tenantSettingsConflictRevision } from '../../settings-revision.js';
 
 const TITLE = 'tenantAdmin.bookingPolicies.title';
-const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 function validAdapter(adapter) {
   return adapter !== null && ['loadBookingPolicies', 'saveBookingPolicies', 'listBookingPoliciesHistory', 'loadBookingPoliciesRevision']
@@ -16,11 +16,6 @@ function validAdapter(adapter) {
 const integerInput = (value, maximum, minimum = 0) => el('input', {
   type: 'number', value, attrs: { min: String(minimum), max: String(maximum), step: '1', required: 'required' },
 });
-const ids = (value) => {
-  const entries = value.split(',').map((entry) => entry.trim()).filter(Boolean);
-  if (new Set(entries).size !== entries.length || entries.some((entry) => !SAFE_ID.test(entry))) throw new TypeError('BOOKING_POLICY_IDS_INVALID');
-  return entries;
-};
 const localDateTime = (instant) => {
   const date = new Date(instant);
   const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
@@ -32,14 +27,11 @@ const nextId = (existing) => {
   return `policy-${index}`;
 };
 
-function versionEditor(version, index) {
+function versionEditor(version, index, catalog) {
   const immutable = new Date(version.effectiveFrom).getTime() <= Date.now();
   const controls = {
     effectiveFrom: el('input', { type: 'datetime-local', value: localDateTime(version.effectiveFrom), disabled: immutable, attrs: { required: 'required' } }),
     maximumParticipants: integerInput(version.rules.maximumParticipants, 100_000, 1),
-    allowedSiteIds: el('input', { type: 'text', value: version.rules.allowedSiteIds.join(', '), attrs: { maxlength: '4000' } }),
-    allowedRoomIds: el('input', { type: 'text', value: version.rules.allowedRoomIds.join(', '), attrs: { maxlength: '4000' } }),
-    allowedServiceIds: el('input', { type: 'text', value: version.rules.allowedServiceIds.join(', '), attrs: { maxlength: '4000' } }),
   };
   if (immutable) Object.values(controls).forEach((control) => { control.disabled = true; });
   const prefix = `tenant-policy-${index}`;
@@ -53,6 +45,11 @@ function versionEditor(version, index) {
     changeWindowMinutes: createPolicyDurationEditor({ id: `${prefix}-change`, label: t('tenantSettings.bookingPolicies.changeWindow'),
       minutes: version.rules.changeWindowMinutes, minimum: 0, maximum: 43200, disabled: immutable }),
   };
+  const references = Object.fromEntries([['allowedSiteIds', 'sites'], ['allowedRoomIds', 'rooms'], ['allowedServiceIds', 'services']]
+    .map(([key, collection]) => [key, createPolicyReferenceEditor({
+      label: t(`tenantSettings.bookingPolicies.${key}`), savedIds: version.rules[key],
+      options: catalog?.[collection] ?? null, disabled: immutable,
+    })]));
   const node = el('fieldset', { className: 'card', dataset: { bookingPolicyId: version.id } }, [
     el('legend', { text: t('tenantSettings.bookingPolicies.version', { date: formatDateTime(version.effectiveFrom) }) }),
     el('p', { className: 'muted', text: immutable ? t('tenantSettings.bookingPolicies.immutable') : t('tenantSettings.bookingPolicies.scheduled') }),
@@ -63,12 +60,12 @@ function versionEditor(version, index) {
       durations.cancellationWindowMinutes.node,
       durations.changeWindowMinutes.node,
       field({ id: `${prefix}-participants`, label: t('tenantSettings.bookingPolicies.maximumParticipants'), control: controls.maximumParticipants, required: true }),
-      field({ id: `${prefix}-sites`, label: t('tenantSettings.bookingPolicies.allowedSiteIds'), control: controls.allowedSiteIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
-      field({ id: `${prefix}-rooms`, label: t('tenantSettings.bookingPolicies.allowedRoomIds'), control: controls.allowedRoomIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
-      field({ id: `${prefix}-services`, label: t('tenantSettings.bookingPolicies.allowedServiceIds'), control: controls.allowedServiceIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
+      references.allowedSiteIds.node,
+      references.allowedRoomIds.node,
+      references.allowedServiceIds.node,
     ]),
   ]);
-  return { node, controls, durations, version, immutable };
+  return { node, controls, durations, references, version, immutable };
 }
 
 function readVersion(editor) {
@@ -82,8 +79,8 @@ function readVersion(editor) {
     cancellationWindowMinutes: editor.durations.cancellationWindowMinutes.read(),
     changeWindowMinutes: editor.durations.changeWindowMinutes.read(),
     maximumParticipants: Number(controls.maximumParticipants.value),
-    allowedSiteIds: ids(controls.allowedSiteIds.value), allowedRoomIds: ids(controls.allowedRoomIds.value),
-    allowedServiceIds: ids(controls.allowedServiceIds.value),
+    allowedSiteIds: editor.references.allowedSiteIds.read(), allowedRoomIds: editor.references.allowedRoomIds.read(),
+    allowedServiceIds: editor.references.allowedServiceIds.read(),
   };
   if ([rules.minimumLeadTimeMinutes, rules.cancellationWindowMinutes, rules.changeWindowMinutes]
     .some((value) => value > rules.maximumAdvanceMinutes)) throw new TypeError('BOOKING_POLICY_WINDOW_INVALID');
@@ -94,11 +91,15 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('BOOKING_POLICIES_SECTION_ADAPTER_INVALID');
   let focusAfterSave = false;
 
-  async function render({ root, isCurrent, rerender }) {
+  async function render({ root, isCurrent, rerender, registerEditor }) {
     renderSectionLoading(root, TITLE);
     let snapshot;
     let history;
-    try { [snapshot, history] = await Promise.all([adapter.loadBookingPolicies(), adapter.listBookingPoliciesHistory({ limit: 20 })]); }
+    let referenceCatalog = null;
+    try { [snapshot, history, referenceCatalog] = await Promise.all([
+      adapter.loadBookingPolicies(), adapter.listBookingPoliciesHistory({ limit: 20 }),
+      adapter.loadReferenceCatalog?.().catch(() => null) ?? null,
+    ]); }
     catch {
       if (isCurrent()) {
         renderSectionError(root, TITLE);
@@ -110,8 +111,8 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
     }
     if (!isCurrent()) return;
     const form = el('form', { dataset: { tenantSettingsForm: 'booking-policies' } });
-    const editors = snapshot.configuration.versions.map(versionEditor);
-    const versionsSurface = el('div', {}, editors.map((entry) => entry.node));
+    const editors = snapshot.configuration.versions.map((version, index) => versionEditor(version, index, referenceCatalog));
+    const versionsSurface = el('div', { className: 'policy-version-list' }, editors.map((entry) => entry.node));
     const add = button(t('tenantSettings.bookingPolicies.addVersion'));
     add.addEventListener('click', () => {
       const count = editors.length + 1;
@@ -119,7 +120,7 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
       future.setUTCHours(0, 0, 0, 0);
       const source = snapshot.configuration.versions.at(-1);
       const id = nextId(new Set(editors.map((entry) => entry.version.id)));
-      const editor = versionEditor({ id, effectiveFrom: future.toISOString(), rules: structuredClone(source.rules) }, count - 1);
+      const editor = versionEditor({ id, effectiveFrom: future.toISOString(), rules: structuredClone(source.rules) }, count - 1, referenceCatalog);
       editors.push(editor);
       versionsSurface.appendChild(editor.node);
       editor.controls.effectiveFrom.focus();
@@ -129,6 +130,15 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
     const save = button(t('tenantSettings.action.save'), { className: 'primary', attrs: { type: 'submit' } });
     let mutationPending = false;
     form.append(el('div', { className: 'button-row' }, [save]), status);
+    const editorState = registerEditor?.({
+      read: () => JSON.stringify([...form.querySelectorAll('input, select')].map((control) =>
+        [control.id, control.type === 'checkbox' ? control.checked : control.value])), isCurrent,
+    });
+    const dirtyStatus = () => { if (!mutationPending) status.textContent = editorState?.isDirty() ? t('tenantAdmin.unsaved.title') : ''; };
+    form.addEventListener('input', dirtyStatus);
+    form.addEventListener('change', dirtyStatus);
+    add.addEventListener('click', dirtyStatus);
+    const conflict = el('div');
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;
@@ -145,10 +155,13 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
       }
       save.disabled = true;
       mutationPending = true;
+      const locked = [...form.querySelectorAll('input:not(:disabled), select:not(:disabled), button:not(:disabled)')];
+      locked.forEach((control) => { control.disabled = true; });
       status.textContent = t('tenantSettings.status.saving');
       try {
         await adapter.saveBookingPolicies({ expectedRevision: snapshot.revision, configuration: submittedDraft });
         if (!isCurrent()) return;
+        editorState?.saved();
         focusAfterSave = true;
         showToast(t('tenantSettings.status.saved'));
         announce(t('tenantSettings.status.saved'));
@@ -157,18 +170,9 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
         if (!isCurrent()) return;
         const currentRevision = tenantSettingsConflictRevision(error);
         if (currentRevision !== null) {
-          renderSectionConflict(root, TITLE, {
-            currentRevision, onReload: rerender,
-            onReapply: async () => {
-              const current = await adapter.loadBookingPolicies();
-              if (!isCurrent()) return;
-              await adapter.saveBookingPolicies({ expectedRevision: current.revision, configuration: submittedDraft });
-              if (!isCurrent()) return;
-              focusAfterSave = true;
-              rerender();
-            },
-          });
-          root.querySelector('h2')?.focus();
+          status.textContent = t('tenantSettings.status.saveFailed');
+          renderSectionConflict(conflict, TITLE, { currentRevision, onReload: rerender });
+          conflict.querySelector('h2')?.focus();
           return;
         }
         save.disabled = false;
@@ -176,18 +180,26 @@ export function createBookingPoliciesSection({ adapter = null } = {}) {
         status.textContent = t('tenantSettings.status.saveFailed');
         announce(status.textContent, { assertive: true });
         save.focus();
+      } finally {
+        if (isCurrent()) {
+          locked.forEach((control) => { control.disabled = false; });
+          save.disabled = false;
+          mutationPending = false;
+        }
       }
     });
     const historyList = el('ol');
     history.forEach((entry) => historyList.appendChild(el('li', { text: t('tenantSettings.history.entry', { revision: entry.revision, date: formatDateTime(entry.changedAt) }) })));
     clear(root);
-    root.append(
+    const workspace = el('div', { className: 'tenant-policy-workspace' });
+    workspace.append(
       el('section', { className: 'card' }, [
         el('h2', { text: t(TITLE), attrs: { tabindex: '-1' } }), el('p', { text: t('tenantAdmin.bookingPolicies.description') }),
-        el('p', { className: 'muted', text: t('tenantAdmin.section.revision', { revision: snapshot.revision }) }), form,
+        el('p', { className: 'muted', text: t('tenantAdmin.section.revision', { revision: snapshot.revision }) }), conflict, form,
       ]),
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
     );
+    root.appendChild(workspace);
     if (focusAfterSave) {
       requestAnimationFrame(() => {
         if (!focusAfterSave || !isCurrent()) return;
