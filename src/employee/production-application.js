@@ -1068,7 +1068,8 @@ export function createProductionEmployeeApplication({
       clear(allocationPanel);
       allocationPanel.append(
         el('h3', { text: t('cost.allocations') }),
-        el('p', { className: 'muted', text: t('cost.allocHint') }),
+        el('p', { className: 'muted', text: t(requestCatalog.costAllocation?.allocationRequired
+          ? 'cost.allocRequiredHint' : 'cost.allocOptionalHint') }),
       );
       const allocationStatus = el('p', {
         attrs: { role: 'status', 'aria-live': 'polite' },
@@ -1283,6 +1284,7 @@ export function createProductionEmployeeApplication({
       field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
       participantTotal,
     ]);
+    const costPreview = el('section', { dataset: { costPreview: 'true' } });
     const panels = [
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '1' } }, [
         el('div', { className: 'section-heading' }, [
@@ -1327,6 +1329,7 @@ export function createProductionEmployeeApplication({
         el('div', { className: 'section-heading' }, [
           el('div', {}, [el('h2', { text: t('cost.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('cost.desc') })]),
         ]),
+        costPreview,
         allocationPanel,
       ]),
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '6' } }),
@@ -1363,6 +1366,41 @@ export function createProductionEmployeeApplication({
     const discardDraft = button(t('production.employee.discardDraft'), { className: 'danger' });
     let activeStep = restoredDraft?.activeStep || 1;
 
+    const currentReviewModel = () => buildServerRequestReview({
+      catalog: requestCatalog,
+      roomId: room.value,
+      internalParticipants: internal.value,
+      externalParticipants: external.value,
+      serviceIds: [...selectedServices],
+      equipmentIds: [...selectedEquipment],
+      cateringParticipantCount: cateringParticipants.value,
+      packageSelection,
+      itemQuantities,
+      allocations: allocationRows,
+      dietaryRequirements: dietaryRequirements.value,
+      specialRequirements: specialRequirements.value,
+    });
+    const reviewPriceRows = (price) => {
+      const previewMoney = (amountMinor) => formatMoney(amountMinor / 100, price.currency);
+      return price ? [
+        [t('cost.room'), previewMoney(price.breakdown.roomMinor)],
+        [t('review.services'), previewMoney(price.breakdown.servicesMinor)],
+        [t('production.employee.equipmentHeading'), previewMoney(price.breakdown.equipmentMinor)],
+        [t('catering.package'), previewMoney(price.breakdown.cateringPackageMinor)],
+        [t('catering.items'), previewMoney(price.breakdown.cateringItemsMinor)],
+        [t('review.total'), previewMoney(price.totalMinor)],
+      ] : [[t('review.total'), t('production.employee.reviewPriceUnavailable')]];
+    };
+    const renderCostPreview = () => {
+      clear(costPreview);
+      costPreview.append(
+        el('h3', { text: t('production.employee.reviewPriceBreakdown') }),
+        el('dl', { className: 'details-list review-details' }, reviewPriceRows(currentReviewModel().price)
+          .flatMap(([term, value]) => [el('dt', { text: term }), el('dd', { text: value })])),
+        el('p', { className: 'muted review-price-note', text: t('cost.note') }),
+      );
+    };
+
     const renderReview = () => {
       const review = panels[5];
       clear(review);
@@ -1373,20 +1411,7 @@ export function createProductionEmployeeApplication({
         start: formatProductionDateTime(window.startsAt, { locale: locale(), timeZone }),
         end: formatProductionDateTime(window.endsAt, { locale: locale(), timeZone }),
       }) : '';
-      const model = buildServerRequestReview({
-        catalog: requestCatalog,
-        roomId: room.value,
-        internalParticipants: internal.value,
-        externalParticipants: external.value,
-        serviceIds: [...selectedServices],
-        equipmentIds: [...selectedEquipment],
-        cateringParticipantCount: cateringParticipants.value,
-        packageSelection,
-        itemQuantities,
-        allocations: allocationRows,
-        dietaryRequirements: dietaryRequirements.value,
-        specialRequirements: specialRequirements.value,
-      });
+      const model = currentReviewModel();
       const none = t('common.none');
       const joinedNames = (entries) => entries.map((entry) => entry.name).join(' · ') || none;
       const cateringPackage = model.catering.packageSelection
@@ -1403,10 +1428,6 @@ export function createProductionEmployeeApplication({
           style: 'percent', maximumFractionDigits: 2,
         })}`
       )).join(' · ') || none;
-      const previewMoney = (amountMinor) => formatMoney(
-        amountMinor / 100,
-        model.price.currency,
-      );
       const reviewGrid = el('div', { className: 'review-grid' });
       const reviewCard = (heading, rows, targetStep, section) => {
         const edit = button(t('review.edit'), { className: 'ux-review-edit' });
@@ -1423,14 +1444,7 @@ export function createProductionEmployeeApplication({
           ])),
         ]);
       };
-      const priceRows = model.price ? [
-        [t('cost.room'), previewMoney(model.price.breakdown.roomMinor)],
-        [t('review.services'), previewMoney(model.price.breakdown.servicesMinor)],
-        [t('production.employee.equipmentHeading'), previewMoney(model.price.breakdown.equipmentMinor)],
-        [t('catering.package'), previewMoney(model.price.breakdown.cateringPackageMinor)],
-        [t('catering.items'), previewMoney(model.price.breakdown.cateringItemsMinor)],
-        [t('review.total'), previewMoney(model.price.totalMinor)],
-      ] : [[t('review.total'), t('production.employee.reviewPriceUnavailable')]];
+
       reviewGrid.append(
         reviewCard(t('production.employee.reviewEventParticipants'), [
           [t('schedule.title'), title.value.trim()],
@@ -1462,7 +1476,7 @@ export function createProductionEmployeeApplication({
         reviewCard(t('review.costs'), [
           [t('cost.allocations'), allocationText],
         ], 5, 'allocations'),
-        reviewCard(t('production.employee.reviewPriceBreakdown'), priceRows, 5, 'price'),
+        reviewCard(t('production.employee.reviewPriceBreakdown'), reviewPriceRows(model.price), 5, 'price'),
       );
       review.append(
         el('div', { className: 'section-heading' }, [
@@ -1495,6 +1509,7 @@ export function createProductionEmployeeApplication({
           className: `ux-progress-dot${index + 1 === activeStep ? ' active' : ''}${index + 1 < activeStep ? ' done' : ''}`,
         }))),
       );
+      if (activeStep === 5) renderCostPreview();
       if (activeStep === 6) renderReview();
       recoveryHint.hidden = !submissionFailed || activeStep !== 6;
       clear(actions);

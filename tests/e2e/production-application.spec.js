@@ -1862,9 +1862,14 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
 
   await page.getByRole('button', { name: 'Weiter' }).click();
   await expect(page.locator('#productionAllocationPercent-0')).toHaveValue('100');
+  const costPreview = page.locator('[data-cost-preview]');
+  await expect(costPreview.getByRole('heading', { name: 'Preisübersicht' })).toBeVisible();
+  await expect(costPreview.locator('dd').last()).toHaveText(/68,50\s*€/);
+  const costValues = await costPreview.locator('dd').allTextContents();
   await page.getByRole('button', { name: 'Weiter' }).click();
 
   const review = page.locator('[data-step-panel="6"]');
+  await expect(review.locator('[data-review-section="price"] dd')).toHaveText(costValues);
   await expect(review.getByText('Intern')).toBeVisible();
   await expect(review.getByText('Extern')).toBeVisible();
   await expect(review.getByText('Service host', { exact: true })).toBeVisible();
@@ -1884,7 +1889,96 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(page.getByRole('heading', { name: 'Bewirtung' })).toBeFocused();
   await expect(packageChoice).toBeChecked();
   await expect(itemGroup.getByLabel('Menge für Cake')).toHaveValue('2');
+  await itemGroup.getByLabel('Menge für Cake').fill('3');
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(costPreview.locator('dd').last()).toHaveText(/71,50\s*€/);
+  await expect(page.locator('#productionAllocationPercent-0')).toHaveValue('100');
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(review.locator('[data-review-section="price"] dd').last()).toHaveText(/71,50\s*€/);
 });
+
+for (const language of ['de', 'en']) {
+  for (const allocationRequired of [false, true]) {
+    test(`CO-298: ${language} ${allocationRequired ? 'required' : 'optional'} allocation follows policy and retains the cost preview`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const catalog = catalogPayload();
+      catalog.catalog.rooms[0].price = { amountMinor: 2500, currency: 'EUR' };
+      catalog.catalog.costCenters = [{ id: 'operations', code: '471100', name: 'Operations', group: null }];
+      const fixture = await installProductionApplicationFixture(page, { catalog, allocationRequired });
+      await page.goto(`${ORIGIN}/`);
+      await page.locator('[data-view="employee"]').click();
+      await fillEmployeeSchedule(page);
+      const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+      await next.click();
+      await page.getByRole('radio', { name: /Room A/ }).check();
+      await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+      for (let step = 2; step < 5; step += 1) await next.click();
+      const cost = page.locator('[data-step-panel="5"]');
+      const hint = language === 'de'
+        ? (allocationRequired ? 'Kostenaufteilung erforderlich.' : 'Kostenaufteilung optional.')
+        : (allocationRequired ? 'Cost allocation is required.' : 'Cost allocation is optional.');
+      await expect(cost).toContainText(hint);
+      await expect(cost.locator('[data-cost-preview] dd').last()).toHaveText(language === 'de' ? /25,00\s*€/ : /€25\.00/);
+      const remove = cost.getByRole('button', { name: language === 'de' ? 'Löschen' : 'Delete', exact: true });
+      if (allocationRequired) await remove.click();
+      await expect(cost.locator('select')).toHaveCount(0);
+      await next.click();
+      if (allocationRequired) {
+        await expect(cost).toBeVisible();
+        await expect(page.locator('#productionEmployeeStatus')).not.toBeEmpty();
+      } else {
+        await expect(page.locator('[data-step-panel="6"]')).toBeVisible();
+        await page.getByRole('button', { name: language === 'de' ? 'Zurück' : 'Back', exact: true }).click();
+      }
+      await cost.getByRole('button', { name: language === 'de' ? 'Kostenstelle hinzufügen' : 'Add cost center' }).click();
+      const percent = page.locator('#productionAllocationPercent-0');
+      for (const invalid of ['0', '50', '101']) {
+        await percent.fill(invalid);
+        await next.click();
+        await expect(cost).toBeVisible();
+        await expect(page.locator('[data-step-panel="6"]')).toBeHidden();
+        expect(fixture.requestEnvelopes).toHaveLength(0);
+      }
+      await percent.fill('100');
+      await next.click();
+      const review = page.locator('[data-step-panel="6"]');
+      await expect(review).toBeVisible();
+      await expect(review.locator('[data-review-section="allocations"]')).toContainText('471100 · Operations: 100');
+      expect(fixture.requestEnvelopes).toHaveLength(0);
+    });
+  }
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-298: ${language} unavailable combined price remains explicit in costs and review`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.rooms[0].price = { amountMinor: 2500, currency: 'EUR' };
+    catalog.catalog.services = [{
+      id: 'service-host', name: 'Service host', description: 'Meeting support',
+      active: true, order: 1, price: { amountMinor: 1000, currency: 'USD' }, siteIds: [], roomIds: [],
+    }];
+    const fixture = await installProductionApplicationFixture(page, { catalog });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+    await next.click();
+    await page.getByRole('checkbox', { name: /Service host/ }).check();
+    await next.click();
+    await next.click();
+    const preview = page.locator('[data-cost-preview] dd');
+    await expect(preview).toHaveCount(1);
+    await expect(preview).toContainText(language === 'de' ? 'nicht verfügbar' : 'unavailable');
+    const unavailable = await preview.textContent();
+    await next.click();
+    await expect(page.locator('[data-review-section="price"] dd')).toHaveText(unavailable);
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+  });
+}
 
 test('Catering participant default follows the attendee total until explicitly edited and preserves zero on restore', async ({ page }) => {
   await installProductionApplicationFixture(page);

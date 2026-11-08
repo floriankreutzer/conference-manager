@@ -491,6 +491,35 @@ test('Employee editor produces bounded schema-v2 catering and exact cost allocat
   }), /PRODUCTION_REQUEST_EDITOR_INVALID/);
 });
 
+test('CO-298: allocation policy distinguishes empty optional allocations and rejects invalid selected allocations', () => {
+  for (const allocationRequired of [false, true]) {
+    const catalog = {
+      costCenters: [
+        { id: 'a', active: true }, { id: 'b', active: true }, { id: 'inactive', active: false },
+      ],
+      costAllocation: { allocationRequired },
+    };
+    const normalize = (allocations) => normalizeAllocationEditorDraft({ catalog, allocations });
+    if (allocationRequired) assert.throws(() => normalize([]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    else assert.deepEqual(normalize([]), []);
+    for (const percentage of ['0', '50', '101', '99.99', '100.01', '99.999', '-1']) {
+      assert.throws(() => normalize([{ costCenterId: 'a', percentage }]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    }
+    for (const costCenterId of ['inactive', 'removed']) {
+      assert.throws(() => normalize([{ costCenterId, percentage: '100' }]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    }
+    assert.throws(() => normalize([
+      { costCenterId: 'a', percentage: '50' }, { costCenterId: 'a', percentage: '50' },
+    ]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    assert.deepEqual(normalize([{ costCenterId: 'a', percentage: '100' }]), [
+      { costCenterId: 'a', percentageBasisPoints: 10000 },
+    ]);
+    assert.deepEqual(normalize([
+      { costCenterId: 'b', percentage: '66.67' }, { costCenterId: 'a', percentage: '33.33' },
+    ]), [{ costCenterId: 'a', percentageBasisPoints: 3333 }, { costCenterId: 'b', percentageBasisPoints: 6667 }]);
+  }
+});
+
 test('Manager room planning derives today and request membership from the selected site timezone', () => {
   const instant = Date.parse('2026-08-30T23:30:00.000Z');
   assert.equal(siteLocalIsoDate(instant, 'Europe/Berlin'), '2026-08-31');
