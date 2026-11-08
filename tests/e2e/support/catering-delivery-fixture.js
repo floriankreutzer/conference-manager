@@ -6,9 +6,14 @@ const jobId = 'e0000000-0000-4000-8000-000000009001';
 const instant = '2026-10-19T13:00:00.000Z';
 
 export async function installCateringDeliveryFixture(page, {
+  multilineRequirements = false,
   language = 'de', enabled = true, failure = null, rejected = false, readFailure = false, documentText = null, manualFailure = null, manualReadFailure = null, extraPosition = false,
 } = {}) {
   const current = structuredClone(cateringOrderOriginal);
+  if (multilineRequirements) {
+    current.order.dietaryRequirements = 'Vegan\nNo nuts';
+    current.order.specialRequirements = 'First line\nSecond line';
+  }
   if (documentText !== null) { current.order.title = documentText; current.order.positions[0].name = documentText; }
   if (extraPosition) {
     const line = current.order.positions[0];
