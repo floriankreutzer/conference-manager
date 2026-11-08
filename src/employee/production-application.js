@@ -23,6 +23,7 @@ import {
 } from './server-request-calendar.js';
 import { renderServerRequestHistory } from './server-request-history.js';
 import { composeServerRequestDraft } from '../shared/production-request-draft.js';
+import { requestTextResult } from '../shared/request-text.js';
 import { createServerRequestWorkflow } from './server-request-workflow.js';
 import {
   cateringEditorOptions,
@@ -1134,21 +1135,39 @@ export function createProductionEmployeeApplication({
       attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' },
     });
     const scheduleControls = [title, date, start, endDate, end, internal, external];
+    const textFields = [
+      { control: title, label: 'schedule.title', maximum: 160, step: 1 },
+      { control: specialRequirements, label: 'schedule.special', maximum: 2_000, step: 1, nullable: true, multiline: true },
+      { control: dietaryRequirements, label: 'catering.dietary', maximum: 2_000, step: 4, nullable: true, multiline: true },
+    ];
     const clearControlValidation = (control) => {
       control.removeAttribute('aria-invalid');
-      if (control.getAttribute('aria-describedby') === status.id) {
-        control.removeAttribute('aria-describedby');
-      }
+      const describedBy = (control.getAttribute('aria-describedby') || '')
+        .split(' ').filter((id) => id && id !== status.id).join(' ');
+      if (describedBy) control.setAttribute('aria-describedby', describedBy);
+      else control.removeAttribute('aria-describedby');
     };
     const showControlValidation = (control, message = t('production.employee.validation')) => {
       control.setAttribute('aria-invalid', 'true');
-      control.setAttribute('aria-describedby', status.id);
+      const describedBy = new Set((control.getAttribute('aria-describedby') || '').split(' ').filter(Boolean));
+      describedBy.add(status.id);
+      control.setAttribute('aria-describedby', [...describedBy].join(' '));
       status.className = 'error-box';
       status.textContent = message;
       control.focus();
       return false;
     };
-    scheduleControls.forEach((control) => {
+    const validateTextField = (entry) => {
+      const result = requestTextResult(entry.control.value, entry);
+      if (!result.error) return true;
+      const messageKey = result.error === 'required' ? 'production.employee.textRequired'
+        : result.error === 'length' ? 'production.employee.textLength'
+          : entry.multiline ? 'production.employee.textMultilineCharacters' : 'production.employee.textCharacters';
+      return showControlValidation(entry.control, t(messageKey, {
+        field: t(entry.label), maximum: formatNumber(entry.maximum),
+      }));
+    };
+    [...scheduleControls, specialRequirements, dietaryRequirements].forEach((control) => {
       control.addEventListener('input', () => clearControlValidation(control));
     });
     cateringParticipants.addEventListener('input', () => {
@@ -1157,6 +1176,18 @@ export function createProductionEmployeeApplication({
     });
     const checkAvailability = button(t('production.employee.checkAvailability'));
     const submit = button(t(isResubmission ? 'review.resubmit' : 'production.employee.submit'), { className: 'primary', disabled: true });
+    let submissionFailed = false;
+    const recheckRoom = button(t('production.employee.recheckRoom'));
+    recheckRoom.addEventListener('click', () => moveToStep(2));
+    const inspectRequests = button(t('production.employee.inspectRequests'));
+    for (const control of [inspectRequests, recheckRoom]) {
+      control.setAttribute('aria-describedby', 'productionSubmissionRecovery');
+    }
+    inspectRequests.addEventListener('click', () => {
+      if (!isCurrentEditor() || workflowMutationPending) return;
+      scheduleDraftSave({ immediate: true });
+      onNavigate?.('requests');
+    });
     let verifiedAvailabilityKey = null;
     let availabilityState = 'unchecked';
     let availabilityStateKey = null;
@@ -1317,8 +1348,15 @@ export function createProductionEmployeeApplication({
       dataset: { uxMobileProgress: 'true' },
       attrs: { role: 'group' },
     });
+    const recoveryHint = el('p', {
+      id: 'productionSubmissionRecovery',
+      className: 'muted', text: t(isResubmission
+        ? 'production.employee.resubmissionRecovery' : 'production.employee.submissionRecovery'),
+    });
+    recoveryHint.hidden = true;
     const actionStatus = el('div', {}, [
       status,
+      recoveryHint,
       el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
     ]);
     const actions = el('footer', { className: 'wizard-actions' });
@@ -1381,7 +1419,7 @@ export function createProductionEmployeeApplication({
           el('div', { className: 'ux-review-card-header' }, [el('h3', { text: heading }), edit]),
           el('dl', { className: 'details-list review-details' }, rows.flatMap(([term, value]) => [
             el('dt', { text: term }),
-            el('dd', { text: value || none }),
+            el('dd', { className: 'request-detail-text', text: value || none }),
           ])),
         ]);
       };
@@ -1458,6 +1496,7 @@ export function createProductionEmployeeApplication({
         }))),
       );
       if (activeStep === 6) renderReview();
+      recoveryHint.hidden = !submissionFailed || activeStep !== 6;
       clear(actions);
       if (!isResubmission) actions.appendChild(discardDraft);
       if (activeStep > 1) {
@@ -1472,13 +1511,23 @@ export function createProductionEmployeeApplication({
         next.disabled = activeStep === 2 && !isAvailabilityVerified();
         next.addEventListener('click', () => moveToStep(activeStep + 1));
         actions.appendChild(next);
-      } else actions.appendChild(submit);
+      } else {
+        if (submissionFailed) {
+          if (!isResubmission) actions.appendChild(inspectRequests);
+          actions.appendChild(recheckRoom);
+        }
+        actions.appendChild(submit);
+      }
     };
 
     const focusStep = () => requestAnimationFrame(() => {
       panels[activeStep - 1].querySelector('h2, input, select, textarea, button')?.focus();
     });
     const validateStep = (stepNumber) => {
+      for (const entry of textFields.filter((item) => item.step === stepNumber)) {
+        clearControlValidation(entry.control);
+        if (!validateTextField(entry)) return false;
+      }
       if (stepNumber === 1) {
         scheduleControls.forEach(clearControlValidation);
         const internalParticipants = safeParticipantCount(internal.value);
@@ -1727,6 +1776,15 @@ export function createProductionEmployeeApplication({
 
     submit.addEventListener('click', async () => {
       if (!isCurrentEditor() || workflowMutationPending) return;
+      for (const entry of textFields) {
+        clearControlValidation(entry.control);
+        if (requestTextResult(entry.control.value, entry).error) {
+          activeStep = entry.step;
+          renderActiveStep();
+          validateTextField(entry);
+          return;
+        }
+      }
       const window = currentAvailabilityWindow();
       const internalParticipants = safeParticipantCount(internal.value);
       const externalParticipants = safeParticipantCount(external.value);
@@ -1820,6 +1878,7 @@ export function createProductionEmployeeApplication({
           return;
         }
         if (!isCurrentEditor()) return;
+        submissionFailed = true;
         invalidateAvailability();
         status.className = 'error-box';
         status.textContent = errorMessage(error);
@@ -1847,6 +1906,8 @@ export function createProductionEmployeeApplication({
           activeStep = 2;
           renderActiveStep();
           focusStep();
+        } else {
+          (isResubmission ? recheckRoom : inspectRequests).focus();
         }
       } finally {
         unlockDraft();

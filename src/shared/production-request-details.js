@@ -59,6 +59,6 @@ export function renderProductionRequestBusinessDetails(request) {
   if (!rows.length) return null;
   return el('dl', { className: 'details-list' }, rows.flatMap(([term, value]) => [
     el('dt', { text: term }),
-    el('dd', { text: value }),
+    el('dd', { className: 'request-detail-text', text: value }),
   ]));
 }

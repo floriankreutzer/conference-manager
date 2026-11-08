@@ -26,9 +26,10 @@ export function orderArray(value, maximum) {
   }
   return value;
 }
-function text(value, maximum, nullable = false) {
+function text(value, maximum, nullable = false, multiline = false) {
   if (nullable && value === null) return null;
-  if (typeof value !== 'string' || value.length < 1 || value.length > maximum || /[\u0000-\u001f\u007f]/.test(value)) invalid();
+  const controls = multiline ? /[\u0000-\u0009\u000b-\u001f\u007f]/ : /[\u0000-\u001f\u007f]/;
+  if (typeof value !== 'string' || value.length < 1 || value.length > maximum || controls.test(value)) invalid();
   return value;
 }
 function identifier(value) { if (typeof value !== 'string' || !ID.test(value)) invalid(); return value; }
@@ -109,6 +110,6 @@ export function cateringOrderSnapshot(value, expectedOrderId) {
     sourceCapturedAt: orderInstant(value.sourceCapturedAt), startsAt, endsAt,
     room: Object.freeze({ id: identifier(value.room.id), siteId: identifier(value.room.siteId), name: text(value.room.name, 160) }),
     title: text(value.title, 2000), participantCount: orderInteger(value.participantCount, 0, 500),
-    dietaryRequirements: text(value.dietaryRequirements, 2000, true), specialRequirements: text(value.specialRequirements, 2000, true),
+    dietaryRequirements: text(value.dietaryRequirements, 2000, true, true), specialRequirements: text(value.specialRequirements, 2000, true, true),
     positions: Object.freeze(positions), conferencePrice, providerCost: null });
 }

@@ -2582,6 +2582,106 @@ test('EMP-01 EMP-07: Employee production flow invalidates availability after a n
   expect(fixture.writes).toHaveLength(1);
 });
 
+test('CO-301: multiline requirements survive review, submission and the returned request', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  const special = "Bitte Wasser & O'Neills Tee.\nDanach Raum lüften.";
+  const dietary = 'Ohne Nüsse.\nEine vegetarische Portion.';
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await fillEmployeeSchedule(page);
+  await page.locator('#productionSpecial').fill(special);
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await page.locator('#productionDietary').fill(dietary);
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(page.locator('[data-step-panel="6"]')).toContainText('Danach Raum lüften.');
+  // Two events in one task exercise the in-flight guard before a response can arrive.
+  await page.getByRole('button', { name: 'Anfrage absenden' }).evaluate((control) => {
+    control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    control.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.requestEnvelopes[0].request).toMatchObject({
+    specialRequirements: special, dietaryRequirements: dietary,
+  });
+  expect(fixture.requests()[0].details).toMatchObject({ specialRequirements: special, dietaryRequirements: dietary });
+  await expect(page.locator('#app')).toContainText('Danach Raum lüften.');
+  await expect(page.locator('#app dd').filter({ hasText: 'Danach Raum lüften.' }))
+    .toHaveCSS('white-space', 'pre-line');
+});
+
+for (const language of ['de', 'en']) {
+  test(`CO-301: ${language} text errors identify and focus the field before moving on`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const special = page.locator('#productionSpecial');
+    await special.fill('<script>alert(1)</script>');
+    await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+    await expect(special).toBeFocused();
+    await expect(special).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#productionEmployeeStatus')).toContainText(language === 'de' ? 'spitze Klammern' : 'angle brackets');
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+    await special.fill('First line\nSecond line');
+    await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+    await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
+    await expect(special).not.toHaveAttribute('aria-invalid', 'true');
+  });
+}
+
+test('CO-301: failed submission exposes keyboard recovery and retains the same workflow for an explicit retry', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    requestCreateErrors: [{ status: 503, code: 'SERVICE_UNAVAILABLE' }],
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.getByRole('button', { name: 'Anfrage absenden' })).toBeDisabled();
+  await expect(page.getByText('Ihre Eingaben bleiben erhalten.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' })).toBeFocused();
+  const recover = page.getByRole('button', { name: 'Raum erneut prüfen' });
+  await page.keyboard.press('Tab');
+  await expect(recover).toBeFocused();
+  await expect(recover).toHaveAttribute('aria-describedby', 'productionSubmissionRecovery');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('[data-step-panel="2"] h2')).toBeFocused();
+  await expect(page.locator('#productionTitle')).toHaveValue('Customer workshop');
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  expect(fixture.requestEnvelopes).toHaveLength(2);
+  expect(fixture.requestEnvelopes[0]).toEqual(fixture.requestEnvelopes[1]);
+  expect(fixture.availabilityChecks).toHaveLength(2);
+});
+
+test('CO-301: a lost committed response offers outcome inspection without repeating the write', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, { loseCreatedResponse: true });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' }).click();
+  await expect(page.locator('#viewTitle')).toHaveText('Meine Anfragen');
+  await expect(page.locator('#app')).toContainText('Customer workshop');
+  expect(fixture.requestEnvelopes).toHaveLength(1);
+  expect(fixture.requests()).toHaveLength(1);
+});
+
 test('EMP-03: Employee room cards use each projected price currency', async ({ page }) => {
   const catalog = catalogPayload();
   catalog.catalog.rooms[0].price = { amountMinor: 2_500, currency: 'CHF' };
@@ -2616,6 +2716,9 @@ test('EMP-07: Employee rebases a conflicted resubmission and preserves the edito
   await expect(page.locator('#productionTitle')).toHaveValue('Preserved resubmission draft');
   await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
   await advanceEmployeeToReview(page);
+  await expect(page.getByText('Ihre Änderungen bleiben in diesem Formular erhalten.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ergebnis in Meine Anfragen prüfen' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Raum erneut prüfen' })).toBeVisible();
   await page.getByRole('button', { name: 'Änderung erneut einreichen' }).click();
 
   await expect(page.locator('#viewTitle')).toHaveText('Meine Anfragen');

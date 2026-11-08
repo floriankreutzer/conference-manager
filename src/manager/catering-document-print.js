@@ -31,7 +31,7 @@ export async function presentCateringPrintDocument({ printWindow, value, isCurre
     ['cateringOrders.end', formatDateTime(value.endsAt)], ['cateringOrders.participants', formatNumber(value.participantCount)],
   ]));
   for (const [key, text] of [['cateringOrders.dietary',value.dietaryRequirements],
-    ['cateringOrders.requirements',value.specialRequirements]]) if (text) context.append(node('p', t(key, { value: text })));
+    ['cateringOrders.requirements',value.specialRequirements]]) if (text) context.append(node('p', t(key, { value: text }), 'guest-print-requirements'));
   const quote = node('section', '', 'guest-print-card');
   quote.append(node('h2', t('cateringDocuments.supplierCost')));
   if (value.quote) {
