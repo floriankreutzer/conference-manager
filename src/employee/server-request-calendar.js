@@ -163,7 +163,7 @@ export function renderServerRequestCalendar({
       (entriesByDate.get(day.date) || []).forEach((entry) => {
           const title = requestTitle(entry.request);
           const status = t(`status.${entry.request.status}`);
-          const event = button(`${entry.wallTime.time} · ${title} · ${status}`, {
+          const event = button('', {
             className: 'calendar-event',
             attrs: {
               'aria-label': t('production.employee.calendarEvent', {
@@ -174,6 +174,11 @@ export function renderServerRequestCalendar({
               }),
             },
           });
+          event.append(
+            el('span', { className: 'calendar-event-time', text: entry.wallTime.time }),
+            el('span', { className: 'calendar-event-title', text: title }),
+            el('span', { className: 'calendar-event-status', text: status }),
+          );
           event.addEventListener('click', () => onSelect(entry.request));
           cell.appendChild(event);
         });
