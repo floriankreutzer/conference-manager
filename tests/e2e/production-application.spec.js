@@ -3518,6 +3518,7 @@ test('Conference Manager separates Services and Catering business settings throu
     .toEqual(['catering-items', 'catering-packages']);
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
+  await page.locator('[data-catalogue-entry-id="package-coffee"]').locator('..').locator(':scope > summary').click();
   await page.locator('[data-add-catalogue-variant="package-coffee"]').click();
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
@@ -5160,6 +5161,51 @@ test('Production onboarding opens Tenant Admin without loading unavailable busin
   expect(businessReads).toEqual([]);
 });
 
+
+for (const language of ['de', 'en']) {
+  test(`CO-306: search preserves full catalogue snapshots and reveals invalid hidden editors in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
+    catalogueSettings.equipment = Array.from({ length: 18 }, (_, index) => ({
+      id: `equipment-${index}`, name: `Equipment ${index}`, description: null,
+      price: { amountMinor: index * 100, currency: 'EUR' }, active: true,
+      order: index, siteIds: [], roomIds: index === 7 ? ['retired-room'] : [],
+    }));
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    await page.getByRole('button', { name: language === 'de' ? 'Services & Ausstattung' : 'Services & equipment', exact: true }).click();
+    const search = page.locator('#manager-equipment-search');
+    await search.fill('Equipment 7');
+    const entry = page.locator('[data-catalogue-entry-id="equipment-7"]');
+    const disclosure = entry.locator('..');
+    await disclosure.locator(':scope > summary').focus();
+    await page.keyboard.press('Enter');
+    const name = page.locator('#manager-catalogue-equipment-equipment-7-name');
+    await name.fill('Updated equipment');
+    await expect(page.locator('#manager-catalogue-equipment-equipment-7-rooms')).toHaveValues(['retired-room']);
+    await search.fill('No match');
+    await page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true }).click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+    const saved = fixture.catalogueWrites[0].body.catalogue;
+    expect(saved.equipment).toHaveLength(18);
+    expect(saved.equipment[7]).toEqual({ ...catalogueSettings.equipment[7], name: 'Updated equipment' });
+    expect(saved.equipment.filter((_, index) => index !== 7)).toEqual(catalogueSettings.equipment.filter((_, index) => index !== 7));
+    expect(saved.services).toEqual(catalogueSettings.services);
+    expect(saved.roomPrices).toEqual(catalogueSettings.roomPrices);
+    expect(fixture.catalogueWrites[0].csrf).toBe(CSRF_TOKEN);
+    await search.fill('Updated equipment');
+    await disclosure.locator(':scope > summary').click();
+    await name.fill('   ');
+    await search.fill('Equipment 0');
+    await page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true }).click();
+    await expect(name).toBeFocused();
+    await expect(name).toHaveAttribute('aria-invalid', 'true');
+    await expect(search).toHaveValue('');
+    expect(fixture.catalogueWrites).toHaveLength(1);
+  });
+}
 
 test('Manager business references use named selections and keyboard-accessible DE/EN help', async ({ page }) => {
   const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);

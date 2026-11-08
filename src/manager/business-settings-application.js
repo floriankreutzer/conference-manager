@@ -2,12 +2,13 @@ import { renderCateringCataloguePublications } from './catering-publication-appl
 import { renderCateringProviderCatalogues } from './catering-source-application.js';
 import { createPublicGuestValueEditor } from '../core/public-guest-value-editor.js';
 import { projectRoomBusinessConfiguration } from '../core/tenant-location-ownership.js';
-import { currency as tenantCurrency, formatDateTime, t } from '../core/i18n.js';
+import { currency as tenantCurrency, formatDateTime, formatNumber, t } from '../core/i18n.js';
 import { button, clear, el, field, showToast } from '../core/ui.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-bulk-transfer-panel.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 import { renderCateringAssignments } from './catering-assignment-application.js';
+import { createCatalogueEditorList } from './catalogue-editor-list.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -179,8 +180,8 @@ function validateRequiredTrimmedText(fields) {
     if (!entry.validate() && !firstInvalid) firstInvalid = entry;
   });
   if (!firstInvalid) return true;
-  firstInvalid.control.focus();
   firstInvalid.control.reportValidity();
+  firstInvalid.control.focus();
   return false;
 }
 
@@ -228,6 +229,14 @@ function referenceChoices(entries, selected = []) {
     const option = el('option', { value: entry.id, text: entry.active === false
       ? t('managerSettings.choice.inactive', { name: entry.name }) : entry.name });
     option.selected = selectedIds.has(entry.id);
+    control.appendChild(option);
+  });
+  const knownIds = new Set(entries.map((entry) => entry.id));
+  selected.filter((id) => !knownIds.has(id)).forEach((id, index) => {
+    const option = el('option', { value: id, text: t('managerSettings.choice.unavailable', {
+      number: formatNumber(index + 1),
+    }) });
+    option.selected = true;
     control.appendChild(option);
   });
   return control;
@@ -868,9 +877,9 @@ export function createManagerBusinessSettingsApplication({
       return { room, controls, nameField, publicGuest, node };
     });
     const form = el('form');
-    editors.forEach((editor) => form.appendChild(editor.node));
+    form.appendChild(createCatalogueEditorList({ id: 'manager-rooms', editors }).node);
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
-    form.appendChild(el('div', { className: 'button-row' }, [save]));
+    form.prepend(el('div', { className: 'button-row' }, [save]));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!validateRequiredTrimmedText(editors.map(({ nameField }) => nameField))) return;
@@ -995,10 +1004,10 @@ export function createManagerBusinessSettingsApplication({
     const editorsByCollection = {};
     const defaultCurrency = catalogueDefaultCurrency(snapshot.catalogue);
     sections.forEach(([collection, titleKey]) => {
-      const surface = el('div');
       const editors = snapshot.catalogue[collection].map((entry) => commonEntryEditor(entry, `manager-catalogue-${collection}`, references));
       editorsByCollection[collection] = editors;
-      editors.forEach((editor) => surface.appendChild(editor.node));
+      const editorList = createCatalogueEditorList({ id: `manager-${collection}`, editors });
+      const surface = editorList.node;
       if (collection === 'cateringItems' && demoMedia) {
         for (const editor of editors) demoCateringImage(editor,
           demoMedia.find((asset) => asset.ownerKind === 'catering_item' && asset.ownerId === editor.entry.id),
@@ -1016,7 +1025,7 @@ export function createManagerBusinessSettingsApplication({
         });
         const editor = commonEntryEditor(entry, `manager-catalogue-${collection}`, references);
         editors.push(editor);
-        surface.appendChild(editor.node);
+        editorList.add(editor, { expanded: true });
         if (collection === 'cateringItems') {
           demoCateringImage(editor, null, 'catering-item', revision, renderRoot, (value) => { catalogueRevision = value; });
         }
@@ -1032,8 +1041,8 @@ export function createManagerBusinessSettingsApplication({
     if (section === 'catering') form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
     const packageEditors = section === 'catering'
       ? snapshot.catalogue.cateringPackages.map((entry) => packageEditor(entry, references)) : [];
-    const packageSurface = el('div');
-    packageEditors.forEach((editor) => packageSurface.appendChild(editor.node));
+    const packageList = createCatalogueEditorList({ id: 'manager-packages', editors: packageEditors });
+    const packageSurface = packageList.node;
     if (demoMedia) {
       for (const editor of packageEditors) demoCateringImage(editor,
         demoMedia.find((asset) => asset.ownerKind === 'catering_package' && asset.ownerId === editor.entry.id),
@@ -1054,7 +1063,7 @@ export function createManagerBusinessSettingsApplication({
       });
       const editor = packageEditor(entry, references);
       packageEditors.push(editor);
-      packageSurface.appendChild(editor.node);
+      packageList.add(editor, { expanded: true });
       demoCateringImage(editor, null, 'catering-package', revision, renderRoot, (value) => { catalogueRevision = value; });
       addPackage.disabled = packageEditors.length >= COLLECTION_LIMITS.cateringPackages;
       editor.controls.name.focus();
@@ -1065,7 +1074,7 @@ export function createManagerBusinessSettingsApplication({
 
 
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
-    form.appendChild(el('div', { className: 'button-row' }, [save]));
+    form.prepend(el('div', { className: 'button-row' }, [save]));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const catalogueNameFields = [
