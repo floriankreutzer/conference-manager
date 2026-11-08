@@ -259,6 +259,7 @@ async({ browser,browserName })=>{
         await page.locator('input[name="productionRoomChoice"]').first().check();
         await page.getByRole('button',{ name: 'Raumverfügbarkeit prüfen',exact: true }).click();
         await expect(next).toBeEnabled();await next.click();await next.click();
+        await page.locator('[data-catering-options] > summary').click();
         await page.getByRole('radio',{ name: 'Kein Catering-Paket',exact: true }).check();await next.click();
         await page.getByRole('button',{ name: 'Kostenstelle hinzufügen',exact: true }).click();
         const allocation=page.locator('#productionAllocationCenter-0');
