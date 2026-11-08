@@ -182,6 +182,7 @@ function compositionDraft(request, catalog, overrides = {}) {
 }
 
 function requestCard(request, catalog, currentRoomContext, openChange, {
+  detailState,
   mutationInFlight = () => false,
   onCancel, onCancelConfirmation, onChange, onGuestInfo, onHistory, onPrint, onRepeat, onResubmit,
 }) {
@@ -192,14 +193,11 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   const endsAt = formatProductionDateTime(request.endsAt, { locale: locale(), timeZone });
   const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
   const article = el('article', {
-    className: 'request-card',
+    className: 'request-card request-card-compact',
     dataset: { productionRequestId: request.id },
     attrs: { tabindex: '-1' },
   }, [
     el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-    request.details?.title
-      ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
-      : null,
     el('p', { text: room ? roomLabel(room) : request.roomId }),
     el('p', {
       text: startsAt && endsAt ? `${startsAt} – ${endsAt}` : t('production.common.timeUnavailable'),
@@ -207,7 +205,10 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
     el('p', { text: t('production.common.participants', { count: participants }) }),
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
-  const businessDetails = renderProductionRequestBusinessDetails(request);
+  const businessDetails = renderProductionRequestBusinessDetails(request, {
+    expanded: detailState.has(request.id),
+    onToggle: (open) => { if (open) detailState.add(request.id); else detailState.delete(request.id); },
+  });
   if (businessDetails) article.appendChild(businessDetails);
   if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
   const mutationControls = [];
@@ -1931,6 +1932,7 @@ export function createProductionEmployeeApplication({
     let authorityProjectionInvalid = false;
     let pendingSubmissionFocusRequestId = null;
     let requestDisplay = 'list';
+    const detailState = new Set();
     let calendarReference = null;
     const isActiveSurface = () => (
       root.isConnected
@@ -1954,6 +1956,7 @@ export function createProductionEmployeeApplication({
       committedProjectionGeneration = 0;
       interactiveProjectionGeneration = 0;
       pendingSubmissionFocusRequestId = null;
+      detailState.clear();
       authoritySurfaces.closeAll();
       if (onAuthorityFailure?.(error)) return true;
       if (!root.isConnected) return false;
@@ -2156,6 +2159,7 @@ export function createProductionEmployeeApplication({
             await refresh(request.id);
           };
           card = requestCard(request, nextCatalog, roomContexts[index], changes[index], {
+            detailState,
             mutationInFlight: () => requestMutations.has(request.id),
             onCancelConfirmation: (target, confirmAction) => {
               authoritySurfaces.track(openEmployeeCancellationConfirmation(target, confirmAction));

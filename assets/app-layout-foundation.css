@@ -249,6 +249,61 @@ main {
   overflow-wrap: anywhere;
 }
 
+.request-card-compact > p {
+  margin-block: var(--space-1);
+}
+
+.request-business-overview {
+  margin-block: var(--space-3);
+}
+
+.request-total {
+  margin-block: var(--space-2);
+  font-weight: var(--font-weight-bold);
+}
+
+.request-critical-note {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: var(--space-1) solid var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.request-business-disclosure summary {
+  min-block-size: var(--control-height);
+  padding-block: var(--space-2);
+  color: var(--brand-primary);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+}
+
+.request-business-disclosure summary:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}
+
+.request-business-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--app-section-gap);
+}
+
+.request-business-details > div {
+  min-inline-size: 0;
+}
+
+.request-business-details dt {
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.request-business-details dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
 .request-grid div,
 .request-timeline li {
   overflow-wrap: anywhere;

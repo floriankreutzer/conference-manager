@@ -327,8 +327,8 @@ test('server-backed cards expose the complete immutable business projection', as
   ]) assert.match(details, new RegExp(projection.replaceAll('.', '\\.')));
   const employee = await source(EMPLOYEE_SOURCE);
   const manager = await source(MANAGER_SOURCE);
-  assert.match(employee, /renderProductionRequestBusinessDetails\(request\)/);
-  assert.match(manager, /renderProductionRequestBusinessDetails\(request\)/);
+  assert.match(employee, /renderProductionRequestBusinessDetails\(request, /);
+  assert.match(manager, /renderProductionRequestBusinessDetails\(request, /);
 });
 
 test('Employee and Manager share one capability-independent booking-change editor', async () => {

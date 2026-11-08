@@ -1540,6 +1540,51 @@ function confirmedV2RequestFixture() {
   return appliedRequest({ ...request, version: 0 }, request).proposedRequest;
 }
 
+for (const language of ['de', 'en']) {
+  for (const view of ['requests', 'manager']) {
+    test(`CO-305: ${view} keeps 27 requests compact with visible critical notes and keyboard details in ${language}`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+      const source = confirmedV2RequestFixture();
+      for (let index = 0; index < 27; index += 1) {
+        fixture.requests().push({ ...source, id: randomUUID(), details: {
+          ...source.details, title: index === 0 ? 'A'.repeat(160) : `Conference ${index}`,
+          dietaryRequirements: index === 0 ? 'Nut allergy' : '', specialRequirements: '',
+        } });
+      }
+      await page.goto(`${ORIGIN}/`);
+      await page.locator(`[data-view="${view}"]`).click();
+      const cards = page.locator('[data-production-request-id]');
+      await expect(cards).toHaveCount(27);
+      await expect(cards.locator('details[open]')).toHaveCount(0);
+      const card = cards.first();
+      const id = await card.getAttribute('data-production-request-id');
+      await expect(card.locator('.request-critical-note')).toContainText('Nut allergy');
+      await expect(card.locator('.request-critical-note')).toBeVisible();
+      const cancelLabel = language === 'de' ? 'Anfrage stornieren' : 'Cancel request';
+      await expect(card.getByRole('button', { name: cancelLabel, exact: true })).toBeVisible();
+      const summary = card.locator('summary');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(card.locator('details')).toHaveAttribute('open', '');
+      await expect(card.locator('.request-business-details')).toBeVisible();
+      for (const width of [390, 768, 1366]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await expect(card.locator('.request-business-details dt').first()).toHaveCSS('word-break', 'normal');
+      }
+      if (view === 'manager') {
+        await page.locator('#managerSearch').fill('A'.repeat(160));
+        await page.locator('#managerSearch').press('Enter');
+        await expect(cards).toHaveCount(1);
+        await expect(page.locator(`[data-production-request-id="${id}"] details`)).toHaveAttribute('open', '');
+        await expect(page.locator('#managerSearch')).toBeFocused();
+      }
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
+}
+
 async function lockProductionApplication(page) {
   await page.evaluate(async () => {
     const channel = new BroadcastChannel('conference-manager-customer-session-lock-v1');

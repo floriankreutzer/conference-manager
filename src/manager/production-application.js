@@ -346,6 +346,7 @@ export function createProductionManagerApplication({
   const reportState = { siteId: null, date: null, period: 'YEAR' };
 
   async function renderManager() {
+    const detailState = new Set();
     clear(appRoot);
     setPageHeading(t('production.manager.title'), t('production.manager.subtitle'));
     const root = el('section', { className: 'card manager-surface' }, [
@@ -375,6 +376,7 @@ export function createProductionManagerApplication({
       authorityProjectionInvalid = true;
       refreshGeneration += 1;
       requestMutations.clear();
+      detailState.clear();
       hasCommittedProjection = false;
       committedProjectionGeneration = 0;
       interactiveProjectionGeneration = 0;
@@ -607,14 +609,11 @@ export function createProductionManagerApplication({
         for (const { request, index } of visibleEntries) {
           const bookingChange = changes[index];
           const article = el('article', {
-            className: 'request-card',
+            className: 'request-card request-card-compact',
             dataset: { productionRequestId: request.id },
             attrs: { tabindex: '-1' },
           }, [
             el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-            request.details?.title
-              ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
-              : null,
             el('p', { className: 'manager-requester', text: t('manager.restore.requester', { name: request.requesterAttribution?.displayName || t('manager.restore.unavailableName') }) }),
             requestSummary(request, catalog, roomContexts[index]),
           ]);
@@ -622,7 +621,10 @@ export function createProductionManagerApplication({
           const isCurrentArticle = () => (
             isInteractiveProjection(generation) && article.isConnected
           );
-          const businessDetails = renderProductionRequestBusinessDetails(request);
+          const businessDetails = renderProductionRequestBusinessDetails(request, {
+            expanded: detailState.has(request.id),
+            onToggle: (open) => { if (open) detailState.add(request.id); else detailState.delete(request.id); },
+          });
           if (businessDetails) article.appendChild(businessDetails);
           if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
           const mutationControls = [];

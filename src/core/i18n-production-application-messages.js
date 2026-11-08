@@ -1,5 +1,6 @@
 export const PRODUCTION_APPLICATION_MESSAGES = Object.freeze({
   de: Object.freeze({
+    'production.common.requestDetails': 'Anfragedetails',
     'production.employee.title': 'Konferenzanfrage',
     'production.employee.subtitle': 'Erstellen Sie eine Anfrage auf Basis der serverseitig freigegebenen Räume.',
     'production.employee.requestsTitle': 'Meine Anfragen',
@@ -151,6 +152,7 @@ export const PRODUCTION_APPLICATION_MESSAGES = Object.freeze({
     'production.error.generic': 'Die Aktion konnte nicht sicher abgeschlossen werden.',
   }),
   en: Object.freeze({
+    'production.common.requestDetails': 'Request details',
     'production.employee.title': 'Conference request',
     'production.employee.subtitle': 'Create a request using the rooms authorized by the server.',
     'production.employee.requestsTitle': 'My requests',
