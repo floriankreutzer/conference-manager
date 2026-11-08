@@ -12,7 +12,7 @@ const FRONTEND_ROOT=fileURLToPath(new URL('../../',import.meta.url));
 // Each complete journey gets its own runtime and rate-limit window. Combining
 // both extra handoffs in one session exceeds the real protected API limit.
 for (const scenario of ['expired-handoff', 'synthetic-users']) {
-test(`CO-302 CO-303 actual qualified roots: ${scenario}, onboarding and private Room images`,async({ browser,browserName })=>{
+test(`CO-302 CO-303 actual qualified roots: ${scenario}, ${scenario==='expired-handoff' ? 'onboarding and private Room images' : 'onboarding and synthetic user authorization'}`,async({ browser,browserName })=>{
   const apiRoot=process.env.CM_PROTECTED_API_ROOT,certificateDirectory=process.env.CM_PROTECTED_CERTIFICATE_DIRECTORY;
   const apiCommit=process.env.CM_PROTECTED_API_COMMIT,frontendCommit=process.env.CM_PROTECTED_FRONTEND_COMMIT;
   if (!apiRoot || !certificateDirectory || !/^[a-f0-9]{40}$/.test(apiCommit ?? '') || !/^[a-f0-9]{40}$/.test(frontendCommit ?? '')) {
@@ -140,19 +140,24 @@ test(`CO-302 CO-303 actual qualified roots: ${scenario}, onboarding and private 
       await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
       edge.compactStaticEvidence();
     }
-    await handoff('northwind','employee');
-    await page.locator('[data-view="employee"]').click();
-    const date=new Date();date.setUTCDate(date.getUTCDate()+14);
-    while (date.getUTCDay()!==2) date.setUTCDate(date.getUTCDate()+1);
-    await page.locator('#productionTitle').fill('Qualified browser image acceptance');
-    await page.locator('#productionDate').fill(date.toISOString().slice(0,10));
-    await page.locator('#productionStart').fill('09:00');await page.locator('#productionEnd').fill('10:00');
-    await page.locator('#productionInternal').fill('1');await page.locator('#productionExternal').fill('0');
-    await page.getByRole('button',{ name: 'Weiter',exact: true }).click();
-    await expect(page.getByRole('radio').first()).toBeVisible();
-    await page.getByRole('button',{ name: 'Raumbilder anzeigen',exact: true }).first().click();
-    const preview=page.getByRole('dialog');await expect(preview.getByRole('img').first()).toBeVisible();
-    expect(await preview.getByRole('img').first().evaluate(image=>image.complete && image.naturalWidth>0)).toBe(true);
+    // Media acceptance belongs to the recovery journey. Keep the separate user
+    // authorization journey within the real rate budget instead of duplicating it.
+    if (scenario==='expired-handoff') {
+      await handoff('northwind','employee');
+      await page.locator('[data-view="employee"]').click();
+      const date=new Date();date.setUTCDate(date.getUTCDate()+14);
+      while (date.getUTCDay()!==2) date.setUTCDate(date.getUTCDate()+1);
+      await page.locator('#productionTitle').fill('Qualified browser image acceptance');
+      await page.locator('#productionDate').fill(date.toISOString().slice(0,10));
+      await page.locator('#productionStart').fill('09:00');await page.locator('#productionEnd').fill('10:00');
+      await page.locator('#productionInternal').fill('1');await page.locator('#productionExternal').fill('0');
+      await page.getByRole('button',{ name: 'Weiter',exact: true }).click();
+      await expect(page.getByRole('radio').first()).toBeVisible();
+      await page.getByRole('button',{ name: 'Raumbilder anzeigen',exact: true }).first().click();
+      const preview=page.getByRole('dialog');await expect(preview.getByRole('img').first()).toBeVisible();
+      await expect.poll(()=>preview.getByRole('img').first().evaluate(image=>image.complete && image.naturalWidth>0)).toBe(true);
+    }
+    expect(mappingProbes).toBe(scenario==='synthetic-users' ? 2 : 0);
     const storageClean=await page.evaluate(()=>!/(?:csrfToken|browserToken|refresh_token|access_token|approval_proof)/i
       .test(JSON.stringify({ local: Object.entries(localStorage),session: Object.entries(sessionStorage) })));
     expect(storageClean).toBe(true);
@@ -160,17 +165,17 @@ test(`CO-302 CO-303 actual qualified roots: ${scenario}, onboarding and private 
     expect(traffic.requests.some(event=>event.surface==='platform' && event.path==='/api/v1/platform/auth/delegation/arrive'
       && event.method==='GET' && event.status===303 && event.fetchSite==='cross-site' && !event.cookiePresent)).toBe(true);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/callback' && event.method==='GET'
-      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(3);
+      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(scenario==='expired-handoff' ? 3 : 2);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/complete' && event.method==='POST'
-      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(3);
-    expect(traffic.requests.some(event=>event.path.startsWith('/api/v1/tenant/catalogue-media/') && event.status===200)).toBe(true);
+      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(scenario==='expired-handoff' ? 3 : 2);
+    if (scenario==='expired-handoff') expect(traffic.requests.some(event=>event.path.startsWith('/api/v1/tenant/catalogue-media/') && event.status===200)).toBe(true);
     expect(traffic.requests.some(event=>event.path.includes('/demo/'))).toBe(false);expect(traffic.deniedConnects).toBe(0);
     const evidence=await runtime.evidence();
     expect(evidence.tenants.some(tenant=>tenant.slot==='fabrikam' && tenant.status==='active' && tenant.rooms===2)).toBe(true);
     expect(evidence.tenantChainsVerified).toBe(3);expect(errors).toEqual([]);
     console.log('PROTECTED_QUALIFIED_BROWSER_EVIDENCE',JSON.stringify({ engine: browserName,scenario,authenticator: authenticator.mode,
       actualOrigins: origins,refs: evidence.refs,artifacts: traffic.artifacts,tenantChainsVerified: evidence.tenantChainsVerified,
-      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: scenario==='expired-handoff' ? 2 : 3,rejectedExpiredCompletions: scenario==='expired-handoff' ? 1 : 0,syntheticUserNavigationChecks: mappingProbes,
+      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: 2,rejectedExpiredCompletions: scenario==='expired-handoff' ? 1 : 0,syntheticUserNavigationChecks: mappingProbes,
       scope: 'initial canonical MFA fixture; Microsoft primary, physical keys and operating cutover unproved' }));
   } catch (error) {
     // Fixed paths/status codes and test bridge counters only. Never include

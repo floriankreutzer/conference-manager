@@ -1,6 +1,8 @@
 import { formatNumber, locale, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { formatProductionDateTime, productionUtcInstant } from '../core/production-time.js';
+import { roomPlanPreview } from './room-plan-preview.js';
 import { roomPlanProjection, siteLocalIsoDate } from './server-room-plan.js';
 import {
   reportSiteOptions,
@@ -10,8 +12,10 @@ import {
 } from './server-cockpit-model.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 
-function tableSection(title, columns, rows, emptyKey) {
-  const section = el('section', { className: 'report-card' }, [el('h3', { text: title })]);
+function tableSection(title, columns, rows, emptyKey, labelKey = null) {
+  const section = el('section', { className: 'report-card',
+    attrs: labelKey ? { 'aria-label': t(labelKey) } : {},
+  }, [el('h3', { text: title })]);
   if (!rows.length) {
     section.appendChild(el('p', { className: 'muted', text: t(emptyKey) }));
     return section;
@@ -68,12 +72,15 @@ export async function renderManagerReports({
   const reference = el('input', { type: 'date', value: state.date || siteLocalIsoDate(Date.now(), initialSite.timeZone),
     attrs: { required: 'required', 'aria-describedby': 'managerReportError' } });
   const error = el('p', { id: 'managerReportError', className: 'field-error', attrs: { role: 'alert' } });
-  const load = button(t('manager.restore.loadReport'), { type: 'submit' });
+  const load = button(t('manager.restore.loadReport'), { type: 'submit', className: 'primary' });
+  const reset = button(t('manager.ux.resetFilters'));
+  const room = el('select', {}, [el('option', { value: '', text: t('production.manager.reportAllRooms') })]);
   const controls = el('form', { className: 'report-toolbar' }, [
     field({ id: 'managerReportSite', label: t('manager.location'), control: site }),
+    field({ id: 'managerReportRoom', label: t('production.employee.room'), control: room }),
     field({ id: 'managerReportPeriod', label: t('manager.report.period'), control: period }),
     field({ id: 'managerReportDate', label: t('manager.referenceDate'), control: reference, required: true }),
-    load,
+    el('div', { className: 'button-row' }, [load, reset]),
   ]);
   const results = el('section', { dataset: { reportContent: 'true' } });
   panel.append(controls, error, results);
@@ -98,39 +105,57 @@ export async function renderManagerReports({
     results.setAttribute('aria-busy', 'true');
     results.replaceChildren(el('p', { attrs: { role: 'status' }, text: t('production.common.loading') }));
     load.disabled = true;
+    room.disabled = true;
     try {
       const report = await persistence.loadRequestReport(range.fromInclusive, range.toExclusive);
       if (!isCurrent() || sequence !== currentSequence || !panel.isConnected) return;
-      const model = serverReportModel({ requests: report.requests, catalog, siteId: state.siteId, range });
-      const number = (value) => formatNumber(value, { maximumFractionDigits: 1 });
+      const model = serverReportModel({ requests: report.requests, catalog, siteId: state.siteId, range, roomId: state.roomId || null });
+      const previousRoomName = room.selectedOptions[0]?.textContent;
+      const roomOptions = [...model.roomOptions];
+      if (state.roomId && !roomOptions.some((entry) => entry.id === state.roomId)) {
+        roomOptions.push({ id: state.roomId, name: previousRoomName });
+      }
+      room.replaceChildren(el('option', { value: '', text: t('production.manager.reportAllRooms') }),
+        ...roomOptions.map((entry) => el('option', { value: entry.id, text: entry.name || t('manager.restore.unavailableName') })));
+      room.value = state.roomId || '';
+      room.disabled = false;
+      const number = (value) => value === null ? t('production.manager.reportUnavailable')
+        : formatNumber(value, { maximumFractionDigits: 1 });
       const name = (row) => row.name || t('manager.restore.unavailableName');
       const rangeLabel = t('manager.report.range', {
         start: dateText(range.fromInclusive, range.timeZone),
         end: dateText(new Date(Date.parse(range.toExclusive) - 1).toISOString(), range.timeZone),
       });
       const metrics = [
-        ['manager.bookings', model.scoped.length], ['manager.confirmedBookings', model.confirmed.length],
-        ['manager.totalParticipants', model.participants], ['production.manager.roomHours', model.hours],
-        ['manager.cateringBookings', model.cateringBookings],
+        ['manager.bookings', model.scoped.length, 'calendar'], ['manager.confirmedBookings', model.confirmed.length, 'check'],
+        ['production.manager.reportConfirmedParticipants', model.participants, 'participants'], ['production.manager.roomHours', model.hours, 'usage'],
+        ['manager.cateringBookings', model.cateringBookings, 'catering'],
       ];
       results.replaceChildren(
         el('p', { text: rangeLabel, attrs: { role: 'status' } }),
+        el('p', { className: 'muted', text: t('production.manager.reportScope', { site: selectedSite.name, timeZone: range.timeZone }) }),
         el('p', { className: 'muted', text: t('manager.restore.reportBasis') }),
-        el('section', { className: 'dashboard-grid' }, metrics.map(([key, value]) => el('article', { className: 'kpi' }, [
-          el('strong', { text: number(value) }), el('span', { text: t(key) }),
-        ]))),
-        tableSection(t('production.manager.utilizationReport'), [t('manager.final.room'), t('manager.bookings'), t('manager.report.hours'), t('manager.totalParticipants')],
-          model.roomRows.map((row) => [name(row), number(row.bookings), number(row.hours), number(row.participants)]), 'manager.report.noRoomData'),
-        tableSection(t('production.manager.serviceReport'), [t('manager.services'), t('manager.bookings')],
-          model.serviceRows.map((row) => [name(row), number(row.bookings)]), 'manager.report.noServiceData'),
-        el('h3', { text: t('production.manager.cateringReport') }),
-        tableSection(t('manager.report.packages'), [t('catering.package'), t('manager.bookings'), t('manager.totalParticipants')],
-          model.packageRows.map((row) => [name(row), number(row.bookings), number(row.participants)]), 'manager.report.noPackageData'),
-        tableSection(t('manager.report.items'), [t('manager.report.item'), t('manager.report.quantity'), t('manager.bookings')],
-          model.itemRows.map((row) => [name(row), number(row.quantity), number(row.bookings)]), 'manager.report.noItemData'),
+        el('p', { className: model.detailsComplete ? 'muted' : 'info-box', text: t(!model.detailsComplete
+          ? 'production.manager.reportIncompleteRows' : model.scoped.length === 1
+            ? 'production.manager.reportCompleteOne' : 'production.manager.reportComplete', { count: number(model.scoped.length) }) }),
+        el('section', { className: 'manager-report-metrics', attrs: { 'aria-label': t('production.manager.reportMetrics') } },
+          metrics.map(([key, value, icon]) => el('article', { className: 'kpi' }, [
+            pavurelFunctionalIcon(icon), el('strong', { text: number(value) }), el('span', { text: t(key) }),
+          ]))),
+        el('div', { className: 'manager-report-grid' }, [
+          tableSection(t('production.manager.utilizationReport'), [t('manager.final.room'), t('manager.bookings'), t('manager.report.hours'), t('manager.totalParticipants')],
+            model.roomRows.map((row) => [name(row), number(row.bookings), number(row.hours), number(row.participants)]), 'manager.report.noRoomData'),
+          tableSection(t('manager.report.packages'), [t('catering.package'), t('manager.bookings'), t('manager.totalParticipants')],
+            model.packageRows.map((row) => [name(row), number(row.bookings), number(row.participants)]),
+            model.detailsComplete ? 'manager.report.noPackageData' : 'production.manager.reportDetailsUnavailable', 'production.manager.cateringReport'),
+          tableSection(t('production.manager.serviceReport'), [t('manager.services'), t('manager.bookings')],
+            model.serviceRows.map((row) => [name(row), number(row.bookings)]), model.detailsComplete ? 'manager.report.noServiceData' : 'production.manager.reportDetailsUnavailable'),
+          tableSection(t('manager.report.items'), [t('manager.report.item'), t('manager.report.quantity'), t('manager.bookings')],
+            model.itemRows.map((row) => [name(row), number(row.quantity), number(row.bookings)]), model.detailsComplete ? 'manager.report.noItemData' : 'production.manager.reportDetailsUnavailable'),
+        ]),
       );
       const insights = el('section', { className: 'report-insight-card' }, [el('h3', { text: t('manager.report.insights') })]);
-      if (model.openCount) insights.appendChild(el('p', { text: t('manager.report.openAttention', { count: number(model.openCount) }) }));
+      if (model.openCount) insights.appendChild(el('p', { text: t(model.openCount === 1 ? 'production.manager.reportOpenOne' : 'manager.report.openAttention', { count: number(model.openCount) }) }));
       for (const [rows, key] of [[model.roomRows, 'manager.report.topRoom'], [model.serviceRows, 'manager.report.topService'], [model.packageRows, 'manager.report.topCatering']]) {
         if (rows.length) insights.appendChild(el('p', { text: t(key, { name: name(rows[0]), count: number(rows[0].bookings) }) }));
       }
@@ -153,7 +178,15 @@ export async function renderManagerReports({
     }
   };
   controls.addEventListener('submit', (event) => { event.preventDefault(); void refresh(); });
-  [site, period, reference].forEach((control) => control.addEventListener('change', () => { void refresh(); }));
+  [period, reference].forEach((control) => control.addEventListener('change', () => { void refresh(); }));
+  site.addEventListener('change', () => { state.roomId = null; void refresh(); });
+  room.addEventListener('change', () => { state.roomId = room.value || null; void refresh(); });
+  reset.addEventListener('click', () => {
+    site.value = sites[0].id; period.value = 'YEAR';
+    const resetSite = sites.find((entry) => entry.id === site.value);
+    reference.value = siteLocalIsoDate(Date.now(), resetSite.timeZone); state.roomId = null;
+    void refresh();
+  });
   await refresh();
 }
 
@@ -170,13 +203,23 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
   const error = el('p', { id: 'managerRoomPlanError', className: 'field-error', attrs: { role: 'alert', 'aria-live': 'assertive' } });
   const view = el('fieldset', { className: 'room-plan-view' }, [el('legend', { text: t('manager.roomPlan.view') })]);
   const results = el('section', { dataset: { roomPlanBody: 'true' } });
+  const preview = roomPlanPreview({ openRequest });
+  const windowSelect = el('select', {}, [
+    el('option', { value: 'DAY', text: t('production.manager.roomPlan.fullDay') }),
+    el('option', { value: 'WORK', text: t('production.manager.roomPlan.workDay') }),
+  ]);
+  windowSelect.value = state.window === 'WORK' ? 'WORK' : 'DAY';
   const controls = el('form', { className: 'room-plan-toolbar' }, [
     field({ id: 'productionRoomPlanSite', label: t('schedule.location'), control: site }),
     field({ id: 'productionRoomPlanDate', label: t('manager.referenceDate'), control: date, required: true }), view,
+    field({ id: 'productionRoomPlanWindow', label: t('production.manager.roomPlan.window'), control: windowSelect }),
   ]);
   controls.addEventListener('submit', (event) => event.preventDefault());
-  panel.append(controls, error, results);
+  panel.append(controls, error, preview.node, results);
   const render = () => {
+    preview.clear();
+    state.window = windowSelect.value;
+    windowSelect.disabled = state.view !== 'TIMELINE';
     state.siteId = site.value;
     state.date = date.value;
     const selectedSite = sites.find((entry) => entry.id === site.value);
@@ -190,21 +233,22 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
     results.replaceChildren();
     const title = (request) => request.details?.title || t('production.common.requestId', { id: request.id });
     const time = (value) => formatProductionDateTime(value, { locale: locale(), timeZone: selectedSite.timeZone });
-    const requestControl = (request) => {
+    const requestControl = (request, room) => {
       const control = button(title(request), { attrs: { 'aria-label': t('manager.roomPlan.bookingLabel', {
         title: title(request), start: time(request.startsAt), end: time(request.endsAt),
         participants: formatNumber(request.internalParticipants + request.externalParticipants), status: t(`status.${request.status}`),
       }) } });
-      control.addEventListener('click', () => openRequest(request.id));
+      preview.bind(control, request, room, selectedSite.timeZone);
       return control;
     };
     if (state.view === 'TIMELINE') {
       const day = serverReportRange('DAY', date.value, selectedSite.timeZone);
-      const start = Date.parse(day.fromInclusive);
-      const end = Date.parse(day.toExclusive);
+      const workingDay = state.window === 'WORK';
+      const start = Date.parse(workingDay ? productionUtcInstant(date.value, '08:00', selectedSite.timeZone) : day.fromInclusive);
+      const end = Date.parse(workingDay ? productionUtcInstant(date.value, '18:00', selectedSite.timeZone) : day.toExclusive);
       const chart = el('div', { className: 'manager-timeline-chart' });
       const ticks = el('div', { className: 'manager-timeline-ticks', attrs: { 'aria-hidden': 'true' } });
-      for (const hour of [0, 6, 12, 18, 24]) {
+      for (const hour of (workingDay ? [8, 10, 12, 14, 16, 18] : [0, 6, 12, 18, 24])) {
         const value = hour === 24 ? end : Date.parse(productionUtcInstant(date.value, `${String(hour).padStart(2, '0')}:00`, selectedSite.timeZone));
         const tick = el('span', { text: new Intl.DateTimeFormat(locale(), { timeZone: selectedSite.timeZone, timeStyle: 'short' }).format(value) });
         tick.style.setProperty('--timeline-start', `${(value - start) / (end - start) * 100}%`);
@@ -214,9 +258,11 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
       projection.forEach(({ room, requests: bookings }) => {
         const row = el('section', { className: 'manager-timeline-room' }, [el('h3', { text: room.name })]);
         if (!bookings.length) row.appendChild(el('p', { text: t('room.available') }));
-        [...bookings].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).forEach((request) => {
+        const visibleBookings = bookings.filter((request) => Date.parse(request.startsAt) < end && Date.parse(request.endsAt) > start);
+        if (visibleBookings.length < bookings.length) row.appendChild(el('p', { text: t('production.manager.roomPlan.outsideWindow') }));
+        [...visibleBookings].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).forEach((request) => {
           const lane = el('div', { className: 'manager-timeline-lane' });
-          const control = requestControl(request);
+          const control = requestControl(request, room);
           const from = Math.max(start, Date.parse(request.startsAt));
           const to = Math.min(end, Date.parse(request.endsAt));
           control.style.setProperty('--timeline-start', `${(from - start) / (end - start) * 100}%`);
@@ -238,7 +284,7 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
         if (!bookings.length) body.appendChild(el('tr', {}, [el('th', { text: room.name, attrs: { scope: 'row' } }), el('td', { text: t('room.available'), attrs: { colspan: '4' } })]));
         [...bookings].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).forEach((request) => body.appendChild(el('tr', {}, [
           el('th', { text: room.name, attrs: { scope: 'row' } }), el('td', { text: time(request.startsAt) }),
-          el('td', { text: time(request.endsAt) }), el('td', {}, [requestControl(request)]), el('td', { text: t(`status.${request.status}`) }),
+          el('td', { text: time(request.endsAt) }), el('td', {}, [requestControl(request, room)]), el('td', { text: t(`status.${request.status}`) }),
         ])));
       });
       table.appendChild(body);
@@ -256,5 +302,6 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
     view.appendChild(el('label', {}, [radio, el('span', { text: t(key) })]));
   }
   site.addEventListener('change', render); date.addEventListener('change', render);
+  windowSelect.addEventListener('change', render);
   render();
 }

@@ -274,6 +274,10 @@ export async function northwindBooking(page, cycle, baseline) {
   const entry = page.getByRole('region', { name: 'Raumbelegung' }).getByRole('button', { name: new RegExp(title) });
   await entry.focus();
   await page.keyboard.press('Enter');
+  const preview = page.locator('#managerRoomPlanPreview');
+  await expect(preview.getByRole('heading')).toBeFocused();
+  await expect(preview).toContainText(title);
+  await preview.getByRole('button', { name: 'Anfrage öffnen', exact: true }).click();
   await expect(card).toBeFocused();
   await card.getByRole('button', { name: 'Verlauf', exact: true }).click();
   const history = page.getByRole('dialog', { name: 'Verlauf', exact: true });

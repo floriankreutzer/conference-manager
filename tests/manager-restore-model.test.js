@@ -118,3 +118,48 @@ test('MGR-10: empty operational report has no invented utilization or cost alloc
   assert.deepEqual(model.roomRows, []); assert.deepEqual(model.serviceRows, []);
   assert.equal(Object.hasOwn(model, 'utilization'), false); assert.equal(Object.hasOwn(model, 'costAllocation'), false);
 });
+
+test('CO-318: all report metrics and details share the same room, status and start-time scope', () => {
+  const range = serverReportRange('DAY', '2026-03-29', 'Europe/Berlin');
+  const otherRoom = { ...catalog.rooms[0], id: 'second-room', name: 'Second room' };
+  const source = request();
+  const values = ['Submitted', 'In Review', 'Change Requested', 'Confirmed', 'Rejected', 'Cancelled'].map((status) => request({ id: status, status }));
+  values.push(request({ id: 'second', roomId: otherRoom.id, pricing: { ...source.pricing, room: { ...otherRoom } } }));
+  values.push(request({ id: 'overnight-before', startsAt: '2026-03-28T22:30:00.000Z', endsAt: range.fromInclusive }));
+  values.push(request({ id: 'overnight', startsAt: '2026-03-29T21:00:00.000Z', endsAt: '2026-03-30T01:00:00.000Z' }));
+  values.push(request({ id: 'boundary', startsAt: range.toExclusive, endsAt: '2026-03-30T01:00:00.000Z' }));
+  const input = { requests: values, catalog: { ...catalog, rooms: [...catalog.rooms, otherRoom] }, siteId: 'berlin', range };
+  const all = serverReportModel(input);
+  const filtered = serverReportModel({ ...input, roomId: 'room-a' });
+  assert.equal(all.scoped.length, 8);
+  assert.equal(filtered.scoped.length, 7);
+  assert.equal(filtered.confirmed.length, 2);
+  assert.equal(filtered.participants, 12);
+  assert.equal(filtered.hours, 7);
+  assert.equal(filtered.cateringBookings, 2);
+  assert.equal(filtered.openCount, 3);
+  assert.equal(filtered.roomRows.length, 1);
+  assert.equal(filtered.roomRows[0].bookings, 2);
+  assert.equal(filtered.packageRows[0].participants, 6);
+  assert.equal(filtered.itemRows[0].quantity, 14);
+  assert.equal(filtered.serviceRows[0].bookings, 2);
+  assert.deepEqual(filtered.roomOptions.map(({ id }) => id), ['room-a', 'second-room']);
+  assert.equal(serverReportModel({ ...input, roomId: 'unknown' }).scoped.length, 0);
+  const cancelled = serverReportModel({ ...input, requests: values.map((value) => value.status === 'Confirmed' ? { ...value, status: 'Cancelled' } : value) });
+  assert.equal(cancelled.confirmed.length, 0);
+  assert.equal(cancelled.hours, 0);
+  assert.equal(cancelled.cateringBookings, 0);
+});
+
+test('CO-318: historical room options survive relocation and missing details never become zero catering', () => {
+  const range = serverReportRange('DAY', '2026-03-29', 'Europe/Berlin');
+  const moved = { ...catalog, rooms: [{ ...catalog.rooms[0], siteId: 'ny' }] };
+  const model = serverReportModel({ requests: [request({ details: null })], catalog: moved, siteId: 'berlin', range, roomId: 'room-a' });
+  assert.deepEqual(model.roomOptions, [{ id: 'room-a', name: 'Spree at booking' }]);
+  assert.equal(model.confirmed.length, 1);
+  assert.equal(model.participants, 6);
+  assert.equal(model.hours, 3);
+  assert.equal(model.detailsComplete, false);
+  assert.equal(model.cateringBookings, null);
+  assert.deepEqual(model.serviceRows, []);
+});

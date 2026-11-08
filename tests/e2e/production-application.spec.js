@@ -1618,7 +1618,12 @@ for (const language of ['de', 'en']) {
       await expect(card.locator('.request-business-details')).toBeVisible();
       for (const width of [390, 768, 1366]) {
         await page.setViewportSize({ width, height: 900 });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        const overflow = await page.evaluate(() => ({
+          width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+          elements: [...document.querySelectorAll('main *')].filter((node) => node.getBoundingClientRect().right > innerWidth)
+            .slice(0, 12).map((node) => ({ tag: node.tagName, className: node.className, right: node.getBoundingClientRect().right })),
+        }));
+        expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.width);
         await expect(card.locator('.request-business-details dt').first()).toHaveCSS('word-break', 'normal');
       }
       if (view === 'manager') {
@@ -2066,7 +2071,7 @@ for (const language of ['de', 'en']) {
     await next.click();
     const preview = page.locator('[data-cost-preview] dd');
     await expect(preview).toHaveCount(1);
-    await expect(preview).toContainText(language === 'de' ? 'nicht verfügbar' : 'unavailable');
+    await expect(preview).toContainText(language === 'de' ? 'keine Preisvorschau verfügbar' : 'unavailable');
     const unavailable = await preview.textContent();
     await next.click();
     await expect(page.locator('[data-review-section="price"] dd')).toHaveText(unavailable);
@@ -5128,6 +5133,9 @@ test('MGR-04 MGR-08 MGR-09: Manager room plan offers a bounded timeline, retaine
   await expect(entry).toBeVisible();
   await entry.focus();
   await page.keyboard.press('Enter');
+  const preview = page.locator('#managerRoomPlanPreview');
+  await expect(preview.getByRole('heading')).toBeFocused();
+  await preview.getByRole('button', { name: 'Anfrage öffnen' }).click();
   const card = page.locator(`[data-production-request-id="${REQUEST_ID}"]`);
   await expect(card).toBeFocused();
   await expect(card).toContainText('Angefragt von: Nicht dokumentiert');
@@ -5722,4 +5730,159 @@ for (const language of ['de', 'en']) {
       expect(fixture.writes).toHaveLength(0);
     });
   }
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-311: short, overlapping and overnight bookings have keyboard, pointer and touch previews in ${language}`, async ({ page, isMobile }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.rooms.push({ ...catalog.catalog.rooms[0], id: 'room-empty', name: 'Empty room' });
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalog });
+    const source = confirmedV2RequestFixture();
+    const day = futureDate();
+    const nextDay = new Date(Date.parse(`${day}T12:00:00.000Z`) + 86400000).toISOString().slice(0, 10);
+    const local = (date, time) => productionUtcInstant(date, time, 'Europe/Berlin');
+    const longTitle = `Quarter-hour ${'Long title '.repeat(8)}`;
+    const periods = [
+      [longTitle, local(day, '10:00'), local(day, '10:15')],
+      ['Half-hour', local(day, '10:00'), local(day, '10:30')],
+      ['One hour', local(day, '10:00'), local(day, '11:00')],
+      ['Overnight', local(day, '23:30'), local(nextDay, '01:00')],
+      ['Evening', local(day, '20:00'), local(day, '21:00')],
+    ];
+    periods.forEach(([title, startsAt, endsAt], index) => fixture.requests().push({
+      ...source, id: `66666666-6666-4666-8666-${String(index).padStart(12, '0')}`,
+      startsAt, endsAt, details: { ...source.details, title },
+    }));
+    fixture.requests().sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id));
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: language === 'de' ? 'Raumplanung' : 'Room planning', exact: true }).click();
+    const date = page.locator('#productionRoomPlanDate');
+    await date.fill(day);
+    await date.dispatchEvent('change');
+    const preview = page.locator('#managerRoomPlanPreview');
+    await expect(preview).toBeHidden();
+    await expect(page.getByRole('table')).toContainText(longTitle);
+    await page.getByRole('radio', { name: language === 'de' ? 'Zeitplan' : 'Timeline', exact: true }).check();
+    const timeline = page.locator('.manager-timeline-chart');
+    const entries = timeline.locator('button');
+    await expect(entries).toHaveCount(5);
+    await expect(timeline).toContainText('Empty room');
+    const quarter = timeline.getByRole('button', { name: new RegExp('Quarter-hour') });
+    const half = timeline.getByRole('button', { name: /Half-hour/ });
+    const hour = timeline.getByRole('button', { name: /One hour/ });
+    const widths = await Promise.all([quarter, half, hour].map((entry) => entry.evaluate((node) => node.getBoundingClientRect().width)));
+    expect(widths[1] / widths[0]).toBeCloseTo(2, 1);
+    expect(widths[2] / widths[0]).toBeCloseTo(4, 1);
+    await quarter.focus();
+    await expect(preview.getByRole('heading')).toHaveText(longTitle);
+    await expect(quarter).toBeFocused();
+    await expect(quarter).toHaveAttribute('aria-expanded', 'true');
+    await expect(preview).toContainText('Room A');
+    await expect(preview).toContainText('10:15');
+    await page.keyboard.press('Enter');
+    await expect(preview.getByRole('heading')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(preview).toBeHidden();
+    await expect(quarter).toBeFocused();
+    if (!isMobile) {
+      await half.hover();
+      await expect(preview.getByRole('heading')).toHaveText('Half-hour');
+    }
+    if (isMobile) await hour.tap();
+    else await hour.click();
+    await expect(preview.getByRole('heading')).toHaveText('One hour');
+    await expect(preview.getByRole('heading')).toBeFocused();
+    await preview.getByRole('button', { name: language === 'de' ? 'Vorschau schließen' : 'Close preview' }).click();
+    await expect(hour).toBeFocused();
+    await expect(preview).toBeHidden();
+    await page.locator('#productionRoomPlanWindow').selectOption('WORK');
+    await expect(entries).toHaveCount(3);
+    await expect(timeline).toContainText(language === 'de' ? 'außerhalb' : 'outside');
+    await expect(quarter).toHaveAttribute('style', /--timeline-width: 2.5%/);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await date.fill(nextDay);
+    await date.dispatchEvent('change');
+    await expect(entries).toHaveCount(0);
+    await page.locator('#productionRoomPlanWindow').selectOption('DAY');
+    await expect(entries).toHaveCount(1);
+    await timeline.getByRole('button', { name: /Overnight/ }).click();
+    await expect(preview).toContainText('01:00');
+    await preview.getByRole('button', { name: language === 'de' ? 'Anfrage öffnen' : 'Open request' }).click();
+    await expect(page.locator('[data-production-request-id="66666666-6666-4666-8666-000000000003"]')).toBeFocused();
+    expect(fixture.workflowWrites).toHaveLength(0);
+  });
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-318: report room scope, complete totals, unavailable source and reset remain consistent in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.rooms.push({ ...catalog.catalog.rooms[0], id: 'room-b', name: 'Second room' });
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalog });
+    const first = { ...confirmedV2RequestFixture(), id: '66666666-6666-4666-8666-000000000000' };
+    const second = { ...first, id: '66666666-6666-4666-8666-000000000001', roomId: 'room-b',
+      internalParticipants: 4, endsAt: new Date(Date.parse(first.startsAt) + 1800000).toISOString(),
+      pricing: { ...first.pricing, room: { ...first.pricing.room, id: 'room-b', name: 'Second room' } } };
+    const pending = { ...first, id: '66666666-6666-4666-8666-000000000002', status: 'Submitted' };
+    fixture.requests().push(first, second, pending);
+    let unavailable = false;
+    let empty = false;
+    await page.route(`${ORIGIN}/api/v1/application/reports/requests?**`, async (route) => {
+      if (unavailable) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'SERVICE_UNAVAILABLE' } }) });
+        return;
+      }
+      const url = new URL(route.request().url());
+      const fromInclusive = url.searchParams.get('from');
+      const toExclusive = url.searchParams.get('to');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        schemaVersion: 2, asOf: '2026-09-01T12:00:00.000Z',
+        range: { field: 'startsAt', fromInclusive, toExclusive, timeZone: 'UTC' },
+        requests: empty ? [] : fixture.requests().filter((value) => value.startsAt >= fromInclusive && value.startsAt < toExclusive),
+        page: { limit: 10, complete: true, nextCursor: null },
+      }) });
+    });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Reports', exact: true }).click();
+    const results = page.locator('[data-report-content]');
+    const metrics = results.locator('.manager-report-metrics .kpi strong');
+    await expect(metrics).toHaveText(['3', '2', '6', language === 'de' ? '1,5' : '1.5', '0']);
+    await expect(results).toContainText('Europe/Berlin');
+    await expect(results).toContainText(language === 'de' ? '1 offener Vorgang' : '1 open request');
+    await page.locator('#managerReportRoom').selectOption('room-b');
+    await expect(metrics).toHaveText(['1', '1', '4', language === 'de' ? '0,5' : '0.5', '0']);
+    const table = results.getByRole('table', { name: language === 'de' ? 'Raumauslastung' : 'Room utilisation', exact: true });
+    await expect(table).toContainText('Second room');
+    await expect(table).not.toContainText('Room A');
+    await expect(results).toContainText(language === 'de' ? 'Gesamtergebnis: 1 Vorgang' : 'Complete result: 1 request');
+    unavailable = true;
+    const load = page.getByRole('button', { name: language === 'de' ? 'Bericht laden' : 'Load report', exact: true });
+    await load.click();
+    await expect(results.getByRole('alert')).toBeVisible();
+    await expect(metrics).toHaveCount(0);
+    unavailable = false;
+    empty = true;
+    await load.click();
+    await expect(metrics).toHaveText(['0', '0', '0', '0', '0']);
+    await expect(page.locator('#managerReportRoom')).toHaveValue('room-b');
+    empty = false;
+    const reset = page.getByRole('button', { name: language === 'de' ? 'Alle Filter zurücksetzen' : 'Reset all filters', exact: true });
+    await reset.focus();
+    await page.keyboard.press('Enter');
+    await expect(metrics).toHaveText(['3', '2', '6', language === 'de' ? '1,5' : '1.5', '0']);
+    await expect(page.locator('#managerReportRoom')).toHaveValue('');
+    await expect(reset).toBeFocused();
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await expect(results.locator('.manager-report-metrics')).toBeVisible();
+    }
+    expect(fixture.writes).toHaveLength(0);
+  });
 }
