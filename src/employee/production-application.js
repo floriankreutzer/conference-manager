@@ -385,7 +385,7 @@ export function createProductionEmployeeApplication({
     ])];
     return [
       [t('room.floor'), roomValues?.floorNumber === null || roomValues?.floorNumber === undefined
-        ? '' : String(roomValues.floorNumber)],
+        ? '' : formatNumber(roomValues.floorNumber)],
       [t('manager.publicTransport'), siteValues
         ? t(`guest.publicAvailability.${siteValues.publicTransport}`) : ''],
       [t('guest.arrival'), siteValues ? t(`guest.publicArrival.${siteValues.arrival}`) : ''],
@@ -395,8 +395,8 @@ export function createProductionEmployeeApplication({
       [t('manager.contact'), guest?.contact
         ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
         : ''],
-      [t('guest.wifi'), t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)],
-    ].map(([term, value]) => [term, value || '—']);
+      [t('guest.wifi'), guest ? t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`) : ''],
+    ].map(([term, value]) => [term, value || t('guest.notPublished')]);
   }
 
   async function printRequest(
@@ -496,7 +496,7 @@ export function createProductionEmployeeApplication({
     return true;
   }
 
-  function openGuestInfo(request, currentRoomContext = null) {
+  function openGuestInfo(request, currentRoomContext, onPrint) {
     const room = catalog.rooms.find((entry) => entry.id === request.roomId)
       || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
     const guest = currentRoomContext?.guestPresentation;
@@ -507,37 +507,45 @@ export function createProductionEmployeeApplication({
       : t('guest.askOrganizer');
     const close = button(t('common.close'));
     const print = button(t('guest.print'), { className: 'primary' });
+    const site = currentRoomContext?.site;
+    const details = guestPresentationDetails(guest, currentRoomContext);
+    const list = (rows) => el('dl', { className: 'details-list' }, rows.flatMap(([term, value]) => [
+      el('dt', { text: term }), el('dd', { text: value }),
+    ]));
+    const section = (title, rows) => el('section', { className: 'guest-information-section' }, [
+      el('h3', { text: title }), list(rows),
+    ]);
+    const directions = section(t('guest.address'), [
+      [t('schedule.location'), site?.name || t('guest.notPublished')],
+      [t('guest.address'), formattedAddress], details[0], details[1], details[3],
+    ]);
+    if (guest?.routeUrl) directions.append(el('a', {
+      href: guest.routeUrl, target: '_blank', rel: 'noopener noreferrer', text: t('guest.route'),
+    }));
+    const content = el('section', { className: 'guest-information' }, [
+      el('p', { className: 'status-pill', text: t('status.Confirmed') }),
+      list([
+        [t('production.employee.start'), formattedRequestValue(request.startsAt, room, catalog, currentRoomContext)],
+        [t('production.employee.end'), formattedRequestValue(request.endsAt, room, catalog, currentRoomContext)],
+        [t('production.employee.room'), room?.name || t('guest.notPublished')],
+      ]),
+      el('div', { className: 'guest-information-grid' }, [
+        directions, section(t('guest.onSite'), [details[2], details[4], details[6]]),
+      ]),
+      section(t('manager.contact'), [details[5]]),
+    ]);
     const dialog = openDialog({
-      title: t('guest.welcome', {
-        title: request.details?.title || t('production.common.requestId', { id: request.id }),
-      }),
-      description: t('guest.subtitle'),
-      content: el('section', {}, [el('dl', { className: 'details-list' }, [
-        el('dt', { text: t('production.employee.start') }),
-        el('dd', { text: formattedRequestValue(
-          request.startsAt, room, catalog, currentRoomContext,
-        ) }),
-        el('dt', { text: t('production.employee.end') }),
-        el('dd', { text: formattedRequestValue(
-          request.endsAt, room, catalog, currentRoomContext,
-        ) }),
-        el('dt', { text: t('production.employee.room') }),
-        el('dd', { text: roomLabel(room || { id: request.roomId }) }),
-        el('dt', { text: t('guest.address') }),
-        el('dd', { text: formattedAddress }),
-        ...guestPresentationDetails(guest, currentRoomContext)
-          .flatMap(([term, value]) => [el('dt', { text: term }), el('dd', { text: value })]),
-      ]), guest?.routeUrl ? el('p', {}, el('a', {
-        href: guest.routeUrl,
-        target: '_blank',
-        rel: 'noopener noreferrer',
-        text: t('guest.route'),
-      })) : null]),
-      actions: [close, print],
+      title: t('guest.welcome', { title: request.details?.title || t('guest.title') }),
+      description: t('guest.subtitle'), content, actions: [close, print],
       labelledById: `guestInformation-${request.id}`,
     });
     close.addEventListener('click', () => dialog.close());
-    print.addEventListener('click', () => printRequest(request, currentRoomContext));
+    print.addEventListener('click', async () => {
+      if (print.disabled) return;
+      print.disabled = true;
+      try { await onPrint(() => dialog.close()); }
+      finally { if (print.isConnected) print.disabled = false; }
+    });
     authoritySurfaces.track(dialog);
     return dialog;
   }
@@ -2190,7 +2198,7 @@ export function createProductionEmployeeApplication({
                 showToast(t('production.error.conflict'));
                 return;
               }
-              action(target, prepared.currentRoomContext);
+              return await action(target, prepared.currentRoomContext);
             } catch (caught) {
               onAbort?.();
               if (authorityFailureCode(caught)) invalidateAuthorityProjection(caught);
@@ -2215,6 +2223,16 @@ export function createProductionEmployeeApplication({
                 : t('production.employee.cancelled'));
             }
             await refresh(request.id);
+          };
+          const printGuest = (target, onAbort = null) => {
+            const printWindow = openDetachedPrintWindow();
+            if (!printWindow) {
+              showToast(t('guest.popupBlocked'));
+              return undefined;
+            }
+            return withGuestRoomContext(target, (preparedTarget, currentRoomContext) => (
+              printRequest(preparedTarget, currentRoomContext, printWindow)
+            ), { onAbort: () => { closeDetachedPrintWindow(printWindow); onAbort?.(); } });
           };
           card = requestCard(request, nextCatalog, roomContexts[index], changes[index], {
             detailState,
@@ -2301,7 +2319,9 @@ export function createProductionEmployeeApplication({
                 else if (shouldNotify) showToast(errorMessage(caught));
               }
             },
-            onGuestInfo: (target) => withGuestRoomContext(target, openGuestInfo),
+            onGuestInfo: (target) => withGuestRoomContext(target, (preparedTarget, currentRoomContext) => (
+              openGuestInfo(preparedTarget, currentRoomContext, (onAbort) => printGuest(preparedTarget, onAbort))
+            )),
             onHistory: async (target, control) => {
               const interactionGeneration = refreshGeneration;
               const isCurrentInteraction = () => (
@@ -2329,20 +2349,7 @@ export function createProductionEmployeeApplication({
                 if (isActiveCard() && control.isConnected) control.disabled = false;
               }
             },
-            onPrint: (target) => {
-              const printWindow = openDetachedPrintWindow();
-              if (!printWindow) {
-                showToast(t('guest.popupBlocked'));
-                return undefined;
-              }
-              return withGuestRoomContext(
-                target,
-                (preparedTarget, currentRoomContext) => {
-                  printRequest(preparedTarget, currentRoomContext, printWindow);
-                },
-                { onAbort: () => closeDetachedPrintWindow(printWindow) },
-              );
-            },
+            onPrint: (target) => printGuest(target),
             onRepeat: (target) => queueRequest(target),
             onResubmit: (target) => queueRequest(target, { resubmit: true }),
           });

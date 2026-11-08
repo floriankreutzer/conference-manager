@@ -400,15 +400,15 @@ body[data-ux-first-use="true"] .welcome-hero {
 .guest-print-document *, .guest-print-document *::before, .guest-print-document *::after { box-sizing: border-box; }
 .guest-print-document h1, .guest-print-document h2, .guest-print-document p, .guest-print-document dd { overflow-wrap: anywhere; }
 .guest-print-hero {
-  padding: var(--space-6) var(--space-8);
-  background: var(--color-ink);
-  color: var(--color-on-dark);
-  border-block-end: var(--space-2) solid var(--brand-secondary);
+  padding: var(--space-5) 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border-block-end: var(--space-1) solid var(--brand-primary);
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
 .guest-print-hero h1 { font-size: 2rem; line-height: var(--line-height-tight); margin-block: var(--space-4) var(--space-2); }
-.guest-print-hero p { color: var(--color-on-dark-muted); }
+.guest-print-hero p { color: var(--color-muted); }
 .guest-print-requirements { white-space: pre-line; overflow-wrap: anywhere; }
 .guest-print-content { padding-block: var(--space-5); }
 .guest-print-facts, .guest-print-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin-block-end: var(--space-3); }
@@ -434,4 +434,23 @@ body[data-ux-first-use="true"] .welcome-hero {
   .guest-print-document .print-action { display: none; }
   .guest-print-hero, .guest-print-card { break-inside: avoid; }
   .guest-print-document a { color: inherit; }
+}
+
+
+.guest-information,
+.guest-information-grid {
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+.guest-information-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.guest-information-section {
+  min-inline-size: 0;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+}
+.guest-information :is(h3, dt, dd, a) { overflow-wrap: anywhere; min-inline-size: 0; }
+.guest-information h3 { margin-block: 0 var(--space-3); }
+@media (max-width: 40rem) {
+  .guest-information-grid { grid-template-columns: minmax(0, 1fr); }
 }

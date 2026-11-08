@@ -3233,8 +3233,8 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(popup.locator('script, style, img')).toHaveCount(0);
   await expect(popup.locator('link[rel="stylesheet"]')).toHaveCount(2);
   await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeEnabled();
-  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
-  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(122, 31, 61)');
   await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
   expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await testInfo.attach('guest-welcome-screen', { body: await popup.screenshot({ fullPage: true }), contentType: 'image/png' });
@@ -5956,4 +5956,61 @@ for (const language of ['de', 'en']) {
     await expect(help).toHaveCount(0);
     expect(fixture.writes).toHaveLength(0);
   });
+}
+
+
+for (const language of ['de', 'en']) {
+  test(`CO-317: missing public guest data is explicit and keyboard focus returns in ${language}`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    fixture.requests().push(confirmedRequestFixture());
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="requests"]').click();
+    const trigger = page.getByRole('button', { name: language === 'de' ? 'Gästeinformationen' : 'Guest information', exact: true });
+    await trigger.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('.guest-information-section')).toHaveCount(3);
+    await expect(dialog).toContainText(language === 'de' ? 'Nicht veröffentlicht' : 'Not published');
+    await expect(dialog).not.toContainText(REQUEST_ID);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await testInfo.attach(`guest-dialog-${language}`, { body: await dialog.screenshot(), contentType: 'image/png' });
+    const print = dialog.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF' });
+    await print.focus();
+    await page.keyboard.press('Tab');
+    expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press('Shift+Tab');
+    await expect(print).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    expect(fixture.writes).toHaveLength(0);
+  });
+  for (const changedStatus of ['Confirmed', 'Cancelled']) {
+    test(`CO-317: dialog print refuses an outdated ${changedStatus} booking in ${language}`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page);
+      const request = confirmedRequestFixture();
+      fixture.requests().push(request);
+      await page.goto(`${ORIGIN}/`);
+      await page.locator('[data-view="requests"]').click();
+      await page.getByRole('button', { name: language === 'de' ? 'Gästeinformationen' : 'Guest information', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      // Change authoritative server state after the guest dialog has opened.
+      fixture.replaceRequests([{ ...request, version: 2, status: changedStatus,
+        startsAt: request.startsAt.replace('T07:', 'T09:'), endsAt: request.endsAt.replace('T08:', 'T10:') }]);
+      const popupPromise = page.waitForEvent('popup');
+      await dialog.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF' }).click();
+      const popup = await popupPromise;
+      await expect.poll(() => popup.isClosed()).toBe(true);
+      await expect(dialog).toHaveCount(0);
+      await expect(page.getByText(language === 'de'
+        ? 'Der Vorgang wurde zwischenzeitlich geändert. Laden Sie die Daten erneut.'
+        : 'The request changed concurrently. Refresh the data.', { exact: true })).toBeVisible();
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
 }

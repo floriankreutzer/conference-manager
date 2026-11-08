@@ -713,12 +713,14 @@ test('EMP-15: every print popup uses the shared detached, secret-free, lifecycle
     employee.indexOf('function openGuestInfo('),
   );
   assert.doesNotMatch(productionPrint, /roomLabel\(room \|\| \{ id: request\.roomId \}\)/);
-  assert.match(employee, /onAbort: \(\) => closeDetachedPrintWindow\(printWindow\)/);
+  assert.match(employee, /onAbort: \(\) => \{ closeDetachedPrintWindow\(printWindow\); onAbort\?\.\(\); \}/);
   assert.match(inactivity, /renderLocked\(\)[\s\S]*closeDetachedPrintWindows\(\)/);
   assert.match(demoSecurity, /closeDetachedPrintWindows\(\);[\s\S]*switchDemoContext/);
   assert.match(shell, /logout\.disabled = true;[\s\S]*closeDetachedPrintWindows\(\);[\s\S]*authentication\.signOut\(\);[\s\S]*invalidateAuthorityProjection\(error\)/);
 
-  const printCallback = employee.indexOf('onPrint: (target) =>');
+  assert.match(employee, /onPrint: \(target\) => printGuest\(target\)/);
+  assert.match(employee, /openGuestInfo\(preparedTarget, currentRoomContext, \(onAbort\) => printGuest\(preparedTarget, onAbort\)\)/);
+  const printCallback = employee.indexOf('const printGuest = (target, onAbort = null) =>');
   const reservedWindow = employee.indexOf('const printWindow = openDetachedPrintWindow()', printCallback);
   const guestLoad = employee.indexOf('return withGuestRoomContext(', reservedWindow);
   assert.equal(printCallback >= 0, true);
