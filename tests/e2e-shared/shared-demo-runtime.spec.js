@@ -659,7 +659,8 @@ test('shared Demo persists cross-surface state, isolates authority, and resets r
   const managerCancelCard = customerPage.locator(`[data-production-request-id="${createdRequestId}"]`);
   await managerCancelCard.getByRole('button', { name: 'Anfrage stornieren' }).click();
   const managerCancelDialog = customerPage.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
-  await expect(managerCancelDialog).toContainText('Die Anfragedaten werden nicht gelöscht.');
+  await expect(managerCancelDialog).toContainText('Die bisherigen Anfragedaten bleiben erhalten.');
+  await expect(managerCancelDialog.getByRole('button', { name: 'Anfrage beibehalten', exact: true })).toBeFocused();
   await expectUiResponseStatus(
     customerPage,
     'POST',

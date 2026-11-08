@@ -1862,7 +1862,6 @@ export function createProductionEmployeeApplication({
           type: isResubmission ? 'resubmitted' : 'sent',
         });
         status.textContent = t('production.employee.submitted');
-        showToast(t('production.employee.submitted'));
         if (!sourceRequest && draftStore) {
           draftDirty = false;
           if (draftTimer) clearTimeout(draftTimer);
@@ -1871,6 +1870,7 @@ export function createProductionEmployeeApplication({
         }
         verifiedAvailabilityKey = null;
         if (typeof onNavigate === 'function') onNavigate('requests');
+        showToast(t('production.employee.submitted'));
       } catch (error) {
         if (authorityFailureCode(error)) {
           invalidateEditorAuthority(error);
