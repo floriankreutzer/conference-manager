@@ -62,7 +62,7 @@ test('actual qualified different-site roots bind native handoff, local onboardin
       await page.getByRole('button',{ name: 'Testzugang öffnen',exact: true }).click();
       const profileButton=page.locator('#primaryNavigation button[aria-haspopup="dialog"]');
       await expect(profileButton).toBeVisible();
-      await expect(profileButton).toHaveAttribute('aria-label',role==='employee' ? /^Angemeldeter Benutzer .+/ : 'Profil');
+      await expect(profileButton).toHaveAttribute('aria-label',slot==='fabrikam' ? 'Profil' : new RegExp(`^Angemeldeter Benutzer Synthetic ${role}$`));
     }
     let mappingProbes=0;
     async function verifySyntheticUsers() {
@@ -109,9 +109,10 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     edge.compactStaticEvidence();
     await handoff('northwind','tenant_admin');
     await verifySyntheticUsers();
-    await page.getByRole('button',{ name: 'Profil',exact: true }).click();
+    await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
     await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
     await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
+    edge.compactStaticEvidence();
     await handoff('northwind','employee');
     await page.locator('[data-view="employee"]').click();
     const date=new Date();date.setUTCDate(date.getUTCDate()+14);
