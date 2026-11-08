@@ -1657,9 +1657,9 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   await cancelTrigger.click();
   const cancelDialog = page.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
   await expect(cancelDialog).toBeVisible();
-  await expect(cancelDialog).toContainText('Die Anfragedaten werden nicht gelöscht.');
+  await expect(cancelDialog).toContainText('Die bisherigen Anfragedaten bleiben erhalten.');
   expect(fixture.writes).toHaveLength(writesBeforeCancellation);
-  await cancelDialog.getByRole('button', { name: 'Abbrechen' }).click();
+  await cancelDialog.getByRole('button', { name: 'Anfrage beibehalten' }).click();
   await expect(cancelTrigger).toBeFocused();
   expect(fixture.writes).toHaveLength(writesBeforeCancellation);
   await cancelTrigger.click();
@@ -2749,7 +2749,7 @@ test('EMP-03: Employee production flow exposes occupied, transport-error, and av
   const check = page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' });
 
   await check.click();
-  await expect(page.getByText('Raumverfügbarkeit wird serverseitig geprüft …')).toBeVisible();
+  await expect(page.getByText('Raumverfügbarkeit wird geprüft …')).toBeVisible();
   await expect(check).toBeDisabled();
   fixture.releaseAvailability();
   await expect(page.getByText(/Der Raum ist im gewählten Zeitraum belegt/)).toBeVisible();
@@ -3253,7 +3253,7 @@ test('Conference Manager cancels a confirmed request through the exact non-destr
   await page.getByRole('button', { name: 'Anfrage stornieren' }).click();
   const dialog = page.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
 
-  await expect(dialog).toContainText('Die Anfragedaten werden nicht gelöscht.');
+  await expect(dialog).toContainText('Die bisherigen Anfragedaten bleiben erhalten.');
   await dialog.getByRole('button', { name: 'Anfrage stornieren' }).click();
   await expect(page.locator('#toast')).toContainText('Die Anfrage wurde storniert.');
 
@@ -3279,7 +3279,7 @@ test('Conference Manager keeps a pending cancellation modal and surfaces the ser
   await page.getByRole('button', { name: 'Anfrage stornieren' }).click();
   const dialog = page.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
   const confirm = dialog.getByRole('button', { name: 'Anfrage stornieren' });
-  const dismiss = dialog.getByRole('button', { name: 'Abbrechen' });
+  const dismiss = dialog.getByRole('button', { name: 'Anfrage beibehalten' });
   await confirm.click();
   await expect.poll(() => fixture.writes.length).toBe(1);
 
@@ -5220,4 +5220,42 @@ test('EMP-03: room cards and review resolve catalogue equipment references witho
   const review=page.locator('[data-step-panel]:visible');
   await expect(review).toContainText('Display 86 Zoll · Whiteboard · Ausstattung nicht verfügbar');
   await expect(review).not.toContainText(id);await expect(review).not.toContainText(unknown);expect(fixture.writes).toHaveLength(0);
+});
+
+for (const language of ['de', 'en']) {
+  test(`CO-300: ${language} cancellation clearly preserves the request until explicit confirmation`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    fixture.requests().push(confirmedRequestFixture());
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="requests"]').click();
+    const cancel = page.getByRole('button', { name: language === 'de' ? 'Anfrage stornieren' : 'Cancel request', exact: true });
+    await cancel.click();
+    const dialog = page.getByRole('dialog');
+    const keep = dialog.getByRole('button', { name: language === 'de' ? 'Anfrage beibehalten' : 'Keep request', exact: true });
+    await expect(keep).toBeFocused();
+    await keep.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    await expect(cancel).toBeFocused();
+    expect(fixture.writes).toHaveLength(0);
+    await cancel.click();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+test('CO-300: switching language clears discarded-draft feedback and its live regions', async ({ page }) => {
+  await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await page.locator('#productionTitle').fill('Discarded draft');
+  await page.getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await expect(page.locator('#toast')).toContainText('Entwurf wurde verworfen.');
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+  await page.getByRole('dialog').locator('#profileLanguage').selectOption('en');
+  await expect(page.locator('#toast')).toBeEmpty();
+  await expect(page.locator('#statusRegion')).toBeEmpty();
+  await expect(page.locator('#alertRegion')).toBeEmpty();
 });

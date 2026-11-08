@@ -126,7 +126,7 @@ export function createProductionManagerApplication({
     onAuthorityFailure,
     transition = 'cancel',
   ) {
-    const dismiss = button(t('common.cancel'));
+    const dismiss = button(t(transition === 'cancel' ? 'production.employee.keepRequest' : 'common.cancel'));
     const confirm = button(t(ACTION_LABEL[transition]), { className: transition === 'cancel' ? 'danger' : 'primary' });
     const error = el('p', {
       className: 'field-error',

@@ -43,7 +43,7 @@ export const OWNER_CUSTOMER_MESSAGES = Object.freeze({
     "customerOwnerHandoff.error.unavailable": "Der Status konnte nicht sicher bestätigt werden. Es wird keine Aktion automatisch wiederholt.",
     "customerOwnerHandoff.role.employee": "Mitarbeiter",
     "customerOwnerHandoff.role.conference_manager": "Conference Manager",
-    "customerOwnerHandoff.role.tenant_admin": "Tenant Admin",
+    "customerOwnerHandoff.role.tenant_admin": "Tenant-Administration",
   }),
   en: Object.freeze({
     "platformOwnerCustomer.title": "Open customer application as owner",
@@ -89,6 +89,6 @@ export const OWNER_CUSTOMER_MESSAGES = Object.freeze({
     "customerOwnerHandoff.error.unavailable": "The state could not be safely confirmed. No action is retried automatically.",
     "customerOwnerHandoff.role.employee": "Employee",
     "customerOwnerHandoff.role.conference_manager": "Conference Manager",
-    "customerOwnerHandoff.role.tenant_admin": "Tenant Admin",
+    "customerOwnerHandoff.role.tenant_admin": "Tenant administration",
   }),
 });

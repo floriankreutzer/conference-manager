@@ -148,7 +148,7 @@ function openRoomPreview(room, trigger, previewIndex, catalogueMedia) {
 }
 
 function openEmployeeCancellationConfirmation(request, confirmAction) {
-  const dismiss = button(t('common.cancel'));
+  const dismiss = button(t('production.employee.keepRequest'));
   const confirm = button(t('requests.cancel'), { className: 'danger' });
   const requestTitle = request.details?.title
     || t('production.common.requestId', { id: request.id });

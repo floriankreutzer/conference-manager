@@ -72,6 +72,7 @@ export function createAppShell({
   const titleRoot = document.getElementById('viewTitle');
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
+  let renderedLanguage = language();
   let authenticationPage = null;
   if ((context.tenantStatus?.() === 'onboarding'
     || !context.isDemoRuntime() && context.tenantStatus?.() === 'ready')
@@ -157,6 +158,7 @@ export function createAppShell({
       return;
     }
     if (!serverViewAllowed(nextView)) nextView = 'welcome';
+    if (view !== nextView) clearTransientFeedback();
     onViewChange?.(nextView);
     view = nextView;
     render();
@@ -517,6 +519,10 @@ export function createAppShell({
   }
 
   function render() {
+    if (renderedLanguage !== language()) {
+      clearTransientFeedback();
+      renderedLanguage = language();
+    }
     invalidatePendingRender();
     const revision = renderRevision;
     if (sessionLocked()) return;
