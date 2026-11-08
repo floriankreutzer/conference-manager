@@ -75,7 +75,7 @@ test('actual qualified different-site roots bind native handoff, local onboardin
       });
       expect(deniedMapping).toBe(403);mappingProbes+=1;
       await page.getByRole('button',{ name: 'Organisation',exact: true }).click();
-      await expect(page.getByRole('heading',{ name: 'Organisation',exact: true })).toBeVisible();
+      await expect(page.getByRole('heading',{ name: 'Organisation',level: 2,exact: true })).toBeVisible();
       expect(await page.evaluate(async()=> (await fetch('/api/v1/session')).status)).toBe(200);
     }
     await handoff('fabrikam','tenant_admin');
