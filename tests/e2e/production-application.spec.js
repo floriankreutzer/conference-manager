@@ -5909,3 +5909,51 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('[data-manager-business-settings-root]')).toBeVisible();
   });
 }
+
+for (const language of ['de', 'en']) {
+  test(`CO-316: profile is read-only and help never simulates contact delivery in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    const displayName = `Alex ${'Long family name '.repeat(5)}`.trim();
+    await page.route(`${ORIGIN}/api/v1/application/profile`, (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify(applicationProjectionPayload(new URL(route.request().url()), { displayName })),
+    }));
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+    const profile = page.getByRole('dialog');
+    await expect(profile.getByRole('heading', { name: language === 'de' ? 'Persönliche Angaben' : 'Personal details' })).toBeVisible();
+    await expect(profile.locator('dd').first()).toHaveText(displayName);
+    await expect(profile.locator('dd').nth(1)).toHaveText('Conference Manager');
+    await expect(profile.locator('input')).toHaveCount(0);
+    await expect(profile.locator('select')).toHaveCount(1);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await profile.getByRole('button', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true }).click();
+    const help = page.getByRole('dialog', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true });
+    await expect(help).toBeVisible();
+    const send = help.getByRole('button', { name: language === 'de' ? 'Nachricht senden' : 'Send message' });
+    await expect(send).toBeDisabled();
+    await expect(send).toHaveAttribute('aria-describedby', 'helpContactUnavailable');
+    await expect(help.locator('#helpContactUnavailable')).toContainText(language === 'de' ? 'nicht versendet' : 'cannot currently be sent');
+    await send.evaluate((node) => { node.click(); node.click(); });
+    await expect(help).toBeVisible();
+    const search = help.locator('#helpSearch');
+    await search.fill('no-result-xyz');
+    await expect(help.locator('details:visible')).toHaveCount(0);
+    await expect(help.getByRole('status')).toContainText('0');
+    await search.fill(language === 'de' ? 'verbindlich' : 'binding');
+    await expect(help.locator('details:visible')).toHaveCount(1);
+    const summary = help.locator('details:visible summary');
+    await summary.focus(); await page.keyboard.press('Enter');
+    await expect(help.locator('details:visible')).toHaveAttribute('open', '');
+    await expect(help.locator('details:visible p')).toContainText(language === 'de' ? 'Bestätigung' : 'confirmation');
+    await search.fill('');
+    await expect(help.locator('details:visible')).toHaveCount(4);
+    await page.keyboard.press('Escape');
+    await expect(help).toHaveCount(0);
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
