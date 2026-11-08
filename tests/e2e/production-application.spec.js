@@ -1620,7 +1620,7 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   const completion = page.locator('[data-ux-submission-success]');
   await expect(completion).toBeFocused();
   await expect(completion.getByText('Anfrage erfolgreich gesendet', { exact: true })).toBeVisible();
-  await expect(completion).toContainText('Das Conference Management prüft jetzt');
+  await expect(completion).toContainText('Ihre Anfrage wird geprüft.');
   fixture.failNextRequestRead();
   await page.getByRole('button', { name: 'Aktualisieren' }).click();
   await expect(page.locator('#toast')).toContainText('Die Produktionsdaten konnten nicht sicher geladen werden.');
@@ -5117,4 +5117,68 @@ test('EMP-03: room cards and review resolve catalogue equipment references witho
   const review=page.locator('[data-step-panel]:visible');
   await expect(review).toContainText('Display 86 Zoll · Whiteboard · Ausstattung nicht verfügbar');
   await expect(review).not.toContainText(id);await expect(review).not.toContainText(unknown);expect(fixture.writes).toHaveLength(0);
+});
+
+
+for (const language of ['de', 'en']) for (const cancellationFails of [false, true]) {
+  test(`CO-304 submission notice follows confirmed cancellation; failure=${cancellationFails}, language=${language}`, async ({ page }) => {
+    const fixture = await installProductionApplicationFixture(page, {
+      transitionError: cancellationFails ? { status: 503, code: 'UNAVAILABLE' } : null,
+    });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await openEmployeeRoomStep(page);
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+    await advanceEmployeeToReview(page);
+    await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+    const notice = page.locator('[data-ux-submission-success]');
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText('Customer workshop');
+    if (language === 'en') {
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      await page.getByRole('dialog').locator('#profileLanguage').selectOption('en');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    await expect(notice).not.toContainText(/reserviert|reserved/);
+    const cancelLabel = language === 'de' ? 'Anfrage stornieren' : 'Cancel request';
+    const dismissLabel = language === 'de' ? 'Abbrechen' : 'Cancel';
+    const refreshLabel = language === 'de' ? 'Aktualisieren' : 'Refresh';
+    const cancel = page.getByRole('button', { name: cancelLabel, exact: true });
+    await cancel.click();
+    await page.getByRole('dialog').getByRole('button', { name: dismissLabel, exact: true }).click();
+    await expect(notice).toBeVisible();
+    expect(fixture.writes).toHaveLength(1);
+    await cancel.click();
+    await page.getByRole('dialog').getByRole('button', { name: cancelLabel, exact: true }).click();
+    await expect.poll(() => fixture.writes.length).toBe(2);
+    await expect(page.locator('#toast')).toBeVisible();
+    await expect(notice).toHaveCount(cancellationFails ? 1 : 0);
+    await page.locator('[data-view="welcome"]').click();
+    await page.locator('[data-view="requests"]').click();
+    const expectedStatus = language === 'de'
+      ? (cancellationFails ? 'Status: Zur Prüfung' : 'Status: Storniert')
+      : (cancellationFails ? 'Status: Pending review' : 'Status: Cancelled');
+    await expect(page.getByText(expectedStatus, { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: refreshLabel, exact: true }).click();
+    await expect(notice).toHaveCount(cancellationFails ? 1 : 0);
+    expect(fixture.writes).toHaveLength(2);
+  });
+}
+
+test('CO-304 a newly observed terminal status clears the matching submission notice', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  fixture.requests()[0].status = 'Rejected';
+  await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
+  await expect(page.getByText('Status: Abgelehnt', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-ux-submission-success]')).toHaveCount(0);
+  expect(fixture.writes).toHaveLength(1);
 });

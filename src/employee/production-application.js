@@ -1801,6 +1801,7 @@ export function createProductionEmployeeApplication({
         if (!isCurrentEditor()) return;
         submissionNotice = Object.freeze({
           requestId: submittedRequest.id,
+          title: submittedRequest.details?.title || normalizedTitle,
           type: isResubmission ? 'resubmitted' : 'sent',
         });
         status.textContent = t('production.employee.submitted');
@@ -1938,6 +1939,7 @@ export function createProductionEmployeeApplication({
       const copy = el('div', {}, [
         el('strong', { text: t(currentNotice.type === 'resubmitted'
           ? 'submission.resubmittedTitle' : 'submission.sentTitle') }),
+        el('p', { text: currentNotice.title }),
         el('p', { text: t(currentNotice.type === 'resubmitted'
           ? 'submission.resubmittedText' : 'submission.sentText') }),
       ]);
@@ -1983,6 +1985,10 @@ export function createProductionEmployeeApplication({
           loadMissingRequestRoomContexts(requests, nextCatalog, persistence),
         ]);
         if (!isCurrent(generation)) return;
+        if (submissionNotice) {
+          const submitted = requests.find(request => request.id === submissionNotice.requestId);
+          if (!submitted || !['Submitted', 'In Review'].includes(submitted.status)) submissionNotice = null;
+        }
         catalog = nextCatalog;
         authorityProjectionInvalid = false;
         clear(root);
@@ -2081,6 +2087,7 @@ export function createProductionEmployeeApplication({
               invalidateAuthorityProjection(caught);
               return;
             }
+            if (!caught && submissionNotice?.requestId === request.id) submissionNotice = null;
             if (!isActiveSurface() || tracked.reconciled) return;
             tracked.reconciled = true;
             if (requestMutations.get(request.id) === tracked) {
