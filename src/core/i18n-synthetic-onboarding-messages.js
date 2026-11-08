@@ -1,5 +1,9 @@
 export const SYNTHETIC_ONBOARDING_MESSAGES=Object.freeze({
   de: Object.freeze({
+    "syntheticOnboarding.candidateInventory": "Importkandidaten des Testkalenders",
+    "syntheticOnboarding.inventoryScope": "Diese Liste zeigt die vom Testkalender gelieferten Importkandidaten. Der Importstatus bestätigt keine reale Microsoft-Verbindung und keine einzelne Kalenderprüfung.",
+    "syntheticOnboarding.roomImported": "Importiert (Demo)",
+    "syntheticOnboarding.roomPending": "Import offen (Demo)",
     "syntheticOnboarding.title": "Kalender und Onboarding",
     "syntheticOnboarding.description": "Räume und Bereitschaft dieses Testmandanten prüfen.",
     "syntheticOnboarding.disclosure": "Dieser Mandant verwendet synthetische Daten und einen lokalen Testkalender. Eine Microsoft-Verbindung ist hierfür nicht erforderlich.",
@@ -36,6 +40,10 @@ export const SYNTHETIC_ONBOARDING_MESSAGES=Object.freeze({
     "syntheticOnboarding.error.unavailable": "Der aktuelle Kalenderzustand ist nicht verfügbar. Prüfen Sie ihn erneut oder laden Sie die Seite neu.",
   }),
   en: Object.freeze({
+    "syntheticOnboarding.candidateInventory": "Test calendar import candidates",
+    "syntheticOnboarding.inventoryScope": "This list shows import candidates supplied by the test calendar. Import status does not confirm a real Microsoft connection or an individual calendar check.",
+    "syntheticOnboarding.roomImported": "Imported (demo)",
+    "syntheticOnboarding.roomPending": "Import pending (demo)",
     "syntheticOnboarding.title": "Calendar and onboarding",
     "syntheticOnboarding.description": "Check this test customer's rooms and readiness.",
     "syntheticOnboarding.disclosure": "This customer uses synthetic data and a local test calendar. A Microsoft connection is not required for this calendar.",

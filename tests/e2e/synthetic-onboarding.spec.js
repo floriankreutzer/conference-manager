@@ -165,3 +165,26 @@ test('unknown protected provider state presents an error without Microsoft fallb
   await expect(page.getByRole('button',{ name: 'Testmandanten aktivieren' })).toHaveCount(0);
   expect(f.calls).not.toContain('/api/v1/integrations/synthetic-calendar/lifecycle/transitions');expect(f.errors).toEqual([]);
 });
+
+for (const language of ['de', 'en']) {
+  test(`CO-319: candidate inventory distinguishes demo import from real connection in ${language}`, async ({ page }) => {
+    const f = await fixture(page);
+    await page.evaluate((value) => globalThis.syntheticOnboardingFixture.render(value), language);
+    const table = page.getByRole('table', { name: language === 'de'
+      ? 'Importkandidaten des Testkalenders' : 'Test calendar import candidates' });
+    await expect(table.locator('tbody tr')).toHaveCount(2);
+    await expect(table).toContainText('Fabrikam Workshop');
+    await expect(table).toContainText(language === 'de' ? 'Import offen (Demo)' : 'Import pending (demo)');
+    await expect(page.locator('.tenant-calendar-steps li')).toHaveCount(4);
+    await expect(page.locator('.tenant-calendar-inventory')).toContainText(language === 'de'
+      ? 'keine reale Microsoft-Verbindung' : 'does not confirm a real Microsoft connection');
+    const region = page.getByRole('region', { name: language === 'de'
+      ? 'Importkandidaten des Testkalenders' : 'Test calendar import candidates' });
+    await region.focus(); await expect(region).toBeFocused();
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    expect(f.writes).toHaveLength(0);
+  });
+}

@@ -83,7 +83,10 @@ export async function bootstrapCustomerApplication({
     ? Object.freeze({
       organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
       locations: locationSettings,
-      bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
+      bookingPolicies: Object.freeze({
+        ...createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
+        loadReferenceCatalog: serverPersistence.loadCatalog,
+      }),
       costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
     })
     : Object.freeze({});
