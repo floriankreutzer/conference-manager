@@ -609,6 +609,13 @@ main {
 .modal-actions button {
   min-height: var(--control-height);
   min-width: var(--button-min-inline-size);
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.modal-actions {
+  flex-wrap: wrap;
 }
 
 .details-list {
@@ -749,8 +756,9 @@ main {
   .modal-actions button {
     width: 100%;
     min-width: 0;
-    height: var(--control-height);
-    white-space: nowrap;
+    min-height: var(--control-height);
+    height: auto;
+    white-space: normal;
   }
 
   .wizard-actions .spacer {
