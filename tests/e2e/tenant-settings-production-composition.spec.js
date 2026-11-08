@@ -585,7 +585,9 @@ for (const language of ['de', 'en']) {
     const content = await openSection(page, 'organization', 'organization');
     const registration = content.locator('#tenant-organization-registration-number');
     await registration.fill('QA-UNSAVED');
-    await page.locator('[data-tenant-admin-section="booking-policies"]').click();
+    expect(await page.evaluate(() => !window.dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    if (language === 'de') await page.locator('[data-tenant-admin-section="booking-policies"]').click();
+    else await page.evaluate(() => { location.hash = '#tenant-admin/booking-policies'; });
     const dialog = page.getByRole('dialog');
     const stay = dialog.getByRole('button', { name: language === 'de' ? 'Hier bleiben' : 'Stay here' });
     await expect(stay).toBeFocused();
@@ -607,8 +609,10 @@ test('CO-307 successful organization save allows navigation without a discard wa
   await openTenantSettings(page);
   const content = await openSection(page, 'organization', 'organization');
   await content.locator('#tenant-organization-registration-number').fill('QA-SAVED');
+  const originalForm = await content.locator('[data-tenant-settings-form="organization"]').elementHandle();
   await submit(content, 'organization');
   await expect.poll(() => fixture.writes.length).toBe(1);
+  await expect.poll(() => originalForm.evaluate((form) => form.isConnected)).toBe(false);
   await expect(content.locator('#tenant-organization-registration-number')).toHaveValue('QA-SAVED');
   await page.locator('[data-view="welcome"]').click();
   await expect(page.locator('#welcomeHeading')).toBeVisible();
