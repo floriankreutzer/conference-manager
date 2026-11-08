@@ -199,3 +199,33 @@ test('safe server lifecycle conflicts and HTTP classifications remain presentati
     );
   }
 });
+
+
+test('synthetic user composition omits real-only mappings and retains ordinary user operations', async () => {
+  const calls = [];
+  const api = createTenantUserOperationsApi({ microsoftRoleMappingsEnabled: false, apiClient: {
+    async request(path) {
+      calls.push(path);
+      return { users: [user()], nextAfterId: null, requestId: REQUEST_ID };
+    },
+  } });
+  assert.equal(Object.hasOwn(api, 'microsoftRoleMappings'), false);
+  assert.equal((await api.listUsers()).users.length, 1);
+  assert.deepEqual(calls, ['v1/tenant/users?limit=25']);
+  assert.equal(typeof api.setRoles, 'function');
+  assert.equal(typeof api.setAccess, 'function');
+});
+
+test('real user composition preserves mappings and propagates actual authority failures', async () => {
+  for (const code of ['HTTP_401', 'HTTP_403']) {
+    const failure = Object.assign(new Error(code), { code });
+    const api = createTenantUserOperationsApi({ apiClient: { async request() { throw failure; } } });
+    assert.equal(typeof api.microsoftRoleMappings.replace, 'function');
+    await assert.rejects(api.microsoftRoleMappings.get(), error => error === failure);
+    await assert.rejects(api.listUsers(), { code });
+  }
+  for (const value of [null, 0, 'false', {}]) {
+    assert.throws(() => createTenantUserOperationsApi({ apiClient: { request() {} },
+      microsoftRoleMappingsEnabled: value }), { message: 'TENANT_USER_CAPABILITY_CONFIGURATION_INVALID' });
+  }
+});

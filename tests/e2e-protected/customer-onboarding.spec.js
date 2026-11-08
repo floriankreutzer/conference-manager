@@ -64,7 +64,22 @@ test('actual qualified different-site roots bind native handoff, local onboardin
       await expect(profileButton).toBeVisible();
       await expect(profileButton).toHaveAttribute('aria-label',role==='employee' ? /^Angemeldeter Benutzer .+/ : 'Profil');
     }
+    let mappingProbes=0;
+    async function verifySyntheticUsers() {
+      await page.getByRole('button',{ name: 'Benutzer & Rollen',exact: true }).click();
+      await expect(page.locator('[data-tenant-admin-users] [role="status"]')).toBeVisible();
+      await expect(page.locator('[data-microsoft-role-mappings]')).toHaveCount(0);
+      expect(edge.evidence().requests.filter(event=>event.path==='/api/v1/tenant/microsoft-role-mappings')).toHaveLength(mappingProbes);
+      const deniedMapping=await page.evaluate(async()=>{
+        const response=await fetch('/api/v1/tenant/microsoft-role-mappings');return response.status;
+      });
+      expect(deniedMapping).toBe(403);mappingProbes+=1;
+      await page.getByRole('button',{ name: 'Organisation',exact: true }).click();
+      await expect(page.getByRole('heading',{ name: 'Organisation',exact: true })).toBeVisible();
+      expect(await page.evaluate(async()=> (await fetch('/api/v1/session')).status)).toBe(200);
+    }
     await handoff('fabrikam','tenant_admin');
+    await verifySyntheticUsers();
     await page.getByRole('button',{ name: 'Kalender und Onboarding',exact: true }).click();
     const group=page.getByRole('group',{ name: 'Räume für den Import auswählen' });
     await expect(group.getByRole('checkbox')).toHaveCount(2);
@@ -89,6 +104,11 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     await page.getByRole('button',{ name: 'Profil',exact: true }).click();
     await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
     await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
+    await handoff('northwind','tenant_admin');
+    await verifySyntheticUsers();
+    await page.getByRole('button',{ name: 'Profil',exact: true }).click();
+    await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
+    await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
     await handoff('northwind','employee');
     await page.locator('[data-view="employee"]').click();
     const date=new Date();date.setUTCDate(date.getUTCDate()+14);
@@ -109,9 +129,9 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     expect(traffic.requests.some(event=>event.surface==='platform' && event.path==='/api/v1/platform/auth/delegation/arrive'
       && event.method==='GET' && event.status===303 && event.fetchSite==='cross-site' && !event.cookiePresent)).toBe(true);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/callback' && event.method==='GET'
-      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(2);
+      && event.status===303 && event.fetchSite==='cross-site')).toHaveLength(3);
     expect(traffic.requests.filter(event=>event.path==='/api/v1/auth/delegation/complete' && event.method==='POST'
-      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(2);
+      && event.status===303 && event.fetchSite==='same-origin')).toHaveLength(3);
     expect(traffic.requests.some(event=>event.path.startsWith('/api/v1/tenant/catalogue-media/') && event.status===200)).toBe(true);
     expect(traffic.requests.some(event=>event.path.includes('/demo/'))).toBe(false);expect(traffic.deniedConnects).toBe(0);
     const evidence=await runtime.evidence();
@@ -119,7 +139,7 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     expect(evidence.tenantChainsVerified).toBe(3);expect(errors).toEqual([]);
     console.log('PROTECTED_QUALIFIED_BROWSER_EVIDENCE',JSON.stringify({ engine: browserName,authenticator: authenticator.mode,
       actualOrigins: origins,refs: evidence.refs,artifacts: traffic.artifacts,tenantChainsVerified: evidence.tenantChainsVerified,
-      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: 2,
+      tenants: evidence.tenants,requests: traffic.requests.length,crossSiteCompletions: 3,syntheticUserNavigationChecks: mappingProbes,
       scope: 'initial canonical MFA fixture; Microsoft primary, physical keys and operating cutover unproved' }));
   } catch (error) {
     // Fixed paths/status codes and test bridge counters only. Never include
