@@ -104,6 +104,9 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     await page.getByRole('button',{ name: 'Profil',exact: true }).click();
     await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
     await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
+    // Keep all protocol/failure evidence; release only completed immutable assets
+    // at this completed customer phase before loading another full document.
+    edge.compactStaticEvidence();
     await handoff('northwind','tenant_admin');
     await verifySyntheticUsers();
     await page.getByRole('button',{ name: 'Profil',exact: true }).click();
