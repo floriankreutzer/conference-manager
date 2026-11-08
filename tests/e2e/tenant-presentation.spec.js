@@ -386,6 +386,8 @@ test('stale Tenant Admin save cannot restore its detached settings shell', async
   await form.getByRole('button', { name: /speichern/i }).click();
   await expect.poll(() => fixture.writes.length).toBe(1);
   await page.locator('[data-view="welcome"]').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Änderungen verwerfen', exact: true }).click();
+  await expect(page.locator('#welcomeHeading')).toBeVisible();
 
   const response = page.waitForResponse((value) => (
     new URL(value.url()).pathname === '/api/v1/tenant/settings/organization'
