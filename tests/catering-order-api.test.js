@@ -169,3 +169,21 @@ test('historical selectors and later-version quote decisions bind the version as
     expectedQuoteRevision: 1, decision: 'approved' });
   assert.equal(Object.hasOwn(sent.options.body, 'expectedOrderVersion'), false);
 });
+
+
+test('CO-301 catering reads allow canonical multiline requirements without widening other text fields', async () => {
+  const value = fixture();
+  value.order.dietaryRequirements = 'Vegan\nNo nuts';
+  value.order.specialRequirements = 'First\nSecond';
+  const result = await apiFor(value).loadOrder(source.order.orderId);
+  assert.equal(result.order.dietaryRequirements, value.order.dietaryRequirements);
+  assert.equal(result.order.specialRequirements, value.order.specialRequirements);
+  for (const field of ['dietaryRequirements', 'specialRequirements']) {
+    for (const bad of ['one\rtwo', 'one\ttwo', 'one\u0000two', 'x'.repeat(2001)]) {
+      const invalid = fixture(); invalid.order[field] = bad;
+      await assert.rejects(apiFor(invalid).loadOrder(source.order.orderId), /INVALID/);
+    }
+  }
+  value.order.title = 'one\ntwo';
+  await assert.rejects(apiFor(value).loadOrder(source.order.orderId), /INVALID/);
+});

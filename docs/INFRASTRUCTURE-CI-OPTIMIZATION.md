@@ -31,6 +31,19 @@ runner minutes per successful candidate, cache hit/miss setup time and dependenc
 PR count in comparable windows. Current public-runner usage is not an invoice;
 private-source restoration requires separately verified quota and read access.
 
+## Ordinary CI event handling
+
+PR metadata edits and ready-for-review events retain the Jira title/branch gate
+and the full CI suite, but do not cancel a running source validation. New source
+events may still cancel obsolete runs for the same PR. Main pushes use distinct
+run IDs so later pushes cannot cancel their independent Main evidence.
+
+GitHub still permits one running and one pending run per concurrency group;
+a newer pending event can replace an older pending event. This is cancellation
+control, not deduplication or a measured minutes saving. Avoid unnecessary PR
+body/title edits during acceptance. Do not narrow PR event types or skip quality
+checks to suppress a metadata-triggered run.
+
 ## Cross-repository CI source access
 
 The shared Demo and protected browser jobs use the existing CI Reader GitHub App

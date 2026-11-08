@@ -1,15 +1,24 @@
 # Dependency update CI
 
 Shared Demo acceptance retains its immutable API commit, both browsers, the full three-customer
-progression and two-cycle reset gates. Checkout uses the configured read-only
-`SHARED_DEMO_API_READ_TOKEN`, falling back to the job's contents-read GitHub token when the
-separate credential is unavailable in a Dependabot context.
+progression and two-cycle reset gates. Ordinary CI uses the scoped, short-lived CI Reader App
+token described in [Infrastructure CI optimization](INFRASTRUCTURE-CI-OPTIMIZATION.md).
+The legacy `SHARED_DEMO_API_READ_TOKEN` is no longer consumed by this CI. An entirely absent
+App credential pair retains the job's contents-read GitHub token only for public sources;
+partial credentials or unknown visibility fail before token creation.
 
 The fallback supports the current temporary public-source exception; it does not authorize a
 visibility change or grant access to a private counterpart repository. Restoring the approved
-private-source boundary requires the explicit read-only credential in the appropriate Actions
+private-source boundary requires the complete App credential pair in the appropriate Actions
 and Dependabot secret contexts. An unauthorized checkout still fails and blocks acceptance.
 No privileged `pull_request_target` execution, persisted credential or skipped gate is used.
+
+Both ordinary CI token steps use the supported `client-id` input of the pinned action.
+The existing `CM_CI_READER_APP_ID` secret name and value remain unchanged: at action revision
+`64ab729a6294000f5aa4a4bc0b73d1f32bc45510`, both input names feed the same
+`createAppAuth({ appId: clientId, ... })` path. This migrates the deprecated alias without
+rotating credentials, creating an App or expanding grants. Post-job revocation remains enabled;
+native token creation, immutable checkout and cleanup require their own execution evidence.
 
 Dependency versions and action commit SHAs remain exact. The Artifact action assertion is
 updated with the reviewed action SHA; it continues to reject a different or mutable action ref.

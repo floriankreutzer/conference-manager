@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'edited' && github.event.action != 'ready_for_review' }}
 
 jobs:
   quality:
@@ -211,7 +211,7 @@ jobs:
         if: env.HAS_SOURCE_APP == 'true'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ secrets.CM_CI_READER_APP_ID }}
+          client-id: ${{ secrets.CM_CI_READER_APP_ID }}
           private-key: ${{ secrets.CM_CI_READER_PRIVATE_KEY }}
           owner: floriankreutzer
           repositories: conference-manager-api
@@ -220,7 +220,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: d14e25ad6c62a729e218fda367061ab70d173944
+          ref: a3e5a7d63a3736b615595f6b4a674047b687842b
           token: ${{ steps.source-token.outputs.token || github.token }}
           persist-credentials: false
           path: api
@@ -367,7 +367,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: d14e25ad6c62a729e218fda367061ab70d173944
+      PROTECTED_BROWSER_COUNTERPART_REF: a3e5a7d63a3736b615595f6b4a674047b687842b
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
       HAS_SOURCE_APP: ${{ secrets.CM_CI_READER_APP_ID != '' || secrets.CM_CI_READER_PRIVATE_KEY != '' }}
     services:
@@ -407,7 +407,7 @@ jobs:
         if: env.HAS_SOURCE_APP == 'true'
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          app-id: ${{ secrets.CM_CI_READER_APP_ID }}
+          client-id: ${{ secrets.CM_CI_READER_APP_ID }}
           private-key: ${{ secrets.CM_CI_READER_PRIVATE_KEY }}
           owner: floriankreutzer
           repositories: conference-manager-api
@@ -416,7 +416,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: d14e25ad6c62a729e218fda367061ab70d173944
+          ref: a3e5a7d63a3736b615595f6b4a674047b687842b
           token: ${{ steps.source-token.outputs.token || github.token }}
           persist-credentials: false
           path: api
