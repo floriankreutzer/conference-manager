@@ -1,3 +1,4 @@
+import { createCatalogueEditorList } from '../../../shared/catalogue-editor-list.js';
 import { formatDateTime, t } from '../../../core/i18n.js';
 import { announce, button, clear, el, field, showToast, validationSummary } from '../../../core/ui.js';
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
@@ -30,7 +31,10 @@ function costCenterEditor(costCenter, index) {
   const prefix = `tenant-cost-center-${index}`;
   const node = el('fieldset', { className: 'card', dataset: { costCenterId: costCenter.id } }, [
     el('legend', { text: costCenter.name }),
-    el('p', { className: 'muted', text: t('tenantSettings.costAllocation.internalId', { id: costCenter.id }) }),
+    el('details', {}, [
+      el('summary', { text: t('managerSettings.catalogue.technicalDetails') }),
+      el('p', { className: 'muted', text: t('tenantSettings.costAllocation.internalId', { id: costCenter.id }) }),
+    ]),
     el('div', { className: 'form-grid' }, [
       field({ id: `${prefix}-code`, label: t('tenantSettings.costAllocation.code'), control: controls.code, required: true }),
       field({ id: `${prefix}-name`, label: t('tenantSettings.costAllocation.name'), control: controls.name, required: true }),
@@ -80,21 +84,22 @@ export function createCostAllocationSection({ adapter = null } = {}) {
       el('p', { className: 'muted', text: t('tenantSettings.costAllocation.percentageModel') }),
     );
     const editors = snapshot.configuration.costCenters.map(costCenterEditor);
-    const surface = el('div', {}, editors.map((entry) => entry.node));
+    const editorList = createCatalogueEditorList({ id: 'tenant-cost-centers', editors });
+    const surface = editorList.node;
     const add = button(t('tenantSettings.costAllocation.addCostCenter'));
     add.addEventListener('click', () => {
       const count = editors.length + 1;
       const id = nextId(new Set(editors.map((entry) => entry.costCenter.id)));
       const editor = costCenterEditor({ id, code: `CENTER_${count}`, name: t('tenantSettings.costAllocation.newCostCenter'), group: null, active: true }, count - 1);
       editors.push(editor);
-      surface.appendChild(editor.node);
+      editorList.add(editor, { expanded: true });
       editor.controls.name.focus();
     });
     form.append(el('h3', { text: t('tenantSettings.costAllocation.costCenters') }), surface, el('div', { className: 'button-row' }, [add]));
     const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
     const save = button(t('tenantSettings.action.save'), { className: 'primary', attrs: { type: 'submit' } });
     let mutationPending = false;
-    form.append(el('div', { className: 'button-row' }, [save]), status);
+    form.prepend(el('div', { className: 'button-row catalogue-save-actions' }, [save]), status);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;

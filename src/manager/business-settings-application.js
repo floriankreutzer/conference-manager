@@ -1,3 +1,4 @@
+import { namedSelectionField } from '../shared/named-selection-field.js';
 import { renderCateringCataloguePublications } from './catering-publication-application.js';
 import { renderCateringProviderCatalogues } from './catering-source-application.js';
 import { createPublicGuestValueEditor } from '../core/public-guest-value-editor.js';
@@ -8,7 +9,7 @@ import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 import { renderCateringAssignments } from './catering-assignment-application.js';
-import { createCatalogueEditorList } from './catalogue-editor-list.js';
+import { createCatalogueEditorList } from '../shared/catalogue-editor-list.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -304,15 +305,18 @@ function commonEntryEditor(entry, prefix, references) {
   controls.description.value = entry.description || '';
   const node = el('fieldset', { className: 'card', dataset: { catalogueEntryId: entry.id } }, [
     el('legend', { text: entry.name }),
-    el('p', { className: 'muted', text: entry.id }),
+    el('details', {}, [
+      el('summary', { text: t('managerSettings.catalogue.technicalDetails') }),
+      el('p', { className: 'muted', text: entry.id }),
+    ]),
     el('div', { className: 'form-grid' }, [
       nameField.node,
       field({ id: `${prefix}-${entry.id}-description`, label: t('managerSettings.catalogue.descriptionField'), control: controls.description, optional: true }),
       fieldHelp(field({ id: `${prefix}-${entry.id}-amount`, label: t('managerSettings.catalogue.price'), control: controls.price.amountMinor, required: true, hint: t('managerSettings.help.price') }), controls.price.amountMinor, `${prefix}-${entry.id}-amount`, 'managerSettings.help.price'),
       fieldHelp(field({ id: `${prefix}-${entry.id}-currency`, label: t('managerSettings.catalogue.currency'), control: controls.price.currency, required: true, hint: t('managerSettings.help.currency') }), controls.price.currency, `${prefix}-${entry.id}-currency`, 'managerSettings.help.currency'),
       fieldHelp(field({ id: `${prefix}-${entry.id}-order`, label: t('managerSettings.catalogue.order'), control: controls.order, required: true, hint: t('managerSettings.help.order') }), controls.order, `${prefix}-${entry.id}-order`, 'managerSettings.help.order'),
-      fieldHelp(field({ id: `${prefix}-${entry.id}-sites`, label: t('managerSettings.catalogue.siteIds'), control: controls.siteIds, optional: true, hint: t('managerSettings.help.sites') }), controls.siteIds, `${prefix}-${entry.id}-sites`, 'managerSettings.help.sites'),
-      fieldHelp(field({ id: `${prefix}-${entry.id}-rooms`, label: t('managerSettings.catalogue.roomIds'), control: controls.roomIds, optional: true, hint: t('managerSettings.help.rooms') }), controls.roomIds, `${prefix}-${entry.id}-rooms`, 'managerSettings.help.rooms'),
+      fieldHelp(namedSelectionField({ id: `${prefix}-${entry.id}-sites`, label: t('managerSettings.catalogue.siteIds'), control: controls.siteIds, optional: true, hint: t('managerSettings.help.sites') }), controls.siteIds, `${prefix}-${entry.id}-sites`, 'managerSettings.help.sites'),
+      fieldHelp(namedSelectionField({ id: `${prefix}-${entry.id}-rooms`, label: t('managerSettings.catalogue.roomIds'), control: controls.roomIds, optional: true, hint: t('managerSettings.help.rooms') }), controls.roomIds, `${prefix}-${entry.id}-rooms`, 'managerSettings.help.rooms'),
       fieldHelp(field({ id: `${prefix}-${entry.id}-active`, label: t('managerSettings.catalogue.active'), control: controls.active }), controls.active, `${prefix}-${entry.id}-active`, 'managerSettings.help.active'),
     ]),
   ]);
@@ -349,7 +353,10 @@ function variantEditor(variant, prefix) {
   controls.description.value = variant.description || '';
   const node = el('fieldset', { dataset: { catalogueVariantId: variant.id } }, [
     el('legend', { text: variant.name }),
-    el('p', { className: 'muted', text: variant.id }),
+    el('details', {}, [
+      el('summary', { text: t('managerSettings.catalogue.technicalDetails') }),
+      el('p', { className: 'muted', text: variant.id }),
+    ]),
     el('div', { className: 'form-grid' }, [
       nameField.node,
       field({ id: `${prefix}-${variant.id}-description`, label: t('managerSettings.catalogue.descriptionField'), control: controls.description, optional: true }),
@@ -400,7 +407,7 @@ function packageEditor(entry, references) {
     nextEditor.controls.name.focus();
   });
   editor.node.append(
-    field({
+    namedSelectionField({
       id: `manager-catalogue-package-${entry.id}-items`,
       label: t('managerSettings.catalogue.itemIds'),
       control: itemIds,
@@ -751,7 +758,10 @@ export function createManagerBusinessSettingsApplication({
       }, { amountRequired: false });
       const node = el('fieldset', { className: 'card', dataset: { managerRoomId: room.id } }, [
         el('legend', { text: room.name }),
-        el('p', { className: 'muted', text: t('managerSettings.room.internalId', { id: room.id }) }),
+        el('details', {}, [
+          el('summary', { text: t('managerSettings.catalogue.technicalDetails') }),
+          el('p', { className: 'muted', text: t('managerSettings.room.internalId', { id: room.id }) }),
+        ]),
         el('dl', { className: 'details-list' }, [
           el('dt', { text: t('managerSettings.room.site') }),
           el('dd', { text: site?.name || room.siteId }),
@@ -768,10 +778,10 @@ export function createManagerBusinessSettingsApplication({
           })] : []),
           field({ id: `manager-room-capacity-${index}`, label: t('managerSettings.room.capacity'), control: controls.capacity, required: true }),
           field({ id: `manager-room-floor-${index}`, label: t('managerSettings.room.floor'), control: controls.floor, optional: true }),
-          field({ id: `manager-room-equipment-${index}`, label: t('managerSettings.room.equipment'), control: controls.equipment, optional: true, hint: t('managerSettings.help.roomEquipment') }),
+          namedSelectionField({ id: `manager-room-equipment-${index}`, label: t('managerSettings.room.equipment'), control: controls.equipment, optional: true, hint: t('managerSettings.help.roomEquipment') }),
           field({ id: `manager-room-accessibility-${index}`, label: t('managerSettings.room.accessibility'), control: controls.accessibility, optional: true, hint: t('managerSettings.commaSeparated') }),
-          field({ id: `manager-room-services-${index}`, label: t('managerSettings.room.serviceIds'), control: controls.serviceIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
-          field({ id: `manager-room-catering-${index}`, label: t('managerSettings.room.cateringPackageIds'), control: controls.cateringPackageIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
+          namedSelectionField({ id: `manager-room-services-${index}`, label: t('managerSettings.room.serviceIds'), control: controls.serviceIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
+          namedSelectionField({ id: `manager-room-catering-${index}`, label: t('managerSettings.room.cateringPackageIds'), control: controls.cateringPackageIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
           fieldHelp(field({ id: `manager-room-floorplan-${index}`, label: t('managerSettings.room.floorplanAssetId'), control: controls.floorplanAssetId, optional: true }), controls.floorplanAssetId, `manager-room-floorplan-${index}`, 'managerSettings.help.roomMedia'),
           fieldHelp(field({ id: `manager-room-media-${index}`, label: t('managerSettings.room.mediaAssetIds'), control: controls.mediaAssetIds, optional: true, hint: t('managerSettings.commaSeparated') }), controls.mediaAssetIds, `manager-room-media-${index}`, 'managerSettings.help.roomMedia'),
           fieldHelp(field({ id: `manager-room-active-${index}`, label: t('managerSettings.room.active'), control: controls.active }), controls.active, `manager-room-active-${index}`, 'managerSettings.help.active'),
@@ -879,7 +889,7 @@ export function createManagerBusinessSettingsApplication({
     const form = el('form');
     form.appendChild(createCatalogueEditorList({ id: 'manager-rooms', editors }).node);
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
-    form.prepend(el('div', { className: 'button-row' }, [save]));
+    form.prepend(el('div', { className: 'button-row catalogue-save-actions' }, [save]));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!validateRequiredTrimmedText(editors.map(({ nameField }) => nameField))) return;
@@ -1074,7 +1084,7 @@ export function createManagerBusinessSettingsApplication({
 
 
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
-    form.prepend(el('div', { className: 'button-row' }, [save]));
+    form.prepend(el('div', { className: 'button-row catalogue-save-actions' }, [save]));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const catalogueNameFields = [

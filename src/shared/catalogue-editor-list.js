@@ -2,7 +2,7 @@ import { formatNumber, locale, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
 
 // Presentation only: all editor controls stay mounted for complete snapshot saves.
-export function createCatalogueEditorList({ id, editors = [] }) {
+export function createCatalogueEditorList({ id, editors = [], nameOf = (editor) => editor.controls.name.value }) {
   const search = el('input', { attrs: { type: 'search' } });
   const reset = button(t('manager.ux.resetFilters'));
   const count = el('p', { attrs: { role: 'status', 'aria-live': 'polite' } });
@@ -21,7 +21,7 @@ export function createCatalogueEditorList({ id, editors = [] }) {
     const query = search.value.trim().toLocaleLowerCase(locale());
     let shown = 0;
     entries.forEach((entry) => {
-      entry.details.hidden = !entry.editor.controls.name.value.toLocaleLowerCase(locale()).includes(query);
+      entry.details.hidden = !nameOf(entry.editor).toLocaleLowerCase(locale()).includes(query);
       if (!entry.details.hidden) shown += 1;
     });
     count.textContent = t('managerSettings.catalogue.searchCount', {
@@ -29,12 +29,12 @@ export function createCatalogueEditorList({ id, editors = [] }) {
     });
   }
   function add(editor, { expanded = false } = {}) {
-    const summary = el('summary', { text: editor.controls.name.value });
+    const summary = el('summary', { text: nameOf(editor) });
     const details = el('details', { className: 'catalogue-editor-row' }, [summary, editor.node]);
     const entry = { editor, details };
     entries.push(entry);
     rows.appendChild(details);
-    editor.controls.name.addEventListener('input', () => { summary.textContent = editor.controls.name.value; });
+    editor.node.addEventListener('input', () => { summary.textContent = nameOf(editor); });
     summary.addEventListener('click', () => { revealingInvalid = false; });
     details.addEventListener('toggle', () => {
       if (details.open && details.isConnected && !revealingInvalid) open(entry);

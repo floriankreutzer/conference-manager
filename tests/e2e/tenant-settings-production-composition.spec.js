@@ -461,6 +461,88 @@ async function submit(content, formId) {
   await content.locator(`[data-tenant-settings-form="${formId}"] button[type="submit"]`).click();
 }
 
+for (const language of ['de', 'en']) {
+  test(`CO-306 policy duration units preserve minutes and reject fractional minutes in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page);
+    fixture.state.bookingPolicies.configuration.versions[0].rules.maximumAdvanceMinutes = 527040;
+    const original = clone(fixture.state.bookingPolicies.configuration);
+    await openTenantSettings(page);
+    const content = await openSection(page, 'booking-policies', 'booking-policies');
+    const amount = content.locator('#tenant-policy-0-advance');
+    const unit = content.locator('#tenant-policy-0-advance-unit');
+    await expect(unit).toHaveValue('days');
+    await expect(amount).toHaveValue('366');
+    await unit.selectOption('minutes');
+    await expect(amount).toHaveValue('527040');
+    await unit.selectOption('hours');
+    await expect(amount).toHaveValue('8784');
+    await unit.selectOption('days');
+    await expect(amount).toHaveValue('366');
+    await submit(content, 'booking-policies');
+    await expect.poll(() => fixture.writes.length).toBe(1);
+    expect(fixture.writes[0].body.configuration).toEqual(original);
+    expect(fixture.writes[0].body.expectedRevision).toBe(5);
+    expect(fixture.writes[0].csrf).toBe(CSRF_TOKEN);
+    await expect(content.getByText(language === 'de' ? 'Konfigurationsstand: 6' : 'Configuration revision: 6')).toBeVisible();
+    await amount.fill('0.001');
+    await submit(content, 'booking-policies');
+    await expect(amount).toHaveAttribute('aria-invalid', 'true');
+    await expect(amount).toBeFocused();
+    expect(fixture.writes).toHaveLength(1);
+    await amount.fill('367');
+    await submit(content, 'booking-policies');
+    await expect.poll(() => fixture.writes.length).toBe(2);
+    expect(fixture.writes[1].body.configuration.versions[0].rules.maximumAdvanceMinutes).toBe(528480);
+  });
+
+  test(`CO-306 Tenant searches preserve complete owned snapshots in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page);
+    fixture.state.locations.configuration.rooms.push(...Array.from({ length: 8 }, (_, index) => room({
+      id: `extra-${index}`, name: `Extra room ${index}`, capacity: 8,
+    })));
+    fixture.state.costAllocation.configuration.costCenters = Array.from({ length: 18 }, (_, index) => ({
+      id: `center-${index}`, code: `CENTER_${index}`, name: `Center ${index}`, group: null, active: true,
+    }));
+    const originalLocations = clone(fixture.state.locations.configuration);
+    const originalCosts = clone(fixture.state.costAllocation.configuration);
+    await openTenantSettings(page);
+    let content = await openSection(page, 'locations', 'locations-technical');
+    await content.locator('#tenant-rooms-search').fill('Extra room 7');
+    const roomEntry = content.locator('[data-tenant-room-id="extra-7"]').locator('..');
+    await roomEntry.locator(':scope > summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(content.locator('#tenant-room-site-9')).toBeVisible();
+    await content.locator('#tenant-sites-search').fill('Berlin');
+    await content.locator('#tenant-site-name-0').fill('Updated Berlin');
+    await content.locator('#tenant-sites-search').fill('No match');
+    await submit(content, 'locations-technical');
+    await expect.poll(() => fixture.writes.length).toBe(1);
+    expect(fixture.writes[0].body.configuration).toEqual({ ...originalLocations,
+      sites: [{ ...originalLocations.sites[0], name: 'Updated Berlin' }],
+    });
+    expect(fixture.writes[0].body.expectedRevision).toBe(2);
+    expect(fixture.writes[0].csrf).toBe(CSRF_TOKEN);
+    content = await openSection(page, 'cost-allocation', 'cost-allocation');
+    await content.locator('#tenant-cost-centers-search').fill('Center 17');
+    await content.locator('[data-cost-center-id="center-17"]').locator('..').locator(':scope > summary').click();
+    await content.locator('#tenant-cost-center-17-name').fill('Updated center');
+    await content.locator('#tenant-cost-centers-search').fill('No match');
+    await submit(content, 'cost-allocation');
+    await expect.poll(() => fixture.writes.length).toBe(2);
+    expect(fixture.writes[1].body.configuration).toEqual({ ...originalCosts,
+      costCenters: originalCosts.costCenters.map((entry, index) => index === 17 ? { ...entry, name: 'Updated center' } : entry),
+    });
+    expect(fixture.writes[1].body.expectedRevision).toBe(6);
+    expect(fixture.writes[1].csrf).toBe(CSRF_TOKEN);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  });
+}
+
 test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-owned fields', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page);
   await openTenantSettings(page);
