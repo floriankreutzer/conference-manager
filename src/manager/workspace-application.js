@@ -22,6 +22,7 @@ export function createManagerWorkspaceApplication({
   }
   let workspaceRoot = null;
   let worklistExpanded = false;
+  let settingsNavigation = null;
   const requestMutations = new Map();
   const operationalRoot = el('div', { dataset: { managerOperationalRoot: 'true' } });
   const worklist = demoWorklistEnabled ? createDemoManagerWorklistController({
@@ -54,6 +55,7 @@ export function createManagerWorkspaceApplication({
       panel.replaceChildren(heading, content);
       const businessSettings = createManagerBusinessSettingsApplication({
         appRoot: content,
+        initialNavigation: settingsNavigation,
         setPageHeading: (title, description) => {
           heading.replaceChildren(el('h3', { text: title }), el('p', { className: 'muted', text: description }));
         },
@@ -62,6 +64,7 @@ export function createManagerWorkspaceApplication({
         cateringAssignments,
         onAuthorityFailure: invalidateAuthorityProjection,
       });
+      settingsNavigation = null;
       void businessSettings.renderManagerSettings({ focusHeading });
     },
   });
@@ -121,6 +124,7 @@ export function createManagerWorkspaceApplication({
             attrs: { 'aria-label': t('demoManager.openTask', { task: t(task.key, { title: task.title }) }) },
           });
           open.addEventListener('click', () => {
+            settingsNavigation = task.settings || null;
             operationalRoot.querySelector(`#managerTab-${task.target}`)?.click();
           });
           list.appendChild(el('li', {
