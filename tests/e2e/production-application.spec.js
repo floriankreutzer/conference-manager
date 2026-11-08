@@ -1547,11 +1547,21 @@ for (const language of ['de', 'en']) {
       const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
       const source = confirmedV2RequestFixture();
       for (let index = 0; index < 27; index += 1) {
-        fixture.requests().push({ ...source, id: randomUUID(), details: {
+        fixture.requests().push({ ...source, id: `66666666-6666-4666-8666-${String(index).padStart(12, '0')}`, details: {
           ...source.details, title: index === 0 ? 'A'.repeat(160) : `Conference ${index}`,
-          dietaryRequirements: index === 0 ? 'Nut allergy' : '', specialRequirements: '',
+          dietaryRequirements: index === 0 ? 'Nut allergy' : null, specialRequirements: null,
         } });
       }
+      await page.route(/\/api\/v1\/application\/requests(?:\?.*)?$/, async (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        const offset = Number(new URL(route.request().url()).searchParams.get('cursor') || 0);
+        const next = offset + 10;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          schemaVersion: 2, asOf: '2026-09-24T12:00:00.000Z',
+          requests: fixture.requests().slice(offset, next),
+          page: { limit: 10, complete: next >= 27, nextCursor: next >= 27 ? null : String(next) },
+        }) });
+      });
       await page.goto(`${ORIGIN}/`);
       await page.locator(`[data-view="${view}"]`).click();
       const cards = page.locator('[data-production-request-id]');
@@ -1696,6 +1706,7 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   expect(fixture.writes[0].body).not.toHaveProperty('status');
 
   await page.locator('[data-view="requests"]').click();
+  await page.locator(`[data-production-request-id="${REQUEST_ID}"] summary`).click();
   await expect(page.getByText(`Anfrage ${REQUEST_ID}`)).toBeVisible();
   const cancelTrigger = page.getByRole('button', { name: 'Anfrage stornieren' });
   const writesBeforeCancellation = fixture.writes.length;
