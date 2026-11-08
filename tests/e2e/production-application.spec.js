@@ -3426,12 +3426,13 @@ test('MGR-01 MGR-04 MGR-05: Manager tabs expose inline room planning and visible
   const report = page.getByRole('tabpanel');
   await expect(report).toContainText('Raumauslastung');
   await expect(report).toContainText('Service-Nutzung');
-  await expect(report).toContainText('Catering-Nutzung');
-  await expect(report.locator('.dashboard-grid')).toContainText('Gebuchte Raumstunden');
+  await expect(report).toContainText('Gebuchte Catering-Pakete');
+  await expect(report).toContainText('Catering-Einzeloptionen');
+  await expect(report.locator('.manager-report-metrics')).toContainText('Gebuchte Raumstunden');
 
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await expect(page.getByRole('tabpanel')).toContainText('Business-Einstellungen');
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await expect(page.getByRole('button', { name: 'Business-Einstellungen', exact: true })).toHaveCount(0);
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await expect(page.locator('[data-manager-business-settings-root]')).toBeVisible();
 });
 
@@ -3689,7 +3690,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
 
   await page.getByRole('button', { name: 'Services & Ausstattung' }).click();
@@ -3738,7 +3739,7 @@ test('Conference Manager edits normal Room prices with Rooms and validates Cater
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
 
   const amount = page.locator('#manager-room-price-amount-0');
   await expect(amount).toHaveValue('');
@@ -3790,7 +3791,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
 
   const room = page.locator('[data-manager-room-id="room-a"]');
@@ -3870,7 +3871,7 @@ test('Conference Manager updates complete Room business snapshots and surfaces r
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await page.locator('#manager-room-name-0').fill('Conflicting Room');
   const save = page.getByRole('button', { name: 'Speichern', exact: true });
   await save.click();
@@ -3886,7 +3887,7 @@ test('H-034 Conference Manager uploads a private Room floorplan and attaches it 
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
 
   const room = page.locator('[data-manager-room-id="room-a"]');
   const bytes = Buffer.from(
@@ -3937,7 +3938,7 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await page.getByRole('button', { name: 'Catering', exact: true }).click();
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
@@ -5001,7 +5002,7 @@ test('REG-03: dual role restores direct Tenant Admin entry and keeps Manager rep
   await expect.poll(() => fixture.reportReads.length).toBe(1);
   await expect(page.locator('[data-report-content]')).toBeVisible();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await expect(page.locator('#manager-room-price-amount-0')).toBeVisible();
 
   await page.locator('[data-view="tenantAdmin"]').click();
@@ -5411,7 +5412,7 @@ test('Manager business references use named selections and keyboard-accessible D
   await page.goto(`${ORIGIN}/`);
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen' }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   const services = page.locator('#manager-room-services-0');
   await expect(services).toHaveAttribute('multiple', 'multiple');
   await expect(services.locator('option')).toHaveText(['Video support']);
@@ -5439,7 +5440,7 @@ test('Manager business references use named selections and keyboard-accessible D
   await page.reload();
   await page.locator('[data-view="manager"]').click();
   await page.getByRole('tab', { name: 'Administration' }).click();
-  await page.getByRole('button', { name: 'Business settings', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Business settings', exact: true }).getByRole('button', { name: 'Rooms', exact: true }).click();
   await page.getByRole('button', { name: 'Services & equipment', exact: true }).click();
   const englishSummary = page.locator('.manager-field-help summary').first();
   await expect(englishSummary).toHaveText('ⓘ More information');
@@ -5883,6 +5884,77 @@ for (const language of ['de', 'en']) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(results.locator('.manager-report-metrics')).toBeVisible();
     }
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-309: Welcome uses one greeting and Administration opens its editor directly in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    await page.goto(`${ORIGIN}/`);
+    await expect(page.locator('.welcome-hero')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+    await expect(page.locator('.welcome-hero h2')).toHaveCount(0);
+    await expect(page.locator('.welcome-hero')).toHaveAttribute('aria-labelledby', 'viewTitle');
+    const subtitle = await page.locator('#viewSubtitle').textContent();
+    await expect(page.getByText(subtitle, { exact: true })).toHaveCount(1);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    const name = language === 'de' ? 'Business-Einstellungen' : 'Business settings';
+    await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+    const rooms = page.getByRole('navigation', { name, exact: true }).getByRole('button', { name: language === 'de' ? 'Räume' : 'Rooms', exact: true });
+    await expect(rooms).toHaveAttribute('aria-current', 'page');
+    await rooms.focus(); await page.keyboard.press('Enter');
+    await expect(page.locator('#viewTitle')).toBeFocused();
+    await expect(page.locator('[data-manager-business-settings-root]')).toBeVisible();
+  });
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-316: profile is read-only and help never simulates contact delivery in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    const displayName = `Alex ${'Long family name '.repeat(5)}`.trim();
+    await page.route(`${ORIGIN}/api/v1/application/profile`, (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify(applicationProjectionPayload(new URL(route.request().url()), { displayName })),
+    }));
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+    const profile = page.getByRole('dialog');
+    await expect(profile.getByRole('heading', { name: language === 'de' ? 'Persönliche Angaben' : 'Personal details' })).toBeVisible();
+    await expect(profile.locator('dd').first()).toHaveText(displayName);
+    await expect(profile.locator('dd').nth(1)).toHaveText('Conference Manager');
+    await expect(profile.locator('input')).toHaveCount(0);
+    await expect(profile.locator('select')).toHaveCount(1);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await profile.getByRole('button', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true }).click();
+    const help = page.getByRole('dialog', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true });
+    await expect(help).toBeVisible();
+    const send = help.getByRole('button', { name: language === 'de' ? 'Nachricht senden' : 'Send message' });
+    await expect(send).toBeDisabled();
+    await expect(send).toHaveAttribute('aria-describedby', 'helpContactUnavailable');
+    await expect(help.locator('#helpContactUnavailable')).toContainText(language === 'de' ? 'nicht versendet' : 'cannot currently be sent');
+    await send.evaluate((node) => { node.click(); node.click(); });
+    await expect(help).toBeVisible();
+    const search = help.locator('#helpSearch');
+    await search.fill('no-result-xyz');
+    await expect(help.locator('details:visible')).toHaveCount(0);
+    await expect(help.getByRole('status')).toContainText('0');
+    await search.fill(language === 'de' ? 'verbindlich' : 'binding');
+    await expect(help.locator('details:visible')).toHaveCount(1);
+    const summary = help.locator('details:visible summary');
+    await summary.focus(); await page.keyboard.press('Enter');
+    await expect(help.locator('details:visible')).toHaveAttribute('open', '');
+    await expect(help.locator('details:visible p')).toContainText(language === 'de' ? 'Bestätigung' : 'confirmation');
+    await search.fill('');
+    await expect(help.locator('details:visible')).toHaveCount(4);
+    await page.keyboard.press('Escape');
+    await expect(help).toHaveCount(0);
     expect(fixture.writes).toHaveLength(0);
   });
 }

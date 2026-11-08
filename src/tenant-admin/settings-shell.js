@@ -1,3 +1,4 @@
+import { createTenantSetupOverview } from './overview.js';
 import { t } from '../core/i18n.js';
 import { button, clear, el, openDialog } from '../core/ui.js';
 import { createEditorNavigation } from './editor-navigation.js';
@@ -70,7 +71,7 @@ export function createTenantAdminSettingsShell({
     render();
   }
 
-  function overview(availableSections) {
+  function overview(availableSections, isCurrent) {
     const section = el('section', {
       className: 'tenant-admin-overview',
       attrs: { 'aria-labelledby': 'tenantAdminOverviewTitle' },
@@ -84,6 +85,7 @@ export function createTenantAdminSettingsShell({
         el('p', { text: t('tenantAdmin.overview.description') }),
       ]),
     ]);
+    section.appendChild(createTenantSetupOverview({ sections: availableSections, navigate, isCurrent }));
     const grid = el('div', { className: 'tenant-admin-section-grid' });
     availableSections.forEach((registeredSection) => {
       const open = button(t('tenantAdmin.overview.open', { section: t(registeredSection.titleKey) }), {
@@ -93,7 +95,6 @@ export function createTenantAdminSettingsShell({
       open.addEventListener('click', () => navigate(registeredSection.id));
       grid.appendChild(el('article', { className: 'card tenant-admin-section-card' }, [
         el('h3', { text: t(registeredSection.titleKey) }),
-        el('p', { text: t(registeredSection.descriptionKey) }),
         el('div', { className: 'button-row' }, [open]),
       ]));
     });
@@ -159,7 +160,7 @@ export function createTenantAdminSettingsShell({
     const rerender = () => { if (isCurrent()) render(); };
 
     if (!activeSection) {
-      content.appendChild(overview(availableSections));
+      content.appendChild(overview(availableSections, isCurrent));
       focusActiveHeading(OVERVIEW_ID, currentGeneration, shell);
       return;
     }

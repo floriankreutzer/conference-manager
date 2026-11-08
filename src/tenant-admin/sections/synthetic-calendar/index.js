@@ -95,5 +95,11 @@ export function createSyntheticCalendarSection({ adapter=null }={}) {
     }
   }
   return defineTenantAdminSection({ id: 'synthetic-calendar',titleKey: TITLE,descriptionKey: 'syntheticOnboarding.description',
-    permission: TENANT_ADMIN_SECTION_PERMISSION.INTEGRATIONS_MANAGE,available: adapter!==null,render });
+    permission: TENANT_ADMIN_SECTION_PERMISSION.INTEGRATIONS_MANAGE,available: adapter!==null,render,
+    loadOverview: async () => {
+      const view = await adapter.getView();
+      return { summary: t('tenantAdmin.overview.syntheticCalendar', { rooms: formatNumber(view.roomCount), bound: formatNumber(view.boundRoomCount) }),
+        tasks: view.readiness.ready ? [] : [t('tenantAdmin.overview.syntheticPending')] };
+    },
+  });
 }

@@ -1,7 +1,7 @@
 import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { microsoftSignInControl } from '../core/microsoft-sign-in-control.js';
 import { REQUEST_STATUS } from '../core/domain.js';
-import { formatDateTime, language, locale, setLanguage, t } from '../core/i18n.js';
+import { formatDateTime, formatNumber, language, locale, setLanguage, t } from '../core/i18n.js';
 import {
   button,
   clear,
@@ -330,15 +330,10 @@ export function createAppShell({
     const displayName = tenantPresentation?.current?.().presentation.displayName
       || TENANT_PRESENTATION_FALLBACK.presentation.displayName;
 
-    const hero = el('section', { className: 'welcome-hero', attrs: { 'aria-labelledby': 'welcomeHeading' } });
-    hero.append(
-      el('p', { className: 'eyebrow', text: displayName }),
-      el('h2', {
-        id: 'welcomeHeading',
-        text: firstName ? t('welcome.greeting', { name: firstName }) : t('nav.welcome'),
-      }),
-      el('p', { text: t('welcome.subtitle') }),
-    );
+    setPageHeading(firstName ? t('welcome.greeting', { name: firstName }) : t('nav.welcome'), t('welcome.subtitle'));
+    const hero = el('section', { className: 'welcome-hero', attrs: { 'aria-labelledby': 'viewTitle' } }, [
+      el('p', { id: 'welcomeHeading', className: 'eyebrow', text: displayName }),
+    ]);
     const heroActions = el('div', { className: 'button-row' });
     const newButton = button(t('welcome.new'), { className: 'primary' });
     newButton.addEventListener('click', () => setView('employee'));
@@ -425,12 +420,13 @@ export function createAppShell({
     if (sessionLocked() || !context.isAuthenticated()) return;
     const content = el('section', { className: 'profile-content' });
     const dl = el('dl', { className: 'details-list' });
-    const profileDetails = context.fullName()
-      ? [[t('profile.displayName'), context.fullName()]]
-      : [];
-    profileDetails.push([t('profile.role'), profileRoleLabel()]);
+    const profileDetails = [
+      [t('profile.displayName'), context.fullName() || t('profile.unavailable')],
+      [t('profile.role'), profileRoleLabel()],
+      [t('profile.tenant'), tenantPresentation?.current?.().presentation.displayName || t('profile.unavailable')],
+    ];
     profileDetails.forEach(([term, value]) => dl.append(el('dt', { text: term }), el('dd', { text: value })));
-    content.appendChild(dl);
+    content.append(el('h3', { text: t('profile.personal') }), dl);
 
     const languageSelect = el('select');
     [['de', 'Deutsch'], ['en', 'English']]
@@ -493,37 +489,40 @@ export function createAppShell({
 
   function openHelp() {
     if (sessionLocked() || !context.isAuthenticated()) return;
-    const content = el('section', { className: 'help-grid' });
-    [
+    const content = el('section', { className: 'customer-help-content' });
+    const search = el('input', { type: 'search', attrs: { maxlength: '160', autocomplete: 'off' } });
+    content.appendChild(field({ id: 'helpSearch', label: t('help.search'), control: search }));
+    const questions = el('div', { className: 'customer-help-questions' });
+    const entries = [
       [t('help.noRoom'), t('help.noRoomText')],
       [t('help.cost'), t('help.costText')],
       [t('help.binding'), t('help.bindingText')],
       [t('help.special'), t('help.specialText')],
-    ].forEach(([heading, text]) => content.append(el('article', { className: 'help-card' }, [
-      el('h3', { text: heading }),
-      el('p', { text }),
-    ])));
-    const message = el('textarea', { placeholder: t('help.message') });
-    content.appendChild(field({ id: 'helpMessage', label: t('help.contact'), control: message }));
+    ].map(([heading, text]) => {
+      const node = el('details', { className: 'customer-help-question' }, [
+        el('summary', { text: heading }), el('p', { text }),
+      ]);
+      questions.appendChild(node);
+      return { node, text: `${heading} ${text}`.toLocaleLowerCase(locale()) };
+    });
+    const result = el('p', { attrs: { role: 'status', 'aria-live': 'polite' } });
+    search.addEventListener('input', () => {
+      const query = search.value.trim().toLocaleLowerCase(locale());
+      const matches = entries.filter((entry) => { entry.node.hidden = !entry.text.includes(query); return !entry.node.hidden; });
+      result.textContent = t(matches.length === 1 ? 'help.resultOne' : 'help.results', { count: formatNumber(matches.length) });
+    });
+    const unavailable = el('p', { id: 'helpContactUnavailable', text: t('help.contactUnavailable') });
+    content.append(questions, result, el('section', { className: 'customer-help-contact' }, [
+      el('h3', { text: t('help.contact') }), unavailable,
+    ]));
     const close = button(t('common.close'));
-    const send = button(t('help.send'), { className: 'primary' });
+    const send = button(t('help.send'), { className: 'primary', disabled: true,
+      attrs: { 'aria-describedby': 'helpContactUnavailable' } });
     const dialog = openDialog({
-      title: t('help.title'),
-      description: t('help.subtitle'),
-      content,
-      actions: [close, send],
-      labelledById: 'helpTitle',
+      title: t('help.title'), description: t('help.subtitle'), content,
+      actions: [close, send], labelledById: 'helpTitle',
     });
     close.addEventListener('click', () => dialog.close());
-    send.addEventListener('click', () => {
-      if (!message.value.trim()) {
-        message.setAttribute('aria-invalid', 'true');
-        message.focus();
-        return;
-      }
-      dialog.close();
-      showToast(t('help.sent'));
-    });
   }
 
   function render() {

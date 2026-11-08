@@ -240,6 +240,11 @@ main,
   border-top: 1px solid var(--color-border-soft);
 }
 
+.manager-overview-row > * {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
 .manager-overview-row:first-of-type {
   border-top: 0;
 }
@@ -774,7 +779,7 @@ main,
   }
 
   .manager-overview-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .room-timeline {

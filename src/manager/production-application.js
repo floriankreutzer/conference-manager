@@ -521,15 +521,9 @@ export function createProductionManagerApplication({
         }
         if (activeTab === 'ADMIN') {
           const adminRoot = el('div');
-          const openSettings = button(t('managerSettings.title'), { className: 'primary' });
-          openSettings.disabled = onOpenBusinessSettings === null;
-          openSettings.addEventListener('click', () => (
-            onOpenBusinessSettings?.(adminRoot, invalidateAuthorityProjection, { focusHeading: true })
-          ));
-          panel.append(el('h2', { text: t('manager.admin') }),
-            el('p', { text: t('managerSettings.description') }),
-            el('div', { className: 'button-row' }, [openSettings]), adminRoot);
-          onOpenBusinessSettings?.(adminRoot, invalidateAuthorityProjection);
+          panel.appendChild(adminRoot);
+          if (onOpenBusinessSettings) onOpenBusinessSettings(adminRoot, invalidateAuthorityProjection);
+          else adminRoot.appendChild(el('p', { className: 'info-box', text: t('production.error.generic') }));
           return;
         }
 

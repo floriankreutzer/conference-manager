@@ -189,5 +189,9 @@ export function createOrganizationSection({ adapter = null } = {}) {
   return defineTenantAdminSection({
     id: 'organization', titleKey: TITLE, descriptionKey: 'tenantAdmin.organization.description',
     permission: TENANT_ADMIN_SECTION_PERMISSION.CONFIGURE, available: validAdapter(adapter), render,
+    loadOverview: async () => {
+      const snapshot = await adapter.loadOrganization();
+      return { summary: t('tenantAdmin.overview.organizationSaved', { name: snapshot.organization.displayName }), tasks: [] };
+    },
   });
 }

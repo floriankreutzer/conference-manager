@@ -1,3 +1,4 @@
+import { locationOverview } from '../../overview-model.js';
 import { createCatalogueEditorList } from '../../../shared/catalogue-editor-list.js';
 import { createPublicGuestValueEditor } from '../../../core/public-guest-value-editor.js';
 import { createGuestInformationEditor } from './guest-information-editor.js';
@@ -282,5 +283,16 @@ export function createLocationsSection({ adapter = null } = {}) {
     permission: TENANT_ADMIN_SECTION_PERMISSION.CONFIGURE,
     available: validAdapter(adapter),
     render,
+    loadOverview: async () => {
+      const snapshot = await adapter.loadLocations({ schemaVersion: 3 });
+      const model = locationOverview(snapshot.configuration);
+      return {
+        summary: t('tenantAdmin.overview.activeRooms', { count: formatNumber(model.activeRooms) }),
+        tasks: [
+          ...(model.activeRooms === 0 ? [t('tenantAdmin.overview.noActiveRooms')] : []),
+          ...(model.missingGuestSites > 0 ? [t('tenantAdmin.overview.missingGuests', { count: formatNumber(model.missingGuestSites) })] : []),
+        ],
+      };
+    },
   });
 }

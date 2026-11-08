@@ -1049,3 +1049,40 @@ main {
     grid-column: 1;
   }
 }
+
+.customer-help-content,
+.customer-help-questions {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+.customer-help-question {
+  border: 1px solid var(--color-border);
+  overflow-wrap: anywhere;
+}
+.customer-help-question > summary {
+  min-block-size: var(--control-height);
+  padding: var(--space-3);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+}
+.customer-help-question > summary:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}
+.customer-help-question[open] > summary {
+  background: var(--brand-secondary-surface);
+  color: var(--brand-primary);
+}
+.customer-help-question > p {
+  padding-inline: var(--space-3);
+}
+.customer-help-contact {
+  padding: var(--space-3);
+  background: var(--color-surface-subtle);
+  overflow-wrap: anywhere;
+}
+.profile-content :is(h3, dt, dd) {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
