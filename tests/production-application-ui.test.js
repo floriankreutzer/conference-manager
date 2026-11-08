@@ -807,7 +807,7 @@ test('Employee editor and proposal lifecycles reject detached or duplicate async
   assert.match(editor, /await persistence\.createRequest\([\s\S]*if \(!isCurrentEditor\(\)\) return;/);
   assert.match(
     editor,
-    /catch \(error\) \{\s*if \(authorityFailureCode\(error\)\) \{\s*invalidateEditorAuthority\(error\);\s*return;\s*\}\s*if \(!isCurrentEditor\(\)\) return;\s*invalidateAvailability\(\);/,
+    /catch \(error\) \{\s*if \(authorityFailureCode\(error\)\) \{\s*invalidateEditorAuthority\(error\);\s*return;\s*\}\s*if \(!isCurrentEditor\(\)\) return;\s*submissionFailed = true;\s*invalidateAvailability\(\);/,
   );
   assert.match(editor, /compositionDraft\(sourceRequest, requestCatalog, overrides\)/);
   assert.match(requests, /reserveRequestMutation\(target\.id, 'proposal'\)/);

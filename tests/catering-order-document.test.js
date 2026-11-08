@@ -117,3 +117,17 @@ test('manual documents reject private fields, getters and malformed source rathe
     assert.throws(() => cateringOrderDocumentCsv(approved(), { ...options, notice }), /NOTICE_INVALID/);
   }
 });
+
+
+test('CO-301 supplier document and CSV retain multiline requirements with safe quoting', () => {
+  const value = approved();
+  value.order.dietaryRequirements = 'Vegan\nNo "nuts"';
+  value.order.specialRequirements = '=FORMULA()\nSecond line';
+  const document = createCateringOrderDocument(value, options);
+  assert.equal(document.dietaryRequirements, value.order.dietaryRequirements);
+  assert.equal(document.specialRequirements, value.order.specialRequirements);
+  const csv = cateringOrderDocumentCsv(value, options);
+  assert.ok(csv.includes(spreadsheetSafeCsvCell(value.order.dietaryRequirements)));
+  assert.ok(csv.includes(spreadsheetSafeCsvCell(value.order.specialRequirements)));
+  assert.equal(csvCellNeedsPrefix(value.order.specialRequirements), true);
+});

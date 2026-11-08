@@ -1073,6 +1073,11 @@ main {
   margin: 0;
 }
 
+.request-detail-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
 /* Floorplan */
 .floorplan-svg {
   width: 100%;
