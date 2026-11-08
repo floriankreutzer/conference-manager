@@ -1495,6 +1495,39 @@ async function advanceEmployeeToReview(page) {
   }
 }
 
+for (const language of ['de', 'en']) {
+  test(`CO-308: all six steps keep normal navigation before separately confirmed discard in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const discardLabel = language === 'de' ? 'Entwurf verwerfen' : 'Discard draft';
+    for (let step = 1; step <= 6; step += 1) {
+      await expect(page.locator(`[data-step-panel="${step}"]`)).toBeVisible();
+      const discard = page.locator('.request-draft-actions').getByRole('button', { name: discardLabel, exact: true });
+      await expect(discard).toBeVisible();
+      await expect(page.locator('.wizard-actions').getByRole('button', { name: discardLabel, exact: true })).toHaveCount(0);
+      expect(await page.locator('.wizard-actions').evaluate((node) => Boolean(
+        node.compareDocumentPosition(document.querySelector('.request-draft-actions')) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ))).toBe(true);
+      await discard.click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByRole('button', { name: language === 'de' ? 'Abbrechen' : 'Cancel', exact: true })).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(discard).toBeFocused();
+      await expect(page.locator(`[data-step-panel="${step}"]`)).toBeVisible();
+      if (step === 2) {
+        await page.getByRole('radio', { name: /Room A/ }).check();
+        await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability', exact: true }).click();
+      }
+      if (step < 6) await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+    }
+    expect(fixture.writes).toHaveLength(0);
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+  });
+}
+
 function confirmedRequestFixture() {
   const date = futureDate();
   return {

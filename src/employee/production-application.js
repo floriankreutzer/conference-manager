@@ -1360,7 +1360,9 @@ export function createProductionEmployeeApplication({
       el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
     ]);
     const actions = el('footer', { className: 'wizard-actions' });
-    const discardDraft = button(t('production.employee.discardDraft'), { className: 'danger' });
+    const discardDraft = button(t('production.employee.discardDraft'), { className: 'secondary' });
+    const draftActions = el('div', { className: 'request-draft-actions' }, isResubmission ? [] : [discardDraft]);
+    draftActions.hidden = isResubmission;
     let activeStep = restoredDraft?.activeStep || 1;
 
     const renderReview = () => {
@@ -1498,7 +1500,6 @@ export function createProductionEmployeeApplication({
       if (activeStep === 6) renderReview();
       recoveryHint.hidden = !submissionFailed || activeStep !== 6;
       clear(actions);
-      if (!isResubmission) actions.appendChild(discardDraft);
       if (activeStep > 1) {
         const back = button(t('common.back'));
         back.addEventListener('click', () => moveToStep(activeStep - 1));
@@ -1592,7 +1593,7 @@ export function createProductionEmployeeApplication({
     stepControls.forEach((control, index) => {
       control.addEventListener('click', () => moveToStep(index + 1));
     });
-    root.append(mobileProgress, stepper, ...panels, actionStatus, actions);
+    root.append(mobileProgress, stepper, ...panels, actionStatus, actions, draftActions);
     renderRoomControls();
     renderActiveStep();
     invalidateAvailability();

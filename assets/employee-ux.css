@@ -6,6 +6,16 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   display: none !important;
 }
 
+.request-draft-actions {
+  margin-block-start: var(--space-6);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.request-draft-actions[hidden] {
+  display: none;
+}
+
 .room-asset-visual {
   display: block;
   width: 100%;
