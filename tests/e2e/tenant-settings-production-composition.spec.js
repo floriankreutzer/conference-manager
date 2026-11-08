@@ -604,6 +604,33 @@ for (const language of ['de', 'en']) {
   });
 }
 
+test('CO-307 failed save retains edits and Escape cancels navigation without retrying the write', async ({ page }) => {
+  await installProductionSettingsFixture(page, { organizationConflict: false });
+  let attempts = 0;
+  await page.route(`${ORIGIN}/api/v1/tenant/settings/organization`, async (route) => {
+    if (route.request().method() !== 'PUT') return route.fallback();
+    attempts += 1;
+    await route.fulfill({ status: 503, contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'UNAVAILABLE' } }) });
+  });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'organization', 'organization');
+  const registration = content.locator('#tenant-organization-registration-number');
+  await registration.fill('QA-FAILED-SAVE');
+  await submit(content, 'organization');
+  await expect(content.locator('button[type="submit"]')).toBeEnabled();
+  await expect(content.locator('button[type="submit"]')).toBeFocused();
+  await expect(registration).toHaveValue('QA-FAILED-SAVE');
+  await expect(registration).toBeEnabled();
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(registration).toHaveValue('QA-FAILED-SAVE');
+  expect(attempts).toBe(1);
+  expect(await page.evaluate(() => !window.dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+});
+
 test('CO-307 successful organization save allows navigation without a discard warning', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
   await openTenantSettings(page);
