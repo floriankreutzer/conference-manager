@@ -244,8 +244,10 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
       table.appendChild(body);
       results.appendChild(el('div', { className: 'manager-data-scroll', attrs: { role: 'region', tabindex: '0', 'aria-label': t('manager.roomPlan.schedule') } }, [table]));
     }
-    results.appendChild(el('p', { attrs: { role: 'status' }, text: t('manager.restore.planningCount', {
-      count: formatNumber(new Set(projection.flatMap((entry) => entry.requests.map((request) => request.id))).size),
+    const bookingCount = new Set(projection.flatMap((entry) => entry.requests.map((request) => request.id))).size;
+    results.appendChild(el('p', { attrs: { role: 'status' }, text: t(bookingCount === 1
+      ? 'manager.restore.planningCountOne' : 'manager.restore.planningCount', {
+      count: formatNumber(bookingCount),
     }) }));
   };
   for (const [value, key] of [['LIST', 'requests.list'], ['TIMELINE', 'manager.roomPlan.timeline']]) {

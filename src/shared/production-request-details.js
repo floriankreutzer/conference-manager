@@ -54,11 +54,33 @@ export function productionRequestBusinessDetails(request) {
   ];
 }
 
-export function renderProductionRequestBusinessDetails(request) {
+export function renderProductionRequestBusinessDetails(request, { expanded = false, onToggle = () => {} } = {}) {
   const rows = productionRequestBusinessDetails(request);
   if (!rows.length) return null;
-  return el('dl', { className: 'details-list' }, rows.flatMap(([term, value]) => [
-    el('dt', { text: term }),
-    el('dd', { className: 'request-detail-text', text: value }),
-  ]));
+  const disclosure = el('details', { className: 'request-business-disclosure' });
+  disclosure.open = expanded;
+  disclosure.append(
+    el('summary', { text: t('production.common.requestDetails') }),
+    el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) }),
+    el('dl', { className: 'request-business-details' }, rows.map(([term, value]) => el('div', {}, [
+      el('dt', { text: term }),
+      el('dd', { className: 'request-detail-text', text: value }),
+    ]))),
+  );
+  disclosure.addEventListener('toggle', () => {
+    if (disclosure.isConnected) onToggle(disclosure.open);
+  });
+  const section = el('section', { className: 'request-business-overview' }, [
+    el('p', { className: 'request-total', text: `${t('review.total')}: ${money(request.pricing.totalMinor, request.pricing.currency)}` }),
+  ]);
+  for (const [key, value] of [
+    ['catering.dietary', request.details.dietaryRequirements],
+    ['review.special', request.details.specialRequirements],
+  ]) {
+    if (value) section.appendChild(el('p', { className: 'request-critical-note request-detail-text' }, [
+      el('strong', { text: t(key) }), el('span', { text: value }),
+    ]));
+  }
+  section.appendChild(disclosure);
+  return section;
 }

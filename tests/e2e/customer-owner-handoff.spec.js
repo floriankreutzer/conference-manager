@@ -49,7 +49,7 @@ async function setup(page,{ existing=false,lostLogout=false,expired=false }={}) 
 test('Owner Customer confirmation uses real native POST navigation after keyboard approval, with bilingual reflow and no stored proof',async({ page })=>{
   const f=await setup(page);
   await expect(page.getByRole('button',{ name: 'Kundenanwendung öffnen',exact: true })).toBeVisible();expect(f.writes).toHaveLength(0);
-  await expect(page.getByText('Kunde: Customer. Rolle: Tenant Admin.',{ exact: true })).toBeVisible();
+  await expect(page.getByText('Kunde: Customer. Rolle: Tenant-Administration.',{ exact: true })).toBeVisible();
   await page.getByRole('combobox',{ name: 'Sprache',exact: true }).selectOption('en');
   await expect(page.getByRole('combobox',{ name: 'Language',exact: true })).toBeFocused();
   await page.addStyleTag({ url: '/test-reflow.css' });

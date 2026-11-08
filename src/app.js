@@ -151,7 +151,10 @@ export async function bootstrapCustomerApplication({
     })
     : null;
   const tenantUserAdministration = context.isTenantAdmin() && authentication
-    ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
+    ? createTenantUserAdministrationApi({
+      apiClient: authentication.apiClient,
+      microsoftRoleMappingsEnabled: !syntheticOnboarding,
+    })
     : null;
   const invitations = tenantUserAdministration && invitationAdministrationFactory && !syntheticOnboarding
     ? invitationAdministrationFactory({ apiClient: authentication.apiClient }) : null;

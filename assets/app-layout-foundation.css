@@ -249,6 +249,61 @@ main {
   overflow-wrap: anywhere;
 }
 
+.request-card-compact > p {
+  margin-block: var(--space-1);
+}
+
+.request-business-overview {
+  margin-block: var(--space-3);
+}
+
+.request-total {
+  margin-block: var(--space-2);
+  font-weight: var(--font-weight-bold);
+}
+
+.request-critical-note {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: var(--space-1) solid var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.request-business-disclosure summary {
+  min-block-size: var(--control-height);
+  padding-block: var(--space-2);
+  color: var(--brand-primary);
+  cursor: pointer;
+  font-weight: var(--font-weight-medium);
+}
+
+.request-business-disclosure summary:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}
+
+.request-business-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--app-section-gap);
+}
+
+.request-business-details > div {
+  min-inline-size: 0;
+}
+
+.request-business-details dt {
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.request-business-details dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
 .request-grid div,
 .request-timeline li {
   overflow-wrap: anywhere;
@@ -275,7 +330,81 @@ main {
   max-width: none;
 }
 
+.catalogue-editor-list {
+  margin-block: var(--space-4);
+  min-inline-size: 0;
+}
+
+.catalogue-save-actions {
+  position: sticky;
+  inset-block-start: 0;
+  padding-block: var(--space-2);
+  background: var(--color-surface);
+}
+
+.named-selection-field {
+  min-inline-size: 0;
+}
+
+.named-selection-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.named-selection-values li {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  overflow-wrap: anywhere;
+}
+
+.catalogue-editor-rows {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.catalogue-editor-row {
+  min-inline-size: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.catalogue-editor-row[hidden] {
+  display: none;
+}
+
+.catalogue-editor-row > summary {
+  min-block-size: var(--control-height);
+  padding: var(--space-3);
+  color: var(--brand-primary);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.catalogue-editor-row > summary:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}
+
 /* Tenant administration */
+.policy-duration {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+}
+
+.policy-duration legend {
+  padding-inline: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
 .tenant-admin-intro,
 .tenant-admin-status {
   margin-bottom: var(--app-section-gap);
@@ -609,6 +738,13 @@ main {
 .modal-actions button {
   min-height: var(--control-height);
   min-width: var(--button-min-inline-size);
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.modal-actions {
+  flex-wrap: wrap;
 }
 
 .details-list {
@@ -749,8 +885,9 @@ main {
   .modal-actions button {
     width: 100%;
     min-width: 0;
-    height: var(--control-height);
-    white-space: nowrap;
+    min-height: var(--control-height);
+    height: auto;
+    white-space: normal;
   }
 
   .wizard-actions .spacer {

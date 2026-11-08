@@ -1,3 +1,4 @@
+import { createCatalogueEditorList } from '../../../shared/catalogue-editor-list.js';
 import { createPublicGuestValueEditor } from '../../../core/public-guest-value-editor.js';
 import { createGuestInformationEditor } from './guest-information-editor.js';
 import { projectTechnicalLocationConfiguration } from '../../../core/tenant-location-ownership.js';
@@ -32,7 +33,7 @@ function nextSiteId(editors) {
 function siteOption(site) {
   return el('option', {
     value: site.id,
-    text: t('tenantSettings.locations.siteOption', { name: site.name, id: site.id }),
+    text: site.name,
   });
 }
 
@@ -51,7 +52,10 @@ function siteEditor(site, index) {
   };
   const node = el('fieldset', { className: 'card', dataset: { tenantSiteId: site.id } }, [
     el('legend', { text: site.name }),
-    el('p', { className: 'muted', text: t('tenantSettings.locations.internalId', { id: site.id }) }),
+    el('details', {}, [
+      el('summary', { text: t('managerSettings.catalogue.technicalDetails') }),
+      el('p', { className: 'muted', text: t('tenantSettings.locations.internalId', { id: site.id }) }),
+    ]),
     el('div', { className: 'form-grid' }, [
       field({ id: `tenant-site-name-${index}`, label: t('tenantSettings.locations.siteName'), control: controls.name, required: true }),
       field({ id: `tenant-site-time-zone-${index}`, label: t('tenantSettings.locations.timeZone'), control: controls.timeZone, required: true }),
@@ -183,8 +187,8 @@ export function createLocationsSection({ adapter = null } = {}) {
       snapshot.configuration.sites,
     ));
     const form = el('form', { dataset: { tenantSettingsForm: 'locations-technical' } });
-    const sitesRoot = el('div');
-    siteEditors.forEach((editor) => sitesRoot.appendChild(editor.node));
+    const siteList = createCatalogueEditorList({ id: 'tenant-sites', editors: siteEditors });
+    const sitesRoot = siteList.node;
     const addSite = button(t('tenantSettings.locations.addSite'));
     addSite.addEventListener('click', () => {
       const site = {
@@ -198,7 +202,7 @@ export function createLocationsSection({ adapter = null } = {}) {
       };
       const editor = siteEditor(site, siteEditors.length);
       siteEditors.push(editor);
-      sitesRoot.appendChild(editor.node);
+      siteList.add(editor, { expanded: true });
       roomEditors.forEach(({ controls }) => controls.siteId.appendChild(siteOption(site)));
       editor.controls.name.focus();
     });
@@ -208,7 +212,9 @@ export function createLocationsSection({ adapter = null } = {}) {
       el('div', { className: 'button-row' }, [addSite]),
       el('h3', { text: t('tenantSettings.locations.rooms') }),
     );
-    roomEditors.forEach((editor) => form.appendChild(editor.node));
+    form.appendChild(createCatalogueEditorList({
+      id: 'tenant-rooms', editors: roomEditors, nameOf: (editor) => editor.room.name,
+    }).node);
 
     const save = button(t('tenantSettings.action.save'), {
       className: 'primary',
@@ -216,7 +222,7 @@ export function createLocationsSection({ adapter = null } = {}) {
     });
     const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
     let mutationPending = false;
-    form.append(el('div', { className: 'button-row' }, [save]), status);
+    form.prepend(el('div', { className: 'button-row catalogue-save-actions' }, [save]), status);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;

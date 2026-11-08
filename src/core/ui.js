@@ -114,13 +114,16 @@ export function field({ id, label, control, hint, required = false, optional = f
   return wrapper;
 }
 
+let feedbackGeneration = 0;
+
 export function announce(message, { assertive = false } = {}) {
   if (document.documentElement?.dataset?.sessionLocked === 'true') return;
   const region = document.getElementById(assertive ? 'alertRegion' : 'statusRegion');
   if (!region) return;
   region.textContent = '';
+  const generation = feedbackGeneration;
   requestAnimationFrame(() => {
-    if (document.documentElement?.dataset?.sessionLocked !== 'true') region.textContent = message;
+    if (generation === feedbackGeneration && document.documentElement?.dataset?.sessionLocked !== 'true') region.textContent = message;
   });
 }
 
@@ -135,6 +138,7 @@ export function showToast(message) {
 }
 
 export function clearTransientFeedback(documentRoot = document, windowRoot = globalThis) {
+  feedbackGeneration += 1;
   const toast = documentRoot.getElementById('toast');
   if (toast) {
     toast.textContent = '';

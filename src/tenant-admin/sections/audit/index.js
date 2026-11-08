@@ -345,7 +345,7 @@ export function createAuditSection({ adapter = null } = {}) {
       clear(surface);
       const status = el('p', {
         className: 'tenant-operations-result-status',
-        text: t('tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }),
+        text: t(page.events.length === 1 ? 'tenantAdmin.operations.audit.loadedOne' : 'tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }),
         attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', tabindex: '-1' },
       });
       const windowText = el('p', {
@@ -366,7 +366,7 @@ export function createAuditSection({ adapter = null } = {}) {
         surface.appendChild(list);
       }
       surface.appendChild(pagination(rerender));
-      announce(t('tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }));
+      announce(t(page.events.length === 1 ? 'tenantAdmin.operations.audit.loadedOne' : 'tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }));
       if (pendingFocus) {
         pendingFocus = false;
         requestAnimationFrame(() => status.focus());

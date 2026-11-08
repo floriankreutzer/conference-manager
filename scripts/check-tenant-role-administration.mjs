@@ -43,6 +43,8 @@ for (const required of [
   "'tenant_admin'",
   'body: { roles: normalized }',
   'body: { active, expectedVersion }',
+  "typeof microsoftRoleMappingsEnabled !== 'boolean'",
+  '...(microsoftRoleMappingsEnabled ? { microsoftRoleMappings: createMicrosoftRoleMappingApi({ apiClient }) } : {})',
 ]) {
   if (!api.includes(required)) throw new Error(`Tenant role API adapter is missing ${required}.`);
 }
@@ -134,7 +136,8 @@ for (const required of [
   'context.isTenantAdmin() && authentication',
   'createTenantAuditApi({ apiClient: authentication.apiClient })',
   'createTenantCapabilitiesApi({ apiClient: authentication.apiClient })',
-  'createTenantUserAdministrationApi({ apiClient: authentication.apiClient })',
+  'createTenantUserAdministrationApi({',
+  'microsoftRoleMappingsEnabled: !syntheticOnboarding',
   'capabilities: tenantCapabilities',
   'audit: tenantAudit',
 ]) {

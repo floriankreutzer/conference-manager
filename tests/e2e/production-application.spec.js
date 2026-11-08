@@ -281,6 +281,7 @@ async function productionHtml() {
 
 async function installProductionApplicationFixture(page, {
   roles = ['employee'],
+  ownRequestIds = null,
   timeZone = 'Europe/Berlin',
   catalog = catalogPayload(timeZone),
   catalogLocationsRevision = 1,
@@ -321,6 +322,7 @@ async function installProductionApplicationFixture(page, {
   const roomMediaUploads = [];
   const reportReads = [];
   const requestHistoryReads = [];
+  const requestListReads = [];
   const roomContextReads = [];
   const catalogReads = [];
   const requestEnvelopes = [];
@@ -866,6 +868,7 @@ async function installProductionApplicationFixture(page, {
     }
 
     if (url.pathname === '/api/v1/application/requests' && request.method() === 'GET') {
+      requestListReads.push(url.searchParams.get('scope'));
       if (nextRequestReadFailure) {
         const failure = nextRequestReadFailure;
         nextRequestReadFailure = null;
@@ -893,7 +896,8 @@ async function installProductionApplicationFixture(page, {
         body: JSON.stringify({
           schemaVersion: 2,
           asOf: '2026-09-24T12:00:00.000Z',
-          requests: responseRequests.map(publicRequest),
+          requests: responseRequests.filter((entry) => !ownRequestIds
+            || url.searchParams.get('scope') !== 'own' || ownRequestIds.includes(entry.id)).map(publicRequest),
           page: { limit: 10, complete: true, nextCursor: null },
         }),
       });
@@ -1453,6 +1457,7 @@ async function installProductionApplicationFixture(page, {
     reportReads,
     requestEnvelopes,
     requestHistoryReads,
+    requestListReads,
     roomContextReads,
     roomMediaUploads,
     requests: () => requests,
@@ -1493,6 +1498,39 @@ async function advanceEmployeeToReview(page) {
   for (let step = 3; step <= 6; step += 1) {
     await page.getByRole('button', { name: 'Weiter' }).click();
   }
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-308: all six steps keep normal navigation before separately confirmed discard in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const discardLabel = language === 'de' ? 'Entwurf verwerfen' : 'Discard draft';
+    for (let step = 1; step <= 6; step += 1) {
+      await expect(page.locator(`[data-step-panel="${step}"]`)).toBeVisible();
+      const discard = page.locator('.request-draft-actions').getByRole('button', { name: discardLabel, exact: true });
+      await expect(discard).toBeVisible();
+      await expect(page.locator('.wizard-actions').getByRole('button', { name: discardLabel, exact: true })).toHaveCount(0);
+      expect(await page.locator('.wizard-actions').evaluate((node) => Boolean(
+        node.compareDocumentPosition(document.querySelector('.request-draft-actions')) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ))).toBe(true);
+      await discard.click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog.getByRole('button', { name: language === 'de' ? 'Abbrechen' : 'Cancel', exact: true })).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(discard).toBeFocused();
+      await expect(page.locator(`[data-step-panel="${step}"]`)).toBeVisible();
+      if (step === 2) {
+        await page.getByRole('radio', { name: /Room A/ }).check();
+        await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability', exact: true }).click();
+      }
+      if (step < 6) await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+    }
+    expect(fixture.writes).toHaveLength(0);
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+  });
 }
 
 function confirmedRequestFixture() {
@@ -1538,6 +1576,61 @@ function bookingChangeFixture(status = 'pending') {
 function confirmedV2RequestFixture() {
   const request = confirmedRequestFixture();
   return appliedRequest({ ...request, version: 0 }, request).proposedRequest;
+}
+
+for (const language of ['de', 'en']) {
+  for (const view of ['requests', 'manager']) {
+    test(`CO-305: ${view} keeps 27 requests compact with visible critical notes and keyboard details in ${language}`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+      const source = confirmedV2RequestFixture();
+      for (let index = 0; index < 27; index += 1) {
+        fixture.requests().push({ ...source, id: `66666666-6666-4666-8666-${String(index).padStart(12, '0')}`, details: {
+          ...source.details, title: index === 0 ? 'A'.repeat(160) : `Conference ${index}`,
+          dietaryRequirements: index === 0 ? 'Nut allergy' : null, specialRequirements: null,
+        } });
+      }
+      await page.route(/\/api\/v1\/application\/requests(?:\?.*)?$/, async (route) => {
+        if (route.request().method() !== 'GET') return route.fallback();
+        const offset = Number(new URL(route.request().url()).searchParams.get('cursor') || 0);
+        const next = offset + 10;
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          schemaVersion: 2, asOf: '2026-09-24T12:00:00.000Z',
+          requests: fixture.requests().slice(offset, next),
+          page: { limit: 10, complete: next >= 27, nextCursor: next >= 27 ? null : String(next) },
+        }) });
+      });
+      await page.goto(`${ORIGIN}/`);
+      await page.locator(`[data-view="${view}"]`).click();
+      const cards = page.locator('[data-production-request-id]');
+      await expect(cards).toHaveCount(27);
+      await expect(cards.locator('details[open]')).toHaveCount(0);
+      const card = cards.first();
+      const id = await card.getAttribute('data-production-request-id');
+      await expect(card.locator('.request-critical-note')).toContainText('Nut allergy');
+      await expect(card.locator('.request-critical-note')).toBeVisible();
+      const cancelLabel = language === 'de' ? 'Anfrage stornieren' : 'Cancel request';
+      await expect(card.getByRole('button', { name: cancelLabel, exact: true })).toBeVisible();
+      const summary = card.locator('summary');
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(card.locator('details')).toHaveAttribute('open', '');
+      await expect(card.locator('.request-business-details')).toBeVisible();
+      for (const width of [390, 768, 1366]) {
+        await page.setViewportSize({ width, height: 900 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await expect(card.locator('.request-business-details dt').first()).toHaveCSS('word-break', 'normal');
+      }
+      if (view === 'manager') {
+        await page.locator('#managerSearch').fill('A'.repeat(160));
+        await page.locator('#managerSearch').press('Enter');
+        await expect(cards).toHaveCount(1);
+        await expect(page.locator(`[data-production-request-id="${id}"] details`)).toHaveAttribute('open', '');
+        await expect(page.locator('#managerSearch')).toBeFocused();
+      }
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
 }
 
 async function lockProductionApplication(page) {
@@ -1620,7 +1713,7 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   const completion = page.locator('[data-ux-submission-success]');
   await expect(completion).toBeFocused();
   await expect(completion.getByText('Anfrage erfolgreich gesendet', { exact: true })).toBeVisible();
-  await expect(completion).toContainText('Das Conference Management prüft jetzt');
+  await expect(completion).toContainText('Ihre Anfrage wird geprüft.');
   fixture.failNextRequestRead();
   await page.getByRole('button', { name: 'Aktualisieren' }).click();
   await expect(page.locator('#toast')).toContainText('Die Produktionsdaten konnten nicht sicher geladen werden.');
@@ -1651,15 +1744,16 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   expect(fixture.writes[0].body).not.toHaveProperty('status');
 
   await page.locator('[data-view="requests"]').click();
+  await page.locator(`[data-production-request-id="${REQUEST_ID}"] summary`).click();
   await expect(page.getByText(`Anfrage ${REQUEST_ID}`)).toBeVisible();
   const cancelTrigger = page.getByRole('button', { name: 'Anfrage stornieren' });
   const writesBeforeCancellation = fixture.writes.length;
   await cancelTrigger.click();
   const cancelDialog = page.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
   await expect(cancelDialog).toBeVisible();
-  await expect(cancelDialog).toContainText('Die Anfragedaten werden nicht gelöscht.');
+  await expect(cancelDialog).toContainText('Die bisherigen Anfragedaten bleiben erhalten.');
   expect(fixture.writes).toHaveLength(writesBeforeCancellation);
-  await cancelDialog.getByRole('button', { name: 'Abbrechen' }).click();
+  await cancelDialog.getByRole('button', { name: 'Anfrage beibehalten' }).click();
   await expect(cancelTrigger).toBeFocused();
   expect(fixture.writes).toHaveLength(writesBeforeCancellation);
   await cancelTrigger.click();
@@ -1862,9 +1956,14 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
 
   await page.getByRole('button', { name: 'Weiter' }).click();
   await expect(page.locator('#productionAllocationPercent-0')).toHaveValue('100');
+  const costPreview = page.locator('[data-cost-preview]');
+  await expect(costPreview.getByRole('heading', { name: 'Preisübersicht' })).toBeVisible();
+  await expect(costPreview.locator('dd').last()).toHaveText(/68,50\s*€/);
+  const costValues = await costPreview.locator('dd').allTextContents();
   await page.getByRole('button', { name: 'Weiter' }).click();
 
   const review = page.locator('[data-step-panel="6"]');
+  await expect(review.locator('[data-review-section="price"] dd')).toHaveText(costValues);
   await expect(review.getByText('Intern')).toBeVisible();
   await expect(review.getByText('Extern')).toBeVisible();
   await expect(review.getByText('Service host', { exact: true })).toBeVisible();
@@ -1884,7 +1983,96 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(page.getByRole('heading', { name: 'Bewirtung' })).toBeFocused();
   await expect(packageChoice).toBeChecked();
   await expect(itemGroup.getByLabel('Menge für Cake')).toHaveValue('2');
+  await itemGroup.getByLabel('Menge für Cake').fill('3');
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(costPreview.locator('dd').last()).toHaveText(/71,50\s*€/);
+  await expect(page.locator('#productionAllocationPercent-0')).toHaveValue('100');
+  await page.getByRole('button', { name: 'Weiter' }).click();
+  await expect(review.locator('[data-review-section="price"] dd').last()).toHaveText(/71,50\s*€/);
 });
+
+for (const language of ['de', 'en']) {
+  for (const allocationRequired of [false, true]) {
+    test(`CO-298: ${language} ${allocationRequired ? 'required' : 'optional'} allocation follows policy and retains the cost preview`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const catalog = catalogPayload();
+      catalog.catalog.rooms[0].price = { amountMinor: 2500, currency: 'EUR' };
+      catalog.catalog.costCenters = [{ id: 'operations', code: '471100', name: 'Operations', group: null }];
+      const fixture = await installProductionApplicationFixture(page, { catalog, allocationRequired });
+      await page.goto(`${ORIGIN}/`);
+      await page.locator('[data-view="employee"]').click();
+      await fillEmployeeSchedule(page);
+      const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+      await next.click();
+      await page.getByRole('radio', { name: /Room A/ }).check();
+      await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+      for (let step = 2; step < 5; step += 1) await next.click();
+      const cost = page.locator('[data-step-panel="5"]');
+      const hint = language === 'de'
+        ? (allocationRequired ? 'Kostenaufteilung erforderlich.' : 'Kostenaufteilung optional.')
+        : (allocationRequired ? 'Cost allocation is required.' : 'Cost allocation is optional.');
+      await expect(cost).toContainText(hint);
+      await expect(cost.locator('[data-cost-preview] dd').last()).toHaveText(language === 'de' ? /25,00\s*€/ : /€25\.00/);
+      const remove = cost.getByRole('button', { name: language === 'de' ? 'Löschen' : 'Delete', exact: true });
+      if (allocationRequired) await remove.click();
+      await expect(cost.locator('select')).toHaveCount(0);
+      await next.click();
+      if (allocationRequired) {
+        await expect(cost).toBeVisible();
+        await expect(page.locator('#productionEmployeeStatus')).not.toBeEmpty();
+      } else {
+        await expect(page.locator('[data-step-panel="6"]')).toBeVisible();
+        await page.getByRole('button', { name: language === 'de' ? 'Zurück' : 'Back', exact: true }).click();
+      }
+      await cost.getByRole('button', { name: language === 'de' ? 'Kostenstelle hinzufügen' : 'Add cost center' }).click();
+      const percent = page.locator('#productionAllocationPercent-0');
+      for (const invalid of ['0', '50', '101']) {
+        await percent.fill(invalid);
+        await next.click();
+        await expect(cost).toBeVisible();
+        await expect(page.locator('[data-step-panel="6"]')).toBeHidden();
+        expect(fixture.requestEnvelopes).toHaveLength(0);
+      }
+      await percent.fill('100');
+      await next.click();
+      const review = page.locator('[data-step-panel="6"]');
+      await expect(review).toBeVisible();
+      await expect(review.locator('[data-review-section="allocations"]')).toContainText('471100 · Operations: 100');
+      expect(fixture.requestEnvelopes).toHaveLength(0);
+    });
+  }
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-298: ${language} unavailable combined price remains explicit in costs and review`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.rooms[0].price = { amountMinor: 2500, currency: 'EUR' };
+    catalog.catalog.services = [{
+      id: 'service-host', name: 'Service host', description: 'Meeting support',
+      active: true, order: 1, price: { amountMinor: 1000, currency: 'USD' }, siteIds: [], roomIds: [],
+    }];
+    const fixture = await installProductionApplicationFixture(page, { catalog });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+    await next.click();
+    await page.getByRole('checkbox', { name: /Service host/ }).check();
+    await next.click();
+    await next.click();
+    const preview = page.locator('[data-cost-preview] dd');
+    await expect(preview).toHaveCount(1);
+    await expect(preview).toContainText(language === 'de' ? 'nicht verfügbar' : 'unavailable');
+    const unavailable = await preview.textContent();
+    await next.click();
+    await expect(page.locator('[data-review-section="price"] dd')).toHaveText(unavailable);
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+  });
+}
 
 test('Catering participant default follows the attendee total until explicitly edited and preserves zero on restore', async ({ page }) => {
   await installProductionApplicationFixture(page);
@@ -2749,7 +2937,7 @@ test('EMP-03: Employee production flow exposes occupied, transport-error, and av
   const check = page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' });
 
   await check.click();
-  await expect(page.getByText('Raumverfügbarkeit wird serverseitig geprüft …')).toBeVisible();
+  await expect(page.getByText('Raumverfügbarkeit wird geprüft …')).toBeVisible();
   await expect(check).toBeDisabled();
   fixture.releaseAvailability();
   await expect(page.getByText(/Der Raum ist im gewählten Zeitraum belegt/)).toBeVisible();
@@ -3253,7 +3441,7 @@ test('Conference Manager cancels a confirmed request through the exact non-destr
   await page.getByRole('button', { name: 'Anfrage stornieren' }).click();
   const dialog = page.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
 
-  await expect(dialog).toContainText('Die Anfragedaten werden nicht gelöscht.');
+  await expect(dialog).toContainText('Die bisherigen Anfragedaten bleiben erhalten.');
   await dialog.getByRole('button', { name: 'Anfrage stornieren' }).click();
   await expect(page.locator('#toast')).toContainText('Die Anfrage wurde storniert.');
 
@@ -3279,7 +3467,7 @@ test('Conference Manager keeps a pending cancellation modal and surfaces the ser
   await page.getByRole('button', { name: 'Anfrage stornieren' }).click();
   const dialog = page.getByRole('dialog', { name: 'Anfrage wirklich stornieren?' });
   const confirm = dialog.getByRole('button', { name: 'Anfrage stornieren' });
-  const dismiss = dialog.getByRole('button', { name: 'Abbrechen' });
+  const dismiss = dialog.getByRole('button', { name: 'Anfrage beibehalten' });
   await confirm.click();
   await expect.poll(() => fixture.writes.length).toBe(1);
 
@@ -3518,6 +3706,7 @@ test('Conference Manager separates Services and Catering business settings throu
     .toEqual(['catering-items', 'catering-packages']);
   await page.locator('[data-add-catalogue-entry="cateringItems"]').click();
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
+  await page.locator('[data-catalogue-entry-id="package-coffee"]').locator('..').locator(':scope > summary').click();
   await page.locator('[data-add-catalogue-variant="package-coffee"]').click();
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
@@ -5161,6 +5350,51 @@ test('Production onboarding opens Tenant Admin without loading unavailable busin
 });
 
 
+for (const language of ['de', 'en']) {
+  test(`CO-306: search preserves full catalogue snapshots and reveals invalid hidden editors in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
+    catalogueSettings.equipment = Array.from({ length: 18 }, (_, index) => ({
+      id: `equipment-${index}`, name: `Equipment ${index}`, description: null,
+      price: { amountMinor: index * 100, currency: 'EUR' }, active: true,
+      order: index, siteIds: [], roomIds: index === 7 ? ['retired-room'] : [],
+    }));
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    await page.getByRole('button', { name: language === 'de' ? 'Services & Ausstattung' : 'Services & equipment', exact: true }).click();
+    const search = page.locator('#manager-equipment-search');
+    await search.fill('Equipment 7');
+    const entry = page.locator('[data-catalogue-entry-id="equipment-7"]');
+    const disclosure = entry.locator('..');
+    await disclosure.locator(':scope > summary').focus();
+    await page.keyboard.press('Enter');
+    const name = page.locator('#manager-catalogue-equipment-equipment-7-name');
+    await name.fill('Updated equipment');
+    await expect(page.locator('#manager-catalogue-equipment-equipment-7-rooms')).toHaveValues(['retired-room']);
+    await search.fill('No match');
+    await page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true }).click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+    const saved = fixture.catalogueWrites[0].body.catalogue;
+    expect(saved.equipment).toHaveLength(18);
+    expect(saved.equipment[7]).toEqual({ ...catalogueSettings.equipment[7], name: 'Updated equipment' });
+    expect(saved.equipment.filter((_, index) => index !== 7)).toEqual(catalogueSettings.equipment.filter((_, index) => index !== 7));
+    expect(saved.services).toEqual(catalogueSettings.services);
+    expect(saved.roomPrices).toEqual(catalogueSettings.roomPrices);
+    expect(fixture.catalogueWrites[0].csrf).toBe(CSRF_TOKEN);
+    await search.fill('Updated equipment');
+    await disclosure.locator(':scope > summary').click();
+    await name.fill('   ');
+    await search.fill('Equipment 0');
+    await page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true }).click();
+    await expect(name).toBeFocused();
+    await expect(name).toHaveAttribute('aria-invalid', 'true');
+    await expect(search).toHaveValue('');
+    expect(fixture.catalogueWrites).toHaveLength(1);
+  });
+}
+
 test('Manager business references use named selections and keyboard-accessible DE/EN help', async ({ page }) => {
   const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
   catalogueSettings.services = [{ id: 'service-support', name: 'Video support', description: null,
@@ -5261,4 +5495,231 @@ for (const language of ['de', 'en']) {
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     expect(fixture.writes).toHaveLength(0);
   });
+}
+
+for (const language of ['de', 'en']) for (const cancellationFails of [false, true]) {
+  test(`CO-304 submission notice follows confirmed cancellation; failure=${cancellationFails}, language=${language}`, async ({ page }) => {
+    const fixture = await installProductionApplicationFixture(page, {
+      transitionError: cancellationFails ? { status: 503, code: 'UNAVAILABLE' } : null,
+    });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await openEmployeeRoomStep(page);
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+    await advanceEmployeeToReview(page);
+    await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+    const notice = page.locator('[data-ux-submission-success]');
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText('Customer workshop');
+    if (language === 'en') {
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      await page.getByRole('dialog').locator('#profileLanguage').selectOption('en');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    await expect(notice).not.toContainText(/reserviert|reserved/);
+    const cancelLabel = language === 'de' ? 'Anfrage stornieren' : 'Cancel request';
+    const dismissLabel = language === 'de' ? 'Anfrage beibehalten' : 'Keep request';
+    const refreshLabel = language === 'de' ? 'Aktualisieren' : 'Refresh';
+    const cancel = page.getByRole('button', { name: cancelLabel, exact: true });
+    await cancel.click();
+    await page.getByRole('dialog').getByRole('button', { name: dismissLabel, exact: true }).click();
+    await expect(notice).toBeVisible();
+    expect(fixture.writes).toHaveLength(1);
+    await cancel.click();
+    await page.getByRole('dialog').getByRole('button', { name: cancelLabel, exact: true }).click();
+    await expect.poll(() => fixture.writes.length).toBe(2);
+    await expect(page.locator('#toast')).toBeVisible();
+    await expect(notice).toHaveCount(cancellationFails ? 1 : 0);
+    await page.locator('[data-view="welcome"]').click();
+    await page.locator('[data-view="requests"]').click();
+    const expectedStatus = language === 'de'
+      ? (cancellationFails ? 'Status: Zur Prüfung' : 'Status: Storniert')
+      : (cancellationFails ? 'Status: Pending review' : 'Status: Cancelled');
+    await expect(page.getByText(expectedStatus, { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: refreshLabel, exact: true }).click();
+    await expect(notice).toHaveCount(cancellationFails ? 1 : 0);
+    expect(fixture.writes).toHaveLength(2);
+  });
+}
+
+test('CO-304 a newly observed terminal status clears the matching submission notice', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await openEmployeeRoomStep(page);
+  await page.getByRole('radio', { name: /Room A/ }).check();
+  await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+  await advanceEmployeeToReview(page);
+  await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+  await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
+  fixture.requests()[0].status = 'Rejected';
+  fixture.requests()[0].statusReason = 'Room unavailable for the requested schedule';
+  fixture.requests()[0].version += 1;
+  await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
+  await expect(page.getByText('Status: Abgelehnt', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-ux-submission-success]')).toHaveCount(0);
+  expect(fixture.writes).toHaveLength(1);
+});
+
+for (const language of ['de', 'en']) {
+  test(`CO-299: ${language} schedule errors identify their fields and preserve correction`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    const status = page.locator('#productionEmployeeStatus');
+    const assertField = async (control, text) => {
+      await next.click();
+      await expect(control).toBeFocused();
+      await expect(control).toHaveAttribute('aria-invalid', 'true');
+      await expect(control).toHaveAttribute('aria-describedby', /productionEmployeeStatus/);
+      await expect(status).toContainText(text);
+      const link = status.getByRole('link');
+      await link.focus();
+      await link.press('Enter');
+      await expect(control).toBeFocused();
+      await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
+      expect(fixture.requestEnvelopes).toHaveLength(0);
+    };
+    const title = page.locator('#productionTitle');
+    await title.fill('');
+    await assertField(title, language === 'de' ? 'Titel' : 'Title');
+    await title.fill('Correction retained');
+    await expect(title).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(status).toBeEmpty();
+    const internal = page.locator('#productionInternal');
+    for (const value of ['-1', '1.5', '501']) {
+      await internal.fill(value);
+      await assertField(internal, language === 'de' ? 'ganze Teilnehmendenzahl' : 'whole participant count');
+    }
+    await internal.fill('0');
+    await assertField(internal, language === 'de' ? 'Gesamtzahl' : 'total participant count');
+    await internal.fill('2');
+    const end = page.locator('#productionEnd');
+    await end.fill('08:00');
+    await assertField(end, language === 'de' ? 'Ende muss nach' : 'end must be after');
+    await end.fill('10:00');
+    await next.click();
+    await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
+    await expect(title).toHaveValue('Correction retained');
+    await expect(page.locator('[aria-invalid="true"]')).toHaveCount(0);
+  });
+
+  test(`CO-299: ${language} catering and allocation errors focus the affected values`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.costCenters = [{ id: 'operations', code: '471100', name: 'Operations', group: null }];
+    const fixture = await installProductionApplicationFixture(page, { catalog, allocationRequired: true });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page, { internal: '5' });
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+    await next.click();
+    await next.click();
+    const catering = page.locator('#productionCateringParticipants');
+    await catering.fill('6');
+    await next.click();
+    await expect(catering).toBeFocused();
+    await expect(catering).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#productionEmployeeStatus')).toContainText(language === 'de' ? '0 bis 5' : '0 to 5');
+    await catering.fill('5');
+    await next.click();
+    const percent = page.locator('#productionAllocationPercent-0');
+    await percent.fill('50');
+    await next.click();
+    await expect(percent).toBeFocused();
+    await expect(percent).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#productionEmployeeStatus')).toContainText(language === 'de' ? 'zusammen genau 100 %' : 'total exactly 100%');
+    await expect(page.locator('#productionAllocationCenter-0')).not.toHaveAttribute('aria-invalid', 'true');
+    await percent.fill('100');
+    await expect(percent).not.toHaveAttribute('aria-invalid', 'true');
+    await next.click();
+    await expect(page.locator('[data-step-panel="6"]')).toBeVisible();
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+  });
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-300: ${language} cancellation clearly preserves the request until explicit confirmation`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    fixture.requests().push(confirmedRequestFixture());
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="requests"]').click();
+    const cancel = page.getByRole('button', { name: language === 'de' ? 'Anfrage stornieren' : 'Cancel request', exact: true });
+    await cancel.click();
+    const dialog = page.getByRole('dialog');
+    const keep = dialog.getByRole('button', { name: language === 'de' ? 'Anfrage beibehalten' : 'Keep request', exact: true });
+    await expect(keep).toBeFocused();
+    await keep.press('Enter');
+    await expect(dialog).toHaveCount(0);
+    await expect(cancel).toBeFocused();
+    expect(fixture.writes).toHaveLength(0);
+    await cancel.click();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+test('CO-300: switching language clears discarded-draft feedback and its live regions', async ({ page }) => {
+  await installProductionApplicationFixture(page);
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="employee"]').click();
+  await page.locator('#productionTitle').fill('Discarded draft');
+  await page.getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Entwurf verwerfen', exact: true }).click();
+  await expect(page.locator('#toast')).toContainText('Entwurf wurde verworfen.');
+  await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+  await page.getByRole('dialog').locator('#profileLanguage').selectOption('en');
+  await expect(page.locator('#toast')).toBeEmpty();
+  await expect(page.locator('#statusRegion')).toBeEmpty();
+  await expect(page.locator('#alertRegion')).toBeEmpty();
+});
+
+for (const language of ['de', 'en']) {
+  for (const combined of [false, true]) {
+    test(`CO-310: ${language} personal list, calendar and counter stay separate from Manager scope (${combined})`, async ({ page }) => {
+      const roles = ['employee', 'conference_manager', ...(combined ? ['tenant_admin'] : [])];
+      const fixture = await installProductionApplicationFixture(page, { roles, ownRequestIds: [REQUEST_ID] });
+      const own = confirmedV2RequestFixture();
+      own.status = 'Submitted'; own.details.title = 'Own planning request';
+      const foreign = structuredClone(own);
+      foreign.id = '77777777-7777-4777-8777-777777777777';
+      foreign.details.title = 'Other requester planning';
+      fixture.replaceRequests([own, foreign]);
+      await page.goto(`${ORIGIN}/`);
+      if (language === 'en') {
+        await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+        await page.locator('#profileLanguage').selectOption('en');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+      }
+      await expect(page.locator('.dashboard-grid').first()).toContainText(language === 'de' ? 'Offene Anfragen' : 'Open requests');
+      await expect(page.locator('.dashboard-grid').first().locator('.kpi strong').first()).toHaveText('1');
+      expect(fixture.requestListReads.every((scope) => scope === 'own')).toBe(true);
+      await page.locator('[data-view="requests"]').click();
+      await expect(page.locator('[data-production-request-id]')).toHaveCount(1);
+      await expect(page.getByRole('heading', { name: own.details.title, exact: true })).toBeVisible();
+      await page.getByRole('button', { name: language === 'de' ? 'Kalender' : 'Calendar', exact: true }).click();
+      await expect(page.locator('.calendar-event')).toHaveCount(1);
+      await page.locator('.calendar-event').focus();
+      await page.locator('.calendar-event').press('Enter');
+      await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
+      await page.locator('[data-view="manager"]').click();
+      await expect(page.locator('[data-production-request-id]')).toHaveCount(2);
+      expect(fixture.requestListReads.at(-1)).toBe(null);
+      await page.locator('[data-view="welcome"]').click();
+      await expect(page.locator('.dashboard-grid').first().locator('.kpi strong').first()).toHaveText('1');
+      expect(fixture.requestListReads.at(-1)).toBe('own');
+      await page.reload();
+      await expect(page.locator('.dashboard-grid').first().locator('.kpi strong').first()).toHaveText('1');
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
 }

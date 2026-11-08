@@ -1,3 +1,4 @@
+import { createPolicyDurationEditor } from './duration-editor.js';
 import { formatDateTime, t } from '../../../core/i18n.js';
 import { announce, button, clear, el, field, showToast, validationSummary } from '../../../core/ui.js';
 import { TENANT_ADMIN_SECTION_PERMISSION, defineTenantAdminSection } from '../../section-contract.js';
@@ -35,10 +36,6 @@ function versionEditor(version, index) {
   const immutable = new Date(version.effectiveFrom).getTime() <= Date.now();
   const controls = {
     effectiveFrom: el('input', { type: 'datetime-local', value: localDateTime(version.effectiveFrom), disabled: immutable, attrs: { required: 'required' } }),
-    minimumLeadTimeMinutes: integerInput(version.rules.minimumLeadTimeMinutes, 43_200),
-    maximumAdvanceMinutes: integerInput(version.rules.maximumAdvanceMinutes, 1_054_080, 1),
-    cancellationWindowMinutes: integerInput(version.rules.cancellationWindowMinutes, 43_200),
-    changeWindowMinutes: integerInput(version.rules.changeWindowMinutes, 43_200),
     maximumParticipants: integerInput(version.rules.maximumParticipants, 100_000, 1),
     allowedSiteIds: el('input', { type: 'text', value: version.rules.allowedSiteIds.join(', '), attrs: { maxlength: '4000' } }),
     allowedRoomIds: el('input', { type: 'text', value: version.rules.allowedRoomIds.join(', '), attrs: { maxlength: '4000' } }),
@@ -46,22 +43,32 @@ function versionEditor(version, index) {
   };
   if (immutable) Object.values(controls).forEach((control) => { control.disabled = true; });
   const prefix = `tenant-policy-${index}`;
+  const durations = {
+    minimumLeadTimeMinutes: createPolicyDurationEditor({ id: `${prefix}-lead`, label: t('tenantSettings.bookingPolicies.minimumLeadTime'),
+      minutes: version.rules.minimumLeadTimeMinutes, minimum: 0, maximum: 43200, disabled: immutable }),
+    maximumAdvanceMinutes: createPolicyDurationEditor({ id: `${prefix}-advance`, label: t('tenantSettings.bookingPolicies.maximumAdvance'),
+      minutes: version.rules.maximumAdvanceMinutes, minimum: 1, maximum: 1054080, disabled: immutable }),
+    cancellationWindowMinutes: createPolicyDurationEditor({ id: `${prefix}-cancel`, label: t('tenantSettings.bookingPolicies.cancellationWindow'),
+      minutes: version.rules.cancellationWindowMinutes, minimum: 0, maximum: 43200, disabled: immutable }),
+    changeWindowMinutes: createPolicyDurationEditor({ id: `${prefix}-change`, label: t('tenantSettings.bookingPolicies.changeWindow'),
+      minutes: version.rules.changeWindowMinutes, minimum: 0, maximum: 43200, disabled: immutable }),
+  };
   const node = el('fieldset', { className: 'card', dataset: { bookingPolicyId: version.id } }, [
     el('legend', { text: t('tenantSettings.bookingPolicies.version', { date: formatDateTime(version.effectiveFrom) }) }),
     el('p', { className: 'muted', text: immutable ? t('tenantSettings.bookingPolicies.immutable') : t('tenantSettings.bookingPolicies.scheduled') }),
     el('div', { className: 'form-grid' }, [
       field({ id: `${prefix}-effective`, label: t('tenantSettings.bookingPolicies.effectiveFrom'), control: controls.effectiveFrom, required: true }),
-      field({ id: `${prefix}-lead`, label: t('tenantSettings.bookingPolicies.minimumLeadTime'), control: controls.minimumLeadTimeMinutes, required: true }),
-      field({ id: `${prefix}-advance`, label: t('tenantSettings.bookingPolicies.maximumAdvance'), control: controls.maximumAdvanceMinutes, required: true }),
-      field({ id: `${prefix}-cancel`, label: t('tenantSettings.bookingPolicies.cancellationWindow'), control: controls.cancellationWindowMinutes, required: true }),
-      field({ id: `${prefix}-change`, label: t('tenantSettings.bookingPolicies.changeWindow'), control: controls.changeWindowMinutes, required: true }),
+      durations.minimumLeadTimeMinutes.node,
+      durations.maximumAdvanceMinutes.node,
+      durations.cancellationWindowMinutes.node,
+      durations.changeWindowMinutes.node,
       field({ id: `${prefix}-participants`, label: t('tenantSettings.bookingPolicies.maximumParticipants'), control: controls.maximumParticipants, required: true }),
       field({ id: `${prefix}-sites`, label: t('tenantSettings.bookingPolicies.allowedSiteIds'), control: controls.allowedSiteIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
       field({ id: `${prefix}-rooms`, label: t('tenantSettings.bookingPolicies.allowedRoomIds'), control: controls.allowedRoomIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
       field({ id: `${prefix}-services`, label: t('tenantSettings.bookingPolicies.allowedServiceIds'), control: controls.allowedServiceIds, optional: true, hint: t('tenantSettings.common.commaSeparated') }),
     ]),
   ]);
-  return { node, controls, version, immutable };
+  return { node, controls, durations, version, immutable };
 }
 
 function readVersion(editor) {
@@ -70,10 +77,10 @@ function readVersion(editor) {
   const effectiveFrom = new Date(controls.effectiveFrom.value).toISOString();
   if (new Date(effectiveFrom).getTime() <= Date.now()) throw new TypeError('BOOKING_POLICY_RETROACTIVE_INVALID');
   const rules = {
-    minimumLeadTimeMinutes: Number(controls.minimumLeadTimeMinutes.value),
-    maximumAdvanceMinutes: Number(controls.maximumAdvanceMinutes.value),
-    cancellationWindowMinutes: Number(controls.cancellationWindowMinutes.value),
-    changeWindowMinutes: Number(controls.changeWindowMinutes.value),
+    minimumLeadTimeMinutes: editor.durations.minimumLeadTimeMinutes.read(),
+    maximumAdvanceMinutes: editor.durations.maximumAdvanceMinutes.read(),
+    cancellationWindowMinutes: editor.durations.cancellationWindowMinutes.read(),
+    changeWindowMinutes: editor.durations.changeWindowMinutes.read(),
     maximumParticipants: Number(controls.maximumParticipants.value),
     allowedSiteIds: ids(controls.allowedSiteIds.value), allowedRoomIds: ids(controls.allowedRoomIds.value),
     allowedServiceIds: ids(controls.allowedServiceIds.value),

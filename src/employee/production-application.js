@@ -148,7 +148,7 @@ function openRoomPreview(room, trigger, previewIndex, catalogueMedia) {
 }
 
 function openEmployeeCancellationConfirmation(request, confirmAction) {
-  const dismiss = button(t('common.cancel'));
+  const dismiss = button(t('production.employee.keepRequest'));
   const confirm = button(t('requests.cancel'), { className: 'danger' });
   const requestTitle = request.details?.title
     || t('production.common.requestId', { id: request.id });
@@ -182,6 +182,7 @@ function compositionDraft(request, catalog, overrides = {}) {
 }
 
 function requestCard(request, catalog, currentRoomContext, openChange, {
+  detailState,
   mutationInFlight = () => false,
   onCancel, onCancelConfirmation, onChange, onGuestInfo, onHistory, onPrint, onRepeat, onResubmit,
 }) {
@@ -192,14 +193,11 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   const endsAt = formatProductionDateTime(request.endsAt, { locale: locale(), timeZone });
   const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
   const article = el('article', {
-    className: 'request-card',
+    className: 'request-card request-card-compact',
     dataset: { productionRequestId: request.id },
     attrs: { tabindex: '-1' },
   }, [
     el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-    request.details?.title
-      ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
-      : null,
     el('p', { text: room ? roomLabel(room) : request.roomId }),
     el('p', {
       text: startsAt && endsAt ? `${startsAt} – ${endsAt}` : t('production.common.timeUnavailable'),
@@ -207,7 +205,10 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
     el('p', { text: t('production.common.participants', { count: participants }) }),
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
-  const businessDetails = renderProductionRequestBusinessDetails(request);
+  const businessDetails = renderProductionRequestBusinessDetails(request, {
+    expanded: detailState.has(request.id),
+    onToggle: (open) => { if (open) detailState.add(request.id); else detailState.delete(request.id); },
+  });
   if (businessDetails) article.appendChild(businessDetails);
   if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
   const mutationControls = [];
@@ -1068,7 +1069,8 @@ export function createProductionEmployeeApplication({
       clear(allocationPanel);
       allocationPanel.append(
         el('h3', { text: t('cost.allocations') }),
-        el('p', { className: 'muted', text: t('cost.allocHint') }),
+        el('p', { className: 'muted', text: t(requestCatalog.costAllocation?.allocationRequired
+          ? 'cost.allocRequiredHint' : 'cost.allocOptionalHint') }),
       );
       const allocationStatus = el('p', {
         attrs: { role: 'status', 'aria-live': 'polite' },
@@ -1142,6 +1144,11 @@ export function createProductionEmployeeApplication({
     ];
     const clearControlValidation = (control) => {
       control.removeAttribute('aria-invalid');
+      if (status.dataset.invalidControlId === control.id) {
+        status.textContent = '';
+        status.className = 'muted';
+        delete status.dataset.invalidControlId;
+      }
       const describedBy = (control.getAttribute('aria-describedby') || '')
         .split(' ').filter((id) => id && id !== status.id).join(' ');
       if (describedBy) control.setAttribute('aria-describedby', describedBy);
@@ -1153,7 +1160,11 @@ export function createProductionEmployeeApplication({
       describedBy.add(status.id);
       control.setAttribute('aria-describedby', [...describedBy].join(' '));
       status.className = 'error-box';
-      status.textContent = message;
+      if (!control.id) control.id = 'productionInvalidControl';
+      status.dataset.invalidControlId = control.id;
+      const link = el('a', { attrs: { href: `#${control.id}` }, text: message });
+      link.addEventListener('click', (event) => { event.preventDefault(); control.focus(); });
+      status.replaceChildren(link);
       control.focus();
       return false;
     };
@@ -1170,6 +1181,11 @@ export function createProductionEmployeeApplication({
     [...scheduleControls, specialRequirements, dietaryRequirements].forEach((control) => {
       control.addEventListener('input', () => clearControlValidation(control));
     });
+    for (const panel of [cateringPanel, allocationPanel]) {
+      for (const eventName of ['input', 'change']) panel.addEventListener(eventName, event => {
+        if (event.target.matches('input, select')) clearControlValidation(event.target);
+      });
+    }
     cateringParticipants.addEventListener('input', () => {
       defaultCateringParticipants = false;
       clearControlValidation(cateringParticipants);
@@ -1283,6 +1299,7 @@ export function createProductionEmployeeApplication({
       field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
       participantTotal,
     ]);
+    const costPreview = el('section', { dataset: { costPreview: 'true' } });
     const panels = [
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '1' } }, [
         el('div', { className: 'section-heading' }, [
@@ -1327,6 +1344,7 @@ export function createProductionEmployeeApplication({
         el('div', { className: 'section-heading' }, [
           el('div', {}, [el('h2', { text: t('cost.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('cost.desc') })]),
         ]),
+        costPreview,
         allocationPanel,
       ]),
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '6' } }),
@@ -1360,8 +1378,45 @@ export function createProductionEmployeeApplication({
       el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
     ]);
     const actions = el('footer', { className: 'wizard-actions' });
-    const discardDraft = button(t('production.employee.discardDraft'), { className: 'danger' });
+    const discardDraft = button(t('production.employee.discardDraft'), { className: 'secondary' });
+    const draftActions = el('div', { className: 'request-draft-actions' }, isResubmission ? [] : [discardDraft]);
+    draftActions.hidden = isResubmission;
     let activeStep = restoredDraft?.activeStep || 1;
+
+    const currentReviewModel = () => buildServerRequestReview({
+      catalog: requestCatalog,
+      roomId: room.value,
+      internalParticipants: internal.value,
+      externalParticipants: external.value,
+      serviceIds: [...selectedServices],
+      equipmentIds: [...selectedEquipment],
+      cateringParticipantCount: cateringParticipants.value,
+      packageSelection,
+      itemQuantities,
+      allocations: allocationRows,
+      dietaryRequirements: dietaryRequirements.value,
+      specialRequirements: specialRequirements.value,
+    });
+    const reviewPriceRows = (price) => {
+      const previewMoney = (amountMinor) => formatMoney(amountMinor / 100, price.currency);
+      return price ? [
+        [t('cost.room'), previewMoney(price.breakdown.roomMinor)],
+        [t('review.services'), previewMoney(price.breakdown.servicesMinor)],
+        [t('production.employee.equipmentHeading'), previewMoney(price.breakdown.equipmentMinor)],
+        [t('catering.package'), previewMoney(price.breakdown.cateringPackageMinor)],
+        [t('catering.items'), previewMoney(price.breakdown.cateringItemsMinor)],
+        [t('review.total'), previewMoney(price.totalMinor)],
+      ] : [[t('review.total'), t('production.employee.reviewPriceUnavailable')]];
+    };
+    const renderCostPreview = () => {
+      clear(costPreview);
+      costPreview.append(
+        el('h3', { text: t('production.employee.reviewPriceBreakdown') }),
+        el('dl', { className: 'details-list review-details' }, reviewPriceRows(currentReviewModel().price)
+          .flatMap(([term, value]) => [el('dt', { text: term }), el('dd', { text: value })])),
+        el('p', { className: 'muted review-price-note', text: t('cost.note') }),
+      );
+    };
 
     const renderReview = () => {
       const review = panels[5];
@@ -1373,20 +1428,7 @@ export function createProductionEmployeeApplication({
         start: formatProductionDateTime(window.startsAt, { locale: locale(), timeZone }),
         end: formatProductionDateTime(window.endsAt, { locale: locale(), timeZone }),
       }) : '';
-      const model = buildServerRequestReview({
-        catalog: requestCatalog,
-        roomId: room.value,
-        internalParticipants: internal.value,
-        externalParticipants: external.value,
-        serviceIds: [...selectedServices],
-        equipmentIds: [...selectedEquipment],
-        cateringParticipantCount: cateringParticipants.value,
-        packageSelection,
-        itemQuantities,
-        allocations: allocationRows,
-        dietaryRequirements: dietaryRequirements.value,
-        specialRequirements: specialRequirements.value,
-      });
+      const model = currentReviewModel();
       const none = t('common.none');
       const joinedNames = (entries) => entries.map((entry) => entry.name).join(' · ') || none;
       const cateringPackage = model.catering.packageSelection
@@ -1403,10 +1445,6 @@ export function createProductionEmployeeApplication({
           style: 'percent', maximumFractionDigits: 2,
         })}`
       )).join(' · ') || none;
-      const previewMoney = (amountMinor) => formatMoney(
-        amountMinor / 100,
-        model.price.currency,
-      );
       const reviewGrid = el('div', { className: 'review-grid' });
       const reviewCard = (heading, rows, targetStep, section) => {
         const edit = button(t('review.edit'), { className: 'ux-review-edit' });
@@ -1423,14 +1461,7 @@ export function createProductionEmployeeApplication({
           ])),
         ]);
       };
-      const priceRows = model.price ? [
-        [t('cost.room'), previewMoney(model.price.breakdown.roomMinor)],
-        [t('review.services'), previewMoney(model.price.breakdown.servicesMinor)],
-        [t('production.employee.equipmentHeading'), previewMoney(model.price.breakdown.equipmentMinor)],
-        [t('catering.package'), previewMoney(model.price.breakdown.cateringPackageMinor)],
-        [t('catering.items'), previewMoney(model.price.breakdown.cateringItemsMinor)],
-        [t('review.total'), previewMoney(model.price.totalMinor)],
-      ] : [[t('review.total'), t('production.employee.reviewPriceUnavailable')]];
+
       reviewGrid.append(
         reviewCard(t('production.employee.reviewEventParticipants'), [
           [t('schedule.title'), title.value.trim()],
@@ -1462,7 +1493,7 @@ export function createProductionEmployeeApplication({
         reviewCard(t('review.costs'), [
           [t('cost.allocations'), allocationText],
         ], 5, 'allocations'),
-        reviewCard(t('production.employee.reviewPriceBreakdown'), priceRows, 5, 'price'),
+        reviewCard(t('production.employee.reviewPriceBreakdown'), reviewPriceRows(model.price), 5, 'price'),
       );
       review.append(
         el('div', { className: 'section-heading' }, [
@@ -1495,10 +1526,10 @@ export function createProductionEmployeeApplication({
           className: `ux-progress-dot${index + 1 === activeStep ? ' active' : ''}${index + 1 < activeStep ? ' done' : ''}`,
         }))),
       );
+      if (activeStep === 5) renderCostPreview();
       if (activeStep === 6) renderReview();
       recoveryHint.hidden = !submissionFailed || activeStep !== 6;
       clear(actions);
-      if (!isResubmission) actions.appendChild(discardDraft);
       if (activeStep > 1) {
         const back = button(t('common.back'));
         back.addEventListener('click', () => moveToStep(activeStep - 1));
@@ -1536,14 +1567,17 @@ export function createProductionEmployeeApplication({
           ? null : internalParticipants + externalParticipants;
         const startsAtLocal = `${date.value}T${start.value}`;
         const endsAtLocal = `${endDate.value}T${end.value}`;
-        const invalidControl = [title, date, start, endDate, end]
-          .find((control) => !control.value || !control.checkValidity())
-          || (!title.value.trim() ? title : null)
-          || (internalParticipants === null ? internal : null)
-          || (externalParticipants === null ? external : null)
-          || (participantCount < 1 || participantCount > MAX_PARTICIPANTS ? internal : null)
-          || (endsAtLocal <= startsAtLocal ? end : null);
-        if (invalidControl) return showControlValidation(invalidControl);
+        const invalidTime = [date, start, endDate, end]
+          .find((control) => !control.value || !control.checkValidity());
+        if (invalidTime) return showControlValidation(invalidTime, t('production.employee.timeRequired'));
+        if (internalParticipants === null || externalParticipants === null) {
+          return showControlValidation(internalParticipants === null ? internal : external,
+            t('production.employee.participantInteger', { maximum: formatNumber(MAX_PARTICIPANTS) }));
+        }
+        if (participantCount < 1 || participantCount > MAX_PARTICIPANTS) {
+          return showControlValidation(internal, t('production.employee.participantTotal', { maximum: formatNumber(MAX_PARTICIPANTS) }));
+        }
+        if (endsAtLocal <= startsAtLocal) return showControlValidation(end, t('production.employee.endAfterStart'));
       }
       if (stepNumber === 2 && !isAvailabilityVerified()) {
         roomSelectionPanel.setAttribute('aria-invalid', 'true');
@@ -1566,15 +1600,33 @@ export function createProductionEmployeeApplication({
             roomId: room.value,
           });
         } catch {
-          return showControlValidation(cateringParticipants);
+          const quantity = [...cateringPanel.querySelectorAll('[id^="productionCateringItem-"]')]
+            .find(control => !control.checkValidity());
+          if (quantity) return showControlValidation(quantity, t('production.employee.cateringQuantityInvalid'));
+          return showControlValidation(cateringParticipants, t('production.employee.cateringParticipantsInvalid', {
+            maximum: formatNumber((safeParticipantCount(internal.value) || 0) + (safeParticipantCount(external.value) || 0)),
+          }));
         }
       }
       if (stepNumber === 5) {
+        allocationPanel.querySelectorAll('[aria-invalid="true"]').forEach(clearControlValidation);
         try {
           normalizeAllocationEditorDraft({ allocations: allocationRows, catalog: requestCatalog });
         } catch {
-          const invalidControl = allocationPanel.querySelector('select, input, button');
-          return invalidControl ? showControlValidation(invalidControl) : false;
+          const controls = [...allocationPanel.querySelectorAll('select, input')];
+          const invalidControl = controls.find(control => !control.checkValidity());
+          if (invalidControl) return showControlValidation(invalidControl,
+            t(invalidControl.tagName === 'SELECT' ? 'production.employee.allocationCenterRequired' : 'production.employee.allocationPercentInvalid'));
+          const seen = new Set();
+          const duplicate = [...allocationPanel.querySelectorAll('select')].find(control => {
+            if (seen.has(control.value)) return true;
+            seen.add(control.value);
+            return false;
+          });
+          if (duplicate) return showControlValidation(duplicate, t('production.employee.allocationDuplicate'));
+          const target = allocationPanel.querySelector('input, button');
+          return target ? showControlValidation(target, t(allocationRows.length
+            ? 'production.employee.allocationTotalInvalid' : 'production.employee.allocationCenterRequired')) : false;
         }
       }
       return true;
@@ -1592,7 +1644,7 @@ export function createProductionEmployeeApplication({
     stepControls.forEach((control, index) => {
       control.addEventListener('click', () => moveToStep(index + 1));
     });
-    root.append(mobileProgress, stepper, ...panels, actionStatus, actions);
+    root.append(mobileProgress, stepper, ...panels, actionStatus, actions, draftActions);
     renderRoomControls();
     renderActiveStep();
     invalidateAvailability();
@@ -1859,10 +1911,10 @@ export function createProductionEmployeeApplication({
         if (!isCurrentEditor()) return;
         submissionNotice = Object.freeze({
           requestId: submittedRequest.id,
+          title: submittedRequest.details?.title || normalizedTitle,
           type: isResubmission ? 'resubmitted' : 'sent',
         });
         status.textContent = t('production.employee.submitted');
-        showToast(t('production.employee.submitted'));
         if (!sourceRequest && draftStore) {
           draftDirty = false;
           if (draftTimer) clearTimeout(draftTimer);
@@ -1871,6 +1923,7 @@ export function createProductionEmployeeApplication({
         }
         verifiedAvailabilityKey = null;
         if (typeof onNavigate === 'function') onNavigate('requests');
+        showToast(t('production.employee.submitted'));
       } catch (error) {
         if (authorityFailureCode(error)) {
           invalidateEditorAuthority(error);
@@ -1885,7 +1938,7 @@ export function createProductionEmployeeApplication({
           if (isResubmission) {
             resubmissionVersionCurrent = false;
             try {
-              const requests = await persistence.listRequests();
+              const requests = await persistence.listOwnRequests();
               if (!isCurrentEditor()) return;
               const currentRequest = requests.find((entry) => entry.id === sourceRequest.id);
               if (currentRequest?.status === 'Change Requested'
@@ -1931,6 +1984,7 @@ export function createProductionEmployeeApplication({
     let authorityProjectionInvalid = false;
     let pendingSubmissionFocusRequestId = null;
     let requestDisplay = 'list';
+    const detailState = new Set();
     let calendarReference = null;
     const isActiveSurface = () => (
       root.isConnected
@@ -1954,6 +2008,7 @@ export function createProductionEmployeeApplication({
       committedProjectionGeneration = 0;
       interactiveProjectionGeneration = 0;
       pendingSubmissionFocusRequestId = null;
+      detailState.clear();
       authoritySurfaces.closeAll();
       if (onAuthorityFailure?.(error)) return true;
       if (!root.isConnected) return false;
@@ -1999,6 +2054,7 @@ export function createProductionEmployeeApplication({
       const copy = el('div', {}, [
         el('strong', { text: t(currentNotice.type === 'resubmitted'
           ? 'submission.resubmittedTitle' : 'submission.sentTitle') }),
+        el('p', { text: currentNotice.title }),
         el('p', { text: t(currentNotice.type === 'resubmitted'
           ? 'submission.resubmittedText' : 'submission.sentText') }),
       ]);
@@ -2036,7 +2092,7 @@ export function createProductionEmployeeApplication({
       }
       try {
         const [nextCatalog, requests] = await Promise.all([
-          persistence.loadCatalog(), persistence.listRequests(),
+          persistence.loadCatalog(), persistence.listOwnRequests(),
         ]);
         if (!isCurrent(generation)) return;
         const [changes, roomContexts] = await Promise.all([
@@ -2044,6 +2100,10 @@ export function createProductionEmployeeApplication({
           loadMissingRequestRoomContexts(requests, nextCatalog, persistence),
         ]);
         if (!isCurrent(generation)) return;
+        if (submissionNotice) {
+          const submitted = requests.find(request => request.id === submissionNotice.requestId);
+          if (!submitted || !['Submitted', 'In Review'].includes(submitted.status)) submissionNotice = null;
+        }
         catalog = nextCatalog;
         authorityProjectionInvalid = false;
         clear(root);
@@ -2142,6 +2202,7 @@ export function createProductionEmployeeApplication({
               invalidateAuthorityProjection(caught);
               return;
             }
+            if (!caught && submissionNotice?.requestId === request.id) submissionNotice = null;
             if (!isActiveSurface() || tracked.reconciled) return;
             tracked.reconciled = true;
             if (requestMutations.get(request.id) === tracked) {
@@ -2156,6 +2217,7 @@ export function createProductionEmployeeApplication({
             await refresh(request.id);
           };
           card = requestCard(request, nextCatalog, roomContexts[index], changes[index], {
+            detailState,
             mutationInFlight: () => requestMutations.has(request.id),
             onCancelConfirmation: (target, confirmAction) => {
               authoritySurfaces.track(openEmployeeCancellationConfirmation(target, confirmAction));

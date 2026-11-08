@@ -1,5 +1,9 @@
 export const TENANT_ADMIN_SETTINGS_MESSAGES = Object.freeze({
   de: Object.freeze({
+    'tenantAdmin.unsaved.title': 'Ungespeicherte Änderungen',
+    'tenantAdmin.unsaved.description': 'Das Speichern Ihrer Eingaben ist noch nicht bestätigt. Bleiben Sie hier oder verwerfen Sie die lokalen Änderungen. Ein bereits gestarteter Speichervorgang wird dadurch nicht abgebrochen.',
+    'tenantAdmin.unsaved.stay': 'Hier bleiben',
+    'tenantAdmin.unsaved.discard': 'Änderungen verwerfen',
     'tenantAdmin.subtitle': 'Konfiguration, Benutzer, Integrationen und Nachweise sicher innerhalb Ihres Mandanten verwalten.',
     'tenantAdmin.navigation.label': 'Bereiche der Tenant-Administration',
     'tenantAdmin.overview.title': 'Übersicht',
@@ -90,6 +94,10 @@ export const TENANT_ADMIN_SETTINGS_MESSAGES = Object.freeze({
     "tenantAdmin.catering.health.oldest": "Ältester offener Lieferauftrag im Ausschnitt",
   }),
   en: Object.freeze({
+    'tenantAdmin.unsaved.title': 'Unsaved changes',
+    'tenantAdmin.unsaved.description': 'Saving your entries has not been confirmed. Stay here or discard the local changes. Leaving does not cancel a save that has already started.',
+    'tenantAdmin.unsaved.stay': 'Stay here',
+    'tenantAdmin.unsaved.discard': 'Discard changes',
     'tenantAdmin.subtitle': 'Manage configuration, users, integrations, and evidence securely within your tenant.',
     'tenantAdmin.navigation.label': 'Tenant Administration sections',
     'tenantAdmin.overview.title': 'Overview',

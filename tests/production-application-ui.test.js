@@ -327,8 +327,8 @@ test('server-backed cards expose the complete immutable business projection', as
   ]) assert.match(details, new RegExp(projection.replaceAll('.', '\\.')));
   const employee = await source(EMPLOYEE_SOURCE);
   const manager = await source(MANAGER_SOURCE);
-  assert.match(employee, /renderProductionRequestBusinessDetails\(request\)/);
-  assert.match(manager, /renderProductionRequestBusinessDetails\(request\)/);
+  assert.match(employee, /renderProductionRequestBusinessDetails\(request, /);
+  assert.match(manager, /renderProductionRequestBusinessDetails\(request, /);
 });
 
 test('Employee and Manager share one capability-independent booking-change editor', async () => {
@@ -489,6 +489,35 @@ test('Employee editor produces bounded schema-v2 catering and exact cost allocat
     participantCount: '7', totalParticipants: 6, roomId: 'room-1', catalog,
     packageSelection: null, itemQuantities: {},
   }), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+});
+
+test('CO-298: allocation policy distinguishes empty optional allocations and rejects invalid selected allocations', () => {
+  for (const allocationRequired of [false, true]) {
+    const catalog = {
+      costCenters: [
+        { id: 'a', active: true }, { id: 'b', active: true }, { id: 'inactive', active: false },
+      ],
+      costAllocation: { allocationRequired },
+    };
+    const normalize = (allocations) => normalizeAllocationEditorDraft({ catalog, allocations });
+    if (allocationRequired) assert.throws(() => normalize([]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    else assert.deepEqual(normalize([]), []);
+    for (const percentage of ['0', '50', '101', '99.99', '100.01', '99.999', '-1']) {
+      assert.throws(() => normalize([{ costCenterId: 'a', percentage }]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    }
+    for (const costCenterId of ['inactive', 'removed']) {
+      assert.throws(() => normalize([{ costCenterId, percentage: '100' }]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    }
+    assert.throws(() => normalize([
+      { costCenterId: 'a', percentage: '50' }, { costCenterId: 'a', percentage: '50' },
+    ]), /PRODUCTION_REQUEST_EDITOR_INVALID/);
+    assert.deepEqual(normalize([{ costCenterId: 'a', percentage: '100' }]), [
+      { costCenterId: 'a', percentageBasisPoints: 10000 },
+    ]);
+    assert.deepEqual(normalize([
+      { costCenterId: 'b', percentage: '66.67' }, { costCenterId: 'a', percentage: '33.33' },
+    ]), [{ costCenterId: 'a', percentageBasisPoints: 3333 }, { costCenterId: 'b', percentageBasisPoints: 6667 }]);
+  }
 });
 
 test('Manager room planning derives today and request membership from the selected site timezone', () => {
@@ -724,7 +753,7 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   assert.match(context, /Promise\.allSettled/);
   assert.match(context, /persistence\.loadProfile\(\{ signal \}\)/);
   assert.match(context, /persistence\.loadCatalog\(\{ signal \}\)/);
-  assert.match(context, /persistence\.listRequests\(\{ signal \}\)/);
+  assert.match(context, /persistence\.listOwnRequests\(\{ signal \}\)/);
   assert.match(context, /persistence\.listNotifications\(\{ signal \}\)/);
   assert.match(context, /loadBoundedProjection/);
   assert.match(context, /refreshNotifications/);

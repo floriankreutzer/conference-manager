@@ -461,6 +461,88 @@ async function submit(content, formId) {
   await content.locator(`[data-tenant-settings-form="${formId}"] button[type="submit"]`).click();
 }
 
+for (const language of ['de', 'en']) {
+  test(`CO-306 policy duration units preserve minutes and reject fractional minutes in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page);
+    fixture.state.bookingPolicies.configuration.versions[0].rules.maximumAdvanceMinutes = 527040;
+    const original = clone(fixture.state.bookingPolicies.configuration);
+    await openTenantSettings(page);
+    const content = await openSection(page, 'booking-policies', 'booking-policies');
+    const amount = content.locator('#tenant-policy-0-advance');
+    const unit = content.locator('#tenant-policy-0-advance-unit');
+    await expect(unit).toHaveValue('days');
+    await expect(amount).toHaveValue('366');
+    await unit.selectOption('minutes');
+    await expect(amount).toHaveValue('527040');
+    await unit.selectOption('hours');
+    await expect(amount).toHaveValue('8784');
+    await unit.selectOption('days');
+    await expect(amount).toHaveValue('366');
+    await submit(content, 'booking-policies');
+    await expect.poll(() => fixture.writes.length).toBe(1);
+    expect(fixture.writes[0].body.configuration).toEqual(original);
+    expect(fixture.writes[0].body.expectedRevision).toBe(5);
+    expect(fixture.writes[0].csrf).toBe(CSRF_TOKEN);
+    await expect(content.getByText(language === 'de' ? 'Konfigurationsstand: 6' : 'Configuration revision: 6')).toBeVisible();
+    await amount.fill('0.001');
+    await submit(content, 'booking-policies');
+    await expect(amount).toHaveAttribute('aria-invalid', 'true');
+    await expect(amount).toBeFocused();
+    expect(fixture.writes).toHaveLength(1);
+    await amount.fill('367');
+    await submit(content, 'booking-policies');
+    await expect.poll(() => fixture.writes.length).toBe(2);
+    expect(fixture.writes[1].body.configuration.versions[0].rules.maximumAdvanceMinutes).toBe(528480);
+  });
+
+  test(`CO-306 Tenant searches preserve complete owned snapshots in ${language}`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page);
+    fixture.state.locations.configuration.rooms.push(...Array.from({ length: 8 }, (_, index) => room({
+      id: `extra-${index}`, name: `Extra room ${index}`, capacity: 8,
+    })));
+    fixture.state.costAllocation.configuration.costCenters = Array.from({ length: 18 }, (_, index) => ({
+      id: `center-${index}`, code: `CENTER_${index}`, name: `Center ${index}`, group: null, active: true,
+    }));
+    const originalLocations = clone(fixture.state.locations.configuration);
+    const originalCosts = clone(fixture.state.costAllocation.configuration);
+    await openTenantSettings(page);
+    let content = await openSection(page, 'locations', 'locations-technical');
+    await content.locator('#tenant-rooms-search').fill('Extra room 7');
+    const roomEntry = content.locator('[data-tenant-room-id="extra-7"]').locator('..');
+    await roomEntry.locator(':scope > summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(content.locator('#tenant-room-site-9')).toBeVisible();
+    await content.locator('#tenant-sites-search').fill('Berlin');
+    await content.locator('#tenant-site-name-0').fill('Updated Berlin');
+    await content.locator('#tenant-sites-search').fill('No match');
+    await submit(content, 'locations-technical');
+    await expect.poll(() => fixture.writes.length).toBe(1);
+    expect(fixture.writes[0].body.configuration).toEqual({ ...originalLocations,
+      sites: [{ ...originalLocations.sites[0], name: 'Updated Berlin' }],
+    });
+    expect(fixture.writes[0].body.expectedRevision).toBe(2);
+    expect(fixture.writes[0].csrf).toBe(CSRF_TOKEN);
+    content = await openSection(page, 'cost-allocation', 'cost-allocation');
+    await content.locator('#tenant-cost-centers-search').fill('Center 17');
+    await content.locator('[data-cost-center-id="center-17"]').locator('..').locator(':scope > summary').click();
+    await content.locator('#tenant-cost-center-17-name').fill('Updated center');
+    await content.locator('#tenant-cost-centers-search').fill('No match');
+    await submit(content, 'cost-allocation');
+    await expect.poll(() => fixture.writes.length).toBe(2);
+    expect(fixture.writes[1].body.configuration).toEqual({ ...originalCosts,
+      costCenters: originalCosts.costCenters.map((entry, index) => index === 17 ? { ...entry, name: 'Updated center' } : entry),
+    });
+    expect(fixture.writes[1].body.expectedRevision).toBe(6);
+    expect(fixture.writes[1].csrf).toBe(CSRF_TOKEN);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+  });
+}
+
 test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-owned fields', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page);
   await openTenantSettings(page);
@@ -577,6 +659,75 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });
 
+for (const language of ['de', 'en']) {
+  test(`CO-307 ${language}: organization edits survive Stay and require explicit discard before navigation`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+    await openTenantSettings(page);
+    const content = await openSection(page, 'organization', 'organization');
+    const registration = content.locator('#tenant-organization-registration-number');
+    await registration.fill('QA-UNSAVED');
+    expect(await page.evaluate(() => !window.dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    if (language === 'de') await page.locator('[data-tenant-admin-section="booking-policies"]').click();
+    else await page.evaluate(() => { location.hash = '#tenant-admin/booking-policies'; });
+    const dialog = page.getByRole('dialog');
+    const stay = dialog.getByRole('button', { name: language === 'de' ? 'Hier bleiben' : 'Stay here' });
+    await expect(stay).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(registration).toHaveValue('QA-UNSAVED');
+    expect(fixture.writes).toHaveLength(0);
+    await page.locator('[data-view="welcome"]').click();
+    await dialog.getByRole('button', { name: language === 'de' ? 'Änderungen verwerfen' : 'Discard changes' }).click();
+    await expect(page.locator('#welcomeHeading')).toBeVisible();
+    await openTenantSettings(page);
+    const restored = await openSection(page, 'organization', 'organization');
+    await expect(restored.locator('#tenant-organization-registration-number')).toHaveValue('HRB 12345');
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+test('CO-307 failed save retains edits and Escape cancels navigation without retrying the write', async ({ page }) => {
+  await installProductionSettingsFixture(page, { organizationConflict: false });
+  let attempts = 0;
+  await page.route(`${ORIGIN}/api/v1/tenant/settings/organization`, async (route) => {
+    if (route.request().method() !== 'PUT') return route.fallback();
+    attempts += 1;
+    await route.fulfill({ status: 503, contentType: 'application/json',
+      body: JSON.stringify({ error: { code: 'UNAVAILABLE' } }) });
+  });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'organization', 'organization');
+  const registration = content.locator('#tenant-organization-registration-number');
+  await registration.fill('QA-FAILED-SAVE');
+  await submit(content, 'organization');
+  await expect(content.locator('button[type="submit"]')).toBeEnabled();
+  await expect(content.locator('button[type="submit"]')).toBeFocused();
+  await expect(registration).toHaveValue('QA-FAILED-SAVE');
+  await expect(registration).toBeEnabled();
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(registration).toHaveValue('QA-FAILED-SAVE');
+  expect(attempts).toBe(1);
+  expect(await page.evaluate(() => !window.dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+});
+
+test('CO-307 successful organization save allows navigation without a discard warning', async ({ page }) => {
+  const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+  await openTenantSettings(page);
+  const content = await openSection(page, 'organization', 'organization');
+  await content.locator('#tenant-organization-registration-number').fill('QA-SAVED');
+  const originalForm = await content.locator('[data-tenant-settings-form="organization"]').elementHandle();
+  await submit(content, 'organization');
+  await expect.poll(() => fixture.writes.length).toBe(1);
+  await expect.poll(() => originalForm.evaluate((form) => form.isConnected)).toBe(false);
+  await expect(content.locator('#tenant-organization-registration-number')).toHaveValue('QA-SAVED');
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('#welcomeHeading')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('deferred section navigation focus preserves an active settings edit', async ({ page }) => {
   const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
   await openTenantSettings(page);
@@ -643,6 +794,7 @@ test('detached Tenant Admin conflict reapply stops before a second privileged wr
   await expect.poll(() => fixture.organizationReads()).toBe(2);
 
   await page.locator('[data-view="welcome"]').click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Änderungen verwerfen' }).click();
   const reapplyRead = page.waitForResponse((response) => (
     new URL(response.url()).pathname === '/api/v1/tenant/settings/organization'
     && response.request().method() === 'GET'
@@ -828,3 +980,35 @@ test('Catering list replaces bounded pages without accumulating connection forms
   expect(fixture.cateringWrites).toEqual([]);
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });
+
+for (const language of ['de', 'en']) {
+  test(`CO-299: ${language} duplicate cost-center code links and focuses the actual invalid field`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page);
+    await openTenantSettings(page);
+    const content = await openSection(page, 'cost-allocation', 'cost-allocation');
+    await content.getByRole('button', { name: language === 'de' ? 'Kostenstelle hinzufügen' : 'Add cost center' }).click();
+    const code = content.locator('#tenant-cost-center-1-code');
+    await code.fill('EVENTS');
+    await content.locator('#tenant-cost-centers-search').fill('No match');
+    await submit(content, 'cost-allocation');
+    await expect(code).toBeFocused();
+    await expect(code).toHaveAttribute('aria-invalid', 'true');
+    await expect(code).toHaveAttribute('aria-describedby', /tenant-cost-allocation-error/);
+    const summary = content.locator('.validation-summary');
+    await expect(summary).toHaveAttribute('role', 'alert');
+    await expect(summary).toContainText(language === 'de' ? 'Der Kostenstellencode EVENTS wird bereits verwendet.' : 'The cost center code EVENTS is already in use.');
+    const link = summary.getByRole('link');
+    await link.focus();
+    await link.press('Enter');
+    await expect(code).toBeFocused();
+    await expect(content.locator('#tenant-allocation-required')).not.toHaveAttribute('aria-invalid', 'true');
+    expect(fixture.writes).toHaveLength(0);
+    await code.fill('EVENTS_2');
+    await expect(code).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(summary).toHaveCount(0);
+    await submit(content, 'cost-allocation');
+    await expect.poll(() => fixture.writes.length).toBe(1);
+    await expect(content.locator('#tenant-cost-center-1-code')).toHaveValue('EVENTS_2');
+  });
+}

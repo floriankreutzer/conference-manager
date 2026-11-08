@@ -72,6 +72,7 @@ export function createAppShell({
   const titleRoot = document.getElementById('viewTitle');
   const subtitleRoot = document.getElementById('viewSubtitle');
   let view = 'welcome';
+  let renderedLanguage = language();
   let authenticationPage = null;
   if ((context.tenantStatus?.() === 'onboarding'
     || !context.isDemoRuntime() && context.tenantStatus?.() === 'ready')
@@ -103,6 +104,7 @@ export function createAppShell({
     }
     const code = authorityFailureCode(error);
     if (!code || !context.invalidateAuthority(error)) return false;
+    tenantAdmin?.invalidateEditor?.();
     invalidatePendingRender();
     tenantPresentation?.invalidateAuthority?.();
     applyTenantPresentationToDocument(document, TENANT_PRESENTATION_FALLBACK);
@@ -156,7 +158,10 @@ export function createAppShell({
       invalidatePendingRender();
       return;
     }
+    if (view === 'tenantAdmin' && context.isAuthenticated()
+      && tenantAdmin?.allowNavigation?.(() => setView(nextView)) === false) return;
     if (!serverViewAllowed(nextView)) nextView = 'welcome';
+    if (view !== nextView) clearTransientFeedback();
     onViewChange?.(nextView);
     view = nextView;
     render();
@@ -476,8 +481,13 @@ export function createAppShell({
       }
     });
     languageSelect.addEventListener('change', () => {
-      setLanguage(languageSelect.value);
-      dialog.close();
+      const nextLanguage = languageSelect.value;
+      const changeLanguage = () => { setLanguage(nextLanguage); dialog.close(); };
+      if (view === 'tenantAdmin' && tenantAdmin?.allowNavigation?.(changeLanguage) === false) {
+        languageSelect.value = language();
+        return;
+      }
+      changeLanguage();
     });
   }
 
@@ -517,6 +527,12 @@ export function createAppShell({
   }
 
   function render() {
+    if (!sessionLocked() && context.isAuthenticated() && view === 'tenantAdmin'
+      && tenantAdmin?.allowNavigation?.(render) === false) return;
+    if (renderedLanguage !== language()) {
+      clearTransientFeedback();
+      renderedLanguage = language();
+    }
     invalidatePendingRender();
     const revision = renderRevision;
     if (sessionLocked()) return;
