@@ -5177,6 +5177,8 @@ test('CO-304 a newly observed terminal status clears the matching submission not
   await page.getByRole('button', { name: 'Anfrage absenden' }).click();
   await expect(page.locator('[data-ux-submission-success]')).toBeVisible();
   fixture.requests()[0].status = 'Rejected';
+  fixture.requests()[0].statusReason = 'Room unavailable for the requested schedule';
+  fixture.requests()[0].version += 1;
   await page.getByRole('button', { name: 'Aktualisieren', exact: true }).click();
   await expect(page.getByText('Status: Abgelehnt', { exact: true })).toBeVisible();
   await expect(page.locator('[data-ux-submission-success]')).toHaveCount(0);
