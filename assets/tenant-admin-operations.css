@@ -319,3 +319,85 @@
   gap: var(--space-3);
   min-block-size: var(--control-height);
 }
+
+/* Audit rows remain compact; the selected event owns one detail surface. */
+.tenant-audit-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+.tenant-audit-scroll {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  padding: var(--space-1);
+}
+.tenant-audit-table {
+  min-inline-size: 40rem;
+}
+.tenant-audit-table button {
+  min-block-size: var(--control-height);
+  white-space: normal;
+  text-align: start;
+}
+.tenant-audit-table button[aria-expanded="true"] {
+  color: var(--brand-primary);
+  background: var(--brand-secondary-surface);
+}
+.tenant-audit-detail {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+.tenant-audit-detail .tenant-operations-metadata,
+.tenant-audit-detail .tenant-audit-state-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tenant-audit-technical > summary {
+  min-block-size: var(--control-height);
+  padding-block: var(--space-3);
+  cursor: pointer;
+}
+.tenant-audit-scroll:focus-visible,
+.tenant-audit-technical > summary:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--space-1);
+}
+@media (max-width: 980px) {
+  .tenant-audit-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.tenant-setup-overview {
+  margin-block: var(--space-4);
+}
+.tenant-setup-summaries {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--space-3);
+}
+.tenant-setup-summaries article {
+  min-inline-size: 0;
+  padding: var(--space-3);
+  background: var(--color-surface-subtle);
+  overflow-wrap: anywhere;
+}
+.tenant-setup-tasks {
+  padding: 0;
+  list-style: none;
+}
+.tenant-setup-tasks li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+}
+.tenant-setup-tasks li > * {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+}

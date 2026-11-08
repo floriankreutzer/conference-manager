@@ -59,7 +59,7 @@ export async function verifyNorthwindBaseline(page, {
     await expect(page.locator(`[data-production-request-id="${request.id}"]`)).toContainText(request.details.title);
   }
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await page.getByRole('button', { name: 'Catering', exact: true }).click();
   const packageImage = page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel');
   await expect(packageImage).toBeVisible();

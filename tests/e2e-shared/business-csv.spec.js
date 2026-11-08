@@ -11,7 +11,7 @@ async function openBusiness(page, section, localDiagnostics) {
   // instead of spending the entire journey budget waiting after a bad bootstrap.
   await page.locator('[data-view="manager"]').click(localDiagnostics ? { timeout: 15_000 } : undefined);
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   if (section !== 'Räume') await page.getByRole('button', { name: section, exact: true }).click();
   await expect(page.locator('#viewTitle')).toBeFocused();
 }

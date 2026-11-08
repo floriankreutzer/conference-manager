@@ -330,15 +330,10 @@ export function createAppShell({
     const displayName = tenantPresentation?.current?.().presentation.displayName
       || TENANT_PRESENTATION_FALLBACK.presentation.displayName;
 
-    const hero = el('section', { className: 'welcome-hero', attrs: { 'aria-labelledby': 'welcomeHeading' } });
-    hero.append(
-      el('p', { className: 'eyebrow', text: displayName }),
-      el('h2', {
-        id: 'welcomeHeading',
-        text: firstName ? t('welcome.greeting', { name: firstName }) : t('nav.welcome'),
-      }),
-      el('p', { text: t('welcome.subtitle') }),
-    );
+    setPageHeading(firstName ? t('welcome.greeting', { name: firstName }) : t('nav.welcome'), t('welcome.subtitle'));
+    const hero = el('section', { className: 'welcome-hero', attrs: { 'aria-labelledby': 'viewTitle' } }, [
+      el('p', { id: 'welcomeHeading', className: 'eyebrow', text: displayName }),
+    ]);
     const heroActions = el('div', { className: 'button-row' });
     const newButton = button(t('welcome.new'), { className: 'primary' });
     newButton.addEventListener('click', () => setView('employee'));
