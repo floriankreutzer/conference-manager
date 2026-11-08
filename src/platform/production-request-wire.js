@@ -1,6 +1,7 @@
 import { publicRoomGuestValues, publicSiteGuestValues } from '../core/public-guest-values.js';
 import { normalizeGuestPresentation, normalizeGuestRoomText } from '../core/guest-presentation.js';
 import { isProductionTimeZone } from '../core/production-time.js';
+import { requestTextResult } from '../shared/request-text.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
@@ -8,7 +9,6 @@ const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
 // validates syntax only; the API verifies HMAC, expiry, Tenant and object scope.
 const SIGNED_REQUEST_CURSOR = /^[A-Za-z0-9_-]{1,3072}\.[A-Za-z0-9_-]{43}$/;
 const UTC_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const UNSAFE_DRAFT_TEXT = /[<>\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/;
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const UNSAFE_DISPLAY_NAME_CHARACTER = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/u;
 const COST_CENTER_CODE = /^[A-Z0-9][A-Z0-9._-]{0,63}$/;
@@ -127,13 +127,10 @@ function responseText(value, { maximum, nullable = false, code }) {
   return normalized;
 }
 
-function draftText(value, { maximum, nullable = false, code }) {
-  if (nullable && value === null) return null;
-  if (typeof value !== 'string' || UNSAFE_DRAFT_TEXT.test(value)) invalid(code);
-  const normalized = value.trim().normalize('NFC');
-  if (nullable && normalized.length === 0) return null;
-  if (normalized.length < 1 || normalized.length > maximum) invalid(code);
-  return normalized;
+function draftText(value, { maximum, nullable = false, multiline = false, code }) {
+  const result = requestTextResult(value, { maximum, nullable, multiline });
+  if (result.error) invalid(code);
+  return result.value;
 }
 
 function uniqueIdentifiers(value, maximum, code, { sorted = false } = {}) {
@@ -538,8 +535,8 @@ function requestDetails(value, code, schemaVersion) {
   ) invalid(code);
   return Object.freeze({
     title: draftText(details.title, { maximum: 160, code }),
-    specialRequirements: draftText(details.specialRequirements, { maximum: 2_000, nullable: true, code }),
-    dietaryRequirements: draftText(details.dietaryRequirements, { maximum: 2_000, nullable: true, code }),
+    specialRequirements: draftText(details.specialRequirements, { maximum: 2_000, nullable: true, multiline: true, code }),
+    dietaryRequirements: draftText(details.dietaryRequirements, { maximum: 2_000, nullable: true, multiline: true, code }),
     serviceIds: uniqueIdentifiers(details.serviceIds, 200, code, { sorted: true }),
     ...(schemaVersion === 3 ? { equipmentIds: uniqueIdentifiers(details.equipmentIds, 200, code, { sorted: true }) } : {}),
     catering: Object.freeze({
@@ -998,8 +995,8 @@ export function normalizeProductionRequestDraft(value) {
     serviceIds: [...uniqueIdentifiers(input.serviceIds, 200, code)].sort(),
     ...(equipmentDraft ? { equipmentIds: [...uniqueIdentifiers(input.equipmentIds, 200, code)].sort() } : {}),
     catering: { participantCount, packageSelection, itemQuantities },
-    dietaryRequirements: draftText(input.dietaryRequirements, { maximum: 2_000, nullable: true, code }),
-    specialRequirements: draftText(input.specialRequirements, { maximum: 2_000, nullable: true, code }),
+    dietaryRequirements: draftText(input.dietaryRequirements, { maximum: 2_000, nullable: true, multiline: true, code }),
+    specialRequirements: draftText(input.specialRequirements, { maximum: 2_000, nullable: true, multiline: true, code }),
     allocations,
     configurationRevisions: configurationRevisions(input.configurationRevisions, code),
   });
