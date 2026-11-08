@@ -108,6 +108,8 @@ test('actual qualified different-site roots bind native handoff, local onboardin
     // at this completed customer phase before loading another full document.
     edge.compactStaticEvidence();
     await handoff('northwind','tenant_admin');
+    await page.locator('[data-view="tenantAdmin"]').click();
+    await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
     await verifySyntheticUsers();
     await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
     await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
