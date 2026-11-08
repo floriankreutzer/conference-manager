@@ -244,7 +244,7 @@ export function createApplicationContextFromState({
       const revision = requestRefreshRevision + 1;
       requestRefreshRevision = revision;
       const refreshed = immutableArray(await loadBoundedProjection(
-        (signal) => serverPersistence.listRequests({ signal }),
+        (signal) => serverPersistence.listOwnRequests({ signal }),
         requiredTimeout,
       ), EMPTY_REQUESTS);
       if (trustedSession && revision === requestRefreshRevision) requests = refreshed;
@@ -349,7 +349,7 @@ export async function createApplicationContext({
         loadBoundedProjection((signal) => Promise.all([
           persistence.loadProfile({ signal }),
           persistence.loadCatalog({ signal }),
-          persistence.listRequests({ signal }),
+          persistence.listOwnRequests({ signal }),
         ]), requiredTimeout),
         Promise.allSettled([
           loadBoundedProjection(

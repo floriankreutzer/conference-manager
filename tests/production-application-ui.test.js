@@ -724,7 +724,7 @@ test('Platform owns shared server persistence and Composition Root uses only ser
   assert.match(context, /Promise\.allSettled/);
   assert.match(context, /persistence\.loadProfile\(\{ signal \}\)/);
   assert.match(context, /persistence\.loadCatalog\(\{ signal \}\)/);
-  assert.match(context, /persistence\.listRequests\(\{ signal \}\)/);
+  assert.match(context, /persistence\.listOwnRequests\(\{ signal \}\)/);
   assert.match(context, /persistence\.listNotifications\(\{ signal \}\)/);
   assert.match(context, /loadBoundedProjection/);
   assert.match(context, /refreshNotifications/);

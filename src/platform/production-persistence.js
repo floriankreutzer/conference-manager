@@ -534,7 +534,7 @@ async function loadCatalogV2(apiClient, options = {}) {
   });
 }
 
-async function loadAllRequestPages(apiClient, path, options = {}, observeVersion = () => {}) {
+async function loadAllRequestPages(apiClient, path, options = {}, observeVersion = () => {}, scope) {
   const requests = [];
   let cursor = null;
   let authority = null;
@@ -544,7 +544,7 @@ async function loadAllRequestPages(apiClient, path, options = {}, observeVersion
   const cursorGuard = cursorState();
   do {
     const page = normalizeProductionRequestListPage(await call(apiClient, queryPath(path, {
-      limit: '10', ...(cursor ? { cursor } : {}),
+      limit: '10', ...(scope ? { scope } : {}), ...(cursor ? { cursor } : {}),
     }), options));
     if (authority === null) {
       authority = page;
@@ -609,6 +609,16 @@ export function createProductionPersistence({ apiClient } = {}) {
         DOMAIN_ENDPOINTS.requests,
         options,
         observeRequestEnvelopeVersion,
+      );
+    },
+
+    async listOwnRequests(options = {}) {
+      return loadAllRequestPages(
+        apiClient,
+        DOMAIN_ENDPOINTS.requests,
+        options,
+        observeRequestEnvelopeVersion,
+        'own',
       );
     },
 

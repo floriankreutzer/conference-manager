@@ -281,6 +281,7 @@ async function productionHtml() {
 
 async function installProductionApplicationFixture(page, {
   roles = ['employee'],
+  ownRequestIds = null,
   timeZone = 'Europe/Berlin',
   catalog = catalogPayload(timeZone),
   catalogLocationsRevision = 1,
@@ -321,6 +322,7 @@ async function installProductionApplicationFixture(page, {
   const roomMediaUploads = [];
   const reportReads = [];
   const requestHistoryReads = [];
+  const requestListReads = [];
   const roomContextReads = [];
   const catalogReads = [];
   const requestEnvelopes = [];
@@ -866,6 +868,7 @@ async function installProductionApplicationFixture(page, {
     }
 
     if (url.pathname === '/api/v1/application/requests' && request.method() === 'GET') {
+      requestListReads.push(url.searchParams.get('scope'));
       if (nextRequestReadFailure) {
         const failure = nextRequestReadFailure;
         nextRequestReadFailure = null;
@@ -893,7 +896,8 @@ async function installProductionApplicationFixture(page, {
         body: JSON.stringify({
           schemaVersion: 2,
           asOf: '2026-09-24T12:00:00.000Z',
-          requests: responseRequests.map(publicRequest),
+          requests: responseRequests.filter((entry) => !ownRequestIds
+            || url.searchParams.get('scope') !== 'own' || ownRequestIds.includes(entry.id)).map(publicRequest),
           page: { limit: 10, complete: true, nextCursor: null },
         }),
       });
@@ -1453,6 +1457,7 @@ async function installProductionApplicationFixture(page, {
     reportReads,
     requestEnvelopes,
     requestHistoryReads,
+    requestListReads,
     roomContextReads,
     roomMediaUploads,
     requests: () => requests,
@@ -5118,3 +5123,44 @@ test('EMP-03: room cards and review resolve catalogue equipment references witho
   await expect(review).toContainText('Display 86 Zoll · Whiteboard · Ausstattung nicht verfügbar');
   await expect(review).not.toContainText(id);await expect(review).not.toContainText(unknown);expect(fixture.writes).toHaveLength(0);
 });
+
+for (const language of ['de', 'en']) {
+  for (const combined of [false, true]) {
+    test(`CO-310: ${language} personal list, calendar and counter stay separate from Manager scope (${combined})`, async ({ page }) => {
+      const roles = ['employee', 'conference_manager', ...(combined ? ['tenant_admin'] : [])];
+      const fixture = await installProductionApplicationFixture(page, { roles, ownRequestIds: [REQUEST_ID] });
+      const own = confirmedV2RequestFixture();
+      own.status = 'Submitted'; own.details.title = 'Own planning request';
+      const foreign = structuredClone(own);
+      foreign.id = '77777777-7777-4777-8777-777777777777';
+      foreign.details.title = 'Other requester planning';
+      fixture.replaceRequests([own, foreign]);
+      await page.goto(`${ORIGIN}/`);
+      if (language === 'en') {
+        await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+        await page.locator('#profileLanguage').selectOption('en');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+      }
+      await expect(page.locator('.dashboard-grid').first()).toContainText(language === 'de' ? 'Offene Anfragen' : 'Open requests');
+      await expect(page.locator('.dashboard-grid').first().locator('.kpi strong').first()).toHaveText('1');
+      expect(fixture.requestListReads.every((scope) => scope === 'own')).toBe(true);
+      await page.locator('[data-view="requests"]').click();
+      await expect(page.locator('[data-production-request-id]')).toHaveCount(1);
+      await expect(page.getByRole('heading', { name: own.details.title, exact: true })).toBeVisible();
+      await page.getByRole('button', { name: language === 'de' ? 'Kalender' : 'Calendar', exact: true }).click();
+      await expect(page.locator('.calendar-event')).toHaveCount(1);
+      await page.locator('.calendar-event').focus();
+      await page.locator('.calendar-event').press('Enter');
+      await expect(page.locator(`[data-production-request-id="${REQUEST_ID}"]`)).toBeFocused();
+      await page.locator('[data-view="manager"]').click();
+      await expect(page.locator('[data-production-request-id]')).toHaveCount(2);
+      expect(fixture.requestListReads.at(-1)).toBe(null);
+      await page.locator('[data-view="welcome"]').click();
+      await expect(page.locator('.dashboard-grid').first().locator('.kpi strong').first()).toHaveText('1');
+      expect(fixture.requestListReads.at(-1)).toBe('own');
+      await page.reload();
+      await expect(page.locator('.dashboard-grid').first().locator('.kpi strong').first()).toHaveText('1');
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
+}

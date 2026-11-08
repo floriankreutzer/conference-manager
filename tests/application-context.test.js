@@ -247,6 +247,7 @@ test('authenticated context refreshes its Request projection from server persist
     apiClient: Object.freeze({
       async request(path) {
         assert.match(path, /^v1\/application\/requests\?/);
+        assert.equal(new URL(path, 'https://example.test').searchParams.get('scope'), 'own');
         return {
           schemaVersion: 2,
           asOf: '2026-08-30T12:00:00.000Z',

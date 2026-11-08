@@ -1826,7 +1826,7 @@ export function createProductionEmployeeApplication({
           if (isResubmission) {
             resubmissionVersionCurrent = false;
             try {
-              const requests = await persistence.listRequests();
+              const requests = await persistence.listOwnRequests();
               if (!isCurrentEditor()) return;
               const currentRequest = requests.find((entry) => entry.id === sourceRequest.id);
               if (currentRequest?.status === 'Change Requested'
@@ -1975,7 +1975,7 @@ export function createProductionEmployeeApplication({
       }
       try {
         const [nextCatalog, requests] = await Promise.all([
-          persistence.loadCatalog(), persistence.listRequests(),
+          persistence.loadCatalog(), persistence.listOwnRequests(),
         ]);
         if (!isCurrent(generation)) return;
         const [changes, roomContexts] = await Promise.all([
