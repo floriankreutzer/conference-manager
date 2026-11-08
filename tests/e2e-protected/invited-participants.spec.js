@@ -251,7 +251,7 @@ async({ browser,browserName })=>{
         const date=new Date(Date.now()+28*86400000);while ([0,6].includes(date.getUTCDay())) date.setUTCDate(date.getUTCDate()+1);
         await page.locator('#productionTitle').fill('Invited participant browser booking');
         await page.locator('#productionDate').fill(date.toISOString().slice(0,10));
-        await page.locator('#productionEndDate').fill(date.toISOString().slice(0,10));
+        await expect(page.locator('#productionEndDate')).toHaveValue(date.toISOString().slice(0,10));
         await page.locator('#productionStart').fill('09:00');await page.locator('#productionEnd').fill('10:00');
         await page.locator('#productionInternal').fill('1');await page.locator('#productionExternal').fill('0');
         const next=page.getByRole('button',{ name: 'Weiter',exact: true });await next.click();

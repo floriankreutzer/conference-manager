@@ -454,3 +454,10 @@ body[data-ux-first-use="true"] .welcome-hero {
 @media (max-width: 40rem) {
   .guest-information-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+.request-schedule-groups { display: grid; gap: var(--space-4); }
+.request-schedule-group { min-inline-size: 0; padding: var(--space-3); border: 1px solid var(--color-border); }
+.request-schedule-group legend { font-weight: var(--font-weight-bold); }
+.request-schedule-group .field[hidden] { display: none; }
+.request-action-bar { margin-block: var(--space-3); padding: var(--space-3); background: var(--color-surface); border: 1px solid var(--color-border); }
+[data-catering-options] > summary, [data-request-optional-notes] > summary { padding-block: var(--space-3); font-weight: var(--font-weight-bold); cursor: pointer; }

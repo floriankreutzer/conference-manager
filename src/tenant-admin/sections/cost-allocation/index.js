@@ -69,7 +69,7 @@ export function createCostAllocationSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('COST_ALLOCATION_SECTION_ADAPTER_INVALID');
   let focusAfterSave = false;
 
-  async function render({ root, isCurrent, rerender }) {
+  async function render({ root, isCurrent, rerender, registerEditor }) {
     renderSectionLoading(root, TITLE);
     let snapshot;
     let history;
@@ -119,6 +119,19 @@ export function createCostAllocationSection({ adapter = null } = {}) {
     };
     form.addEventListener('input', clearErrors);
     form.addEventListener('change', clearErrors);
+    const editorState = registerEditor?.({
+      // Search/filter inputs are presentation state, not unsaved configuration.
+      read: () => JSON.stringify([...form.querySelectorAll('fieldset input, fieldset select, fieldset textarea, #tenant-allocation-required')]
+        .map((control) => [control.id, control.type === 'checkbox' ? control.checked : control.value])),
+      isCurrent,
+    });
+    const updateDirtyStatus = () => {
+      if (!mutationPending) status.textContent = editorState?.isDirty() ? t('tenantAdmin.unsaved.title') : '';
+    };
+    form.addEventListener('input', updateDirtyStatus);
+    form.addEventListener('change', updateDirtyStatus);
+    add.addEventListener('click', updateDirtyStatus);
+    const conflict = el('div');
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;
@@ -152,10 +165,13 @@ export function createCostAllocationSection({ adapter = null } = {}) {
       }
       save.disabled = true;
       mutationPending = true;
+      const locked = [...form.querySelectorAll('input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)')];
+      locked.forEach((control) => { control.disabled = true; });
       status.textContent = t('tenantSettings.status.saving');
       try {
         await adapter.saveCostAllocation({ expectedRevision: snapshot.revision, configuration: submittedDraft });
         if (!isCurrent()) return;
+        editorState?.saved();
         focusAfterSave = true;
         showToast(t('tenantSettings.status.saved'));
         announce(t('tenantSettings.status.saved'));
@@ -164,18 +180,9 @@ export function createCostAllocationSection({ adapter = null } = {}) {
         if (!isCurrent()) return;
         const currentRevision = tenantSettingsConflictRevision(error);
         if (currentRevision !== null) {
-          renderSectionConflict(root, TITLE, {
-            currentRevision, onReload: rerender,
-            onReapply: async () => {
-              const current = await adapter.loadCostAllocation();
-              if (!isCurrent()) return;
-              await adapter.saveCostAllocation({ expectedRevision: current.revision, configuration: submittedDraft });
-              if (!isCurrent()) return;
-              focusAfterSave = true;
-              rerender();
-            },
-          });
-          root.querySelector('h2')?.focus();
+          status.textContent = t('tenantSettings.status.saveFailed');
+          renderSectionConflict(conflict, TITLE, { currentRevision, onReload: rerender });
+          conflict.querySelector('h2')?.focus();
           return;
         }
         save.disabled = false;
@@ -183,6 +190,12 @@ export function createCostAllocationSection({ adapter = null } = {}) {
         status.textContent = t('tenantSettings.status.saveFailed');
         announce(status.textContent, { assertive: true });
         save.focus();
+      } finally {
+        if (isCurrent()) {
+          locked.forEach((control) => { control.disabled = false; });
+          save.disabled = false;
+          mutationPending = false;
+        }
       }
     });
     const historyList = el('ol');
@@ -191,7 +204,7 @@ export function createCostAllocationSection({ adapter = null } = {}) {
     root.append(
       el('section', { className: 'card' }, [
         el('h2', { text: t(TITLE), attrs: { tabindex: '-1' } }), el('p', { text: t('tenantAdmin.costAllocation.description') }),
-        el('p', { className: 'muted', text: t('tenantAdmin.section.revision', { revision: snapshot.revision }) }), form,
+        el('p', { className: 'muted', text: t('tenantAdmin.section.revision', { revision: snapshot.revision }) }), conflict, form,
       ]),
       el('section', { className: 'card' }, [el('h3', { text: t('tenantSettings.history.title') }), historyList]),
     );

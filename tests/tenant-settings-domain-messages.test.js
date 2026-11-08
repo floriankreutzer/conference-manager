@@ -60,7 +60,7 @@ test('Tenant settings mutations suppress detached continuations and conflict rea
   const sources = Object.fromEntries(['organization', 'locations', 'booking-policies', 'cost-allocation']
     .map((section) => [section, readFileSync(`src/tenant-admin/sections/${section}/index.js`, 'utf8')]));
 
-  for (const section of ['organization', 'cost-allocation']) {
+  for (const section of ['organization']) {
     assert.match(sources[section], /let submittedDraft;/);
     assert.doesNotMatch(sources[section], /let (?:pendingDraft|draft) = null;/);
     assert.match(
@@ -69,13 +69,15 @@ test('Tenant settings mutations suppress detached continuations and conflict rea
     );
   }
 
-  // CO-319 retains the policy form on conflict and deliberately offers no
+  // Policy and cost editors retain the form on conflict and deliberately offer no
   // fresh-revision overwrite. Its only write remains the explicit submit CAS.
-  assert.match(sources['booking-policies'], /let submittedDraft;/);
-  assert.doesNotMatch(sources['booking-policies'], /onReapply/);
-  assert.equal([...sources['booking-policies'].matchAll(/await adapter\.saveBookingPolicies\(/g)].length, 1);
-  assert.match(sources['booking-policies'], /renderSectionConflict\(conflict, TITLE, \{ currentRevision, onReload: rerender \}\)/);
-  assert.match(sources['booking-policies'], /conflict, form/);
+  for (const [section, method] of [['booking-policies', 'saveBookingPolicies'], ['cost-allocation', 'saveCostAllocation']]) {
+    assert.match(sources[section], /let submittedDraft;/);
+    assert.doesNotMatch(sources[section], /onReapply/);
+    assert.equal(sources[section].split(`await adapter.${method}(`).length - 1, 1);
+    assert.match(sources[section], /renderSectionConflict\(conflict, TITLE, \{ currentRevision, onReload: rerender \}\)/);
+    assert.match(sources[section], /conflict, form/);
+  }
 
   for (const [section, saveMethod] of [
     ['organization', 'saveOrganization'],
