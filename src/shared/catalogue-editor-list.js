@@ -45,13 +45,14 @@ export function createCatalogueEditorList({ id, editors = [], nameOf = (editor) 
   }
   search.addEventListener('input', filter);
   reset.addEventListener('click', () => { search.value = ''; filter(); search.focus(); });
-  function reveal(control) {
+  function reveal(control, { exclusive = false } = {}) {
     const entry = entries.find(({ editor }) => editor.node.contains(control));
     if (!entry) return;
     search.value = '';
     filter();
-    revealingInvalid = true;
-    entry.details.open = true;
+    revealingInvalid = !exclusive;
+    if (exclusive) open(entry);
+    else entry.details.open = true;
   }
   node.addEventListener('invalid', (event) => reveal(event.target), true);
   editors.forEach((editor, index) => add(editor, { expanded: index === 0 }));

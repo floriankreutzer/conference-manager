@@ -451,6 +451,7 @@ export function createManagerBusinessSettingsApplication({
   locations,
   catalogue,
   cateringAssignments = null,
+  initialNavigation = null,
   onAuthorityFailure,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') {
@@ -462,7 +463,8 @@ export function createManagerBusinessSettingsApplication({
   if (typeof onAuthorityFailure !== 'function') {
     throw new TypeError('MANAGER_BUSINESS_SETTINGS_AUTHORITY_HANDLER_REQUIRED');
   }
-  let section = 'rooms';
+  let section = ['rooms', 'services', 'catering'].includes(initialNavigation?.section)
+    ? initialNavigation.section : 'rooms';
   let renderRevision = 0;
   const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
 
@@ -887,7 +889,10 @@ export function createManagerBusinessSettingsApplication({
       return { room, controls, nameField, publicGuest, node };
     });
     const form = el('form');
-    form.appendChild(createCatalogueEditorList({ id: 'manager-rooms', editors }).node);
+    const editorList = createCatalogueEditorList({ id: 'manager-rooms', editors });
+    const selectedRoom = editors.find(({ room }) => room.id === initialNavigation?.roomId);
+    if (selectedRoom) editorList.reveal(selectedRoom.node, { exclusive: true });
+    form.appendChild(editorList.node);
     const save = button(t('managerSettings.save'), { className: 'primary', attrs: { type: 'submit' } });
     form.prepend(el('div', { className: 'button-row catalogue-save-actions' }, [save]));
     form.addEventListener('submit', async (event) => {

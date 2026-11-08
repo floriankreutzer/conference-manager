@@ -11,16 +11,16 @@ export function deriveDemoManagerTasks({ requests, locations, catalogue }) {
     target: 'BOOKINGS',
   }));
   if (!studio.description) tasks.push({
-    id: 'room:description', key: 'demoManager.task.description', target: 'ADMIN',
+    id: 'room:description', key: 'demoManager.task.description', target: 'ADMIN', settings: { section: 'rooms', roomId: studio.id },
   });
   if (!catalogue.roomPrices?.some(({ roomId }) => roomId === STUDIO_ID)) tasks.push({
-    id: 'room:price', key: 'demoManager.task.price', target: 'ADMIN',
+    id: 'room:price', key: 'demoManager.task.price', target: 'ADMIN', settings: { section: 'rooms', roomId: studio.id },
   });
   if (!studio.mediaAssetIds?.length) tasks.push({
-    id: 'room:image', key: 'demoManager.task.image', target: 'ADMIN',
+    id: 'room:image', key: 'demoManager.task.image', target: 'ADMIN', settings: { section: 'rooms', roomId: studio.id },
   });
   if (!catalogue.cateringPackages?.length) tasks.push({
-    id: 'catalogue:catering', key: 'demoManager.task.catering', target: 'ADMIN',
+    id: 'catalogue:catering', key: 'demoManager.task.catering', target: 'ADMIN', settings: { section: 'catering' },
   });
   return Object.freeze(tasks.map((task) => Object.freeze(task)));
 }
