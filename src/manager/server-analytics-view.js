@@ -1,5 +1,6 @@
 import { formatNumber, locale, t } from '../core/i18n.js';
 import { button, el, field } from '../core/ui.js';
+import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { formatProductionDateTime, productionUtcInstant } from '../core/production-time.js';
 import { roomPlanPreview } from './room-plan-preview.js';
 import { roomPlanProjection, siteLocalIsoDate } from './server-room-plan.js';
@@ -11,8 +12,10 @@ import {
 } from './server-cockpit-model.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 
-function tableSection(title, columns, rows, emptyKey) {
-  const section = el('section', { className: 'report-card' }, [el('h3', { text: title })]);
+function tableSection(title, columns, rows, emptyKey, labelKey = null) {
+  const section = el('section', { className: 'report-card',
+    attrs: labelKey ? { 'aria-label': t(labelKey) } : {},
+  }, [el('h3', { text: title })]);
   if (!rows.length) {
     section.appendChild(el('p', { className: 'muted', text: t(emptyKey) }));
     return section;
@@ -69,12 +72,15 @@ export async function renderManagerReports({
   const reference = el('input', { type: 'date', value: state.date || siteLocalIsoDate(Date.now(), initialSite.timeZone),
     attrs: { required: 'required', 'aria-describedby': 'managerReportError' } });
   const error = el('p', { id: 'managerReportError', className: 'field-error', attrs: { role: 'alert' } });
-  const load = button(t('manager.restore.loadReport'), { type: 'submit' });
+  const load = button(t('manager.restore.loadReport'), { type: 'submit', className: 'primary' });
+  const reset = button(t('manager.ux.resetFilters'));
+  const room = el('select', {}, [el('option', { value: '', text: t('production.manager.reportAllRooms') })]);
   const controls = el('form', { className: 'report-toolbar' }, [
     field({ id: 'managerReportSite', label: t('manager.location'), control: site }),
+    field({ id: 'managerReportRoom', label: t('production.employee.room'), control: room }),
     field({ id: 'managerReportPeriod', label: t('manager.report.period'), control: period }),
     field({ id: 'managerReportDate', label: t('manager.referenceDate'), control: reference, required: true }),
-    load,
+    el('div', { className: 'button-row' }, [load, reset]),
   ]);
   const results = el('section', { dataset: { reportContent: 'true' } });
   panel.append(controls, error, results);
@@ -99,39 +105,57 @@ export async function renderManagerReports({
     results.setAttribute('aria-busy', 'true');
     results.replaceChildren(el('p', { attrs: { role: 'status' }, text: t('production.common.loading') }));
     load.disabled = true;
+    room.disabled = true;
     try {
       const report = await persistence.loadRequestReport(range.fromInclusive, range.toExclusive);
       if (!isCurrent() || sequence !== currentSequence || !panel.isConnected) return;
-      const model = serverReportModel({ requests: report.requests, catalog, siteId: state.siteId, range });
-      const number = (value) => formatNumber(value, { maximumFractionDigits: 1 });
+      const model = serverReportModel({ requests: report.requests, catalog, siteId: state.siteId, range, roomId: state.roomId || null });
+      const previousRoomName = room.selectedOptions[0]?.textContent;
+      const roomOptions = [...model.roomOptions];
+      if (state.roomId && !roomOptions.some((entry) => entry.id === state.roomId)) {
+        roomOptions.push({ id: state.roomId, name: previousRoomName });
+      }
+      room.replaceChildren(el('option', { value: '', text: t('production.manager.reportAllRooms') }),
+        ...roomOptions.map((entry) => el('option', { value: entry.id, text: entry.name || t('manager.restore.unavailableName') })));
+      room.value = state.roomId || '';
+      room.disabled = false;
+      const number = (value) => value === null ? t('production.manager.reportUnavailable')
+        : formatNumber(value, { maximumFractionDigits: 1 });
       const name = (row) => row.name || t('manager.restore.unavailableName');
       const rangeLabel = t('manager.report.range', {
         start: dateText(range.fromInclusive, range.timeZone),
         end: dateText(new Date(Date.parse(range.toExclusive) - 1).toISOString(), range.timeZone),
       });
       const metrics = [
-        ['manager.bookings', model.scoped.length], ['manager.confirmedBookings', model.confirmed.length],
-        ['manager.totalParticipants', model.participants], ['production.manager.roomHours', model.hours],
-        ['manager.cateringBookings', model.cateringBookings],
+        ['manager.bookings', model.scoped.length, 'calendar'], ['manager.confirmedBookings', model.confirmed.length, 'check'],
+        ['production.manager.reportConfirmedParticipants', model.participants, 'participants'], ['production.manager.roomHours', model.hours, 'usage'],
+        ['manager.cateringBookings', model.cateringBookings, 'catering'],
       ];
       results.replaceChildren(
         el('p', { text: rangeLabel, attrs: { role: 'status' } }),
+        el('p', { className: 'muted', text: t('production.manager.reportScope', { site: selectedSite.name, timeZone: range.timeZone }) }),
         el('p', { className: 'muted', text: t('manager.restore.reportBasis') }),
-        el('section', { className: 'dashboard-grid' }, metrics.map(([key, value]) => el('article', { className: 'kpi' }, [
-          el('strong', { text: number(value) }), el('span', { text: t(key) }),
-        ]))),
-        tableSection(t('production.manager.utilizationReport'), [t('manager.final.room'), t('manager.bookings'), t('manager.report.hours'), t('manager.totalParticipants')],
-          model.roomRows.map((row) => [name(row), number(row.bookings), number(row.hours), number(row.participants)]), 'manager.report.noRoomData'),
-        tableSection(t('production.manager.serviceReport'), [t('manager.services'), t('manager.bookings')],
-          model.serviceRows.map((row) => [name(row), number(row.bookings)]), 'manager.report.noServiceData'),
-        el('h3', { text: t('production.manager.cateringReport') }),
-        tableSection(t('manager.report.packages'), [t('catering.package'), t('manager.bookings'), t('manager.totalParticipants')],
-          model.packageRows.map((row) => [name(row), number(row.bookings), number(row.participants)]), 'manager.report.noPackageData'),
-        tableSection(t('manager.report.items'), [t('manager.report.item'), t('manager.report.quantity'), t('manager.bookings')],
-          model.itemRows.map((row) => [name(row), number(row.quantity), number(row.bookings)]), 'manager.report.noItemData'),
+        el('p', { className: model.detailsComplete ? 'muted' : 'info-box', text: t(!model.detailsComplete
+          ? 'production.manager.reportIncompleteRows' : model.scoped.length === 1
+            ? 'production.manager.reportCompleteOne' : 'production.manager.reportComplete', { count: number(model.scoped.length) }) }),
+        el('section', { className: 'manager-report-metrics', attrs: { 'aria-label': t('production.manager.reportMetrics') } },
+          metrics.map(([key, value, icon]) => el('article', { className: 'kpi' }, [
+            pavurelFunctionalIcon(icon), el('strong', { text: number(value) }), el('span', { text: t(key) }),
+          ]))),
+        el('div', { className: 'manager-report-grid' }, [
+          tableSection(t('production.manager.utilizationReport'), [t('manager.final.room'), t('manager.bookings'), t('manager.report.hours'), t('manager.totalParticipants')],
+            model.roomRows.map((row) => [name(row), number(row.bookings), number(row.hours), number(row.participants)]), 'manager.report.noRoomData'),
+          tableSection(t('manager.report.packages'), [t('catering.package'), t('manager.bookings'), t('manager.totalParticipants')],
+            model.packageRows.map((row) => [name(row), number(row.bookings), number(row.participants)]),
+            model.detailsComplete ? 'manager.report.noPackageData' : 'production.manager.reportDetailsUnavailable', 'production.manager.cateringReport'),
+          tableSection(t('production.manager.serviceReport'), [t('manager.services'), t('manager.bookings')],
+            model.serviceRows.map((row) => [name(row), number(row.bookings)]), model.detailsComplete ? 'manager.report.noServiceData' : 'production.manager.reportDetailsUnavailable'),
+          tableSection(t('manager.report.items'), [t('manager.report.item'), t('manager.report.quantity'), t('manager.bookings')],
+            model.itemRows.map((row) => [name(row), number(row.quantity), number(row.bookings)]), model.detailsComplete ? 'manager.report.noItemData' : 'production.manager.reportDetailsUnavailable'),
+        ]),
       );
       const insights = el('section', { className: 'report-insight-card' }, [el('h3', { text: t('manager.report.insights') })]);
-      if (model.openCount) insights.appendChild(el('p', { text: t('manager.report.openAttention', { count: number(model.openCount) }) }));
+      if (model.openCount) insights.appendChild(el('p', { text: t(model.openCount === 1 ? 'production.manager.reportOpenOne' : 'manager.report.openAttention', { count: number(model.openCount) }) }));
       for (const [rows, key] of [[model.roomRows, 'manager.report.topRoom'], [model.serviceRows, 'manager.report.topService'], [model.packageRows, 'manager.report.topCatering']]) {
         if (rows.length) insights.appendChild(el('p', { text: t(key, { name: name(rows[0]), count: number(rows[0].bookings) }) }));
       }
@@ -154,7 +178,15 @@ export async function renderManagerReports({
     }
   };
   controls.addEventListener('submit', (event) => { event.preventDefault(); void refresh(); });
-  [site, period, reference].forEach((control) => control.addEventListener('change', () => { void refresh(); }));
+  [period, reference].forEach((control) => control.addEventListener('change', () => { void refresh(); }));
+  site.addEventListener('change', () => { state.roomId = null; void refresh(); });
+  room.addEventListener('change', () => { state.roomId = room.value || null; void refresh(); });
+  reset.addEventListener('click', () => {
+    site.value = sites[0].id; period.value = 'YEAR';
+    const resetSite = sites.find((entry) => entry.id === site.value);
+    reference.value = siteLocalIsoDate(Date.now(), resetSite.timeZone); state.roomId = null;
+    void refresh();
+  });
   await refresh();
 }
 

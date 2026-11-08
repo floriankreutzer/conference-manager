@@ -1104,3 +1104,23 @@ main,
   min-inline-size: 0;
   overflow-wrap: anywhere;
 }
+
+.manager-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--manager-section-gap);
+  margin-block: var(--manager-section-gap);
+}
+
+.manager-report-metrics .kpi {
+  min-inline-size: 0;
+  background: var(--brand-secondary-surface);
+  overflow-wrap: anywhere;
+}
+
+.manager-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: var(--manager-section-gap);
+  margin-block: var(--manager-section-gap);
+}

@@ -87,12 +87,20 @@ export function serverReportRange(period, referenceDate, timeZone) {
   return Object.freeze({ fromInclusive, toExclusive, start, end: shiftedDate(end, -1), timeZone });
 }
 
-export function serverReportModel({ requests, catalog, siteId, range }) {
+export function serverReportModel({ requests, catalog, siteId, range, roomId = null }) {
   const from = Date.parse(range.fromInclusive);
   const to = Date.parse(range.toExclusive);
-  const scoped = requests.filter((request) => (request.pricing?.room?.siteId
+  const siteScoped = requests.filter((request) => (request.pricing?.room?.siteId
     || requestSite(request, catalog)?.id) === siteId
     && Date.parse(request.startsAt) >= from && Date.parse(request.startsAt) < to);
+  const roomOptions = new Map(catalog.rooms.filter((room) => room.siteId === siteId)
+    .map((room) => [room.id, { id: room.id, name: room.name }]));
+  for (const request of siteScoped) {
+    if (!roomOptions.has(request.roomId)) roomOptions.set(request.roomId, {
+      id: request.roomId, name: request.pricing?.room?.name,
+    });
+  }
+  const scoped = siteScoped.filter((request) => roomId === null || request.roomId === roomId);
   const confirmed = scoped.filter((request) => request.status === 'Confirmed');
   const rooms = new Map();
   const services = new Map();
@@ -133,13 +141,14 @@ export function serverReportModel({ requests, catalog, siteId, range }) {
     }
     if (selectedPackage || quantities.length) cateringBookings += 1;
   }
+  const detailsComplete = confirmed.every((request) => request.details !== null && request.details !== undefined);
   const ordered = (map) => [...map.values()].sort((a, b) => b.bookings - a.bookings);
   return {
-    scoped, confirmed, roomRows: ordered(rooms), serviceRows: ordered(services),
+    scoped, confirmed, roomOptions: [...roomOptions.values()], roomRows: ordered(rooms), serviceRows: ordered(services),
     packageRows: ordered(packages), itemRows: ordered(items),
     openCount: scoped.filter((request) => OPEN.has(request.status)).length,
     participants: confirmed.reduce((sum, request) => sum + request.internalParticipants + request.externalParticipants, 0),
     hours: [...rooms.values()].reduce((sum, room) => sum + room.hours, 0),
-    cateringBookings,
+    detailsComplete, cateringBookings: detailsComplete ? cateringBookings : null,
   };
 }
