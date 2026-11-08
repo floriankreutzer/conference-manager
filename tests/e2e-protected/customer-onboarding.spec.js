@@ -109,6 +109,9 @@ test('CO-302 actual qualified roots recover expired native handoff, then complet
     await page.getByRole('button',{ name: 'Profil',exact: true }).click();
     await page.getByRole('dialog').getByRole('button',{ name: 'Logout',exact: true }).click();
     await expect(page.getByRole('button',{ name: 'Als Plattform-Operator testen',exact: true })).toBeVisible();
+    // Keep all protocol/failure evidence; release only completed immutable assets
+    // at this completed customer phase before loading another full document.
+    edge.compactStaticEvidence();
     await handoff('northwind','employee');
     await page.locator('[data-view="employee"]').click();
     const date=new Date();date.setUTCDate(date.getUTCDate()+14);
