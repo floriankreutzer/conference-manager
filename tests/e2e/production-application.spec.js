@@ -5128,6 +5128,9 @@ test('MGR-04 MGR-08 MGR-09: Manager room plan offers a bounded timeline, retaine
   await expect(entry).toBeVisible();
   await entry.focus();
   await page.keyboard.press('Enter');
+  const preview = page.locator('#managerRoomPlanPreview');
+  await expect(preview.getByRole('heading')).toBeFocused();
+  await preview.getByRole('button', { name: 'Anfrage öffnen' }).click();
   const card = page.locator(`[data-production-request-id="${REQUEST_ID}"]`);
   await expect(card).toBeFocused();
   await expect(card).toContainText('Angefragt von: Nicht dokumentiert');
@@ -5722,4 +5725,89 @@ for (const language of ['de', 'en']) {
       expect(fixture.writes).toHaveLength(0);
     });
   }
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-311: short, overlapping and overnight bookings have keyboard, pointer and touch previews in ${language}`, async ({ page, isMobile }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.rooms.push({ ...catalog.catalog.rooms[0], id: 'room-empty', name: 'Empty room' });
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalog });
+    const source = confirmedV2RequestFixture();
+    const day = futureDate();
+    const nextDay = new Date(Date.parse(`${day}T12:00:00.000Z`) + 86400000).toISOString().slice(0, 10);
+    const local = (date, time) => productionUtcInstant(date, time, 'Europe/Berlin');
+    const longTitle = `Quarter-hour ${'Long title '.repeat(8)}`;
+    const periods = [
+      [longTitle, local(day, '10:00'), local(day, '10:15')],
+      ['Half-hour', local(day, '10:00'), local(day, '10:30')],
+      ['One hour', local(day, '10:00'), local(day, '11:00')],
+      ['Overnight', local(day, '23:30'), local(nextDay, '01:00')],
+      ['Evening', local(day, '20:00'), local(day, '21:00')],
+    ];
+    periods.forEach(([title, startsAt, endsAt], index) => fixture.requests().push({
+      ...source, id: `66666666-6666-4666-8666-${String(index).padStart(12, '0')}`,
+      startsAt, endsAt, details: { ...source.details, title },
+    }));
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: language === 'de' ? 'Raumplanung' : 'Room planning', exact: true }).click();
+    const date = page.locator('#productionRoomPlanDate');
+    await date.fill(day);
+    await date.dispatchEvent('change');
+    const preview = page.locator('#managerRoomPlanPreview');
+    await expect(preview).toBeHidden();
+    await expect(page.getByRole('table')).toContainText(longTitle);
+    await page.getByRole('radio', { name: language === 'de' ? 'Zeitplan' : 'Timeline', exact: true }).check();
+    const timeline = page.locator('.manager-timeline-chart');
+    const entries = timeline.locator('button');
+    await expect(entries).toHaveCount(5);
+    await expect(timeline).toContainText('Empty room');
+    const quarter = timeline.getByRole('button', { name: new RegExp('Quarter-hour') });
+    const half = timeline.getByRole('button', { name: /Half-hour/ });
+    const hour = timeline.getByRole('button', { name: /One hour/ });
+    const widths = await Promise.all([quarter, half, hour].map((entry) => entry.evaluate((node) => node.getBoundingClientRect().width)));
+    expect(widths[1] / widths[0]).toBeCloseTo(2, 1);
+    expect(widths[2] / widths[0]).toBeCloseTo(4, 1);
+    await quarter.focus();
+    await expect(preview.getByRole('heading')).toHaveText(longTitle);
+    await expect(quarter).toBeFocused();
+    await expect(quarter).toHaveAttribute('aria-expanded', 'true');
+    await expect(preview).toContainText('Room A');
+    await expect(preview).toContainText('10:15');
+    await page.keyboard.press('Enter');
+    await expect(preview.getByRole('heading')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(preview).toBeHidden();
+    await expect(quarter).toBeFocused();
+    if (!isMobile) {
+      await half.hover();
+      await expect(preview.getByRole('heading')).toHaveText('Half-hour');
+    }
+    if (isMobile) await hour.tap();
+    else await hour.click();
+    await expect(preview.getByRole('heading')).toHaveText('One hour');
+    await expect(preview.getByRole('heading')).toBeFocused();
+    await preview.getByRole('button', { name: language === 'de' ? 'Vorschau schließen' : 'Close preview' }).click();
+    await expect(hour).toBeFocused();
+    await expect(preview).toBeHidden();
+    await page.locator('#productionRoomPlanWindow').selectOption('WORK');
+    await expect(entries).toHaveCount(3);
+    await expect(timeline).toContainText(language === 'de' ? 'außerhalb' : 'outside');
+    await expect(quarter).toHaveAttribute('style', /--timeline-width: 2.5%/);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await date.fill(nextDay);
+    await date.dispatchEvent('change');
+    await expect(entries).toHaveCount(0);
+    await page.locator('#productionRoomPlanWindow').selectOption('DAY');
+    await expect(entries).toHaveCount(1);
+    await timeline.getByRole('button', { name: /Overnight/ }).click();
+    await expect(preview).toContainText('01:00');
+    await preview.getByRole('button', { name: language === 'de' ? 'Anfrage öffnen' : 'Open request' }).click();
+    await expect(page.locator('[data-production-request-id="66666666-6666-4666-8666-000000000003"]')).toBeFocused();
+    expect(fixture.workflowWrites).toHaveLength(0);
+  });
 }
