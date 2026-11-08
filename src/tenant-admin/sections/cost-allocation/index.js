@@ -41,16 +41,23 @@ function costCenterEditor(costCenter, index) {
   return { node, controls, costCenter };
 }
 
+function invalidCenter(control, key, values = {}) {
+  throw new TypeError('COST_CENTER_INVALID', { cause: { control, key, values } });
+}
+
 function readCenters(editors) {
+  const codes = new Set();
   const values = editors.map(({ costCenter, controls }) => {
     const code = controls.code.value.trim().toUpperCase();
-    if (!COST_CENTER_CODE.test(code)) throw new TypeError('COST_CENTER_CODE_INVALID');
+    if (!COST_CENTER_CODE.test(code)) invalidCenter(controls.code, 'tenantSettings.costAllocation.invalidCode');
+    if (codes.has(code)) invalidCenter(controls.code, 'tenantSettings.costAllocation.duplicateCode', { code });
+    codes.add(code);
+    if (!controls.name.value.trim()) invalidCenter(controls.name, 'tenantSettings.costAllocation.nameRequired');
     return {
       id: costCenter.id, code, name: controls.name.value.trim(), group: controls.group.value.trim() || null,
       active: controls.active.checked,
     };
   });
-  if (new Set(values.map((entry) => entry.code)).size !== values.length) throw new TypeError('COST_CENTER_CODE_DUPLICATE');
   return values;
 }
 
@@ -95,21 +102,46 @@ export function createCostAllocationSection({ adapter = null } = {}) {
     const save = button(t('tenantSettings.action.save'), { className: 'primary', attrs: { type: 'submit' } });
     let mutationPending = false;
     form.append(el('div', { className: 'button-row' }, [save]), status);
+    const clearErrors = () => {
+      form.querySelectorAll('[aria-invalid="true"]').forEach((control) => {
+        control.removeAttribute('aria-invalid');
+        const descriptions = (control.getAttribute('aria-describedby') || '').split(' ')
+          .filter(id => id && id !== 'tenant-cost-allocation-error');
+        if (descriptions.length) control.setAttribute('aria-describedby', descriptions.join(' '));
+        else control.removeAttribute('aria-describedby');
+      });
+      form.querySelector('.validation-summary')?.remove();
+    };
+    form.addEventListener('input', clearErrors);
+    form.addEventListener('change', clearErrors);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;
+      clearErrors();
       if (!form.reportValidity()) return;
       let submittedDraft;
       try {
         const costCenters = readCenters(editors);
         if (allocationRequired.checked && !costCenters.some((entry) => entry.active)) {
-          throw new TypeError('COST_ALLOCATION_ACTIVE_CENTER_REQUIRED');
+          invalidCenter(editors[0]?.controls.active || add, 'tenantSettings.costAllocation.activeRequired');
         }
         submittedDraft = { allocationRequired: allocationRequired.checked, costCenters };
       }
-      catch {
-        validationSummary(form, t('tenantSettings.validation.checkFields'));
-        form.querySelector('input')?.focus();
+      catch (error) {
+        const { control, key, values } = error.cause || {};
+        if (!control || !key) throw error;
+        const message = t(key, values);
+        const summary = validationSummary(form, message);
+        summary.id = 'tenant-cost-allocation-error';
+        if (!control.id) control.id = 'tenant-cost-allocation-add';
+        const link = el('a', { attrs: { href: `#${control.id}` }, text: message });
+        link.addEventListener('click', (click) => { click.preventDefault(); control.focus(); });
+        summary.querySelector('p').replaceChildren(link);
+        control.setAttribute('aria-invalid', 'true');
+        const descriptions = new Set((control.getAttribute('aria-describedby') || '').split(' ').filter(Boolean));
+        descriptions.add(summary.id);
+        control.setAttribute('aria-describedby', [...descriptions].join(' '));
+        control.focus();
         return;
       }
       save.disabled = true;

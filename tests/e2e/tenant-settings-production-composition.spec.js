@@ -828,3 +828,34 @@ test('Catering list replaces bounded pages without accumulating connection forms
   expect(fixture.cateringWrites).toEqual([]);
   expect(fixture.unexpectedApiRequests).toEqual([]);
 });
+
+for (const language of ['de', 'en']) {
+  test(`CO-299: ${language} duplicate cost-center code links and focuses the actual invalid field`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionSettingsFixture(page);
+    await openTenantSettings(page);
+    const content = await openSection(page, 'cost-allocation', 'cost-allocation');
+    await content.getByRole('button', { name: language === 'de' ? 'Kostenstelle hinzufügen' : 'Add cost center' }).click();
+    const code = content.locator('#tenant-cost-center-1-code');
+    await code.fill('EVENTS');
+    await submit(content, 'cost-allocation');
+    await expect(code).toBeFocused();
+    await expect(code).toHaveAttribute('aria-invalid', 'true');
+    await expect(code).toHaveAttribute('aria-describedby', /tenant-cost-allocation-error/);
+    const summary = content.locator('.validation-summary');
+    await expect(summary).toHaveAttribute('role', 'alert');
+    await expect(summary).toContainText(language === 'de' ? 'Der Kostenstellencode EVENTS wird bereits verwendet.' : 'The cost center code EVENTS is already in use.');
+    const link = summary.getByRole('link');
+    await link.focus();
+    await link.press('Enter');
+    await expect(code).toBeFocused();
+    await expect(content.locator('#tenant-allocation-required')).not.toHaveAttribute('aria-invalid', 'true');
+    expect(fixture.writes).toHaveLength(0);
+    await code.fill('EVENTS_2');
+    await expect(code).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(summary).toHaveCount(0);
+    await submit(content, 'cost-allocation');
+    await expect.poll(() => fixture.writes.length).toBe(1);
+    await expect(content.locator('#tenant-cost-center-1-code')).toHaveValue('EVENTS_2');
+  });
+}

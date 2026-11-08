@@ -1142,6 +1142,11 @@ export function createProductionEmployeeApplication({
     ];
     const clearControlValidation = (control) => {
       control.removeAttribute('aria-invalid');
+      if (status.dataset.invalidControlId === control.id) {
+        status.textContent = '';
+        status.className = 'muted';
+        delete status.dataset.invalidControlId;
+      }
       const describedBy = (control.getAttribute('aria-describedby') || '')
         .split(' ').filter((id) => id && id !== status.id).join(' ');
       if (describedBy) control.setAttribute('aria-describedby', describedBy);
@@ -1153,7 +1158,11 @@ export function createProductionEmployeeApplication({
       describedBy.add(status.id);
       control.setAttribute('aria-describedby', [...describedBy].join(' '));
       status.className = 'error-box';
-      status.textContent = message;
+      if (!control.id) control.id = 'productionInvalidControl';
+      status.dataset.invalidControlId = control.id;
+      const link = el('a', { attrs: { href: `#${control.id}` }, text: message });
+      link.addEventListener('click', (event) => { event.preventDefault(); control.focus(); });
+      status.replaceChildren(link);
       control.focus();
       return false;
     };
@@ -1170,6 +1179,11 @@ export function createProductionEmployeeApplication({
     [...scheduleControls, specialRequirements, dietaryRequirements].forEach((control) => {
       control.addEventListener('input', () => clearControlValidation(control));
     });
+    for (const panel of [cateringPanel, allocationPanel]) {
+      for (const eventName of ['input', 'change']) panel.addEventListener(eventName, event => {
+        if (event.target.matches('input, select')) clearControlValidation(event.target);
+      });
+    }
     cateringParticipants.addEventListener('input', () => {
       defaultCateringParticipants = false;
       clearControlValidation(cateringParticipants);
@@ -1536,14 +1550,17 @@ export function createProductionEmployeeApplication({
           ? null : internalParticipants + externalParticipants;
         const startsAtLocal = `${date.value}T${start.value}`;
         const endsAtLocal = `${endDate.value}T${end.value}`;
-        const invalidControl = [title, date, start, endDate, end]
-          .find((control) => !control.value || !control.checkValidity())
-          || (!title.value.trim() ? title : null)
-          || (internalParticipants === null ? internal : null)
-          || (externalParticipants === null ? external : null)
-          || (participantCount < 1 || participantCount > MAX_PARTICIPANTS ? internal : null)
-          || (endsAtLocal <= startsAtLocal ? end : null);
-        if (invalidControl) return showControlValidation(invalidControl);
+        const invalidTime = [date, start, endDate, end]
+          .find((control) => !control.value || !control.checkValidity());
+        if (invalidTime) return showControlValidation(invalidTime, t('production.employee.timeRequired'));
+        if (internalParticipants === null || externalParticipants === null) {
+          return showControlValidation(internalParticipants === null ? internal : external,
+            t('production.employee.participantInteger', { maximum: formatNumber(MAX_PARTICIPANTS) }));
+        }
+        if (participantCount < 1 || participantCount > MAX_PARTICIPANTS) {
+          return showControlValidation(internal, t('production.employee.participantTotal', { maximum: formatNumber(MAX_PARTICIPANTS) }));
+        }
+        if (endsAtLocal <= startsAtLocal) return showControlValidation(end, t('production.employee.endAfterStart'));
       }
       if (stepNumber === 2 && !isAvailabilityVerified()) {
         roomSelectionPanel.setAttribute('aria-invalid', 'true');
@@ -1566,15 +1583,33 @@ export function createProductionEmployeeApplication({
             roomId: room.value,
           });
         } catch {
-          return showControlValidation(cateringParticipants);
+          const quantity = [...cateringPanel.querySelectorAll('[id^="productionCateringItem-"]')]
+            .find(control => !control.checkValidity());
+          if (quantity) return showControlValidation(quantity, t('production.employee.cateringQuantityInvalid'));
+          return showControlValidation(cateringParticipants, t('production.employee.cateringParticipantsInvalid', {
+            maximum: formatNumber((safeParticipantCount(internal.value) || 0) + (safeParticipantCount(external.value) || 0)),
+          }));
         }
       }
       if (stepNumber === 5) {
+        allocationPanel.querySelectorAll('[aria-invalid="true"]').forEach(clearControlValidation);
         try {
           normalizeAllocationEditorDraft({ allocations: allocationRows, catalog: requestCatalog });
         } catch {
-          const invalidControl = allocationPanel.querySelector('select, input, button');
-          return invalidControl ? showControlValidation(invalidControl) : false;
+          const controls = [...allocationPanel.querySelectorAll('select, input')];
+          const invalidControl = controls.find(control => !control.checkValidity());
+          if (invalidControl) return showControlValidation(invalidControl,
+            t(invalidControl.tagName === 'SELECT' ? 'production.employee.allocationCenterRequired' : 'production.employee.allocationPercentInvalid'));
+          const seen = new Set();
+          const duplicate = [...allocationPanel.querySelectorAll('select')].find(control => {
+            if (seen.has(control.value)) return true;
+            seen.add(control.value);
+            return false;
+          });
+          if (duplicate) return showControlValidation(duplicate, t('production.employee.allocationDuplicate'));
+          const target = allocationPanel.querySelector('input, button');
+          return target ? showControlValidation(target, t(allocationRows.length
+            ? 'production.employee.allocationTotalInvalid' : 'production.employee.allocationCenterRequired')) : false;
         }
       }
       return true;

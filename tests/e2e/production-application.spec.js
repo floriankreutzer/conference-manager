@@ -5221,3 +5221,86 @@ test('EMP-03: room cards and review resolve catalogue equipment references witho
   await expect(review).toContainText('Display 86 Zoll · Whiteboard · Ausstattung nicht verfügbar');
   await expect(review).not.toContainText(id);await expect(review).not.toContainText(unknown);expect(fixture.writes).toHaveLength(0);
 });
+
+for (const language of ['de', 'en']) {
+  test(`CO-299: ${language} schedule errors identify their fields and preserve correction`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    const status = page.locator('#productionEmployeeStatus');
+    const assertField = async (control, text) => {
+      await next.click();
+      await expect(control).toBeFocused();
+      await expect(control).toHaveAttribute('aria-invalid', 'true');
+      await expect(control).toHaveAttribute('aria-describedby', /productionEmployeeStatus/);
+      await expect(status).toContainText(text);
+      const link = status.getByRole('link');
+      await link.focus();
+      await link.press('Enter');
+      await expect(control).toBeFocused();
+      await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
+      expect(fixture.requestEnvelopes).toHaveLength(0);
+    };
+    const title = page.locator('#productionTitle');
+    await title.fill('');
+    await assertField(title, language === 'de' ? 'Titel' : 'Title');
+    await title.fill('Correction retained');
+    await expect(title).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(status).toBeEmpty();
+    const internal = page.locator('#productionInternal');
+    for (const value of ['-1', '1.5', '501']) {
+      await internal.fill(value);
+      await assertField(internal, language === 'de' ? 'ganze Teilnehmendenzahl' : 'whole participant count');
+    }
+    await internal.fill('0');
+    await assertField(internal, language === 'de' ? 'Gesamtzahl' : 'total participant count');
+    await internal.fill('2');
+    const end = page.locator('#productionEnd');
+    await end.fill('08:00');
+    await assertField(end, language === 'de' ? 'Ende muss nach' : 'end must be after');
+    await end.fill('10:00');
+    await next.click();
+    await expect(page.locator('[data-step-panel="2"]')).toBeVisible();
+    await expect(title).toHaveValue('Correction retained');
+    await expect(page.locator('[aria-invalid="true"]')).toHaveCount(0);
+  });
+
+  test(`CO-299: ${language} catering and allocation errors focus the affected values`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.costCenters = [{ id: 'operations', code: '471100', name: 'Operations', group: null }];
+    const fixture = await installProductionApplicationFixture(page, { catalog, allocationRequired: true });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page, { internal: '5' });
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability' }).click();
+    await next.click();
+    await next.click();
+    const catering = page.locator('#productionCateringParticipants');
+    await catering.fill('6');
+    await next.click();
+    await expect(catering).toBeFocused();
+    await expect(catering).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#productionEmployeeStatus')).toContainText(language === 'de' ? '0 bis 5' : '0 to 5');
+    await catering.fill('5');
+    await next.click();
+    const percent = page.locator('#productionAllocationPercent-0');
+    await percent.fill('50');
+    await next.click();
+    await expect(percent).toBeFocused();
+    await expect(percent).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#productionEmployeeStatus')).toContainText(language === 'de' ? 'zusammen genau 100 %' : 'total exactly 100%');
+    await expect(page.locator('#productionAllocationCenter-0')).not.toHaveAttribute('aria-invalid', 'true');
+    await percent.fill('100');
+    await expect(percent).not.toHaveAttribute('aria-invalid', 'true');
+    await next.click();
+    await expect(page.locator('[data-step-panel="6"]')).toBeVisible();
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+  });
+}
