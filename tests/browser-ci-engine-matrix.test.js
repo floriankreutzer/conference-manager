@@ -6,16 +6,16 @@ import test from 'node:test';
 const workflow = await readFile(new URL('../.github/workflows/ci.yml',import.meta.url),'utf8');
 test('regular browser CI retains both full projects, a bounded aggregate budget and distinct evidence before its required status',() => {
   const matrix = workflow.slice(workflow.indexOf('  browser-e2e:'),workflow.indexOf('  # Keep the existing required status'));
-  assert.match(matrix,/needs: quality/); assert.match(matrix,/timeout-minutes: 30/);
+  assert.match(matrix,/needs: quality/); assert.match(matrix,/timeout-minutes: 40/);
   assert.match(matrix,/fail-fast: false/); assert.match(matrix,/project: \[chromium-desktop, webkit-mobile\]/);
   assert.match(matrix,/run: npm run test:e2e -- --project=\$\{\{ matrix\.project \}\}/);
   assert.match(matrix,/name: playwright-report-\$\{\{ matrix\.project \}\}/);
   for (const proof of ['test-hosted-transport.mjs --browsers','platform-microsoft-operations.spec.js',
-    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft','--grep "CO-311:"']) {
+    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft','--grep "CO-311:"','--grep "CO-308.*room"']) {
     assert.ok(matrix.includes(proof));
   }
   const canaries=matrix.split('\n').filter(line=>line.includes('npx playwright test '));
-  assert.equal(canaries.length,10);
+  assert.equal(canaries.length,11);
   for (const command of canaries) assert.match(command,/--project=\$\{\{ matrix\.project \}\}/);
   assert.doesNotMatch(matrix,/continue-on-error:|--grep-invert|--shard|--retries|--workers/);
 });

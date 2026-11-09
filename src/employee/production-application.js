@@ -820,7 +820,9 @@ export function createProductionEmployeeApplication({
           room.value = entry.id;
           room.dispatchEvent(new Event('input', { bubbles: true }));
           room.dispatchEvent(new Event('change', { bubbles: true }));
-          requestAnimationFrame(() => document.getElementById(focusId)?.focus());
+          // The radio list is rebuilt synchronously. Restore its focus in this
+          // interaction so a later frame cannot interrupt the next search edit.
+          if (isCurrentEditor()) root.querySelector(`#${focusId}`)?.focus();
         });
         const card = el('article', {
           className: `option-card${selected ? ' selected' : ''}${supported ? '' : ' disabled'}`,

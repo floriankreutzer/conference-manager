@@ -6231,6 +6231,28 @@ for (const language of ['de', 'en']) {
     await expect(endDate).toBeHidden();
   });
 
+  test(`CO-308 ${language}: room selection does not steal focus from the next search edit`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    await installProductionApplicationFixture(page);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page);
+    await page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true }).click();
+    await page.evaluate(() => {
+      const choice = document.querySelector('input[name="productionRoomChoice"][value="room-a"]');
+      choice.checked = true;
+      choice.dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector('#productionRoomSearch').focus();
+    });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const search = page.locator('#productionRoomSearch');
+    await expect(search).toBeFocused();
+    await search.fill('No matching room');
+    await expect(search).toHaveValue('No matching room');
+    await expect(page.locator('[data-step-panel="2"] [data-room-id]:visible')).toHaveCount(1);
+    await expect(page.getByRole('radio', { name: /Room A/ })).toBeChecked();
+  });
+
   test(`CO-308 ${language}: room filters preserve selection and collapsed catering reveals invalid quantities`, async ({ page }, testInfo) => {
     await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
     const catalog = catalogPayload();
