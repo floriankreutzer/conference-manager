@@ -115,6 +115,9 @@ export function createGuestInformationEditor(guestInformation, index) {
       invalidControl.setCustomValidity(message);
       invalidControl.setAttribute('aria-invalid', 'true');
       invalidControl.setAttribute('aria-describedby', error.id);
+      // Native invalid reporting lets containing catalogue lists reveal the
+      // editor before the browser moves focus to the domain-invalid field.
+      invalidControl.reportValidity();
       invalidControl.focus();
       throw cause;
     }

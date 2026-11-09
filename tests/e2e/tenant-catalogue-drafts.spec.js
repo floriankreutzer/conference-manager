@@ -43,6 +43,35 @@ async function fixture(page, section, language) {
   await expect(page.locator(sections[section].field)).toBeVisible();
 }
 
+for (const language of ['de', 'en']) {
+  for (const hiddenBy of ['collapse', 'filter']) {
+    test(`CO-306 guest domain validation reveals ${hiddenBy} site in ${language}`, async ({ page }) => {
+      await fixture(page, 'locations', language);
+      await page.locator('#tenant-site-guest-0-enabled').check();
+      await page.locator('#tenant-site-guest-0-line1').fill('Example Street 1');
+      const site = page.locator('.catalogue-editor-row').first();
+      if (hiddenBy === 'collapse') await site.locator(':scope > summary').click();
+      else await page.locator('#tenant-sites-search').fill('No match');
+      const invalid = page.locator('#tenant-site-guest-0-countryCode');
+      await expect(invalid).toBeHidden();
+      await page.locator('button[type="submit"]').click();
+      await expect(invalid).toBeVisible();
+      await expect(invalid).toBeFocused();
+      await expect(invalid).toHaveAttribute('aria-invalid', 'true');
+      await expect(page.locator('#tenant-site-guest-0-error')).not.toBeEmpty();
+      await expect(page.locator('#tenant-sites-search')).toHaveValue('');
+      expect(await page.evaluate(() => window.catalogueDraftTest.writes.length)).toBe(0);
+      await invalid.fill('DE');
+      await page.locator('#tenant-site-guest-0-postalCode').fill('10115');
+      await page.locator('#tenant-site-guest-0-city').fill('Berlin');
+      await page.locator('button[type="submit"]').click();
+      await expect.poll(() => page.evaluate(() => window.catalogueDraftTest.revision)).toBe(4);
+      expect(await page.evaluate(() => window.catalogueDraftTest.writes.length)).toBe(1);
+      await expect(page.locator('#tenant-site-guest-0-line1')).toHaveValue('Example Street 1');
+    });
+  }
+}
+
 for (const section of Object.keys(sections)) {
   for (const language of ['de', 'en']) {
     test(`CO-306 ${section} ${language}: search is clean; edits require explicit discard and save clears dirty state`, async ({ page }) => {

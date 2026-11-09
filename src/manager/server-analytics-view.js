@@ -118,7 +118,6 @@ export async function renderManagerReports({
       room.replaceChildren(el('option', { value: '', text: t('production.manager.reportAllRooms') }),
         ...roomOptions.map((entry) => el('option', { value: entry.id, text: entry.name || t('manager.restore.unavailableName') })));
       room.value = state.roomId || '';
-      room.disabled = false;
       const number = (value) => value === null ? t('production.manager.reportUnavailable')
         : formatNumber(value, { maximumFractionDigits: 1 });
       const name = (row) => row.name || t('manager.restore.unavailableName');
@@ -174,6 +173,7 @@ export async function renderManagerReports({
       if (isCurrent() && sequence === currentSequence && panel.isConnected) {
         results.removeAttribute('aria-busy');
         load.disabled = false;
+        room.disabled = false;
       }
     }
   };

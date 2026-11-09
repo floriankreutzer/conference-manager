@@ -6024,7 +6024,13 @@ for (const language of ['de', 'en']) {
     await load.click();
     await expect(results.getByRole('alert')).toBeVisible();
     await expect(metrics).toHaveCount(0);
+    await expect(page.locator('#managerReportRoom')).toBeEnabled();
+    await page.locator('#managerReportRoom').selectOption('');
+    await expect(results.getByRole('alert')).toBeVisible();
+    await expect(page.locator('#managerReportRoom')).toBeEnabled();
     unavailable = false;
+    await page.locator('#managerReportRoom').selectOption('room-b');
+    await expect(metrics).toHaveText(['1', '1', '4', language === 'de' ? '0,5' : '0.5', '0']);
     empty = true;
     await load.click();
     await expect(metrics).toHaveText(['0', '0', '0', '0', '0']);
