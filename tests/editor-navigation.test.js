@@ -20,6 +20,25 @@ test('CO-307 unchanged and saved editors navigate; stay retains edits and discar
   assert.equal(retries, 1); assert.equal(guard.dirty(), false);
 });
 
+test('CO-307 completing a save preserves pending navigation until the dialog settles', () => {
+  for (const discard of [true, false]) {
+    let value = 'original'; let answer; let retries = 0; let stays = 0; let prompts = 0;
+    const guard = createEditorNavigation({ confirmDiscard: (done) => { answer = done; prompts += 1; },
+      onStay: () => { stays += 1; } });
+    const editor = guard.register({ read: () => value, isCurrent: () => true });
+    value = 'edited';
+    assert.equal(guard.allow(() => { retries += 1; }), false);
+    editor.saved();
+    assert.equal(guard.dirty(), false);
+    assert.equal(guard.allow(() => { retries += 100; }), false);
+    assert.equal(prompts, 1);
+    answer(discard); answer(discard);
+    assert.equal(retries, discard ? 1 : 0);
+    assert.equal(stays, discard ? 0 : 1);
+    assert.equal(guard.allow(() => {}), true);
+  }
+});
+
 test('CO-307 revoked or replaced editors cannot resume a pending navigation', () => {
   let current = true; let value = 'original'; let answer; let retries = 0;
   const guard = createEditorNavigation({ confirmDiscard: (done) => { answer = done; } });

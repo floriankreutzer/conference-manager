@@ -1127,7 +1127,7 @@ export function createProductionEmployeeApplication({
       };
       allocationRows.forEach((allocation, index) => {
         const row = el('article', { className: 'allocation-row' });
-        const center = el('select');
+        const center = el('select', { attrs: { required: true } });
         center.appendChild(el('option', { value: '', text: t('cost.costCenter') }));
         requestCatalog.costCenters.filter((entry) => entry.active !== false).forEach((entry) => {
           center.appendChild(el('option', { value: entry.id, text: `${entry.code} · ${entry.name}` }));

@@ -5795,6 +5795,16 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('#productionAllocationCenter-0')).not.toHaveAttribute('aria-invalid', 'true');
     await percent.fill('100');
     await expect(percent).not.toHaveAttribute('aria-invalid', 'true');
+    const center = page.locator('#productionAllocationCenter-0');
+    await center.selectOption('');
+    await next.click();
+    await expect(center).toBeFocused();
+    await expect(center).toHaveAttribute('aria-invalid', 'true');
+    await expect(percent).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#productionEmployeeStatus')).toContainText(language === 'de' ? 'Kostenstelle' : 'cost center');
+    expect(fixture.requestEnvelopes).toHaveLength(0);
+    await center.selectOption('operations');
+    await expect(center).not.toHaveAttribute('aria-invalid', 'true');
     await next.click();
     await expect(page.locator('[data-step-panel="6"]')).toBeVisible();
     expect(fixture.requestEnvelopes).toHaveLength(0);

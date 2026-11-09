@@ -15,8 +15,8 @@ export function createEditorNavigation({ confirmDiscard, onStay = () => {} }) {
     });
   }
   function allow(retry) {
-    if (!dirty()) return true;
     if (pending) return false;
+    if (!dirty()) return true;
     pending = true;
     const expected = epoch;
     confirmDiscard((discard) => {
