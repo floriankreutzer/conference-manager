@@ -1183,8 +1183,53 @@ export function createProductionEmployeeApplication({
     for (const control of [inspectRequests, recheckRoom]) {
       control.setAttribute('aria-describedby', 'productionSubmissionRecovery');
     }
-    inspectRequests.addEventListener('click', () => {
+    inspectRequests.addEventListener('click', async () => {
       if (!isCurrentEditor() || workflowMutationPending) return;
+      // Repeated requests own an in-memory workflow and deliberately do not
+      // overwrite the ordinary draft store. Inspect without disposing that editor.
+      if (sourceRequest) {
+        const content = el('section', { attrs: { 'aria-live': 'polite', 'aria-busy': 'true' } }, [
+          el('p', { className: 'muted', text: t('production.common.loading') }),
+        ]);
+        const close = button(t('common.close'));
+        const dialog = openDialog({
+          title: t('production.employee.requestsTitle'),
+          content,
+          actions: [close],
+          labelledById: 'productionRepeatedRequestOutcomes',
+        });
+        authoritySurfaces.track(dialog);
+        close.addEventListener('click', () => dialog.close());
+        const isCurrentInspection = () => isCurrentEditor() && dialog.open && dialog.isConnected;
+        try {
+          const requests = await persistence.listRequests();
+          if (!isCurrentInspection()) return;
+          clear(content);
+          if (!requests.length) content.appendChild(el('p', {
+            className: 'info-box', text: t('requests.none'),
+          }));
+          for (const request of requests) {
+            content.appendChild(el('article', { className: 'request-card' }, [
+              el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+              el('p', { text: t('production.common.requestId', { id: request.id }) }),
+              el('dl', { className: 'details-list' }, [
+                el('dt', { text: t('production.common.status') }),
+                el('dd', { text: t(`status.${request.status}`) }),
+              ]),
+            ]));
+          }
+        } catch (error) {
+          if (!isCurrentEditor()) return;
+          if (authorityFailureCode(error)) invalidateEditorAuthority(error);
+          else if (isCurrentInspection()) {
+            clear(content);
+            content.appendChild(el('p', { className: 'error-box', text: errorMessage(error) }));
+          }
+        } finally {
+          if (isCurrentInspection()) content.removeAttribute('aria-busy');
+        }
+        return;
+      }
       scheduleDraftSave({ immediate: true });
       onNavigate?.('requests');
     });
