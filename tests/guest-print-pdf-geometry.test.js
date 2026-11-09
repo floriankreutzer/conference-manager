@@ -3,10 +3,11 @@ import test from 'node:test';
 import { deflateSync } from 'node:zlib';
 import { inspectChromiumGuestFrames } from './e2e/fixtures/guest-print-pdf-geometry.js';
 
-function fixture({ rectangle = '358.5 1032.5 345 695', clip = true, lineWidth = 1, inset = 0, ending = 'Q\nQ' } = {}) {
+function fixture({ rectangle = '358.5 1032.5 345 695', clip = true, lineWidth = 1, inset = 0,
+  beforeFrame = '', ending = 'Q\nQ' } = {}) {
   const content = `.23999999 0 0 -.23999999 0 841.91998 cm\nq\n`
     + (clip ? '140.625 140.625 2196.9238 3224.4629 re\nW* n\n' : '')
-    + `q\n3.125 0 0 3.125 ${140.625 - inset * 3.125} -3084.375 cm\n/G6 gs\n${rectangle} re\nS\n${ending}\n`;
+    + `q\n3.125 0 0 3.125 ${140.625 - inset * 3.125} -3084.375 cm\n/G6 gs\n${beforeFrame}${rectangle} re\nS\n${ending}\n`;
   const compressed = deflateSync(content);
   return Buffer.concat([
     Buffer.from('%PDF-1.4\n1 0 obj\n<</Type /Page /Resources <</ExtGState <</G6 6 0 R>>>> /Contents 2 0 R>>\nendobj\n'
@@ -28,6 +29,29 @@ test('Chromium guest PDF frame check accepts an inset complete frame with the pa
   const frames = inspectChromiumGuestFrames(fixture({ inset: 4 }), 1);
   assert.equal(frames.length, 1); assert.equal(frames[0].length, 1);
   assert.ok(frames[0][0].stroke.right < frames[0][0].clip.right);
+});
+
+const unsupportedClip = '0 0 m\n1 0 l\n1 1 l\nh\nW* n\n';
+
+test('Chromium guest PDF frame check restores the page clip after isolated link decoration', () => {
+  const beforeFrame = `q\n${unsupportedClip}0 0 1 1 re\nf\nQ\n`;
+  const ordinary = inspectChromiumGuestFrames(fixture({ inset: 4 }), 1);
+  assert.deepEqual(inspectChromiumGuestFrames(fixture({ inset: 4, beforeFrame }), 1), ordinary);
+});
+
+test('Chromium guest PDF frame check refuses every frame under an unsupported active clip', () => {
+  for (const beforeFrame of [unsupportedClip, `${unsupportedClip}0 0 1000 2000 re\nW n\n`]) {
+    assert.throws(() => inspectChromiumGuestFrames(fixture({ inset: 4, beforeFrame }), 1), /unsupported clip/);
+  }
+});
+
+test('Chromium guest PDF frame check intersects nested rectangles without widening the outer page clip', () => {
+  assert.throws(() => inspectChromiumGuestFrames(fixture({ inset: 4,
+    beforeFrame: '0 0 699 1800 re\nW n\n' }), 1), /entirely inside/);
+  const broaderClip = '-100 -100 2000 4000 re\nW* n\n';
+  assert.throws(() => inspectChromiumGuestFrames(fixture({ beforeFrame: broaderClip }), 1), /entirely inside/);
+  const ordinary = inspectChromiumGuestFrames(fixture({ inset: 4 }), 1);
+  assert.deepEqual(inspectChromiumGuestFrames(fixture({ inset: 4, beforeFrame: broaderClip }), 1), ordinary);
 });
 
 test('Chromium guest PDF frame check rejects missing clip, omitted frames and malformed graphics state', () => {
