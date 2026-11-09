@@ -31,7 +31,7 @@ export const CUSTOMER_AUTHENTICATION_MESSAGES = Object.freeze({
     "customerHandoff.slot.fabrikam": "Fabrikam",
     "customerHandoff.role.employee": "Mitarbeiter",
     "customerHandoff.role.conference_manager": "Conference Manager",
-    "customerHandoff.role.tenant_admin": "Tenant Operator",
+    "customerHandoff.role.tenant_admin": "Tenant-Administration",
 
     'customerAuth.pageTitle': 'Anmelden',
     'customerAuth.language': 'Sprache',
@@ -116,7 +116,7 @@ export const CUSTOMER_AUTHENTICATION_MESSAGES = Object.freeze({
     "customerHandoff.slot.fabrikam": "Fabrikam",
     "customerHandoff.role.employee": "Employee",
     "customerHandoff.role.conference_manager": "Conference Manager",
-    "customerHandoff.role.tenant_admin": "Tenant Operator",
+    "customerHandoff.role.tenant_admin": "Tenant administration",
 
     'customerAuth.pageTitle': 'Sign in',
     'customerAuth.language': 'Language',

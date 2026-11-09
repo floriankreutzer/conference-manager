@@ -1,5 +1,13 @@
 export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
   de: Object.freeze({
+    'managerSettings.catalogue.technicalDetails': 'Technische Details',
+    'managerSettings.choice.selectedFor': 'Auswahl für {field}',
+    'managerSettings.choice.selectedCount': '{count} ausgewählt',
+    'managerSettings.choice.searchFor': '{field} durchsuchen',
+
+    'managerSettings.catalogue.search': 'Nach Namen suchen',
+    'managerSettings.catalogue.searchCount': '{shown} von {total} Einträgen angezeigt',
+    'managerSettings.choice.unavailable': 'Nicht mehr verfügbare Auswahl {number}',
     "cateringPublication.variantLimit": "Die Variantenhistorie dieses Pakets ist vollständig. Ordnen Sie einer bestehenden Variante zu oder wählen Sie einen neuen Paketeintrag.",
     "managerSettings.section.publications": "Katalogfreigaben",
     "cateringPublication.title": "Lieferantenkatalog prüfen und freigeben",
@@ -461,6 +469,14 @@ export const MANAGER_SETTINGS_MESSAGES = Object.freeze({
     'managerSettings.historyEntry': 'Revision {revision} · {changedAt}',
   }),
   en: Object.freeze({
+    'managerSettings.catalogue.technicalDetails': 'Technical details',
+    'managerSettings.choice.selectedFor': 'Selection for {field}',
+    'managerSettings.choice.selectedCount': '{count} selected',
+    'managerSettings.choice.searchFor': 'Search {field}',
+
+    'managerSettings.catalogue.search': 'Search by name',
+    'managerSettings.catalogue.searchCount': 'Showing {shown} of {total} entries',
+    'managerSettings.choice.unavailable': 'Unavailable selection {number}',
     "cateringPublication.variantLimit": "This package has reached its variant-history limit. Map to an existing variant or choose a new package entry.",
     "managerSettings.section.publications": "Catalogue review",
     "cateringPublication.title": "Review and publish supplier catalogue",

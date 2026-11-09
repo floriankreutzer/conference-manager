@@ -148,7 +148,7 @@ function openRoomPreview(room, trigger, previewIndex, catalogueMedia) {
 }
 
 function openEmployeeCancellationConfirmation(request, confirmAction) {
-  const dismiss = button(t('common.cancel'));
+  const dismiss = button(t('production.employee.keepRequest'));
   const confirm = button(t('requests.cancel'), { className: 'danger' });
   const requestTitle = request.details?.title
     || t('production.common.requestId', { id: request.id });
@@ -182,6 +182,7 @@ function compositionDraft(request, catalog, overrides = {}) {
 }
 
 function requestCard(request, catalog, currentRoomContext, openChange, {
+  detailState,
   mutationInFlight = () => false,
   onCancel, onCancelConfirmation, onChange, onGuestInfo, onHistory, onPrint, onRepeat, onResubmit,
 }) {
@@ -192,14 +193,11 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   const endsAt = formatProductionDateTime(request.endsAt, { locale: locale(), timeZone });
   const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
   const article = el('article', {
-    className: 'request-card',
+    className: 'request-card request-card-compact',
     dataset: { productionRequestId: request.id },
     attrs: { tabindex: '-1' },
   }, [
     el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-    request.details?.title
-      ? el('p', { className: 'muted', text: t('production.common.requestId', { id: request.id }) })
-      : null,
     el('p', { text: room ? roomLabel(room) : request.roomId }),
     el('p', {
       text: startsAt && endsAt ? `${startsAt} – ${endsAt}` : t('production.common.timeUnavailable'),
@@ -207,7 +205,10 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
     el('p', { text: t('production.common.participants', { count: participants }) }),
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
-  const businessDetails = renderProductionRequestBusinessDetails(request);
+  const businessDetails = renderProductionRequestBusinessDetails(request, {
+    expanded: detailState.has(request.id),
+    onToggle: (open) => { if (open) detailState.add(request.id); else detailState.delete(request.id); },
+  });
   if (businessDetails) article.appendChild(businessDetails);
   if (request.statusReason) article.appendChild(el('p', { text: request.statusReason }));
   const mutationControls = [];
@@ -266,7 +267,7 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   if (request.status === 'Confirmed') {
     const guest = registerMutationControl(button(t('guest.title')));
     guest.addEventListener('click', () => {
-      void runMutation(() => onGuestInfo(request, currentRoomContext));
+      void runMutation(() => onGuestInfo(request, currentRoomContext, guest));
     });
     const print = registerMutationControl(button(t('guest.print')));
     print.addEventListener('click', () => {
@@ -384,7 +385,7 @@ export function createProductionEmployeeApplication({
     ])];
     return [
       [t('room.floor'), roomValues?.floorNumber === null || roomValues?.floorNumber === undefined
-        ? '' : String(roomValues.floorNumber)],
+        ? '' : formatNumber(roomValues.floorNumber)],
       [t('manager.publicTransport'), siteValues
         ? t(`guest.publicAvailability.${siteValues.publicTransport}`) : ''],
       [t('guest.arrival'), siteValues ? t(`guest.publicArrival.${siteValues.arrival}`) : ''],
@@ -394,8 +395,8 @@ export function createProductionEmployeeApplication({
       [t('manager.contact'), guest?.contact
         ? [guest.contact.name, guest.contact.email, guest.contact.phone].filter(Boolean).join(' · ')
         : ''],
-      [t('guest.wifi'), t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`)],
-    ].map(([term, value]) => [term, value || '—']);
+      [t('guest.wifi'), guest ? t(`guest.wifiPolicy.${guest?.wifiPolicy || 'not_available'}`) : ''],
+    ].map(([term, value]) => [term, value || t('guest.notPublished')]);
   }
 
   async function printRequest(
@@ -495,7 +496,7 @@ export function createProductionEmployeeApplication({
     return true;
   }
 
-  function openGuestInfo(request, currentRoomContext = null) {
+  function openGuestInfo(request, currentRoomContext, onPrint) {
     const room = catalog.rooms.find((entry) => entry.id === request.roomId)
       || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
     const guest = currentRoomContext?.guestPresentation;
@@ -506,37 +507,45 @@ export function createProductionEmployeeApplication({
       : t('guest.askOrganizer');
     const close = button(t('common.close'));
     const print = button(t('guest.print'), { className: 'primary' });
+    const site = currentRoomContext?.site;
+    const details = guestPresentationDetails(guest, currentRoomContext);
+    const list = (rows) => el('dl', { className: 'details-list' }, rows.flatMap(([term, value]) => [
+      el('dt', { text: term }), el('dd', { text: value }),
+    ]));
+    const section = (title, rows) => el('section', { className: 'guest-information-section' }, [
+      el('h3', { text: title }), list(rows),
+    ]);
+    const directions = section(t('guest.address'), [
+      [t('schedule.location'), site?.name || t('guest.notPublished')],
+      [t('guest.address'), formattedAddress], details[0], details[1], details[3],
+    ]);
+    if (guest?.routeUrl) directions.append(el('a', {
+      href: guest.routeUrl, target: '_blank', rel: 'noopener noreferrer', text: t('guest.route'),
+    }));
+    const content = el('section', { className: 'guest-information' }, [
+      el('p', { className: 'status-pill', text: t('status.Confirmed') }),
+      list([
+        [t('production.employee.start'), formattedRequestValue(request.startsAt, room, catalog, currentRoomContext)],
+        [t('production.employee.end'), formattedRequestValue(request.endsAt, room, catalog, currentRoomContext)],
+        [t('production.employee.room'), room?.name || t('guest.notPublished')],
+      ]),
+      el('div', { className: 'guest-information-grid' }, [
+        directions, section(t('guest.onSite'), [details[2], details[4], details[6]]),
+      ]),
+      section(t('manager.contact'), [details[5]]),
+    ]);
     const dialog = openDialog({
-      title: t('guest.welcome', {
-        title: request.details?.title || t('production.common.requestId', { id: request.id }),
-      }),
-      description: t('guest.subtitle'),
-      content: el('section', {}, [el('dl', { className: 'details-list' }, [
-        el('dt', { text: t('production.employee.start') }),
-        el('dd', { text: formattedRequestValue(
-          request.startsAt, room, catalog, currentRoomContext,
-        ) }),
-        el('dt', { text: t('production.employee.end') }),
-        el('dd', { text: formattedRequestValue(
-          request.endsAt, room, catalog, currentRoomContext,
-        ) }),
-        el('dt', { text: t('production.employee.room') }),
-        el('dd', { text: roomLabel(room || { id: request.roomId }) }),
-        el('dt', { text: t('guest.address') }),
-        el('dd', { text: formattedAddress }),
-        ...guestPresentationDetails(guest, currentRoomContext)
-          .flatMap(([term, value]) => [el('dt', { text: term }), el('dd', { text: value })]),
-      ]), guest?.routeUrl ? el('p', {}, el('a', {
-        href: guest.routeUrl,
-        target: '_blank',
-        rel: 'noopener noreferrer',
-        text: t('guest.route'),
-      })) : null]),
-      actions: [close, print],
+      title: t('guest.welcome', { title: request.details?.title || t('guest.title') }),
+      description: t('guest.subtitle'), content, actions: [close, print],
       labelledById: `guestInformation-${request.id}`,
     });
     close.addEventListener('click', () => dialog.close());
-    print.addEventListener('click', () => printRequest(request, currentRoomContext));
+    print.addEventListener('click', async () => {
+      if (print.disabled) return;
+      print.disabled = true;
+      try { await onPrint(() => dialog.close()); }
+      finally { if (print.isConnected) print.disabled = false; }
+    });
     authoritySurfaces.track(dialog);
     return dialog;
   }
@@ -650,6 +659,7 @@ export function createProductionEmployeeApplication({
     else if (restoredRoom) room.value = restoredRoom.id;
     const date = el('input', { attrs: { type: 'date', value: sourceStart?.date || restoredDraft?.startDate || '' } });
     const endDate = el('input', { attrs: { type: 'date', value: sourceEnd?.date || restoredDraft?.endDate || sourceStart?.date || '' } });
+    const multiDay = el('input', { type: 'checkbox', checked: Boolean(date.value && endDate.value && date.value !== endDate.value) });
     const start = el('input', { attrs: { type: 'time', value: sourceStart?.time || restoredDraft?.startTime || '' } });
     const end = el('input', { attrs: { type: 'time', value: sourceEnd?.time || restoredDraft?.endTime || '' } });
     const internal = el('input', { attrs: { type: 'number', min: '0', max: String(MAX_PARTICIPANTS), value: String(sourceRequest?.internalParticipants ?? restoredDraft?.internalParticipants ?? 1) } });
@@ -725,7 +735,32 @@ export function createProductionEmployeeApplication({
       renderSelections(servicePanel, serviceEditorOptions(requestCatalog, room.value), selectedServices, t('review.services'));
       renderSelections(equipmentPanel, equipmentEditorOptions(requestCatalog, room.value), selectedEquipment, t('production.employee.equipmentHeading'));
     };
+    const roomSearch = el('input', { type: 'search', attrs: { maxlength: '160' } });
+    const suitableOnly = el('input', { type: 'checkbox' });
+    const roomCount = el('p', { attrs: { role: 'status', 'aria-live': 'polite' } });
+    const selectedRoomSummary = el('p', { className: 'info-box' });
+    const resetRoomFilters = button(t('manager.ux.resetFilters'));
     const roomSelectionGrid = el('div', { className: 'selection-grid' });
+    const filterRooms = () => {
+      const query = roomSearch.value.trim().toLocaleLowerCase(locale());
+      let shown = 0;
+      for (const card of roomSelectionGrid.children) {
+        const entry = rooms.find((candidate) => candidate.id === card.dataset.roomId);
+        const selected = room.value === entry.id;
+        card.hidden = !selected && (!entry.name.toLocaleLowerCase(locale()).includes(query)
+          || (suitableOnly.checked && card.querySelector('input').disabled));
+        if (!card.hidden) shown += 1;
+      }
+      roomCount.textContent = t('managerSettings.catalogue.searchCount', { shown: formatNumber(shown), total: formatNumber(rooms.length) });
+      const selected = rooms.find((entry) => entry.id === room.value);
+      selectedRoomSummary.hidden = !selected;
+      selectedRoomSummary.textContent = selected ? t('production.employee.roomSelected', { name: selected.name }) : '';
+    };
+    roomSearch.addEventListener('input', filterRooms);
+    suitableOnly.addEventListener('change', filterRooms);
+    resetRoomFilters.addEventListener('click', () => {
+      roomSearch.value = ''; suitableOnly.checked = false; filterRooms(); roomSearch.focus();
+    });
     const roomSelectionPanel = el('fieldset', { className: 'room-option-fieldset' }, [
       el('legend', { className: 'sr-only', text: t('production.employee.roomOptions') }),
       roomSelectionGrid,
@@ -785,7 +820,9 @@ export function createProductionEmployeeApplication({
           room.value = entry.id;
           room.dispatchEvent(new Event('input', { bubbles: true }));
           room.dispatchEvent(new Event('change', { bubbles: true }));
-          requestAnimationFrame(() => document.getElementById(focusId)?.focus());
+          // The radio list is rebuilt synchronously. Restore its focus in this
+          // interaction so a later frame cannot interrupt the next search edit.
+          if (isCurrentEditor()) root.querySelector(`#${focusId}`)?.focus();
         });
         const card = el('article', {
           className: `option-card${selected ? ' selected' : ''}${supported ? '' : ' disabled'}`,
@@ -869,6 +906,7 @@ export function createProductionEmployeeApplication({
         }
         roomSelectionGrid.appendChild(card);
       });
+      filterRooms();
     };
     let roomSelectionWasCleared = false;
     const refreshRoomsForParticipants = () => {
@@ -884,6 +922,7 @@ export function createProductionEmployeeApplication({
     external.addEventListener('input', refreshRoomsForParticipants);
     const cateringPanel = el('section', { attrs: { 'aria-label': t('catering.heading') } });
     const renderCateringControls = () => {
+      const previouslyExpanded = cateringPanel.querySelector('[data-catering-options]')?.open;
       clear(cateringPanel);
       if (!room.value) {
         cateringPanel.append(
@@ -1003,6 +1042,12 @@ export function createProductionEmployeeApplication({
         el('legend', { className: 'selection-group-legend', text: t('catering.items') }),
       ]);
       const itemGrid = el('div', { className: 'catering-item-grid' });
+      const offers = el('details', { dataset: { cateringOptions: 'true' } }, [
+        el('summary', { text: t('production.employee.cateringOptions') }),
+        el('p', { className: 'muted', text: t('production.employee.cateringOptionsHint') }),
+        packageFieldset, itemFieldset,
+      ]);
+      offers.open = previouslyExpanded ?? Boolean(packageSelection || Object.values(itemQuantities).some((value) => Number(value) > 0));
       cateringPanel.append(
         el('h2', { text: t('catering.heading'), attrs: { tabindex: '-1' } }),
         el('p', { className: 'muted', text: t('catering.desc') }),
@@ -1010,8 +1055,7 @@ export function createProductionEmployeeApplication({
           id: 'productionCateringParticipants', label: t('catering.people'), control: cateringParticipants,
           hint: t('catering.peopleHint'),
         }),
-        packageFieldset,
-        itemFieldset,
+        offers,
       );
       if (!options.items.length) {
         itemFieldset.appendChild(el('p', { className: 'muted', text: t('catering.noItems') }));
@@ -1068,7 +1112,8 @@ export function createProductionEmployeeApplication({
       clear(allocationPanel);
       allocationPanel.append(
         el('h3', { text: t('cost.allocations') }),
-        el('p', { className: 'muted', text: t('cost.allocHint') }),
+        el('p', { className: 'muted', text: t(requestCatalog.costAllocation?.allocationRequired
+          ? 'cost.allocRequiredHint' : 'cost.allocOptionalHint') }),
       );
       const allocationStatus = el('p', {
         attrs: { role: 'status', 'aria-live': 'polite' },
@@ -1084,7 +1129,7 @@ export function createProductionEmployeeApplication({
       };
       allocationRows.forEach((allocation, index) => {
         const row = el('article', { className: 'allocation-row' });
-        const center = el('select');
+        const center = el('select', { attrs: { required: true } });
         center.appendChild(el('option', { value: '', text: t('cost.costCenter') }));
         requestCatalog.costCenters.filter((entry) => entry.active !== false).forEach((entry) => {
           center.appendChild(el('option', { value: entry.id, text: `${entry.code} · ${entry.name}` }));
@@ -1142,18 +1187,31 @@ export function createProductionEmployeeApplication({
     ];
     const clearControlValidation = (control) => {
       control.removeAttribute('aria-invalid');
+      if (status.dataset.invalidControlId === control.id) {
+        status.textContent = '';
+        status.className = 'muted';
+        delete status.dataset.invalidControlId;
+      }
       const describedBy = (control.getAttribute('aria-describedby') || '')
         .split(' ').filter((id) => id && id !== status.id).join(' ');
       if (describedBy) control.setAttribute('aria-describedby', describedBy);
       else control.removeAttribute('aria-describedby');
     };
     const showControlValidation = (control, message = t('production.employee.validation')) => {
+      for (let parent = control.parentElement; parent && parent !== root; parent = parent.parentElement) {
+        if (parent.tagName === 'DETAILS') parent.open = true;
+      }
+      if (control === endDate) { multiDay.checked = true; endDateField.hidden = false; }
       control.setAttribute('aria-invalid', 'true');
       const describedBy = new Set((control.getAttribute('aria-describedby') || '').split(' ').filter(Boolean));
       describedBy.add(status.id);
       control.setAttribute('aria-describedby', [...describedBy].join(' '));
       status.className = 'error-box';
-      status.textContent = message;
+      if (!control.id) control.id = 'productionInvalidControl';
+      status.dataset.invalidControlId = control.id;
+      const link = el('a', { attrs: { href: `#${control.id}` }, text: message });
+      link.addEventListener('click', (event) => { event.preventDefault(); control.focus(); });
+      status.replaceChildren(link);
       control.focus();
       return false;
     };
@@ -1170,6 +1228,11 @@ export function createProductionEmployeeApplication({
     [...scheduleControls, specialRequirements, dietaryRequirements].forEach((control) => {
       control.addEventListener('input', () => clearControlValidation(control));
     });
+    for (const panel of [cateringPanel, allocationPanel]) {
+      for (const eventName of ['input', 'change']) panel.addEventListener(eventName, event => {
+        if (event.target.matches('input, select')) clearControlValidation(event.target);
+      });
+    }
     cateringParticipants.addEventListener('input', () => {
       defaultCateringParticipants = false;
       clearControlValidation(cateringParticipants);
@@ -1202,7 +1265,7 @@ export function createProductionEmployeeApplication({
         close.addEventListener('click', () => dialog.close());
         const isCurrentInspection = () => isCurrentEditor() && dialog.open && dialog.isConnected;
         try {
-          const requests = await persistence.listRequests();
+          const requests = await persistence.listOwnRequests();
           if (!isCurrentInspection()) return;
           clear(content);
           if (!requests.length) content.appendChild(el('p', {
@@ -1279,10 +1342,13 @@ export function createProductionEmployeeApplication({
       renderRoomControls();
       if (actions?.isConnected) renderActiveStep();
     };
-    let previousStartDate = date.value;
     date.addEventListener('input', () => {
-      if (!endDate.value || endDate.value === previousStartDate) endDate.value = date.value;
-      previousStartDate = date.value;
+      if (!multiDay.checked || !endDate.value) endDate.value = date.value;
+    });
+    multiDay.addEventListener('change', () => {
+      endDateField.hidden = !multiDay.checked;
+      if (!multiDay.checked) endDate.value = date.value;
+      endDate.dispatchEvent(new Event('input', { bubbles: true }));
     });
     [room, date, endDate, start, end, internal, external]
       .forEach((control) => control.addEventListener('input', invalidateAvailability));
@@ -1318,26 +1384,43 @@ export function createProductionEmployeeApplication({
     external.addEventListener('input', updateParticipantTotal);
     updateParticipantTotal();
 
-    const scheduleGrid = el('div', { className: 'form-grid two' }, [
+    const endDateField = field({ id: 'productionEndDate', label: t('production.employee.endDate'), control: endDate, required: true });
+    endDateField.hidden = !multiDay.checked;
+    const scheduleGrid = el('div', { className: 'request-schedule-groups' }, [
       field({ id: 'productionTitle', label: t('schedule.title'), control: title, required: true }),
-      field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
-      field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
-      field({ id: 'productionEndDate', label: t('production.employee.endDate'), control: endDate, required: true }),
-      field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
-      field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
-      field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
-      participantTotal,
+      el('fieldset', { className: 'request-schedule-group' }, [
+        el('legend', { text: t('production.employee.scheduleTime') }),
+        el('div', { className: 'form-grid two' }, [
+          field({ id: 'productionDate', label: t('schedule.date'), control: date, required: true }),
+          field({ id: 'productionStart', label: t('production.employee.start'), control: start, required: true }),
+          field({ id: 'productionEnd', label: t('production.employee.end'), control: end, required: true }),
+          field({ id: 'productionMultiDay', label: t('production.employee.multiDay'), control: multiDay }),
+          endDateField,
+        ]),
+      ]),
+      el('fieldset', { className: 'request-schedule-group' }, [
+        el('legend', { text: t('production.employee.scheduleParticipants') }),
+        el('div', { className: 'form-grid two' }, [
+          field({ id: 'productionInternal', label: t('production.employee.internal'), control: internal, required: true }),
+          field({ id: 'productionExternal', label: t('production.employee.external'), control: external, required: true }),
+          participantTotal,
+        ]),
+      ]),
     ]);
+    const optionalNotes = el('details', { dataset: { requestOptionalNotes: 'true' } }, [
+      el('summary', { text: t('schedule.special') }),
+      field({ id: 'productionSpecial', label: t('schedule.special'), control: specialRequirements,
+        hint: t('schedule.specialHint'), optional: true }),
+    ]);
+    optionalNotes.open = Boolean(specialRequirements.value);
+    const costPreview = el('section', { dataset: { costPreview: 'true' } });
     const panels = [
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '1' } }, [
         el('div', { className: 'section-heading' }, [
           el('div', {}, [el('h2', { text: t('schedule.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('schedule.desc') })]),
         ]),
         scheduleGrid,
-        field({
-          id: 'productionSpecial', label: t('schedule.special'), control: specialRequirements,
-          hint: t('schedule.specialHint'), optional: true,
-        }),
+        optionalNotes,
       ]),
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '2' } }, [
         el('div', { className: 'section-heading' }, [
@@ -1350,6 +1433,11 @@ export function createProductionEmployeeApplication({
           ]),
         ]),
         room,
+        el('div', { className: 'toolbar' }, [
+          field({ id: 'productionRoomSearch', label: t('production.employee.roomSearch'), control: roomSearch }),
+          field({ id: 'productionRoomSuitable', label: t('production.employee.roomSuitableOnly'), control: suitableOnly }),
+          resetRoomFilters,
+        ]), roomCount, selectedRoomSummary,
         roomSelectionPanel,
         el('aside', {
           className: 'info-box',
@@ -1372,6 +1460,7 @@ export function createProductionEmployeeApplication({
         el('div', { className: 'section-heading' }, [
           el('div', {}, [el('h2', { text: t('cost.heading'), attrs: { tabindex: '-1' } }), el('p', { text: t('cost.desc') })]),
         ]),
+        costPreview,
         allocationPanel,
       ]),
       el('section', { className: 'card wizard-card', dataset: { stepPanel: '6' } }),
@@ -1404,9 +1493,46 @@ export function createProductionEmployeeApplication({
       recoveryHint,
       el('span', { id: 'draftStatus', className: 'draft-status', attrs: { role: 'status', 'aria-live': 'polite' } }),
     ]);
-    const actions = el('footer', { className: 'wizard-actions' });
-    const discardDraft = button(t('production.employee.discardDraft'), { className: 'danger' });
+    const actions = el('footer', { className: 'wizard-actions request-action-bar' });
+    const discardDraft = button(t('production.employee.discardDraft'), { className: 'secondary' });
+    const draftActions = el('div', { className: 'request-draft-actions' }, isResubmission ? [] : [discardDraft]);
+    draftActions.hidden = isResubmission;
     let activeStep = restoredDraft?.activeStep || 1;
+
+    const currentReviewModel = () => buildServerRequestReview({
+      catalog: requestCatalog,
+      roomId: room.value,
+      internalParticipants: internal.value,
+      externalParticipants: external.value,
+      serviceIds: [...selectedServices],
+      equipmentIds: [...selectedEquipment],
+      cateringParticipantCount: cateringParticipants.value,
+      packageSelection,
+      itemQuantities,
+      allocations: allocationRows,
+      dietaryRequirements: dietaryRequirements.value,
+      specialRequirements: specialRequirements.value,
+    });
+    const reviewPriceRows = (price) => {
+      const previewMoney = (amountMinor) => formatMoney(amountMinor / 100, price.currency);
+      return price ? [
+        [t('cost.room'), previewMoney(price.breakdown.roomMinor)],
+        [t('review.services'), previewMoney(price.breakdown.servicesMinor)],
+        [t('production.employee.equipmentHeading'), previewMoney(price.breakdown.equipmentMinor)],
+        [t('catering.package'), previewMoney(price.breakdown.cateringPackageMinor)],
+        [t('catering.items'), previewMoney(price.breakdown.cateringItemsMinor)],
+        [t('review.total'), previewMoney(price.totalMinor)],
+      ] : [[t('review.total'), t('production.employee.reviewPriceUnavailable')]];
+    };
+    const renderCostPreview = () => {
+      clear(costPreview);
+      costPreview.append(
+        el('h3', { text: t('production.employee.reviewPriceBreakdown') }),
+        el('dl', { className: 'details-list review-details' }, reviewPriceRows(currentReviewModel().price)
+          .flatMap(([term, value]) => [el('dt', { text: term }), el('dd', { text: value })])),
+        el('p', { className: 'muted review-price-note', text: t('cost.note') }),
+      );
+    };
 
     const renderReview = () => {
       const review = panels[5];
@@ -1418,20 +1544,7 @@ export function createProductionEmployeeApplication({
         start: formatProductionDateTime(window.startsAt, { locale: locale(), timeZone }),
         end: formatProductionDateTime(window.endsAt, { locale: locale(), timeZone }),
       }) : '';
-      const model = buildServerRequestReview({
-        catalog: requestCatalog,
-        roomId: room.value,
-        internalParticipants: internal.value,
-        externalParticipants: external.value,
-        serviceIds: [...selectedServices],
-        equipmentIds: [...selectedEquipment],
-        cateringParticipantCount: cateringParticipants.value,
-        packageSelection,
-        itemQuantities,
-        allocations: allocationRows,
-        dietaryRequirements: dietaryRequirements.value,
-        specialRequirements: specialRequirements.value,
-      });
+      const model = currentReviewModel();
       const none = t('common.none');
       const joinedNames = (entries) => entries.map((entry) => entry.name).join(' · ') || none;
       const cateringPackage = model.catering.packageSelection
@@ -1448,10 +1561,6 @@ export function createProductionEmployeeApplication({
           style: 'percent', maximumFractionDigits: 2,
         })}`
       )).join(' · ') || none;
-      const previewMoney = (amountMinor) => formatMoney(
-        amountMinor / 100,
-        model.price.currency,
-      );
       const reviewGrid = el('div', { className: 'review-grid' });
       const reviewCard = (heading, rows, targetStep, section) => {
         const edit = button(t('review.edit'), { className: 'ux-review-edit' });
@@ -1468,14 +1577,7 @@ export function createProductionEmployeeApplication({
           ])),
         ]);
       };
-      const priceRows = model.price ? [
-        [t('cost.room'), previewMoney(model.price.breakdown.roomMinor)],
-        [t('review.services'), previewMoney(model.price.breakdown.servicesMinor)],
-        [t('production.employee.equipmentHeading'), previewMoney(model.price.breakdown.equipmentMinor)],
-        [t('catering.package'), previewMoney(model.price.breakdown.cateringPackageMinor)],
-        [t('catering.items'), previewMoney(model.price.breakdown.cateringItemsMinor)],
-        [t('review.total'), previewMoney(model.price.totalMinor)],
-      ] : [[t('review.total'), t('production.employee.reviewPriceUnavailable')]];
+
       reviewGrid.append(
         reviewCard(t('production.employee.reviewEventParticipants'), [
           [t('schedule.title'), title.value.trim()],
@@ -1507,7 +1609,7 @@ export function createProductionEmployeeApplication({
         reviewCard(t('review.costs'), [
           [t('cost.allocations'), allocationText],
         ], 5, 'allocations'),
-        reviewCard(t('production.employee.reviewPriceBreakdown'), priceRows, 5, 'price'),
+        reviewCard(t('production.employee.reviewPriceBreakdown'), reviewPriceRows(model.price), 5, 'price'),
       );
       review.append(
         el('div', { className: 'section-heading' }, [
@@ -1540,10 +1642,10 @@ export function createProductionEmployeeApplication({
           className: `ux-progress-dot${index + 1 === activeStep ? ' active' : ''}${index + 1 < activeStep ? ' done' : ''}`,
         }))),
       );
+      if (activeStep === 5) renderCostPreview();
       if (activeStep === 6) renderReview();
       recoveryHint.hidden = !submissionFailed || activeStep !== 6;
       clear(actions);
-      if (!isResubmission) actions.appendChild(discardDraft);
       if (activeStep > 1) {
         const back = button(t('common.back'));
         back.addEventListener('click', () => moveToStep(activeStep - 1));
@@ -1565,9 +1667,10 @@ export function createProductionEmployeeApplication({
       }
     };
 
-    const focusStep = () => requestAnimationFrame(() => {
+    const focusStep = () => {
+      if (!isCurrentEditor()) return;
       panels[activeStep - 1].querySelector('h2, input, select, textarea, button')?.focus();
-    });
+    };
     const validateStep = (stepNumber) => {
       for (const entry of textFields.filter((item) => item.step === stepNumber)) {
         clearControlValidation(entry.control);
@@ -1581,14 +1684,17 @@ export function createProductionEmployeeApplication({
           ? null : internalParticipants + externalParticipants;
         const startsAtLocal = `${date.value}T${start.value}`;
         const endsAtLocal = `${endDate.value}T${end.value}`;
-        const invalidControl = [title, date, start, endDate, end]
-          .find((control) => !control.value || !control.checkValidity())
-          || (!title.value.trim() ? title : null)
-          || (internalParticipants === null ? internal : null)
-          || (externalParticipants === null ? external : null)
-          || (participantCount < 1 || participantCount > MAX_PARTICIPANTS ? internal : null)
-          || (endsAtLocal <= startsAtLocal ? end : null);
-        if (invalidControl) return showControlValidation(invalidControl);
+        const invalidTime = [date, start, endDate, end]
+          .find((control) => !control.value || !control.checkValidity());
+        if (invalidTime) return showControlValidation(invalidTime, t('production.employee.timeRequired'));
+        if (internalParticipants === null || externalParticipants === null) {
+          return showControlValidation(internalParticipants === null ? internal : external,
+            t('production.employee.participantInteger', { maximum: formatNumber(MAX_PARTICIPANTS) }));
+        }
+        if (participantCount < 1 || participantCount > MAX_PARTICIPANTS) {
+          return showControlValidation(internal, t('production.employee.participantTotal', { maximum: formatNumber(MAX_PARTICIPANTS) }));
+        }
+        if (endsAtLocal <= startsAtLocal) return showControlValidation(end, t('production.employee.endAfterStart'));
       }
       if (stepNumber === 2 && !isAvailabilityVerified()) {
         roomSelectionPanel.setAttribute('aria-invalid', 'true');
@@ -1611,15 +1717,33 @@ export function createProductionEmployeeApplication({
             roomId: room.value,
           });
         } catch {
-          return showControlValidation(cateringParticipants);
+          const quantity = [...cateringPanel.querySelectorAll('[id^="productionCateringItem-"]')]
+            .find(control => !control.checkValidity());
+          if (quantity) return showControlValidation(quantity, t('production.employee.cateringQuantityInvalid'));
+          return showControlValidation(cateringParticipants, t('production.employee.cateringParticipantsInvalid', {
+            maximum: formatNumber((safeParticipantCount(internal.value) || 0) + (safeParticipantCount(external.value) || 0)),
+          }));
         }
       }
       if (stepNumber === 5) {
+        allocationPanel.querySelectorAll('[aria-invalid="true"]').forEach(clearControlValidation);
         try {
           normalizeAllocationEditorDraft({ allocations: allocationRows, catalog: requestCatalog });
         } catch {
-          const invalidControl = allocationPanel.querySelector('select, input, button');
-          return invalidControl ? showControlValidation(invalidControl) : false;
+          const controls = [...allocationPanel.querySelectorAll('select, input')];
+          const invalidControl = controls.find(control => !control.checkValidity());
+          if (invalidControl) return showControlValidation(invalidControl,
+            t(invalidControl.tagName === 'SELECT' ? 'production.employee.allocationCenterRequired' : 'production.employee.allocationPercentInvalid'));
+          const seen = new Set();
+          const duplicate = [...allocationPanel.querySelectorAll('select')].find(control => {
+            if (seen.has(control.value)) return true;
+            seen.add(control.value);
+            return false;
+          });
+          if (duplicate) return showControlValidation(duplicate, t('production.employee.allocationDuplicate'));
+          const target = allocationPanel.querySelector('input, button');
+          return target ? showControlValidation(target, t(allocationRows.length
+            ? 'production.employee.allocationTotalInvalid' : 'production.employee.allocationCenterRequired')) : false;
         }
       }
       return true;
@@ -1637,7 +1761,7 @@ export function createProductionEmployeeApplication({
     stepControls.forEach((control, index) => {
       control.addEventListener('click', () => moveToStep(index + 1));
     });
-    root.append(mobileProgress, stepper, ...panels, actionStatus, actions);
+    root.append(mobileProgress, stepper, actionStatus, actions, ...panels, draftActions);
     renderRoomControls();
     renderActiveStep();
     invalidateAvailability();
@@ -1695,8 +1819,11 @@ export function createProductionEmployeeApplication({
         }
       });
     };
-    root.addEventListener('input', () => markDraftEdited());
-    root.addEventListener('change', () => markDraftEdited());
+    const onDraftInput = (event) => {
+      if (event.target !== roomSearch && event.target !== suitableOnly) markDraftEdited();
+    };
+    root.addEventListener('input', onDraftInput);
+    root.addEventListener('change', onDraftInput);
 
     function lockDraftMutation() {
       workflowMutationPending = true;
@@ -1904,10 +2031,10 @@ export function createProductionEmployeeApplication({
         if (!isCurrentEditor()) return;
         submissionNotice = Object.freeze({
           requestId: submittedRequest.id,
+          title: submittedRequest.details?.title || normalizedTitle,
           type: isResubmission ? 'resubmitted' : 'sent',
         });
         status.textContent = t('production.employee.submitted');
-        showToast(t('production.employee.submitted'));
         if (!sourceRequest && draftStore) {
           draftDirty = false;
           if (draftTimer) clearTimeout(draftTimer);
@@ -1916,6 +2043,7 @@ export function createProductionEmployeeApplication({
         }
         verifiedAvailabilityKey = null;
         if (typeof onNavigate === 'function') onNavigate('requests');
+        showToast(t('production.employee.submitted'));
       } catch (error) {
         if (authorityFailureCode(error)) {
           invalidateEditorAuthority(error);
@@ -1930,7 +2058,7 @@ export function createProductionEmployeeApplication({
           if (isResubmission) {
             resubmissionVersionCurrent = false;
             try {
-              const requests = await persistence.listRequests();
+              const requests = await persistence.listOwnRequests();
               if (!isCurrentEditor()) return;
               const currentRequest = requests.find((entry) => entry.id === sourceRequest.id);
               if (currentRequest?.status === 'Change Requested'
@@ -1976,6 +2104,7 @@ export function createProductionEmployeeApplication({
     let authorityProjectionInvalid = false;
     let pendingSubmissionFocusRequestId = null;
     let requestDisplay = 'list';
+    const detailState = new Set();
     let calendarReference = null;
     const isActiveSurface = () => (
       root.isConnected
@@ -1999,6 +2128,7 @@ export function createProductionEmployeeApplication({
       committedProjectionGeneration = 0;
       interactiveProjectionGeneration = 0;
       pendingSubmissionFocusRequestId = null;
+      detailState.clear();
       authoritySurfaces.closeAll();
       if (onAuthorityFailure?.(error)) return true;
       if (!root.isConnected) return false;
@@ -2044,6 +2174,7 @@ export function createProductionEmployeeApplication({
       const copy = el('div', {}, [
         el('strong', { text: t(currentNotice.type === 'resubmitted'
           ? 'submission.resubmittedTitle' : 'submission.sentTitle') }),
+        el('p', { text: currentNotice.title }),
         el('p', { text: t(currentNotice.type === 'resubmitted'
           ? 'submission.resubmittedText' : 'submission.sentText') }),
       ]);
@@ -2081,7 +2212,7 @@ export function createProductionEmployeeApplication({
       }
       try {
         const [nextCatalog, requests] = await Promise.all([
-          persistence.loadCatalog(), persistence.listRequests(),
+          persistence.loadCatalog(), persistence.listOwnRequests(),
         ]);
         if (!isCurrent(generation)) return;
         const [changes, roomContexts] = await Promise.all([
@@ -2089,6 +2220,10 @@ export function createProductionEmployeeApplication({
           loadMissingRequestRoomContexts(requests, nextCatalog, persistence),
         ]);
         if (!isCurrent(generation)) return;
+        if (submissionNotice) {
+          const submitted = requests.find(request => request.id === submissionNotice.requestId);
+          if (!submitted || !['Submitted', 'In Review'].includes(submitted.status)) submissionNotice = null;
+        }
         catalog = nextCatalog;
         authorityProjectionInvalid = false;
         clear(root);
@@ -2175,7 +2310,7 @@ export function createProductionEmployeeApplication({
                 showToast(t('production.error.conflict'));
                 return;
               }
-              action(target, prepared.currentRoomContext);
+              return await action(target, prepared.currentRoomContext);
             } catch (caught) {
               onAbort?.();
               if (authorityFailureCode(caught)) invalidateAuthorityProjection(caught);
@@ -2187,6 +2322,7 @@ export function createProductionEmployeeApplication({
               invalidateAuthorityProjection(caught);
               return;
             }
+            if (!caught && submissionNotice?.requestId === request.id) submissionNotice = null;
             if (!isActiveSurface() || tracked.reconciled) return;
             tracked.reconciled = true;
             if (requestMutations.get(request.id) === tracked) {
@@ -2200,7 +2336,18 @@ export function createProductionEmployeeApplication({
             }
             await refresh(request.id);
           };
+          const printGuest = (target, onAbort = null) => {
+            const printWindow = openDetachedPrintWindow();
+            if (!printWindow) {
+              showToast(t('guest.popupBlocked'));
+              return undefined;
+            }
+            return withGuestRoomContext(target, (preparedTarget, currentRoomContext) => (
+              printRequest(preparedTarget, currentRoomContext, printWindow)
+            ), { onAbort: () => { closeDetachedPrintWindow(printWindow); onAbort?.(); } });
+          };
           card = requestCard(request, nextCatalog, roomContexts[index], changes[index], {
+            detailState,
             mutationInFlight: () => requestMutations.has(request.id),
             onCancelConfirmation: (target, confirmAction) => {
               authoritySurfaces.track(openEmployeeCancellationConfirmation(target, confirmAction));
@@ -2284,7 +2431,15 @@ export function createProductionEmployeeApplication({
                 else if (shouldNotify) showToast(errorMessage(caught));
               }
             },
-            onGuestInfo: (target) => withGuestRoomContext(target, openGuestInfo),
+            onGuestInfo: (target, _roomContext, control) => withGuestRoomContext(target, (preparedTarget, currentRoomContext) => {
+              const dialog = openGuestInfo(preparedTarget, currentRoomContext, (onAbort) => printGuest(preparedTarget, onAbort));
+              // Loading disables the trigger, so native dialog focus capture can
+              // observe the body instead. Restore the explicit current card owner.
+              dialog.addEventListener('close', () => {
+                if (isCurrentCard() && control.isConnected && !control.disabled) control.focus();
+              }, { once: true });
+              return dialog;
+            }),
             onHistory: async (target, control) => {
               const interactionGeneration = refreshGeneration;
               const isCurrentInteraction = () => (
@@ -2312,20 +2467,7 @@ export function createProductionEmployeeApplication({
                 if (isActiveCard() && control.isConnected) control.disabled = false;
               }
             },
-            onPrint: (target) => {
-              const printWindow = openDetachedPrintWindow();
-              if (!printWindow) {
-                showToast(t('guest.popupBlocked'));
-                return undefined;
-              }
-              return withGuestRoomContext(
-                target,
-                (preparedTarget, currentRoomContext) => {
-                  printRequest(preparedTarget, currentRoomContext, printWindow);
-                },
-                { onAbort: () => closeDetachedPrintWindow(printWindow) },
-              );
-            },
+            onPrint: (target) => printGuest(target),
             onRepeat: (target) => queueRequest(target),
             onResubmit: (target) => queueRequest(target, { resubmit: true }),
           });

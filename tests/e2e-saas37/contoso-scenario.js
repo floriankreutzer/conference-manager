@@ -74,7 +74,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await page.locator('[data-demo-manager-task="room:description"] button').click();
   const studio = page.locator(`[data-manager-room-id="${STUDIO}"]`);
   await studio.locator('textarea[id^="manager-room-description-"]').fill(`Completed Studio description cycle ${cycle}`);
-  const roomsForm = studio.locator('xpath=..');
+  const roomsForm = studio.locator('xpath=ancestor::form');
   await expect(roomsForm.locator(':invalid')).toHaveCount(0);
   await uiResponse(page, 'PUT', LOCATIONS_PATH, async () => {
     await roomsForm.getByRole('button', { name: 'Speichern', exact: true }).click();
@@ -158,7 +158,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
   // Delete a seeded media association via its normal authorized editor. Reset
   // must restore it and the original bytes, not just remove the newly uploaded image.
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   // The explicit editor navigation focuses the heading after its authoritative
   // load, unlike the Administration tab's automatic, unfocused initial render.
   await expect(page.locator('#viewTitle')).toBeFocused();
@@ -168,7 +168,7 @@ export async function completeContosoTasks(page, cycle, baseline) {
   await mediaIds.fill('');
   await expect(mediaIds).toHaveValue('');
   const detachResponse = await uiResponse(page, 'PUT', LOCATIONS_PATH,
-    () => atelier.locator('xpath=..').getByRole('button', { name: 'Speichern', exact: true }).click());
+    () => atelier.locator('xpath=ancestor::form').getByRole('button', { name: 'Speichern', exact: true }).click());
   const submittedRoom = detachResponse.request().postDataJSON().configuration.rooms
     .find(({ id }) => id === 'contoso-paris-room-1');
   expect(submittedRoom.mediaAssetIds).toEqual([]);

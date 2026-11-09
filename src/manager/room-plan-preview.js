@@ -1,0 +1,79 @@
+import { formatNumber, locale, t } from '../core/i18n.js';
+import { button, el } from '../core/ui.js';
+import { formatProductionDateTime } from '../core/production-time.js';
+
+export function roomPlanPreview({ openRequest }) {
+  const heading = el('h3', { id: 'managerRoomPlanPreviewTitle', attrs: { tabindex: '-1' } });
+  const details = el('dl', { className: 'request-business-details' });
+  const open = button(t('production.manager.roomPlan.open'));
+  const close = button(t('production.manager.roomPlan.close'));
+  const node = el('section', { id: 'managerRoomPlanPreview', className: 'report-card', attrs: {
+    hidden: 'hidden', 'aria-labelledby': heading.id,
+  } }, [heading, details, el('div', { className: 'request-actions' }, [open, close])]);
+  let selected = null;
+  let restoringFocus = false;
+  const clear = () => {
+    selected?.control.setAttribute('aria-expanded', 'false');
+    selected = null;
+    node.hidden = true;
+    heading.textContent = '';
+    details.replaceChildren();
+  };
+  const dismiss = () => {
+    const control = selected?.control;
+    clear();
+    restoringFocus = true;
+    control?.focus();
+    restoringFocus = false;
+  };
+  const escape = (event) => {
+    if (event.key !== 'Escape' || node.hidden) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dismiss();
+  };
+  close.addEventListener('click', dismiss);
+  node.addEventListener('keydown', escape);
+  open.addEventListener('click', () => { if (selected) openRequest(selected.request.id); });
+  const bind = (control, request, room, timeZone) => {
+    control.setAttribute('aria-controls', node.id);
+    control.setAttribute('aria-expanded', 'false');
+    const show = (moveFocus = false) => {
+      if (restoringFocus) return;
+      if (selected?.control !== control) {
+        // Hover must never replace the action currently being used with the keyboard.
+        if (!moveFocus && (node.contains(document.activeElement)
+          || selected?.control === document.activeElement)) return;
+        selected?.control.setAttribute('aria-expanded', 'false');
+        selected = { control, request };
+        heading.textContent = request.details?.title || t('production.common.requestId', { id: request.id });
+        const time = (value) => formatProductionDateTime(value, { locale: locale(), timeZone });
+        details.replaceChildren(...[
+          ['production.employee.room', room.name],
+          ['production.employee.start', time(request.startsAt)],
+          ['production.employee.end', time(request.endsAt)],
+          ['production.common.status', t(`status.${request.status}`)],
+          ['production.manager.roomPlan.participants', formatNumber(request.internalParticipants + request.externalParticipants)],
+        ].map(([key, value]) => el('div', {}, [el('dt', { text: t(key) }), el('dd', { text: value })])));
+      }
+      node.hidden = false;
+      control.setAttribute('aria-expanded', 'true');
+      if (moveFocus) heading.focus();
+    };
+    control.addEventListener('focus', () => show());
+    control.addEventListener('pointerenter', (event) => {
+      // Touch browsers can synthesize mouse entry without a hover-capable input.
+      // Revealing content above the pressed booking would move its activation target.
+      if (event.pointerType === 'mouse' && matchMedia('(any-hover: hover)').matches) show();
+    });
+    // Opening the preview on native mousedown focus shifts the pressed booking
+    // before mouseup (including WebKit's touch compatibility events). The click
+    // owns the deliberate focus transfer; keyboard focus still previews in place.
+    control.addEventListener('mousedown', (event) => {
+      if (event.button === 0) event.preventDefault();
+    });
+    control.addEventListener('click', () => show(true));
+    control.addEventListener('keydown', escape);
+  };
+  return Object.freeze({ node, bind, clear });
+}

@@ -25,6 +25,7 @@ export function createSyntheticCalendarSection({ adapter=null }={}) {
     try {
       const view=await adapter.getView();if (!isCurrent()) return;
       status.textContent=t('syntheticOnboarding.disclosure');
+      status.className='info-box';
       const refresh=button(t('syntheticOnboarding.refresh'));
       refresh.addEventListener('click',()=>{ if (mutationPending) return;checkRequired=false;focusAfterLoad=true;rerender(); });
       const message=el('p',{ text: feedback ? t(feedback) : '',attrs: { role: 'status','aria-live': 'polite','aria-atomic': 'true' } });
@@ -33,11 +34,29 @@ export function createSyntheticCalendarSection({ adapter=null }={}) {
         el('h3',{ text: t('syntheticOnboarding.readiness') }),
         el('p',{ text: t('syntheticOnboarding.status',{ status: t(`syntheticOnboarding.state.${view.tenantStatus}`),
           rooms: formatNumber(view.roomCount),bound: formatNumber(view.boundRoomCount) }) }),
-        el('ul',{},Object.entries(view.readiness.checks).map(([key,ready])=>el('li',{
+        el('ol',{ className: 'tenant-calendar-steps' },Object.entries(view.readiness.checks).map(([key,ready])=>el('li',{
           text: t(`syntheticOnboarding.check.${key}`,{ state: t(ready ? 'syntheticOnboarding.ready' : 'syntheticOnboarding.blocked') }),
         }))),
         el('p',{ text: t(view.calendarWriteEntitled ? 'syntheticOnboarding.writeEnabled' : 'syntheticOnboarding.writeDisabled') }),
         actions,message,
+      ]));
+      const rows = view.candidates.map((candidate) => el('tr', {}, [
+        el('th', { attrs: { scope: 'row' }, text: candidate.name }),
+        el('td', { text: formatNumber(candidate.capacity) }),
+        el('td', { text: candidate.building }),
+        el('td', { text: t(candidate.imported ? 'syntheticOnboarding.roomImported' : 'syntheticOnboarding.roomPending') }),
+      ]));
+      const table = el('table', { className: 'tenant-calendar-table' }, [
+        el('caption', { text: t('syntheticOnboarding.candidateInventory') }),
+        el('thead', {}, el('tr', {}, [
+          'production.employee.room', 'tenantSettings.locations.capacity', 'schedule.location', 'production.common.status',
+        ].map((key) => el('th', { attrs: { scope: 'col' }, text: t(key) })))),
+        el('tbody', {}, rows),
+      ]);
+      root.appendChild(el('section', { className: 'card tenant-calendar-inventory' }, [
+        el('p', { text: t('syntheticOnboarding.inventoryScope') }),
+        el('div', { className: 'tenant-calendar-table-scroll', attrs: { tabindex: '0', role: 'region',
+          'aria-label': t('syntheticOnboarding.candidateInventory') } }, table),
       ]));
       const controls=[refresh];
       async function mutate(operation,success) {
@@ -95,5 +114,11 @@ export function createSyntheticCalendarSection({ adapter=null }={}) {
     }
   }
   return defineTenantAdminSection({ id: 'synthetic-calendar',titleKey: TITLE,descriptionKey: 'syntheticOnboarding.description',
-    permission: TENANT_ADMIN_SECTION_PERMISSION.INTEGRATIONS_MANAGE,available: adapter!==null,render });
+    permission: TENANT_ADMIN_SECTION_PERMISSION.INTEGRATIONS_MANAGE,available: adapter!==null,render,
+    loadOverview: async () => {
+      const view = await adapter.getView();
+      return { summary: t('tenantAdmin.overview.syntheticCalendar', { rooms: formatNumber(view.roomCount), bound: formatNumber(view.boundRoomCount) }),
+        tasks: view.readiness.ready ? [] : [t('tenantAdmin.overview.syntheticPending')] };
+    },
+  });
 }

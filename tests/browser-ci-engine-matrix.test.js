@@ -6,16 +6,16 @@ import test from 'node:test';
 const workflow = await readFile(new URL('../.github/workflows/ci.yml',import.meta.url),'utf8');
 test('regular browser CI retains both full projects, a bounded aggregate budget and distinct evidence before its required status',() => {
   const matrix = workflow.slice(workflow.indexOf('  browser-e2e:'),workflow.indexOf('  # Keep the existing required status'));
-  assert.match(matrix,/needs: quality/); assert.match(matrix,/timeout-minutes: 30/);
+  assert.match(matrix,/needs: quality/); assert.match(matrix,/timeout-minutes: 40/);
   assert.match(matrix,/fail-fast: false/); assert.match(matrix,/project: \[chromium-desktop, webkit-mobile\]/);
   assert.match(matrix,/run: npm run test:e2e -- --project=\$\{\{ matrix\.project \}\}/);
   assert.match(matrix,/name: playwright-report-\$\{\{ matrix\.project \}\}/);
   for (const proof of ['test-hosted-transport.mjs --browsers','platform-microsoft-operations.spec.js',
-    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft']) {
+    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft','--grep "CO-311:"','--grep "CO-308.*room"']) {
     assert.ok(matrix.includes(proof));
   }
   const canaries=matrix.split('\n').filter(line=>line.includes('npx playwright test '));
-  assert.equal(canaries.length,9);
+  assert.equal(canaries.length,11);
   for (const command of canaries) assert.match(command,/--project=\$\{\{ matrix\.project \}\}/);
   assert.doesNotMatch(matrix,/continue-on-error:|--grep-invert|--shard|--retries|--workers/);
 });
@@ -39,11 +39,11 @@ test('required e2e aggregate rejects failed, cancelled, skipped, absent and ambi
 test('qualified protected acceptance pins the API, retains both engines and actual TLS without weakening permanent gates',()=>{
   const protectedJob=workflow.slice(workflow.indexOf('\n  protected-browser-e2e:'));
   assert.match(protectedJob,/browser: \[chromium, webkit\]/);assert.match(protectedJob,/needs: quality/);
-  assert.match(protectedJob,/ref: d1255d9d1796ea17b50ced6408fa2d7fbb9b7638/);
+  assert.match(protectedJob,/ref: 2b9a7f4fbeaba3688877d045337a1c00e3eda5de/);
   assert.match(protectedJob,/node frontend\/scripts\/check-platform-passkey-wire.mjs "\$PWD\/api"/);
   const refs=[...workflow.matchAll(/repository: floriankreutzer\/conference-manager-api\n\s+ref: ([a-f0-9]{40})/g)]
     .map(match=>match[1]);
-  assert.deepEqual(refs,["d1255d9d1796ea17b50ced6408fa2d7fbb9b7638","d1255d9d1796ea17b50ced6408fa2d7fbb9b7638"]);
+  assert.deepEqual(refs,["2b9a7f4fbeaba3688877d045337a1c00e3eda5de","2b9a7f4fbeaba3688877d045337a1c00e3eda5de"]);
   assert.match(protectedJob,/node scripts\/test-protected-browser.mjs "\$\{\{ matrix.browser \}\}-protected"/);
   assert.doesNotMatch(protectedJob,/continue-on-error:|--ignore-https-errors|--retries|--grep|--shard/);
   assert.match(workflow,/Run full three-customer progression and two-cycle reset acceptance/);

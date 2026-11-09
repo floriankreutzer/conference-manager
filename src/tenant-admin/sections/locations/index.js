@@ -1,3 +1,5 @@
+import { locationOverview } from '../../overview-model.js';
+import { createCatalogueEditorList } from '../../../shared/catalogue-editor-list.js';
 import { createPublicGuestValueEditor } from '../../../core/public-guest-value-editor.js';
 import { createGuestInformationEditor } from './guest-information-editor.js';
 import { projectTechnicalLocationConfiguration } from '../../../core/tenant-location-ownership.js';
@@ -32,7 +34,7 @@ function nextSiteId(editors) {
 function siteOption(site) {
   return el('option', {
     value: site.id,
-    text: t('tenantSettings.locations.siteOption', { name: site.name, id: site.id }),
+    text: site.name,
   });
 }
 
@@ -51,7 +53,10 @@ function siteEditor(site, index) {
   };
   const node = el('fieldset', { className: 'card', dataset: { tenantSiteId: site.id } }, [
     el('legend', { text: site.name }),
-    el('p', { className: 'muted', text: t('tenantSettings.locations.internalId', { id: site.id }) }),
+    el('details', {}, [
+      el('summary', { text: t('managerSettings.catalogue.technicalDetails') }),
+      el('p', { className: 'muted', text: t('tenantSettings.locations.internalId', { id: site.id }) }),
+    ]),
     el('div', { className: 'form-grid' }, [
       field({ id: `tenant-site-name-${index}`, label: t('tenantSettings.locations.siteName'), control: controls.name, required: true }),
       field({ id: `tenant-site-time-zone-${index}`, label: t('tenantSettings.locations.timeZone'), control: controls.timeZone, required: true }),
@@ -153,7 +158,7 @@ function renderHistory(history) {
 export function createLocationsSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('LOCATIONS_SECTION_ADAPTER_INVALID');
 
-  async function render({ root, isCurrent, rerender }) {
+  async function render({ root, isCurrent, rerender, registerEditor }) {
     renderSectionLoading(root, TITLE);
     let snapshot;
     let history;
@@ -183,8 +188,8 @@ export function createLocationsSection({ adapter = null } = {}) {
       snapshot.configuration.sites,
     ));
     const form = el('form', { dataset: { tenantSettingsForm: 'locations-technical' } });
-    const sitesRoot = el('div');
-    siteEditors.forEach((editor) => sitesRoot.appendChild(editor.node));
+    const siteList = createCatalogueEditorList({ id: 'tenant-sites', editors: siteEditors });
+    const sitesRoot = siteList.node;
     const addSite = button(t('tenantSettings.locations.addSite'));
     addSite.addEventListener('click', () => {
       const site = {
@@ -198,7 +203,7 @@ export function createLocationsSection({ adapter = null } = {}) {
       };
       const editor = siteEditor(site, siteEditors.length);
       siteEditors.push(editor);
-      sitesRoot.appendChild(editor.node);
+      siteList.add(editor, { expanded: true });
       roomEditors.forEach(({ controls }) => controls.siteId.appendChild(siteOption(site)));
       editor.controls.name.focus();
     });
@@ -208,7 +213,9 @@ export function createLocationsSection({ adapter = null } = {}) {
       el('div', { className: 'button-row' }, [addSite]),
       el('h3', { text: t('tenantSettings.locations.rooms') }),
     );
-    roomEditors.forEach((editor) => form.appendChild(editor.node));
+    form.appendChild(createCatalogueEditorList({
+      id: 'tenant-rooms', editors: roomEditors, nameOf: (editor) => editor.room.name,
+    }).node);
 
     const save = button(t('tenantSettings.action.save'), {
       className: 'primary',
@@ -216,7 +223,19 @@ export function createLocationsSection({ adapter = null } = {}) {
     });
     const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
     let mutationPending = false;
-    form.append(el('div', { className: 'button-row' }, [save]), status);
+    form.prepend(el('div', { className: 'button-row catalogue-save-actions' }, [save]), status);
+    const editorState = registerEditor?.({
+      // Search/filter inputs are presentation state, not unsaved configuration.
+      read: () => JSON.stringify([...form.querySelectorAll('fieldset input, fieldset select, fieldset textarea')]
+        .map((control) => [control.id, control.type === 'checkbox' ? control.checked : control.value])),
+      isCurrent,
+    });
+    const updateDirtyStatus = () => {
+      if (!mutationPending) status.textContent = editorState?.isDirty() ? t('tenantAdmin.unsaved.title') : '';
+    };
+    form.addEventListener('input', updateDirtyStatus);
+    form.addEventListener('change', updateDirtyStatus);
+    addSite.addEventListener('click', updateDirtyStatus);
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (mutationPending) return;
@@ -224,6 +243,7 @@ export function createLocationsSection({ adapter = null } = {}) {
       save.disabled = true;
       addSite.disabled = true;
       mutationPending = true;
+      const locked = [...form.querySelectorAll('input:not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)')];
       status.textContent = t('tenantSettings.status.saving');
       try {
         const sites = siteEditors.map(siteValue);
@@ -239,12 +259,16 @@ export function createLocationsSection({ adapter = null } = {}) {
           sites,
           roomSites,
         });
+        // Domain validation may focus an invalid guest field. Lock controls only
+        // after validation succeeds, immediately before the asynchronous write.
+        locked.forEach((control) => { control.disabled = true; });
         await adapter.saveLocations({
           schemaVersion: 3,
           expectedRevision: snapshot.revision,
           configuration,
         });
         if (!isCurrent()) return;
+        editorState?.saved();
         status.textContent = t('tenantSettings.status.saved');
         showToast(t('tenantSettings.status.saved'));
         rerender();
@@ -255,6 +279,13 @@ export function createLocationsSection({ adapter = null } = {}) {
         mutationPending = false;
         status.textContent = t('tenantSettings.status.saveFailed');
         showToast(t('tenantSettings.status.saveFailed'));
+      } finally {
+        if (isCurrent()) {
+          locked.forEach((control) => { control.disabled = false; });
+          save.disabled = false;
+          addSite.disabled = false;
+          mutationPending = false;
+        }
       }
     });
 
@@ -276,5 +307,16 @@ export function createLocationsSection({ adapter = null } = {}) {
     permission: TENANT_ADMIN_SECTION_PERMISSION.CONFIGURE,
     available: validAdapter(adapter),
     render,
+    loadOverview: async () => {
+      const snapshot = await adapter.loadLocations({ schemaVersion: 3 });
+      const model = locationOverview(snapshot.configuration);
+      return {
+        summary: t('tenantAdmin.overview.activeRooms', { count: formatNumber(model.activeRooms) }),
+        tasks: [
+          ...(model.activeRooms === 0 ? [t('tenantAdmin.overview.noActiveRooms')] : []),
+          ...(model.missingGuestSites > 0 ? [t('tenantAdmin.overview.missingGuests', { count: formatNumber(model.missingGuestSites) })] : []),
+        ],
+      };
+    },
   });
 }

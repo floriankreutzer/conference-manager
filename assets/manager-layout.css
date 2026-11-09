@@ -117,7 +117,8 @@ main,
   position: absolute;
   inset-inline-start: var(--timeline-start);
   inline-size: var(--timeline-width);
-  min-inline-size: var(--control-height);
+  min-inline-size: 0;
+  padding-inline: 0;
   max-inline-size: calc(100% - var(--timeline-start));
   min-block-size: var(--control-height);
   overflow: hidden;
@@ -237,6 +238,11 @@ main,
   align-items: center;
   padding-block: var(--space-3);
   border-top: 1px solid var(--color-border-soft);
+}
+
+.manager-overview-row > * {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .manager-overview-row:first-of-type {
@@ -773,7 +779,7 @@ main,
   }
 
   .manager-overview-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .room-timeline {
@@ -1102,4 +1108,24 @@ main,
 .catering-delivery-facts dt {
   min-inline-size: 0;
   overflow-wrap: anywhere;
+}
+
+.manager-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--manager-section-gap);
+  margin-block: var(--manager-section-gap);
+}
+
+.manager-report-metrics .kpi {
+  min-inline-size: 0;
+  background: var(--brand-secondary-surface);
+  overflow-wrap: anywhere;
+}
+
+.manager-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: var(--manager-section-gap);
+  margin-block: var(--manager-section-gap);
 }

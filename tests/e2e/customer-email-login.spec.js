@@ -149,11 +149,16 @@ for (const language of ['de','en']) {
       const section=createAuditSection({ adapter: api });
       const render=() => section.render({ root,isCurrent: () => true,rerender: render });await render();
     },language);
-    for (const disclosure of await page.locator('.tenant-audit-change > summary').all()) {
+    const states = language==='de' ? ['Einladung erstellt','Erneut eingeladen','Widerrufen']
+      : ['Invitation created','Invited again','Revoked'];
+    for (const [index, text] of states.entries()) {
+      const event = page.locator('[data-tenant-audit-select]').nth(index);
+      await event.focus();await page.keyboard.press('Enter');
+      await expect(page.locator('#tenantAuditDetail h3')).toBeFocused();
+      const disclosure = page.locator('.tenant-audit-change > summary');
       await disclosure.focus();await page.keyboard.press('Enter');
+      await expect(page.getByText(text,{ exact: true })).toBeVisible();
     }
-    for (const text of language==='de' ? ['Einladung erstellt','Erneut eingeladen','Widerrufen']
-      : ['Invitation created','Invited again','Revoked']) await expect(page.getByText(text,{ exact: true })).toBeVisible();
     expect(await page.locator('main').innerText()).not.toMatch(/recipient|Invited@example|undefined/);
   });
 }

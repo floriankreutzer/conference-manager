@@ -113,17 +113,20 @@ function auditEvent(event) {
       type: t(auditTargetTypeKey(event.target.type)),
       id: event.target.id,
     });
-  const item = el('li', {
+  const item = el('section', {
     className: 'card tenant-audit-event',
     attrs: { 'aria-labelledby': headingId },
   }, [
     el('header', { className: 'tenant-audit-event-header' }, [
-      el('h3', { id: headingId, text: t(auditActionKey(event.action)) }),
+      el('h3', { id: headingId, text: t(auditActionKey(event.action)), attrs: { tabindex: '-1' } }),
       el('span', {
         className: `status-chip tenant-operation-outcome-${event.outcome}`,
         text: t(`tenantAdmin.operations.audit.outcome.${event.outcome}`),
       }),
     ]),
+    el('p', { text: t(event.actor.userId ? 'tenantAdmin.operations.audit.actor.unrecorded' : 'tenantAdmin.operations.audit.actor.system') }),
+    el('details', { className: 'tenant-audit-technical' }, [
+      el('summary', { text: t('tenantAdmin.operations.audit.technical') }),
     el('dl', { className: 'tenant-operations-metadata' }, [
       el('dt', { text: t('tenantAdmin.operations.audit.actor') }),
       el('dd', {
@@ -142,6 +145,7 @@ function auditEvent(event) {
       el('dt', { text: t('tenantAdmin.operations.audit.correlation') }),
       el('dd', { className: 'tenant-operation-identifier', text: event.correlationId }),
     ]),
+    ]),
   ]);
   if (event.change.before !== null || event.change.after !== null || event.change.summary) {
     const details = el('details', { className: 'tenant-audit-change' }, [
@@ -155,6 +159,61 @@ function auditEvent(event) {
     item.appendChild(details);
   }
   return item;
+}
+
+function auditEvents(events) {
+  const detail = el('div', { id: 'tenantAuditDetail', className: 'tenant-audit-detail' });
+  const controls = [];
+  let selected = null;
+  const close = () => {
+    clear(detail);
+    detail.hidden = true;
+    controls.forEach((control) => control.setAttribute('aria-expanded', 'false'));
+    selected?.focus();
+  };
+  const select = (event, control, focus) => {
+    selected = control;
+    controls.forEach((entry) => entry.setAttribute('aria-expanded', String(entry === control)));
+    clear(detail);
+    detail.hidden = false;
+    const content = auditEvent(event);
+    const dismiss = button(t('tenantAdmin.operations.audit.closeDetails'));
+    dismiss.addEventListener('click', close);
+    content.appendChild(dismiss);
+    detail.appendChild(content);
+    if (focus) content.querySelector('h3').focus();
+  };
+  detail.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); close(); }
+  });
+  const table = el('table', { className: 'data-table tenant-audit-table' }, [
+    el('caption', { text: t('tenantAdmin.operations.audit.events') }),
+    el('thead', {}, [el('tr', {}, ['occurredAt', 'actor', 'action', 'target', 'outcome'].map((key) =>
+      el('th', { text: t(`tenantAdmin.operations.audit.${key}`), attrs: { scope: 'col' } })))]),
+  ]);
+  const body = el('tbody');
+  events.forEach((event) => {
+    const control = button(t(auditActionKey(event.action)), {
+      dataset: { tenantAuditSelect: event.id },
+      attrs: { 'aria-controls': 'tenantAuditDetail', 'aria-expanded': 'false' },
+    });
+    controls.push(control);
+    control.addEventListener('click', () => select(event, control, true));
+    body.appendChild(el('tr', {}, [
+      el('td', {}, [el('time', { text: formatDateTime(event.occurredAt), attrs: { datetime: event.occurredAt } })]),
+      el('td', { text: t(event.actor.userId ? 'tenantAdmin.operations.audit.actor.unrecorded' : 'tenantAdmin.operations.audit.actor.system') }),
+      el('td', {}, [control]),
+      el('td', { text: t(auditTargetTypeKey(event.target.type)) }),
+      el('td', {}, [el('span', { className: `status-chip tenant-operation-outcome-${event.outcome}`,
+        text: t(`tenantAdmin.operations.audit.outcome.${event.outcome}`) })]),
+    ]));
+  });
+  table.appendChild(body);
+  select(events[0], controls[0], false);
+  return el('div', { className: 'tenant-audit-workspace' }, [
+    el('div', { className: 'tenant-audit-scroll', attrs: { tabindex: '0', role: 'region', 'aria-label': t('tenantAdmin.operations.audit.events') } }, [table]),
+    detail,
+  ]);
 }
 
 export function createAuditSection({ adapter = null } = {}) {
@@ -322,7 +381,7 @@ export function createAuditSection({ adapter = null } = {}) {
   async function render({ root, isCurrent, rerender }) {
     clear(root);
     root.appendChild(el('section', { className: 'card tenant-admin-intro' }, [
-      el('h2', { text: t('tenantAdmin.audit.title'), attrs: { tabindex: '-1' } }),
+      el('h2', { text: t('tenantAdmin.operations.audit.events'), attrs: { tabindex: '-1' } }),
       el('p', { text: t('tenantAdmin.audit.description') }),
       el('p', { className: 'muted', text: t('tenantAdmin.operations.audit.integrityNote') }),
     ]));
@@ -345,7 +404,7 @@ export function createAuditSection({ adapter = null } = {}) {
       clear(surface);
       const status = el('p', {
         className: 'tenant-operations-result-status',
-        text: t('tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }),
+        text: t(page.events.length === 1 ? 'tenantAdmin.operations.audit.loadedOne' : 'tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }),
         attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', tabindex: '-1' },
       });
       const windowText = el('p', {
@@ -361,12 +420,10 @@ export function createAuditSection({ adapter = null } = {}) {
         renderSectionEmpty(empty, 'tenantAdmin.audit.title', 'tenantAdmin.audit.description');
         surface.append(...empty.childNodes);
       } else {
-        const list = el('ol', { className: 'tenant-admin-audit-list' });
-        page.events.forEach((entry) => list.appendChild(auditEvent(entry)));
-        surface.appendChild(list);
+        surface.appendChild(auditEvents(page.events));
       }
       surface.appendChild(pagination(rerender));
-      announce(t('tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }));
+      announce(t(page.events.length === 1 ? 'tenantAdmin.operations.audit.loadedOne' : 'tenantAdmin.operations.audit.loaded', { count: formatNumber(page.events.length) }));
       if (pendingFocus) {
         pendingFocus = false;
         requestAnimationFrame(() => status.focus());

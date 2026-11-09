@@ -334,6 +334,28 @@ test('Request list follows opaque cursors and accepts explicit legacy facts only
   assert.match(harness.calls[1].path, /cursor=next_page/);
 });
 
+test('personal Request pages retain own scope, cancellation and strict snapshot validation', async () => {
+  let page = 0;
+  const harness = api(() => requestPage(++page === 1 ? {
+    requests: [], page: { limit: 10, complete: false, nextCursor: 'own_page' },
+  } : {}));
+  const signal = new AbortController().signal;
+  const persistence = createProductionPersistence({ apiClient: harness.client });
+  assert.equal((await persistence.listOwnRequests({ signal })).length, 1);
+  for (const call of harness.calls) {
+    const url = new URL(call.path, 'https://example.test');
+    assert.equal(url.searchParams.get('scope'), 'own');
+    assert.equal(url.searchParams.has('requesterUserId'), false);
+    assert.equal(call.options.signal, signal);
+  }
+  await persistence.listRequests();
+  assert.equal(new URL(harness.calls.at(-1).path, 'https://example.test').searchParams.has('scope'), false);
+
+  const invalid = api(() => requestPage({ page: { limit: 10, complete: false, nextCursor: 'cycle' } }));
+  await assert.rejects(createProductionPersistence({ apiClient: invalid.client }).listOwnRequests(),
+    (error) => error.code === 'PRODUCTION_REQUEST_LIST_INVALID');
+});
+
 test('Request list paginates newest-first while report paginates oldest-first', async () => {
   const listFirst = legacyRequest({ id: 'request-a', startsAt: '2026-09-03T10:00:00.000Z', endsAt: '2026-09-03T11:00:00.000Z' });
   const listTied = legacyRequest({ id: 'request-b', startsAt: listFirst.startsAt, endsAt: listFirst.endsAt });

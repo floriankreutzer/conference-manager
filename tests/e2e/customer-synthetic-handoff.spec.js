@@ -85,7 +85,7 @@ test('initial operator test waits for readiness, recovers from cold HTML by expl
 test('Customer confirmation uses real native POST navigation after keyboard approval, with bilingual reflow and no stored proof',async({ page })=>{
   const f=await setup(page);
   await expect(page.getByRole('button',{ name: 'Testzugang öffnen',exact: true })).toBeVisible();expect(f.writes).toHaveLength(0);
-  await expect(page.getByText('Organisation: Northwind. Rolle: Tenant Operator.',{ exact: true })).toBeVisible();
+  await expect(page.getByText('Organisation: Northwind. Rolle: Tenant-Administration.',{ exact: true })).toBeVisible();
   await page.getByRole('combobox',{ name: 'Sprache',exact: true }).selectOption('en');
   await expect(page.getByRole('combobox',{ name: 'Language',exact: true })).toBeFocused();
   await page.addStyleTag({ url: '/test-reflow.css' });

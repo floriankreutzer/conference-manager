@@ -262,13 +262,17 @@ export class TenantUserOperationsApiError extends Error {
   }
 }
 
-export function createTenantUserOperationsApi({ apiClient } = {}) {
+export function createTenantUserOperationsApi({ apiClient, microsoftRoleMappingsEnabled = true } = {}) {
   if (!apiClient || typeof apiClient.request !== 'function') {
     throw new TypeError('TENANT_USER_API_CLIENT_REQUIRED');
   }
 
+  if (typeof microsoftRoleMappingsEnabled !== 'boolean') {
+    throw new TypeError('TENANT_USER_CAPABILITY_CONFIGURATION_INVALID');
+  }
+
   return Object.freeze({
-    microsoftRoleMappings: createMicrosoftRoleMappingApi({ apiClient }),
+    ...(microsoftRoleMappingsEnabled ? { microsoftRoleMappings: createMicrosoftRoleMappingApi({ apiClient }) } : {}),
     async listUsers(filters = {}) {
       let payload;
       try {

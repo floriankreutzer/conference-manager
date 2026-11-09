@@ -114,13 +114,16 @@ export function field({ id, label, control, hint, required = false, optional = f
   return wrapper;
 }
 
+let feedbackGeneration = 0;
+
 export function announce(message, { assertive = false } = {}) {
   if (document.documentElement?.dataset?.sessionLocked === 'true') return;
   const region = document.getElementById(assertive ? 'alertRegion' : 'statusRegion');
   if (!region) return;
   region.textContent = '';
+  const generation = feedbackGeneration;
   requestAnimationFrame(() => {
-    if (document.documentElement?.dataset?.sessionLocked !== 'true') region.textContent = message;
+    if (generation === feedbackGeneration && document.documentElement?.dataset?.sessionLocked !== 'true') region.textContent = message;
   });
 }
 
@@ -135,6 +138,7 @@ export function showToast(message) {
 }
 
 export function clearTransientFeedback(documentRoot = document, windowRoot = globalThis) {
+  feedbackGeneration += 1;
   const toast = documentRoot.getElementById('toast');
   if (toast) {
     toast.textContent = '';
@@ -196,6 +200,24 @@ export function openDialog({ title, description = '', content, actions = [], lab
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     dialog.close();
+  });
+  const tabStops = () => [...dialog.querySelectorAll(
+    'input, select, textarea, button, a[href], summary, [tabindex], [contenteditable="true"]',
+  )].filter((node) => node.tabIndex >= 0 && !node.matches(':disabled')
+    && !node.closest('[inert]') && node.getClientRects().length > 0
+    && getComputedStyle(node).visibility === 'visible');
+  dialog.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab' || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey
+      || !dialog.open || event.target.closest('dialog') !== dialog) return;
+    const stops = tabStops();
+    const first = stops[0];
+    const last = stops.at(-1);
+    if (!first) { event.preventDefault(); return; }
+    if ((!event.shiftKey && document.activeElement === last)
+      || (event.shiftKey && document.activeElement === first)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
   });
   dialog.showModal();
   const firstFocusable = dialog.querySelector('input,select,textarea,button:not([disabled]),a[href]');

@@ -83,7 +83,10 @@ export async function bootstrapCustomerApplication({
     ? Object.freeze({
       organization: createTenantOrganizationSettingsApi({ apiClient: authentication.apiClient }),
       locations: locationSettings,
-      bookingPolicies: createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
+      bookingPolicies: Object.freeze({
+        ...createTenantBookingPolicySettingsApi({ apiClient: authentication.apiClient }),
+        loadReferenceCatalog: serverPersistence.loadCatalog,
+      }),
       costAllocation: createTenantCostAllocationSettingsApi({ apiClient: authentication.apiClient }),
     })
     : Object.freeze({});
@@ -151,7 +154,10 @@ export async function bootstrapCustomerApplication({
     })
     : null;
   const tenantUserAdministration = context.isTenantAdmin() && authentication
-    ? createTenantUserAdministrationApi({ apiClient: authentication.apiClient })
+    ? createTenantUserAdministrationApi({
+      apiClient: authentication.apiClient,
+      microsoftRoleMappingsEnabled: !syntheticOnboarding,
+    })
     : null;
   const invitations = tenantUserAdministration && invitationAdministrationFactory && !syntheticOnboarding
     ? invitationAdministrationFactory({ apiClient: authentication.apiClient }) : null;

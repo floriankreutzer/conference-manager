@@ -59,7 +59,7 @@ export function createOrganizationSection({ adapter = null } = {}) {
   if (adapter !== null && !validAdapter(adapter)) throw new TypeError('ORGANIZATION_SECTION_ADAPTER_INVALID');
   let focusAfterSave = false;
 
-  async function render({ root, isCurrent, rerender }) {
+  async function render({ root, isCurrent, rerender, registerEditor }) {
     renderSectionLoading(root, TITLE);
     let snapshot;
     let history;
@@ -86,6 +86,10 @@ export function createOrganizationSection({ adapter = null } = {}) {
       logoAssetRef: logoPresetSelect(organization.branding.logoAssetRef),
     };
     const form = el('form', { dataset: { tenantSettingsForm: 'organization' } });
+    const editor = registerEditor?.({
+      read: () => JSON.stringify(Object.values(controls).map((control) => control.value)),
+      isCurrent,
+    });
     form.append(el('div', { className: 'form-grid' }, [
       field({ id: 'tenant-organization-display-name', label: t('tenantSettings.organization.displayName'), control: controls.displayName, required: true }),
       field({ id: 'tenant-organization-legal-name', label: t('tenantSettings.organization.legalName'), control: controls.legalName, optional: true }),
@@ -96,6 +100,11 @@ export function createOrganizationSection({ adapter = null } = {}) {
       field({ id: 'tenant-organization-logo', label: t('tenantSettings.organization.logoAssetRef'), control: controls.logoAssetRef, optional: true, hint: t('tenantSettings.organization.managedAssetsOnly') }),
     ]));
     const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
+    const updateDirtyStatus = () => {
+      status.textContent = editor?.isDirty() ? t('tenantAdmin.unsaved.title') : '';
+    };
+    form.addEventListener('input', updateDirtyStatus);
+    form.addEventListener('change', updateDirtyStatus);
     const save = button(t('tenantSettings.action.save'), { className: 'primary', attrs: { type: 'submit' } });
     let mutationPending = false;
     form.append(el('div', { className: 'button-row' }, [save]), status);
@@ -112,10 +121,12 @@ export function createOrganizationSection({ adapter = null } = {}) {
       }
       save.disabled = true;
       mutationPending = true;
+      Object.values(controls).forEach((control) => { control.disabled = true; });
       status.textContent = t('tenantSettings.status.saving');
       try {
         await adapter.saveOrganization({ expectedRevision: snapshot.revision, organization: submittedDraft });
         if (!isCurrent()) return;
+        editor?.saved();
         focusAfterSave = true;
         showToast(t('tenantSettings.status.saved'));
         announce(t('tenantSettings.status.saved'));
@@ -132,6 +143,7 @@ export function createOrganizationSection({ adapter = null } = {}) {
               if (!isCurrent()) return;
               await adapter.saveOrganization({ expectedRevision: current.revision, organization: submittedDraft });
               if (!isCurrent()) return;
+              editor?.saved();
               focusAfterSave = true;
               rerender();
             },
@@ -144,6 +156,8 @@ export function createOrganizationSection({ adapter = null } = {}) {
         status.textContent = t('tenantSettings.status.saveFailed');
         announce(status.textContent, { assertive: true });
         save.focus();
+      } finally {
+        Object.values(controls).forEach((control) => { control.disabled = false; });
       }
     });
 
@@ -175,5 +189,9 @@ export function createOrganizationSection({ adapter = null } = {}) {
   return defineTenantAdminSection({
     id: 'organization', titleKey: TITLE, descriptionKey: 'tenantAdmin.organization.description',
     permission: TENANT_ADMIN_SECTION_PERMISSION.CONFIGURE, available: validAdapter(adapter), render,
+    loadOverview: async () => {
+      const snapshot = await adapter.loadOrganization();
+      return { summary: t('tenantAdmin.overview.organizationSaved', { name: snapshot.organization.displayName }), tasks: [] };
+    },
   });
 }

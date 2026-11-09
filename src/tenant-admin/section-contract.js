@@ -16,6 +16,7 @@ export function defineTenantAdminSection({
   permission,
   available,
   render,
+  loadOverview = null,
 } = {}) {
   if (typeof id !== 'string' || !SECTION_ID.test(id)) {
     throw new TypeError('TENANT_ADMIN_SECTION_ID_INVALID');
@@ -31,7 +32,8 @@ export function defineTenantAdminSection({
   if (!KNOWN_PERMISSIONS.has(permission)) {
     throw new TypeError('TENANT_ADMIN_SECTION_PERMISSION_INVALID');
   }
-  if (typeof available !== 'boolean' || typeof render !== 'function') {
+  if (typeof available !== 'boolean' || typeof render !== 'function'
+    || (loadOverview !== null && typeof loadOverview !== 'function')) {
     throw new TypeError('TENANT_ADMIN_SECTION_CONTRACT_INVALID');
   }
 
@@ -42,5 +44,6 @@ export function defineTenantAdminSection({
     permission,
     available,
     render,
+    loadOverview,
   });
 }

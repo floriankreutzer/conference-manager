@@ -33,3 +33,12 @@ test('Contoso work follows pending requests and missing business state', () => {
   ]);
   assert.deepEqual(deriveDemoManagerTasks({ ...current, locations: { rooms: [] } }), []);
 });
+
+test('Demo setup tasks identify their actual room or catalogue editor without granting authority', () => {
+  const tasks = deriveDemoManagerTasks(state());
+  for (const task of tasks.filter(({ id }) => id.startsWith('room:'))) {
+    assert.deepEqual(task.settings, { section: 'rooms', roomId: 'contoso-paris-room-2' });
+  }
+  assert.deepEqual(tasks.find(({ id }) => id === 'catalogue:catering').settings, { section: 'catering' });
+  assert.ok(tasks.filter(({ id }) => id.startsWith('request:')).every((task) => task.settings === undefined));
+});

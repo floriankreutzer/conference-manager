@@ -59,7 +59,7 @@ export async function verifyNorthwindBaseline(page, {
     await expect(page.locator(`[data-production-request-id="${request.id}"]`)).toContainText(request.details.title);
   }
   await page.getByRole('tab', { name: 'Administration', exact: true }).click();
-  await page.getByRole('button', { name: 'Business-Einstellungen', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Business-Einstellungen', exact: true }).getByRole('button', { name: 'Räume', exact: true }).click();
   await page.getByRole('button', { name: 'Catering', exact: true }).click();
   const packageImage = page.locator('[data-catalogue-entry-id="coffee-break"] .room-asset-panel');
   await expect(packageImage).toBeVisible();
@@ -177,7 +177,7 @@ export async function northwindBooking(page, cycle, baseline) {
   const date = businessDate();
   await page.locator('#productionTitle').fill(title);
   await page.locator('#productionDate').fill(date);
-  await page.locator('#productionEndDate').fill(date);
+  await expect(page.locator('#productionEndDate')).toHaveValue(date);
   await page.locator('#productionStart').fill('10:00');
   await page.locator('#productionEnd').fill('11:00');
   await page.locator('#productionInternal').fill('3');
@@ -210,6 +210,7 @@ export async function northwindBooking(page, cycle, baseline) {
   await page.locator('input[type="checkbox"][value="display-86"]').check();
   await page.locator('input[type="checkbox"][value="video-system"]').check();
   await next.click();
+  await page.locator('[data-catering-options] > summary').click();
   await expect(page.locator('.catering-package-grid input[type="radio"]')).toHaveCount(5);
   await expect(page.locator('.catering-item-grid input[type="number"]')).toHaveCount(baseline.catalog.cateringItems.length);
   await imagesLoaded(page.locator('.catering-package-grid'));
@@ -274,6 +275,10 @@ export async function northwindBooking(page, cycle, baseline) {
   const entry = page.getByRole('region', { name: 'Raumbelegung' }).getByRole('button', { name: new RegExp(title) });
   await entry.focus();
   await page.keyboard.press('Enter');
+  const preview = page.locator('#managerRoomPlanPreview');
+  await expect(preview.getByRole('heading')).toBeFocused();
+  await expect(preview).toContainText(title);
+  await preview.getByRole('button', { name: 'Anfrage öffnen', exact: true }).click();
   await expect(card).toBeFocused();
   await card.getByRole('button', { name: 'Verlauf', exact: true }).click();
   const history = page.getByRole('dialog', { name: 'Verlauf', exact: true });
@@ -295,8 +300,8 @@ export async function northwindBooking(page, cycle, baseline) {
   const popup = await popupPromise;
   await expect(popup.locator('body')).toContainText(title);
   await expect(popup.locator('.print-action')).toBeEnabled();
-  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(23, 23, 23)');
-  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(194, 154, 107)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+  await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(122, 31, 61)');
   await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
   await expect(popup.locator('script, style, img')).toHaveCount(0);
   expect(await popup.evaluate(() => window.opener)).toBeNull();
@@ -319,7 +324,7 @@ export async function unavailableIntegrationFailsClosed(page) {
   const date = businessDate();
   await page.locator('#productionTitle').fill('Unavailable provider negative');
   await page.locator('#productionDate').fill(date);
-  await page.locator('#productionEndDate').fill(date);
+  await expect(page.locator('#productionEndDate')).toHaveValue(date);
   await page.locator('#productionStart').fill('14:00');
   await page.locator('#productionEnd').fill('15:00');
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();

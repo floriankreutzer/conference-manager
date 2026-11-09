@@ -303,6 +303,19 @@ Significant business rules should be independently testable where practical and 
 
 Runtime modules outside `src/platform/feature-flags.js` may consume the exported `featureFlags` runtime contract, but must not import/re-export resolver or definition factories to construct parallel registries. The architecture gate enforces that construction and registration remain centralized.
 
+## Personal and management Request projections
+
+Welcome counters and Employee list/calendar/resubmission refreshes use the Platform
+`listOwnRequests` persistence port. It sends the fixed narrowing selector `scope=own`
+on every page; only the API resolves the authenticated requester. Manager operations
+retain `listRequests` with the existing authorized Tenant-wide scope. Both ports share
+strict snapshot, cursor, ordering, response and cancellation validation; neither adds
+browser ownership authority or filters by display name. Session invalidation clears
+cached projections through the existing context boundary.
+
+Deploy the compatible API before this frontend: older APIs reject `scope=own`, and the
+client must not retry with a broader scope on failure. No database migration is needed.
+
 ## Persistence and data compatibility
 
 The active Customer and Platform Demo runtimes use one isolated PostgreSQL database through separate server processes and least-privilege database roles. Customer and Platform sessions, cookies, CSRF state, audit domains, API namespaces and origins remain separate. A shared database is not a shared authorization boundary.

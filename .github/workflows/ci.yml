@@ -82,8 +82,9 @@ jobs:
     needs: quality
     # Includes browser installation, canaries, the full suite and evidence upload.
     # Individual test deadlines and the complete engine matrix remain unchanged.
-    # WebKit-mobile completed all 418 tests before the 25-minute job budget cancelled post-test completion.
-    timeout-minutes: 30
+    # The 523-test suite plus setup/canaries needs headroom: the earlier 30-minute
+    # job expired after 434 passing tests, while another full run took 29 minutes.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -124,6 +125,10 @@ jobs:
         run: sudo apt-get install --no-install-recommends -y libnss3-tools
       - name: Verify isolated acceptance transport in Chromium, WebKit and API requests
         run: node scripts/test-hosted-transport.mjs --browsers
+      - name: Verify room-plan touch and keyboard preview before the full suite
+        run: npx playwright test tests/e2e/production-application.spec.js --grep "CO-311:" --project=${{ matrix.project }}
+      - name: Verify room search focus and catering recovery before the full suite
+        run: npx playwright test tests/e2e/production-application.spec.js --grep "CO-308.*room" --project=${{ matrix.project }}
       - name: Verify exact Microsoft action and native cookie custody before the full suite
         run: npx playwright test tests/e2e/platform-microsoft-operations.spec.js --project=${{ matrix.project }}
       - name: Verify Microsoft manufacturer controls on both signed-out entry surfaces
@@ -220,7 +225,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: d1255d9d1796ea17b50ced6408fa2d7fbb9b7638
+          ref: 2b9a7f4fbeaba3688877d045337a1c00e3eda5de
           token: ${{ steps.source-token.outputs.token || github.token }}
           persist-credentials: false
           path: api
@@ -367,7 +372,7 @@ jobs:
       matrix:
         browser: [chromium, webkit]
     env:
-      PROTECTED_BROWSER_COUNTERPART_REF: d1255d9d1796ea17b50ced6408fa2d7fbb9b7638
+      PROTECTED_BROWSER_COUNTERPART_REF: 2b9a7f4fbeaba3688877d045337a1c00e3eda5de
       DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
       HAS_SOURCE_APP: ${{ secrets.CM_CI_READER_APP_ID != '' || secrets.CM_CI_READER_PRIVATE_KEY != '' }}
     services:
@@ -416,7 +421,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: floriankreutzer/conference-manager-api
-          ref: d1255d9d1796ea17b50ced6408fa2d7fbb9b7638
+          ref: 2b9a7f4fbeaba3688877d045337a1c00e3eda5de
           token: ${{ steps.source-token.outputs.token || github.token }}
           persist-credentials: false
           path: api

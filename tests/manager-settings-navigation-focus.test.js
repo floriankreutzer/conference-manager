@@ -30,6 +30,8 @@ class RenderNode {
   }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
+  hasAttribute(name) { return this.attributes.has(name); }
+  prepend(child) { child.parentNode = this; this.children.unshift(child); }
   addEventListener() {}
   focus() { this.focusCount += 1; document.activeElement = this; }
 }
@@ -41,13 +43,15 @@ let frames;
 
 beforeEach(() => {
   globalThis.Node = RenderNode;
+  globalThis.HTMLInputElement = class extends RenderNode {};
+  globalThis.HTMLTextAreaElement = class extends RenderNode {};
   heading = new RenderNode('h1');
   frames = [];
   globalThis.requestAnimationFrame = (callback) => { frames.push(callback); return frames.length; };
   globalThis.document = {
     documentElement: { lang: 'de', dataset: {} },
     activeElement: null,
-    createElement: (tagName) => new RenderNode(tagName),
+    createElement: (tagName) => tagName === 'input' ? new HTMLInputElement(tagName) : new RenderNode(tagName),
     createTextNode: (value) => Object.assign(new RenderNode('#text'), { textContent: value }),
     getElementById: (id) => id === 'viewTitle' ? heading : null,
   };

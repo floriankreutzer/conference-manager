@@ -60,13 +60,23 @@ test('Tenant settings mutations suppress detached continuations and conflict rea
   const sources = Object.fromEntries(['organization', 'locations', 'booking-policies', 'cost-allocation']
     .map((section) => [section, readFileSync(`src/tenant-admin/sections/${section}/index.js`, 'utf8')]));
 
-  for (const section of ['organization', 'booking-policies', 'cost-allocation']) {
+  for (const section of ['organization']) {
     assert.match(sources[section], /let submittedDraft;/);
     assert.doesNotMatch(sources[section], /let (?:pendingDraft|draft) = null;/);
     assert.match(
       sources[section],
       /const current = await adapter\.load[A-Za-z]+\(\);\s*if \(!isCurrent\(\)\) return;\s*await adapter\.save[A-Za-z]+\(/s,
     );
+  }
+
+  // Policy and cost editors retain the form on conflict and deliberately offer no
+  // fresh-revision overwrite. Its only write remains the explicit submit CAS.
+  for (const [section, method] of [['booking-policies', 'saveBookingPolicies'], ['cost-allocation', 'saveCostAllocation']]) {
+    assert.match(sources[section], /let submittedDraft;/);
+    assert.doesNotMatch(sources[section], /onReapply/);
+    assert.equal(sources[section].split(`await adapter.${method}(`).length - 1, 1);
+    assert.match(sources[section], /renderSectionConflict\(conflict, TITLE, \{ currentRevision, onReload: rerender \}\)/);
+    assert.match(sources[section], /conflict, form/);
   }
 
   for (const [section, saveMethod] of [
