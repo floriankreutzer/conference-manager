@@ -134,6 +134,7 @@ for (const language of ['de', 'en']) {
       try {
         const room = page.locator('[data-manager-room-id="room-a"]');
         const image = room.locator(`img[src="${PHOTO_PATH}"]`);
+        const previewStatus = room.locator('[data-manager-room-media-previews]').getByRole('status');
         const price = room.locator('#manager-room-price-amount-0');
         const save = room.getByRole('button', { name: language === 'de' ? 'Raumpreis speichern' : 'Save room price', exact: true });
         const name = room.locator('#manager-room-name-0');
@@ -162,10 +163,10 @@ for (const language of ['de', 'en']) {
           f.releasePhoto();
           if (outcome === 'loaded') {
             await expect.poll(() => image.evaluate((node) => node.complete && node.naturalWidth > 0)).toBe(true);
-            await expect(room.getByRole('status')).toHaveCount(0);
+            await expect(previewStatus).toHaveCount(0);
           } else {
             await expect(image).toBeHidden();
-            await expect(room.getByRole('status')).toHaveText(language === 'de'
+            await expect(previewStatus).toHaveText(language === 'de'
               ? 'Die Vorschau ist nicht verfügbar. Die gespeicherte Verknüpfung bleibt erhalten.'
               : 'The preview is unavailable. The saved link has been preserved.');
           }
