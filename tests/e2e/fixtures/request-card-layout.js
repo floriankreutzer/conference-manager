@@ -55,3 +55,40 @@ export async function expectRequestCardReflow(card) {
   }
   return layout;
 }
+
+export async function expectSubmissionNoticeReflow(notice, title) {
+  await expect(notice).toHaveAttribute('role', 'status');
+  await expect(notice.locator(':scope > div > p').first()).toHaveText(title);
+  const layout = await notice.evaluate((node) => {
+    const box = (element) => {
+      const { top, right, bottom, left, width, height } = element.getBoundingClientRect();
+      return { top, right, bottom, left, width, height };
+    };
+    return { viewportWidth: innerWidth, documentWidth: document.documentElement.scrollWidth,
+      bounds: box(node),
+      fields: [...node.querySelectorAll('strong, p, button')].map((field) => {
+        const range = document.createRange();
+        range.selectNodeContents(field);
+        const { top, right, bottom, left } = range.getBoundingClientRect();
+        return { bounds: box(field), text: { top, right, bottom, left },
+          visibility: getComputedStyle(field).visibility };
+      }),
+    };
+  });
+  expect(layout.documentWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewportWidth + 1);
+  expect(layout.bounds.left).toBeGreaterThanOrEqual(0);
+  expect(layout.bounds.right).toBeLessThanOrEqual(layout.viewportWidth + 1);
+  expect(layout.fields).toHaveLength(4);
+  for (const { bounds, text, visibility } of layout.fields) {
+    expect(visibility).toBe('visible');
+    expect(bounds.width).toBeGreaterThan(0);
+    expect(bounds.height).toBeGreaterThan(0);
+    expect(bounds.left).toBeGreaterThanOrEqual(layout.bounds.left - 1);
+    expect(bounds.right).toBeLessThanOrEqual(layout.bounds.right + 1);
+    expect(text.left).toBeGreaterThanOrEqual(bounds.left - 1);
+    expect(text.right).toBeLessThanOrEqual(bounds.right + 1);
+    expect(text.top).toBeGreaterThanOrEqual(bounds.top - 1);
+    expect(text.bottom).toBeLessThanOrEqual(bounds.bottom + 1);
+  }
+  return layout;
+}

@@ -221,6 +221,11 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   background: var(--color-success-soft);
 }
 
+.ux-submission-success > div {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
 .ux-service-recommendation > button,
 .ux-submission-success > button {
   flex: 0 0 auto;

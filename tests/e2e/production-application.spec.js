@@ -8,7 +8,7 @@ import { productionUtcInstant } from '../../src/core/production-time.js';
 import { applicationProjectionPayload } from './fixtures/application-projections.js';
 import { attachGuestPrintEvidence } from './fixtures/guest-print-evidence.js';
 import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
-import { expectRequestCardReflow, requestSummaryViewportEvidence } from './fixtures/request-card-layout.js';
+import { expectRequestCardReflow, expectSubmissionNoticeReflow, requestSummaryViewportEvidence } from './fixtures/request-card-layout.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ORIGIN = 'https://conference.test';
@@ -5909,6 +5909,8 @@ for (const language of ['de', 'en']) {
         active: true, order: 2, siteIds: [], roomIds: [] },
     ];
     catalogueSettings.cateringItems[0].active = false;
+    // The authoritative contract rejects active packages containing inactive items.
+    catalogueSettings.cateringPackages[0].active = false;
     catalogueSettings.cateringItems[0].siteIds = ['berlin'];
     catalogueSettings.cateringItems[0].roomIds = ['room-a'];
     const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings });
@@ -5942,7 +5944,7 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('dialog')).toHaveCount(0);
     await expect(summaryFor('item-coffee')).toHaveText([inactiveLabel, priceLabel(2.5, 'EUR'), sitesLabel, roomsLabel]);
     await expect(summaryFor('package-coffee')).toHaveText([
-      activeLabel, priceLabel(5, 'EUR'),
+      inactiveLabel, priceLabel(5, 'EUR'),
       language === 'de' ? 'Keine Standort-Einschränkung' : 'No site restriction',
       language === 'de' ? 'Keine Raum-Einschränkung' : 'No room restriction',
     ]);
@@ -5963,7 +5965,7 @@ for (const language of ['de', 'en']) {
     const unavailable = language === 'de' ? 'Nicht mehr verfügbare Auswahl 1' : 'Unavailable selection 1';
     await expect(summaryFor('equipment-a')).toHaveText([
       activeLabel, priceLabel(15.25, 'CHF'),
-      `${sitesLabel} ${language === 'de' ? 'und 1 weitere' : 'and 1 more'}`,
+      `${sitesLabel} ${language === 'de' ? 'und 1 weiterer' : 'and 1 more'}`,
       `${language === 'de' ? 'Räume' : 'Rooms'}: ${unavailable}`,
     ]);
     await expect(page.locator(`${prefix}-rooms`)).toHaveValues(['retired-room']);
@@ -6189,6 +6191,51 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('[data-production-request-id="10000000-0000-4000-8000-000000000001"]')).toBeFocused();
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
     expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+for (const language of ['de', 'en']) {
+  test(`CO-305: successful submission retains its complete long-title notice without page overflow (${language})`, async ({ page }) => {
+    const fixture = await installProductionApplicationFixture(page);
+    const title = 'W'.repeat(160);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await openEmployeeRoomStep(page, { title });
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await page.getByRole('button', { name: 'Raumverfügbarkeit prüfen' }).click();
+    await advanceEmployeeToReview(page);
+    await page.getByRole('button', { name: 'Anfrage absenden' }).click();
+    const notice = page.locator('[data-ux-submission-success]');
+    await expect(notice).toBeFocused();
+    if (language === 'en') {
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      await page.getByRole('dialog').locator('#profileLanguage').selectOption('en');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    await expect(notice.locator('strong')).toHaveText(language === 'de'
+      ? 'Anfrage erfolgreich gesendet' : 'Request sent successfully');
+    const close = notice.getByRole('button', { name: language === 'de' ? 'Schließen' : 'Close', exact: true });
+    const card = page.locator(`[data-production-request-id="${REQUEST_ID}"]`);
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [390, 683, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectSubmissionNoticeReflow(notice, title);
+      await expectRequestCardReflow(card);
+      await close.focus();
+      await expect(close).toBeFocused();
+      await expect(close).toBeInViewport({ ratio: 1 });
+      await close.click({ trial: true });
+      const bounds = await close.boundingBox();
+      expect(bounds.width).toBeGreaterThanOrEqual(44);
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(fixture.writes).toHaveLength(1);
+    expect(fixture.writes[0].body.details.title).toBe(title);
+    await close.press('Enter');
+    await expect(notice).toHaveCount(0);
+    await expect(card).toBeFocused();
+    await expect(card.locator('h3')).toHaveText(title);
+    expect(fixture.writes).toHaveLength(1);
   });
 }
 

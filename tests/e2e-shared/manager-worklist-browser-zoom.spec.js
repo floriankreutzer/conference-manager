@@ -8,7 +8,7 @@ import { acceptanceGateEnabled, createOriginContext, createOriginPersistentConte
 import {
   activateContoso, businessDate, CONTOSO, ORIGINS, requests, reset, selectContext, uiResponse,
 } from '../e2e-saas37/scenario-support.js';
-import { expectRequestCardReflow } from '../e2e/fixtures/request-card-layout.js';
+import { expectRequestCardReflow, expectSubmissionNoticeReflow } from '../e2e/fixtures/request-card-layout.js';
 
 const EXTENSION = fileURLToPath(new URL('../e2e/fixtures/browser-zoom-extension/', import.meta.url));
 
@@ -204,6 +204,14 @@ test('CO-305: Employee and Manager request cards retain full DE/EN content at ac
         const details = card.locator('details.request-business-disclosure');
         await expect(details).not.toHaveAttribute('open');
         await page.evaluate(() => document.fonts.ready);
+        let submissionNotice = null;
+        if (view === 'requests') {
+          const notice = page.locator('[data-ux-submission-success]');
+          submissionNotice = await expectSubmissionNoticeReflow(notice, title);
+          await notice.scrollIntoViewIfNeeded();
+          await expect(notice).toBeInViewport({ ratio: 1 });
+          await captureZoomViewport(page, testInfo, `request-submission-notice-${language}-200-percent.png`);
+        }
         const layout = await expectRequestCardReflow(card);
         for (const field of await card.locator('.request-card-summary h3, .request-card-summary dd, .request-critical-note').all()) {
           await field.scrollIntoViewIfNeeded();
@@ -236,7 +244,7 @@ test('CO-305: Employee and Manager request cards retain full DE/EN content at ac
         expect(actionBounds.height).toBeGreaterThanOrEqual(44);
         await captureZoomViewport(page, testInfo, `request-action-${view}-${language}-200-percent.png`);
         evidence.push({ language, view, actualTabZoom: zoom, ...layout, keyboardDetails: true,
-          primaryAction: { name: actionLabel, ...actionBounds } });
+          submissionNotice, primaryAction: { name: actionLabel, ...actionBounds } });
       }
     }
     await writeFile(testInfo.outputPath('request-cards-zoom-evidence.json'), JSON.stringify({
