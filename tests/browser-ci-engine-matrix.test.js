@@ -11,11 +11,11 @@ test('regular browser CI retains both full projects, a bounded aggregate budget 
   assert.match(matrix,/run: npm run test:e2e -- --project=\$\{\{ matrix\.project \}\}/);
   assert.match(matrix,/name: playwright-report-\$\{\{ matrix\.project \}\}/);
   for (const proof of ['test-hosted-transport.mjs --browsers','platform-microsoft-operations.spec.js',
-    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft']) {
+    'EMP-14 EMP-15','Tenant Admin lifecycle','EMP-09: scoped session draft','--grep "CO-311:"']) {
     assert.ok(matrix.includes(proof));
   }
   const canaries=matrix.split('\n').filter(line=>line.includes('npx playwright test '));
-  assert.equal(canaries.length,9);
+  assert.equal(canaries.length,10);
   for (const command of canaries) assert.match(command,/--project=\$\{\{ matrix\.project \}\}/);
   assert.doesNotMatch(matrix,/continue-on-error:|--grep-invert|--shard|--retries|--workers/);
 });
