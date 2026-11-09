@@ -16,6 +16,13 @@ class RenderNode {
   get isConnected() {
     return this.connected && (!this.parentNode || this.parentNode.isConnected);
   }
+  querySelectorAll(selector) {
+    const tags = selector.split(',').map((tag) => tag.trim().toUpperCase());
+    return this.children.flatMap((child) => [
+      ...(tags.includes(child.tagName) ? [child] : []), ...child.querySelectorAll(selector),
+    ]);
+  }
+  contains(node) { return this === node || this.children.some((child) => child.contains(node)); }
   append(...children) { children.forEach((child) => this.appendChild(child)); }
   appendChild(child) {
     child.parentNode = this;

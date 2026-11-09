@@ -669,7 +669,9 @@ test('MGR-01: Demo Catering image replacement preserves unsaved catalogue drafts
   assert.match(imageEditor, /preview\.src = media\.url/);
   assert.doesNotMatch(imageEditor, /\?updated=/);
   assert.match(imageEditor, /picker\.value = ''/);
-  assert.match(imageEditor, /save\.disabled = false/);
+  assert.match(imageEditor, /const mutation = catalogueState\.editor\(\)\.beginMutation\(\)/);
+  assert.match(imageEditor, /finally \{\s*mutation\.finish\(\)/);
+  assert.match(imageEditor, /catalogueState\.editor\(\)\.saved\(\[picker\]\)/);
   assert.doesNotMatch(imageEditor, /renderManagerSettings/);
 });
 
@@ -900,7 +902,7 @@ test('all Customer authority failures delegate to one shell and context invalida
   assert.match(employee, /authoritySurfaces\.closeAll\(\);\s*if \(onAuthorityFailure\?\.\(error\)\) return true;\s*if \(!root\.isConnected\) return false;/);
   assert.match(manager, /authoritySurfaces\.closeAll\(\);\s*if \(onAuthorityFailure\?\.\(error\)\) return true;\s*if \(!root\.isConnected\) return false;/);
   assert.match(workspace, /onOpenBusinessSettings: \(panel, invalidateAuthorityProjection, \{ focusHeading = false \} = \{\}\)[\s\S]*onAuthorityFailure: invalidateAuthorityProjection/);
-  assert.match(businessSettings, /function handleAuthorityFailure\(error\) \{\s*if \(!authorityFailureCode\(error\)\) return false;\s*onAuthorityFailure\(error\)/);
+  assert.match(businessSettings, /function handleAuthorityFailure\(error\) \{\s*if \(!authorityFailureCode\(error\)\) return false;\s*invalidateEditor\(\);\s*clear\(appRoot\);\s*onAuthorityFailure\(error\)/);
   assert.match(businessSettings, /catch \(error\) \{\s*if \(handleAuthorityFailure\(error\)\) return;\s*if \(!isCurrentRender/);
   assert.match(tenantRegistry, /authorityAwareAdapter[\s\S]*authorityFailureCode\(error\)[\s\S]*onAuthorityFailure\(error\)/);
   assert.match(bookingEditor, /catch \(caught\) \{\s*if \(authorityFailureCode\(caught\)\)[\s\S]*if \(!dialog\.isConnected\) return;/);

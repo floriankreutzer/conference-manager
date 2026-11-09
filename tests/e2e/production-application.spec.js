@@ -4077,7 +4077,7 @@ test('H-034 Conference Manager uploads a private Room floorplan and attaches it 
   });
 });
 
-test('stale Catalogue save cannot restore Manager settings after navigation', async ({ page }) => {
+test('CO-306 pending Catalogue save blocks navigation until its result is settled', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
     holdCatalogueSave: true,
@@ -4090,6 +4090,9 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
   await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('[data-manager-business-settings-root]')).toBeVisible();
+  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   const response = page.waitForResponse((value) => (
     new URL(value.url()).pathname === '/api/v1/tenant/settings/catalogue'
@@ -4097,6 +4100,8 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   ));
   fixture.releaseCatalogueSave();
   await response;
+  await expect(page.getByRole('button', { name: 'Speichern', exact: true })).toBeEnabled();
+  await page.locator('[data-view="welcome"]').click();
   await expect(page.locator('#welcomeHeading')).toBeVisible();
   await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
 });
@@ -6301,3 +6306,195 @@ for (const language of ['de', 'en']) {
     expect(fixture.requestEnvelopes).toHaveLength(0);
   });
 }
+
+
+for (const language of ['de', 'en']) {
+  test(`CO-306 Manager drafts guard settings, tabs, refresh, global navigation and language (${language})`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    const rooms = page.getByRole('button', { name: language === 'de' ? 'Räume' : 'Rooms', exact: true });
+    const services = page.getByRole('button', { name: language === 'de' ? 'Services & Ausstattung' : 'Services & equipment', exact: true });
+    await page.locator('#manager-rooms-search').fill('No match');
+    await services.click();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    await rooms.click();
+    const name = page.locator('#manager-room-name-0');
+    await name.fill('Room draft stays private');
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    const dialog = page.locator('dialog[aria-labelledby="managerUnsavedTitle"]');
+    const stay = dialog.getByRole('button', { name: language === 'de' ? 'Hier bleiben' : 'Stay here' });
+    for (const target of [services, page.locator('#managerTab-REPORTS'),
+      page.getByRole('button', { name: language === 'de' ? 'Aktualisieren' : 'Refresh', exact: true }),
+      page.locator('[data-view="welcome"]')]) {
+      await target.click();
+      await expect(dialog).toBeVisible();
+      await expect(stay).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(name).toHaveValue('Room draft stays private');
+      await expect(page.locator('#managerTab-ADMIN')).toHaveAttribute('aria-selected', 'true');
+    }
+    await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+    await page.locator('#profileLanguage').selectOption(language === 'de' ? 'en' : 'de');
+    await expect(stay).toBeFocused();
+    await stay.click();
+    await expect(page.locator('#profileLanguage')).toHaveValue(language);
+    await page.locator('dialog[aria-labelledby="profileTitle"]')
+      .getByRole('button', { name: language === 'de' ? 'Schließen' : 'Close', exact: true }).click();
+    await expect(name).toHaveValue('Room draft stays private');
+    expect(await page.evaluate(() => Object.values(localStorage).some((value) => value.includes('Room draft stays private')))).toBe(false);
+    await services.click();
+    await dialog.getByRole('button', { name: language === 'de' ? 'Änderungen verwerfen' : 'Discard changes' }).click();
+    await rooms.click();
+    await expect(name).toHaveValue('Room A');
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    expect(fixture.locationWrites).toHaveLength(0);
+    expect(fixture.catalogueWrites).toHaveLength(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
+  test(`CO-306 partial room and price saves keep independent drafts and revisions (${language})`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    const name = page.locator('#manager-room-name-0');
+    const price = page.locator('#manager-room-price-amount-0');
+    const save = page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true });
+    const savePrice = page.getByRole('button', { name: language === 'de' ? 'Raumpreis speichern' : 'Save room price', exact: true });
+    await name.fill('First saved room'); await price.fill('12.50');
+    await save.click();
+    await expect(page.locator('form').first()).not.toHaveAttribute('aria-busy', 'true');
+    await expect.poll(() => fixture.locationWrites.length).toBe(1);
+    await expect(price).toHaveValue('12.50');
+    expect(fixture.catalogueWrites).toHaveLength(0);
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await name.fill('Second unsaved room');
+    await savePrice.click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+    await expect(savePrice).toBeEnabled();
+    await expect(name).toHaveValue('Second unsaved room');
+    expect(fixture.catalogueWrites[0].body.catalogue.roomPrices).toEqual([
+      { roomId: 'room-a', price: { amountMinor: 1250, currency: 'EUR' } },
+    ]);
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await save.click();
+    await expect.poll(() => fixture.locationWrites.length).toBe(2);
+    await expect(save).toBeEnabled();
+    await expect(name).toHaveValue('Second unsaved room');
+    expect(fixture.locationWrites.map((write) => write.body.expectedRevision)).toEqual([1, 2]);
+    await page.locator('[data-view="welcome"]').click();
+    await expect(page.locator('#welcomeHeading')).toBeVisible();
+    await expect(page.locator('dialog')).toHaveCount(0);
+  });
+}
+
+test('CO-306 pending room save prevents concurrent writes and conflict retains the exact draft', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    roles: ['employee', 'conference_manager'], holdLocationSave: true, locationSaveError: { currentRevision: 2 },
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  const name = page.locator('#manager-room-name-0');
+  const save = page.getByRole('button', { name: 'Speichern', exact: true });
+  await name.fill('Keep the conflicting edit'); await save.click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(1);
+  await expect(name).toBeDisabled(); await expect(save).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Raumpreis speichern', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Grundriss hochladen' })).toBeDisabled();
+  await name.locator('xpath=ancestor::form').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+  await expect(page.locator('dialog')).toHaveCount(0);
+  expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+  fixture.releaseLocationSave();
+  await expect(save).toBeEnabled(); await expect(name).toHaveValue('Keep the conflicting edit');
+  await expect(page.locator('#toast')).toContainText('zwischenzeitlich geändert');
+  expect(fixture.locationWrites).toHaveLength(1);
+  await save.click(); await expect.poll(() => fixture.locationWrites.length).toBe(2);
+  await expect(save).toBeEnabled();
+  expect(fixture.locationWrites.map((write) => write.body.expectedRevision)).toEqual([1, 1]);
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('dialog[aria-labelledby="managerUnsavedTitle"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(name).toHaveValue('Keep the conflicting edit');
+});
+
+test('CO-306 room upload preserves unrelated room and price drafts through its pending attachment write', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], holdLocationSave: true });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  const name = page.locator('#manager-room-name-0');
+  const price = page.locator('#manager-room-price-amount-0');
+  await name.fill('Unsubmitted room name'); await price.fill('17.50');
+  await page.locator('#manager-room-floorplan-upload-0').setInputFiles({ name: 'floorplan.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAD91JpzAAAAFElEQVR42mP4z8DAwMDAxAADCBYAOx0BA8VudC8AAAAASUVORK5CYII=', 'base64') });
+  await page.getByRole('button', { name: 'Grundriss hochladen' }).click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(1);
+  await expect(name).toBeDisabled(); await expect(price).toBeDisabled();
+  expect(fixture.locationWrites[0].body.configuration.rooms[0].name).toBe('Room A');
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+  fixture.releaseLocationSave();
+  await expect(name).toBeEnabled(); await expect(name).toHaveValue('Unsubmitted room name');
+  await expect(price).toHaveValue('17.50');
+  await expect(page.locator('#manager-room-floorplan-0')).toHaveValue('11111111-1111-4111-8111-111111111111');
+  expect(fixture.catalogueWrites).toHaveLength(0);
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(2);
+  await expect(name).toBeEnabled();
+  expect(fixture.locationWrites[1].body).toMatchObject({ expectedRevision: 2,
+    configuration: { rooms: [{ name: 'Unsubmitted room name', floorplanAssetId: '11111111-1111-4111-8111-111111111111' }] } });
+  await expect(price).toHaveValue('17.50');
+  expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+});
+
+for (const status of [401, 403]) {
+  test(`CO-306 authority loss ${status} clears Manager drafts and unload protection without a discard prompt`, async ({ page }) => {
+    await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    await page.route(`${ORIGIN}/api/v1/tenant/settings/locations`, async (route) => {
+      if (route.request().method() !== 'PUT') { await route.fallback(); return; }
+      await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({
+        error: { code: status === 401 ? 'AUTHENTICATION_REQUIRED' : 'FORBIDDEN', requestId: API_REQUEST_ID },
+      }) });
+    });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    await page.locator('#manager-room-name-0').fill('Revoked draft');
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+    await expect(page.locator('[data-authority-invalid]')).toBeVisible();
+    await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+    await expect(page.locator('dialog')).toHaveCount(0);
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    expect(await page.evaluate(() => document.body.textContent.includes('Revoked draft'))).toBe(false);
+  });
+}
+
+
+test('CO-306 staying in a dirty Manager editor restores the URL after a history/hash navigation', async ({ page }) => {
+  await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager', 'tenant_admin'] });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  const name = page.locator('#manager-room-name-0');
+  await name.fill('Keep this route draft');
+  const originalUrl = page.url();
+  await page.evaluate(() => { location.hash = '#tenant-admin/locations'; });
+  const dialog = page.locator('dialog[aria-labelledby="managerUnsavedTitle"]');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Hier bleiben', exact: true }).click();
+  await expect(page).toHaveURL(originalUrl);
+  await expect(name).toHaveValue('Keep this route draft');
+  await expect(page.locator('[data-view="manager"]')).toHaveAttribute('aria-current', 'page');
+  await page.evaluate(() => { location.hash = '#tenant-admin/locations'; });
+  await dialog.getByRole('button', { name: 'Änderungen verwerfen', exact: true }).click();
+  await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
+  await expect(page).toHaveURL(/#tenant-admin\/locations$/);
+  await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+});

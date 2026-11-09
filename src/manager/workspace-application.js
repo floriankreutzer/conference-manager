@@ -23,8 +23,18 @@ export function createManagerWorkspaceApplication({
   let workspaceRoot = null;
   let worklistExpanded = false;
   let settingsNavigation = null;
+  let businessSettings = null;
   const requestMutations = new Map();
   const operationalRoot = el('div', { dataset: { managerOperationalRoot: 'true' } });
+  function invalidateEditor() {
+    businessSettings?.invalidateEditor();
+    businessSettings = null;
+  }
+  function allowNavigation(retry) {
+    if (businessSettings?.allowNavigation(retry) === false) return false;
+    invalidateEditor();
+    return true;
+  }
   const worklist = demoWorklistEnabled ? createDemoManagerWorklistController({
     persistence,
     locations,
@@ -43,6 +53,7 @@ export function createManagerWorkspaceApplication({
     persistence: worklist?.persistence || persistence,
     requestMutations,
     onAuthorityFailure,
+    allowNavigation,
     onOpenCateringOrders: cateringOrders?.featureFlags?.isEnabled('catering.orders') === true
       ? (panel, requests, isCurrent, invalidateAuthorityProjection) => renderCateringOrders({
         root: panel, requests, adapter: cateringOrders, assignments: cateringAssignments, isCurrent,
@@ -50,10 +61,11 @@ export function createManagerWorkspaceApplication({
         onAuthorityFailure: invalidateAuthorityProjection,
       }) : null,
     onOpenBusinessSettings: (panel, invalidateAuthorityProjection, { focusHeading = false } = {}) => {
+      invalidateEditor();
       const heading = el('header');
       const content = el('div');
       panel.replaceChildren(heading, content);
-      const businessSettings = createManagerBusinessSettingsApplication({
+      businessSettings = createManagerBusinessSettingsApplication({
         appRoot: content,
         initialNavigation: settingsNavigation,
         setPageHeading: (title, description) => {
@@ -124,8 +136,14 @@ export function createManagerWorkspaceApplication({
             attrs: { 'aria-label': t('demoManager.openTask', { task: t(task.key, { title: task.title }) }) },
           });
           open.addEventListener('click', () => {
-            settingsNavigation = task.settings || null;
-            operationalRoot.querySelector(`#managerTab-${task.target}`)?.click();
+            const navigate = () => {
+              if (!allowNavigation(navigate)) return;
+              settingsNavigation = task.settings || null;
+              const tab = operationalRoot.querySelector(`#managerTab-${task.target}`);
+              if (tab?.getAttribute('aria-selected') === 'true') void operational.renderManager();
+              else tab?.click();
+            };
+            navigate();
           });
           list.appendChild(el('li', {
             className: 'demo-manager-task-row',
@@ -140,6 +158,7 @@ export function createManagerWorkspaceApplication({
   }
 
   async function renderManager() {
+    if (!allowNavigation(() => void renderManager())) return;
     workspaceRoot = el('section', { dataset: { managerWorkspaceRoot: 'true' } });
     workspaceRoot.appendChild(operationalRoot);
     appRoot.replaceChildren(workspaceRoot);
@@ -147,5 +166,5 @@ export function createManagerWorkspaceApplication({
     await worklist?.refresh();
   }
 
-  return Object.freeze({ renderManager });
+  return Object.freeze({ renderManager, allowNavigation, invalidateEditor });
 }
