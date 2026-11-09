@@ -1,7 +1,7 @@
 import { createTenantSetupOverview } from './overview.js';
 import { t } from '../core/i18n.js';
 import { button, clear, el, openDialog } from '../core/ui.js';
-import { createEditorNavigation } from './editor-navigation.js';
+import { createEditorNavigation } from '../shared/editor-navigation.js';
 import {
   tenantAdminHashForSection,
   tenantAdminSectionFromHash,

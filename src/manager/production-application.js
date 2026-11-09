@@ -85,6 +85,7 @@ export function createProductionManagerApplication({
   onOpenBusinessSettings = null,
   onOpenCateringOrders = null,
   onAuthorityFailure = null,
+  allowNavigation = null,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_MANAGER_UI_REQUIRED');
   if (!(requestMutations instanceof Map)) {
@@ -98,6 +99,9 @@ export function createProductionManagerApplication({
   }
   if (onAuthorityFailure !== null && typeof onAuthorityFailure !== 'function') {
     throw new TypeError('PRODUCTION_MANAGER_AUTHORITY_HANDLER_REQUIRED');
+  }
+  if (allowNavigation !== null && typeof allowNavigation !== 'function') {
+    throw new TypeError('PRODUCTION_MANAGER_NAVIGATION_GUARD_REQUIRED');
   }
   if (
     !persistence
@@ -358,6 +362,7 @@ export function createProductionManagerApplication({
     let committedProjectionGeneration = 0;
     let interactiveProjectionGeneration = 0;
     let pendingTabFocus = null;
+    const focusTab = (tabId) => root.querySelector(`[data-manager-tab="${tabId}"]`)?.focus();
     let authorityProjectionInvalid = false;
     const isActiveSurface = () => (
       root.isConnected
@@ -405,6 +410,7 @@ export function createProductionManagerApplication({
     };
 
     async function refresh(focusRequestId = null) {
+      if (allowNavigation?.(() => void refresh(focusRequestId)) === false) return;
       const generation = ++refreshGeneration;
       if (!isCurrent(generation)) return;
       interactiveProjectionGeneration = 0;
@@ -453,14 +459,16 @@ export function createProductionManagerApplication({
               tabindex: activeTab === tabId ? '0' : '-1',
             },
           });
-          tab.addEventListener('click', () => {
-            if (activeTab === tabId) return;
-            activeTab = tabId;
-            pendingTabFocus = tabId;
+          const activateTab = (nextTab) => {
+            if (activeTab === nextTab) return;
+            if (allowNavigation?.(() => activateTab(nextTab)) === false) return;
+            activeTab = nextTab;
+            pendingTabFocus = nextTab;
             void refresh().then(() => {
-              if (activeTab === tabId) root.querySelector(`[data-manager-tab="${tabId}"]`)?.focus();
+              if (activeTab === nextTab) focusTab(nextTab);
             });
-          });
+          };
+          tab.addEventListener('click', () => activateTab(tabId));
           tab.addEventListener('keydown', (event) => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault();
@@ -471,13 +479,7 @@ export function createProductionManagerApplication({
                 : (tabIndex + (event.key === 'ArrowRight' ? 1 : -1) + tabDefinitions.length)
                   % tabDefinitions.length);
             const [nextTab] = tabDefinitions[nextIndex];
-            activeTab = nextTab;
-            pendingTabFocus = nextTab;
-            void refresh().then(() => {
-              if (activeTab === nextTab) {
-                root.querySelector(`[data-manager-tab="${nextTab}"]`)?.focus();
-              }
-            });
+            activateTab(nextTab);
           });
           tabs.appendChild(tab);
         });
@@ -485,7 +487,7 @@ export function createProductionManagerApplication({
         if (pendingTabFocus === activeTab && isCurrent(generation)) {
           // Finish keyboard navigation before exposing the next editable panel.
           // A delayed frame must not steal focus from its first field interaction.
-          root.querySelector(`[data-manager-tab="${activeTab}"]`)?.focus();
+          focusTab(activeTab);
           pendingTabFocus = null;
         }
 
