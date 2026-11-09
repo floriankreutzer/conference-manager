@@ -6230,7 +6230,11 @@ for (const language of ['de', 'en']) {
       expect(bounds.height).toBeGreaterThanOrEqual(44);
     }
     expect(fixture.writes).toHaveLength(1);
-    expect(fixture.writes[0].body.details.title).toBe(title);
+    expect(fixture.writes[0]).toMatchObject({
+      path: '/api/v1/application/requests',
+      csrf: CSRF_TOKEN,
+      body: { title },
+    });
     await close.press('Enter');
     await expect(notice).toHaveCount(0);
     await expect(card).toBeFocused();
