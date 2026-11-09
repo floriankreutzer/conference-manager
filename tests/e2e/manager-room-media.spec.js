@@ -23,9 +23,12 @@ function initialSnapshot() {
 }
 
 async function fixture(page, { language = 'en', metadataStatus = 200, foreign = false, denyPhoto = false,
-  demoRuntime = false, withUpload = false } = {}) {
+  demoRuntime = false, withUpload = false, delayedPhoto = null, allowPriceSave = false,
+  snapshot = initialSnapshot() } = {}) {
   const origin = new URL(test.info().project.use.baseURL).origin;
   const calls = [], errors = [], external = [];
+  let releasePhoto;
+  const photoGate = new Promise((resolve) => { releasePhoto = resolve; });
   page.on('pageerror', (error) => errors.push(error.message));
   const root = demoRuntime ? '/api/v1/demo/media' : MEDIA_ROOT;
   const metadata = [{ id: PLAN, ownerKind: 'room_plan', ownerId: 'room-a', contentType: 'image/png',
@@ -40,15 +43,20 @@ async function fixture(page, { language = 'en', metadataStatus = 200, foreign = 
         <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
         <meta name="conference-runtime" content="${demoRuntime ? 'demo' : 'production'}">
         <link rel="stylesheet" href="/assets/tokens.css"><link rel="stylesheet" href="/assets/styles.css">
-        <link rel="stylesheet" href="/assets/app-layout.css"><link rel="stylesheet" href="/assets/employee-ux.css">
-        <link rel="stylesheet" href="/assets/manager-layout.css"></head><body>
+        <link rel="stylesheet" href="/assets/app-layout.css"><link rel="stylesheet" href="/assets/manager-layout.css">
+        <link rel="stylesheet" href="/assets/employee-ux.css"></head><body>
         <div class="content-shell"><h1 id="viewTitle" tabindex="-1"></h1><main id="app" class="manager-surface"></main></div>
         <div id="toast" role="status"></div></body></html>` });
       return;
     }
     if (url.pathname.startsWith('/api/')) {
       calls.push({ path: url.pathname, method: request.method() });
-      if (url.pathname === root) {
+      if (url.pathname === PHOTO_PATH && delayedPhoto) {
+        await photoGate;
+        await route.fulfill(delayedPhoto === 'loaded'
+          ? { contentType: 'image/png', body: PNG }
+          : { status: 403, contentType: 'application/json', body: JSON.stringify({ error: { code: 'AUTHORIZATION_DENIED' } }) });
+      } else if (url.pathname === root) {
         await route.fulfill({ status: metadataStatus, contentType: 'application/json',
           body: JSON.stringify(metadataStatus === 200 ? { assets: metadata, requestId: PLAN }
             : { error: { code: metadataStatus === 401 ? 'SESSION_REVOKED' : 'MEDIA_UNAVAILABLE' } }) });
@@ -62,9 +70,8 @@ async function fixture(page, { language = 'en', metadataStatus = 200, foreign = 
     }
     await route.continue();
   });
-  const snapshot = initialSnapshot();
   await page.goto('/manager-room-media-fixture');
-  await page.evaluate(async ({ snapshot, language, withUpload, uploaded }) => {
+  await page.evaluate(async ({ snapshot, language, withUpload, uploaded, allowPriceSave }) => {
     const { createManagerBusinessSettingsApplication } = await import('/src/manager/business-settings-application.js');
     const { createCatalogueMediaApi } = await import('/src/core/catalogue-media-api.js');
     const { createApiClient } = await import('/src/core/api-client.js');
@@ -72,9 +79,11 @@ async function fixture(page, { language = 'en', metadataStatus = 200, foreign = 
     setLanguage(language);
     const api = createApiClient();
     const media = createCatalogueMediaApi({ apiClient: api });
-    const evidence = { saves: [], uploads: [], holdSave: false, authorityFailures: [], current: structuredClone(snapshot) };
+    const evidence = { saves: [], priceSaves: [], uploads: [], holdSave: false,
+      authorityFailures: [], current: structuredClone(snapshot) };
     window.__roomMediaEvidence = evidence;
-    const catalogue = { services: [], equipment: [], cateringPackages: [], cateringItems: [], roomPrices: [] };
+    let catalogueSnapshot = { schemaVersion: 1, revision: 3,
+      catalogue: { services: [], equipment: [], cateringPackages: [], cateringItems: [], roomPrices: [] } };
     const app = createManagerBusinessSettingsApplication({ appRoot: document.getElementById('app'),
       setPageHeading(title) { document.getElementById('viewTitle').textContent = title; },
       onAuthorityFailure(error) { evidence.authorityFailures.push(error.code); document.getElementById('app').replaceChildren(); },
@@ -93,19 +102,111 @@ async function fixture(page, { language = 'en', metadataStatus = 200, foreign = 
         } } : {}),
       },
       catalogue: {
-        async loadCatalogue() { return { schemaVersion: 1, revision: 3, catalogue }; },
+        async loadCatalogue() { return structuredClone(catalogueSnapshot); },
         async listCatalogueHistory() { return { revisions: [] }; },
-        async saveCatalogue() { throw new Error('UNEXPECTED_CATALOGUE_WRITE'); },
+        async saveCatalogue(value) {
+          if (!allowPriceSave) throw new Error('UNEXPECTED_CATALOGUE_WRITE');
+          if (value.expectedRevision !== catalogueSnapshot.revision) throw new Error('STALE_CATALOGUE_WRITE');
+          evidence.priceSaves.push(structuredClone(value));
+          catalogueSnapshot = { schemaVersion: 1, revision: catalogueSnapshot.revision + 1,
+            catalogue: structuredClone(value.catalogue) };
+          return structuredClone(catalogueSnapshot);
+        },
         async listCatalogueMedia() { return { assets: await media.list() }; },
         async listDemoMedia() { return api.request('v1/demo/media'); },
       },
     });
     await app.renderManagerSettings();
-  }, { snapshot, language, withUpload, uploaded: UPLOADED });
-  return { snapshot, calls, errors, external, origin };
+  }, { snapshot, language, withUpload, uploaded: UPLOADED, allowPriceSave });
+  return { snapshot, calls, errors, external, origin, releasePhoto };
 }
 
 for (const language of ['de', 'en']) {
+  for (const width of [390, 768, 1366]) for (const outcome of ['loaded', 'unavailable']) {
+    test(`CO-306 late ${outcome} room image preserves one price click and keyboard save in ${language} at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      const snapshot = initialSnapshot();
+      snapshot.configuration.rooms[0].floorplanAssetId = null;
+      snapshot.configuration.rooms[0].mediaAssetIds = [PHOTO];
+      snapshot.configuration.rooms[1].floorplanAssetId = null;
+      snapshot.configuration.rooms[1].mediaAssetIds = [];
+      const f = await fixture(page, { language, delayedPhoto: outcome, allowPriceSave: true, snapshot });
+      try {
+        const room = page.locator('[data-manager-room-id="room-a"]');
+        const image = room.locator(`img[src="${PHOTO_PATH}"]`);
+        const price = room.locator('#manager-room-price-amount-0');
+        const save = room.getByRole('button', { name: language === 'de' ? 'Raumpreis speichern' : 'Save room price', exact: true });
+        const name = room.locator('#manager-room-name-0');
+        await name.fill('Unsubmitted room name');
+        await price.fill('35.00');
+        await room.locator('#manager-room-price-currency-0').selectOption('EUR');
+        await save.scrollIntoViewIfNeeded();
+        await expect.poll(() => f.calls.filter(({ path }) => path === PHOTO_PATH).length).toBe(1);
+        await expect.poll(() => image.evaluate((node) => node.complete)).toBe(false);
+        await page.evaluate(() => document.fonts.ready);
+        await save.focus();
+        await expect(save).toBeFocused();
+        await save.click({ trial: true });
+        await expect(save).toBeInViewport({ ratio: 1 });
+        const geometry = () => save.evaluate((node) => {
+          const box = node.getBoundingClientRect();
+          return { x: box.x, y: box.y, width: box.width, height: box.height,
+            documentY: box.y + scrollY, scrollY, viewport: innerWidth, documentWidth: document.documentElement.scrollWidth };
+        });
+        const before = await geometry();
+        await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+        await page.mouse.down();
+        try {
+          // Complete the actual intercepted bytes request between native down/up.
+          // No synthetic load event, force click, retry or extra product wait.
+          f.releasePhoto();
+          if (outcome === 'loaded') {
+            await expect.poll(() => image.evaluate((node) => node.complete && node.naturalWidth > 0)).toBe(true);
+            await expect(room.getByRole('status')).toHaveCount(0);
+          } else {
+            await expect(image).toBeHidden();
+            await expect(room.getByRole('status')).toHaveText(language === 'de'
+              ? 'Die Vorschau ist nicht verfügbar. Die gespeicherte Verknüpfung bleibt erhalten.'
+              : 'The preview is unavailable. The saved link has been preserved.');
+          }
+          const after = await geometry();
+          for (const key of ['x', 'y', 'width', 'height', 'documentY', 'scrollY']) {
+            expect(Math.abs(after[key] - before[key]), JSON.stringify({ before, after, outcome })).toBeLessThanOrEqual(1);
+          }
+          expect(after.documentWidth).toBeLessThanOrEqual(after.viewport + 1);
+          await testInfo.attach('late-room-image-geometry', { contentType: 'application/json',
+            body: Buffer.from(JSON.stringify({ language, width, outcome, before, after })) });
+        } finally {
+          f.releasePhoto();
+          await page.mouse.up();
+        }
+        await expect.poll(() => page.evaluate(() => window.__roomMediaEvidence.priceSaves.length)).toBe(1);
+        await expect(save).toBeEnabled();
+        await expect(save).toBeFocused();
+        await expect(name).toHaveValue('Unsubmitted room name');
+        await price.fill('37.50');
+        await save.focus();
+        await page.keyboard.press('Enter');
+        await expect.poll(() => page.evaluate(() => window.__roomMediaEvidence.priceSaves.length)).toBe(2);
+        await expect(save).toBeEnabled();
+        const writes = await page.evaluate(() => window.__roomMediaEvidence.priceSaves);
+        expect(writes).toEqual([3500, 3750].map((amountMinor, index) => ({ expectedRevision: 3 + index,
+          catalogue: { services: [], equipment: [], cateringPackages: [], cateringItems: [],
+            roomPrices: [{ roomId: 'room-a', price: { amountMinor, currency: 'EUR' } }] } })));
+        await expect(name).toHaveValue('Unsubmitted room name');
+        await expect(price).toHaveValue('37.50');
+        expect(f.calls.filter(({ path }) => path === PHOTO_PATH)).toHaveLength(1);
+        expect(f.calls.every(({ method }) => method === 'GET')).toBe(true);
+        expect(f.errors).toEqual([]);
+        expect(f.external).toEqual([]);
+        await attachCustomerScreenEvidence(page, testInfo, { screen: '17', state: `late-image-${outcome}-single-pointer-and-keyboard-price`,
+          roles: ['conference_manager'], composition: 'isolated-component-routed-media-fixture', fullPage: false });
+      } finally {
+        f.releasePhoto();
+      }
+    });
+  }
+
   test(`CO-306 named room media previews and full snapshot save retain unknown refs in ${language}`, async ({ page }, testInfo) => {
     const f = await fixture(page, { language });
     const room = page.locator('[data-manager-room-id="room-a"]');

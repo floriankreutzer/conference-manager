@@ -35,8 +35,11 @@ export function createRoomMediaEditor({ room, index, catalogueMedia, demoRuntime
     const title = label(entry);
     const status = el('p', { className: 'room-asset-note', attrs: { role: 'status', 'aria-live': 'polite' },
       text: t(entry.url ? 'managerSettings.room.mediaLoading' : 'managerSettings.room.mediaUnavailable') });
-    const node = el('figure', { className: 'manager-room-media-preview' }, [el('figcaption', { text: title }), status]);
+    const node = el('figure', { className: 'manager-room-media-preview' }, [el('figcaption', { text: title })]);
     if (entry.url) {
+      // Reserve the same footprint while bytes load or fail. A late image must
+      // not move a following action between native pointer down and pointer up.
+      const frame = el('div', { className: 'manager-room-media-frame' }, [status]);
       const image = el('img', { className: 'room-asset-visual media', attrs: {
         alt: entry.altText || title, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer',
       } });
@@ -48,7 +51,10 @@ export function createRoomMediaEditor({ room, index, catalogueMedia, demoRuntime
       });
       // Only the model's fixed same-origin paths may become image sources.
       image.setAttribute('src', entry.url);
-      node.appendChild(image);
+      frame.appendChild(image);
+      node.appendChild(frame);
+    } else {
+      node.appendChild(status);
     }
     previewById.set(entry.id, node);
     return node;

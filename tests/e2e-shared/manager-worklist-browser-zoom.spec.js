@@ -124,6 +124,50 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     await captureZoomViewport(page, testInfo, 'manager-business-help-200-percent.png');
     await writeFile(testInfo.outputPath('manager-worklist-zoom-evidence.json'),
       JSON.stringify({ actualTabZoom: zoom, ...layout, keyboardNavigation: true, businessHelpAt200Percent: true }, null, 2));
+    const mediaEvidence = [];
+    for (const language of ['de', 'en']) {
+      if (language === 'en') {
+        await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+        await page.locator('#profileLanguage').selectOption('en');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+      }
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      await page.locator('#managerTab-ADMIN').click();
+      await page.getByRole('button', { name: language === 'de' ? 'Räume' : 'Rooms', exact: true }).click();
+      const room = page.locator('[data-manager-room-id="contoso-paris-room-1"]');
+      const editor = room.locator('..');
+      if (await editor.getAttribute('open') === null) await editor.locator(':scope > summary').click();
+      const preview = room.locator('[data-manager-room-media-previews] img').first();
+      await preview.scrollIntoViewIfNeeded();
+      await expect.poll(() => preview.evaluate((node) => node.complete && node.naturalWidth > 0)).toBe(true);
+      await centerInZoomViewport(preview);
+      await expect(preview).toBeInViewport({ ratio: 1 });
+      const imageLayout = await preview.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        return { x: box.x, y: box.y, width: box.width, height: box.height,
+          objectFit: getComputedStyle(node).objectFit, named: Boolean(node.alt),
+          viewportWidth: innerWidth, documentWidth: document.documentElement.scrollWidth };
+      });
+      expect(imageLayout.objectFit).toBe('contain');
+      expect(imageLayout.named).toBe(true);
+      expect(imageLayout.documentWidth).toBeLessThanOrEqual(imageLayout.viewportWidth + 1);
+      await captureZoomViewport(page, testInfo, `manager-room-media-${language}-200-percent.png`);
+      const priceAction = room.getByRole('button', { name: language === 'de' ? 'Raumpreis speichern' : 'Save room price', exact: true });
+      await priceAction.focus();
+      await expect(priceAction).toBeFocused();
+      await centerInZoomViewport(priceAction);
+      await priceAction.click({ trial: true });
+      await expect(priceAction).toBeInViewport({ ratio: 1 });
+      const action = await priceAction.boundingBox();
+      expect(action.width).toBeGreaterThanOrEqual(44);
+      expect(action.height).toBeGreaterThanOrEqual(44);
+      await captureZoomViewport(page, testInfo, `manager-room-price-action-${language}-200-percent.png`);
+      mediaEvidence.push({ language, actualTabZoom: zoom, imageLayout, action, focusObserved: true });
+    }
+    await writeFile(testInfo.outputPath('manager-room-media-zoom-evidence.json'), JSON.stringify({
+      composition: 'server-backed shared Demo with the existing own-Room image', evidence: mediaEvidence,
+      limits: 'Actual Chromium tab zoom, programmatic focus and actionability; no Tab/Enter price activation, price write, physical Safari or screen-reader acceptance',
+    }, null, 2));
   } finally {
     try {
       if (started) await reset(platformContext);

@@ -27,7 +27,7 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
 }
 
 .room-asset-visual.media {
-  max-height: 20rem;
+  max-height: var(--room-media-preview-max-block-size);
   background: var(--color-surface-subtle);
 }
 

@@ -96,6 +96,38 @@ main,
   font-weight: var(--font-weight-medium);
 }
 
+.manager-room-media-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  max-block-size: var(--room-media-preview-max-block-size);
+  min-inline-size: 0;
+}
+
+.manager-room-media-frame > .room-asset-visual {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  max-block-size: none;
+}
+
+.manager-room-media-frame > .room-asset-note {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.manager-room-media-frame > .room-asset-note:not([hidden]) {
+  display: grid;
+  align-content: start;
+}
+
 .manager-data-scroll {
   min-inline-size: 0;
   max-inline-size: 100%;

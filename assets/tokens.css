@@ -118,6 +118,7 @@
   --app-card-padding: var(--space-5);
   --app-mobile-gutter: var(--space-4);
   --responsive-table-label-width: 112px;
+  --room-media-preview-max-block-size: 20rem;
 
   /* Manager aliases retain one system instead of a separate visual language. */
   --manager-content-max-width: var(--app-content-max-width);
