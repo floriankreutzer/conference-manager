@@ -58,24 +58,19 @@ export function roomPlanPreview({ openRequest }) {
       }
       node.hidden = false;
       control.setAttribute('aria-expanded', 'true');
-      if (moveFocus) {
-        const previousFocus = document.activeElement;
-        heading.focus();
-        // Touch activation can finish native button focus after the click handler.
-        // Restore the requested preview focus only while that activation still owns it.
-        requestAnimationFrame(() => {
-          if (selected?.control !== control || !node.isConnected || node.hidden
-            || document.documentElement.dataset.sessionLocked === 'true') return;
-          if (document.activeElement === control || document.activeElement === document.body
-            || document.activeElement === previousFocus) heading.focus();
-        });
-      }
+      if (moveFocus) heading.focus();
     };
     control.addEventListener('focus', () => show());
     control.addEventListener('pointerenter', (event) => {
       // Touch browsers can synthesize mouse entry without a hover-capable input.
       // Revealing content above the pressed booking would move its activation target.
       if (event.pointerType === 'mouse' && matchMedia('(any-hover: hover)').matches) show();
+    });
+    // Opening the preview on native mousedown focus shifts the pressed booking
+    // before mouseup (including WebKit's touch compatibility events). The click
+    // owns the deliberate focus transfer; keyboard focus still previews in place.
+    control.addEventListener('mousedown', (event) => {
+      if (event.button === 0) event.preventDefault();
     });
     control.addEventListener('click', () => show(true));
     control.addEventListener('keydown', escape);
