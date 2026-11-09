@@ -72,6 +72,12 @@ export function roomPlanPreview({ openRequest }) {
     };
     control.addEventListener('focus', () => show());
     control.addEventListener('pointerenter', (event) => { if (event.pointerType === 'mouse') show(); });
+    // A touch preview changes the page before WebKit synthesizes its mouse click.
+    // Activate on the completed pointer gesture as well; cancelled scrolling never
+    // reaches pointerup. Mouse and keyboard retain their native click contract.
+    control.addEventListener('pointerup', (event) => {
+      if (event.pointerType === 'touch' || event.pointerType === 'pen') show(true);
+    });
     control.addEventListener('click', () => show(true));
     control.addEventListener('keydown', escape);
   };
