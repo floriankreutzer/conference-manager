@@ -5896,23 +5896,28 @@ for (const language of ['de', 'en']) {
   });
 }
 
+function catalogueStatusSettings() {
+  const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
+  catalogueSettings.services = [{ id: 'service-support', name: 'Video support', description: null,
+    price: { amountMinor: 1250, currency: 'EUR' }, active: false, order: 1, siteIds: ['berlin'], roomIds: ['room-a'] }];
+  catalogueSettings.equipment = [
+    { id: 'equipment-a', name: 'Projector', description: null, price: { amountMinor: 500, currency: 'EUR' },
+      active: false, order: 1, siteIds: ['retired-site'], roomIds: ['retired-room'] },
+    { id: 'equipment-b', name: 'Whiteboard', description: null, price: { amountMinor: 0, currency: 'EUR' },
+      active: true, order: 2, siteIds: [], roomIds: [] },
+  ];
+  catalogueSettings.cateringItems[0].active = false;
+  // The authoritative contract rejects active packages containing inactive items.
+  catalogueSettings.cateringPackages[0].active = false;
+  catalogueSettings.cateringItems[0].siteIds = ['berlin'];
+  catalogueSettings.cateringItems[0].roomIds = ['room-a'];
+  return catalogueSettings;
+}
+
 for (const language of ['de', 'en']) {
   test(`CO-306 catalogue status filters are neutral and summaries follow complete saved snapshots (${language})`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
-    const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
-    catalogueSettings.services = [{ id: 'service-support', name: 'Video support', description: null,
-      price: { amountMinor: 1250, currency: 'EUR' }, active: false, order: 1, siteIds: ['berlin'], roomIds: ['room-a'] }];
-    catalogueSettings.equipment = [
-      { id: 'equipment-a', name: 'Projector', description: null, price: { amountMinor: 500, currency: 'EUR' },
-        active: false, order: 1, siteIds: ['retired-site'], roomIds: ['retired-room'] },
-      { id: 'equipment-b', name: 'Whiteboard', description: null, price: { amountMinor: 0, currency: 'EUR' },
-        active: true, order: 2, siteIds: [], roomIds: [] },
-    ];
-    catalogueSettings.cateringItems[0].active = false;
-    // The authoritative contract rejects active packages containing inactive items.
-    catalogueSettings.cateringPackages[0].active = false;
-    catalogueSettings.cateringItems[0].siteIds = ['berlin'];
-    catalogueSettings.cateringItems[0].roomIds = ['room-a'];
+    const catalogueSettings = catalogueStatusSettings();
     const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings });
     const activeLabel = language === 'de' ? 'Aktiv' : 'Active';
     const inactiveLabel = language === 'de' ? 'Inaktiv' : 'Inactive';
@@ -5948,8 +5953,77 @@ for (const language of ['de', 'en']) {
       language === 'de' ? 'Keine Standort-Einschränkung' : 'No site restriction',
       language === 'de' ? 'Keine Raum-Einschränkung' : 'No room restriction',
     ]);
-    const originalViewport = page.viewportSize();
-    for (const width of [390, 768, 1366]) {
+    await page.locator('#manager-cateringItems-status').selectOption('active');
+    await page.locator('#manager-packages-status').selectOption('inactive');
+    await expect(page.locator('[data-catalogue-entry-id]')).toHaveCount(2);
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await services.click();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    const prefix = '#manager-catalogue-equipment-equipment-a';
+    await page.locator(`${prefix}-name`).fill('Updated projector');
+    await page.locator(`${prefix}-amount`).fill('15.25');
+    await page.locator(`${prefix}-currency`).selectOption('CHF');
+    await page.locator(`${prefix}-sites`).selectOption(['berlin', 'retired-site']);
+    await page.locator(`${prefix}-active`).check();
+    const unavailable = language === 'de' ? 'Nicht mehr verfügbare Auswahl 1' : 'Unavailable selection 1';
+    await expect(summaryFor('equipment-a')).toHaveText([
+      activeLabel, priceLabel(15.25, 'CHF'),
+      `${sitesLabel} ${language === 'de' ? 'und 1 weiterer' : 'and 1 more'}`,
+      `${language === 'de' ? 'Räume' : 'Rooms'}: ${unavailable}`,
+    ]);
+    await expect(page.locator(`${prefix}-rooms`)).toHaveValues(['retired-room']);
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '18', state: 'draft-summary-and-retained-unknown-scope',
+      roles: ['employee', 'conference_manager'] });
+    await page.locator('#manager-equipment-status').selectOption('inactive');
+    await page.locator('#manager-equipment-search').fill('Updated projector');
+    await expect(page.locator(`${prefix}-name`)).toBeHidden();
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    const save = page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true });
+    await save.click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+    await expect(page.locator(`${prefix}-name`)).toBeVisible();
+    await expect(save).toBeEnabled();
+    const written = fixture.catalogueWrites[0];
+    expect(written.body.expectedRevision).toBe(1);
+    expect(written.csrf).toBe(CSRF_TOKEN);
+    expect(written.body.catalogue).toEqual({ ...catalogueSettings,
+      equipment: [{ ...catalogueSettings.equipment[0], name: 'Updated projector', active: true,
+        price: { amountMinor: 1525, currency: 'CHF' }, siteIds: ['berlin', 'retired-site'] }, catalogueSettings.equipment[1]],
+    });
+    await expect(summaryFor('equipment-a').nth(1)).toHaveText(priceLabel(15.25, 'CHF'));
+    await page.locator('#manager-equipment-status').selectOption('inactive');
+    await page.locator('#manager-services-search').fill('No match');
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await page.locator('[data-view="welcome"]').click();
+    await expect(page.locator('#welcomeHeading')).toBeVisible();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    expect(fixture.locationWrites).toHaveLength(0);
+  });
+
+  // Capture each responsive state independently of the write/navigation journey.
+  for (const width of [390, 768, 1366]) {
+    test(`CO-306 Catering controls and summaries reflow in ${language} at ${width}px`, async ({ page }, testInfo) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const catalogueSettings = catalogueStatusSettings();
+      const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings });
+      const inactiveLabel = language === 'de' ? 'Inaktiv' : 'Inactive';
+      const sitesLabel = language === 'de' ? 'Standorte: Berlin' : 'Sites: Berlin';
+      const roomsLabel = language === 'de' ? 'Räume: Room A' : 'Rooms: Room A';
+      const priceLabel = (amount, currency) => `${language === 'de' ? 'Preis' : 'Price'}: ${
+        new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'en-GB', { style: 'currency', currency }).format(amount)}`;
+      const summaryFor = (id) => page.locator(`[data-catalogue-entry-id="${id}"]`)
+        .locator('..').locator(':scope > summary .catalogue-editor-summary > span');
+      await page.goto(`${ORIGIN}/`);
+      await page.locator('[data-view="manager"]').click();
+      await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+      await page.getByRole('button', { name: 'Catering', exact: true }).click();
+      await expect(page.locator('dialog')).toHaveCount(0);
+      await expect(summaryFor('item-coffee')).toHaveText([inactiveLabel, priceLabel(2.5, 'EUR'), sitesLabel, roomsLabel]);
+      await expect(summaryFor('package-coffee')).toHaveText([
+        inactiveLabel, priceLabel(5, 'EUR'),
+        language === 'de' ? 'Keine Standort-Einschränkung' : 'No site restriction',
+        language === 'de' ? 'Keine Raum-Einschränkung' : 'No room restriction',
+      ]);
       await page.setViewportSize({ width, height: 900 });
       const root = page.locator('[data-manager-business-settings-root]');
       const actions = root.getByRole('button', { name: new RegExp(language === 'de' ? '^(Speichern|Alle Filter zurücksetzen)$' : '^(Save|Reset all filters)$') });
@@ -6004,54 +6078,11 @@ for (const language of ['de', 'en']) {
         expect(region.bounds.right).toBeLessThanOrEqual(geometry.viewport.width);
         expect(region.overflowX).toBe('auto');
       }
-    }
-    if (originalViewport) await page.setViewportSize(originalViewport);
-    await page.locator('#manager-cateringItems-status').selectOption('active');
-    await page.locator('#manager-packages-status').selectOption('inactive');
-    await expect(page.locator('[data-catalogue-entry-id]')).toHaveCount(2);
-    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
-    await services.click();
-    await expect(page.locator('dialog')).toHaveCount(0);
-    const prefix = '#manager-catalogue-equipment-equipment-a';
-    await page.locator(`${prefix}-name`).fill('Updated projector');
-    await page.locator(`${prefix}-amount`).fill('15.25');
-    await page.locator(`${prefix}-currency`).selectOption('CHF');
-    await page.locator(`${prefix}-sites`).selectOption(['berlin', 'retired-site']);
-    await page.locator(`${prefix}-active`).check();
-    const unavailable = language === 'de' ? 'Nicht mehr verfügbare Auswahl 1' : 'Unavailable selection 1';
-    await expect(summaryFor('equipment-a')).toHaveText([
-      activeLabel, priceLabel(15.25, 'CHF'),
-      `${sitesLabel} ${language === 'de' ? 'und 1 weiterer' : 'and 1 more'}`,
-      `${language === 'de' ? 'Räume' : 'Rooms'}: ${unavailable}`,
-    ]);
-    await expect(page.locator(`${prefix}-rooms`)).toHaveValues(['retired-room']);
-    await attachCustomerScreenEvidence(page, testInfo, { screen: '18', state: 'draft-summary-and-retained-unknown-scope',
-      roles: ['employee', 'conference_manager'] });
-    await page.locator('#manager-equipment-status').selectOption('inactive');
-    await page.locator('#manager-equipment-search').fill('Updated projector');
-    await expect(page.locator(`${prefix}-name`)).toBeHidden();
-    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
-    const save = page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true });
-    await save.click();
-    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
-    await expect(page.locator(`${prefix}-name`)).toBeVisible();
-    await expect(save).toBeEnabled();
-    const written = fixture.catalogueWrites[0];
-    expect(written.body.expectedRevision).toBe(1);
-    expect(written.csrf).toBe(CSRF_TOKEN);
-    expect(written.body.catalogue).toEqual({ ...catalogueSettings,
-      equipment: [{ ...catalogueSettings.equipment[0], name: 'Updated projector', active: true,
-        price: { amountMinor: 1525, currency: 'CHF' }, siteIds: ['berlin', 'retired-site'] }, catalogueSettings.equipment[1]],
+      expect(fixture.catalogueWrites).toHaveLength(0);
+      expect(fixture.locationWrites).toHaveLength(0);
+      expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
     });
-    await expect(summaryFor('equipment-a').nth(1)).toHaveText(priceLabel(15.25, 'CHF'));
-    await page.locator('#manager-equipment-status').selectOption('inactive');
-    await page.locator('#manager-services-search').fill('No match');
-    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
-    await page.locator('[data-view="welcome"]').click();
-    await expect(page.locator('#welcomeHeading')).toBeVisible();
-    await expect(page.locator('dialog')).toHaveCount(0);
-    expect(fixture.locationWrites).toHaveLength(0);
-  });
+  }
 
   test(`CO-306 room summaries distinguish absent prices and retain independent filtered drafts (${language})`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
