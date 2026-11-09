@@ -82,9 +82,9 @@ jobs:
     needs: quality
     # Includes browser installation, canaries, the full suite and evidence upload.
     # Individual test deadlines and the complete engine matrix remain unchanged.
-    # The 523-test suite plus setup/canaries needs headroom: the earlier 30-minute
-    # job expired after 434 passing tests, while another full run took 29 minutes.
-    timeout-minutes: 40
+    # CI42700749637 (23c8875) hit the 40-minute job cap after 522/581 passes;
+    # 59 full-suite cases stayed unproved. Keep headroom for the suite and upload.
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:

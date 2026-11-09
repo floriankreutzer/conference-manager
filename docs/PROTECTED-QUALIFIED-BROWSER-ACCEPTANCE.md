@@ -42,11 +42,17 @@ Regular canaries are bound to the selected matrix engine, just like the full
 suite. The Guest print, Tenant Admin and Employee canaries previously ran both
 engines in each row, duplicating the same engine/case pairs. Both complete
 projects, all distinct canary cases, the two-engine transport check, fail-closed
-aggregate remain. The regular browser rows now have a bounded 30-minute budget
+aggregate remain. The regular browser rows have a bounded 50-minute budget
 for installation, canaries, the complete suite and evidence upload; individual test
-deadlines and the full engine matrix are unchanged. The earlier c4b0 attempt's WebKit
-log reports 406 passed immediately before cancellation at that budget; its failed
-workflow result remains historical evidence and is not accepted as a pass.
+deadlines and the full engine matrix are unchanged. CI42700749637 on frontend
+23c8875 reached the previous 40-minute job limit with 522 of 581 WebKit full-suite
+cases passed and 59 still unproved; no test failure appeared before cancellation.
+The cancelled job and its stale one-case canary report are not full-suite acceptance.
+Fresh complete candidate and separate Main checks remain required.
+
+Historical 30-minute budget: the earlier c4b0 attempt's WebKit log reports 406
+passed immediately before cancellation at that budget; its failed workflow result
+remains historical evidence and is not accepted as a pass.
 
 The test-only API288 bootstrap provisions actual verified PostgreSQL TLS/SCRAM,
 fresh restricted roles and separate max1 Customer/Platform business+lease pools.
