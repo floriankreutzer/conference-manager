@@ -8,7 +8,7 @@ import { acceptanceGateEnabled, createOriginContext, createOriginPersistentConte
 import {
   activateContoso, businessDate, CONTOSO, ORIGINS, requests, reset, selectContext, uiResponse,
 } from '../e2e-saas37/scenario-support.js';
-import { expectRequestCardReflow, expectSubmissionNoticeReflow } from '../e2e/fixtures/request-card-layout.js';
+import { expectRequestCardReflow, expectSubmissionNoticeReflow, readSubmissionNoticeLayout } from '../e2e/fixtures/request-card-layout.js';
 
 const EXTENSION = fileURLToPath(new URL('../e2e/fixtures/browser-zoom-extension/', import.meta.url));
 
@@ -37,6 +37,12 @@ async function captureZoomViewport(page, testInfo, name) {
   }
   expect(screenshot.readUInt32BE(16)).toBe(page.viewportSize().width);
   await writeFile(testInfo.outputPath(name), screenshot);
+}
+
+async function centerInZoomViewport(locator) {
+  // Nearest-edge scrolling can leave a fractional border outside the viewport
+  // at real tab zoom. Center the unchanged content before requiring full visibility.
+  await locator.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }));
 }
 
 test('manager worklist remains operable at actual Chromium browser zoom 200%', async ({ browser }, testInfo) => {
@@ -207,17 +213,23 @@ test('CO-305: Employee and Manager request cards retain full DE/EN content at ac
         let submissionNotice = null;
         if (view === 'requests') {
           const notice = page.locator('[data-ux-submission-success]');
-          submissionNotice = await expectSubmissionNoticeReflow(notice, title);
-          await notice.scrollIntoViewIfNeeded();
-          await expect(notice).toBeInViewport({ ratio: 1 });
+          // Observe the normal toast timeout and fade; never hide it or change the clock.
+          await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/);
+          await expect(page.locator('#toast')).toHaveCSS('opacity', '0');
+          await centerInZoomViewport(notice);
+          const geometry = await readSubmissionNoticeLayout(notice);
+          await writeFile(testInfo.outputPath(`request-submission-notice-${language}-200-percent-geometry.json`),
+            JSON.stringify({ language, actualTabZoom: zoom, ...geometry }, null, 2));
           await captureZoomViewport(page, testInfo, `request-submission-notice-${language}-200-percent.png`);
+          await expect(notice).toBeInViewport({ ratio: 1 });
+          submissionNotice = await expectSubmissionNoticeReflow(notice, title);
         }
         const layout = await expectRequestCardReflow(card);
         for (const field of await card.locator('.request-card-summary h3, .request-card-summary dd, .request-critical-note').all()) {
-          await field.scrollIntoViewIfNeeded();
+          await centerInZoomViewport(field);
           await expect(field).toBeInViewport({ ratio: 1 });
         }
-        await card.locator('h3').scrollIntoViewIfNeeded();
+        await centerInZoomViewport(card.locator('h3'));
         await captureZoomViewport(page, testInfo, `request-summary-${view}-${language}-200-percent.png`);
         const summary = details.locator('summary');
         await summary.focus();
@@ -227,7 +239,7 @@ test('CO-305: Employee and Manager request cards retain full DE/EN content at ac
         await expect(details.locator('.request-business-details')).toContainText(title);
         await expect(details.locator('.request-business-details')).toContainText('Nut allergy');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-        await summary.scrollIntoViewIfNeeded();
+        await centerInZoomViewport(summary);
         await captureZoomViewport(page, testInfo, `request-details-${view}-${language}-200-percent.png`);
         await page.keyboard.press('Enter');
         await expect(details).not.toHaveAttribute('open');
@@ -237,6 +249,7 @@ test('CO-305: Employee and Manager request cards retain full DE/EN content at ac
         const action = card.getByRole('button', { name: actionLabel, exact: true });
         await action.focus();
         await expect(action).toBeFocused();
+        await centerInZoomViewport(action);
         await action.click({ trial: true });
         await expect(action).toBeInViewport({ ratio: 1 });
         const actionBounds = await action.boundingBox();

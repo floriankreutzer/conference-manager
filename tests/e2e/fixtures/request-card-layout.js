@@ -56,15 +56,14 @@ export async function expectRequestCardReflow(card) {
   return layout;
 }
 
-export async function expectSubmissionNoticeReflow(notice, title) {
-  await expect(notice).toHaveAttribute('role', 'status');
-  await expect(notice.locator(':scope > div > p').first()).toHaveText(title);
-  const layout = await notice.evaluate((node) => {
+export async function readSubmissionNoticeLayout(notice) {
+  return notice.evaluate((node) => {
     const box = (element) => {
       const { top, right, bottom, left, width, height } = element.getBoundingClientRect();
       return { top, right, bottom, left, width, height };
     };
-    return { viewportWidth: innerWidth, documentWidth: document.documentElement.scrollWidth,
+    return { viewportWidth: innerWidth, viewportHeight: innerHeight,
+      scrollX, scrollY, documentWidth: document.documentElement.scrollWidth,
       bounds: box(node),
       fields: [...node.querySelectorAll('strong, p, button')].map((field) => {
         const range = document.createRange();
@@ -75,6 +74,12 @@ export async function expectSubmissionNoticeReflow(notice, title) {
       }),
     };
   });
+}
+
+export async function expectSubmissionNoticeReflow(notice, title) {
+  await expect(notice).toHaveAttribute('role', 'status');
+  await expect(notice.locator(':scope > div > p').first()).toHaveText(title);
+  const layout = await readSubmissionNoticeLayout(notice);
   expect(layout.documentWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewportWidth + 1);
   expect(layout.bounds.left).toBeGreaterThanOrEqual(0);
   expect(layout.bounds.right).toBeLessThanOrEqual(layout.viewportWidth + 1);
