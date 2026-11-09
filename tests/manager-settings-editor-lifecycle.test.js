@@ -7,11 +7,13 @@ function fixture() {
   const name = { type: 'text', value: 'Room', disabled: false };
   const price = { type: 'number', value: '10', disabled: false };
   const search = { type: 'search', value: '', disabled: false };
+  const status = { type: 'select-one', value: 'all', disabled: false,
+    dataset: { editorPresentation: 'true' } };
   const file = { type: 'file', files: [], disabled: false };
   const media = { multiple: true, selectedOptions: [{ value: 'first' }], disabled: false };
   const save = { tagName: 'BUTTON', disabled: false };
   const limit = { tagName: 'BUTTON', disabled: true };
-  const controls = [name, price, search, file, media, save, limit];
+  const controls = [name, price, search, status, file, media, save, limit];
   let current = true;
   const attributes = new Map();
   const ownerDocument = { body: {}, activeElement: null };
@@ -23,7 +25,7 @@ function fixture() {
   };
   const navigation = createEditorNavigation({ confirmDiscard: () => {} });
   const editor = createManagerSettingsEditor({ form, isCurrent: () => current, registerEditor: navigation.register });
-  return { controls, attributes, name, price, search, file, media, save, limit, editor, navigation,
+  return { controls, attributes, name, price, search, status, file, media, save, limit, editor, navigation,
     revoke: () => { current = false; navigation.clear(); } };
 }
 
@@ -40,6 +42,35 @@ test('CO-306 partial saves preserve other room, price, selection and file drafts
   assert.equal(navigation.dirty(), true, 'An unuploaded selection is still a draft');
   file.files = []; editor.saved([file]);
   assert.equal(navigation.dirty(), false);
+});
+
+test('CO-306 presentation filters never become saved baselines or hide real field drafts', () => {
+  const { name, search, status, editor, navigation } = fixture();
+  search.value = 'No match';
+  status.value = 'inactive';
+  assert.equal(navigation.dirty(), false, 'Filtering is not a business-field edit');
+  name.value = 'Unsaved room';
+  editor.saved([search, status]);
+  assert.equal(navigation.dirty(), true, 'Acknowledging presentation controls cannot save the room');
+  editor.saved([name]);
+  assert.equal(navigation.dirty(), false, 'Ignored controls cannot leave orphaned baselines');
+  status.value = 'active';
+  assert.equal(navigation.dirty(), false);
+});
+
+test('CO-306 adding and removing a presentation filter is neutral after a partial save', () => {
+  const { controls, editor, navigation } = fixture();
+  const filter = { type: 'select-one', value: 'active', dataset: { editorPresentation: 'true' } };
+  controls.push(filter);
+  assert.equal(navigation.dirty(), false);
+  editor.saved([filter]);
+  controls.splice(controls.indexOf(filter), 1);
+  assert.equal(navigation.dirty(), false);
+  const active = { type: 'checkbox', checked: true };
+  controls.push(active);
+  editor.saved([active]);
+  active.checked = false;
+  assert.equal(navigation.dirty(), true, 'A real activity change remains guarded');
 });
 
 test('CO-306 additions and deletions stay dirty across an unrelated partial write', () => {

@@ -9,7 +9,10 @@ import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { managerCockpitModel, filterManagerEntries } from './server-cockpit-model.js';
 import { renderManagerReports, renderManagerRoomPlan } from './server-analytics-view.js';
-import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
+import {
+  renderProductionRequestBusinessDetails,
+  renderProductionRequestSummary,
+} from '../shared/production-request-details.js';
 import {
   managerCanProposeBookingChange,
   managerRequestActions,
@@ -60,22 +63,9 @@ function requestSummary(request, catalog, currentRoomContext = null) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId)
     || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
   const timeZone = roomTimeZone(room, catalog, currentRoomContext);
-  const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
-  return el('dl', { className: 'details-list' }, [
-    el('dt', { text: t('production.employee.room') }),
-    el('dd', { text: roomLabel(room) || request.roomId }),
-    el('dt', { text: t('production.employee.start') }),
-    el('dd', { text: formattedRequestTime(request.startsAt, timeZone) }),
-    el('dt', { text: t('production.employee.end') }),
-    el('dd', { text: formattedRequestTime(request.endsAt, timeZone) }),
-    el('dt', { text: t(participants === 1 ? 'production.common.participantOne'
-      : 'production.common.participants', { count: formatNumber(participants) }) }),
-    el('dd', { text: `${request.internalParticipants} / ${request.externalParticipants}` }),
-    el('dt', { text: t('production.common.status') }),
-    el('dd', { text: ['pending', 'applying', 'applied', 'rejected', 'superseded'].includes(request.status)
-      ? t(`production.bookingChange.status.${request.status}`)
-      : t(`status.${request.status}`) }),
-  ]);
+  return renderProductionRequestSummary(request, {
+    roomLabel: roomLabel(room) || request.roomId, timeZone, includeParticipantBreakdown: true,
+  });
 }
 
 export function createProductionManagerApplication({
@@ -548,7 +538,7 @@ export function createProductionManagerApplication({
         const summaries = el('section', { className: 'manager-overview-columns' });
         for (const [entries, titleKey, emptyKey] of [
           [model.action, 'manager.operational.workNow', 'manager.operational.noAction'],
-          [model.upcoming, 'manager.operational.upcoming', 'manager.operational.noUpcoming'],
+          [model.nextSevenDays, 'manager.operational.upcoming', 'manager.operational.noUpcoming'],
         ]) {
           const summary = el('section', { className: 'manager-overview-card' }, [el('h3', { text: t(titleKey) })]);
           entries.slice(0, 4).forEach(({ request, room, site }) => {
@@ -610,9 +600,11 @@ export function createProductionManagerApplication({
             dataset: { productionRequestId: request.id },
             attrs: { tabindex: '-1' },
           }, [
-            el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-            el('p', { className: 'manager-requester', text: t('manager.restore.requester', { name: request.requesterAttribution?.displayName || t('manager.restore.unavailableName') }) }),
-            requestSummary(request, catalog, roomContexts[index]),
+            el('header', { className: 'request-card-summary' }, [
+              el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+              el('p', { className: 'manager-requester', text: t('manager.restore.requester', { name: request.requesterAttribution?.displayName || t('manager.restore.unavailableName') }) }),
+              requestSummary(request, catalog, roomContexts[index]),
+            ]),
           ]);
           const isActiveArticle = () => isActiveSurface() && article.isConnected;
           const isCurrentArticle = () => (

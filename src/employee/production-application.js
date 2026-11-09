@@ -39,7 +39,10 @@ import {
   buildServerRequestReview,
   roomAssetPreviewState,
 } from './server-request-review.js';
-import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
+import {
+  renderProductionRequestBusinessDetails,
+  renderProductionRequestSummary,
+} from '../shared/production-request-details.js';
 import {
   closeDetachedPrintWindow,
   closeDetachedPrintWindows,
@@ -189,22 +192,15 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId)
     || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
   const timeZone = productionRequestRoomTimeZone(room, catalog, currentRoomContext);
-  const startsAt = formatProductionDateTime(request.startsAt, { locale: locale(), timeZone });
-  const endsAt = formatProductionDateTime(request.endsAt, { locale: locale(), timeZone });
-  const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
   const article = el('article', {
     className: 'request-card request-card-compact',
     dataset: { productionRequestId: request.id },
     attrs: { tabindex: '-1' },
   }, [
-    el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-    el('p', { text: room ? roomLabel(room) : request.roomId }),
-    el('p', {
-      text: startsAt && endsAt ? `${startsAt} – ${endsAt}` : t('production.common.timeUnavailable'),
-    }),
-    el('p', { text: t(participants === 1 ? 'production.common.participantOne'
-      : 'production.common.participants', { count: formatNumber(participants) }) }),
-    el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
+    el('header', { className: 'request-card-summary' }, [
+      el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+      renderProductionRequestSummary(request, { roomLabel: room ? roomLabel(room) : request.roomId, timeZone }),
+    ]),
   ]);
   const businessDetails = renderProductionRequestBusinessDetails(request, {
     expanded: detailState.has(request.id),

@@ -71,7 +71,7 @@ export function createRoomMediaEditor({ room, index, catalogueMedia, demoRuntime
   const node = el('section', { className: 'room-asset-panel', attrs: { 'aria-labelledby': headingId } }, [
     el('h3', { id: headingId, text: t('managerSettings.room.mediaHeading') }),
     el('p', { className: 'field-hint', text: t('managerSettings.help.roomMedia.details') }),
-    el('div', { className: 'room-media-grid' }, [
+    el('div', { className: 'room-media-grid manager-room-media-controls' }, [
       field({ id: `manager-room-floorplan-${index}`, label: t('managerSettings.room.floorplanAssetId'),
         control: controls.floorplanAssetId, optional: true }),
       namedSelectionField({ id: `manager-room-media-${index}`, label: t('managerSettings.room.mediaAssetIds'),

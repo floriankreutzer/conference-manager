@@ -6,10 +6,21 @@ import { fileURLToPath } from 'node:url';
 import { chromium, expect, test } from '@playwright/test';
 import { acceptanceGateEnabled, createOriginContext, createOriginPersistentContext } from '../support/origin-context.mjs';
 import {
-  activateContoso, CONTOSO, ORIGINS, reset, selectContext,
+  activateContoso, businessDate, CONTOSO, ORIGINS, requests, reset, selectContext, uiResponse,
 } from '../e2e-saas37/scenario-support.js';
+import { expectRequestCardReflow } from '../e2e/fixtures/request-card-layout.js';
 
 const EXTENSION = fileURLToPath(new URL('../e2e/fixtures/browser-zoom-extension/', import.meta.url));
+
+async function setBrowserZoom(worker, page, factor) {
+  return worker.evaluate(async ({ url, zoom }) => {
+    const tabs = await chrome.tabs.query({});
+    const tab = tabs.find((entry) => entry.url === url);
+    if (!tab?.id) throw new Error('WORKLIST_ZOOM_TAB_MISSING');
+    await chrome.tabs.setZoom(tab.id, zoom);
+    return chrome.tabs.getZoom(tab.id);
+  }, { url: page.url(), zoom: factor });
+}
 
 async function captureZoomViewport(page, testInfo, name) {
   // Playwright supplies a CSS clip that Chromium interprets in physical units
@@ -55,13 +66,7 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     await expect(page.getByRole('tab', { name: 'Anfragen & Buchungen', exact: true })).toBeVisible();
     const worklist = page.locator('[data-demo-manager-tasks]');
     await expect(worklist.locator('[data-demo-manager-task]')).toHaveCount(7);
-    const zoom = await worker.evaluate(async (url) => {
-      const tabs = await chrome.tabs.query({});
-      const tab = tabs.find((entry) => entry.url === url);
-      if (!tab?.id) throw new Error('WORKLIST_ZOOM_TAB_MISSING');
-      await chrome.tabs.setZoom(tab.id, 2);
-      return chrome.tabs.getZoom(tab.id);
-    }, page.url());
+    const zoom = await setBrowserZoom(worker, page, 2);
     expect(zoom).toBe(2);
     await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(900);
     await expect(worklist.locator('[data-demo-manager-task]')).toHaveCount(7);
@@ -113,6 +118,132 @@ test('manager worklist remains operable at actual Chromium browser zoom 200%', a
     await captureZoomViewport(page, testInfo, 'manager-business-help-200-percent.png');
     await writeFile(testInfo.outputPath('manager-worklist-zoom-evidence.json'),
       JSON.stringify({ actualTabZoom: zoom, ...layout, keyboardNavigation: true, businessHelpAt200Percent: true }, null, 2));
+  } finally {
+    try {
+      if (started) await reset(platformContext);
+    } finally {
+      await customerContext?.close();
+      await platformContext.close();
+      await rm(profile, { recursive: true, force: true });
+    }
+  }
+});
+
+test('CO-305: Employee and Manager request cards retain full DE/EN content at actual browser zoom 200%', async ({ browser }, testInfo) => {
+  test.skip(!process.env.CM_ACTUAL_BROWSER_ZOOM || testInfo.project.name !== 'chromium-shared-demo',
+    'Run in the dedicated headed Chromium zoom CI step');
+  const profile = await mkdtemp(path.join(os.tmpdir(), 'cm-request-cards-zoom-'));
+  const platformContext = await createOriginContext(browser, { origin: ORIGINS.platform,
+    ignoreHTTPSErrors: !acceptanceGateEnabled(), locale: 'de-DE' });
+  let customerContext;
+  let started = false;
+  try {
+    await reset(platformContext);
+    started = true;
+    await activateContoso(await platformContext.newPage());
+    customerContext = await createOriginPersistentContext(chromium, profile, {
+      origin: ORIGINS.customer, channel: 'chromium', headless: false, locale: 'de-DE',
+      viewport: { width: 1366, height: 900 }, ignoreHTTPSErrors: !acceptanceGateEnabled(),
+      args: [`--disable-extensions-except=${EXTENSION}`, `--load-extension=${EXTENSION}`],
+    });
+    const worker = customerContext.serviceWorkers()[0]
+      || await customerContext.waitForEvent('serviceworker', { timeout: 15_000 });
+    const page = await customerContext.newPage();
+    await page.goto(ORIGINS.customer);
+    await selectContext(page, CONTOSO, 'conference_manager');
+
+    // Create one genuine own request through the implicit Employee capability.
+    // The unchanged reset in finally restores the canonical scenario afterwards.
+    const title = 'A'.repeat(160);
+    await page.locator('[data-view="employee"]').click();
+    await page.locator('#productionTitle').fill(title);
+    await page.locator('#productionDate').fill(businessDate());
+    await page.locator('#productionStart').fill('09:00');
+    await page.locator('#productionEnd').fill('10:00');
+    await page.locator('#productionInternal').fill('2');
+    await page.locator('#productionExternal').fill('1');
+    const next = page.getByRole('button', { name: 'Weiter', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /Paris Atelier/ }).check();
+    await uiResponse(page, 'POST', '/api/v1/application/room-availability', () => (
+      page.getByRole('button', { name: 'Raumverfügbarkeit prüfen', exact: true }).click()
+    ));
+    await next.click();
+    await next.click();
+    await page.locator('#productionDietary').fill('Nut allergy');
+    await next.click();
+    await next.click();
+    await uiResponse(page, 'POST', '/api/v1/application/requests', () => (
+      page.getByRole('button', { name: 'Anfrage absenden', exact: true }).click()
+    ), 201);
+    const created = (await requests(customerContext)).find((entry) => entry.details?.title === title);
+    expect(created?.id).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(created.status).toBe('Submitted');
+    expect(created.details.dietaryRequirements).toBe('Nut allergy');
+    expect(created.roomId).toBe('contoso-paris-room-1');
+    expect(created.pricing.room.price).toEqual({ amountMinor: 9500, currency: 'EUR' });
+    expect(created.allocations.entries).toEqual([]);
+    const zoom = await setBrowserZoom(worker, page, 2);
+    expect(zoom).toBe(2);
+    await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(900);
+    const evidence = [];
+    for (const language of ['de', 'en']) {
+      if (language === 'en') {
+        await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+        await page.locator('#profileLanguage').selectOption('en');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+      }
+      await expect(page.locator('html')).toHaveAttribute('lang', language);
+      for (const view of ['requests', 'manager']) {
+        await page.locator(`[data-view="${view}"]`).click();
+        const card = page.locator(`[data-production-request-id="${created.id}"]`);
+        await expect(card.locator('h3')).toHaveText(title);
+        await expect(card.locator('.request-card-summary [data-request-fact]')).toHaveCount(6);
+        const note = card.locator('.request-critical-note');
+        await expect(note).toContainText('Nut allergy');
+        const details = card.locator('details.request-business-disclosure');
+        await expect(details).not.toHaveAttribute('open');
+        await page.evaluate(() => document.fonts.ready);
+        const layout = await expectRequestCardReflow(card);
+        for (const field of await card.locator('.request-card-summary h3, .request-card-summary dd, .request-critical-note').all()) {
+          await field.scrollIntoViewIfNeeded();
+          await expect(field).toBeInViewport({ ratio: 1 });
+        }
+        await card.locator('h3').scrollIntoViewIfNeeded();
+        await captureZoomViewport(page, testInfo, `request-summary-${view}-${language}-200-percent.png`);
+        const summary = details.locator('summary');
+        await summary.focus();
+        await expect(summary).toBeFocused();
+        await page.keyboard.press('Enter');
+        await expect(details).toHaveAttribute('open', '');
+        await expect(details.locator('.request-business-details')).toContainText(title);
+        await expect(details.locator('.request-business-details')).toContainText('Nut allergy');
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await summary.scrollIntoViewIfNeeded();
+        await captureZoomViewport(page, testInfo, `request-details-${view}-${language}-200-percent.png`);
+        await page.keyboard.press('Enter');
+        await expect(details).not.toHaveAttribute('open');
+        const actionLabel = view === 'requests'
+          ? (language === 'de' ? 'Anfrage stornieren' : 'Cancel request')
+          : (language === 'de' ? 'Prüfung starten' : 'Start review');
+        const action = card.getByRole('button', { name: actionLabel, exact: true });
+        await action.focus();
+        await expect(action).toBeFocused();
+        await action.click({ trial: true });
+        await expect(action).toBeInViewport({ ratio: 1 });
+        const actionBounds = await action.boundingBox();
+        expect(actionBounds.width).toBeGreaterThanOrEqual(44);
+        expect(actionBounds.height).toBeGreaterThanOrEqual(44);
+        await captureZoomViewport(page, testInfo, `request-action-${view}-${language}-200-percent.png`);
+        evidence.push({ language, view, actualTabZoom: zoom, ...layout, keyboardDetails: true,
+          primaryAction: { name: actionLabel, ...actionBounds } });
+      }
+    }
+    await writeFile(testInfo.outputPath('request-cards-zoom-evidence.json'), JSON.stringify({
+      composition: 'server-backed shared Demo with a real own request',
+      titleLength: title.length, allergyOutsideDisclosure: true, evidence,
+      limits: 'Actual Chromium tab zoom; no real-device Safari or product acceptance claim',
+    }, null, 2));
   } finally {
     try {
       if (started) await reset(platformContext);

@@ -39,7 +39,8 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '20', state: 'setup-with-unavailable-section', roles: ['tenant_admin'],
+        name: width === 1366 ? `tenant-overview-${language}` : `tenant-overview-${language}-${width}`, composition: 'isolated-component-fixture' });
     }
-    await attachCustomerScreenEvidence(page, testInfo, { screen: '20', state: 'setup-with-unavailable-section', roles: ['tenant_admin'], name: `tenant-overview-${language}`, composition: 'isolated-component-fixture' });
   });
 }

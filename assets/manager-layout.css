@@ -79,6 +79,10 @@ main,
   min-inline-size: 0;
 }
 
+.manager-room-media-controls {
+  align-items: start;
+}
+
 .manager-room-media-preview {
   display: grid;
   align-content: start;
@@ -119,6 +123,41 @@ main,
   position: absolute;
   inset-inline-start: var(--timeline-start);
   transform: translateX(-50%);
+}
+
+.manager-timeline-ticks span:first-child {
+  transform: none;
+}
+
+.manager-timeline-ticks span:last-child {
+  transform: translateX(-100%);
+}
+
+.room-plan-room-capacity {
+  display: block;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  color: var(--color-muted);
+}
+
+.room-plan-date-controls {
+  display: grid;
+  gap: var(--app-control-gap);
+  min-inline-size: 0;
+}
+
+.room-plan-day-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-control-gap);
+}
+
+.room-plan-day-actions button {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .manager-timeline-room {

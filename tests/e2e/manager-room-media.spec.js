@@ -141,7 +141,15 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      const planBox = await floorplan.boundingBox();
+      const currencyBox = await room.locator('#manager-room-price-currency-0').boundingBox();
+      const labelBox = await floorplan.locator('..').locator('.field-label').boundingBox();
+      expect(planBox.height).toBeLessThanOrEqual(currencyBox.height + 1);
+      expect(planBox.y - (labelBox.y + labelBox.height)).toBeLessThanOrEqual(currencyBox.height);
     }
+    await floorplan.scrollIntoViewIfNeeded();
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '17', state: 'aligned-room-media-controls',
+      roles: ['conference_manager'], composition: 'isolated-component-routed-media-fixture', fullPage: false });
     await photos.selectOption(['legacy-photo']);
     await expect(preview.locator(`img[src="${PHOTO_PATH}"]`)).toHaveCount(0);
     await page.locator('#manager-rooms-search').fill('Workshop');

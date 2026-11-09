@@ -3,7 +3,7 @@ import { renderCateringCataloguePublications } from './catering-publication-appl
 import { renderCateringProviderCatalogues } from './catering-source-application.js';
 import { createPublicGuestValueEditor } from '../core/public-guest-value-editor.js';
 import { projectRoomBusinessConfiguration } from '../core/tenant-location-ownership.js';
-import { currency as tenantCurrency, formatDateTime, formatNumber, t } from '../core/i18n.js';
+import { currency as tenantCurrency, formatDateTime, formatMoney, formatNumber, t } from '../core/i18n.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-bulk-transfer-panel.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
@@ -223,6 +223,48 @@ export function catalogueRoomPriceValue(roomId, amount, currency) {
   if (amountMinor === null) return null;
   if (!CURRENCIES.includes(currency)) throw new TypeError('MANAGER_ROOM_PRICE_INVALID');
   return { roomId, price: { amountMinor, currency } };
+}
+
+export function catalogueSummaryValues({ active, amount, currency, sites, rooms }) {
+  let price = t('managerSettings.catalogue.summaryPriceUnavailable');
+  try {
+    const minor = minorUnitsFromAmount(amount);
+    if (minor !== null && CURRENCIES.includes(currency)) {
+      price = t('managerSettings.catalogue.summaryPrice', { price: formatMoney(minor / 100, currency) });
+    }
+  } catch {
+    // Invalid in-progress input is not a configured zero-price offer.
+  }
+  const names = (values) => values.length === 1 ? values[0]
+    : t(values.length === 2 ? 'managerSettings.catalogue.summaryOneMore' : 'managerSettings.catalogue.summaryMore',
+      { name: values[0], count: formatNumber(values.length - 1) });
+  const result = [
+    t(active === true ? 'managerSettings.catalogue.statusActive'
+      : active === false ? 'managerSettings.catalogue.statusInactive' : 'managerSettings.catalogue.summaryActivityUnavailable'),
+    price,
+    sites === null ? t('managerSettings.catalogue.summarySiteUnavailable')
+      : sites.length ? t('managerSettings.catalogue.summarySites', { names: names(sites) })
+        : t('managerSettings.catalogue.summarySitesUnrestricted'),
+  ];
+  if (rooms) result.push(rooms.length
+    ? t('managerSettings.catalogue.summaryRooms', { names: names(rooms) })
+    : t('managerSettings.catalogue.summaryRoomsUnrestricted'));
+  return result;
+}
+
+function managerCatalogueEditorList({ id, editors }) {
+  return createCatalogueEditorList({ id, editors,
+    activeOf: (editor) => editor.controls.active.checked,
+    summaryOf: (editor) => {
+      const price = editor.roomPrice || editor.controls.price;
+      const selectedNames = (control) => Array.from(control.selectedOptions, (option) => option.textContent);
+      return catalogueSummaryValues({ active: editor.controls.active.checked,
+        amount: price.amountMinor.value, currency: price.currency.value,
+        sites: editor.room ? (editor.site ? [editor.site.name] : null) : selectedNames(editor.controls.siteIds),
+        rooms: editor.room ? undefined : selectedNames(editor.controls.roomIds),
+      });
+    },
+  });
 }
 
 function referenceChoices(entries, selected = []) {
@@ -837,13 +879,13 @@ export function createManagerBusinessSettingsApplication({
         el('details', {}, [
           el('summary', { text: t('managerSettings.catalogue.technicalDetails') }),
           el('p', { className: 'muted', text: t('managerSettings.room.internalId', { id: room.id }) }),
+          el('p', { className: 'muted', text: t('managerSettings.room.internalSiteId', { id: room.siteId }) }),
         ]),
         el('dl', { className: 'details-list' }, [
           el('dt', { text: t('managerSettings.room.site') }),
-          el('dd', { text: site?.name || room.siteId }),
-          el('dt', { text: t('managerSettings.room.providerManaged') }),
-          el('dd', { text: room.siteId }),
+          el('dd', { text: site?.name || t('managerSettings.catalogue.summarySiteUnavailable') }),
         ]),
+        el('p', { className: 'field-hint', text: t('managerSettings.room.providerManaged') }),
         el('div', { className: 'form-grid' }, [
           nameField.node,
           ...(controls.description ? [field({
@@ -981,10 +1023,10 @@ export function createManagerBusinessSettingsApplication({
         }
         node.appendChild(uploadPanel);
       }
-      return { room, controls, nameField, publicGuest, mediaEditor, node };
+      return { room, controls, nameField, publicGuest, mediaEditor, roomPrice, site, node };
     });
     const form = el('form');
-    const editorList = createCatalogueEditorList({ id: 'manager-rooms', editors });
+    const editorList = managerCatalogueEditorList({ id: 'manager-rooms', editors });
     const selectedRoom = editors.find(({ room }) => room.id === initialNavigation?.roomId);
     if (selectedRoom) editorList.reveal(selectedRoom.node, { exclusive: true });
     form.appendChild(editorList.node);
@@ -1128,7 +1170,7 @@ export function createManagerBusinessSettingsApplication({
     sections.forEach(([collection, titleKey]) => {
       const editors = snapshot.catalogue[collection].map((entry) => commonEntryEditor(entry, `manager-catalogue-${collection}`, references));
       editorsByCollection[collection] = editors;
-      const editorList = createCatalogueEditorList({ id: `manager-${collection}`, editors });
+      const editorList = managerCatalogueEditorList({ id: `manager-${collection}`, editors });
       const surface = editorList.node;
       if (collection === 'cateringItems' && demoMedia) {
         for (const editor of editors) demoCateringImage(editor,
@@ -1175,7 +1217,7 @@ export function createManagerBusinessSettingsApplication({
         editor.itemIds.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
-    const packageList = createCatalogueEditorList({ id: 'manager-packages', editors: packageEditors });
+    const packageList = managerCatalogueEditorList({ id: 'manager-packages', editors: packageEditors });
     const packageSurface = packageList.node;
     if (demoMedia) {
       for (const editor of packageEditors) demoCateringImage(editor,

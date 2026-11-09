@@ -11,13 +11,17 @@ export function settingsControlValue(control) {
 }
 
 export function createManagerSettingsEditor({ form, interactionRoot = form, isCurrent, registerEditor }) {
+  const isDraftControl = (control) => control.type !== 'search'
+    && control.dataset?.editorPresentation !== 'true';
   const fields = () => Array.from(form.querySelectorAll('input, select, textarea'))
-    .filter((control) => control.type !== 'search');
+    .filter(isDraftControl);
   const baselines = new Map();
   let mutation = null;
 
   function saved(controls = fields(), { removeMissing = false } = {}) {
-    for (const control of controls) baselines.set(control, settingsControlValue(control));
+    for (const control of controls) {
+      if (isDraftControl(control)) baselines.set(control, settingsControlValue(control));
+    }
     if (removeMissing) {
       for (const control of baselines.keys()) {
         if (!form.contains(control)) baselines.delete(control);

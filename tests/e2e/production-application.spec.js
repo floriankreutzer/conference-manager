@@ -8,6 +8,7 @@ import { productionUtcInstant } from '../../src/core/production-time.js';
 import { applicationProjectionPayload } from './fixtures/application-projections.js';
 import { attachGuestPrintEvidence } from './fixtures/guest-print-evidence.js';
 import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
+import { expectRequestCardReflow, requestSummaryViewportEvidence } from './fixtures/request-card-layout.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ORIGIN = 'https://conference.test';
@@ -1608,6 +1609,7 @@ for (const language of ['de', 'en']) {
 for (const language of ['de', 'en']) {
   for (const view of ['requests', 'manager']) {
     test(`CO-305: ${view} keeps 27 requests compact with visible critical notes and keyboard details in ${language}`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 1366, height: 900 });
       await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
       const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
       const source = confirmedV2RequestFixture();
@@ -1636,10 +1638,32 @@ for (const language of ['de', 'en']) {
       const id = await card.getAttribute('data-production-request-id');
       await expect(card.locator('.request-critical-note')).toContainText('Nut allergy');
       await expect(card.locator('.request-critical-note')).toBeVisible();
+      await expect(card.locator('.error-box')).toHaveText(language === 'de'
+        ? 'Der Änderungsstatus konnte nicht geladen werden. Änderungen bleiben vorsorglich gesperrt.'
+        : 'The change status could not be loaded. Changes remain blocked as a precaution.');
       const cancelLabel = language === 'de' ? 'Anfrage stornieren' : 'Cancel request';
       await expect(card.getByRole('button', { name: cancelLabel, exact: true })).toBeVisible();
       await attachCustomerScreenEvidence(page, testInfo, { screen: view === 'requests' ? '08' : '14',
         state: 'compact-before-expansion', roles: ['employee', 'conference_manager'], fullPage: false });
+      await page.evaluate(() => document.fonts.ready);
+      // Position the worklist once. Do not scroll individual summaries into view
+      // before measuring whether they are simultaneously comparable.
+      await card.evaluate((node) => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      const density = await requestSummaryViewportEvidence(cards);
+      expect(density.viewport).toEqual({ width: 1366, height: 900 });
+      expect(density.summaries.filter((entry) => entry.complete).length, JSON.stringify(density))
+        .toBeGreaterThanOrEqual(2);
+      for (const entry of density.summaries.slice(0, 2)) {
+        expect(entry.complete).toBe(true);
+        expect(entry.facts).toEqual(['room', 'start', 'end', 'participants', 'status', 'total']);
+      }
+      await expect(card.getByRole('button', { name: cancelLabel, exact: true })).toBeInViewport({ ratio: 1 });
+      await expectRequestCardReflow(card);
+      await testInfo.attach(`request-density-${view}-${language}`, {
+        body: Buffer.from(JSON.stringify(density, null, 2)), contentType: 'application/json',
+      });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: view === 'requests' ? '08' : '14',
+        state: 'two-complete-summaries-in-workspace', roles: ['employee', 'conference_manager'], fullPage: false });
       const summary = card.locator('summary');
       await summary.focus();
       await page.keyboard.press('Enter');
@@ -1653,6 +1677,7 @@ for (const language of ['de', 'en']) {
             .slice(0, 12).map((node) => ({ tag: node.tagName, className: node.className, right: node.getBoundingClientRect().right })),
         }));
         expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.width);
+        await expectRequestCardReflow(card);
         await expect(card.locator('.request-business-details dt').first()).toHaveCSS('word-break', 'normal');
         await attachCustomerScreenEvidence(page, testInfo, { screen: view === 'requests' ? '08' : '14',
           state: 'keyboard-expanded-details', roles: ['employee', 'conference_manager'], fullPage: false });
@@ -1665,6 +1690,71 @@ for (const language of ['de', 'en']) {
         await expect(page.locator('#managerSearch')).toBeFocused();
       }
       expect(fixture.writes).toHaveLength(0);
+    });
+  }
+}
+
+for (const language of ['de', 'en']) {
+  for (const view of ['requests', 'manager']) {
+    test(`CO-305: ${view} retains visible pending changes, critical notes and authorized actions in ${language}`, async ({ page }) => {
+      await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page, {
+        roles: ['employee', 'conference_manager'], bookingChange: bookingChangeFixture(),
+      });
+      const source = confirmedV2RequestFixture();
+      source.details.dietaryRequirements = 'Nut allergy';
+      source.details.specialRequirements = 'Step-free access';
+      fixture.requests().push(source);
+      await page.goto(`${ORIGIN}/`);
+      await page.locator(`[data-view="${view}"]`).click();
+      const card = page.locator(`[data-production-request-id="${REQUEST_ID}"]`);
+      await expect(card.locator('details.request-business-disclosure')).not.toHaveAttribute('open');
+      await expect(card.locator('.request-card-summary [data-request-fact]')).toHaveCount(6);
+      await expect(card.locator('.request-critical-note')).toHaveCount(2);
+      await expect(card.locator('.request-critical-note').first()).toContainText('Nut allergy');
+      await expect(card.locator('.request-critical-note').last()).toContainText('Step-free access');
+      await expect(card.locator('.error-box')).toHaveCount(0);
+      const approval = language === 'de' ? 'Änderung freigeben' : 'Approve change';
+      const rejection = language === 'de' ? 'Änderung ablehnen' : 'Reject change';
+      const change = language === 'de' ? 'Bestätigte Buchung ändern' : 'Change confirmed booking';
+      await expect(card.getByRole('button', { name: change, exact: true })).toHaveCount(0);
+      if (view === 'manager') {
+        await expect(card.getByRole('heading', { name: language === 'de' ? 'Beantragte Änderung' : 'Requested change', exact: true })).toBeVisible();
+        await expect(card.getByRole('button', { name: approval, exact: true })).toBeVisible();
+        await expect(card.getByRole('button', { name: rejection, exact: true })).toBeVisible();
+        await expect(card.locator('.request-summary-facts').nth(1).locator('[data-request-fact="status"] dd'))
+          .toHaveText(language === 'de' ? 'Freigabe ausstehend' : 'Approval pending');
+        await expect(card.locator('.request-summary-facts').nth(1).locator('[data-request-fact="participants"] dd > span'))
+          .toHaveText(language === 'de' ? '3 Teilnehmende' : '3 participants');
+        await expect(card.locator('.request-summary-facts').nth(1).locator('.request-participant-breakdown'))
+          .toHaveText(language === 'de' ? 'Intern: 3 · Extern: 0' : 'Internal: 3 · External: 0');
+      } else {
+        await expect(card.locator('.info-box')).toHaveText(language === 'de' ? 'Freigabe ausstehend' : 'Approval pending');
+        await expect(card.getByRole('button', { name: approval, exact: true })).toHaveCount(0);
+        await expect(card.getByRole('button', { name: rejection, exact: true })).toHaveCount(0);
+      }
+      for (const width of [390, 768, 1366]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expectRequestCardReflow(card);
+        await expect(card.locator('.request-critical-note').first()).toBeVisible();
+        await expect(card.locator('.request-critical-note').last()).toBeVisible();
+      }
+      if (view === 'manager') {
+        await card.getByRole('button', { name: language === 'de' ? 'Anfrage stornieren' : 'Cancel request', exact: true }).click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.locator('[data-request-fact="status"] dd'))
+          .toHaveText(language === 'de' ? 'Bestätigt' : 'Confirmed');
+        await expect(dialog.locator('[data-request-fact="participants"] dd > span'))
+          .toHaveText(language === 'de' ? '2 Teilnehmende' : '2 participants');
+        await expect(dialog.locator('.request-participant-breakdown'))
+          .toHaveText(language === 'de' ? 'Intern: 2 · Extern: 0' : 'Internal: 2 · External: 0');
+        const dismiss = dialog.getByRole('button', { name: language === 'de' ? 'Anfrage beibehalten' : 'Keep request', exact: true });
+        await expect(dismiss).toBeFocused();
+        await dismiss.click();
+        await expect(dialog).toHaveCount(0);
+      }
+      expect(fixture.writes).toHaveLength(0);
+      expect(fixture.decisionWrites).toHaveLength(0);
     });
   }
 }
@@ -5409,6 +5499,57 @@ test('production onboarding explains permissions and maps admin, revoked and Gra
   await attachCustomerScreenEvidence(page, testInfo, { screen: '25', state: 'microsoft-fixture-recovery-guidance', roles: ['employee', 'tenant_admin'] });
 });
 
+for (const language of ['de', 'en']) {
+  test(`CO-305: the seven-day summary excludes later dates without losing Upcoming requests in ${language}`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date('2028-03-26T00:30:00.000Z'));
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    const source = confirmedV2RequestFixture();
+    const periods = [
+      ['Later booking', '2028-04-02T07:00:00.000Z', '2028-04-02T08:00:00.000Z'],
+      ['Last included day', '2028-03-31T22:30:00.000Z', '2028-03-31T23:30:00.000Z'],
+      ['Today booking', '2028-03-26T02:00:00.000Z', '2028-03-26T03:00:00.000Z'],
+      ['Exclusive next-week boundary', '2028-04-01T22:00:00.000Z', '2028-04-01T23:00:00.000Z'],
+    ];
+    periods.forEach(([title, startsAt, endsAt], index) => fixture.requests().push({ ...source,
+      id: `66666666-6666-4666-8666-${String(index).padStart(12, '0')}`,
+      startsAt, endsAt, details: { ...source.details, title },
+    }));
+    fixture.requests().sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id));
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    const summary = page.locator('.manager-overview-card').filter({ has: page.getByRole('heading', {
+      name: language === 'de' ? 'Heute & nächste 7 Tage' : 'Today & next 7 days', exact: true,
+    }) });
+    await expect(summary.locator('.manager-overview-row strong')).toHaveText(['Today booking', 'Last included day']);
+    await expect(page.locator('[data-manager-quick="NEXT_SEVEN"] strong')).toHaveText('2');
+    await expect(page.locator('[data-manager-quick="UPCOMING"] strong')).toHaveText('4');
+    await summary.getByRole('button', { name: language === 'de' ? 'Öffnen' : 'Open', exact: true }).first().click();
+    await expect(page.locator('[data-production-request-id="66666666-6666-4666-8666-000000000002"]')).toBeFocused();
+    await page.locator('[data-manager-quick="NEXT_SEVEN"]').click();
+    await expect(page.locator('[data-production-request-id]')).toHaveCount(2);
+    await expect(page.locator('[data-manager-quick="NEXT_SEVEN"]')).toBeFocused();
+    await page.locator('[data-manager-quick="UPCOMING"]').click();
+    await expect(page.locator('[data-production-request-id]')).toHaveCount(4);
+    await expect(page.getByRole('heading', { name: 'Later booking', exact: true })).toBeVisible();
+    for (const request of fixture.requests()) {
+      if (['Today booking', 'Last included day'].includes(request.details.title)) request.status = 'Cancelled';
+    }
+    await page.getByRole('button', { name: language === 'de' ? 'Aktualisieren' : 'Refresh', exact: true }).click();
+    await expect(summary.locator('.manager-overview-row')).toHaveCount(0);
+    await expect(summary).toContainText(language === 'de'
+      ? 'Keine kommenden Termine in den nächsten 7 Tagen.' : 'No upcoming events in the next 7 days.');
+    await expect(page.locator('[data-manager-quick="NEXT_SEVEN"] strong')).toHaveText('0');
+    await expect(page.locator('[data-manager-quick="UPCOMING"] strong')).toHaveText('2');
+    await expect(page.locator('[data-production-request-id]')).toHaveCount(2);
+    await page.locator('.manager-overview-columns').scrollIntoViewIfNeeded();
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '14', state: 'empty-seven-day-summary-with-later-upcoming',
+      roles: ['employee', 'conference_manager'] });
+    expect(fixture.writes).toHaveLength(0);
+    expect(fixture.workflowWrites).toHaveLength(0);
+  });
+}
+
 test('MGR-01 MGR-02 MGR-03 MGR-11 MGR-12 MGR-14: restored Manager cockpit keeps filters and keyboard tabs with embedded business administration', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
   fixture.requests().push({ ...confirmedV2RequestFixture(), status: 'Submitted' });
@@ -5755,6 +5896,199 @@ for (const language of ['de', 'en']) {
   });
 }
 
+for (const language of ['de', 'en']) {
+  test(`CO-306 catalogue status filters are neutral and summaries follow complete saved snapshots (${language})`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
+    catalogueSettings.services = [{ id: 'service-support', name: 'Video support', description: null,
+      price: { amountMinor: 1250, currency: 'EUR' }, active: false, order: 1, siteIds: ['berlin'], roomIds: ['room-a'] }];
+    catalogueSettings.equipment = [
+      { id: 'equipment-a', name: 'Projector', description: null, price: { amountMinor: 500, currency: 'EUR' },
+        active: false, order: 1, siteIds: ['retired-site'], roomIds: ['retired-room'] },
+      { id: 'equipment-b', name: 'Whiteboard', description: null, price: { amountMinor: 0, currency: 'EUR' },
+        active: true, order: 2, siteIds: [], roomIds: [] },
+    ];
+    catalogueSettings.cateringItems[0].active = false;
+    catalogueSettings.cateringItems[0].siteIds = ['berlin'];
+    catalogueSettings.cateringItems[0].roomIds = ['room-a'];
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings });
+    const activeLabel = language === 'de' ? 'Aktiv' : 'Active';
+    const inactiveLabel = language === 'de' ? 'Inaktiv' : 'Inactive';
+    const sitesLabel = language === 'de' ? 'Standorte: Berlin' : 'Sites: Berlin';
+    const roomsLabel = language === 'de' ? 'Räume: Room A' : 'Rooms: Room A';
+    const priceLabel = (amount, currency) => `${language === 'de' ? 'Preis' : 'Price'}: ${
+      new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'en-GB', { style: 'currency', currency }).format(amount)}`;
+    const summaryFor = (id) => page.locator(`[data-catalogue-entry-id="${id}"]`)
+      .locator('..').locator(':scope > summary .catalogue-editor-summary > span');
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    await page.locator('#manager-rooms-status').selectOption('inactive');
+    const services = page.getByRole('button', { name: language === 'de' ? 'Services & Ausstattung' : 'Services & equipment', exact: true });
+    await services.click();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    await expect(summaryFor('service-support')).toHaveText([inactiveLabel, priceLabel(12.5, 'EUR'), sitesLabel, roomsLabel]);
+    await page.locator('#manager-services-status').selectOption('active');
+    await expect(page.locator('#manager-catalogue-services-service-support-name')).toBeHidden();
+    await expect(page.locator('#manager-catalogue-services-service-support-name')).toHaveValue('Video support');
+    await page.locator('#manager-equipment-status').selectOption('active');
+    await page.locator('#manager-equipment-search').fill('Whiteboard');
+    await expect(summaryFor('equipment-b')).toHaveText([
+      activeLabel, priceLabel(0, 'EUR'),
+      language === 'de' ? 'Keine Standort-Einschränkung' : 'No site restriction',
+      language === 'de' ? 'Keine Raum-Einschränkung' : 'No room restriction',
+    ]);
+    await page.getByRole('button', { name: 'Catering', exact: true }).click();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    await expect(summaryFor('item-coffee')).toHaveText([inactiveLabel, priceLabel(2.5, 'EUR'), sitesLabel, roomsLabel]);
+    await expect(summaryFor('package-coffee')).toHaveText([
+      activeLabel, priceLabel(5, 'EUR'),
+      language === 'de' ? 'Keine Standort-Einschränkung' : 'No site restriction',
+      language === 'de' ? 'Keine Raum-Einschränkung' : 'No room restriction',
+    ]);
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '19', state: 'catalogue-status-and-authoritative-summary',
+      roles: ['employee', 'conference_manager'] });
+    await page.locator('#manager-cateringItems-status').selectOption('active');
+    await page.locator('#manager-packages-status').selectOption('inactive');
+    await expect(page.locator('[data-catalogue-entry-id]')).toHaveCount(2);
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await services.click();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    const prefix = '#manager-catalogue-equipment-equipment-a';
+    await page.locator(`${prefix}-name`).fill('Updated projector');
+    await page.locator(`${prefix}-amount`).fill('15.25');
+    await page.locator(`${prefix}-currency`).selectOption('CHF');
+    await page.locator(`${prefix}-sites`).selectOption(['berlin', 'retired-site']);
+    await page.locator(`${prefix}-active`).check();
+    const unavailable = language === 'de' ? 'Nicht mehr verfügbare Auswahl 1' : 'Unavailable selection 1';
+    await expect(summaryFor('equipment-a')).toHaveText([
+      activeLabel, priceLabel(15.25, 'CHF'),
+      `${sitesLabel} ${language === 'de' ? 'und 1 weitere' : 'and 1 more'}`,
+      `${language === 'de' ? 'Räume' : 'Rooms'}: ${unavailable}`,
+    ]);
+    await expect(page.locator(`${prefix}-rooms`)).toHaveValues(['retired-room']);
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '18', state: 'draft-summary-and-retained-unknown-scope',
+      roles: ['employee', 'conference_manager'] });
+    await page.locator('#manager-equipment-status').selectOption('inactive');
+    await page.locator('#manager-equipment-search').fill('Updated projector');
+    await expect(page.locator(`${prefix}-name`)).toBeHidden();
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    const save = page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true });
+    await save.click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+    await expect(page.locator(`${prefix}-name`)).toBeVisible();
+    await expect(save).toBeEnabled();
+    const written = fixture.catalogueWrites[0];
+    expect(written.body.expectedRevision).toBe(1);
+    expect(written.csrf).toBe(CSRF_TOKEN);
+    expect(written.body.catalogue).toEqual({ ...catalogueSettings,
+      equipment: [{ ...catalogueSettings.equipment[0], name: 'Updated projector', active: true,
+        price: { amountMinor: 1525, currency: 'CHF' }, siteIds: ['berlin', 'retired-site'] }, catalogueSettings.equipment[1]],
+    });
+    await expect(summaryFor('equipment-a').nth(1)).toHaveText(priceLabel(15.25, 'CHF'));
+    await page.locator('#manager-equipment-status').selectOption('inactive');
+    await page.locator('#manager-services-search').fill('No match');
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await page.locator('[data-view="welcome"]').click();
+    await expect(page.locator('#welcomeHeading')).toBeVisible();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    expect(fixture.locationWrites).toHaveLength(0);
+  });
+
+  test(`CO-306 room summaries distinguish absent prices and retain independent filtered drafts (${language})`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
+    catalogueSettings.roomPrices = [];
+    const locations = structuredClone(locationSettingsPayload().locations);
+    locations.configuration.rooms.push({ ...structuredClone(locations.configuration.rooms[0]),
+      id: 'room-b', name: 'Room B', active: false });
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalogueSettings, locations });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    const status = page.locator('#manager-rooms-status');
+    const name = page.locator('#manager-room-name-0');
+    const price = page.locator('#manager-room-price-amount-0');
+    const room = page.locator('[data-manager-room-id="room-a"]');
+    const summary = room.locator('..').locator(':scope > summary');
+    const technical = room.locator(':scope > details').first();
+    const internalSite = technical.getByText(language === 'de' ? 'Interne Standort-ID: berlin' : 'Internal site ID: berlin', { exact: true });
+    await expect(room.locator(':scope > dl dt')).toHaveText([language === 'de' ? 'Standort' : 'Site']);
+    await expect(room.locator(':scope > dl dd')).toHaveText(['Berlin']);
+    await expect(room.locator(':scope > p.field-hint')).toHaveText(language === 'de'
+      ? 'Technisch verwaltet; Änderungen erfolgen durch den Tenant Admin.'
+      : 'Technically managed; changes are made by the Tenant Admin.');
+    await expect(internalSite).toBeHidden();
+    await expect(room.getByText('berlin', { exact: true })).toHaveCount(0);
+    await technical.locator(':scope > summary').click();
+    await expect(internalSite).toBeVisible();
+    await technical.locator(':scope > summary').click();
+    const missingPrice = language === 'de' ? 'Preis nicht verfügbar' : 'Price unavailable';
+    await expect(summary.locator('.catalogue-editor-summary > span')).toHaveText([
+      language === 'de' ? 'Aktiv' : 'Active', missingPrice, language === 'de' ? 'Standorte: Berlin' : 'Sites: Berlin',
+    ]);
+    await status.selectOption('inactive');
+    await expect(name).toBeHidden();
+    await expect(page.locator('[data-manager-room-id]')).toHaveCount(2);
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await status.selectOption('active');
+    const draftName = `Room ${'A'.repeat(135)}`;
+    await name.fill(draftName);
+    await price.fill('0');
+    await page.locator('#manager-room-price-currency-0').selectOption('GBP');
+    await page.locator('#manager-room-active-0').uncheck();
+    // A live field edit updates the summary without hiding the current editor.
+    await expect(name).toBeVisible();
+    await expect(summary.locator('.catalogue-editor-name')).toHaveText(draftName);
+    const zeroPrice = new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'en-GB',
+      { style: 'currency', currency: 'GBP' }).format(0);
+    await expect(summary.locator('.catalogue-editor-summary > span').nth(0)).toHaveText(language === 'de' ? 'Inaktiv' : 'Inactive');
+    await expect(summary.locator('.catalogue-editor-summary > span').nth(1))
+      .toHaveText(`${language === 'de' ? 'Preis' : 'Price'}: ${zeroPrice}`);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    }
+    const savePrice = page.getByRole('button', { name: language === 'de' ? 'Raumpreis speichern' : 'Save room price', exact: true }).first();
+    await savePrice.click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+    await expect(savePrice).toBeEnabled();
+    expect(fixture.catalogueWrites[0].body.catalogue).toEqual({ ...catalogueSettings,
+      roomPrices: [{ roomId: 'room-a', price: { amountMinor: 0, currency: 'GBP' } }],
+    });
+    await expect(name).toHaveValue(draftName);
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '17', state: 'explicit-zero-price-with-independent-room-draft',
+      roles: ['employee', 'conference_manager'] });
+    // Reapplying the status filter hides the draft, but Save still submits every room.
+    await status.selectOption('all');
+    await status.selectOption('active');
+    await expect(name).toBeHidden();
+    const save = page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true });
+    await save.click();
+    await expect.poll(() => fixture.locationWrites.length).toBe(1);
+    await expect(name).toBeVisible();
+    await expect(save).toBeEnabled();
+    expect(fixture.locationWrites[0].body.expectedRevision).toBe(1);
+    expect(fixture.locationWrites[0].body.configuration).toEqual({ ...locations.configuration,
+      rooms: [{ ...locations.configuration.rooms[0], name: draftName, active: false }, locations.configuration.rooms[1]],
+    });
+    await expect(summary.locator('.catalogue-editor-summary > span').nth(1))
+      .toHaveText(`${language === 'de' ? 'Preis' : 'Price'}: ${zeroPrice}`);
+    await price.fill('');
+    await expect(summary.locator('.catalogue-editor-summary > span').nth(1)).toHaveText(missingPrice);
+    await savePrice.click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
+    await expect(savePrice).toBeEnabled();
+    expect(fixture.catalogueWrites[1].body.expectedRevision).toBe(2);
+    expect(fixture.catalogueWrites[1].body.catalogue).toEqual(catalogueSettings);
+    await status.selectOption('active');
+    await page.locator('[data-view="welcome"]').click();
+    await expect(page.locator('#welcomeHeading')).toBeVisible();
+    await expect(page.locator('dialog')).toHaveCount(0);
+  });
+}
+
 test('Manager business references use named selections and keyboard-accessible DE/EN help', async ({ page }) => {
   const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
   catalogueSettings.services = [{ id: 'service-support', name: 'Video support', description: null,
@@ -6096,6 +6430,91 @@ for (const language of ['de', 'en']) {
 }
 
 for (const language of ['de', 'en']) {
+  test(`CO-311: day controls preserve Site-local dates, leap days, DST extents and focus in ${language}`, async ({ page, isMobile }, testInfo) => {
+    await page.clock.setFixedTime(new Date('2028-02-29T23:30:00.000Z'));
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const catalog = catalogPayload();
+    catalog.catalog.sites.push({ id: 'new-york', name: 'New York', active: true, timeZone: 'America/New_York' });
+    catalog.catalog.rooms.push({ ...catalog.catalog.rooms[0], id: 'room-new-york', siteId: 'new-york', name: 'New York room', capacity: 24 });
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], catalog });
+    const source = confirmedV2RequestFixture();
+    const transitions = [
+      ['2028-03-25', '2028-03-26', '2028-03-27', '2028-03-26T00:30:00.000Z', '2028-03-26T02:30:00.000Z', 23],
+      ['2028-10-28', '2028-10-29', '2028-10-30', '2028-10-29T00:30:00.000Z', '2028-10-29T02:30:00.000Z', 25],
+    ];
+    transitions.forEach(([, day, , startsAt, endsAt], index) => fixture.requests().push({
+      ...source, id: `66666666-6666-4666-8666-${String(index).padStart(12, '0')}`,
+      startsAt, endsAt, details: { ...source.details, title: `DST ${day}` },
+    }));
+    fixture.requests().sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id));
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: language === 'de' ? 'Raumplanung' : 'Room planning', exact: true }).click();
+    const date = page.locator('#productionRoomPlanDate');
+    const actions = page.locator('.room-plan-day-actions');
+    const previous = actions.getByRole('button', { name: language === 'de' ? 'Voriger Tag' : 'Previous day', exact: true });
+    const today = actions.getByRole('button', { name: language === 'de' ? 'Heute' : 'Today', exact: true });
+    const next = actions.getByRole('button', { name: language === 'de' ? 'Nächster Tag' : 'Next day', exact: true });
+    await expect(date).toHaveValue('2028-03-01');
+    await previous.focus();
+    await previous.press('Enter');
+    await expect(date).toHaveValue('2028-02-29');
+    await expect(previous).toBeFocused();
+    await previous.press('Enter');
+    await expect(date).toHaveValue('2028-02-28');
+    if (isMobile) await next.tap();
+    else await next.click();
+    await expect(date).toHaveValue('2028-02-29');
+    await today.click();
+    await expect(date).toHaveValue('2028-03-01');
+    await page.locator('#productionRoomPlanSite').selectOption('new-york');
+    await today.click();
+    await expect(date).toHaveValue('2028-02-29');
+    await expect(page.getByRole('status').filter({ hasText: 'America/New_York' })).toBeVisible();
+    await expect(page.getByRole('rowheader').filter({ hasText: 'New York room' }))
+      .toContainText(language === 'de' ? 'Kapazität: 24' : 'Capacity: 24');
+    await date.fill('');
+    await date.dispatchEvent('change');
+    await expect(date).toHaveAttribute('aria-invalid', 'true');
+    await expect(date).toBeFocused();
+    await previous.click();
+    await expect(date).toHaveValue('');
+    await expect(page.locator('[data-room-plan-body]')).toBeEmpty();
+    await today.click();
+    await expect(date).toHaveValue('2028-02-29');
+    await expect(date).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('#managerRoomPlanError')).toBeEmpty();
+    await page.locator('#productionRoomPlanSite').selectOption('berlin');
+    await page.getByRole('radio', { name: language === 'de' ? 'Zeitplan' : 'Timeline', exact: true }).check();
+    for (const [before, day, after, , , hours] of transitions) {
+      await date.fill(before);
+      await date.dispatchEvent('change');
+      await next.focus();
+      await next.press('Enter');
+      await expect(next).toBeFocused();
+      await expect(date).toHaveValue(day);
+      const booking = page.locator('.manager-timeline-chart').getByRole('button', { name: new RegExp(`DST ${day}`) });
+      await expect(booking).toBeVisible();
+      expect(await booking.evaluate((node) => Number.parseFloat(node.style.getPropertyValue('--timeline-width'))))
+        .toBeCloseTo(2 / hours * 100, 8);
+      await expect(page.locator('.manager-timeline-ticks span')).toHaveCount(5);
+      await booking.focus();
+      await booking.press('Enter');
+      await expect(page.locator('#managerRoomPlanPreview').getByRole('heading')).toBeFocused();
+      await next.click();
+      await expect(date).toHaveValue(after);
+      await expect(page.locator('#managerRoomPlanPreview')).toBeHidden();
+      await expect(page.locator('.manager-timeline-chart button')).toHaveCount(0);
+      await previous.click();
+      await expect(date).toHaveValue(day);
+      await expect(booking).toBeVisible();
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '15', state: 'site-local-day-controls', roles: ['employee', 'conference_manager'] });
+    expect(fixture.writes).toHaveLength(0);
+    expect(fixture.workflowWrites).toHaveLength(0);
+  });
+
   test(`CO-311: short, overlapping and overnight bookings have keyboard, pointer and touch previews in ${language}`, async ({ page, isMobile }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const catalog = catalogPayload();
@@ -6115,7 +6534,7 @@ for (const language of ['de', 'en']) {
     ];
     periods.forEach(([title, startsAt, endsAt], index) => fixture.requests().push({
       ...source, id: `66666666-6666-4666-8666-${String(index).padStart(12, '0')}`,
-      startsAt, endsAt, details: { ...source.details, title },
+      startsAt, endsAt, internalParticipants: 3, externalParticipants: 2, details: { ...source.details, title },
     }));
     fixture.requests().sort((a, b) => b.startsAt.localeCompare(a.startsAt) || a.id.localeCompare(b.id));
     await page.goto(`${ORIGIN}/`);
@@ -6127,11 +6546,14 @@ for (const language of ['de', 'en']) {
     const preview = page.locator('#managerRoomPlanPreview');
     await expect(preview).toBeHidden();
     await expect(page.getByRole('table')).toContainText(longTitle);
+    await expect(page.getByRole('rowheader').filter({ hasText: 'Room A' }).first())
+      .toContainText(language === 'de' ? 'Kapazität: 12' : 'Capacity: 12');
     await page.getByRole('radio', { name: language === 'de' ? 'Zeitplan' : 'Timeline', exact: true }).check();
     const timeline = page.locator('.manager-timeline-chart');
     const entries = timeline.locator('button');
     await expect(entries).toHaveCount(5);
     await expect(timeline).toContainText('Empty room');
+    await expect(timeline.locator('.room-plan-room-capacity')).toHaveText(Array(2).fill(language === 'de' ? 'Kapazität: 12' : 'Capacity: 12'));
     const quarter = timeline.getByRole('button', { name: new RegExp('Quarter-hour') });
     const half = timeline.getByRole('button', { name: /Half-hour/ });
     const hour = timeline.getByRole('button', { name: /One hour/ });
@@ -6144,6 +6566,13 @@ for (const language of ['de', 'en']) {
     await expect(quarter).toHaveAttribute('aria-expanded', 'true');
     await expect(preview).toContainText('Room A');
     await expect(preview).toContainText('10:15');
+    for (const [label, count] of [
+      [language === 'de' ? 'Teilnehmende' : 'Participants', '5'],
+      [language === 'de' ? 'Interne Teilnehmende' : 'Internal participants', '3'],
+      [language === 'de' ? 'Externe Teilnehmende' : 'External participants', '2'],
+    ]) {
+      await expect(preview.locator('dl > div').filter({ has: page.getByText(label, { exact: true }) }).locator('dd')).toHaveText(count);
+    }
     await attachCustomerScreenEvidence(page, testInfo, { screen: '15', state: 'keyboard-preview', roles: ['employee', 'conference_manager'] });
     await page.keyboard.press('Enter');
     await expect(preview.getByRole('heading')).toBeFocused();
@@ -6165,9 +6594,15 @@ for (const language of ['de', 'en']) {
     await expect(entries).toHaveCount(3);
     await expect(timeline).toContainText(language === 'de' ? 'außerhalb' : 'outside');
     await expect(quarter).toHaveAttribute('style', /--timeline-width: 2.5%/);
+    await expect(timeline.locator('.manager-timeline-ticks span')).toHaveCount(11);
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const ticks = await timeline.locator('.manager-timeline-ticks span').evaluateAll((nodes) => nodes.map((node) => {
+        const { left, right } = node.getBoundingClientRect();
+        return { left, right };
+      }));
+      expect(ticks.every((tick, index) => index === 0 || tick.left >= ticks[index - 1].right)).toBe(true);
       await attachCustomerScreenEvidence(page, testInfo, { screen: '15', state: 'work-window-timeline', roles: ['employee', 'conference_manager'] });
     }
     await date.fill(nextDay);
@@ -6329,8 +6764,13 @@ for (const language of ['de', 'en']) {
     await expect(help.locator('details:visible p')).toContainText(language === 'de' ? 'Bestätigung' : 'confirmation');
     await search.fill('');
     await expect(help.locator('details:visible')).toHaveCount(4);
-    await attachCustomerScreenEvidence(page, testInfo, { screen: '11', state: 'contact-explicitly-unavailable', roles: ['employee', 'conference_manager'],
-        name: `help-${language}`, surface: help });
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await search.scrollIntoViewIfNeeded();
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '11', state: 'contact-explicitly-unavailable', roles: ['employee', 'conference_manager'],
+        name: width === 1366 ? `help-${language}` : `help-${language}-${width}`, surface: help });
+    }
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
     expect(fixture.writes).toHaveLength(0);
@@ -6354,9 +6794,9 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '12', state: 'public-values-not-published', roles: ['employee'],
+        name: width === 1366 ? `guest-dialog-${language}` : `guest-dialog-${language}-${width}`, surface: dialog });
     }
-    await attachCustomerScreenEvidence(page, testInfo, { screen: '12', state: 'public-values-not-published', roles: ['employee'],
-        name: `guest-dialog-${language}`, surface: dialog });
     const print = dialog.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF' });
     await print.focus();
     await page.keyboard.press('Tab');

@@ -47,6 +47,8 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width !== 1366) await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: 'events-after-detail-close',
+        roles: ['tenant_admin'], composition: 'isolated-component-fixture', fullPage: false });
     }
     await page.locator('[data-tenant-audit-page="next"]').click();
     await expect(rows).toHaveCount(1);

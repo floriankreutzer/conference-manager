@@ -48,6 +48,25 @@ test('MGR-02 MGR-04: deactivated-room context keeps site-local summaries without
   assert.equal(filterManagerEntries(model.entries, { search: 'Requester Alpha' }).length, 0);
 });
 
+test('CO-305: the seven-day summary is chronological and excludes later requests retained by Upcoming', () => {
+  const later = request({ id: 'later', startsAt: '2026-04-05T07:00:00.000Z', endsAt: '2026-04-05T08:00:00.000Z' });
+  const lastIncluded = request({ id: 'sixth-day', startsAt: '2026-04-03T22:30:00.000Z', endsAt: '2026-04-03T23:30:00.000Z' });
+  const today = request({ id: 'today' });
+  const cancelled = request({ ...lastIncluded, id: 'cancelled', status: 'Cancelled' });
+  const rejected = request({ ...lastIncluded, id: 'rejected', status: 'Rejected' });
+  const boundary = request({ id: 'boundary', startsAt: '2026-04-04T22:00:00.000Z', endsAt: '2026-04-04T23:00:00.000Z' });
+  const yesterday = request({ id: 'yesterday', startsAt: '2026-03-28T00:00:00.000Z', endsAt: '2026-03-28T01:00:00.000Z' });
+  const model = managerCockpitModel({ requests: [later, lastIncluded, cancelled, boundary, today, rejected, yesterday],
+    catalog, now: Date.parse('2026-03-29T00:30:00.000Z') });
+  assert.deepEqual(model.nextSevenDays.map(({ request: value }) => value.id), ['today', 'sixth-day']);
+  assert.deepEqual(model.upcoming.map(({ request: value }) => value.id), ['today', 'sixth-day', 'boundary', 'later']);
+  assert.deepEqual(filterManagerEntries(model.entries, { quick: 'NEXT_SEVEN' }).map(({ request: value }) => value.id), ['sixth-day', 'today']);
+  const empty = managerCockpitModel({ requests: [later, boundary, cancelled, rejected, yesterday],
+    catalog, now: Date.parse('2026-03-29T00:30:00.000Z') });
+  assert.equal(empty.nextSevenDays.length, 0);
+  assert.equal(empty.upcoming.length, 2);
+});
+
 test('MGR-02: a Site without a valid time zone remains visible without invented local-day flags', () => {
   for (const timeZone of [null, 'Invalid/Zone']) {
     const noZoneCatalog = { ...catalog, sites: [{ ...catalog.sites[0], timeZone }, catalog.sites[1]] };
