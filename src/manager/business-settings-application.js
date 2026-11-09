@@ -4,15 +4,17 @@ import { renderCateringProviderCatalogues } from './catering-source-application.
 import { createPublicGuestValueEditor } from '../core/public-guest-value-editor.js';
 import { projectRoomBusinessConfiguration } from '../core/tenant-location-ownership.js';
 import { currency as tenantCurrency, formatDateTime, formatNumber, t } from '../core/i18n.js';
-import { button, clear, el, field, showToast } from '../core/ui.js';
+import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { createBulkTransferPanel, supportsBulkTransfer } from '../shared/tenant-bulk-transfer-panel.js';
 import { authorityFailureCode } from '../shared/authority-failure.js';
 import { RUNTIME_MODE, runtimeModeFromDocument } from '../core/security-policy.js';
 import { renderCateringAssignments } from './catering-assignment-application.js';
 import { createCatalogueEditorList } from '../shared/catalogue-editor-list.js';
+import { createRoomMediaEditor } from './room-media-editor.js';
+import { createEditorNavigation } from '../shared/editor-navigation.js';
+import { createManagerSettingsEditor } from './settings-editor-lifecycle.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
-const ASSET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const CURRENCIES = Object.freeze(['CHF', 'EUR', 'GBP', 'USD']);
 const COLLECTION_LIMITS = Object.freeze({
   services: 200,
@@ -466,9 +468,53 @@ export function createManagerBusinessSettingsApplication({
   let section = ['rooms', 'services', 'catering'].includes(initialNavigation?.section)
     ? initialNavigation.section : 'rooms';
   let renderRevision = 0;
+  let discardDialog = null;
+  let renderedUrl = null;
   const demoRuntime = runtimeModeFromDocument(document) === RUNTIME_MODE.DEMO;
+  const restoreNavigationUrl = () => {
+    if (renderedUrl && globalThis.location?.href !== renderedUrl) {
+      globalThis.history?.replaceState?.(globalThis.history.state, '', renderedUrl);
+    }
+  };
+  const editorNavigation = createEditorNavigation({
+    onStay: restoreNavigationUrl,
+    onPending: () => { restoreNavigationUrl(); showToast(t('managerSettings.saving')); },
+    confirmDiscard: (answer) => {
+      const stay = button(t('tenantAdmin.unsaved.stay'), { className: 'primary' });
+      const discard = button(t('tenantAdmin.unsaved.discard'));
+      const dialog = openDialog({
+        title: t('tenantAdmin.unsaved.title'),
+        description: t('managerSettings.unsaved.description'),
+        actions: [stay, discard], labelledById: 'managerUnsavedTitle',
+      });
+      discardDialog = dialog;
+      let discardChosen = false;
+      stay.addEventListener('click', () => dialog.close());
+      discard.addEventListener('click', () => { discardChosen = true; dialog.close(); });
+      dialog.addEventListener('close', () => {
+        if (discardDialog === dialog) discardDialog = null;
+        answer(discardChosen);
+      }, { once: true });
+    },
+  });
+  const beforeUnload = (event) => {
+    if (!editorNavigation.dirty()) return;
+    event.preventDefault();
+    event.returnValue = '';
+  };
 
-  function demoCateringImage(editor, media, ownerKind, revision, renderRoot, onRevision = () => {}) {
+  function invalidateEditor() {
+    renderRevision += 1;
+    editorNavigation.clear();
+    globalThis.removeEventListener?.('beforeunload', beforeUnload);
+    discardDialog?.close();
+    discardDialog = null;
+    // A permitted navigation may wait for another projection. The old form must
+    // stop accepting edits as soon as its lifecycle has been disposed.
+    clear(appRoot);
+  }
+
+  function demoCateringImage(editor, media, ownerKind, revision, renderRoot, catalogueState) {
     if (!demoRuntime) {
       if (media) editor.node.appendChild(el('img', {
         className: 'room-asset-visual media',
@@ -512,15 +558,11 @@ export function createManagerBusinessSettingsApplication({
         imageField = nextField;
       }
     };
-    const setImageBusy = (busy) => {
-      picker.disabled = busy;
-      save.disabled = busy;
-      if (remove) remove.disabled = busy;
-    };
     syncImageControls();
     save.addEventListener('click', async () => {
       if (!picker.files?.[0]) { picker.focus(); return; }
-      setImageBusy(true);
+      const mutation = catalogueState.editor().beginMutation();
+      if (!mutation) return;
       try {
         if (media) await catalogue.replaceDemoCatalogueImage(media.id, picker.files[0]);
         else {
@@ -528,6 +570,11 @@ export function createManagerBusinessSettingsApplication({
           // Persist the new draft first; then attach the image to that authoritative owner.
           const current = await catalogue.loadCatalogue();
           if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
+          if (current.revision !== catalogueState.revision()) {
+            throw Object.assign(new Error('MANAGER_CATALOGUE_REVISION_CONFLICT'), {
+              currentRevision: current.revision,
+            });
+          }
           const collection = ownerKind === 'catering-item' ? 'cateringItems' : 'cateringPackages';
           const exists = current.catalogue[collection].some((entry) => entry.id === editor.entry.id);
           if (!exists) {
@@ -538,9 +585,10 @@ export function createManagerBusinessSettingsApplication({
               catalogue: { ...current.catalogue,
                 [collection]: [...current.catalogue[collection], entryValue] },
             });
-            onRevision(savedOwner.revision);
-            // The aggregate revision changed. Re-render after attaching the image so
-            // a later form submit cannot overwrite the newer authoritative revision.
+            if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
+            catalogueState.savedOwner(savedOwner);
+            catalogueState.editor().saved(Array.from(editor.node.querySelectorAll('input, select, textarea'))
+              .filter((control) => control.type !== 'file'));
           }
           if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
           const created = await catalogue.createDemoCatalogueImage(ownerKind, editor.entry.id, picker.files[0]);
@@ -554,11 +602,10 @@ export function createManagerBusinessSettingsApplication({
           picker.accept = 'image/webp';
           if (!exists) {
             syncImageControls();
-            setImageBusy(false);
+            catalogueState.editor().saved([picker]);
             showToast(t('managerSettings.catalogue.imageSaved'));
-            // Keep the complete in-memory form draft. The persisted owner revision
-            // is reconciled on the next explicit save/reload rather than rebuilding here.
-            save.disabled = false;
+            // Keep other drafts mounted; the confirmed owner snapshot and named
+            // choices were refreshed without rebuilding the form.
             return;
           }
           save.textContent = t('managerSettings.catalogue.imageReplace');
@@ -568,15 +615,15 @@ export function createManagerBusinessSettingsApplication({
           preview.removeAttribute('src');
           preview.src = media.url;
           syncImageControls();
-          setImageBusy(false);
-          save.disabled = false;
+          catalogueState.editor().saved([picker]);
           showToast(t('managerSettings.catalogue.imageSaved'));
         }
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot)) return;
-        setImageBusy(false);
-        showToast(t('managerSettings.catalogue.imageError'));
+        showToast(t(error?.currentRevision ? 'managerSettings.conflict' : 'managerSettings.catalogue.imageError'));
+      } finally {
+        mutation.finish();
       }
     });
     const imageFileLabel = media
@@ -591,7 +638,8 @@ export function createManagerBusinessSettingsApplication({
     if (remove) {
       remove.addEventListener('click', async () => {
         if (!media) return;
-        setImageBusy(true);
+        const mutation = catalogueState.editor().beginMutation();
+        if (!mutation) return;
         try {
           await catalogue.removeDemoCatalogueImage(media.id);
           if (!isCurrentRender(revision, renderRoot)) return;
@@ -599,14 +647,16 @@ export function createManagerBusinessSettingsApplication({
           preview = null;
           media = null;
           syncImageControls();
-          setImageBusy(false);
-          picker.focus();
+          catalogueState.editor().saved([picker]);
           showToast(t('managerSettings.catalogue.imageRemoved'));
+          mutation.finish();
+          picker.focus();
         } catch (error) {
           if (handleAuthorityFailure(error)) return;
           if (!isCurrentRender(revision, renderRoot)) return;
-          setImageBusy(false);
           showToast(t('managerSettings.catalogue.imageError'));
+        } finally {
+          mutation.finish();
         }
       });
       surface.appendChild(remove);
@@ -624,22 +674,28 @@ export function createManagerBusinessSettingsApplication({
 
   function handleAuthorityFailure(error) {
     if (!authorityFailureCode(error)) return false;
+    invalidateEditor();
+    clear(appRoot);
     onAuthorityFailure(error);
     return true;
   }
 
-  function authorityAwareBulkAdapter(adapter) {
+  function authorityAwareBulkAdapter(adapter, editor) {
     return Object.freeze(Object.fromEntries([
       'loadBulkTemplate',
       'exportBulk',
       'validateBulk',
       'applyBulk',
     ].map((method) => [method, async (...args) => {
+      const mutation = method === 'applyBulk' ? editor.beginMutation() : null;
+      if (method === 'applyBulk' && !mutation) throw new Error('MANAGER_SETTINGS_WRITE_PENDING');
       try {
         return await adapter[method](...args);
       } catch (error) {
-        if (authorityFailureCode(error)) onAuthorityFailure(error);
+        handleAuthorityFailure(error);
         throw error;
+      } finally {
+        mutation?.finish();
       }
     }])));
   }
@@ -669,8 +725,12 @@ export function createManagerBusinessSettingsApplication({
         attrs: section === target ? { 'aria-current': 'page' } : {},
       });
       control.addEventListener('click', () => {
-        section = target;
-        void renderManagerSettings({ focusHeading: true });
+        const navigate = () => {
+          if (!editorNavigation.allow(navigate)) return;
+          section = target;
+          void renderManagerSettings({ focusHeading: true });
+        };
+        navigate();
       });
       row.appendChild(control);
     }
@@ -723,9 +783,23 @@ export function createManagerBusinessSettingsApplication({
       return;
     }
     if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+    let catalogueMedia = [];
+    const listMedia = demoRuntime ? catalogue.listDemoMedia : catalogue.listCatalogueMedia;
+    if (snapshot.configuration.rooms.some((room) => room.floorplanAssetId) && typeof listMedia === 'function') {
+      try {
+        const response = await listMedia.call(catalogue);
+        if (!Array.isArray(response?.assets) || response.assets.length > 40) throw new TypeError('MANAGER_ROOM_MEDIA_METADATA_INVALID');
+        catalogueMedia = response.assets;
+      } catch (error) {
+        if (handleAuthorityFailure(error)) return;
+        catalogueMedia = null;
+      }
+    }
+    if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
     clear(renderRoot);
     setPageHeading(t('managerSettings.rooms.title'), t('managerSettings.rooms.description'));
     renderRoot.appendChild(sectionNavigation());
+    let formEditor;
     let roomCatalogueRevision = catalogueSnapshot.revision;
     const siteById = new Map(snapshot.configuration.sites.map((site) => [site.id, site]));
     const editors = snapshot.configuration.rooms.map((room, index) => {
@@ -735,6 +809,7 @@ export function createManagerBusinessSettingsApplication({
         value: room.name,
         message: t('managerSettings.validation.roomNameRequired'),
       });
+      const mediaEditor = createRoomMediaEditor({ room, index, catalogueMedia, demoRuntime });
       const controls = {
         name: nameField.control,
         capacity: numberInput(room.capacity, { min: 1, max: 100_000 }),
@@ -744,8 +819,7 @@ export function createManagerBusinessSettingsApplication({
         accessibility: textInput(room.accessibility.join(', '), { maxlength: '2000' }),
         serviceIds: referenceChoices(catalogueSnapshot.catalogue.services, room.serviceIds),
         cateringPackageIds: referenceChoices(catalogueSnapshot.catalogue.cateringPackages, room.cateringPackageIds),
-        floorplanAssetId: textInput(room.floorplanAssetId, { maxlength: '128' }),
-        mediaAssetIds: textInput(room.mediaAssetIds.join(', '), { maxlength: '4000' }),
+        ...mediaEditor.controls,
       };
       if (Object.hasOwn(room, 'description')) {
         controls.description = el('textarea', { attrs: { maxlength: '1000' } });
@@ -784,13 +858,12 @@ export function createManagerBusinessSettingsApplication({
           field({ id: `manager-room-accessibility-${index}`, label: t('managerSettings.room.accessibility'), control: controls.accessibility, optional: true, hint: t('managerSettings.commaSeparated') }),
           namedSelectionField({ id: `manager-room-services-${index}`, label: t('managerSettings.room.serviceIds'), control: controls.serviceIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
           namedSelectionField({ id: `manager-room-catering-${index}`, label: t('managerSettings.room.cateringPackageIds'), control: controls.cateringPackageIds, optional: true, hint: t('managerSettings.help.roomOffers') }),
-          fieldHelp(field({ id: `manager-room-floorplan-${index}`, label: t('managerSettings.room.floorplanAssetId'), control: controls.floorplanAssetId, optional: true }), controls.floorplanAssetId, `manager-room-floorplan-${index}`, 'managerSettings.help.roomMedia'),
-          fieldHelp(field({ id: `manager-room-media-${index}`, label: t('managerSettings.room.mediaAssetIds'), control: controls.mediaAssetIds, optional: true, hint: t('managerSettings.commaSeparated') }), controls.mediaAssetIds, `manager-room-media-${index}`, 'managerSettings.help.roomMedia'),
           fieldHelp(field({ id: `manager-room-active-${index}`, label: t('managerSettings.room.active'), control: controls.active }), controls.active, `manager-room-active-${index}`, 'managerSettings.help.active'),
         ]),
       ]);
+      node.appendChild(mediaEditor.node);
       node.appendChild(publicGuest.node);
-      const roomPricePanel = el('section', { className: 'room-asset-panel' }, [
+      const roomPricePanel = el('section', { className: 'room-asset-panel', dataset: { managerRoomPrice: room.id } }, [
         el('h3', { text: t('managerSettings.room.priceHeading') }),
         el('p', { className: 'field-hint', text: t('managerSettings.room.priceHint') }),
         el('div', { className: 'form-grid' }, [
@@ -810,7 +883,9 @@ export function createManagerBusinessSettingsApplication({
       ]);
       const savePrice = button(t('managerSettings.room.savePrice'), { className: 'secondary' });
       savePrice.addEventListener('click', async () => {
-        savePrice.disabled = true;
+        if (!roomPrice.amountMinor.reportValidity() || !roomPrice.currency.reportValidity()) return;
+        const mutation = formEditor.beginMutation();
+        if (!mutation) return;
         try {
           const nextPrice = catalogueRoomPriceValue(
             room.id, roomPrice.amountMinor.value, roomPrice.currency.value,
@@ -822,16 +897,17 @@ export function createManagerBusinessSettingsApplication({
             expectedRevision: roomCatalogueRevision,
             catalogue: { ...catalogueSnapshot.catalogue, roomPrices },
           });
+          if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
           roomCatalogueRevision = savedPrice.revision;
           catalogueSnapshot = savedPrice;
-          if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+          formEditor.saved([roomPrice.amountMinor, roomPrice.currency]);
           showToast(t('managerSettings.room.priceSaved'));
-          savePrice.disabled = false;
         } catch (error) {
           if (handleAuthorityFailure(error)) return;
           if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
-          savePrice.disabled = false;
           showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
+        } finally {
+          mutation.finish();
         }
       });
       roomPricePanel.appendChild(savePrice);
@@ -850,13 +926,24 @@ export function createManagerBusinessSettingsApplication({
               picker.focus();
               return;
             }
-            if (kind === 'media' && room.mediaAssetIds.length >= 20) {
+            const currentEditor = editors.find((entry) => entry.room.id === room.id);
+            let selectedMedia;
+            try {
+              selectedMedia = currentEditor.mediaEditor.readValue().mediaAssetIds;
+            } catch {
+              showToast(t('managerSettings.room.mediaUploadError'));
+              return;
+            }
+            if (kind === 'media' && (selectedMedia.length >= 20 || snapshot.configuration.rooms
+              .find((entry) => entry.id === room.id).mediaAssetIds.length >= 20)) {
               showToast(t('managerSettings.room.mediaLimit'));
               return;
             }
-            upload.disabled = true;
+            const mutation = formEditor.beginMutation();
+            if (!mutation) return;
             try {
               const assetId = await locations.uploadRoomMedia(room.id, picker.files[0]);
+              if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
               const edits = snapshot.configuration.rooms.map((entry) => ({
                 id: entry.id,
                 ...Object.fromEntries(ROOM_BUSINESS_FIELDS.map((key) => [key, entry[key]])),
@@ -865,15 +952,23 @@ export function createManagerBusinessSettingsApplication({
                   : { mediaAssetIds: [...entry.mediaAssetIds, assetId] }) : {}),
               }));
               const configuration = projectRoomBusinessConfiguration(snapshot.configuration, edits);
-              await locations.saveLocations({ schemaVersion: 3, expectedRevision: snapshot.revision, configuration });
+              const saved = await locations.saveLocations({ schemaVersion: 3, expectedRevision: snapshot.revision, configuration });
               if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+              snapshot = saved;
+              currentEditor.mediaEditor.addUploadedAsset({ kind, assetId });
+              if (kind === 'floorplan') formEditor.saved([controls.floorplanAssetId]);
+              else formEditor.rebase(controls.mediaAssetIds, (value) => [...value, assetId]);
+              picker.value = '';
+              formEditor.saved([picker]);
               showToast(t('managerSettings.room.mediaUploaded'));
-              await renderManagerSettings({ focusHeading: true });
+              mutation.finish();
+              if (!editorNavigation.dirty()) await renderManagerSettings({ focusHeading: true });
             } catch (error) {
               if (handleAuthorityFailure(error)) return;
               if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
-              upload.disabled = false;
               showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.room.mediaUploadError'));
+            } finally {
+              mutation.finish();
             }
           });
           uploadPanel.appendChild(field({
@@ -886,7 +981,7 @@ export function createManagerBusinessSettingsApplication({
         }
         node.appendChild(uploadPanel);
       }
-      return { room, controls, nameField, publicGuest, node };
+      return { room, controls, nameField, publicGuest, mediaEditor, node };
     });
     const form = el('form');
     const editorList = createCatalogueEditorList({ id: 'manager-rooms', editors });
@@ -899,11 +994,10 @@ export function createManagerBusinessSettingsApplication({
       event.preventDefault();
       if (!validateRequiredTrimmedText(editors.map(({ nameField }) => nameField))) return;
       if (!form.reportValidity()) return;
-      save.disabled = true;
+      const mutation = formEditor.beginMutation();
+      if (!mutation) return;
       try {
-        const roomEdits = editors.map(({ room, controls, publicGuest }) => {
-          const floorplanAssetId = controls.floorplanAssetId.value.trim();
-          if (floorplanAssetId && !ASSET_ID.test(floorplanAssetId)) throw new TypeError('MANAGER_ROOM_ASSET_INVALID');
+        const roomEdits = editors.map(({ room, controls, publicGuest, mediaEditor }) => {
           return {
             id: room.id,
             name: controls.name.value.trim(),
@@ -915,27 +1009,34 @@ export function createManagerBusinessSettingsApplication({
             accessibility: commaList(controls.accessibility.value, { maximum: 20, pattern: /^.{1,80}$/u }),
             serviceIds: selectedReferences(controls.serviceIds),
             cateringPackageIds: selectedReferences(controls.cateringPackageIds),
-            floorplanAssetId: floorplanAssetId || null,
-            mediaAssetIds: commaList(controls.mediaAssetIds.value, { maximum: 20, pattern: ASSET_ID }),
+            ...mediaEditor.readValue(),
             guestPublicValues: publicGuest.readValue(),
           };
         });
         const configuration = projectRoomBusinessConfiguration(snapshot.configuration, roomEdits);
-        await locations.saveLocations({ schemaVersion: 3, expectedRevision: snapshot.revision, configuration });
+        const saved = await locations.saveLocations({ schemaVersion: 3, expectedRevision: snapshot.revision, configuration });
         if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
+        snapshot = saved;
+        formEditor.saved(Array.from(form.querySelectorAll('input, select, textarea'))
+          .filter((control) => control.type !== 'file' && control.type !== 'search'
+            && !control.closest('[data-manager-room-price]')));
         showToast(t('managerSettings.saved'));
-        await renderManagerSettings({ focusHeading: true });
+        mutation.finish();
+        if (!editorNavigation.dirty()) await renderManagerSettings({ focusHeading: true });
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot) || section !== 'rooms') return;
-        save.disabled = false;
         showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
+      } finally {
+        mutation.finish();
       }
     });
     renderRoot.appendChild(form);
+    formEditor = createManagerSettingsEditor({ form, interactionRoot: renderRoot,
+      isCurrent: () => isCurrentRender(revision, renderRoot), registerEditor: editorNavigation.register });
     if (supportsBulkTransfer(locations)) {
       renderRoot.appendChild(createBulkTransferPanel({
-        adapter: authorityAwareBulkAdapter(locations),
+        adapter: authorityAwareBulkAdapter(locations, formEditor),
         types: ['rooms'],
         rerender: () => {
           if (isCurrentRender(revision, renderRoot) && section === 'rooms') {
@@ -1009,6 +1110,12 @@ export function createManagerBusinessSettingsApplication({
     renderRoot.appendChild(sectionNavigation());
     let catalogueRevision = snapshot.revision;
     const form = el('form');
+    let formEditor;
+    const catalogueState = {
+      editor: () => formEditor,
+      revision: () => catalogueRevision,
+      savedOwner: updateSavedCatalogue,
+    };
     const sections = section === 'services'
       ? [
         ['services', 'managerSettings.catalogue.services'],
@@ -1026,7 +1133,7 @@ export function createManagerBusinessSettingsApplication({
       if (collection === 'cateringItems' && demoMedia) {
         for (const editor of editors) demoCateringImage(editor,
           demoMedia.find((asset) => asset.ownerKind === 'catering_item' && asset.ownerId === editor.entry.id),
-          'catering-item', revision, renderRoot, (value) => { catalogueRevision = value; });
+          'catering-item', revision, renderRoot, catalogueState);
       }
       const add = button(t('managerSettings.catalogue.addEntry'), {
         dataset: { addCatalogueEntry: collection },
@@ -1042,7 +1149,7 @@ export function createManagerBusinessSettingsApplication({
         editors.push(editor);
         editorList.add(editor, { expanded: true });
         if (collection === 'cateringItems') {
-          demoCateringImage(editor, null, 'catering-item', revision, renderRoot, (value) => { catalogueRevision = value; });
+          demoCateringImage(editor, null, 'catering-item', revision, renderRoot, catalogueState);
         }
         add.disabled = editors.length >= COLLECTION_LIMITS[collection];
         editor.controls.name.focus();
@@ -1056,12 +1163,24 @@ export function createManagerBusinessSettingsApplication({
     if (section === 'catering') form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
     const packageEditors = section === 'catering'
       ? snapshot.catalogue.cateringPackages.map((entry) => packageEditor(entry, references)) : [];
+    function updateSavedCatalogue(value) {
+      catalogueRevision = value.revision;
+      snapshot = value;
+      references.items = value.catalogue.cateringItems;
+      // A pending image can keep this form mounted after a successful data
+      // save. Refresh only authoritative choices, retaining selections/drafts.
+      for (const editor of packageEditors) {
+        const choices = referenceChoices(references.items, selectedReferences(editor.itemIds));
+        editor.itemIds.replaceChildren(...choices.children);
+        editor.itemIds.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
     const packageList = createCatalogueEditorList({ id: 'manager-packages', editors: packageEditors });
     const packageSurface = packageList.node;
     if (demoMedia) {
       for (const editor of packageEditors) demoCateringImage(editor,
         demoMedia.find((asset) => asset.ownerKind === 'catering_package' && asset.ownerId === editor.entry.id),
-        'catering-package', revision, renderRoot, (value) => { catalogueRevision = value; });
+        'catering-package', revision, renderRoot, catalogueState);
     }
     if (section === 'catering' && demoMedia === null) form.appendChild(el('p', {
       className: 'error-box', text: t('managerSettings.catalogue.imageLoadError'),
@@ -1079,7 +1198,7 @@ export function createManagerBusinessSettingsApplication({
       const editor = packageEditor(entry, references);
       packageEditors.push(editor);
       packageList.add(editor, { expanded: true });
-      demoCateringImage(editor, null, 'catering-package', revision, renderRoot, (value) => { catalogueRevision = value; });
+      demoCateringImage(editor, null, 'catering-package', revision, renderRoot, catalogueState);
       addPackage.disabled = packageEditors.length >= COLLECTION_LIMITS.cateringPackages;
       editor.controls.name.focus();
     });
@@ -1103,7 +1222,8 @@ export function createManagerBusinessSettingsApplication({
       ];
       if (!validateRequiredTrimmedText(catalogueNameFields)) return;
       if (!form.reportValidity()) return;
-      save.disabled = true;
+      const mutation = formEditor.beginMutation();
+      if (!mutation) return;
       try {
         const next = {
           services: section === 'services'
@@ -1117,21 +1237,27 @@ export function createManagerBusinessSettingsApplication({
           roomPrices: snapshot.catalogue.roomPrices,
         };
         const saved = await catalogue.saveCatalogue({ expectedRevision: catalogueRevision, catalogue: next });
-        catalogueRevision = saved.revision;
         if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
+        updateSavedCatalogue(saved);
+        formEditor.saved(Array.from(form.querySelectorAll('input, select, textarea'))
+          .filter((control) => control.type !== 'file' && control.type !== 'search'), { removeMissing: true });
         showToast(t('managerSettings.saved'));
-        await renderManagerSettings({ focusHeading: true });
+        mutation.finish();
+        if (!editorNavigation.dirty()) await renderManagerSettings({ focusHeading: true });
       } catch (error) {
         if (handleAuthorityFailure(error)) return;
         if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
-        save.disabled = false;
         showToast(error?.currentRevision ? t('managerSettings.conflict') : t('managerSettings.error'));
+      } finally {
+        mutation.finish();
       }
     });
     renderRoot.append(form);
+    formEditor = createManagerSettingsEditor({ form, interactionRoot: renderRoot,
+      isCurrent: () => isCurrentRender(revision, renderRoot), registerEditor: editorNavigation.register });
     if (supportsBulkTransfer(catalogue)) {
       renderRoot.appendChild(createBulkTransferPanel({
-        adapter: authorityAwareBulkAdapter(catalogue),
+        adapter: authorityAwareBulkAdapter(catalogue, formEditor),
         types: section === 'services'
           ? ['services', 'equipment'] : ['catering-items', 'catering-packages'],
         rerender: () => {
@@ -1147,7 +1273,10 @@ export function createManagerBusinessSettingsApplication({
   }
 
   async function renderManagerSettings({ focusHeading = false } = {}) {
-    renderRevision += 1;
+    if (!editorNavigation.allow(() => void renderManagerSettings({ focusHeading }))) return;
+    invalidateEditor();
+    globalThis.addEventListener?.('beforeunload', beforeUnload);
+    renderedUrl = globalThis.location?.href || null;
     const revision = renderRevision;
     const renderRoot = el('section', { dataset: { managerBusinessSettingsRoot: String(revision) } });
     clear(appRoot);
@@ -1178,5 +1307,5 @@ export function createManagerBusinessSettingsApplication({
     else await renderCatalogue(revision, renderRoot, focusHeading);
   }
 
-  return Object.freeze({ renderManagerSettings });
+  return Object.freeze({ renderManagerSettings, allowNavigation: editorNavigation.allow, invalidateEditor });
 }

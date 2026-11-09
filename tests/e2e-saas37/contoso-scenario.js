@@ -163,10 +163,10 @@ export async function completeContosoTasks(page, cycle, baseline) {
   // load, unlike the Administration tab's automatic, unfocused initial render.
   await expect(page.locator('#viewTitle')).toBeFocused();
   const atelier = page.locator('[data-manager-room-id="contoso-paris-room-1"]');
-  const mediaIds = atelier.locator('input[id^="manager-room-media-"][type="text"]');
-  await expect(mediaIds).toHaveValue(baseline.originalMediaUrl.split('/').at(-1));
-  await mediaIds.fill('');
-  await expect(mediaIds).toHaveValue('');
+  const mediaIds = atelier.locator('select[id^="manager-room-media-"][multiple]');
+  await expect(mediaIds).toHaveValues([baseline.originalMediaUrl.split('/').at(-1)]);
+  await mediaIds.selectOption([]);
+  await expect(mediaIds).toHaveValues([]);
   const detachResponse = await uiResponse(page, 'PUT', LOCATIONS_PATH,
     () => atelier.locator('xpath=ancestor::form').getByRole('button', { name: 'Speichern', exact: true }).click());
   const submittedRoom = detachResponse.request().postDataJSON().configuration.rooms

@@ -6,6 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productionUtcInstant } from '../../src/core/production-time.js';
 import { applicationProjectionPayload } from './fixtures/application-projections.js';
+import { attachGuestPrintEvidence } from './fixtures/guest-print-evidence.js';
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ORIGIN = 'https://conference.test';
@@ -1502,7 +1504,7 @@ async function advanceEmployeeToReview(page) {
 }
 
 for (const language of ['de', 'en']) {
-  test(`CO-308: all six steps keep normal navigation before separately confirmed discard in ${language}`, async ({ page }) => {
+  test(`CO-308: all six steps keep normal navigation before separately confirmed discard in ${language}`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const fixture = await installProductionApplicationFixture(page);
     await page.goto(`${ORIGIN}/`);
@@ -1523,6 +1525,8 @@ for (const language of ['de', 'en']) {
       await page.keyboard.press('Escape');
       await expect(discard).toBeFocused();
       await expect(page.locator(`[data-step-panel="${step}"]`)).toBeVisible();
+      if (step >= 3) await attachCustomerScreenEvidence(page, testInfo, { screen: String(step + 1).padStart(2, '0'),
+        state: 'step-after-cancelled-discard', roles: ['employee'] });
       if (step === 2) {
         await page.getByRole('radio', { name: /Room A/ }).check();
         await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability', exact: true }).click();
@@ -1581,7 +1585,29 @@ function confirmedV2RequestFixture() {
 
 for (const language of ['de', 'en']) {
   for (const view of ['requests', 'manager']) {
-    test(`CO-305: ${view} keeps 27 requests compact with visible critical notes and keyboard details in ${language}`, async ({ page }) => {
+    test(`CO-315: ${view} uses singular and plural participant copy in ${language}`, async ({ page }) => {
+      await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+      const source = confirmedV2RequestFixture();
+      for (const count of [1, 2]) fixture.requests().push({ ...source,
+        id: `66666666-6666-4666-8666-${String(count).padStart(12, '0')}`, internalParticipants: count,
+      });
+      await page.goto(`${ORIGIN}/`);
+      await page.locator(`[data-view="${view}"]`).click();
+      for (const count of [1, 2]) {
+        const card = page.locator(`[data-production-request-id="66666666-6666-4666-8666-${String(count).padStart(12, '0')}"]`);
+        const copy = language === 'de' ? (count === 1 ? '1 teilnehmende Person' : '2 Teilnehmende')
+          : (count === 1 ? '1 participant' : '2 participants');
+        await expect(card.getByText(copy, { exact: true })).toBeVisible();
+      }
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
+}
+
+for (const language of ['de', 'en']) {
+  for (const view of ['requests', 'manager']) {
+    test(`CO-305: ${view} keeps 27 requests compact with visible critical notes and keyboard details in ${language}`, async ({ page }, testInfo) => {
       await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
       const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
       const source = confirmedV2RequestFixture();
@@ -1612,6 +1638,8 @@ for (const language of ['de', 'en']) {
       await expect(card.locator('.request-critical-note')).toBeVisible();
       const cancelLabel = language === 'de' ? 'Anfrage stornieren' : 'Cancel request';
       await expect(card.getByRole('button', { name: cancelLabel, exact: true })).toBeVisible();
+      await attachCustomerScreenEvidence(page, testInfo, { screen: view === 'requests' ? '08' : '14',
+        state: 'compact-before-expansion', roles: ['employee', 'conference_manager'], fullPage: false });
       const summary = card.locator('summary');
       await summary.focus();
       await page.keyboard.press('Enter');
@@ -1626,6 +1654,8 @@ for (const language of ['de', 'en']) {
         }));
         expect(overflow.scrollWidth, JSON.stringify(overflow)).toBeLessThanOrEqual(overflow.width);
         await expect(card.locator('.request-business-details dt').first()).toHaveCSS('word-break', 'normal');
+        await attachCustomerScreenEvidence(page, testInfo, { screen: view === 'requests' ? '08' : '14',
+          state: 'keyboard-expanded-details', roles: ['employee', 'conference_manager'], fullPage: false });
       }
       if (view === 'manager') {
         await page.locator('#managerSearch').fill('A'.repeat(160));
@@ -1873,7 +1903,7 @@ test('API-01: Employee selects applicable Equipment by keyboard and persists the
   )).toHaveText('Priorisiertes Mikrofon');
 });
 
-test('EMP-05 EMP-07: Catering cards and complete review retain package, quantities, allocations, and reflow', async ({ page }) => {
+test('EMP-05 EMP-07: Catering cards and complete review retain package, quantities, allocations, and reflow', async ({ page }, testInfo) => {
   const catalog = catalogPayload();
   const longDescription = 'Veranstaltungsbewirtungskonfigurationshinweis'.repeat(8);
   catalog.catalog.rooms[0].price = { amountMinor: 2_500, currency: 'EUR' };
@@ -1921,6 +1951,7 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
 
   await page.getByRole('checkbox', { name: /Service host/ }).check();
   await page.getByRole('checkbox', { name: /Portable display/ }).check();
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '04', state: 'selected-service-and-equipment', roles: ['employee'] });
   await page.getByRole('button', { name: 'Weiter' }).click();
 
   const packageGroup = page.getByRole('group', { name: 'Catering-Pakete und Varianten' });
@@ -1951,6 +1982,7 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(packageGroup.locator('.price')).toContainText('5,00');
   await expect(itemGroup.locator('.price').first()).toContainText('je Einheit');
   await expect(page.locator('[data-step-panel="4"] img')).toHaveCount(0);
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '05', state: 'selected-package-items-and-quantities', roles: ['employee'] });
 
   await page.setViewportSize({ width: 640, height: 900 });
   const longCopyCards = page.locator('[data-step-panel="4"] .option-card').filter({ hasText: longDescription });
@@ -1967,6 +1999,7 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(costPreview.getByRole('heading', { name: 'Preisübersicht' })).toBeVisible();
   await expect(costPreview.locator('dd').last()).toHaveText(/68,50\s*€/);
   const costValues = await costPreview.locator('dd').allTextContents();
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '06', state: 'allocation-and-authoritative-cost-preview', roles: ['employee'] });
   await page.getByRole('button', { name: 'Weiter' }).click();
 
   const review = page.locator('[data-step-panel="6"]');
@@ -1983,6 +2016,7 @@ test('EMP-05 EMP-07: Catering cards and complete review retain package, quantiti
   await expect(review.getByText(/68,50\s*€/)).toBeVisible();
   await expect(review.getByRole('button', { name: 'Catering-Details ändern' })).toBeVisible();
   await expect(review.getByRole('button', { name: 'Preisübersicht ändern' })).toBeVisible();
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '07', state: 'complete-rich-request-review', roles: ['employee'] });
   expect(await page.evaluate(() => document.documentElement.scrollWidth
     <= document.documentElement.clientWidth)).toBe(true);
 
@@ -3359,6 +3393,7 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(dialog.getByRole('link', { name: 'Route öffnen' }))
     .toHaveAttribute('href', 'https://www.openstreetmap.org/');
   await expect(dialog).not.toContainText(/Passwort|provider/i);
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '12', state: 'published-public-information', roles: ['employee'], surface: dialog });
 
   const popupPromise = page.waitForEvent('popup');
   await dialog.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
@@ -3384,13 +3419,7 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(122, 31, 61)');
   await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
   expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await testInfo.attach('guest-welcome-screen', { body: await popup.screenshot({ fullPage: true }), contentType: 'image/png' });
-  if (testInfo.project.name === 'chromium-desktop') {
-    const pdf = await popup.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
-    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(pdf.length).toBeLessThan(1_048_576);
-    await testInfo.attach('guest-welcome-pdf', { body: pdf, contentType: 'application/pdf' });
-  }
+  await attachGuestPrintEvidence(popup, testInfo, 'guest-welcome');
 
   await popup.getByRole('button', { name: 'Drucken / Als PDF speichern' }).focus();
   await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeFocused();
@@ -3399,6 +3428,112 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(popup.locator('.guest-print-grid')).toHaveCSS('display', 'grid');
   expect(await popup.evaluate(() => window.opener)).toBeNull();
   await popup.close();
+});
+
+for (const language of ['de', 'en']) {
+  test(`CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in ${language}`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const longValue = (label, maximum) => `${label} ${'W'.repeat(maximum - label.length - 5)} End`;
+    const title = longValue('Public meeting', 160);
+    const roomName = longValue('Public room', 160);
+    const siteName = longValue('Public site', 160);
+    const address = { line1: longValue('Public address', 160), line2: longValue('Public building', 160),
+      postalCode: '10115', city: longValue('Public city', 120), countryCode: 'DE' };
+    const contact = { name: longValue('Public reception', 160),
+      email: `${'g'.repeat(64)}@${`${'w'.repeat(63)}.`.repeat(2)}${'w'.repeat(56)}.test`, phone: '+49 30 555 0100' };
+    const catalog = catalogPayload();
+    catalog.catalog.rooms[0].name = roomName; catalog.catalog.sites[0].name = siteName;
+    const fixture = await installProductionApplicationFixture(page, { catalog, requestRoomContextSchemaVersion: 3,
+      requestRoomContext: { locationsRevision: 1,
+        room: { id: 'room-a', siteId: 'berlin', name: roomName, capacity: 12, active: true,
+          floor: null, floorplanAssetId: null, mediaAssetIds: [], accessibility: [],
+          guestPublicValues: { floorNumber: 200, accessibilityFeatures: ['step_free_entry', 'hearing_loop'] } },
+        site: { id: 'berlin', name: siteName, active: true, timeZone: 'Europe/Berlin' },
+        guestPublicValues: { publicTransport: 'available', parking: 'available', arrival: 'reception',
+          accessibilityFeatures: ['lift', 'accessible_toilet'] },
+        guestPresentation: { address, contact, routeUrl: 'https://www.openstreetmap.org/',
+          publicTransport: null, arrival: null, parking: null, reception: null, building: null,
+          visitorNotes: null, accessibility: null, wifiPolicy: 'credentials_on_arrival', wifiNetworkName: null },
+      },
+    });
+    const request = confirmedV2RequestFixture();
+    request.details = { ...request.details, title,
+      specialRequirements: 'PRIVATE_REQUEST_REQUIREMENTS_SENTINEL', dietaryRequirements: 'PRIVATE_DIETARY_SENTINEL' };
+    fixture.requests().push(request);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="requests"]').click();
+    const popupPromise = page.waitForEvent('popup');
+    const trigger = page.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF', exact: true });
+    await trigger.focus(); await page.keyboard.press('Enter');
+    const popup = await popupPromise;
+    const print = popup.locator('button.print-action');
+    await expect(print).toBeEnabled();
+    await expect(popup.locator('html')).toHaveAttribute('lang', language);
+    const expectedText = [title, roomName, siteName, address.line1, address.line2, address.city, contact.name, contact.email, contact.phone,
+      language === 'de' ? 'Zugangsdaten bei Ankunft' : 'Credentials provided on arrival'];
+    for (const text of expectedText) await expect(popup.locator('body')).toContainText(text);
+    const excludedText = [REQUEST_ID, USER_ID, TENANT_ID, CSRF_TOKEN,
+      request.details.specialRequirements, request.details.dietaryRequirements];
+    for (const text of excludedText) {
+      await expect(popup.locator('body')).not.toContainText(text);
+    }
+    await expect(popup.locator('script, style, img, iframe, form')).toHaveCount(0);
+    await expect(popup.locator('link[rel="stylesheet"]')).toHaveCount(2);
+    await expect(popup.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute('content',
+      /script-src 'none'.*style-src-attr 'none'.*img-src 'none'.*font-src 'none'.*connect-src 'none'/);
+    expect(await popup.evaluate(() => window.opener)).toBeNull();
+    for (const width of [390, 768, 1366]) {
+      await popup.setViewportSize({ width, height: 900 });
+      expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    // Keep the phone-width print-media check meaningful in both engine projects.
+    await popup.setViewportSize({ width: 390, height: 900 });
+    await testInfo.attach(`guest-multipage-${language}-expected-public-fields`, {
+      body: Buffer.from(JSON.stringify(expectedText, null, 2)), contentType: 'application/json',
+    });
+    await attachGuestPrintEvidence(popup, testInfo, `guest-multipage-${language}`, { minimumPages: 2, expectedText, excludedText });
+    for (const text of expectedText) await expect(popup.locator('body')).toContainText(text);
+    await expect(print).toBeVisible(); await expect(print).toBeEnabled();
+    await popup.evaluate(() => { window.printCalls = 0; window.print = () => { window.printCalls++; }; });
+    await print.focus(); await popup.keyboard.press('Enter');
+    await expect.poll(() => popup.evaluate(() => window.printCalls)).toBe(1);
+    await expect(print).toBeFocused();
+    await popup.close();
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+test('CO-317: EMP-14 EMP-15 delayed print CSS preserves current focus and cannot survive a session lock', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Gästeinformationen' }).click();
+  const dialog = page.getByRole('dialog');
+  const stylesheet = await readFile(path.join(ROOT, 'assets/employee-ux.css'));
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  await page.context().route(`${ORIGIN}/assets/employee-ux.css`, async (route) => {
+    await pending;
+    await route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body: stylesheet });
+  });
+  try {
+    const popupPromise = page.waitForEvent('popup');
+    await dialog.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+    const popup = await popupPromise;
+    await expect(popup.locator('.print-action')).toBeDisabled();
+    const close = dialog.getByRole('button', { name: 'Schließen', exact: true });
+    await page.bringToFront(); await close.focus();
+    await expect(close).toBeFocused();
+    release();
+    await expect(popup.locator('.print-action')).toBeEnabled();
+    await expect(close).toBeFocused();
+    await lockProductionApplication(page);
+    await expect.poll(() => popup.isClosed()).toBe(true);
+    await expect(page.locator('#app')).toBeEmpty();
+    await expect(page.locator('dialog:not([data-inactivity-lock="true"])')).toHaveCount(0);
+    expect(fixture.writes).toHaveLength(0);
+  } finally { release(); }
 });
 
 test('EMP-15 unavailable print styles close the detached surface with a recoverable message', async ({ page }) => {
@@ -3830,7 +3965,7 @@ test('Conference Manager applies a participant-only v2 booking change without a 
   });
 });
 
-test('Conference Manager separates Services and Catering business settings through CSRF contract', async ({ page }) => {
+test('Conference Manager separates Services and Catering business settings through CSRF contract', async ({ page }, testInfo) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
   });
@@ -3846,6 +3981,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await expect(serviceBulk.locator('option')).toHaveCount(2);
   expect(await serviceBulk.locator('option').evaluateAll((options) => options.map(({ value }) => value)))
     .toEqual(['services', 'equipment']);
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '18', state: 'owned-services-and-equipment', roles: ['employee', 'conference_manager'] });
   await page.locator('[data-add-catalogue-entry="services"]').click();
   await page.locator('[data-add-catalogue-entry="equipment"]').click();
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
@@ -3861,6 +3997,7 @@ test('Conference Manager separates Services and Catering business settings throu
   await page.locator('[data-add-catalogue-entry="cateringPackages"]').click();
   await page.locator('[data-catalogue-entry-id="package-coffee"]').locator('..').locator(':scope > summary').click();
   await page.locator('[data-add-catalogue-variant="package-coffee"]').click();
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '19', state: 'expanded-package-and-variant-draft', roles: ['employee', 'conference_manager'] });
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(2);
 
@@ -3874,6 +4011,8 @@ test('Conference Manager separates Services and Catering business settings throu
     .toMatchObject([{ id: 'package-coffee-variant-1', price: { currency: 'EUR' } }]);
   expect(fixture.catalogueWrites.every((write) => write.csrf === CSRF_TOKEN)).toBe(true);
   expect(fixture.catalogueWrites[1].body).not.toHaveProperty('tenantId');
+  await expect(page.getByRole('button', { name: 'Speichern', exact: true })).toBeEnabled();
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '19', state: 'after-confirmed-catalogue-save', roles: ['employee', 'conference_manager'] });
 });
 
 test('Conference Manager edits normal Room prices with Rooms and validates Catering names', async ({ page }) => {
@@ -4077,7 +4216,7 @@ test('H-034 Conference Manager uploads a private Room floorplan and attaches it 
   });
 });
 
-test('stale Catalogue save cannot restore Manager settings after navigation', async ({ page }) => {
+test('CO-306 pending Catalogue save blocks navigation until its result is settled', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
     holdCatalogueSave: true,
@@ -4090,6 +4229,9 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   await page.getByRole('button', { name: 'Speichern', exact: true }).click();
   await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
   await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('[data-manager-business-settings-root]')).toBeVisible();
+  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   const response = page.waitForResponse((value) => (
     new URL(value.url()).pathname === '/api/v1/tenant/settings/catalogue'
@@ -4097,6 +4239,8 @@ test('stale Catalogue save cannot restore Manager settings after navigation', as
   ));
   fixture.releaseCatalogueSave();
   await response;
+  await expect(page.getByRole('button', { name: 'Speichern', exact: true })).toBeEnabled();
+  await page.locator('[data-view="welcome"]').click();
   await expect(page.locator('#welcomeHeading')).toBeVisible();
   await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
 });
@@ -4530,45 +4674,101 @@ test('Manager Business Settings save 403 clears forms, cockpit and cached shell 
   await expect(page.locator('#toast')).toBeEmpty();
 });
 
-test('detached Manager Business Settings save 403 still invalidates the newer shell view', async ({ page }) => {
-  await installProductionApplicationFixture(page, {
-    roles: ['employee', 'conference_manager'],
-  });
-  await page.goto(`${ORIGIN}/`);
-  await page.locator('[data-view="manager"]').click();
-  await page.getByRole('tab', { name: 'Administration' }).click();
-  await expect(page.locator('#manager-room-name-0')).toBeVisible();
-  let releaseFailure;
-  let markStarted;
-  const failureGate = new Promise((resolve) => { releaseFailure = resolve; });
-  const failureStarted = new Promise((resolve) => { markStarted = resolve; });
-  await page.route(/\/api\/v1\/tenant\/settings\/locations$/, async (route) => {
-    if (route.request().method() !== 'PUT') {
-      await route.fallback();
-      return;
-    }
-    markStarted();
-    await failureGate;
-    await route.fulfill({
-      status: 403,
-      contentType: 'application/json; charset=utf-8',
-      body: JSON.stringify({ error: { code: 'FORBIDDEN', requestId: API_REQUEST_ID } }),
+for (const detach of ['authority invalidation', 'inactivity lock']) {
+  test(`detached Manager Business Settings save 403 remains fail-closed after ${detach}`, async ({ page }) => {
+    await installProductionApplicationFixture(page, {
+      roles: ['employee', 'conference_manager'],
     });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration' }).click();
+    await expect(page.locator('#manager-room-name-0')).toBeVisible();
+    let releaseFailure;
+    let markStarted;
+    const failureGate = new Promise((resolve) => { releaseFailure = resolve; });
+    const failureStarted = new Promise((resolve) => { markStarted = resolve; });
+    await page.route(/\/api\/v1\/tenant\/settings\/locations$/, async (route) => {
+      if (route.request().method() !== 'PUT') {
+        await route.fallback();
+        return;
+      }
+      markStarted();
+      await failureGate;
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ error: { code: 'FORBIDDEN', requestId: API_REQUEST_ID } }),
+      });
+    });
+
+    const form = page.locator('[data-manager-business-settings-root] form');
+    await form.getByRole('button', { name: 'Speichern', exact: true }).click();
+    await failureStarted;
+    await page.locator('[data-view="welcome"]').click();
+    await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+    await expect(form).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('[data-view="manager"]')).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    const authorityStatus = page.locator('[data-authority-invalid="true"]');
+    let previousAuthorityStatus;
+    if (detach === 'authority invalidation') {
+      await page.route(/\/api\/v1\/session$/, async (route) => {
+        if (route.request().method() !== 'DELETE') {
+          await route.fallback();
+          return;
+        }
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: 'FORBIDDEN', requestId: API_REQUEST_ID } }),
+        });
+      });
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      await page.getByRole('dialog', { name: 'Profil' }).getByRole('button', { name: 'Logout' }).click();
+      await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
+      await expect(authorityStatus).toBeFocused();
+      previousAuthorityStatus = await authorityStatus.elementHandle();
+    } else {
+      await lockProductionApplication(page);
+    }
+    await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+    await expect(page.locator('.manager-surface')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+
+    const failureResponse = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/v1/tenant/settings/locations'
+      && response.request().method() === 'PUT'
+    ));
+    releaseFailure();
+    const response = await failureResponse;
+    expect(response.status()).toBe(403);
+    await response.finished();
+
+    if (previousAuthorityStatus) {
+      // Replacing the first status proves that the detached write still reaches
+      // the shared authority boundary instead of returning as merely stale.
+      await expect.poll(() => previousAuthorityStatus.evaluate((node) => node.isConnected)).toBe(false);
+      await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
+      await expect(authorityStatus).toBeFocused();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    } else {
+      const lock = page.locator('dialog[data-inactivity-lock="true"]');
+      await expect(page.locator('html')).toHaveAttribute('data-session-locked', 'true');
+      await expect(lock).toBeVisible();
+      await expect(lock.getByRole('button', { name: 'Sitzung prüfen und entsperren' })).toBeFocused();
+      await expect(page.locator('dialog:not([data-inactivity-lock="true"])')).toHaveCount(0);
+      await expect(page.locator('#app')).toBeEmpty();
+    }
+    await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+    await expect(page.locator('.manager-surface')).toHaveCount(0);
+    await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+    await expect(page.locator('#toast')).toBeEmpty();
+    await expect(page.locator('#statusRegion')).toBeEmpty();
+    await expect(page.locator('#alertRegion')).toBeEmpty();
   });
-
-  await page.locator('[data-manager-business-settings-root] form')
-    .getByRole('button', { name: 'Speichern', exact: true }).click();
-  await failureStarted;
-  await page.locator('[data-view="welcome"]').click();
-  await expect(page.locator('#welcomeHeading')).toBeVisible();
-  releaseFailure();
-
-  const authorityStatus = page.locator('[data-authority-invalid="true"]');
-  await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
-  await expect(authorityStatus).toBeFocused();
-  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
-  await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
-});
+}
 
 test('detached Tenant Admin load 401 invalidates every privileged shell surface', async ({ page }) => {
   await installProductionApplicationFixture(page, {
@@ -5177,7 +5377,7 @@ test('Production session with a partial Manager permission union fails closed', 
   await expect(page.locator('[data-view="employee"]')).toHaveCount(0);
 });
 
-test('production onboarding explains permissions and maps admin, revoked and Graph failures to recovery guidance', async ({ page }) => {
+test('production onboarding explains permissions and maps admin, revoked and Graph failures to recovery guidance', async ({ page }, testInfo) => {
   await installProductionApplicationFixture(page, {
     roles: ['employee', 'tenant_admin'],
     microsoft365: {
@@ -5199,12 +5399,14 @@ test('production onboarding explains permissions and maps admin, revoked and Gra
   await expect(onboarding.getByText(/Place\.Read\.All.*Places-Lesezugriff/)).toBeVisible();
   await expect(onboarding.getByText(/Calendars\.ReadBasic\.All.*Kalender-Basislesezugriff/)).toBeVisible();
   await expect(onboarding.getByText(/Berechtigung wurde widerrufen/)).toBeVisible();
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '25', state: 'microsoft-seven-step-revoked-fixture', roles: ['employee', 'tenant_admin'] });
 
   await onboarding.getByRole('button', { name: 'Erneut verbinden' }).click();
   await expect(onboarding.getByText(/mandantenweite Admin-Zustimmung nicht erteilen/)).toBeVisible();
 
   await onboarding.getByRole('button', { name: 'Verbindung und Berechtigungen prüfen' }).click();
   await expect(onboarding.getByText(/Microsoft Graph oder die sichere Verbindung ist vorübergehend nicht verfügbar/)).toBeVisible();
+  await attachCustomerScreenEvidence(page, testInfo, { screen: '25', state: 'microsoft-fixture-recovery-guidance', roles: ['employee', 'tenant_admin'] });
 });
 
 test('MGR-01 MGR-02 MGR-03 MGR-11 MGR-12 MGR-14: restored Manager cockpit keeps filters and keyboard tabs with embedded business administration', async ({ page }) => {
@@ -5507,7 +5709,7 @@ test('Production onboarding opens Tenant Admin without loading unavailable busin
 
 
 for (const language of ['de', 'en']) {
-  test(`CO-306: search preserves full catalogue snapshots and reveals invalid hidden editors in ${language}`, async ({ page }) => {
+  test(`CO-306: search preserves full catalogue snapshots and reveals invalid hidden editors in ${language}`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const catalogueSettings = structuredClone(catalogueSettingsPayload().catalogue);
     catalogueSettings.equipment = Array.from({ length: 18 }, (_, index) => ({
@@ -5529,6 +5731,8 @@ for (const language of ['de', 'en']) {
     const name = page.locator('#manager-catalogue-equipment-equipment-7-name');
     await name.fill('Updated equipment');
     await expect(page.locator('#manager-catalogue-equipment-equipment-7-rooms')).toHaveValues(['retired-room']);
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '18', state: 'filtered-equipment-and-retained-reference',
+      roles: ['employee', 'conference_manager'] });
     await search.fill('No match');
     await page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true }).click();
     await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
@@ -5614,7 +5818,7 @@ test('EMP-03: room cards and review resolve catalogue equipment references witho
 
 
 for (const language of ['de', 'en']) {
-  test(`CO-297 calendar columns remain equal with long titles across all weekdays (${language})`, async ({ page }) => {
+  test(`CO-297 calendar columns remain equal with long titles across all weekdays (${language})`, async ({ page }, testInfo) => {
     const fixture = await installProductionApplicationFixture(page);
     const title = 'L'.repeat(160);
     for (let index = 0; index < 7; index += 1) {
@@ -5644,6 +5848,7 @@ for (const language of ['de', 'en']) {
       expect(Math.max(...dimensions.widths) - Math.min(...dimensions.widths)).toBeLessThan(1);
       expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewport + 1);
       expect(dimensions.overflowing).toBe(false);
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '09', state: 'populated-long-title-calendar', roles: ['employee'] });
     }
     await events.first().focus();
     await events.first().press('Enter');
@@ -5891,7 +6096,7 @@ for (const language of ['de', 'en']) {
 }
 
 for (const language of ['de', 'en']) {
-  test(`CO-311: short, overlapping and overnight bookings have keyboard, pointer and touch previews in ${language}`, async ({ page, isMobile }) => {
+  test(`CO-311: short, overlapping and overnight bookings have keyboard, pointer and touch previews in ${language}`, async ({ page, isMobile }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const catalog = catalogPayload();
     catalog.catalog.rooms.push({ ...catalog.catalog.rooms[0], id: 'room-empty', name: 'Empty room' });
@@ -5939,6 +6144,7 @@ for (const language of ['de', 'en']) {
     await expect(quarter).toHaveAttribute('aria-expanded', 'true');
     await expect(preview).toContainText('Room A');
     await expect(preview).toContainText('10:15');
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '15', state: 'keyboard-preview', roles: ['employee', 'conference_manager'] });
     await page.keyboard.press('Enter');
     await expect(preview.getByRole('heading')).toBeFocused();
     await page.keyboard.press('Escape');
@@ -5962,6 +6168,7 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '15', state: 'work-window-timeline', roles: ['employee', 'conference_manager'] });
     }
     await date.fill(nextDay);
     await date.dispatchEvent('change');
@@ -5977,7 +6184,7 @@ for (const language of ['de', 'en']) {
 }
 
 for (const language of ['de', 'en']) {
-  test(`CO-318: report room scope, complete totals, unavailable source and reset remain consistent in ${language}`, async ({ page }) => {
+  test(`CO-318: report room scope, complete totals, unavailable source and reset remain consistent in ${language}`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const catalog = catalogPayload();
     catalog.catalog.rooms.push({ ...catalog.catalog.rooms[0], id: 'room-b', name: 'Second room' });
@@ -6024,6 +6231,7 @@ for (const language of ['de', 'en']) {
     await load.click();
     await expect(results.getByRole('alert')).toBeVisible();
     await expect(metrics).toHaveCount(0);
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '16', state: 'source-unavailable', roles: ['employee', 'conference_manager'] });
     await expect(page.locator('#managerReportRoom')).toBeEnabled();
     await page.locator('#managerReportRoom').selectOption('');
     await expect(results.getByRole('alert')).toBeVisible();
@@ -6046,6 +6254,7 @@ for (const language of ['de', 'en']) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(results.locator('.manager-report-metrics')).toBeVisible();
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '16', state: 'complete-after-reset', roles: ['employee', 'conference_manager'] });
     }
     expect(fixture.writes).toHaveLength(0);
   });
@@ -6062,7 +6271,8 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('.welcome-hero')).toHaveAttribute('aria-labelledby', 'viewTitle');
     const subtitle = await page.locator('#viewSubtitle').textContent();
     await expect(page.getByText(subtitle, { exact: true })).toHaveCount(1);
-    await testInfo.attach(`welcome-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '01', state: 'welcome', roles: ['employee', 'conference_manager'],
+        name: `welcome-${language}`, surface: page });
     await page.locator('[data-view="manager"]').click();
     await page.getByRole('tab', { name: 'Administration', exact: true }).click();
     const name = language === 'de' ? 'Business-Einstellungen' : 'Business settings';
@@ -6095,7 +6305,8 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await testInfo.attach(`profile-${language}-${width}`, { body: await profile.screenshot(), contentType: 'image/png' });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '10', state: 'read-only-profile', roles: ['employee', 'conference_manager'],
+        name: `profile-${language}-${width}`, surface: profile });
     }
     await profile.getByRole('button', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true }).click();
     const help = page.getByRole('dialog', { name: language === 'de' ? 'Hilfe & Kontakt' : 'Help & contact', exact: true });
@@ -6118,7 +6329,8 @@ for (const language of ['de', 'en']) {
     await expect(help.locator('details:visible p')).toContainText(language === 'de' ? 'Bestätigung' : 'confirmation');
     await search.fill('');
     await expect(help.locator('details:visible')).toHaveCount(4);
-    await testInfo.attach(`help-${language}`, { body: await help.screenshot(), contentType: 'image/png' });
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '11', state: 'contact-explicitly-unavailable', roles: ['employee', 'conference_manager'],
+        name: `help-${language}`, surface: help });
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
     expect(fixture.writes).toHaveLength(0);
@@ -6143,7 +6355,8 @@ for (const language of ['de', 'en']) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
-    await testInfo.attach(`guest-dialog-${language}`, { body: await dialog.screenshot(), contentType: 'image/png' });
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '12', state: 'public-values-not-published', roles: ['employee'],
+        name: `guest-dialog-${language}`, surface: dialog });
     const print = dialog.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF' });
     await print.focus();
     await page.keyboard.press('Tab');
@@ -6224,7 +6437,8 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await testInfo.attach(`schedule-${language}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '02', state: 'schedule', roles: ['employee'],
+        name: `schedule-${language}-${width}`, surface: page });
     }
     await page.locator('#productionMultiDay').uncheck();
     await expect(endDate).toHaveValue(futureDate(15));
@@ -6279,7 +6493,8 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await testInfo.attach(`room-selection-${language}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '03', state: 'filtered-room-selection', roles: ['employee'],
+        name: `room-selection-${language}-${width}`, surface: page });
     }
     await page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability', exact: true }).click();
     await next.click(); await next.click();
@@ -6301,3 +6516,198 @@ for (const language of ['de', 'en']) {
     expect(fixture.requestEnvelopes).toHaveLength(0);
   });
 }
+
+
+for (const language of ['de', 'en']) {
+  test(`CO-306 Manager drafts guard settings, tabs, refresh, global navigation and language (${language})`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    const rooms = page.getByRole('button', { name: language === 'de' ? 'Räume' : 'Rooms', exact: true });
+    const services = page.getByRole('button', { name: language === 'de' ? 'Services & Ausstattung' : 'Services & equipment', exact: true });
+    await page.locator('#manager-rooms-search').fill('No match');
+    await services.click();
+    await expect(page.locator('dialog')).toHaveCount(0);
+    await rooms.click();
+    const name = page.locator('#manager-room-name-0');
+    await expect(name).toHaveValue('Room A');
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '17', state: 'room-editor-before-edit', roles: ['employee', 'conference_manager'] });
+    await name.fill('Room draft stays private');
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    const dialog = page.locator('dialog[aria-labelledby="managerUnsavedTitle"]');
+    const stay = dialog.getByRole('button', { name: language === 'de' ? 'Hier bleiben' : 'Stay here' });
+    for (const target of [services, page.locator('#managerTab-REPORTS'),
+      page.getByRole('button', { name: language === 'de' ? 'Aktualisieren' : 'Refresh', exact: true }),
+      page.locator('[data-view="welcome"]')]) {
+      await target.click();
+      await expect(dialog).toBeVisible();
+      await expect(stay).toBeFocused();
+      if (target === services) await attachCustomerScreenEvidence(page, testInfo, { screen: '17', state: 'unsaved-navigation-dialog', roles: ['employee', 'conference_manager'] });
+      await page.keyboard.press('Escape');
+      await expect(name).toHaveValue('Room draft stays private');
+      await expect(page.locator('#managerTab-ADMIN')).toHaveAttribute('aria-selected', 'true');
+    }
+    await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+    await page.locator('#profileLanguage').selectOption(language === 'de' ? 'en' : 'de');
+    await expect(stay).toBeFocused();
+    await stay.click();
+    await expect(page.locator('#profileLanguage')).toHaveValue(language);
+    await page.locator('dialog[aria-labelledby="profileTitle"]')
+      .getByRole('button', { name: language === 'de' ? 'Schließen' : 'Close', exact: true }).click();
+    await expect(name).toHaveValue('Room draft stays private');
+    expect(await page.evaluate(() => Object.values(localStorage).some((value) => value.includes('Room draft stays private')))).toBe(false);
+    await services.click();
+    await dialog.getByRole('button', { name: language === 'de' ? 'Änderungen verwerfen' : 'Discard changes' }).click();
+    await rooms.click();
+    await expect(name).toHaveValue('Room A');
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    expect(fixture.locationWrites).toHaveLength(0);
+    expect(fixture.catalogueWrites).toHaveLength(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
+  test(`CO-306 partial room and price saves keep independent drafts and revisions (${language})`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    const name = page.locator('#manager-room-name-0');
+    const price = page.locator('#manager-room-price-amount-0');
+    const save = page.getByRole('button', { name: language === 'de' ? 'Speichern' : 'Save', exact: true });
+    const savePrice = page.getByRole('button', { name: language === 'de' ? 'Raumpreis speichern' : 'Save room price', exact: true });
+    await name.fill('First saved room'); await price.fill('12.50');
+    await save.click();
+    await expect(page.locator('form').first()).not.toHaveAttribute('aria-busy', 'true');
+    await expect.poll(() => fixture.locationWrites.length).toBe(1);
+    await expect(price).toHaveValue('12.50');
+    expect(fixture.catalogueWrites).toHaveLength(0);
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await name.fill('Second unsaved room');
+    await savePrice.click();
+    await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+    await expect(savePrice).toBeEnabled();
+    await expect(name).toHaveValue('Second unsaved room');
+    expect(fixture.catalogueWrites[0].body.catalogue.roomPrices).toEqual([
+      { roomId: 'room-a', price: { amountMinor: 1250, currency: 'EUR' } },
+    ]);
+    expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    await save.click();
+    await expect.poll(() => fixture.locationWrites.length).toBe(2);
+    await expect(save).toBeEnabled();
+    await expect(name).toHaveValue('Second unsaved room');
+    expect(fixture.locationWrites.map((write) => write.body.expectedRevision)).toEqual([1, 2]);
+    await page.locator('[data-view="welcome"]').click();
+    await expect(page.locator('#welcomeHeading')).toBeVisible();
+    await expect(page.locator('dialog')).toHaveCount(0);
+  });
+}
+
+test('CO-306 pending room save prevents concurrent writes and conflict retains the exact draft', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, {
+    roles: ['employee', 'conference_manager'], holdLocationSave: true, locationSaveError: { currentRevision: 2 },
+  });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  const name = page.locator('#manager-room-name-0');
+  const save = page.getByRole('button', { name: 'Speichern', exact: true });
+  await name.fill('Keep the conflicting edit'); await save.click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(1);
+  await expect(name).toBeDisabled(); await expect(save).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Raumpreis speichern', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Grundriss hochladen' })).toBeDisabled();
+  await name.locator('xpath=ancestor::form').evaluate((form) => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+  await expect(page.locator('dialog')).toHaveCount(0);
+  expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+  fixture.releaseLocationSave();
+  await expect(save).toBeEnabled(); await expect(name).toHaveValue('Keep the conflicting edit');
+  await expect(page.locator('#toast')).toContainText('zwischenzeitlich geändert');
+  expect(fixture.locationWrites).toHaveLength(1);
+  await save.click(); await expect.poll(() => fixture.locationWrites.length).toBe(2);
+  await expect(save).toBeEnabled();
+  expect(fixture.locationWrites.map((write) => write.body.expectedRevision)).toEqual([1, 1]);
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('dialog[aria-labelledby="managerUnsavedTitle"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(name).toHaveValue('Keep the conflicting edit');
+});
+
+test('CO-306 room upload preserves unrelated room and price drafts through its pending attachment write', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'], holdLocationSave: true });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  const name = page.locator('#manager-room-name-0');
+  const price = page.locator('#manager-room-price-amount-0');
+  await name.fill('Unsubmitted room name'); await price.fill('17.50');
+  await page.locator('#manager-room-floorplan-upload-0').setInputFiles({ name: 'floorplan.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAD91JpzAAAAFElEQVR42mP4z8DAwMDAxAADCBYAOx0BA8VudC8AAAAASUVORK5CYII=', 'base64') });
+  await page.getByRole('button', { name: 'Grundriss hochladen' }).click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(1);
+  await expect(name).toBeDisabled(); await expect(price).toBeDisabled();
+  expect(fixture.locationWrites[0].body.configuration.rooms[0].name).toBe('Room A');
+  await page.locator('[data-view="welcome"]').click();
+  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+  fixture.releaseLocationSave();
+  await expect(name).toBeEnabled(); await expect(name).toHaveValue('Unsubmitted room name');
+  await expect(price).toHaveValue('17.50');
+  await expect(page.locator('#manager-room-floorplan-0')).toHaveValue('11111111-1111-4111-8111-111111111111');
+  expect(fixture.catalogueWrites).toHaveLength(0);
+  await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+  await expect.poll(() => fixture.locationWrites.length).toBe(2);
+  await expect(name).toBeEnabled();
+  expect(fixture.locationWrites[1].body).toMatchObject({ expectedRevision: 2,
+    configuration: { rooms: [{ name: 'Unsubmitted room name', floorplanAssetId: '11111111-1111-4111-8111-111111111111' }] } });
+  await expect(price).toHaveValue('17.50');
+  expect(await page.evaluate(() => !dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+});
+
+for (const status of [401, 403]) {
+  test(`CO-306 authority loss ${status} clears Manager drafts and unload protection without a discard prompt`, async ({ page }) => {
+    await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+    await page.route(`${ORIGIN}/api/v1/tenant/settings/locations`, async (route) => {
+      if (route.request().method() !== 'PUT') { await route.fallback(); return; }
+      await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({
+        error: { code: status === 401 ? 'AUTHENTICATION_REQUIRED' : 'FORBIDDEN', requestId: API_REQUEST_ID },
+      }) });
+    });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+    await page.locator('#manager-room-name-0').fill('Revoked draft');
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click();
+    await expect(page.locator('[data-authority-invalid]')).toBeVisible();
+    await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+    await expect(page.locator('dialog')).toHaveCount(0);
+    expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+    expect(await page.evaluate(() => document.body.textContent.includes('Revoked draft'))).toBe(false);
+  });
+}
+
+
+test('CO-306 staying in a dirty Manager editor restores the URL after a history/hash navigation', async ({ page }) => {
+  await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager', 'tenant_admin'] });
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="manager"]').click();
+  await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+  const name = page.locator('#manager-room-name-0');
+  await name.fill('Keep this route draft');
+  const originalUrl = page.url();
+  await page.evaluate(() => { location.hash = '#tenant-admin/locations'; });
+  const dialog = page.locator('dialog[aria-labelledby="managerUnsavedTitle"]');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Hier bleiben', exact: true }).click();
+  await expect(page).toHaveURL(originalUrl);
+  await expect(name).toHaveValue('Keep this route draft');
+  await expect(page.locator('[data-view="manager"]')).toHaveAttribute('aria-current', 'page');
+  await page.evaluate(() => { location.hash = '#tenant-admin/locations'; });
+  await dialog.getByRole('button', { name: 'Änderungen verwerfen', exact: true }).click();
+  await expect(page.locator('[data-tenant-admin-shell]')).toBeVisible();
+  await expect(page).toHaveURL(/#tenant-admin\/locations$/);
+  await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+});

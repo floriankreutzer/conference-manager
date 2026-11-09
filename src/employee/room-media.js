@@ -1,11 +1,8 @@
-const ROOM_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
-const ASSET_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import { roomMediaPath } from '../shared/room-media-reference.js';
 
-export function roomMediaPath(roomId, assetId) {
-  if (typeof roomId !== 'string' || !ROOM_ID.test(roomId)
-    || typeof assetId !== 'string' || !ASSET_ID.test(assetId)) return null;
-  return `/api/v1/tenant/rooms/${encodeURIComponent(roomId)}/media/${assetId.toLowerCase()}`;
-}
+export { roomMediaPath } from '../shared/room-media-reference.js';
+
+const ASSET_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function managedRoomMedia(room, catalogueMedia = null) {
   const current = catalogueMedia?.get(`room_plan:${room?.id}`);

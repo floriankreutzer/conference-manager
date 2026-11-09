@@ -19,6 +19,41 @@ established Demo image editor and paths. No client classification, owner or
 metadata is an authorization grant; every image request still requires current
 server Tenant/session/source/attachment authority and verified bytes before304.
 
+## Manager Room selection and preview (CO-306)
+
+The Manager Room editor uses named native controls for its current floor plan and
+up to20 attached images. Candidates are limited to the loaded Room attachments
+and successful uploads for that same Room. Catalogue metadata supplies a preview
+only when owner kind, owner Room and current floorplan UUID match exactly; it does
+not populate an asset inventory. A current Room photo can also be selected as its
+floor plan. New or detached assets cannot be searched across Rooms or Tenants.
+
+Opaque legacy references retain their original values/order and remain selected
+with an explicit unavailable preview. IDs appear only in technical details. An
+image load error changes presentation, never attachment values. Preview nodes are
+retained during selection changes so failed bytes are not retried automatically.
+An optional metadata failure preserves the editor and its attachments; metadata
+authority failures retain the application's existing authority boundary. Only the
+explicit Demo runtime can select the exact owner-bound Demo catalogue path.
+
+Selection changes are drafts until the normal revision-bound complete Locations
+save. Deselecting detaches a reference without deleting a booking or issuing a
+file deletion. The existing business-field projection preserves every Room and
+Site/technical field, including editors hidden by search. Managed uploads keep
+their existing API contract; the private media editor exposes an in-place update
+for a confirmed upload without replacing unrelated draft controls. Session,
+Tenant, Room, upload validation and current byte access remain server-owned.
+
+The focused model and DE/EN browser cases cover exact owner/attachment binding,
+foreign/external/Demo path rejection, opaque references, failed previews,
+selection/save preservation, in-place upload presentation and responsive native
+controls. Protocol fixtures prove frontend behavior only. Fresh candidate CI and
+the unchanged paired three-customer/two-reset gate remain release requirements;
+the Contoso detach test now addresses the native multi-select and keeps its
+submitted snapshot, persisted detach, byte-denial and reset assertions.
+
+## Historical initial implementation evidence
+
 Local Node22 full quality/i18n/architecture/security/design/regression gates878
 passed, including4 new adapter/Room ownership progression and negative tests.
 An existing source-contract regression now requires the exact new media-map

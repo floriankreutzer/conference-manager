@@ -1,13 +1,14 @@
 // Ephemeral editor state; never persists values or grants authority.
-export function createEditorNavigation({ confirmDiscard, onStay = () => {} }) {
+export function createEditorNavigation({ confirmDiscard, onStay = () => {}, onPending = () => {} }) {
   let editor = null;
   let pending = false;
   let epoch = 0;
-  const dirty = () => Boolean(editor?.isCurrent() && editor.read() !== editor.baseline);
+  const writing = () => Boolean(editor?.isCurrent() && editor.isPending());
+  const dirty = () => writing() || Boolean(editor?.isCurrent() && editor.read() !== editor.baseline);
   function clear() { editor = null; pending = false; epoch += 1; }
-  function register({ read, isCurrent }) {
+  function register({ read, isCurrent, isPending = () => false }) {
     clear();
-    const owned = { read, isCurrent, baseline: read() };
+    const owned = { read, isCurrent, isPending, baseline: read() };
     editor = owned;
     return Object.freeze({
       saved() { if (editor === owned) owned.baseline = read(); },
@@ -16,6 +17,7 @@ export function createEditorNavigation({ confirmDiscard, onStay = () => {} }) {
   }
   function allow(retry) {
     if (pending) return false;
+    if (writing()) { onPending(); return false; }
     if (!dirty()) return true;
     pending = true;
     const expected = epoch;

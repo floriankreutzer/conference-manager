@@ -1,3 +1,4 @@
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 import { expect, test } from '@playwright/test';
 
 for (const language of ['de', 'en']) {
@@ -39,6 +40,6 @@ for (const language of ['de', 'en']) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
-    await testInfo.attach(`tenant-overview-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '20', state: 'setup-with-unavailable-section', roles: ['tenant_admin'], name: `tenant-overview-${language}`, composition: 'isolated-component-fixture' });
   });
 }

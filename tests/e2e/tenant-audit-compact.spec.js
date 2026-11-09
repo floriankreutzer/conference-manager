@@ -1,3 +1,4 @@
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 import { expect, test } from '@playwright/test';
 
 for (const language of ['de', 'en']) {
@@ -65,6 +66,6 @@ for (const language of ['de', 'en']) {
     expect(await page.evaluate(() => window.auditReads.at(-1))).toMatchObject({ outcome: 'denied', beforeId: null, limit: 20 });
     await page.getByRole('button', { name: language === 'de' ? 'Filter zurücksetzen' : 'Reset filters' }).click();
     await expect(rows).toHaveCount(20);
-    await testInfo.attach(`audit-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: 'events-after-filter-reset', roles: ['tenant_admin'], name: `audit-${language}`, composition: 'isolated-component-fixture' });
   });
 }

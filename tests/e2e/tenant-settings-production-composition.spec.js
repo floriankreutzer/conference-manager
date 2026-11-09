@@ -1,3 +1,4 @@
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 import { expect, test } from '@playwright/test';
 import { asProductionHtml } from './fixtures/production-html.js';
 import { fulfillApplicationProjection } from './fixtures/application-projections.js';
@@ -496,7 +497,7 @@ for (const language of ['de', 'en']) {
     expect(fixture.writes[1].body.configuration.versions[0].rules.maximumAdvanceMinutes).toBe(528480);
   });
 
-  test(`CO-306 Tenant searches preserve complete owned snapshots in ${language}`, async ({ page }) => {
+  test(`CO-306 Tenant searches preserve complete owned snapshots in ${language}`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const fixture = await installProductionSettingsFixture(page);
     fixture.state.locations.configuration.rooms.push(...Array.from({ length: 8 }, (_, index) => room({
@@ -514,6 +515,7 @@ for (const language of ['de', 'en']) {
     await roomEntry.locator(':scope > summary').focus();
     await page.keyboard.press('Enter');
     await expect(content.locator('#tenant-room-site-9')).toBeVisible();
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '22', state: 'filtered-technical-room-details', roles: ['employee', 'tenant_admin'] });
     await content.locator('#tenant-sites-search').fill('Berlin');
     await content.locator('#tenant-site-name-0').fill('Updated Berlin');
     await content.locator('#tenant-sites-search').fill('No match');
@@ -527,6 +529,7 @@ for (const language of ['de', 'en']) {
     content = await openSection(page, 'cost-allocation', 'cost-allocation');
     await content.locator('#tenant-cost-centers-search').fill('Center 17');
     await content.locator('[data-cost-center-id="center-17"]').locator('..').locator(':scope > summary').click();
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '24', state: 'filtered-cost-center-before-edit', roles: ['employee', 'tenant_admin'] });
     await content.locator('#tenant-cost-center-17-name').fill('Updated center');
     await content.locator('#tenant-cost-centers-search').fill('No match');
     await submit(content, 'cost-allocation');
@@ -536,6 +539,8 @@ for (const language of ['de', 'en']) {
     });
     expect(fixture.writes[1].body.expectedRevision).toBe(6);
     expect(fixture.writes[1].csrf).toBe(CSRF_TOKEN);
+    await expect(content.locator('[data-tenant-settings-form="cost-allocation"] button[type="submit"]')).toBeEnabled();
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '24', state: 'after-confirmed-complete-snapshot-save', roles: ['employee', 'tenant_admin'] });
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -660,12 +665,13 @@ test('REG-01 REG-02: Tenant Admin writes owned settings and excludes Manager-own
 });
 
 for (const language of ['de', 'en']) {
-  test(`CO-307 ${language}: organization edits survive Stay and require explicit discard before navigation`, async ({ page }) => {
+  test(`CO-307 ${language}: organization edits survive Stay and require explicit discard before navigation`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
     await openTenantSettings(page);
     const content = await openSection(page, 'organization', 'organization');
     const registration = content.locator('#tenant-organization-registration-number');
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '21', state: 'organization-before-edit', roles: ['employee', 'tenant_admin'] });
     await registration.fill('QA-UNSAVED');
     expect(await page.evaluate(() => !window.dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
     if (language === 'de') await page.locator('[data-tenant-admin-section="booking-policies"]').click();
@@ -673,8 +679,10 @@ for (const language of ['de', 'en']) {
     const dialog = page.getByRole('dialog');
     const stay = dialog.getByRole('button', { name: language === 'de' ? 'Hier bleiben' : 'Stay here' });
     await expect(stay).toBeFocused();
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '21', state: 'unsaved-navigation-dialog', roles: ['employee', 'tenant_admin'] });
     await page.keyboard.press('Enter');
     await expect(registration).toHaveValue('QA-UNSAVED');
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '21', state: 'draft-retained-after-stay', roles: ['employee', 'tenant_admin'] });
     expect(fixture.writes).toHaveLength(0);
     await page.locator('[data-view="welcome"]').click();
     await dialog.getByRole('button', { name: language === 'de' ? 'Änderungen verwerfen' : 'Discard changes' }).click();
