@@ -49,6 +49,24 @@ for (const language of ['de', 'en']) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (width !== 1366) await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: 'events-after-detail-close',
         roles: ['tenant_admin'], composition: 'isolated-component-fixture', fullPage: false });
+      if (width !== 1366) {
+        const row = rows.filter({ has: selected });
+        await expect(row).toHaveCount(1);
+        for (const [side, cell] of [['left', row.locator('td').first()], ['right', row.locator('td').last()]]) {
+          await cell.scrollIntoViewIfNeeded();
+          await expect(cell).toBeInViewport({ ratio: 1 });
+          await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: `events-${side}-columns`,
+            roles: ['tenant_admin'], composition: 'isolated-component-fixture', fullPage: false });
+        }
+        await selected.focus(); await selected.press('Enter');
+        await expect(detail.getByRole('heading').first()).toBeFocused();
+        await technical.focus(); await technical.press('Enter');
+        await expect(detail.locator('.tenant-operation-identifier').first()).toHaveText('22222222-2222-4222-8222-222222222222');
+        await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: 'selected-event-technical-details',
+          roles: ['tenant_admin'], composition: 'isolated-component-fixture', surface: detail });
+        await detail.getByRole('button', { name: language === 'de' ? 'Details schließen' : 'Close details' }).click();
+        await expect(selected).toBeFocused();
+      }
     }
     await page.locator('[data-tenant-audit-page="next"]').click();
     await expect(rows).toHaveCount(1);

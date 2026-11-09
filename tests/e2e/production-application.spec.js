@@ -6817,6 +6817,12 @@ for (const language of ['de', 'en']) {
       await search.scrollIntoViewIfNeeded();
       await attachCustomerScreenEvidence(page, testInfo, { screen: '11', state: 'contact-explicitly-unavailable', roles: ['employee', 'conference_manager'],
         name: width === 1366 ? `help-${language}` : `help-${language}-${width}`, surface: help });
+      const unavailable = help.locator('#helpContactUnavailable');
+      await unavailable.scrollIntoViewIfNeeded();
+      await expect(unavailable).toBeInViewport({ ratio: 1 });
+      await expect(send).toBeInViewport({ ratio: 1 });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '11', state: 'contact-unavailability-explanation', roles: ['employee', 'conference_manager'],
+        name: `help-contact-${language}-${width}`, surface: help });
     }
     await page.keyboard.press('Escape');
     await expect(help).toHaveCount(0);
