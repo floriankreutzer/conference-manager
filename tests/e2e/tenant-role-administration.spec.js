@@ -510,3 +510,33 @@ test('CO-315: a superseded Users read cannot replace a later filtered page', asy
   await expect(section.locator('[data-tenant-user-id]')).toHaveCount(0);
   await expect(section.locator('.tenant-operations-result-status')).toHaveText('0 Benutzer geladen.');
 });
+
+test('CO-315: a superseded malformed read cannot discard the current valid Users refresh projection', async ({ page }) => {
+  const fixture = await installProductionFixture(page);
+  await openTenantAdministration(page);
+  const section = page.locator('[data-tenant-admin-section-content="users"]');
+  let release;
+  fixture.userListResponse.wait = new Promise(resolve => { release = resolve; });
+  fixture.userListResponse.users = [{ id: USER_ID, displayName: 'Malformed obsolete page' }];
+  await section.locator('[data-tenant-role-action="refresh"]').click();
+  await expect.poll(() => fixture.reads.length).toBe(2);
+  fixture.userListResponse.wait = null;
+  fixture.userListResponse.users = initialUsers().slice(1);
+  await section.locator('#tenant-user-search').fill('Casey');
+  await section.locator('[data-tenant-user-filters] button[type="submit"]').click();
+  await expect(section.locator('.tenant-operations-result-status')).toHaveText('1 Benutzer geladen.');
+  const lateResponse = page.waitForResponse(response => response.url().includes('/api/v1/tenant/users')
+    && !new URL(response.url()).searchParams.has('search'));
+  release();
+  await (await lateResponse).finished();
+  await expect(section.locator(`[data-tenant-user-id="${USER_ID}"]`)).toBeVisible();
+  fixture.userListResponse.status = 503;
+  await section.locator('[data-tenant-role-action="refresh"]').click();
+  await expect(section.getByRole('alert')).toBeVisible();
+  await expect(section.locator('.tenant-operations-result-status')).toContainText('Letzte erfolgreich geladene Benutzerliste.');
+  await expect(section.locator(`[data-tenant-user-id="${USER_ID}"]`)).toBeVisible();
+  await expect(section.getByText('Malformed obsolete page')).toHaveCount(0);
+  await expect(section.locator('[data-tenant-user-lifecycle-action]')).toBeDisabled();
+  expect(fixture.writes).toEqual([]);
+  expect(fixture.accessWrites).toEqual([]);
+});

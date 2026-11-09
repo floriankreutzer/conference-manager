@@ -528,8 +528,8 @@ export function createUsersSection({ context, adapter = null } = {}) {
         }
       }
     } catch (error) {
-      if (!canRetainUserList(error?.code)) lastPage = null;
       if (!isCurrent()) return;
+      if (!canRetainUserList(error?.code)) lastPage = null;
       clear(surface);
       const key = userOperationErrorKey(error?.code, 'load');
       surface.appendChild(errorPanel(key, refreshList));
