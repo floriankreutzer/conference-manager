@@ -24,8 +24,13 @@ bounded public title, Room/Site, address and contact values large enough to requ
 multiple A4 pages. Chromium retains the actual PDF and checks its page tree, a
 two-to-four-page bound and portrait A4 dimensions on every page. The ordinary
 Guest case retains the same structural checks with a one-page minimum. These
-checks inspect Chromium's emitted page dictionaries; they are not a parser or
-security validator for uploaded PDFs.
+checks inspect Chromium's emitted page dictionaries. A bounded renderer-specific
+check also follows the page transforms and actual rectangular clip, requiring
+every uniform card frame, including its full stroke width, to fit inside that
+clip. A small existing-token inline inset keeps the print artwork away from the
+fractional page edge. These checks are not a general parser or security validator
+for uploaded PDFs; text completeness and the differently painted WLAN border
+still require independent PDF review.
 
 Both Chromium and WebKit retain the screen image, print-media image and visible
 print text. They verify that phone-only layout rules do not reduce the print grid

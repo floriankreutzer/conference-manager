@@ -430,7 +430,7 @@ body[data-ux-first-use="true"] .welcome-hero {
   .guest-print-facts, .guest-print-grid { grid-template-columns: 1fr; }
 }
 @media print {
-  .guest-print-document { max-inline-size: none; padding: 0; }
+  .guest-print-document { max-inline-size: none; padding: 0 var(--space-1); }
   .guest-print-document .print-action { display: none; }
   .guest-print-hero, .guest-print-card { break-inside: avoid; }
   .guest-print-document a { color: inherit; }

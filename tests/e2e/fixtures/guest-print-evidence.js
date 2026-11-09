@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { expect } from '@playwright/test';
+import { inspectChromiumGuestFrames } from './guest-print-pdf-geometry.js';
 
 // Chromium/Skia emits plain page dictionaries even when content/font streams are
 // compressed. This is an assertion on that renderer's artifact, not a PDF parser
@@ -58,6 +59,8 @@ export async function attachGuestPrintEvidence(popup, testInfo, name, {
       // Retain the original even when the following structural assertion fails.
       await testInfo.attach(`${name}-pdf`, { body: pdf, contentType: 'application/pdf' });
       const structure = inspectChromiumA4Pdf(pdf, minimumPages);
+      const frameCount = await popup.locator('.guest-print-card:not(.guest-print-wifi)').count();
+      structure.cardFrames = inspectChromiumGuestFrames(pdf, frameCount);
       await testInfo.attach(`${name}-pdf-structure`, { body: Buffer.from(JSON.stringify(structure, null, 2)),
         contentType: 'application/json' });
     }
