@@ -5948,10 +5948,25 @@ for (const language of ['de', 'en']) {
       await half.hover();
       await expect(preview.getByRole('heading')).toHaveText('Half-hour');
     }
+    if (isMobile) await page.evaluate(() => {
+      const events = [];
+      const label = (element) => element?.id || element?.tagName || 'none';
+      window.roomPreviewFocusEvidence = events;
+      for (const type of ['pointerdown', 'pointerup', 'pointercancel', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'focusin', 'focusout']) {
+        document.addEventListener(type, (event) => {
+          if (events.length < 40) events.push({ type, target: label(event.target), active: label(document.activeElement), pointer: event.pointerType });
+        }, true);
+      }
+    });
     if (isMobile) await hour.tap();
     else await hour.click();
     await expect(preview.getByRole('heading')).toHaveText('One hour');
-    await expect(preview.getByRole('heading')).toBeFocused();
+    try { await expect(preview.getByRole('heading')).toBeFocused(); }
+    finally {
+      if (isMobile) console.log('CO-311 synthetic focus evidence', await page.evaluate(() => ({
+        events: window.roomPreviewFocusEvidence, active: document.activeElement?.outerHTML.slice(0, 400), focused: document.hasFocus(),
+      })));
+    }
     await preview.getByRole('button', { name: language === 'de' ? 'Vorschau schließen' : 'Close preview' }).click();
     await expect(hour).toBeFocused();
     await expect(preview).toBeHidden();
