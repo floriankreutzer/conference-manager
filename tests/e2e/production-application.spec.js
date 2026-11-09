@@ -1696,7 +1696,7 @@ test('EMP-01 EMP-02 EMP-03 EMP-06 EMP-07: Employee production flow uses server c
   await expect(page.getByText('Der Raum ist im gewählten Zeitraum verfügbar.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled();
 
-  await page.getByRole('button', { name: 'Zurück' }).click();
+  await page.getByRole('button', { name: 'Zurück', exact: true }).click();
   await page.locator('#productionEnd').fill('10:30');
   await page.getByRole('button', { name: 'Weiter' }).click();
   await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled();
@@ -6221,7 +6221,7 @@ for (const language of ['de', 'en']) {
     const first = catalog.catalog.rooms[0];
     catalog.catalog.rooms = Array.from({ length: 10 }, (_, index) => ({ ...first,
       id: index ? `room-${index}` : first.id, name: index ? `Meeting room ${index}` : first.name,
-      capacity: index === 9 ? 1 : 12 }));
+      capacity: index === 9 ? 1 : 12 })).sort((a, b) => a.id.localeCompare(b.id));
     catalog.catalog.cateringItems = [{ id: 'coffee', name: 'Coffee', description: null, active: true,
       order: 1, price: { amountMinor: 200, currency: 'EUR' }, siteIds: [], roomIds: [] }];
     const fixture = await installProductionApplicationFixture(page, { catalog });

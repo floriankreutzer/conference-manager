@@ -267,7 +267,7 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
   if (request.status === 'Confirmed') {
     const guest = registerMutationControl(button(t('guest.title')));
     guest.addEventListener('click', () => {
-      void runMutation(() => onGuestInfo(request, currentRoomContext));
+      void runMutation(() => onGuestInfo(request, currentRoomContext, guest));
     });
     const print = registerMutationControl(button(t('guest.print')));
     print.addEventListener('click', () => {
@@ -1665,9 +1665,10 @@ export function createProductionEmployeeApplication({
       }
     };
 
-    const focusStep = () => requestAnimationFrame(() => {
+    const focusStep = () => {
+      if (!isCurrentEditor()) return;
       panels[activeStep - 1].querySelector('h2, input, select, textarea, button')?.focus();
-    });
+    };
     const validateStep = (stepNumber) => {
       for (const entry of textFields.filter((item) => item.step === stepNumber)) {
         clearControlValidation(entry.control);
@@ -2428,9 +2429,16 @@ export function createProductionEmployeeApplication({
                 else if (shouldNotify) showToast(errorMessage(caught));
               }
             },
-            onGuestInfo: (target) => withGuestRoomContext(target, (preparedTarget, currentRoomContext) => (
-              openGuestInfo(preparedTarget, currentRoomContext, (onAbort) => printGuest(preparedTarget, onAbort))
-            )),
+            onGuestInfo: (target, _roomContext, control) => withGuestRoomContext(target, (preparedTarget, currentRoomContext) => {
+              const dialog = openGuestInfo(preparedTarget, currentRoomContext,
+                (onAbort) => printGuest(preparedTarget, onAbort));
+              // Loading disables the trigger, so native dialog focus capture can
+              // observe the body instead. Restore the explicit current card owner.
+              dialog.addEventListener('close', () => {
+                if (isCurrentCard() && control.isConnected && !control.disabled) control.focus();
+              }, { once: true });
+              return dialog;
+            }),
             onHistory: async (target, control) => {
               const interactionGeneration = refreshGeneration;
               const isCurrentInteraction = () => (
