@@ -42,7 +42,8 @@ export function roomPlanPreview({ openRequest }) {
       if (restoringFocus) return;
       if (selected?.control !== control) {
         // Hover must never replace the action currently being used with the keyboard.
-        if (!moveFocus && node.contains(document.activeElement)) return;
+        if (!moveFocus && (node.contains(document.activeElement)
+          || selected?.control === document.activeElement)) return;
         selected?.control.setAttribute('aria-expanded', 'false');
         selected = { control, request };
         heading.textContent = request.details?.title || t('production.common.requestId', { id: request.id });
@@ -71,12 +72,10 @@ export function roomPlanPreview({ openRequest }) {
       }
     };
     control.addEventListener('focus', () => show());
-    control.addEventListener('pointerenter', (event) => { if (event.pointerType === 'mouse') show(); });
-    // A touch preview changes the page before WebKit synthesizes its mouse click.
-    // Activate on the completed pointer gesture as well; cancelled scrolling never
-    // reaches pointerup. Mouse and keyboard retain their native click contract.
-    control.addEventListener('pointerup', (event) => {
-      if (event.pointerType === 'touch' || event.pointerType === 'pen') show(true);
+    control.addEventListener('pointerenter', (event) => {
+      // Touch browsers can synthesize mouse entry without a hover-capable input.
+      // Revealing content above the pressed booking would move its activation target.
+      if (event.pointerType === 'mouse' && matchMedia('(any-hover: hover)').matches) show();
     });
     control.addEventListener('click', () => show(true));
     control.addEventListener('keydown', escape);
