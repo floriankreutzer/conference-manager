@@ -5948,8 +5948,64 @@ for (const language of ['de', 'en']) {
       language === 'de' ? 'Keine Standort-Einschränkung' : 'No site restriction',
       language === 'de' ? 'Keine Raum-Einschränkung' : 'No room restriction',
     ]);
-    await attachCustomerScreenEvidence(page, testInfo, { screen: '19', state: 'catalogue-status-and-authoritative-summary',
-      roles: ['employee', 'conference_manager'] });
+    const originalViewport = page.viewportSize();
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      const root = page.locator('[data-manager-business-settings-root]');
+      const actions = root.getByRole('button', { name: new RegExp(language === 'de' ? '^(Speichern|Alle Filter zurücksetzen)$' : '^(Save|Reset all filters)$') });
+      await expect(actions).toHaveCount(3);
+      for (const action of await actions.all()) {
+        await action.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }));
+        await expect(action).toBeInViewport({ ratio: 1 });
+        await expect(action).toBeEnabled();
+      }
+      await page.evaluate(() => scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+      const geometry = await root.evaluate((node) => {
+        const visible = (element) => element.getClientRects().length > 0 && getComputedStyle(element).visibility === 'visible';
+        const bounds = (element) => element.getBoundingClientRect().toJSON();
+        return { viewport: { width: innerWidth, height: innerHeight }, documentWidth: document.documentElement.scrollWidth, scrollX,
+          fields: [...node.querySelectorAll('.field-label, .catalogue-editor-name, .catalogue-editor-summary > span, button')]
+            .filter(visible).map((element) => {
+              const text = document.createRange(); text.selectNodeContents(element);
+              return { text: element.textContent, bounds: bounds(element), textBounds: text.getBoundingClientRect().toJSON() };
+            }),
+          controls: [...node.querySelectorAll('.field input, .field select, .field textarea')].filter(visible)
+            .map((element) => ({ id: element.id, bounds: bounds(element), labelled: [...element.labels].some((label) => label.htmlFor === element.id) })),
+          // Two-dimensional data may scroll inside this bounded region, never the document.
+          scrollRegions: [...node.querySelectorAll('.manager-data-scroll')].filter(visible)
+            .map((element) => ({ bounds: bounds(element), clientWidth: element.clientWidth,
+              scrollWidth: element.scrollWidth, overflowX: getComputedStyle(element).overflowX })),
+        };
+      });
+      await testInfo.attach(`catalogue-${language}-${width}-geometry`, {
+        contentType: 'application/json', body: Buffer.from(JSON.stringify(geometry, null, 2)),
+      });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '19', state: 'catalogue-status-and-authoritative-summary',
+        roles: ['employee', 'conference_manager'] });
+      expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewport.width);
+      expect(geometry.scrollX).toBe(0);
+      expect(geometry.fields.length).toBeGreaterThan(20);
+      expect(geometry.controls.length).toBeGreaterThan(10);
+      for (const { bounds, textBounds } of geometry.fields) {
+        expect(bounds.left).toBeGreaterThanOrEqual(0);
+        expect(bounds.right).toBeLessThanOrEqual(geometry.viewport.width);
+        expect(textBounds.left).toBeGreaterThanOrEqual(bounds.left - 1);
+        expect(textBounds.right).toBeLessThanOrEqual(bounds.right + 1);
+        expect(textBounds.top).toBeGreaterThanOrEqual(bounds.top - 1);
+        expect(textBounds.bottom).toBeLessThanOrEqual(bounds.bottom + 1);
+      }
+      for (const control of geometry.controls) {
+        expect(control.labelled).toBe(true);
+        expect(control.bounds.left).toBeGreaterThanOrEqual(0);
+        expect(control.bounds.right).toBeLessThanOrEqual(geometry.viewport.width);
+      }
+      for (const region of geometry.scrollRegions) {
+        expect(region.bounds.left).toBeGreaterThanOrEqual(0);
+        expect(region.bounds.right).toBeLessThanOrEqual(geometry.viewport.width);
+        expect(region.overflowX).toBe('auto');
+      }
+    }
+    if (originalViewport) await page.setViewportSize(originalViewport);
     await page.locator('#manager-cateringItems-status').selectOption('active');
     await page.locator('#manager-packages-status').selectOption('inactive');
     await expect(page.locator('[data-catalogue-entry-id]')).toHaveCount(2);

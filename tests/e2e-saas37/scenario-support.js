@@ -6,6 +6,7 @@ import { scenarioOrigins } from '../support/demo-origins.js';
 import { acceptanceGateEnabled } from '../support/origin-context.mjs';
 import { localSharedDemoDiagnosticsEnabled } from '../support/local-demo-network-diagnostics.js';
 import { observeLocalDemoContextSwitch } from '../support/demo-context-diagnostics.js';
+import { withLocalRoomPriceDiagnostics } from '../support/room-price-diagnostics.js';
 
 export { scenarioOrigins } from '../support/demo-origins.js';
 
@@ -103,6 +104,19 @@ export async function uiResponse(page, method, path, action, expected = 200) {
     expect(response.headers()['content-type']).toContain('application/json');
   }
   return response;
+}
+
+export async function withRoomPriceDiagnostics(page, action) {
+  const info = test.info();
+  const enabled = localSharedDemoDiagnosticsEnabled({
+    projectName: info.project.name, customerOrigin: ORIGINS.customer, hosted: ORIGINS.hosted,
+    gated: acceptanceGateEnabled(process.env),
+  });
+  return withLocalRoomPriceDiagnostics(page, enabled, action, async (evidence) => {
+    const path = info.outputPath('room-price-action.json');
+    await writeFile(path, JSON.stringify({ schemaVersion: 1, ...evidence }), { mode: 0o600 });
+    await info.attach('room-price-action', { path, contentType: 'application/json' });
+  });
 }
 
 export async function locations(context) {

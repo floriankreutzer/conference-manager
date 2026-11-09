@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import {
   ORIGINS, CONTOSO, PNG, LOCATIONS_PATH, CATALOGUE_PATH, selectContext,
-  locations, catalogue, requests, uiResponse, mediaHash,
+  locations, catalogue, requests, uiResponse, mediaHash, withRoomPriceDiagnostics,
 } from './scenario-support.js';
 
 const STUDIO = 'contoso-paris-room-2';
@@ -96,12 +96,14 @@ export async function completeContosoTasks(page, cycle, baseline) {
   expect(uploadedStudio.description).toBe(`Completed Studio description cycle ${cycle}`);
   const uploadedUrl = `${ORIGINS.customer}/api/v1/tenant/rooms/${STUDIO}/media/${uploadedStudio.mediaAssetIds[0]}`;
   await mediaHash(page.context(), uploadedUrl);
-  await studio.locator('input[id^="manager-room-price-amount-"]').fill('35.00');
-  await expect(studio.locator('input[id^="manager-room-price-amount-"]')).toHaveValue('35.00');
-  const saveRoomPrice = studio.getByRole('button', { name: 'Raumpreis speichern', exact: true });
-  await uiResponse(page, 'PUT', CATALOGUE_PATH,
-    () => saveRoomPrice.click());
-  await expect(saveRoomPrice).toBeEnabled();
+  await withRoomPriceDiagnostics(page, async () => {
+    await studio.locator('input[id^="manager-room-price-amount-"]').fill('35.00');
+    await expect(studio.locator('input[id^="manager-room-price-amount-"]')).toHaveValue('35.00');
+    const saveRoomPrice = studio.getByRole('button', { name: 'Raumpreis speichern', exact: true });
+    await uiResponse(page, 'PUT', CATALOGUE_PATH,
+      () => saveRoomPrice.click());
+    await expect(saveRoomPrice).toBeEnabled();
+  });
   const priceSnapshot = (await catalogue(page.context())).catalogue;
   expect(priceSnapshot.roomPrices.find(({ roomId }) => roomId === STUDIO).price.amountMinor).toBe(3500);
   await expect(page.locator('[data-demo-manager-task="room:price"]')).toHaveCount(0);

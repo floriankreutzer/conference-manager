@@ -53,7 +53,21 @@ for (const language of ['de', 'en']) {
         const row = rows.filter({ has: selected });
         await expect(row).toHaveCount(1);
         for (const [side, cell] of [['left', row.locator('td').first()], ['right', row.locator('td').last()]]) {
-          await cell.scrollIntoViewIfNeeded();
+          // Keep fractional table edges away from nearest-scroll viewport rounding.
+          await cell.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }));
+          const geometry = await cell.evaluate((node) => {
+            const region = node.closest('.tenant-audit-scroll');
+            const text = document.createRange();
+            text.selectNodeContents(node);
+            return { viewport: { width: innerWidth, height: innerHeight },
+              documentWidth: document.documentElement.scrollWidth, scrollX, scrollY,
+              cell: node.getBoundingClientRect().toJSON(), text: text.getBoundingClientRect().toJSON(),
+              region: region.getBoundingClientRect().toJSON(), regionScrollLeft: region.scrollLeft,
+              regionClientWidth: region.clientWidth, regionScrollWidth: region.scrollWidth };
+          });
+          await testInfo.attach(`audit-${language}-${width}-${side}-geometry`, {
+            contentType: 'application/json', body: Buffer.from(JSON.stringify({ language, side, ...geometry }, null, 2)),
+          });
           await expect(cell).toBeInViewport({ ratio: 1 });
           await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: `events-${side}-columns`,
             roles: ['tenant_admin'], composition: 'isolated-component-fixture', fullPage: false });
