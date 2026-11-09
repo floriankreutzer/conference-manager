@@ -103,6 +103,7 @@ async function installProductionFixture(page, {
   const writes = [];
   const accessWrites = [];
   const reads = [];
+  const userListResponse = { status: 200, users: null, wait: null };
   const mappingWrites=[];let mappingSettings={ revision: 0,directoryId: null,mappings: [] };
 
   await page.route(`${ORIGIN}/**`, async (route) => {
@@ -140,10 +141,14 @@ async function installProductionFixture(page, {
 
     if (url.pathname === '/api/v1/tenant/users' && request.method() === 'GET') {
       reads.push(Object.fromEntries(url.searchParams));
+      const response = { ...userListResponse, users: userListResponse.users ?? users };
+      if (response.wait) await response.wait;
       await route.fulfill({
-        status: 200,
+        status: response.status,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ users, nextAfterId: null, requestId: ADMIN_ID }),
+        body: JSON.stringify(response.status === 200
+          ? { users: response.users, nextAfterId: null, requestId: ADMIN_ID }
+          : { error: { code: 'USER_LIST_UNAVAILABLE' } }),
       });
       return;
     }
@@ -225,7 +230,7 @@ async function installProductionFixture(page, {
     }
   });
 
-  return { writes, accessWrites, reads, mappingWrites };
+  return { writes, accessWrites, reads, mappingWrites, userListResponse };
 }
 
 async function openTenantAdministration(page) {
@@ -390,4 +395,118 @@ test('REG-01: Tenant Admin navigation is server-session scoped and DE/EN copy st
 
   const noOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
   expect(noOverflow).toBe(true);
+});
+
+for (const language of ['de', 'en']) {
+  test(`CO-315: ${language} Users keeps a read-only last good page through a temporary refresh failure and recovers`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const fixture = await installProductionFixture(page);
+    await openTenantAdministration(page);
+    if (language === 'en') {
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      await page.locator('#profileLanguage').selectOption('en');
+      await expect(page.locator('.tenant-operations-result-status')).toHaveText('2 users loaded.');
+    }
+    const section = page.locator('[data-tenant-admin-section-content="users"]');
+    const user = section.locator(`[data-tenant-user-id="${USER_ID}"]`);
+    const retained = language === 'de' ? 'Letzte erfolgreich geladene Benutzerliste.' : 'Last successfully loaded user list.';
+    let release;
+    fixture.userListResponse.wait = new Promise(resolve => { release = resolve; });
+    fixture.userListResponse.status = 503;
+    await section.locator('[data-tenant-role-action="refresh"]').click();
+    await expect(section.locator('.tenant-operations-result-status')).toContainText(retained);
+    await expect(user.getByRole('heading', { name: 'Casey User' })).toBeVisible();
+    await expect(user.getByRole('checkbox', { name: 'Conference Manager' })).toBeDisabled();
+    await expect(user.locator('[data-tenant-user-lifecycle-action]')).toBeDisabled();
+    await expect(section.locator('[data-tenant-role-action="refresh"]')).toBeDisabled();
+    release();
+    await expect(section.getByRole('alert')).toContainText(language === 'de'
+      ? 'Die Benutzerliste konnte nicht sicher geladen werden.' : 'The user list could not be loaded safely.');
+    await expect(user.getByRole('checkbox', { name: 'Conference Manager' })).toBeDisabled();
+    expect(fixture.writes).toEqual([]);
+    expect(fixture.accessWrites).toEqual([]);
+    for (const width of [390, 768, 1366]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await testInfo.attach(`users-readonly-refresh-${language}-${width}`, {
+        body: await section.screenshot(), contentType: 'image/png',
+      });
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    fixture.userListResponse.wait = null;
+    fixture.userListResponse.status = 200;
+    const retry = section.getByRole('button', { name: language === 'de' ? 'Erneut versuchen' : 'Try again' });
+    await retry.focus();
+    await page.keyboard.press('Enter');
+    await expect(section.getByRole('alert')).toHaveCount(0);
+    await expect(section.locator('.tenant-operations-result-status')).toBeFocused();
+    await expect(user.getByRole('checkbox', { name: 'Conference Manager' })).toBeEnabled();
+    fixture.userListResponse.users = [{ ...initialUsers()[1],
+      requestOwnership: { openRequestCount: 1, ownershipPreservedOnDisable: true } }];
+    await section.locator('[data-tenant-role-action="refresh"]').click();
+    await expect(section.locator('.tenant-operations-result-status')).toHaveText(language === 'de'
+      ? '1 Benutzer geladen.' : '1 user loaded.');
+    await expect(user.locator('.tenant-user-offboarding')).toContainText(language === 'de'
+      ? '1 offene Anfrage behält' : '1 open request keeps');
+    fixture.userListResponse.users = [];
+    await section.locator('[data-tenant-role-action="refresh"]').click();
+    await expect(section.locator('.tenant-operations-result-status')).toHaveText(language === 'de'
+      ? '0 Benutzer geladen.' : '0 users loaded.');
+    await expect(section.locator('[data-tenant-user-id]')).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
+
+test('CO-315: Users never substitutes the old page after a changed filter or invalid response', async ({ page }) => {
+  const fixture = await installProductionFixture(page);
+  await openTenantAdministration(page);
+  const section = page.locator('[data-tenant-admin-section-content="users"]');
+  fixture.userListResponse.status = 503;
+  await section.locator('#tenant-user-search').fill('Unmatched user');
+  await section.locator('[data-tenant-user-filters] button[type="submit"]').click();
+  await expect(section.getByRole('alert')).toBeVisible();
+  await expect(section.locator('[data-tenant-user-id]')).toHaveCount(0);
+  fixture.userListResponse.status = 200;
+  fixture.userListResponse.users = initialUsers().slice(1);
+  await section.locator('[data-tenant-role-action="refresh"]').click();
+  await expect(section.locator('.tenant-operations-result-status')).toHaveText('1 Benutzer geladen.');
+  fixture.userListResponse.users = [{ id: USER_ID, displayName: 'Unvalidated user' }];
+  await section.locator('[data-tenant-role-action="refresh"]').click();
+  await expect(section.getByRole('alert')).toBeVisible();
+  await expect(section.locator('[data-tenant-user-id]')).toHaveCount(0);
+  await expect(section.getByText('Unvalidated user')).toHaveCount(0);
+});
+
+for (const status of [401, 403]) {
+  test(`CO-315: Users discards retained data on actual HTTP ${status} authority loss`, async ({ page }) => {
+    const fixture = await installProductionFixture(page);
+    await openTenantAdministration(page);
+    fixture.userListResponse.status = status;
+    await page.locator('[data-tenant-role-action="refresh"]').click();
+    await expect(page.locator('html')).toHaveAttribute('data-session-locked', 'true');
+    await expect(page.locator('[data-tenant-user-id]')).toHaveCount(0);
+    expect(fixture.writes).toEqual([]);
+    expect(fixture.accessWrites).toEqual([]);
+  });
+}
+
+test('CO-315: a superseded Users read cannot replace a later filtered page', async ({ page }) => {
+  const fixture = await installProductionFixture(page);
+  await openTenantAdministration(page);
+  const section = page.locator('[data-tenant-admin-section-content="users"]');
+  let release;
+  fixture.userListResponse.wait = new Promise(resolve => { release = resolve; });
+  await section.locator('[data-tenant-role-action="refresh"]').click();
+  await expect.poll(() => fixture.reads.length).toBe(2);
+  fixture.userListResponse.wait = null;
+  fixture.userListResponse.users = [];
+  await section.locator('#tenant-user-search').fill('No matching user');
+  await section.locator('[data-tenant-user-filters] button[type="submit"]').click();
+  await expect(section.locator('.tenant-operations-result-status')).toHaveText('0 Benutzer geladen.');
+  const lateResponse = page.waitForResponse(response => response.url().includes('/api/v1/tenant/users')
+    && !new URL(response.url()).searchParams.has('search'));
+  release();
+  await lateResponse;
+  await expect(section.locator('[data-tenant-user-id]')).toHaveCount(0);
+  await expect(section.locator('.tenant-operations-result-status')).toHaveText('0 Benutzer geladen.');
 });

@@ -202,7 +202,8 @@ function requestCard(request, catalog, currentRoomContext, openChange, {
     el('p', {
       text: startsAt && endsAt ? `${startsAt} – ${endsAt}` : t('production.common.timeUnavailable'),
     }),
-    el('p', { text: t('production.common.participants', { count: participants }) }),
+    el('p', { text: t(participants === 1 ? 'production.common.participantOne'
+      : 'production.common.participants', { count: formatNumber(participants) }) }),
     el('p', { text: `${t('production.common.status')}: ${t(`status.${request.status}`)}` }),
   ]);
   const businessDetails = renderProductionRequestBusinessDetails(request, {

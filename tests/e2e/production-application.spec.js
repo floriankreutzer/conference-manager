@@ -1581,6 +1581,28 @@ function confirmedV2RequestFixture() {
 
 for (const language of ['de', 'en']) {
   for (const view of ['requests', 'manager']) {
+    test(`CO-315: ${view} uses singular and plural participant copy in ${language}`, async ({ page }) => {
+      await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });
+      const source = confirmedV2RequestFixture();
+      for (const count of [1, 2]) fixture.requests().push({ ...source,
+        id: `66666666-6666-4666-8666-${String(count).padStart(12, '0')}`, internalParticipants: count,
+      });
+      await page.goto(`${ORIGIN}/`);
+      await page.locator(`[data-view="${view}"]`).click();
+      for (const count of [1, 2]) {
+        const card = page.locator(`[data-production-request-id="66666666-6666-4666-8666-${String(count).padStart(12, '0')}"]`);
+        const copy = language === 'de' ? (count === 1 ? '1 teilnehmende Person' : '2 Teilnehmende')
+          : (count === 1 ? '1 participant' : '2 participants');
+        await expect(card.getByText(copy, { exact: true })).toBeVisible();
+      }
+      expect(fixture.writes).toHaveLength(0);
+    });
+  }
+}
+
+for (const language of ['de', 'en']) {
+  for (const view of ['requests', 'manager']) {
     test(`CO-305: ${view} keeps 27 requests compact with visible critical notes and keyboard details in ${language}`, async ({ page }) => {
       await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
       const fixture = await installProductionApplicationFixture(page, { roles: ['employee', 'conference_manager'] });

@@ -16,7 +16,9 @@ import {
 } from '../../section-contract.js';
 import {
   USER_FILTER_DEFAULTS,
+  canRetainUserList,
   normalizedUserFilters,
+  retainedUserPage,
   userOperationErrorKey,
 } from './model.js';
 
@@ -108,6 +110,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
   let nextAfterId = null;
   let cursorHistory = [];
   let pendingFocus = null;
+  let lastPage = null;
   const invitationController=adapter?.invitations ? createInvitationAdministrationController({ client: adapter.invitations }) : null;
   const invitationDraft=[];let invitationView=null;
   const mappingDraft={ initialized: false,directoryId: '',revision: 0,mappings: [] };let mappingView=null;
@@ -224,7 +227,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
     return form;
   }
 
-  function userCard(user, rerender) {
+  function userCard(user, rerender, { readOnly = false, isCurrent }) {
     const self = user.id === context.userId();
     const originalRoles = directRolesFromUser(user);
     const groupRoles = microsoftGroupRolesFromUser(user);
@@ -248,7 +251,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
       className: 'tenant-role-fieldset',
       attrs: { 'aria-describedby': statusId },
     });
-    roles.disabled = self;
+    roles.disabled = self || readOnly;
     roles.appendChild(el('legend', { text: t(groupRoles.length
       ? 'tenantAdmin.users.directRoles' : 'tenantAdmin.users.elevatedRoles') }));
     if (groupRoles.length) {
@@ -265,14 +268,14 @@ export function createUsersSection({ context, adapter = null } = {}) {
       id: `tenant-user-manager-${user.id}`,
       label: t('tenantAdmin.users.roleConferenceManager'),
       checked: originalRoles.includes(TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER),
-      disabled: self || !canSelectRole(user, TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER),
+      disabled: readOnly || self || !canSelectRole(user, TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER),
       describedBy: statusId,
     });
     const tenantAdmin = checkbox({
       id: `tenant-user-admin-${user.id}`,
       label: t('tenantAdmin.users.roleTenantAdmin'),
       checked: originalRoles.includes(TENANT_ELEVATED_ROLE.TENANT_ADMIN),
-      disabled: self || !canSelectRole(user, TENANT_ELEVATED_ROLE.TENANT_ADMIN),
+      disabled: readOnly || self || !canSelectRole(user, TENANT_ELEVATED_ROLE.TENANT_ADMIN),
       describedBy: statusId,
     });
     roles.append(conferenceManager.wrapper, tenantAdmin.wrapper);
@@ -297,7 +300,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
     let mutationPending = false;
     let lifecycle = null;
     const updateSaveState = () => {
-      save.disabled = mutationPending || sameRoleSelection(originalRoles, currentSelection(controls));
+      save.disabled = readOnly || mutationPending || sameRoleSelection(originalRoles, currentSelection(controls));
       message.textContent = !user.active
         ? t('tenantAdmin.users.inactiveHint')
         : (self ? t('tenantAdmin.users.selfManagedElsewhere') : '');
@@ -308,24 +311,28 @@ export function createUsersSection({ context, adapter = null } = {}) {
         const role = control === controls.conferenceManager
           ? TENANT_ELEVATED_ROLE.CONFERENCE_MANAGER
           : TENANT_ELEVATED_ROLE.TENANT_ADMIN;
-        control.disabled = pending || self || !canSelectRole(user, role);
+        control.disabled = readOnly || pending || self || !canSelectRole(user, role);
       });
-      if (lifecycle) lifecycle.disabled = pending;
+      if (lifecycle) lifecycle.disabled = readOnly || pending;
       updateSaveState();
     };
     Object.values(controls).forEach((control) => control.addEventListener('change', updateSaveState));
 
     save.addEventListener('click', async () => {
       if (mutationPending) return;
+      if (readOnly || !isCurrent()) return;
+      lastPage = null;
       setMutationPending(true);
       message.textContent = t('tenantAdmin.users.saving');
       try {
         const updated = await adapter.setRoles(user.id, currentSelection(controls));
+        if (!isCurrent()) return;
         showToast(t('tenantAdmin.users.saved'));
         announce(t('tenantAdmin.users.savedFor', { name: updated.displayName }));
         pendingFocus = updated.id;
         rerender();
       } catch (error) {
+        if (!isCurrent()) return;
         const key = userOperationErrorKey(error?.code, 'roles');
         setMutationPending(false);
         message.textContent = t(key);
@@ -343,15 +350,19 @@ export function createUsersSection({ context, adapter = null } = {}) {
       ? 'tenantAdmin.operations.users.reactivate'
       : 'tenantAdmin.operations.users.disable'), {
       className: nextActive ? 'secondary' : 'danger',
+      disabled: readOnly,
       dataset: { tenantUserLifecycleAction: nextActive ? 'reactivate' : 'disable' },
     });
     if (self) lifecycle.hidden = true;
     lifecycle.addEventListener('click', async () => {
       if (mutationPending) return;
+      if (readOnly || !isCurrent()) return;
+      lastPage = null;
       setMutationPending(true);
       lifecycleMessage.textContent = t('tenantAdmin.operations.users.lifecycleSaving');
       try {
         const updated = await adapter.setAccess(user.id, nextActive, user.lifecycle.version);
+        if (!isCurrent()) return;
         const key = updated.active
           ? 'tenantAdmin.operations.users.reactivated'
           : 'tenantAdmin.operations.users.disabled';
@@ -363,6 +374,7 @@ export function createUsersSection({ context, adapter = null } = {}) {
         pendingFocus = updated.id;
         rerender();
       } catch (error) {
+        if (!isCurrent()) return;
         const key = userOperationErrorKey(error?.code, 'lifecycle');
         setMutationPending(false);
         lifecycleMessage.textContent = t(key);
@@ -379,7 +391,9 @@ export function createUsersSection({ context, adapter = null } = {}) {
       el('p', { text: t('tenantAdmin.operations.users.disableEffect') }),
       user.requestOwnership.openRequestCount > 0
         ? el('p', {
-          text: t('tenantAdmin.operations.users.openRequestsPreserved', {
+          text: t(user.requestOwnership.openRequestCount === 1
+            ? 'tenantAdmin.operations.users.openRequestPreserved'
+            : 'tenantAdmin.operations.users.openRequestsPreserved', {
             count: formatNumber(user.requestOwnership.openRequestCount),
           }),
         })
@@ -400,22 +414,23 @@ export function createUsersSection({ context, adapter = null } = {}) {
     return card;
   }
 
-  function pagination(rerender) {
+  function pagination(rerender, readOnly = false) {
     const previous = button(t('tenantAdmin.operations.common.previousPage'), {
-      disabled: cursorHistory.length === 0,
+      disabled: readOnly || cursorHistory.length === 0,
       dataset: { tenantUsersPage: 'previous' },
     });
     previous.addEventListener('click', () => {
+      if (readOnly) return;
       afterId = cursorHistory.pop() ?? null;
       pendingFocus = 'results';
       rerender();
     });
     const next = button(t('tenantAdmin.operations.common.nextPage'), {
-      disabled: nextAfterId === null,
+      disabled: readOnly || nextAfterId === null,
       dataset: { tenantUsersPage: 'next' },
     });
     next.addEventListener('click', () => {
-      if (nextAfterId === null) return;
+      if (readOnly || nextAfterId === null) return;
       cursorHistory.push(afterId);
       afterId = nextAfterId;
       pendingFocus = 'results';
@@ -433,6 +448,28 @@ export function createUsersSection({ context, adapter = null } = {}) {
     ]);
   }
 
+  function renderPage(surface, page, { rerender, isCurrent, readOnly = false }) {
+    const resultStatus = el('p', {
+      className: 'tenant-operations-result-status',
+      text: t(readOnly ? 'tenantAdmin.users.retained' : page.users.length === 1
+        ? 'tenantAdmin.users.loadedOne' : 'tenantAdmin.users.loaded', { count: formatNumber(page.users.length) }),
+      attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', tabindex: '-1' },
+    });
+    surface.appendChild(resultStatus);
+    if (!page.users.length) {
+      surface.appendChild(el('section', { className: 'card tenant-admin-status' }, [
+        el('strong', { text: t('tenantAdmin.users.empty') }),
+        el('p', { className: 'muted', text: t('tenantAdmin.users.emptyHint') }),
+      ]));
+    } else {
+      const list = el('div', { className: 'tenant-user-grid' });
+      page.users.forEach(user => list.appendChild(userCard(user, rerender, { readOnly, isCurrent })));
+      surface.appendChild(list);
+    }
+    surface.appendChild(pagination(rerender, readOnly));
+    return resultStatus;
+  }
+
   async function render({ root, isCurrent, rerender }) {
     invitationView?.dispose();invitationView=null;
     mappingView?.dispose();mappingView=null;
@@ -445,14 +482,20 @@ export function createUsersSection({ context, adapter = null } = {}) {
       el('p', { text: t('tenantAdmin.users.description') }),
       context.isDemoRuntime() ? null : el('p', { className: 'muted', text: t('tenantAdmin.users.securityNote') }),
     ]);
-    const refresh = button(t('tenantAdmin.users.refresh'), { dataset: { tenantRoleAction: 'refresh' } });
-    refresh.addEventListener('click', rerender);
+    const refreshList = () => { pendingFocus = 'results'; rerender(); };
+    const refresh = button(t('tenantAdmin.users.refresh'), { disabled: true, dataset: { tenantRoleAction: 'refresh' } });
+    refresh.addEventListener('click', refreshList);
     intro.appendChild(el('div', { className: 'button-row' }, [refresh]));
 
     const surface = el('section', {
       dataset: { tenantAdminUsers: 'true' },
       attrs: { 'aria-label': t('tenantAdmin.users.title') },
     }, [loadingPanel()]);
+    const query = { limit: PAGE_SIZE, afterId, ...filters };
+    const scope = { owner: adapter, userId: context.userId(), query };
+    const retained = retainedUserPage(lastPage, scope);
+    if (retained) renderPage(surface, retained, { rerender, isCurrent, readOnly: true });
+    else lastPage = null;
     root.append(intro);
     if (invitationController) {
       invitationView=createInvitationAdministrationView({ controller: invitationController,draft: invitationDraft,isCurrent });
@@ -467,28 +510,13 @@ export function createUsersSection({ context, adapter = null } = {}) {
     }
 
     try {
-      const page = await adapter.listUsers({ limit: PAGE_SIZE, afterId, ...filters });
+      const page = await adapter.listUsers(query);
       if (!isCurrent()) return;
+      lastPage = { ...scope, page };
       nextAfterId = page.nextAfterId;
       clear(surface);
-      const resultStatus = el('p', {
-        className: 'tenant-operations-result-status',
-        text: t('tenantAdmin.users.loaded', { count: formatNumber(page.users.length) }),
-        attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', tabindex: '-1' },
-      });
-      surface.appendChild(resultStatus);
-      if (!page.users.length) {
-        surface.appendChild(el('section', { className: 'card tenant-admin-status' }, [
-          el('strong', { text: t('tenantAdmin.users.empty') }),
-          el('p', { className: 'muted', text: t('tenantAdmin.users.emptyHint') }),
-        ]));
-      } else {
-        const list = el('div', { className: 'tenant-user-grid' });
-        page.users.forEach((user) => list.appendChild(userCard(user, rerender)));
-        surface.appendChild(list);
-      }
-      surface.appendChild(pagination(rerender));
-      announce(t('tenantAdmin.users.loaded', { count: formatNumber(page.users.length) }));
+      const resultStatus = renderPage(surface, page, { rerender, isCurrent });
+      announce(resultStatus.textContent);
       const focusTarget = pendingFocus;
       pendingFocus = null;
       if (focusTarget !== null) {
@@ -500,11 +528,16 @@ export function createUsersSection({ context, adapter = null } = {}) {
         }
       }
     } catch (error) {
+      if (!canRetainUserList(error?.code)) lastPage = null;
       if (!isCurrent()) return;
       clear(surface);
       const key = userOperationErrorKey(error?.code, 'load');
-      surface.appendChild(errorPanel(key, rerender));
+      surface.appendChild(errorPanel(key, refreshList));
+      const previous = retainedUserPage(lastPage, scope);
+      if (previous) renderPage(surface, previous, { rerender, isCurrent, readOnly: true });
       announce(t(key), { assertive: true });
+    } finally {
+      if (isCurrent()) refresh.disabled = false;
     }
   }
 

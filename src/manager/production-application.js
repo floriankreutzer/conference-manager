@@ -68,7 +68,8 @@ function requestSummary(request, catalog, currentRoomContext = null) {
     el('dd', { text: formattedRequestTime(request.startsAt, timeZone) }),
     el('dt', { text: t('production.employee.end') }),
     el('dd', { text: formattedRequestTime(request.endsAt, timeZone) }),
-    el('dt', { text: t('production.common.participants', { count: participants }) }),
+    el('dt', { text: t(participants === 1 ? 'production.common.participantOne'
+      : 'production.common.participants', { count: formatNumber(participants) }) }),
     el('dd', { text: `${request.internalParticipants} / ${request.externalParticipants}` }),
     el('dt', { text: t('production.common.status') }),
     el('dd', { text: ['pending', 'applying', 'applied', 'rejected', 'superseded'].includes(request.status)
