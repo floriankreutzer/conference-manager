@@ -37,7 +37,7 @@ function pageFrames(page, objects) {
   const contentId = page.match(/\/Contents\s+(\d+) 0 R/u)?.[1];
   assert.ok(contentId, 'Expected one direct Chromium page content reference');
   const stack = []; const frames = [];
-  let state = { matrix: [1, 0, 0, 1, 0, 0], clip: null, lineWidth: 1 };
+  let state = { matrix: [1, 0, 0, 1, 0, 0], clip: null, unknownClip: false, lineWidth: 1 };
   let pending = null;
   for (const line of contentStream(objects.get(contentId)).split(/\r?\n/u)) {
     const previous = pending; pending = null;
@@ -51,7 +51,13 @@ function pageFrames(page, objects) {
       const match = line.match(rectangleOperation); assert.ok(match, 'Unsupported print rectangle');
       pending = rectangle(state.matrix, match[1].split(' ').map(Number));
     } else if (/^W\*? n$/u.test(line)) {
-      assert.ok(previous && !state.clip, 'Expected one outer rectangular page clip'); state.clip = previous;
+      // Skia isolates nonrectangular link-decoration clips with q/Q. They must
+      // never qualify a card frame; rectangular clips can only narrow the page.
+      if (!previous) state.unknownClip = true;
+      else state.clip = state.clip ? {
+        left: Math.max(state.clip.left, previous.left), right: Math.min(state.clip.right, previous.right),
+        bottom: Math.max(state.clip.bottom, previous.bottom), top: Math.min(state.clip.top, previous.top),
+      } : previous;
     } else if (/^\/G\d+ gs$/u.test(line)) {
       const name = line.split(' ')[0];
       const ref = page.match(new RegExp(`${name}\\s+(\\d+) 0 R`, 'u'))?.[1];
@@ -59,6 +65,7 @@ function pageFrames(page, objects) {
       const width = objects.get(ref).match(new RegExp(`/LW\\s+(${NUMBER})`, 'u'));
       if (width) state.lineWidth = Number(width[1]);
     } else if (line === 'S' && previous) {
+      assert.ok(!state.unknownClip, 'Cannot qualify a guest card frame under an unsupported clip');
       assert.ok(state.clip && state.lineWidth > 0, 'Expected a clipped frame with a positive stroke');
       const horizontal = Math.abs(state.matrix[0]) * state.lineWidth / 2;
       const vertical = Math.abs(state.matrix[3]) * state.lineWidth / 2;
