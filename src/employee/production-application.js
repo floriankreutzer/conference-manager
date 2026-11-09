@@ -2430,8 +2430,7 @@ export function createProductionEmployeeApplication({
               }
             },
             onGuestInfo: (target, _roomContext, control) => withGuestRoomContext(target, (preparedTarget, currentRoomContext) => {
-              const dialog = openGuestInfo(preparedTarget, currentRoomContext,
-                (onAbort) => printGuest(preparedTarget, onAbort));
+              const dialog = openGuestInfo(preparedTarget, currentRoomContext, (onAbort) => printGuest(preparedTarget, onAbort));
               // Loading disables the trigger, so native dialog focus capture can
               // observe the body instead. Restore the explicit current card owner.
               dialog.addEventListener('close', () => {
