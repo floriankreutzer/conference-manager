@@ -481,10 +481,23 @@ for (const status of [401, 403]) {
   test(`CO-315: Users discards retained data on actual HTTP ${status} authority loss`, async ({ page }) => {
     const fixture = await installProductionFixture(page);
     await openTenantAdministration(page);
+    const user = page.locator(`[data-tenant-user-id="${USER_ID}"]`);
+    await expect(user.getByRole('heading', { name: 'Casey User' })).toBeVisible();
+    let release;
+    fixture.userListResponse.wait = new Promise(resolve => { release = resolve; });
     fixture.userListResponse.status = status;
     await page.locator('[data-tenant-role-action="refresh"]').click();
-    await expect(page.locator('html')).toHaveAttribute('data-session-locked', 'true');
+    await expect(user.getByRole('checkbox', { name: 'Conference Manager' })).toBeDisabled();
+    release();
+    const authorityStatus = page.locator('[data-authority-invalid="true"]');
+    await expect(authorityStatus).toHaveText(status === 401
+      ? 'Ihre Sitzung ist nicht mehr gültig. Melden Sie sich erneut an.'
+      : 'Sie sind für diese Aktion nicht berechtigt.');
+    await expect(authorityStatus).toBeFocused();
     await expect(page.locator('[data-tenant-user-id]')).toHaveCount(0);
+    await expect(page.locator('[data-tenant-admin-section-content]')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+    await expect(page.locator('#toast')).toBeEmpty();
     expect(fixture.writes).toEqual([]);
     expect(fixture.accessWrites).toEqual([]);
   });
