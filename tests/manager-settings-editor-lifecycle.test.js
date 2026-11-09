@@ -55,6 +55,22 @@ test('CO-306 additions and deletions stay dirty across an unrelated partial writ
   assert.equal(navigation.dirty(), false);
 });
 
+test('CO-306 saving a newly added item ignores its empty picker but retains an actual unuploaded file', () => {
+  const { controls, editor, navigation } = fixture();
+  const item = { type: 'text', value: 'Saved new item', disabled: false };
+  const picker = { type: 'file', files: [], disabled: false };
+  controls.push(item, picker);
+  assert.equal(navigation.dirty(), true);
+  editor.saved([item]);
+  assert.equal(navigation.dirty(), false, 'An empty new picker is not a pending upload');
+  picker.files = [{ name: 'tea.png', size: 25, lastModified: 3 }];
+  assert.equal(navigation.dirty(), true);
+  editor.saved([item]);
+  assert.equal(navigation.dirty(), true, 'Saving item data must not acknowledge the selected file');
+  picker.files = [];
+  assert.equal(navigation.dirty(), false, 'Clearing an unuploaded selection restores the saved form');
+});
+
 test('CO-306 attachment baseline rebase preserves a pending removal without discarding the uploaded asset', () => {
   const { media, editor, navigation } = fixture();
   media.selectedOptions = [{ value: 'uploaded' }];

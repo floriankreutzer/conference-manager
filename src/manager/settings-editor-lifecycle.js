@@ -27,8 +27,13 @@ export function createManagerSettingsEditor({ form, interactionRoot = form, isCu
 
   function dirty() {
     const current = fields();
-    return current.some((control) => !baselines.has(control)
-      || JSON.stringify(settingsControlValue(control)) !== JSON.stringify(baselines.get(control)))
+    return current.some((control) => {
+      const value = settingsControlValue(control);
+      // New catalogue entries also add an empty image picker. Only a selected
+      // file is an independent upload draft after the entry itself is saved.
+      if (!baselines.has(control)) return control.type !== 'file' || value.length > 0;
+      return JSON.stringify(value) !== JSON.stringify(baselines.get(control));
+    })
       || Array.from(baselines.keys()).some((control) => !current.includes(control));
   }
 

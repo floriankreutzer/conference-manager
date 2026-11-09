@@ -586,7 +586,7 @@ export function createManagerBusinessSettingsApplication({
                 [collection]: [...current.catalogue[collection], entryValue] },
             });
             if (!isCurrentRender(revision, renderRoot) || section !== 'catering') return;
-            catalogueState.savedOwner(savedOwner.revision);
+            catalogueState.savedOwner(savedOwner);
             catalogueState.editor().saved(Array.from(editor.node.querySelectorAll('input, select, textarea'))
               .filter((control) => control.type !== 'file'));
           }
@@ -604,8 +604,8 @@ export function createManagerBusinessSettingsApplication({
             syncImageControls();
             catalogueState.editor().saved([picker]);
             showToast(t('managerSettings.catalogue.imageSaved'));
-            // Keep the complete in-memory form draft. The persisted owner revision
-            // is reconciled on the next explicit save/reload rather than rebuilding here.
+            // Keep other drafts mounted; the confirmed owner snapshot and named
+            // choices were refreshed without rebuilding the form.
             return;
           }
           save.textContent = t('managerSettings.catalogue.imageReplace');
@@ -1114,7 +1114,7 @@ export function createManagerBusinessSettingsApplication({
     const catalogueState = {
       editor: () => formEditor,
       revision: () => catalogueRevision,
-      savedOwner: (value) => { catalogueRevision = value; },
+      savedOwner: updateSavedCatalogue,
     };
     const sections = section === 'services'
       ? [
@@ -1163,6 +1163,18 @@ export function createManagerBusinessSettingsApplication({
     if (section === 'catering') form.appendChild(el('h3', { text: t('managerSettings.catalogue.cateringPackages') }));
     const packageEditors = section === 'catering'
       ? snapshot.catalogue.cateringPackages.map((entry) => packageEditor(entry, references)) : [];
+    function updateSavedCatalogue(value) {
+      catalogueRevision = value.revision;
+      snapshot = value;
+      references.items = value.catalogue.cateringItems;
+      // A pending image can keep this form mounted after a successful data
+      // save. Refresh only authoritative choices, retaining selections/drafts.
+      for (const editor of packageEditors) {
+        const choices = referenceChoices(references.items, selectedReferences(editor.itemIds));
+        editor.itemIds.replaceChildren(...choices.children);
+        editor.itemIds.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
     const packageList = createCatalogueEditorList({ id: 'manager-packages', editors: packageEditors });
     const packageSurface = packageList.node;
     if (demoMedia) {
@@ -1226,8 +1238,7 @@ export function createManagerBusinessSettingsApplication({
         };
         const saved = await catalogue.saveCatalogue({ expectedRevision: catalogueRevision, catalogue: next });
         if (!isCurrentRender(revision, renderRoot) || !['services', 'catering'].includes(section)) return;
-        catalogueRevision = saved.revision;
-        snapshot = saved;
+        updateSavedCatalogue(saved);
         formEditor.saved(Array.from(form.querySelectorAll('input, select, textarea'))
           .filter((control) => control.type !== 'file' && control.type !== 'search'), { removeMissing: true });
         showToast(t('managerSettings.saved'));

@@ -4535,45 +4535,101 @@ test('Manager Business Settings save 403 clears forms, cockpit and cached shell 
   await expect(page.locator('#toast')).toBeEmpty();
 });
 
-test('detached Manager Business Settings save 403 still invalidates the newer shell view', async ({ page }) => {
-  await installProductionApplicationFixture(page, {
-    roles: ['employee', 'conference_manager'],
-  });
-  await page.goto(`${ORIGIN}/`);
-  await page.locator('[data-view="manager"]').click();
-  await page.getByRole('tab', { name: 'Administration' }).click();
-  await expect(page.locator('#manager-room-name-0')).toBeVisible();
-  let releaseFailure;
-  let markStarted;
-  const failureGate = new Promise((resolve) => { releaseFailure = resolve; });
-  const failureStarted = new Promise((resolve) => { markStarted = resolve; });
-  await page.route(/\/api\/v1\/tenant\/settings\/locations$/, async (route) => {
-    if (route.request().method() !== 'PUT') {
-      await route.fallback();
-      return;
-    }
-    markStarted();
-    await failureGate;
-    await route.fulfill({
-      status: 403,
-      contentType: 'application/json; charset=utf-8',
-      body: JSON.stringify({ error: { code: 'FORBIDDEN', requestId: API_REQUEST_ID } }),
+for (const detach of ['authority invalidation', 'inactivity lock']) {
+  test(`detached Manager Business Settings save 403 remains fail-closed after ${detach}`, async ({ page }) => {
+    await installProductionApplicationFixture(page, {
+      roles: ['employee', 'conference_manager'],
     });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    await page.getByRole('tab', { name: 'Administration' }).click();
+    await expect(page.locator('#manager-room-name-0')).toBeVisible();
+    let releaseFailure;
+    let markStarted;
+    const failureGate = new Promise((resolve) => { releaseFailure = resolve; });
+    const failureStarted = new Promise((resolve) => { markStarted = resolve; });
+    await page.route(/\/api\/v1\/tenant\/settings\/locations$/, async (route) => {
+      if (route.request().method() !== 'PUT') {
+        await route.fallback();
+        return;
+      }
+      markStarted();
+      await failureGate;
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ error: { code: 'FORBIDDEN', requestId: API_REQUEST_ID } }),
+      });
+    });
+
+    const form = page.locator('[data-manager-business-settings-root] form');
+    await form.getByRole('button', { name: 'Speichern', exact: true }).click();
+    await failureStarted;
+    await page.locator('[data-view="welcome"]').click();
+    await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+    await expect(form).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('[data-view="manager"]')).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    const authorityStatus = page.locator('[data-authority-invalid="true"]');
+    let previousAuthorityStatus;
+    if (detach === 'authority invalidation') {
+      await page.route(/\/api\/v1\/session$/, async (route) => {
+        if (route.request().method() !== 'DELETE') {
+          await route.fallback();
+          return;
+        }
+        await route.fulfill({
+          status: 403,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ error: { code: 'FORBIDDEN', requestId: API_REQUEST_ID } }),
+        });
+      });
+      await page.locator('#primaryNavigation button[aria-haspopup="dialog"]').click();
+      await page.getByRole('dialog', { name: 'Profil' }).getByRole('button', { name: 'Logout' }).click();
+      await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
+      await expect(authorityStatus).toBeFocused();
+      previousAuthorityStatus = await authorityStatus.elementHandle();
+    } else {
+      await lockProductionApplication(page);
+    }
+    await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+    await expect(page.locator('.manager-surface')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+
+    const failureResponse = page.waitForResponse((response) => (
+      new URL(response.url()).pathname === '/api/v1/tenant/settings/locations'
+      && response.request().method() === 'PUT'
+    ));
+    releaseFailure();
+    const response = await failureResponse;
+    expect(response.status()).toBe(403);
+    await response.finished();
+
+    if (previousAuthorityStatus) {
+      // Replacing the first status proves that the detached write still reaches
+      // the shared authority boundary instead of returning as merely stale.
+      await expect.poll(() => previousAuthorityStatus.evaluate((node) => node.isConnected)).toBe(false);
+      await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
+      await expect(authorityStatus).toBeFocused();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    } else {
+      const lock = page.locator('dialog[data-inactivity-lock="true"]');
+      await expect(page.locator('html')).toHaveAttribute('data-session-locked', 'true');
+      await expect(lock).toBeVisible();
+      await expect(lock.getByRole('button', { name: 'Sitzung prüfen und entsperren' })).toBeFocused();
+      await expect(page.locator('dialog:not([data-inactivity-lock="true"])')).toHaveCount(0);
+      await expect(page.locator('#app')).toBeEmpty();
+    }
+    await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
+    await expect(page.locator('.manager-surface')).toHaveCount(0);
+    await expect(page.locator('#welcomeHeading')).toHaveCount(0);
+    await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
+    await expect(page.locator('#toast')).toBeEmpty();
+    await expect(page.locator('#statusRegion')).toBeEmpty();
+    await expect(page.locator('#alertRegion')).toBeEmpty();
   });
-
-  await page.locator('[data-manager-business-settings-root] form')
-    .getByRole('button', { name: 'Speichern', exact: true }).click();
-  await failureStarted;
-  await page.locator('[data-view="welcome"]').click();
-  await expect(page.locator('#welcomeHeading')).toBeVisible();
-  releaseFailure();
-
-  const authorityStatus = page.locator('[data-authority-invalid="true"]');
-  await expect(authorityStatus).toHaveText('Sie sind für diese Aktion nicht berechtigt.');
-  await expect(authorityStatus).toBeFocused();
-  await expect(page.locator('#welcomeHeading')).toHaveCount(0);
-  await expect(page.locator('#primaryNavigation button')).toHaveCount(0);
-});
+}
 
 test('detached Tenant Admin load 401 invalidates every privileged shell surface', async ({ page }) => {
   await installProductionApplicationFixture(page, {
