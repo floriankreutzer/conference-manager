@@ -16,3 +16,37 @@ browser/Hosted evidence are recorded in `SAAS-3.6-RELEASE-EVIDENCE.md`.
 #170 records the normal protected readiness publication and actual final live pair.
 Demo UX readiness does not establish tagged-PDF, Production or external-provider
 certification, and the accepted ADR-012 evidence limits remain unchanged.
+
+## Guest print regression evidence
+
+The existing browser matrix exercises Guest print in German and English with
+bounded public title, Room/Site, address and contact values large enough to require
+multiple A4 pages. Chromium retains the actual PDF and checks its page tree, a
+two-to-four-page bound and portrait A4 dimensions on every page. The ordinary
+Guest case retains the same structural checks with a one-page minimum. These
+checks inspect Chromium's emitted page dictionaries; they are not a parser or
+security validator for uploaded PDFs.
+
+Both Chromium and WebKit retain the screen image, print-media image and visible
+print text. They verify that phone-only layout rules do not reduce the print grid
+to one column, long public fields remain present without horizontal overflow,
+the print action is hidden only in print media, and keyboard activation remains
+usable after returning to screen media. A delayed stylesheet cannot move focus
+from the current owner control; the session lock still closes the detached surface.
+No WebKit PDF-generation capability is claimed. The existing CI canary and complete
+matrix run these cases and retain their attachments without a new dependency or
+workflow entry point.
+
+Download the exact successful run's original PDFs for independent page rendering
+and text extraction with standard PDF tools. Verify each page, field endings and
+the final WLAN section against the attached public print text; verify that private
+Request requirements, dietary notes, internal identities and the print button are
+absent. Source assertions and continuous print-media screenshots alone do not prove
+physical page fragmentation or replace that actual PDF review. A new candidate's
+browser/PDF evidence remains pending until its own CI run completes.
+
+The detached document deliberately remains text-only under its fixed CSP: Room
+photos, QR images, external fonts and network connections are not authorized by a
+visual target. The existing four facts and visit/WLAN cards remain the implemented
+layout; source and PDF checks do not claim exact visual parity or tagged-PDF/accessibility
+certification.

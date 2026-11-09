@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productionUtcInstant } from '../../src/core/production-time.js';
 import { applicationProjectionPayload } from './fixtures/application-projections.js';
+import { attachGuestPrintEvidence } from './fixtures/guest-print-evidence.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const ORIGIN = 'https://conference.test';
@@ -3384,13 +3385,7 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(popup.locator('.guest-print-hero')).toHaveCSS('border-bottom-color', 'rgb(122, 31, 61)');
   await expect(popup.locator('.guest-print-facts article')).toHaveCount(4);
   expect(await popup.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await testInfo.attach('guest-welcome-screen', { body: await popup.screenshot({ fullPage: true }), contentType: 'image/png' });
-  if (testInfo.project.name === 'chromium-desktop') {
-    const pdf = await popup.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
-    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(pdf.length).toBeLessThan(1_048_576);
-    await testInfo.attach('guest-welcome-pdf', { body: pdf, contentType: 'application/pdf' });
-  }
+  await attachGuestPrintEvidence(popup, testInfo, 'guest-welcome');
 
   await popup.getByRole('button', { name: 'Drucken / Als PDF speichern' }).focus();
   await expect(popup.getByRole('button', { name: 'Drucken / Als PDF speichern' })).toBeFocused();
@@ -3399,6 +3394,112 @@ test('EMP-14 EMP-15 API-02 Guest and print show finite values and conceal legacy
   await expect(popup.locator('.guest-print-grid')).toHaveCSS('display', 'grid');
   expect(await popup.evaluate(() => window.opener)).toBeNull();
   await popup.close();
+});
+
+for (const language of ['de', 'en']) {
+  test(`CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in ${language}`, async ({ page }, testInfo) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    const longValue = (label, maximum) => `${label} ${'W'.repeat(maximum - label.length - 5)} End`;
+    const title = longValue('Public meeting', 160);
+    const roomName = longValue('Public room', 160);
+    const siteName = longValue('Public site', 160);
+    const address = { line1: longValue('Public address', 160), line2: longValue('Public building', 160),
+      postalCode: '10115', city: longValue('Public city', 120), countryCode: 'DE' };
+    const contact = { name: longValue('Public reception', 160),
+      email: `${'g'.repeat(64)}@${`${'w'.repeat(63)}.`.repeat(2)}${'w'.repeat(56)}.test`, phone: '+49 30 555 0100' };
+    const catalog = catalogPayload();
+    catalog.catalog.rooms[0].name = roomName; catalog.catalog.sites[0].name = siteName;
+    const fixture = await installProductionApplicationFixture(page, { catalog, requestRoomContextSchemaVersion: 3,
+      requestRoomContext: { locationsRevision: 1,
+        room: { id: 'room-a', siteId: 'berlin', name: roomName, capacity: 12, active: true,
+          floor: null, floorplanAssetId: null, mediaAssetIds: [], accessibility: [],
+          guestPublicValues: { floorNumber: 200, accessibilityFeatures: ['step_free_entry', 'hearing_loop'] } },
+        site: { id: 'berlin', name: siteName, active: true, timeZone: 'Europe/Berlin' },
+        guestPublicValues: { publicTransport: 'available', parking: 'available', arrival: 'reception',
+          accessibilityFeatures: ['lift', 'accessible_toilet'] },
+        guestPresentation: { address, contact, routeUrl: 'https://www.openstreetmap.org/',
+          publicTransport: null, arrival: null, parking: null, reception: null, building: null,
+          visitorNotes: null, accessibility: null, wifiPolicy: 'credentials_on_arrival', wifiNetworkName: null },
+      },
+    });
+    const request = confirmedV2RequestFixture();
+    request.details = { ...request.details, title,
+      specialRequirements: 'PRIVATE_REQUEST_REQUIREMENTS_SENTINEL', dietaryRequirements: 'PRIVATE_DIETARY_SENTINEL' };
+    fixture.requests().push(request);
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="requests"]').click();
+    const popupPromise = page.waitForEvent('popup');
+    const trigger = page.getByRole('button', { name: language === 'de' ? 'Drucken / Als PDF speichern' : 'Print / Save as PDF', exact: true });
+    await trigger.focus(); await page.keyboard.press('Enter');
+    const popup = await popupPromise;
+    const print = popup.locator('button.print-action');
+    await expect(print).toBeEnabled();
+    await expect(popup.locator('html')).toHaveAttribute('lang', language);
+    const expectedText = [title, roomName, siteName, address.line1, address.line2, address.city, contact.name, contact.email, contact.phone,
+      language === 'de' ? 'Zugangsdaten bei Ankunft' : 'Credentials provided on arrival'];
+    for (const text of expectedText) await expect(popup.locator('body')).toContainText(text);
+    const excludedText = [REQUEST_ID, USER_ID, TENANT_ID, CSRF_TOKEN,
+      request.details.specialRequirements, request.details.dietaryRequirements];
+    for (const text of excludedText) {
+      await expect(popup.locator('body')).not.toContainText(text);
+    }
+    await expect(popup.locator('script, style, img, iframe, form')).toHaveCount(0);
+    await expect(popup.locator('link[rel="stylesheet"]')).toHaveCount(2);
+    await expect(popup.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute('content',
+      /script-src 'none'.*style-src-attr 'none'.*img-src 'none'.*font-src 'none'.*connect-src 'none'/);
+    expect(await popup.evaluate(() => window.opener)).toBeNull();
+    for (const width of [390, 768, 1366]) {
+      await popup.setViewportSize({ width, height: 900 });
+      expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    // Keep the phone-width print-media check meaningful in both engine projects.
+    await popup.setViewportSize({ width: 390, height: 900 });
+    await testInfo.attach(`guest-multipage-${language}-expected-public-fields`, {
+      body: Buffer.from(JSON.stringify(expectedText, null, 2)), contentType: 'application/json',
+    });
+    await attachGuestPrintEvidence(popup, testInfo, `guest-multipage-${language}`, { minimumPages: 2, expectedText, excludedText });
+    for (const text of expectedText) await expect(popup.locator('body')).toContainText(text);
+    await expect(print).toBeVisible(); await expect(print).toBeEnabled();
+    await popup.evaluate(() => { window.printCalls = 0; window.print = () => { window.printCalls++; }; });
+    await print.focus(); await popup.keyboard.press('Enter');
+    await expect.poll(() => popup.evaluate(() => window.printCalls)).toBe(1);
+    await expect(print).toBeFocused();
+    await popup.close();
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
+
+test('CO-317: EMP-14 EMP-15 delayed print CSS preserves current focus and cannot survive a session lock', async ({ page }) => {
+  const fixture = await installProductionApplicationFixture(page);
+  fixture.requests().push(confirmedRequestFixture());
+  await page.goto(`${ORIGIN}/`);
+  await page.locator('[data-view="requests"]').click();
+  await page.getByRole('button', { name: 'Gästeinformationen' }).click();
+  const dialog = page.getByRole('dialog');
+  const stylesheet = await readFile(path.join(ROOT, 'assets/employee-ux.css'));
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  await page.context().route(`${ORIGIN}/assets/employee-ux.css`, async (route) => {
+    await pending;
+    await route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body: stylesheet });
+  });
+  try {
+    const popupPromise = page.waitForEvent('popup');
+    await dialog.getByRole('button', { name: 'Drucken / Als PDF speichern' }).click();
+    const popup = await popupPromise;
+    await expect(popup.locator('.print-action')).toBeDisabled();
+    const close = dialog.getByRole('button', { name: 'Schließen', exact: true });
+    await page.bringToFront(); await close.focus();
+    await expect(close).toBeFocused();
+    release();
+    await expect(popup.locator('.print-action')).toBeEnabled();
+    await expect(close).toBeFocused();
+    await lockProductionApplication(page);
+    await expect.poll(() => popup.isClosed()).toBe(true);
+    await expect(page.locator('#app')).toBeEmpty();
+    await expect(page.locator('dialog:not([data-inactivity-lock="true"])')).toHaveCount(0);
+    expect(fixture.writes).toHaveLength(0);
+  } finally { release(); }
 });
 
 test('EMP-15 unavailable print styles close the detached surface with a recoverable message', async ({ page }) => {
