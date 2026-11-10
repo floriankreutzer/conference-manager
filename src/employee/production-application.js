@@ -22,7 +22,11 @@ import {
   renderServerRequestCalendar,
 } from './server-request-calendar.js';
 import { renderServerRequestHistory } from './server-request-history.js';
-import { composeServerRequestDraft } from '../shared/production-request-draft.js';
+import {
+  composeServerRequestDraft,
+  isSupportedRequestDuration,
+  REQUEST_MAX_DURATION_HOURS,
+} from '../shared/production-request-draft.js';
 import { requestTextResult } from '../shared/request-text.js';
 import { createServerRequestWorkflow } from './server-request-workflow.js';
 import {
@@ -1225,6 +1229,9 @@ export function createProductionEmployeeApplication({
     [...scheduleControls, specialRequirements, dietaryRequirements].forEach((control) => {
       control.addEventListener('input', () => clearControlValidation(control));
     });
+    [date, start, endDate, end].forEach((control) => {
+      control.addEventListener('input', () => clearControlValidation(endDate));
+    });
     for (const panel of [cateringPanel, allocationPanel]) {
       for (const eventName of ['input', 'change']) panel.addEventListener(eventName, event => {
         if (event.target.matches('input, select')) clearControlValidation(event.target);
@@ -1343,6 +1350,7 @@ export function createProductionEmployeeApplication({
       if (!multiDay.checked || !endDate.value) endDate.value = date.value;
     });
     multiDay.addEventListener('change', () => {
+      clearControlValidation(endDate);
       endDateField.hidden = !multiDay.checked;
       if (!multiDay.checked) endDate.value = date.value;
       endDate.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1668,6 +1676,13 @@ export function createProductionEmployeeApplication({
       if (!isCurrentEditor()) return;
       panels[activeStep - 1].querySelector('h2, input, select, textarea, button')?.focus();
     };
+    const validateRequestDuration = (window) => {
+      if (!window || isSupportedRequestDuration(window.startsAt, window.endsAt)) return true;
+      if (activeStep !== 1) moveToStep(1);
+      return showControlValidation(endDate, t('production.employee.durationLimit', {
+        maximum: formatNumber(REQUEST_MAX_DURATION_HOURS),
+      }));
+    };
     const validateStep = (stepNumber) => {
       for (const entry of textFields.filter((item) => item.step === stepNumber)) {
         clearControlValidation(entry.control);
@@ -1692,6 +1707,7 @@ export function createProductionEmployeeApplication({
           return showControlValidation(internal, t('production.employee.participantTotal', { maximum: formatNumber(MAX_PARTICIPANTS) }));
         }
         if (endsAtLocal <= startsAtLocal) return showControlValidation(end, t('production.employee.endAfterStart'));
+        if (!validateRequestDuration(currentAvailabilityWindow())) return false;
       }
       if (stepNumber === 2 && !isAvailabilityVerified()) {
         roomSelectionPanel.setAttribute('aria-invalid', 'true');
@@ -1895,6 +1911,7 @@ export function createProductionEmployeeApplication({
         status.textContent = t('production.employee.validation');
         return;
       }
+      if (!validateRequestDuration(window)) return;
       const availabilityRequestGeneration = ++availabilityGeneration;
       const key = availabilityKey(window);
       verifiedAvailabilityKey = null;

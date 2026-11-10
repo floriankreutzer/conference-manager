@@ -2,6 +2,7 @@ import { publicRoomGuestValues, publicSiteGuestValues } from '../core/public-gue
 import { normalizeGuestPresentation, normalizeGuestRoomText } from '../core/guest-presentation.js';
 import { isProductionTimeZone } from '../core/production-time.js';
 import { requestTextResult } from '../shared/request-text.js';
+import { isSupportedRequestDuration } from '../shared/production-request-draft.js';
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const CURSOR = /^[A-Za-z0-9_-]{1,2048}$/;
@@ -822,7 +823,7 @@ export function normalizeProductionPublicRequest(value, attribution = false) {
     common.roomId === null
     || participants < 1
     || participants > MAX_PARTICIPANTS
-    || Date.parse(endsAt) - Date.parse(startsAt) > 86_400_000
+    || !isSupportedRequestDuration(startsAt, endsAt)
   ) invalid(code);
   const details = requestDetails(input.details, code, input.schemaVersion);
   const pricing = requestPricing(input.pricing, code, input.schemaVersion);
@@ -951,7 +952,7 @@ export function normalizeProductionRequestDraft(value) {
   ], code);
   const startsAt = canonicalUtc(input.startsAt, code);
   const endsAt = canonicalUtc(input.endsAt, code);
-  if (endsAt <= startsAt || Date.parse(endsAt) - Date.parse(startsAt) > 86_400_000) invalid(code);
+  if (!isSupportedRequestDuration(startsAt, endsAt)) invalid(code);
   const internalParticipants = safeInteger(input.internalParticipants, 0, MAX_PARTICIPANTS, code);
   const externalParticipants = safeInteger(input.externalParticipants, 0, MAX_PARTICIPANTS, code);
   const totalParticipants = internalParticipants + externalParticipants;
