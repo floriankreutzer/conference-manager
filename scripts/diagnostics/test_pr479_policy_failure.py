@@ -150,7 +150,8 @@ class PolicyFailureTests(unittest.TestCase):
             ("aria/call@1-after.json", json.dumps([{"role": "heading", "name": "Booking policies", "active": True},
                                                  {"role": "spinbutton", "text": "366"}])),
         ]))
-        actions, dom, aria, requests = policy.trace_evidence(trace)
+        with contextlib.redirect_stdout(io.StringIO()):
+            actions, dom, aria, requests = policy.trace_evidence(trace)
         self.assertEqual(actions[0]["requestedValue"], "0.001")
         self.assertEqual(dom[0]["amount"]["value"], "366")
         self.assertTrue(aria[0]["active"][0]["bookingPolicyHeading"])
@@ -219,6 +220,60 @@ class PolicyFailureTests(unittest.TestCase):
         self.assertIn('"imageSha256":"' + core.sha(picture) + '"', text)
         self.assertNotIn("CM_POLICY_IMAGE_DATA ", text)
         self.assertIn('"images": 0', text)
+
+
+    def test_valid_context_remains_silent_and_exact(self):
+        event = {"version": 10, "browserName": "webkit", "playwrightVersion": "1.64.1"}
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            policy.require_browser_context(event, "0-trace.trace")
+        self.assertEqual(output.getvalue(), "")
+
+    def test_rejected_context_exposes_only_bounded_format_metadata(self):
+        valid = {"version": 10, "browserName": "webkit", "playwrightVersion": "1.64.1"}
+        for field, value in (("version", 9), ("version", 999999), ("browserName", ""),
+                             ("browserName", "https://private.invalid/?token=secret"),
+                             ("playwrightVersion", "1.64.2"), ("playwrightVersion", "private@example.invalid")):
+            event = {**valid, field: value, "options": {"token": "never-emit", "user": "private@example.invalid"}}
+            output = io.StringIO()
+            with self.subTest(field=field, value=value), contextlib.redirect_stdout(output):
+                with self.assertRaisesRegex(core.Rejected, "^policy-trace-version$"):
+                    policy.require_browser_context(event, "0-trace.trace")
+            text = output.getvalue()
+            self.assertTrue(text.startswith("CM_POLICY_REJECTION_CONTEXT "))
+            metadata = json.loads(text.split(" ", 1)[1])
+            self.assertEqual(set(metadata), {"artifactId", "traceVersion", "engineClass", "originClass", "runtimeVersion",
+                                            "expectedPlaywrightVersion", "streamClass", "numberedStream"})
+            self.assertEqual(metadata["artifactId"], policy.ARTIFACT)
+            self.assertTrue(metadata["numberedStream"])
+            self.assertEqual(metadata["streamClass"], "trace")
+            for prohibited in ("https://", "secret", "never-emit", "private@example", "options"):
+                self.assertNotIn(prohibited, text)
+
+
+    def test_trace_shape_keeps_only_presence_counts_and_known_phase_classes(self):
+        events = [
+            {"type": "context-options", "origin": "library", "version": 9, "browserName": "webkit",
+             "playwrightVersion": "1.64.1", "options": {"private": "never-emit"}},
+            {"type": "frame-snapshot", "snapshot": {"snapshotName": "before@private-value", "frameUrl": "https://private.invalid",
+             "frameId": "private-frame", "html": ["HTML", {}, "private@example.invalid"], "timestamp": 123}},
+            {"type": "frame-snapshot", "snapshot": {"callId": "private-call", "phase": "after", "isMainFrame": True}},
+            {"type": "aria-snapshot", "callId": "private-call", "phase": "action", "file": "private-resource"},
+            {"type": "aria-snapshot", "phase": "private-unknown", "snapshotName": "private-unknown"},
+        ]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            policy.emit_trace_shape([("0-trace.trace", events)])
+        text = output.getvalue()
+        shape = json.loads(text.split(" ", 1)[1])
+        self.assertEqual(shape["frames"]["total"], 2)
+        self.assertEqual(shape["frames"]["present"]["callId"], 1)
+        self.assertEqual(shape["frames"]["snapshotNamePrefixes"]["before"], 1)
+        self.assertEqual(shape["frames"]["phases"]["after"], 1)
+        self.assertEqual(shape["aria"]["phases"]["action"], 1)
+        self.assertEqual(shape["aria"]["phases"]["other"], 1)
+        for prohibited in ("https://", "private", "never-emit", "123"):
+            self.assertNotIn(prohibited, text)
 
 
 if __name__ == "__main__":

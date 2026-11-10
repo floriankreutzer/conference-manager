@@ -280,19 +280,71 @@ def write_payload(value):
     return {"payloadRecorded": True, "expectedRevision": value["expectedRevision"], "maximumAdvanceMinutes": amount}
 
 
+def context_metadata(event, stream):
+    version, engine, origin = event.get("version"), event.get("browserName"), event.get("origin")
+    runtime = event.get("playwrightVersion")
+    return {"artifactId": ARTIFACT,
+            "traceVersion": version if type(version) is int and 0 <= version <= 20 else None,
+            "engineClass": engine if engine in ("webkit", "chromium", "firefox", "") else "other",
+            "originClass": origin if origin in ("library", "testRunner") else "other",
+            "expectedPlaywrightVersion": runtime == "1.64.1",
+            "runtimeVersion": runtime if isinstance(runtime, str) and re.fullmatch(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}", runtime) else None,
+            "streamClass": "test" if stream.endswith("test.trace") else "trace",
+            "numberedStream": bool(re.match(r"[0-9]+-", stream))}
+
+
+def require_browser_context(event, stream):
+    valid = (event.get("version") == 10 and event.get("browserName") == "webkit"
+             and event.get("playwrightVersion") == "1.64.1")
+    if not valid:
+        print("CM_POLICY_REJECTION_CONTEXT " + json.dumps(context_metadata(event, stream), separators=(",", ":"), sort_keys=True))
+    require(valid, "policy-trace-version")
+
+
+def emit_trace_shape(event_streams):
+    keys = ("callId", "phase", "snapshotName", "html", "isMainFrame", "frameId", "frameUrl", "timestamp", "file", "pageId")
+    def empty():
+        return {"total": 0, "present": {key: 0 for key in keys},
+                "phases": {phase: 0 for phase in ("before", "action", "after", "missing", "other")},
+                "snapshotNamePrefixes": {phase: 0 for phase in ("before", "action", "after", "missing", "other")}}
+    shape = {"artifactId": ARTIFACT, "contexts": [], "frames": empty(), "aria": empty()}
+    def record(target, value):
+        target["total"] += 1
+        for key in keys:
+            target["present"][key] += int(key in value)
+        phase = value.get("phase")
+        category = phase if phase in ("before", "action", "after") else "missing" if phase is None else "other"
+        target["phases"][category] += 1
+        name = value.get("snapshotName")
+        prefix = re.match(r"^(before|action|after)@", name) if isinstance(name, str) else None
+        category = prefix.group(1) if prefix else "missing" if name is None else "other"
+        target["snapshotNamePrefixes"][category] += 1
+    for stream, events in event_streams:
+        for event in events:
+            if event.get("type") == "context-options":
+                shape["contexts"].append(context_metadata(event, stream))
+            elif event.get("type") == "frame-snapshot":
+                snapshot = event.get("snapshot")
+                record(shape["frames"], snapshot if isinstance(snapshot, dict) else {})
+            elif event.get("type") == "aria-snapshot":
+                record(shape["aria"], event)
+    require(len(shape["contexts"]) <= 12, "policy-context-count")
+    print("CM_POLICY_TRACE_SHAPE " + json.dumps(shape, separators=(",", ":"), sort_keys=True))
+
+
 def trace_evidence(trace):
     names = trace.namelist()
     streams = [name for name in names if re.fullmatch(r"(?:[0-9]+-)?(?:trace|test)\.trace", name)]
     networks = [name for name in names if re.fullmatch(r"(?:[0-9]+-)?trace\.network", name)]
     require(1 <= len(streams) <= 6 and 1 <= len(networks) <= 4, "policy-trace-streams")
     actions, dom, aria, frames, library_contexts = {}, [], [], {}, []
-    for stream in sorted(streams):
-        events = json_lines(core.member(trace, stream, 24 * MIB))
+    event_streams = [(stream, json_lines(core.member(trace, stream, 24 * MIB))) for stream in sorted(streams)]
+    emit_trace_shape(event_streams)
+    for stream, events in event_streams:
         for event in events:
             kind = event.get("type")
             if kind == "context-options" and event.get("origin") == "library":
-                require(event.get("version") == 10 and event.get("browserName") == "webkit"
-                        and event.get("playwrightVersion") == "1.64.1", "policy-trace-version")
+                require_browser_context(event, stream)
                 library_contexts.append(True)
             if kind == "before" and action_kind(event):
                 call = trace_id(event.get("callId"))
