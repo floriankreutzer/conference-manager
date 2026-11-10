@@ -2,7 +2,8 @@
 
 Only synthetic original PNG bytes and rendered original Chromium PDF pages may
 leave the runner through its bounded log. No target artwork, trace, HAR, HTML,
-cookies, raw report text or signed download URL is printed. There are no inputs.
+cookies, raw report text or signed download URL is printed. The only selector is
+one fixed output group; artifact identities and source checks remain pinned.
 """
 import base64
 import hashlib
@@ -26,25 +27,30 @@ import zlib
 
 REPOSITORY = "floriankreutzer/conference-manager"
 BRANCH = "CO-320-pr479-88ed5f-artifact-review"
-HEAD = "79127af1180cde18cb1e26351c74062d1fca4916"
-CHECKOUT = "6c5f8a0f7e121505757208fefcfe80d02c4708b7"
-TREE = "3abd3bc89d002d82ad674e77d6eb1a740814cd33"
+HEAD = "0b89158a98332415a7bdfe4d74c6a6bb945dd055"
+CHECKOUT = "5d4bc7f8ec27ab85abe6c11dadb335defa63b813"
+TREE = "b962db71e4df7a17dd01139cd4c3f040d38b80ac"
 BASE = "983d04d60b253b2b8bcac64751c1416fb941c7dc"
 API_COMMIT = "2b9a7f4fbeaba3688877d045337a1c00e3eda5de"
-RUN = 42740576995
-CHROMIUM_JOB = 129580958397
-SHARED_JOB = 129580958463
+RUN = 42746409149
+CHROMIUM_JOB = 129599907579
+SHARED_JOB = 129599907521
 ARTIFACTS = {
-    "chromium": (13729857924, "playwright-report-chromium-desktop", 29703687,
-                 "1128e1e8479c8c7839978cca547445b1606b75cee1e6e5a55370b4c72c8d9eb5"),
-    "zoom": (13728633924, "manager-worklist-browser-zoom-evidence", 1787022,
-             "9414ade46ce5af30058b7e785651f4db2b72aedcabec2e99fd0dd8d14be9dcbf"),
+    "chromium": (13732151730, "playwright-report-chromium-desktop", 29716539,
+                 "512e6e1b9ffa01e86859abe51d8c978dab6cbda020d7fb5f3ddf1b2cf87682f4"),
+    "zoom": (13732610053, "manager-worklist-browser-zoom-evidence", 1771270,
+             "6a6add0d655fc5cd1ad3035b33b01f14a51ec87ef3ce3221f6830d082ec51142"),
 }
 MIB = 1024 * 1024
 MAX_MEMBER = 32 * MIB
 MAX_EXPANDED = 160 * MIB
-MAX_IMAGES = 120
+IMAGE_COUNTS = {"primary": 27, "targeted": 55, "chromium-original-pdf": 4,
+                "actual-chromium-tab-zoom": 22}
+MAX_IMAGES = 108
 MAX_IMAGE_TOTAL = 20 * MIB
+OUTPUT_GROUPS = 8
+MAX_GROUP_BYTES = 3 * MIB
+MAX_METADATA_BYTES = 2 * MIB
 PRIMARY = {
     "01": ("welcome", 1280), "02": ("schedule", 1366),
     "03": ("filtered-room-selection", 1366),
@@ -304,7 +310,7 @@ def source_gate(token):
 
 def passed_report(report):
     stats = report.get("stats", {})
-    require(stats.get("total") == 605 and stats.get("expected") == 605 and stats.get("ok") is True
+    require(stats.get("total") == 609 and stats.get("expected") == 609 and stats.get("ok") is True
             and all(stats.get(key) == 0 for key in ("unexpected", "flaky", "skipped"))
             and report.get("errors") == [], "report-full-suite")
     require(report.get("projectNames") == ["chromium-desktop"], "report-project")
@@ -328,7 +334,7 @@ def attachments(source):
         require(isinstance(file_id, str) and re.fullmatch(r"[a-f0-9]{20}", file_id), "report-file-id")
         file = json_object(member(inner, file_id + ".json"))
         tests.extend(file.get("tests", []))
-    require(len(tests) == 605 and len({test.get("testId") for test in tests}) == 605, "report-inventory")
+    require(len(tests) == 609 and len({test.get("testId") for test in tests}) == 609, "report-inventory")
     for test in tests:
         require(test.get("outcome") == "expected" and test.get("projectName") == "chromium-desktop"
                 and len(test.get("results", [])) == 1, "test-source")
@@ -531,33 +537,62 @@ def zoom_images(source):
             for name, data in sorted(pictures.items())], geometry
 
 
-def emit(images, manifest, geometry):
-    require(0 < len(images) <= MAX_IMAGES, "image-count")
+def output_group(value):
+    require(type(value) is str and value in tuple(str(i) for i in range(OUTPUT_GROUPS)), "output-group")
+    return int(value)
+
+
+def emit(images, manifest, geometry, group):
+    require(type(group) is int and 0 <= group < OUTPUT_GROUPS, "output-group")
+    require(len(images) == MAX_IMAGES, "image-count")
     require(sum(len(data) for _, data in images) <= MAX_IMAGE_TOTAL, "image-total")
-    checked = []
-    for metadata, data in images:
-        require(re.fullmatch(r"[a-zA-Z0-9_.-]{1,180}", metadata["capture"]), "image-name")
-        checked.append(({**metadata, "imageBytes": len(data), "imageSha256": sha(data),
-                         **png_dimensions(data)}, data))
-    # Validate the complete output before the first image is emitted.
-    inventory = manifest.pop("captureInventory")
-    print("CM_REVIEW_MANIFEST " + json.dumps(manifest, separators=(",", ":"), sort_keys=True))
+    checked, names = [], set()
+    counts = dict.fromkeys(IMAGE_COUNTS, 0)
+    for index, (metadata, data) in enumerate(images):
+        name = metadata["capture"]
+        require(re.fullmatch(r"[a-zA-Z0-9_.-]{1,180}", name) and name not in names, "image-name")
+        names.add(name)
+        require(metadata.get("reviewGroup") in counts, "image-review-group")
+        counts[metadata["reviewGroup"]] += 1
+        checked.append(({**metadata, "index": index, "outputGroup": index % OUTPUT_GROUPS,
+                         "imageBytes": len(data), "imageSha256": sha(data), **png_dimensions(data)}, data))
+    require(counts == IMAGE_COUNTS, "image-inventory")
+    sizes = [sum(len(data) for metadata, data in checked if metadata["outputGroup"] == number)
+             for number in range(OUTPUT_GROUPS)]
+    require(all(0 < size <= MAX_GROUP_BYTES for size in sizes), "image-group-budget")
+    image_inventory = [metadata for metadata, _ in checked]
+    inventory_sha = sha(json.dumps(image_inventory, separators=(",", ":"), sort_keys=True).encode("utf-8"))
+    inventory = manifest["captureInventory"]
+    output_manifest = {key: value for key, value in manifest.items() if key != "captureInventory"}
+    output_manifest.update({"outputGroup": group, "outputGroups": OUTPUT_GROUPS,
+                            "groupBytes": sizes, "imageInventory": image_inventory,
+                            "inventorySha256": inventory_sha})
+    lines = ["CM_REVIEW_MANIFEST " + json.dumps(output_manifest, separators=(",", ":"), sort_keys=True)]
     for context in inventory:
-        print("CM_CAPTURE_CONTEXT " + json.dumps(context, separators=(",", ":"), sort_keys=True))
+        lines.append("CM_CAPTURE_CONTEXT " + json.dumps(context, separators=(",", ":"), sort_keys=True))
     for item in geometry:
         encoded = json.dumps(item, separators=(",", ":"), sort_keys=True)
         require(len(encoded) <= 200_000, "geometry-output-size")
         for offset in range(0, len(encoded), 3000):
-            print("CM_GEOMETRY_CHUNK " + json.dumps({"capture": item["capture"], "offset": offset,
-                                                    "text": encoded[offset:offset + 3000]}, separators=(",", ":")))
-        print("CM_GEOMETRY_END " + json.dumps({"capture": item["capture"], "length": len(encoded)}))
-    for index, (metadata, data) in enumerate(checked):
-        print("CM_IMAGE_BEGIN " + json.dumps({"index": index, **metadata}, separators=(",", ":"), sort_keys=True))
+            lines.append("CM_GEOMETRY_CHUNK " + json.dumps({"capture": item["capture"], "offset": offset,
+                                                           "text": encoded[offset:offset + 3000]}, separators=(",", ":")))
+        lines.append("CM_GEOMETRY_END " + json.dumps({"capture": item["capture"], "length": len(encoded)}))
+    require(sum(len(line.encode("utf-8")) + 1 for line in lines) <= MAX_METADATA_BYTES, "metadata-output-size")
+    # Check every image, group and metadata bound before any output. All jobs
+    # retain the full inventory; only group zero repeats contexts and geometry.
+    for line in (lines if group == 0 else lines[:1]):
+        print(line)
+    selected = [(metadata, data) for metadata, data in checked if metadata["outputGroup"] == group]
+    for metadata, data in selected:
+        index = metadata["index"]
+        print("CM_IMAGE_BEGIN " + json.dumps(metadata, separators=(",", ":"), sort_keys=True))
         encoded = base64.b64encode(data).decode("ascii")
         for offset in range(0, len(encoded), 3000):
             print(f"CM_IMAGE_DATA {index} {offset} " + encoded[offset:offset + 3000])
         print(f"CM_IMAGE_END {index} {len(encoded)}")
-    print("CM_REVIEW_COMPLETE " + json.dumps({"images": len(checked), "binaryBytes": sum(len(d) for _, d in checked)}))
+    print("CM_REVIEW_COMPLETE " + json.dumps({"group": group, "groups": OUTPUT_GROUPS,
+          "images": len(selected), "binaryBytes": sizes[group], "inventoryImages": len(checked),
+          "inventorySha256": inventory_sha}))
 
 
 def main():
@@ -565,6 +600,7 @@ def main():
     require(os.environ.get("GITHUB_REPOSITORY") == REPOSITORY
             and os.environ.get("GITHUB_REF") == "refs/heads/" + BRANCH
             and os.environ.get("GITHUB_EVENT_NAME") == "push", "execution-scope")
+    group = output_group(os.environ.get("CM_REVIEW_GROUP"))
     token = os.environ.get("GH_TOKEN", "")
     require(bool(token), "read-token-required")
     identity = source_gate(token)
@@ -582,14 +618,14 @@ def main():
     zoom_pictures, zoom_geometry = zoom_images(zoom)
     images.extend(({**meta, "artifactId": ARTIFACTS["zoom"][0]}, data) for meta, data in zoom_pictures)
     geometry.extend(zoom_geometry)
-    manifest = {**identity, "fullChromium": {"passed": 605, "failed": 0, "skipped": 0, "flaky": 0},
+    manifest = {**identity, "fullChromium": {"passed": 609, "failed": 0, "skipped": 0, "flaky": 0},
                 "artifacts": {key: {"id": value[0], "bytes": value[2], "sha256": value[3]} for key, value in ARTIFACTS.items()},
                 "captureInventory": [context for context, _ in captures],
                 "limits": ["Fixture captures have no real API counterpart.",
                            "Actual tab zoom covers only its named states, not all 27 targets.",
                            "Two original Chromium PDFs, two pages each; no WebKit PDF export.",
                            "No product acceptance, manual screen-reader or first-user claim."]}
-    emit(images, manifest, geometry)
+    emit(images, manifest, geometry, group)
 
 
 if __name__ == "__main__":

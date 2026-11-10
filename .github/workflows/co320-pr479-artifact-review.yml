@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 jobs:
-  inspect-original-artifacts:
+  preflight:
     if: github.repository == 'floriankreutzer/conference-manager' && github.ref == 'refs/heads/CO-320-pr479-88ed5f-artifact-review' && github.event.repository.private == false
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -37,6 +37,21 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: python3 -m unittest discover -s scripts/diagnostics -p test_pr479_artifact_review.py -v
+  inspect-original-artifacts:
+    needs: preflight
+    if: github.repository == 'floriankreutzer/conference-manager' && github.ref == 'refs/heads/CO-320-pr479-88ed5f-artifact-review' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        group: ['0', '1', '2', '3', '4', '5', '6', '7']
+    steps:
+      - name: Checkout reviewed diagnostic source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Use the standard Ubuntu PDF renderer
         shell: bash
         run: |
@@ -49,5 +64,6 @@ jobs:
       - name: Read only the pinned synthetic artifacts and emit bounded original images
         env:
           GH_TOKEN: ${{ github.token }}
+          CM_REVIEW_GROUP: ${{ matrix.group }}
           PYTHONDONTWRITEBYTECODE: '1'
         run: python3 -u scripts/diagnostics/pr479_artifact_review.py

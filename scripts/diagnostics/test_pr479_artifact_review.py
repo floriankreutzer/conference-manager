@@ -34,8 +34,13 @@ def png(width=1, height=1):
 
 
 def valid_report():
-    return {"stats": {"total": 605, "expected": 605, "unexpected": 0, "skipped": 0, "flaky": 0, "ok": True},
+    return {"stats": {"total": 609, "expected": 609, "unexpected": 0, "skipped": 0, "flaky": 0, "ok": True},
             "projectNames": ["chromium-desktop"], "errors": [], "files": [{"fileId": "a" * 20}]}
+
+
+def output_images():
+    return [({"capture": f"image-{index:03d}", "reviewGroup": kind}, png())
+            for index, kind in enumerate(kind for kind, count in review.IMAGE_COUNTS.items() for _ in range(count))]
 
 
 def context():
@@ -142,13 +147,13 @@ class ArtifactReviewTests(unittest.TestCase):
 
     def test_actual_report_envelope_and_complete_test_inventory(self):
         tests = [{"testId": str(i), "outcome": "expected", "projectName": "chromium-desktop",
-                  "results": [{"status": "passed", "retry": 0, "errors": [], "attachments": []}]} for i in range(605)]
+                  "results": [{"status": "passed", "retry": 0, "errors": [], "attachments": []}]} for i in range(609)]
         def outer(test_rows):
             payload = make_zip([("report.json", json.dumps(valid_report())),
                                 ("a" * 20 + ".json", json.dumps({"tests": test_rows}))])
             html = b'<template id="playwrightReportBase64">data:application/zip;base64,' + base64.b64encode(payload) + b"</template>"
             return review.archive(make_zip([("index.html", html)]))
-        self.assertEqual(len(review.attachments(outer(tests))), 605)
+        self.assertEqual(len(review.attachments(outer(tests))), 609)
         for changed in (tests[:-1], tests[:-1] + [tests[0]]):
             with self.assertRaises(review.Rejected):
                 review.attachments(outer(changed))
@@ -237,7 +242,92 @@ class ArtifactReviewTests(unittest.TestCase):
     def test_emit_rejects_over_budget_before_any_output(self):
         output = io.StringIO()
         with patch.object(review, "MAX_IMAGE_TOTAL", 1), contextlib.redirect_stdout(output), self.assertRaises(review.Rejected):
-            review.emit([({"capture": "safe.png"}, png())], {}, [])
+            review.emit(output_images(), {"captureInventory": []}, [], 0)
+        self.assertEqual(output.getvalue(), "")
+
+
+    def test_output_group_accepts_only_eight_fixed_decimal_selectors(self):
+        for group in range(8):
+            self.assertEqual(review.output_group(str(group)), group)
+        for value in (None, True, 0, "", "8", "-1", "01", "+1", "1 ", " 1", "1\n"):
+            with self.subTest(value=repr(value)), self.assertRaises(review.Rejected):
+                review.output_group(value)
+
+    def test_groups_cover_all_108_images_once_without_changing_bytes(self):
+        images = output_images()
+        manifest = {"captureInventory": [], "head": review.HEAD}
+        seen, inventory_hashes = [], set()
+        for group in range(8):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                review.emit(images, manifest, [], group)
+            lines = output.getvalue().splitlines()
+            header = json.loads(lines[0].removeprefix("CM_REVIEW_MANIFEST "))
+            self.assertEqual(header["outputGroup"], group)
+            self.assertEqual(len(header["imageInventory"]), 108)
+            inventory_hashes.add(header["inventorySha256"])
+            current, encoded = None, ""
+            for line in lines[1:]:
+                if line.startswith("CM_IMAGE_BEGIN "):
+                    current = json.loads(line.removeprefix("CM_IMAGE_BEGIN "))
+                    encoded = ""
+                    self.assertEqual(current["outputGroup"], group)
+                elif line.startswith("CM_IMAGE_DATA "):
+                    _, index, offset, chunk = line.split(" ", 3)
+                    self.assertEqual(int(index), current["index"])
+                    self.assertEqual(int(offset), len(encoded))
+                    encoded += chunk
+                elif line.startswith("CM_IMAGE_END "):
+                    _, index, length = line.split(" ")
+                    self.assertEqual((int(index), int(length)), (current["index"], len(encoded)))
+                    original = images[int(index)][1]
+                    self.assertEqual(base64.b64decode(encoded, validate=True), original)
+                    self.assertEqual(current["imageSha256"], review.sha(original))
+                    self.assertEqual(current["imageBytes"], len(original))
+                    seen.append(int(index))
+            completed = json.loads(lines[-1].removeprefix("CM_REVIEW_COMPLETE "))
+            expected = [i for i in range(108) if i % 8 == group]
+            self.assertEqual(completed["images"], len(expected))
+            self.assertEqual(completed["binaryBytes"], sum(len(images[i][1]) for i in expected))
+            self.assertLessEqual(completed["binaryBytes"], 3 * review.MIB)
+        self.assertEqual(sorted(seen), list(range(108)))
+        self.assertEqual(len(set(seen)), 108)
+        self.assertEqual(len(inventory_hashes), 1)
+        self.assertEqual(manifest, {"captureInventory": [], "head": review.HEAD})
+
+    def test_invalid_group_and_incomplete_duplicate_or_corrupt_inventory_emit_nothing(self):
+        images = output_images()
+        variants = [images[:-1], images + [images[0]], images[:-1] + [images[0]],
+                    images[:-1] + [(images[-1][0], b"not png")],
+                    images[:-1] + [(dict(images[-1][0], reviewGroup="primary"), images[-1][1])]]
+        for group, values in [(0, value) for value in variants] + [(group, images) for group in (-1, 8, True, "0", None)]:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), self.assertRaises(review.Rejected):
+                review.emit(values, {"captureInventory": []}, [], group)
+            self.assertEqual(output.getvalue(), "")
+
+    def test_actual_three_mib_group_overflow_rejects_before_output(self):
+        images = output_images()
+        padding, kind = b"x" * (3 * review.MIB), b"ruSt"
+        chunk = struct.pack(">I", len(padding)) + kind + padding + struct.pack(">I", zlib.crc32(kind + padding) & 0xffffffff)
+        oversized = png()[:-12] + chunk + png()[-12:]
+        self.assertEqual(review.png_dimensions(oversized), {"width": 1, "height": 1})
+        images[-1] = (images[-1][0], oversized)
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaisesRegex(review.Rejected, "image-group-budget"):
+            review.emit(images, {"captureInventory": []}, [], 0)
+        self.assertEqual(output.getvalue(), "")
+
+    def test_nonselected_group_and_metadata_overflow_are_rejected_before_output(self):
+        images = output_images()
+        for constant, limit in (("MAX_GROUP_BYTES", len(png()) * 13), ("MAX_METADATA_BYTES", 1)):
+            output = io.StringIO()
+            with patch.object(review, constant, limit), contextlib.redirect_stdout(output), self.assertRaises(review.Rejected):
+                review.emit(images, {"captureInventory": []}, [], 7)
+            self.assertEqual(output.getvalue(), "")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaises(review.Rejected):
+            review.emit(images, {"captureInventory": []}, [{"capture": "geometry", "value": "x" * 200_001}], 7)
         self.assertEqual(output.getvalue(), "")
 
     def test_source_gate_rejects_private_repo_moved_head_or_failed_producer(self):
