@@ -1,0 +1,69 @@
+name: WebKitGTK synthetic print capability probe
+
+on:
+  push:
+    branches: [CO-317-webkitgtk-capability-probe]
+    paths:
+      - '.github/workflows/webkitgtk-print-probe.yml'
+      - 'scripts/probe-webkitgtk-print.py'
+      - 'tests/webkitgtk_print_probe_test.py'
+      - 'tests/webkitgtk-print-probe.test.js'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: webkitgtk-print-probe-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  synthetic-capability:
+    if: github.repository == 'floriankreutzer/conference-manager' && github.event.repository.private == false
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the exact reviewed probe source without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-fund
+      - name: Require the repository baseline and offline probe regression/progression
+        run: npm run check
+      - name: Require the existing dependency audit
+        run: npm run audit
+      - name: Install standard Ubuntu GTK and PDF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y python3-gi gir1.2-webkit2-4.1 libgtk-3-0t64 poppler-utils xvfb xauth dbus ca-certificates openssl
+      - name: Probe synthetic TLS, default sandbox and real A4 PDF output
+        shell: bash
+        env:
+          CM_PROBE_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          install -d -m 0700 "$RUNNER_TEMP/cm-gtk-runtime"
+          env -i PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C \
+            CI=true GITHUB_ACTIONS=true \
+            RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" RUNNER_OS="$RUNNER_OS" \
+            ImageOS="$ImageOS" ImageVersion="$ImageVersion" \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" CM_PROBE_SOURCE_SHA="$CM_PROBE_SOURCE_SHA" \
+            XDG_RUNTIME_DIR="$RUNNER_TEMP/cm-gtk-runtime" \
+            dbus-run-session -- xvfb-run -a /usr/bin/python3 scripts/probe-webkitgtk-print.py
+      - name: Retain only synthetic PDFs, page images and the bounded receipt
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: webkitgtk-synthetic-capability-${{ github.sha }}
+          path: |
+            test-results/webkitgtk-probe/receipt.json
+            test-results/webkitgtk-probe/*.pdf
+            test-results/webkitgtk-probe/*.png
+          if-no-files-found: warn
+          retention-days: 7
