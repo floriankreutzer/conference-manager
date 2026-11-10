@@ -4,12 +4,12 @@
 
 This isolated H harness captures the actual public Guest popup produced by an
 immutable frontend source F and exports it through the real WebKitGTK 4.1
-PrintOperation API. It supplies the missing native PDF evidence for CO-317; a
-print-media PNG alone cannot supply that evidence.
+PrintOperation API. It is intended to supply the missing native PDF evidence for
+CO-317; a print-media PNG alone cannot supply that evidence.
 
 The selected product source is
-[F 0b89158a98332415a7bdfe4d74c6a6bb945dd055](https://github.com/floriankreutzer/conference-manager/commit/0b89158a98332415a7bdfe4d74c6a6bb945dd055),
-tree b962db71e4df7a17dd01139cd4c3f040d38b80ac. The separate H source and tree are
+[F 28a864ea6b1d4f5ae0e0066a072f6012e059358d](https://github.com/floriankreutzer/conference-manager/commit/28a864ea6b1d4f5ae0e0066a072f6012e059358d),
+tree 5ec76c98c20bcbbe06cfe582c9578ceeafbccf68. The separate H source and tree are
 recorded from the exact checked-out workflow commit. Its branch name is a trigger,
 not an immutable source identity.
 
@@ -21,20 +21,31 @@ independent.
 
 ## Immutable product sources
 
-The F791 to F0b change did not modify Guest production, its original stylesheet
-bytes or the two original multipage Guest test definitions. The whole updated F0b
-test file is preserved in H. Only the existing evidence helper is extended with a
-capture hook; the original test definitions and product files remain unchanged.
+The earlier F791 to F0b change preserved Guest production, stylesheet bytes and
+the original multipage test definitions. F0b subsequently merged into Main
+cd935478e9c441e6bbd5bddb36b1090d70554124 with the same product tree.
 
-| Product responsibility | F0b path | Git blob |
+The current selected F is a bounded follow-up on that Main. It changes only the
+print grouping rule in assets/employee-ux.css and adds a real group-fit geometry
+check to the existing evidence helper. The physical A4 height remains unrounded
+for the assertion; only the browser viewport uses integer pixels. Fonts, public
+content limits, screen layout, security contracts and both original multipage
+test definitions are preserved.
+
+H preserves that entire product tree. Only the existing evidence helper receives
+the same observation/capture hook as before. H history is retained as the first
+parent and the selected F is an additional parent, so the real F ancestry check
+continues to apply.
+
+| Product responsibility | Selected F path | Git blob |
 | --- | --- | --- |
 | Guest public projection and print-document builder | src/employee/production-application.js | 8a987d1a3e809a2c7e486e6c16247ebace2f1db0 |
 | Detached popup, exact CSP and stylesheet URLs | src/shared/detached-print-window.js | 3dddf157c47443bfe2a2f022a961cadf7e28d8cb |
 | Original detached-document navigation target | src/shared/detached-print.html | c8df07a8124599a8c5e9faf2204ad3103cde63ba |
 | Design tokens | assets/tokens.css | a68d3f272d3946b7de3644f5d119bb294230777d |
-| Original Guest print CSS | assets/employee-ux.css | a8115c9ae02505bb319284a7d4a091835f25227b |
+| Original Guest print CSS | assets/employee-ux.css | 73cf5aa7d3514bbde397eab820a4c8942c0856ff |
 | Original test definitions, including both multipage cases | tests/e2e/production-application.spec.js | b1c62c4e06ca72f56b631f38f6f13cae32445732 |
-| Original evidence helper before the H hook | tests/e2e/fixtures/guest-print-evidence.js | 6f2e48b6140f314224c211d12f55d629211cf770 |
+| Original evidence helper before the H hook | tests/e2e/fixtures/guest-print-evidence.js | 98f28a02b7cc8c61752fb675adfb7db671d6e704 |
 
 The source guard requires F to be an ancestor of H, an exact H checkout and a
 clean tracked worktree. A no-renames Git comparison permits only the thirteen
@@ -169,10 +180,22 @@ using portrait A4. An earlier failed signal is preserved even if a finished
 signal follows.
 
 Poppler verifies the complete page count, every physical A4 page size and all
-ten public fields in extracted text. The six private fixture values must be
-absent. Every page must contain text and is rasterized once at 96 dpi. Original
+ten public fields in extracted text. Whole-document field verification uses the
+explicit -raw content-stream mode for this source-bound WebKitGTK/Cairo output.
+The exact full-field substring predicate and whitespace normalization are
+unchanged; the six private fixture values must still be absent. This does not
+assert a human reading order. The separate per-page default extraction still
+requires text on every page. Every page is rasterized once at 96 dpi. Original
 PDF bytes and those raster bytes receive individual SHA-256 digests. The receipt
 preserves the input engine separately from the actual GTK renderer version.
+
+The [Poppler manual](https://manpages.ubuntu.com/manpages/resolute/man1/pdftotext.1.html)
+describes default reading order, physical -layout and content-stream -raw. It
+does not recommend -raw as the general reading-order default. Here that explicit
+mode is limited to complete-field verification of this known two-column output;
+all-page visual review and the independent pagination checks remain required.
+The observed original failure and the separate product correction are recorded
+below.
 
 Bounds remain explicit:
 
@@ -214,7 +237,7 @@ the original pages available for inspection; it does not establish that a
 person or agent actually viewed them or accepted their layout. Transport
 failure also remains distinct from the underlying renderer result.
 
-## Validation and preparation checkpoint
+## Validation gates and historical preparation checkpoint
 
 Preparation checkpoint, 2026-11-10: before the local environment became
 unavailable, the earlier H draft passed 8 Node and 17 Python tests. Three
@@ -222,11 +245,11 @@ full source files survived exactly. The remaining new source and tests were
 reconstructed as a new review candidate. Those earlier results do not qualify
 the reconstructed bytes.
 
-The reconstructed candidate declares 9 Node checks and 27 H Python tests,
+The first reconstructed candidate declared 9 Node checks and 27 H Python tests,
 including the Node wrapper that executes the Python suite. The unchanged
-Phase 1 offline suite is also required. These counts describe test definitions,
-not successful execution. Native H qualification remains required after the
-complete reviewed source is published.
+Phase 1 offline suite was also required. At that preparation checkpoint these
+were test-definition counts, not execution results. The later native outcomes
+are recorded separately below; they do not qualify subsequent changed bytes.
 
 The dedicated workflow requires, in order:
 
@@ -286,8 +309,67 @@ the corrected configuration must discover exactly those four project/title
 pairs, and overriding it with the old anchored leaf pattern must produce zero
 cases and exit 1. List mode does not execute browser assertions.
 
-This correction declares ten H Node checks; the 27 Python methods and the
-GTK/security implementation are unchanged. The new bytes still require their
-own native baseline and actual capture/print run. The failed attempt is not
-rerun or reclassified, and no test definition, retry, deadline, privilege,
-TLS policy, sandbox check or acceptance requirement is changed.
+That correction declared ten H Node checks; its 27 Python methods and
+GTK/security implementation were unchanged. Its actual native result is recorded
+below. The failed discovery attempt remains failed, and no original test
+definition, retry, deadline, privilege, TLS policy, sandbox check or acceptance
+requirement was changed.
+
+## Observed H745 PDF failure and source-bound follow-up
+
+[H 74589584b5a8c24b6a8120ef20bbf9caf23b6a70](https://github.com/floriankreutzer/conference-manager/commit/74589584b5a8c24b6a8120ef20bbf9caf23b6a70),
+tree c134b2eeeaf6ead8b4f12bddbe8b6626f4488f0c, ran against F
+0b89158a98332415a7bdfe4d74c6a6bb945dd055, tree
+b962db71e4df7a17dd01139cd4c3f040d38b80ac. Its
+[native run 42751545181](https://github.com/floriankreutzer/conference-manager/actions/runs/42751545181)
+passed 1086/1086 baseline tests, the actual four-case CLI discovery with the
+legacy-zero negative, the 27-method H Python suite, unchanged Phase 1 offline
+suite, audit and SAST. All four original capture cases and all six native Phase 1
+TLS cases passed. The first actual Guest PDF then failed PDF_PUBLIC_FIELDS.
+Only chromium-desktop-de.pdf was created; the remaining three actual Guest
+prints and successful-image transport did not run. H745 remains a failure.
+
+The [original artifact 13733956560](https://github.com/floriankreutzer/conference-manager/actions/runs/42751545181/artifacts/13733956560)
+is 2,926,453 bytes with ZIP SHA-256
+e4efa9fb29312dd15dbc187f78e47c9e09c68d3749db556a7dcdd369b71d7b20.
+Its unchanged first Guest PDF is 1,481,138 bytes, SHA-256
+ba44a9813239ff23bb9cd34e43c1a46d43c1a165997b89d42a8bb94b5d214da3.
+The real GTK worker finished printing, with successful TLS, actual process
+sandbox proof, original-origin server shutdown and trust cleanup. The failed
+field assertion must not be relabeled as a TLS, sandbox or cleanup failure.
+
+The separate read-only [diagnostic run 42756981227](https://github.com/floriankreutzer/conference-manager/actions/runs/42756981227/job/129633510084)
+passed its own 1063-test baseline, 51 Python tests and audit. It downloaded the
+pinned original artifact once and inspected the unchanged PDF without repeating
+GTK. It found two A4 pages. Both the original H job and the diagnostic used
+poppler-utils=26.01.0-2ubuntu0.3.
+
+| Extraction mode | Complete original fields | Missing original field indices |
+| --- | --- | --- |
+| -layout | 3 of 10 | 2, 3, 4, 5, 6, 7, 8 |
+| default | 3 of 10 | 2, 3, 4, 5, 6, 7, 8 |
+| -raw | 9 of 10 | 4, address.line1 |
+
+All six privacy sentinels were absent in all three extractions. The two complete
+96 dpi rasters of the unchanged PDF were actually examined. The address and
+contact cards split across the page boundary; the accessibility line was visibly
+cut at the transition, and the card borders were open there. This is a separate
+pagination defect, not a successful print hidden only by the extraction mode.
+The original PDF's observed -raw output still fails the unchanged all-ten-field
+predicate because field 4 is missing. No new execution or reclassification of
+that original PDF is implied.
+
+The selected F above addresses print-group pagination. This H follow-up changes
+only its whole-PDF extraction mode and corresponding negative/progression tests,
+then binds all captures and unchanged production bytes to that new F. It does
+not change GTK page margins, original CSP/URLs, TLS, sandbox, Phase 1, deadlines,
+retry policy, public-field limits or the all-page acceptance requirement.
+New native baseline, all four captures, all six Phase 1 cases, all four actual
+Guest PDFs and actual review of every new page remain mandatory. The previous
+1086/27 and diagnostic 1063/51 results do not qualify this new source.
+
+This follow-up retains the ten H Node test definitions and now declares 33 H
+Python methods: the original 27 remain unchanged and six new methods cover full
+DE/EN bounds, content-stream selection, missing or shortened middle fields,
+wrapped privacy sentinels, rejected cross-mode fallback and empty pages. These
+are definitions in the new source, not newly executed test results.

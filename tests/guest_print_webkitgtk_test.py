@@ -410,6 +410,135 @@ class PdfTests(unittest.TestCase):
                 H.verify_pdf_text(text + "\n" + private, FIELDS)
 
 
+    @staticmethod
+    def maximum_fields(language):
+        # Match the unchanged original DE/EN multipage E2E values and full limits.
+        def long_value(label, maximum):
+            return label + " " + "W" * (maximum - len(label) - 5) + " End"
+        return [
+            long_value("Public meeting", 160), long_value("Public room", 160),
+            long_value("Public site", 160), long_value("Public address", 160),
+            long_value("Public building", 160), long_value("Public city", 120),
+            long_value("Public reception", 160),
+            "g" * 64 + "@" + ("w" * 63 + ".") * 2 + "w" * 56 + ".test",
+            "+49 30 555 0100",
+            "Zugangsdaten bei Ankunft" if language == "de" else "Credentials provided on arrival",
+        ]
+
+    @staticmethod
+    def wrapped_fields(fields):
+        return "\n".join("\n\t\f\u00a0".join(field[offset:offset + 19]
+                         for offset in range(0, len(field), 19)) for field in fields)
+
+    def test_all_ten_maximum_fields_accept_only_whitespace_wraps_in_both_languages(self):
+        for language in ("de", "en"):
+            with self.subTest(language=language):
+                fields = self.maximum_fields(language)
+                self.assertEqual([len(field) for field in fields],
+                                 [160, 160, 160, 160, 160, 120, 160, 254, 15, 24 if language == "de" else 31])
+                H.verify_pdf_text(self.wrapped_fields(list(reversed(fields))), fields)
+                interleaved = fields.copy()
+                interleaved[3] = fields[3][:80] + fields[7] + fields[3][80:]
+                with self.assertRaisesRegex(H.PROBE.ProbeError, "^PDF_PUBLIC_FIELDS$"):
+                    H.verify_pdf_text("\n".join(interleaved), fields)
+
+    def test_missing_or_shortened_middle_fields_never_qualify_nine_of_ten(self):
+        for language in ("de", "en"):
+            fields = self.maximum_fields(language)
+            for index in (3, 7):
+                for missing in (True, False):
+                    with self.subTest(language=language, index=index, missing=missing):
+                        changed = fields.copy()
+                        if missing:
+                            changed.pop(index)
+                        else:
+                            middle = len(fields[index]) // 2
+                            changed[index] = fields[index][:middle] + fields[index][middle + 1:]
+                        with self.assertRaisesRegex(H.PROBE.ProbeError, "^PDF_PUBLIC_FIELDS$"):
+                            H.verify_pdf_text(self.wrapped_fields(changed), fields)
+
+    def test_every_private_fixture_is_rejected_even_when_split_by_whitespace(self):
+        for language in ("de", "en"):
+            fields = self.maximum_fields(language)
+            for private in H.PRIVATE_FIXTURES:
+                with self.subTest(language=language, private=private):
+                    split = "\n\t\f\u00a0".join(private[offset:offset + 7]
+                                             for offset in range(0, len(private), 7))
+                    with self.assertRaisesRegex(H.PROBE.ProbeError, "^PDF_PRIVACY$"):
+                        H.verify_pdf_text(self.wrapped_fields(fields) + "\n" + split, fields)
+
+    @contextlib.contextmanager
+    def inspection(self, language, raw_text, non_raw_text, page_texts=("page one", "page two")):
+        """Mocked command boundary only; this fixture is not native PDF evidence."""
+        with tempfile.TemporaryDirectory(prefix="cm-h-pdf-offline-") as temporary:
+            root = Path(temporary)
+            case = "chromium-desktop-" + language
+            pdf = root / (case + ".pdf")
+            pdf.write_bytes(b"%PDF-1.7\n" + b"bounded public envelope\n" * 60 + b"%%EOF\n")
+            calls = []
+
+            def command(arguments):
+                calls.append(arguments)
+                if arguments[0] == "pdfinfo":
+                    return (b"Pages: 2\nPage 1 size: 595.276 x 841.89 pts\n"
+                            b"Page 2 size: 595.276 x 841.89 pts\n")
+                if arguments[0] == "pdftotext":
+                    if "-f" in arguments:
+                        page = int(arguments[arguments.index("-f") + 1])
+                        return page_texts[page - 1].encode("utf-8")
+                    return (raw_text if "-raw" in arguments else non_raw_text).encode("utf-8")
+                if arguments[0] == "pdftoppm":
+                    Path(arguments[-1] + ".png").write_bytes(png_fixture())
+                    return b""
+                raise AssertionError("Unexpected PDF inspection command")
+
+            def inspect():
+                return H.inspect_guest_pdf(case, {"expectedPublicFields": self.maximum_fields(language)})
+
+            with patch.object(H, "OUTPUT", root), patch.object(H.PROBE, "command", side_effect=command):
+                yield inspect, calls
+
+    def test_inspection_uses_complete_raw_fields_and_keeps_all_individual_page_checks(self):
+        for language in ("de", "en"):
+            fields = self.maximum_fields(language)
+            text = self.wrapped_fields(fields)
+            with self.subTest(language=language), self.inspection(language, text, "interleaved columns") as (inspect, calls):
+                result = inspect()
+                self.assertTrue(result["publicFieldsPresent"])
+                self.assertTrue(result["privateFixtureFieldsAbsent"])
+                self.assertEqual(result["textSha256"], H.PROBE.digest(text.encode("utf-8")))
+                self.assertEqual([image["page"] for image in result["images"]], [1, 2])
+                page_calls = [args for args in calls if args[0] == "pdftotext" and "-f" in args]
+                self.assertEqual([args[args.index("-f") + 1] for args in page_calls], ["1", "2"])
+
+    def test_incomplete_or_private_raw_text_cannot_fall_back_to_complete_other_mode(self):
+        for language in ("de", "en"):
+            fields = self.maximum_fields(language)
+            complete = self.wrapped_fields(fields)
+            shortened = fields.copy()
+            shortened[3] = fields[3][:80] + fields[3][81:]
+            cases = (
+                (self.wrapped_fields(fields[:3] + fields[4:]), "PDF_PUBLIC_FIELDS"),
+                (self.wrapped_fields(shortened), "PDF_PUBLIC_FIELDS"),
+                (complete + "\n" + "\n".join(H.PRIVATE_FIXTURES[-1]), "PDF_PRIVACY"),
+            )
+            for text, code in cases:
+                with self.subTest(language=language, code=code), \
+                        self.inspection(language, text, complete) as (inspect, calls):
+                    with self.assertRaisesRegex(H.PROBE.ProbeError, "^" + code + "$"):
+                        inspect()
+                    self.assertFalse(any(args[0] == "pdftoppm" for args in calls))
+
+    def test_complete_raw_text_does_not_qualify_an_empty_individual_page(self):
+        for language in ("de", "en"):
+            text = self.wrapped_fields(self.maximum_fields(language))
+            with self.subTest(language=language), \
+                    self.inspection(language, text, text, ("page one", "\n\t\f")) as (inspect, _calls):
+                with self.assertRaisesRegex(H.PROBE.ProbeError, "^PDF_EMPTY_PAGE$"):
+                    inspect()
+
+
+
 class SourceAndProtocolTests(unittest.TestCase):
     def test_source_binding_requires_exact_checkout_ancestry_cleanliness_and_declared_paths(self):
         calls = []

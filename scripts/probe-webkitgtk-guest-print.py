@@ -677,7 +677,9 @@ def inspect_guest_pdf(case, manifest):
     result = verify_pdf_info(PROBE.command([
         "pdfinfo", "-f", "1", "-l", str(pages), "-box", str(pdf),
     ]).decode("utf-8"))
-    text = PROBE.command(["pdftotext", "-enc", "UTF-8", "-layout", str(pdf), "-"]).decode("utf-8")
+    # Check complete semantic fields in this pinned GTK producer's content-stream order.
+    # Physical layout still requires every A4 page and its original raster to be reviewed.
+    text = PROBE.command(["pdftotext", "-enc", "UTF-8", "-raw", str(pdf), "-"]).decode("utf-8")
     verify_pdf_text(text, manifest["expectedPublicFields"])
     images = []
     for page in range(1, pages + 1):

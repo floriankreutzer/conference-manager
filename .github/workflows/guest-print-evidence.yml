@@ -44,7 +44,7 @@ jobs:
           cache: npm
       - name: Require exact F source, original product files and the bounded H diff
         env:
-          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+          CM_GUEST_PRODUCT_SOURCE_SHA: 28a864ea6b1d4f5ae0e0066a072f6012e059358d
           CM_GUEST_CAPTURE_SOURCE_SHA: ${{ github.sha }}
         run: |
           node --input-type=module - <<'NODE'
@@ -52,7 +52,7 @@ jobs:
           import { validateGuestSourceBinding } from './tests/e2e/fixtures/guest-print-source-capture.js';
           const binding = validateGuestSourceBinding(
             process.env.CM_GUEST_PRODUCT_SOURCE_SHA, process.env.CM_GUEST_CAPTURE_SOURCE_SHA);
-          assert.equal(binding.productTreeSha, 'b962db71e4df7a17dd01139cd4c3f040d38b80ac');
+          assert.equal(binding.productTreeSha, '5ec76c98c20bcbbe06cfe582c9578ceeafbccf68');
           console.log(JSON.stringify({ scope: 'H source boundary only', ...binding }));
           NODE
       - name: Install locked dependencies
@@ -83,14 +83,14 @@ jobs:
       - name: Run the four unchanged original multipage cases and capture their actual popup DOM
         env:
           CM_GUEST_CAPTURE: '1'
-          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+          CM_GUEST_PRODUCT_SOURCE_SHA: 28a864ea6b1d4f5ae0e0066a072f6012e059358d
           CM_GUEST_CAPTURE_SOURCE_SHA: ${{ github.sha }}
         run: npx playwright test --config=playwright.guest-print-capture.config.js
       - name: Require all six original synthetic cases, then print all four actual Guest documents
         shell: bash
         env:
           CM_PROBE_SOURCE_SHA: ${{ github.sha }}
-          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+          CM_GUEST_PRODUCT_SOURCE_SHA: 28a864ea6b1d4f5ae0e0066a072f6012e059358d
         run: |
           set -euo pipefail
           install -d -m 0700 "$RUNNER_TEMP/cm-gtk-runtime"
@@ -110,7 +110,7 @@ jobs:
         shell: bash
         env:
           CM_PROBE_SOURCE_SHA: ${{ github.sha }}
-          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+          CM_GUEST_PRODUCT_SOURCE_SHA: 28a864ea6b1d4f5ae0e0066a072f6012e059358d
         run: |
           set -euo pipefail
           env -i PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C \
