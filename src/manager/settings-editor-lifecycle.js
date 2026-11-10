@@ -44,12 +44,19 @@ export function createManagerSettingsEditor({ form, interactionRoot = form, isCu
   saved();
   registerEditor({ read: dirty, isCurrent, isPending: () => mutation !== null });
 
+  function setControlDisabled(control, disabled) {
+    if (!isCurrent()) return;
+    // Async owners keep their current business state while the mutation adds
+    // a separate interaction lock. Completion must not restore a stale snapshot.
+    if (mutation) mutation.disabled.set(control, disabled);
+    control.disabled = mutation ? true : disabled;
+  }
+
   function beginMutation() {
     if (mutation || !isCurrent()) return null;
-    const owned = {};
-    mutation = owned;
     const controls = Array.from(interactionRoot.querySelectorAll('input, select, textarea, button'));
-    const disabled = controls.map((control) => control.disabled);
+    const owned = { disabled: new Map(controls.map((control) => [control, control.disabled])) };
+    mutation = owned;
     const focused = form.ownerDocument.activeElement;
     controls.forEach((control) => { control.disabled = true; });
     form.setAttribute('aria-busy', 'true');
@@ -58,7 +65,7 @@ export function createManagerSettingsEditor({ form, interactionRoot = form, isCu
         if (mutation !== owned) return;
         mutation = null;
         if (!isCurrent()) return;
-        controls.forEach((control, index) => { control.disabled = disabled[index]; });
+        owned.disabled.forEach((disabled, control) => { control.disabled = disabled; });
         form.removeAttribute('aria-busy');
         if (form.contains(focused) && form.ownerDocument.activeElement === form.ownerDocument.body) {
           focused.focus();
@@ -69,6 +76,7 @@ export function createManagerSettingsEditor({ form, interactionRoot = form, isCu
 
   return Object.freeze({
     beginMutation,
+    setControlDisabled,
     pending: () => mutation !== null,
     saved,
     rebase(control, transform) {

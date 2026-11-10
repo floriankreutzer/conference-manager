@@ -1079,6 +1079,7 @@ export function createManagerBusinessSettingsApplication({
     if (supportsBulkTransfer(locations)) {
       renderRoot.appendChild(createBulkTransferPanel({
         adapter: authorityAwareBulkAdapter(locations, formEditor),
+        setControlDisabled: formEditor.setControlDisabled,
         types: ['rooms'],
         rerender: () => {
           if (isCurrentRender(revision, renderRoot) && section === 'rooms') {
@@ -1300,6 +1301,7 @@ export function createManagerBusinessSettingsApplication({
     if (supportsBulkTransfer(catalogue)) {
       renderRoot.appendChild(createBulkTransferPanel({
         adapter: authorityAwareBulkAdapter(catalogue, formEditor),
+        setControlDisabled: formEditor.setControlDisabled,
         types: section === 'services'
           ? ['services', 'equipment'] : ['catering-items', 'catering-packages'],
         rerender: () => {

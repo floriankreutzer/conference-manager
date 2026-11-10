@@ -30,6 +30,21 @@ class FixtureNode {
     if (index >= 0) this.parentNode.childNodes.splice(index, 1);
     this.parentNode = null;
   }
+
+  contains(target) {
+    return this === target || this.childNodes.some((child) => child.contains(target));
+  }
+
+  querySelectorAll(selector) {
+    const tags = selector.split(',').map((tag) => tag.trim().toUpperCase());
+    const matches = [];
+    const visit = (node) => node.childNodes.forEach((child) => {
+      if (tags.includes(child.tagName)) matches.push(child);
+      visit(child);
+    });
+    visit(this);
+    return matches;
+  }
 }
 
 class FixtureText extends FixtureNode {
@@ -76,6 +91,10 @@ class FixtureElement extends FixtureNode {
     return this.attributes.has(name);
   }
 
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
   addEventListener(type, listener) {
     const listeners = this.listeners.get(type) || [];
     listeners.push(listener);
@@ -102,9 +121,10 @@ class FixtureTextArea extends FixtureElement {}
 
 class FixtureDocument {
   constructor() {
-    this.documentElement = { lang: '' };
+    this.documentElement = { lang: '', dataset: {} };
     this.downloads = [];
     this.body = new FixtureElement('body', this);
+    this.activeElement = this.body;
   }
 
   createElement(tagName) {
@@ -134,7 +154,7 @@ function elementsByTag(root, tagName) {
   return result;
 }
 
-test('template and export buttons download trusted CSV blobs and revoke their object URLs', async (context) => {
+function installDownloadFixture(context) {
   const previous = {
     HTMLInputElement: globalThis.HTMLInputElement,
     HTMLTextAreaElement: globalThis.HTMLTextAreaElement,
@@ -148,6 +168,7 @@ test('template and export buttons download trusted CSV blobs and revoke their ob
   const document = new FixtureDocument();
   const created = [];
   const revoked = [];
+  const cleanups = new Map();
 
   globalThis.Node = FixtureNode;
   globalThis.HTMLInputElement = FixtureInput;
@@ -159,11 +180,14 @@ test('template and export buttons download trusted CSV blobs and revoke their ob
   };
   URL.createObjectURL = (blob) => {
     created.push(blob);
-    return `blob:https://conference.test/download-${created.length}`;
+    const url = `blob:https://conference.test/download-${created.length}`;
+    cleanups.set(url, deferred());
+    return url;
   };
-  URL.revokeObjectURL = (url) => { revoked.push(url); };
+  URL.revokeObjectURL = (url) => { revoked.push(url); cleanups.get(url)?.resolve(); };
 
-  context.after(() => {
+  context.after(async () => {
+    await Promise.all(Array.from(cleanups.values(), (entry) => entry.promise));
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
     Object.entries(previous).forEach(([name, value]) => {
@@ -171,6 +195,17 @@ test('template and export buttons download trusted CSV blobs and revoke their ob
       else globalThis[name] = value;
     });
   });
+  return { document, created, revoked };
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((settle) => { resolve = settle; });
+  return { promise, resolve };
+}
+
+test('template and export buttons download trusted CSV blobs and revoke their object URLs', async (context) => {
+  const { document, created, revoked } = installDownloadFixture(context);
 
   const { createBulkTransferPanel } = await import(
     '../src/shared/tenant-bulk-transfer-panel.js?trusted-download-regression'
@@ -251,11 +286,6 @@ test('template and export buttons download trusted CSV blobs and revoke their ob
   assert.equal(templateButton.disabled, false);
   assert.equal(elementsByTag(panel, 'p').at(-1).textContent, 'Die CSV-Datei konnte nicht sicher heruntergeladen werden.');
 
-  const deferred = () => {
-    let resolve;
-    const promise = new Promise((settle) => { resolve = settle; });
-    return { promise, resolve };
-  };
   const validations = [];
   const applications = [];
   const applyGate = deferred();
@@ -333,3 +363,151 @@ test('template and export buttons download trusted CSV blobs and revoke their ob
   assert.equal(validate.disabled, false);
   assert.equal(apply.disabled, true);
 });
+
+async function managerBulkFixture(context, overrides) {
+  const { document } = installDownloadFixture(context);
+  const { createBulkTransferPanel } = await import('../src/shared/tenant-bulk-transfer-panel.js');
+  const { createManagerSettingsEditor } = await import('../src/manager/settings-editor-lifecycle.js');
+  const root = document.createElement('section');
+  const form = document.createElement('form');
+  const price = document.createElement('input');
+  price.value = '10';
+  const limit = document.createElement('button');
+  limit.disabled = true;
+  form.append(price, limit);
+  root.append(form);
+  document.body.append(root);
+  let current = true;
+  let navigation;
+  const isCurrent = () => current && root.parentNode === document.body
+    && document.documentElement.dataset.sessionLocked !== 'true';
+  const editor = createManagerSettingsEditor({ form, interactionRoot: root, isCurrent,
+    registerEditor: (value) => { navigation = value; } });
+  const applications = [];
+  const panel = createBulkTransferPanel({
+    adapter: {
+      async loadBulkTemplate() { return { schemaVersion: 1, type: 'rooms', rows: [] }; },
+      async exportBulk() { return { revision: 7, document: { schemaVersion: 1, type: 'rooms', rows: [] } }; },
+      async validateBulk() { throw new Error('UNEXPECTED_VALIDATE'); },
+      async applyBulk(type, value, receiptId) { applications.push({ type, value, receiptId }); },
+      ...overrides,
+    },
+    types: ['rooms'], rerender() {}, isCurrent,
+    setControlDisabled: editor.setControlDisabled,
+  });
+  root.append(panel);
+  elementsByTag(panel, 'select')[0].value = 'rooms';
+  const file = elementsByTag(panel, 'input')[0];
+  file.files = [{ size: 6, async arrayBuffer() { return new TextEncoder().encode('"id"\r\n').buffer; } }];
+  const [template, exportButton, validate, apply] = elementsByTag(panel, 'button');
+  return { document, root, form, price, limit, editor, navigation, applications,
+    template, exportButton, validate, apply, revoke: () => { current = false; } };
+}
+
+for (const method of ['loadBulkTemplate', 'exportBulk']) {
+  for (const first of ['download', 'mutation']) {
+    test(`CO-306 ${method} stays usable when ${first} completes first`, async (context) => {
+      const started = deferred(), completed = deferred();
+      let requests = 0;
+      const value = { schemaVersion: 1, type: 'rooms', rows: [] };
+      const fixture = await managerBulkFixture(context, {
+        async [method]() {
+          requests += 1;
+          if (requests === 1) { started.resolve(); await completed.promise; }
+          return method === 'loadBulkTemplate' ? value : { revision: 7, document: value };
+        },
+      });
+      const control = method === 'loadBulkTemplate' ? fixture.template : fixture.exportButton;
+      const download = control.dispatch('click');
+      await started.promise;
+      assert.equal(control.disabled, true);
+      const mutation = fixture.editor.beginMutation();
+      assert.ok(mutation);
+      let duringMutation;
+      if (first === 'download') {
+        completed.resolve(); await download;
+        duringMutation = control.disabled;
+        mutation.finish();
+      } else {
+        mutation.finish();
+        assert.equal(control.disabled, true, 'The independent download is still pending');
+        completed.resolve(); await download;
+      }
+      assert.equal(control.disabled, false, 'A completed download remains usable after the save');
+      if (first === 'download') assert.equal(duringMutation, true, 'The save still blocks interaction');
+      assert.equal(fixture.price.disabled, false);
+      assert.equal(fixture.limit.disabled, true, 'A pre-existing business restriction survives');
+      assert.equal(fixture.apply.disabled, true, 'No CSV has been validated');
+      assert.equal(fixture.navigation.read(), false);
+      await control.dispatch('click');
+      assert.equal(requests, 2, 'The same download action works again without navigation');
+      assert.equal(fixture.document.downloads.length, 2);
+      assert.ok(fixture.document.downloads.every((entry) => entry.connected
+        && entry.download === (method === 'loadBulkTemplate' ? 'rooms-template.csv' : 'rooms-revision-7.csv')));
+    });
+  }
+}
+
+for (const valid of [true, false]) {
+  for (const first of ['validation', 'mutation']) {
+    test(`CO-306 ${valid ? 'valid' : 'invalid'} CSV keeps its result when ${first} completes first`, async (context) => {
+      const started = deferred(), completed = deferred();
+      const fixture = await managerBulkFixture(context, {
+        async validateBulk() { started.resolve(); return completed.promise; },
+      });
+      const validation = fixture.validate.dispatch('click');
+      await started.promise;
+      const mutation = fixture.editor.beginMutation();
+      assert.ok(mutation);
+      const result = { valid, changed: valid, errors: [], receipt: valid ? { id: 'rooms-receipt' } : null };
+      let duringMutation;
+      if (first === 'validation') {
+        completed.resolve(result); await validation;
+        duringMutation = fixture.apply.disabled;
+        mutation.finish();
+      } else {
+        mutation.finish();
+        assert.equal(fixture.apply.disabled, true, 'Validation has not supplied a usable receipt');
+        completed.resolve(result); await validation;
+      }
+      assert.equal(fixture.apply.disabled, !valid, 'The current validation owns Apply eligibility');
+      if (first === 'validation') assert.equal(duringMutation, true, 'Validation cannot unlock a pending save');
+      assert.equal(fixture.price.disabled, false);
+      assert.equal(fixture.limit.disabled, true);
+      if (valid) {
+        await fixture.apply.dispatch('click');
+        assert.deepEqual(fixture.applications, [{ type: 'rooms',
+          value: { schemaVersion: 1, type: 'rooms', rows: [] }, receiptId: 'rooms-receipt' }]);
+        assert.equal(fixture.validate.disabled, false);
+        assert.equal(fixture.apply.disabled, true, 'A consumed receipt cannot be applied twice');
+      } else assert.deepEqual(fixture.applications, []);
+    });
+  }
+}
+
+for (const invalidation of ['context', 'detached', 'session-lock']) {
+  test(`CO-306 ${invalidation} prevents late CSV work and save completion from unlocking stale controls`, async (context) => {
+    const downloadStarted = deferred(), downloadCompleted = deferred();
+    const validationStarted = deferred(), validationCompleted = deferred();
+    const fixture = await managerBulkFixture(context, {
+      async loadBulkTemplate() { downloadStarted.resolve(); return downloadCompleted.promise; },
+      async validateBulk() { validationStarted.resolve(); return validationCompleted.promise; },
+    });
+    const download = fixture.template.dispatch('click');
+    const validation = fixture.validate.dispatch('click');
+    await Promise.all([downloadStarted.promise, validationStarted.promise]);
+    const mutation = fixture.editor.beginMutation();
+    assert.ok(mutation);
+    if (invalidation === 'context') fixture.revoke();
+    else if (invalidation === 'detached') fixture.root.remove();
+    else fixture.document.documentElement.dataset.sessionLocked = 'true';
+    downloadCompleted.resolve({ schemaVersion: 1, type: 'rooms', rows: [] });
+    validationCompleted.resolve({ valid: true, changed: true, errors: [], receipt: { id: 'stale' } });
+    await Promise.all([download, validation]);
+    mutation.finish();
+    assert.ok(fixture.root.querySelectorAll('input, select, textarea, button').every((control) => control.disabled));
+    assert.deepEqual(fixture.document.downloads, []);
+    assert.deepEqual(fixture.applications, []);
+    assert.equal(fixture.editor.beginMutation(), null);
+  });
+}

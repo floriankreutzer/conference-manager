@@ -150,6 +150,10 @@ unsaved fields or silently rebase a conflicting catalogue draft. A pending save
 must not permit a second contradictory write. Search and disclosure changes are
 presentation state, not permission to omit entries from an owned snapshot.
 The existing Tenant editor protection and its role boundary must remain intact.
+CSV downloads and validation retain their own current eligibility during an
+independent save. Test both completion orders: pending downloads stay disabled,
+completed downloads become usable again, and Apply follows the current receipt
+without unlocking the pending save or restoring an invalidated context.
 
 Manager navigation and CSV actions must keep complete words readable inside
 their buttons. Use the CO-306 Catering reflow cases in DE/EN at 390/768/1366 px

@@ -7275,6 +7275,104 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('#welcomeHeading')).toBeVisible();
     await expect(page.locator('dialog')).toHaveCount(0);
   });
+
+  for (const first of ['csv', 'save']) {
+    test(`CO-306 Manager CSV ownership survives ${first}-first price completion (${language})`, async ({ page }, testInfo) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionApplicationFixture(page, {
+        roles: ['employee', 'conference_manager'], holdCatalogueSave: true,
+      });
+      let releaseCsv;
+      const csvGate = new Promise((resolve) => { releaseCsv = resolve; });
+      const operations = [], downloads = [];
+      const documentValue = { schemaVersion: 1, type: 'rooms', rows: [] };
+      page.on('download', (download) => downloads.push(download));
+      await page.route(/\/api\/v1\/tenant\/settings\/locations\/bulk\/rooms\/(template|export|validate)$/, async (route) => {
+        const operation = new URL(route.request().url()).pathname.split('/').at(-1);
+        operations.push({ operation, method: route.request().method() });
+        await csvGate;
+        if (operation === 'validate') { await route.fallback(); return; }
+        await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify(operation === 'template' ? documentValue : { revision: 1, document: documentValue }) });
+      });
+      await page.goto(`${ORIGIN}/`);
+      await page.locator('[data-view="manager"]').click();
+      await page.getByRole('tab', { name: 'Administration', exact: true }).click();
+      const price = page.locator('#manager-room-price-amount-0');
+      const savePrice = page.getByRole('button', { name: language === 'de' ? 'Raumpreis speichern' : 'Save room price', exact: true });
+      const bulk = page.locator('[data-manager-business-settings-root] [data-tenant-bulk-transfer]');
+      const template = bulk.getByRole('button', { name: language === 'de' ? 'Vorlage herunterladen' : 'Download template', exact: true });
+      const exportButton = bulk.getByRole('button', { name: language === 'de' ? 'Aktuellen Stand exportieren' : 'Export current revision', exact: true });
+      const validate = bulk.getByRole('button', { name: language === 'de' ? 'Datei prüfen' : 'Validate file', exact: true });
+      const apply = bulk.getByRole('button', { name: language === 'de' ? 'Geprüfte Änderungen anwenden' : 'Apply validated changes', exact: true });
+      await price.fill('13.50');
+      await bulk.locator('input[type="file"]').setInputFiles({ name: 'rooms.csv', mimeType: 'text/csv', buffer: Buffer.from('"id"\r\n') });
+      await expect(apply).toBeDisabled();
+      await template.click(); await exportButton.click(); await validate.click();
+      await expect.poll(() => operations.length).toBe(3);
+      await savePrice.click();
+      await expect.poll(() => fixture.catalogueWrites.length).toBe(1);
+      await expect(price.locator('xpath=ancestor::form')).toHaveAttribute('aria-busy', 'true');
+      const phases = [];
+      const states = () => bulk.locator('button').evaluateAll((buttons) => buttons.map((button) => button.disabled));
+      expect(await states()).toEqual([true, true, true, true]);
+      if (first === 'save') {
+        fixture.releaseCatalogueSave();
+        await expect(savePrice).toBeEnabled();
+        await expect(template).toBeDisabled(); await expect(exportButton).toBeDisabled(); await expect(apply).toBeDisabled();
+        phases.push({ phase: 'save-complete-csv-pending', disabled: await states() });
+      }
+      releaseCsv();
+      await expect.poll(() => downloads.length).toBe(2);
+      await expect(bulk.getByRole('status')).toContainText(language === 'de' ? 'gültig und enthält Änderungen' : 'valid and contains changes');
+      if (first === 'csv') {
+        expect(await states()).toEqual([true, true, true, true]);
+        phases.push({ phase: 'csv-complete-save-pending', disabled: await states() });
+        fixture.releaseCatalogueSave();
+        await expect(savePrice).toBeEnabled();
+      }
+      for (const control of [template, exportButton, validate, apply]) await expect(control).toBeEnabled();
+      phases.push({ phase: 'both-complete', disabled: await states() });
+      expect(downloads.map((download) => download.suggestedFilename()).sort())
+        .toEqual(['rooms-revision-1.csv', 'rooms-template.csv']);
+      for (const control of [template, exportButton]) {
+        await control.focus(); await expect(control).toBeFocused();
+        const nextDownload = page.waitForEvent('download');
+        await page.keyboard.press('Enter');
+        const downloaded = await nextDownload;
+        const bytes = await readFile(await downloaded.path());
+        expect(bytes.toString('utf8')).toMatch(/^"id","siteId","name",/);
+      }
+      expect(operations).toEqual([
+        { operation: 'template', method: 'GET' }, { operation: 'export', method: 'GET' },
+        { operation: 'validate', method: 'POST' }, { operation: 'template', method: 'GET' },
+        { operation: 'export', method: 'GET' },
+      ]);
+      const expectedCatalogue = structuredClone(catalogueSettingsPayload().catalogue);
+      expectedCatalogue.roomPrices = [{ roomId: 'room-a', price: { amountMinor: 1350, currency: 'EUR' } }];
+      expect(fixture.catalogueWrites).toEqual([{ csrf: CSRF_TOKEN,
+        body: { schemaVersion: 1, expectedRevision: 1, catalogue: expectedCatalogue } }]);
+      await apply.click();
+      await expect.poll(() => fixture.bulkWrites.length).toBe(2);
+      expect(fixture.bulkWrites).toEqual([
+        { path: '/api/v1/tenant/settings/locations/bulk/rooms/validate', csrf: CSRF_TOKEN, body: { document: documentValue } },
+        { path: '/api/v1/tenant/settings/locations/bulk/rooms/apply', csrf: CSRF_TOKEN,
+          body: { receiptId: 'bulk-receipt-1', document: documentValue } },
+      ]);
+      await expect(bulk.locator('input[type="file"]')).toHaveValue('');
+      await expect(price).toBeEnabled();
+      await expect(price).toHaveValue('13.50');
+      await expect(apply).toBeDisabled();
+      expect(fixture.locationWrites).toHaveLength(0);
+      expect(fixture.catalogueWrites).toHaveLength(1);
+      expect(await page.evaluate(() => dispatchEvent(new Event('beforeunload', { cancelable: true })))).toBe(true);
+      await testInfo.attach('manager-csv-mutation-order', {
+        body: Buffer.from(JSON.stringify({ language, first, phases, downloads: downloads.map((entry) => entry.suggestedFilename()),
+          operations, catalogueWrites: fixture.catalogueWrites.length, bulkWrites: fixture.bulkWrites.length })),
+        contentType: 'application/json',
+      });
+    });
+  }
 }
 
 test('CO-306 pending room save prevents concurrent writes and conflict retains the exact draft', async ({ page }) => {
