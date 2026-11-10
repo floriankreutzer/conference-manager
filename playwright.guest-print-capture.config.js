@@ -6,7 +6,8 @@ import original from './playwright.config.js';
 export default defineConfig({
   ...original,
   testMatch: 'production-application.spec.js',
-  grep: /^CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in (?:de|en)$/u,
+  // Playwright matches the project/file/title path, not the leaf title alone.
+  grep: /^(?:chromium-desktop|webkit-mobile) production-application\.spec\.js CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in (?:de|en)$/u,
   forbidOnly: true,
   reporter: [['list']],
   use: { ...original.use, ignoreHTTPSErrors: false, trace: 'off', screenshot: 'off' },

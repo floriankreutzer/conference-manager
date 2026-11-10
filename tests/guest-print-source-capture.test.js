@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import original from '../playwright.config.js';
 import capture from '../playwright.guest-print-capture.config.js';
@@ -46,10 +46,60 @@ test('H keeps both original engine projects, no retries, exact original cases an
   assert.equal(capture.use.ignoreHTTPSErrors, false);
   assert.equal(capture.webServer, undefined);
   assert.equal(capture.use.trace, 'off');
-  for (const language of ['de', 'en']) {
-    assert.equal(capture.grep.test('CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in ' + language), true);
+  for (const project of GUEST_CAPTURE_PROJECTS) {
+    for (const language of ['de', 'en']) {
+      const title = 'CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in ' + language;
+      assert.equal(capture.grep.test(project + ' production-application.spec.js ' + title), true);
+      assert.equal(capture.grep.test(title), false, 'A leaf title is not the consumer input');
+      assert.equal(capture.grep.test(project + ' production-application.spec.js ' + title + ' unrelated'), false);
+    }
   }
-  assert.equal(capture.grep.test('CO-317: another print case'), false);
+  assert.equal(capture.grep.test('chromium-desktop other.spec.js CO-317: another print case'), false);
+});
+
+test('the real Playwright CLI discovers exactly four original cases and rejects the legacy leaf-only grep', () => {
+  const arguments_ = ['node_modules/@playwright/test/cli.js', 'test',
+    '--config=playwright.guest-print-capture.config.js', '--list', '--reporter=json'];
+  const run = (extra = []) => spawnSync(process.execPath, [...arguments_, ...extra], {
+    encoding: 'utf8', timeout: 30_000, maxBuffer: 1_048_576,
+  });
+  const inventory = (report) => {
+    const rows = [];
+    const visit = (suite, parents = []) => {
+      const titles = [...parents, suite.title];
+      for (const spec of suite.specs || []) {
+        assert.equal(spec.file, 'production-application.spec.js');
+        assert.deepEqual(spec.tags, []);
+        for (const selected of spec.tests) {
+          assert.equal(selected.expectedStatus, 'passed');
+          assert.deepEqual(selected.results, [], 'Discovery must not execute browser tests');
+          rows.push([selected.projectName, ...titles, spec.title].join(' '));
+        }
+      }
+      for (const child of suite.suites || []) visit(child, titles);
+    };
+    for (const suite of report.suites) visit(suite);
+    return rows.sort();
+  };
+  const positive = run();
+  assert.ifError(positive.error);
+  assert.equal(positive.status, 0, positive.stderr.slice(0, 4096));
+  const report = JSON.parse(positive.stdout);
+  assert.deepEqual(report.errors, []);
+  const expected = GUEST_CAPTURE_PROJECTS.flatMap((project) => ['de', 'en'].map((language) => (
+    project + ' production-application.spec.js CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in ' + language
+  ))).sort();
+  assert.deepEqual(inventory(report), expected);
+
+  const legacy = run(['--grep',
+    '^CO-317: EMP-14 EMP-15 bounded public content keeps every field in multipage A4 and print CSS in (?:de|en)$']);
+  assert.ifError(legacy.error);
+  assert.equal(legacy.status, 1, 'Zero matching cases must remain a failing CLI invocation');
+  const rejected = JSON.parse(legacy.stdout);
+  assert.deepEqual(inventory(rejected), []);
+  assert.equal(rejected.errors.length, 1);
+  assert.match(rejected.errors[0].message, /No tests found/u);
+  console.log('H CLI discovery: four exact project/title cases; legacy anchored leaf: zero cases and exit 1.');
 });
 
 test('H accepts both original public-language snapshots without a blanket private-text exclusion', () => {

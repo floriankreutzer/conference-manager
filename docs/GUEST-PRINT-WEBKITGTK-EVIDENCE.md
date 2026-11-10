@@ -249,3 +249,45 @@ A release or product-acceptance claim requires actual successful native
 evidence and actual review of the complete original page set, together with
 all other applicable gates. This harness does not itself change Jira scope,
 ticket status, acceptance, deployment or release configuration.
+
+
+## Observed H discovery failure and bounded correction
+
+The first H attempt,
+[run 42749276004](https://github.com/floriankreutzer/conference-manager/actions/runs/42749276004),
+[job 129608780502](https://github.com/floriankreutzer/conference-manager/actions/runs/42749276004/job/129608780502),
+used ce5f018c86d653c533f7eb078f9614aabd01aa20, tree
+a99af6b9366b4bba4bc1879c60238bb5e7fb1b2b. It failed on 2026-11-10 at 03:27:48 UTC.
+
+The exact native baseline passed 1085/1085 Node tests with zero failures,
+cancellations or skips. That includes the H Python wrapper executing the
+27-method suite and the unchanged Phase 1 offline wrapper. Python compilation,
+the source boundary, dependency audit (zero vulnerabilities) and existing
+Semgrep policy (six rules, 290 targets, zero findings) also passed.
+
+Capture then reported "No tests found" before executing a browser case. The six
+native TLS cases, four actual Guest prints and image transport were not started.
+No capture or PDF artifact was produced. This remains a genuine failed H run.
+
+The cause was an incorrectly anchored leaf-title grep. The
+[Playwright API contract](https://playwright.dev/docs/api/class-testconfig#test-config-grep)
+matches a composed project/file/suite/test/tag title. The installed 1.64.1
+implementation confirms that behavior in
+[project-suite filtering](https://github.com/microsoft/playwright/blob/v1.64.1/packages/playwright/src/runner/loadUtils.ts)
+and [test title construction](https://github.com/microsoft/playwright/blob/v1.64.1/packages/playwright/src/common/test.ts).
+The existing file glob is valid: its
+[file matcher](https://github.com/microsoft/playwright/blob/v1.64.1/packages/playwright/src/util.ts)
+adds the recursive prefix for a bare filename.
+
+The correction changes only the H grep to the exact two project names,
+original filename and complete original DE/EN titles. A new offline Node test
+uses the real installed Playwright CLI with list mode and its JSON reporter:
+the corrected configuration must discover exactly those four project/title
+pairs, and overriding it with the old anchored leaf pattern must produce zero
+cases and exit 1. List mode does not execute browser assertions.
+
+This correction declares ten H Node checks; the 27 Python methods and the
+GTK/security implementation are unchanged. The new bytes still require their
+own native baseline and actual capture/print run. The failed attempt is not
+rerun or reclassified, and no test definition, retry, deadline, privilege,
+TLS policy, sandbox check or acceptance requirement is changed.
