@@ -171,6 +171,25 @@ class ArtifactReviewTests(unittest.TestCase):
             with self.assertRaises(review.Rejected):
                 review.context_gate(changed)
 
+    def test_existing_demo_catering_context_is_allowed_only_for_its_exact_recorded_scope(self):
+        recorded = context()
+        recorded.update({
+            "composition": "isolated-demo-component-routed-media-fixture",
+            "screen": "19", "state": "demo-catering-before-edit", "language": "en",
+            "roles": ["conference_manager"], "viewport": {"width": 1280, "height": 900},
+            "test": "CO-306 new Catering owner/image write locks the complete draft and retains unrelated unsaved entries",
+        })
+        review.context_gate(recorded)
+        self.assertNotIn(recorded["composition"], review.COMPOSITIONS)
+        for key, value in (("composition", "isolated-demo-component-routed-media-fixture-other"),
+                           ("screen", "18"), ("state", "catalogue-status-and-authoritative-summary"),
+                           ("language", "de"), ("roles", ["employee", "conference_manager"]),
+                           ("viewport", {"width": 390, "height": 900}), ("test", "other test"),
+                           ("apiCommit", review.API_COMMIT), ("engine", "webkit"),
+                           ("project", "webkit-mobile")):
+            with self.subTest(field=key), self.assertRaises(review.Rejected):
+                review.context_gate(dict(recorded, **{key: value}))
+
     def test_primary_selector_requires_all_exact_states_once(self):
         captures = []
         for screen, (state, width) in review.PRIMARY.items():

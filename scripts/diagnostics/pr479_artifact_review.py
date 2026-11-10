@@ -359,7 +359,17 @@ def context_gate(context):
     require(context.get("frontend", {}).get("checkoutCommit") == CHECKOUT
             and context.get("frontend", {}).get("githubSha") == CHECKOUT
             and context.get("frontend", {}).get("trackedWorkingTree") == "clean", "capture-source")
-    require(context.get("apiCommit") is None and context.get("composition") in COMPOSITIONS
+    # One additional existing F88 fixture: local adapters and routed Demo media,
+    # not the shared server-backed Demo. Keep this exception bound to its sole
+    # recorded context; the normal Screen19 primary selector remains unchanged.
+    known_demo_catering = (
+        context.get("composition") == "isolated-demo-component-routed-media-fixture"
+        and context.get("screen") == "19" and context.get("state") == "demo-catering-before-edit"
+        and context.get("language") == "en" and context.get("roles") == ["conference_manager"]
+        and context.get("viewport") == {"width": 1280, "height": 900}
+        and context.get("test") == "CO-306 new Catering owner/image write locks the complete draft and retains unrelated unsaved entries"
+    )
+    require(context.get("apiCommit") is None and (context.get("composition") in COMPOSITIONS or known_demo_catering)
             and context.get("project") == "chromium-desktop" and context.get("engine") == "chromium", "capture-composition")
     require(context.get("screen") in PRIMARY and context.get("language") in ("de", "en"), "capture-language-screen")
     require(isinstance(context.get("roles"), list) and 0 < len(context["roles"]) <= 3
