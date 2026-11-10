@@ -1,3 +1,11 @@
+export const REQUEST_MAX_DURATION_HOURS = 24;
+
+export function isSupportedRequestDuration(startsAt, endsAt) {
+  const duration = Date.parse(endsAt) - Date.parse(startsAt);
+  return Number.isFinite(duration) && duration > 0
+    && duration <= REQUEST_MAX_DURATION_HOURS * 60 * 60 * 1000;
+}
+
 export function composeServerRequestDraft({
   request = null,
   catalog,

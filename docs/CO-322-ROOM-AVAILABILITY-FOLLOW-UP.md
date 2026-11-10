@@ -3,15 +3,19 @@
 ## Scope
 
 CO-322 remains the authoritative work item for the reported booking blocker and
-its product acceptance. This follow-up defines the evidence needed for a scoped
-fix. The cause is unresolved; no scoped implementation correction or full product acceptance is
-established by this document. The dated positive live observation below has a
-narrower role/browser scope than the original report.
+its product acceptance. The original Safari cause remains unresolved. This
+follow-up also records the separately reproduced duration-contract correction
+below; it does not establish that correction as the cause of the original
+failure or as full product acceptance. The dated positive live observation has
+a narrower role/browser scope than the original report.
 
 The reported Employee journey reaches room selection with sufficient capacity,
 then displays a failed calendar check and keeps Next disabled. An HTTP 200
 observed in server logs has not been bound to that browser response and its
-validated contents. Missing room images remain a separate observation.
+validated contents. The original Safari screenshot was visually inspected: it
+shows Berlin Forum selected, twelve required places against capacity 24, a failed
+calendar check and visually disabled Next. It shows no scheduling inputs, browser
+version or correlated response. Missing room images remain a separate observation.
 
 Preserve the existing [persistence contract](PRODUCTION-PERSISTENCE-CONTRACT.md),
 [security boundary](PRODUCTION-SECURITY.md), [screen contract](CUSTOMER-QA-SCREEN-CONTRACT.md)
@@ -19,7 +23,38 @@ and [permanent scenario acceptance](SAAS-3.7-SCENARIO-ACCEPTANCE.md).
 The backend remains authoritative for Tenant, session, policy, availability,
 concurrency, request state and writes.
 
-## Inspected source boundary
+## Bounded duration correction
+
+The API accepts only a positive interval of at most 24 elapsed hours; see its
+[availability service](https://github.com/floriankreutzer/conference-manager-api/blob/5cfabe51a4d195435e48c4cf68902c833930c995/src/application/room-availability-service.js).
+Before this correction, the Employee multi-day editor and availability adapter
+could send a longer interval. A regression test reproduced this gap before the
+implementation changed: 24 hours plus one millisecond, 48 hours and a 25-hour
+autumn time-change interval all reached the transport instead of being rejected.
+
+The Employee editor and availability adapter now validate the same bounded
+duration before an availability call. Once the selected room supplies its
+authoritative Site time zone, the editor returns an overlong interval to the
+schedule step, preserves the draft and focuses the visible end-date field with
+a localized corrective message and error link. Editing a time-window field
+clears that field-group error; progression revalidates the interval. The adapter
+independently rejects invalid intervals before transport. Server validation,
+authorization and availability authority remain unchanged.
+
+The comparison uses the resulting UTC instants, not a count of calendar dates.
+Exactly 24 hours and shorter overnight intervals remain valid. Missing Site time
+zones and ambiguous or nonexistent local times still fail closed through the
+existing converter and canonical-UTC validation. The focused regression is
+`tests/room-availability-window.test.js`; the localized correction and recovery
+journey is covered in both configured browser projects by the CO-322 cases in
+`tests/e2e/production-application.spec.js`. Browser execution and release
+qualification must be established by their actual results, not test presence.
+
+This is an independently evidenced input-contract gap. The original report does
+not retain the exact start/end values or a correlated browser response, so it
+cannot be attributed to an overlong interval from the available evidence.
+
+## Historical inspected source boundary
 
 The source comparison uses reported deployment frontend
 `83f883dbccd76a28050f1981c8431f18174f04e7` and reviewed frontend
@@ -54,10 +89,13 @@ is also byte-identical between these commits. The whole Employee application
 and its room-media module differ elsewhere; this comparison does not establish
 identical applications or unchanged surrounding rendering.
 
-The current source separates these stages:
+## Availability validation stages
+
+The availability flow with the duration correction separates these stages:
 
 1. Validate the selected room, capacity, authoritative Site time zone and future
-   UTC interval; invalidate any previous verification when its inputs change.
+   UTC interval of at most 24 elapsed hours; invalidate any previous verification
+   when its inputs change.
 2. Send the same-origin availability request through the bounded API client.
    A successful HTTP status still requires a readable bounded JSON response.
 3. Validate the exact schema-version-1 envelope and its availability projection:
@@ -150,6 +188,7 @@ focus, localized status/error semantics and usable narrow layouts.
 | Available room and valid interval | Calendar verification enables the legitimate next step. Complete the authorized request/booking lifecycle, confirm the authoritative write once, and read back the expected Employee and Manager state after reload. Distinguish workflow-start events from request creation. |
 | Occupied room | Occupied status is explicit; progression and submission stay blocked. |
 | Capacity, invalid/past time or missing authoritative time zone | Invalid input cannot create availability authority or a request; the existing correction path remains usable. |
+| Interval longer than 24 elapsed hours | No availability request or request-creation write; return to the schedule, retain entered values and expose the localized error on the end-date field with usable keyboard focus. Correcting to exactly 24 hours or a shorter overnight interval permits a fresh availability check. The existing draft workflow start remains an independent operation. |
 | Room/time/context changes while a check is pending | Stale completion cannot validate a newer tuple or restore an invalidated editor. A new valid tuple requires a fresh check. |
 | Unavailable provider, transport failure or malformed successful response | Fail closed with the appropriate localized state; a later valid check can recover without retaining a false verification. |
 | Expired/changed session, inactivity lock, cross-Tenant scope or invalid CSRF | Existing server and browser authority controls remain effective; no unauthorized read/write or stale presentation restoration. |

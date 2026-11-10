@@ -437,7 +437,14 @@ body[data-ux-first-use="true"] .welcome-hero {
 @media print {
   .guest-print-document { max-inline-size: none; padding: 0 var(--space-1); }
   .guest-print-document .print-action { display: none; }
-  .guest-print-hero, .guest-print-card { break-inside: avoid; }
+  .guest-print-hero,
+  .guest-print-facts,
+  .guest-print-grid,
+  .guest-print-card {
+    /* Keep parallel card rows together when the bounded group fits a page. */
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
   .guest-print-document a { color: inherit; }
 }
 
