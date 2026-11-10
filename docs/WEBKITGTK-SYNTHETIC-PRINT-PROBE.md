@@ -2,9 +2,16 @@
 
 ## Status and scope
 
-Prepared for review only. No probe, repository baseline or new test result is claimed by
-this document. Publishing a ref or starting the workflow requires the owner's implementation
-review of the exact candidate. The prepared commit is initially unreferenced.
+The initial candidate b89feefd934d7b4d901d7b00029ab7eb274d6d88 ran once after review on
+[2026-11-10](https://github.com/floriankreutzer/conference-manager/actions/runs/42734320630).
+Its native repository baseline passed 1,018 tests and its dependency audit found no
+vulnerabilities. Package provisioning passed, but the probe failed before recording its
+first case: the parent could not decode an early worker response. The original receipt
+records JSONDecodeError, zero case/PDF results and successful exact trust/hosts cleanup.
+It establishes no WebKit TLS, sandbox or PDF capability.
+
+The diagnostic follow-up is prepared for review only. Publishing its exact candidate or
+starting another native run requires implementation review; no second run is claimed here.
 
 This Phase 1 checks whether one fresh, disposable, standard Ubuntu 26.04 GitHub-hosted VM
 can run the distribution's WebKitGTK 4.1 / GTK 3 file-print backend with normal TLS
@@ -92,8 +99,10 @@ as root.
 The offline tests verify the actual generated chains with OpenSSL, including the intended
 reason for each invalid leaf. They also cover fixed document semantics/CSP, rejected
 parameters, both-page A4 parsing, credential-free child environment, partial installation,
-original-error preservation, cleanup failure and concurrent hosts-file changes. These tests
-are defined, not executed at preparation time. The native job must establish their results.
+original-error preservation, cleanup failure and concurrent hosts-file changes. The initial
+12 offline checks passed in the first native baseline. The follow-up adds strict worker
+protocol and bounded-process regression/progression tests; that candidate requires its own
+recorded validation and native evidence.
 
 A root extension alone is not treated as proof that a client enforces NameConstraints:
 the intermediate repeats the critical constraints, and the actual WebKit negative case is
@@ -104,6 +113,15 @@ mandatory. A generic timeout, HTTP failure or worker crash cannot satisfy a TLS-
 The receipt binds the checked-out commit, tree, script digest, runner image, package
 versions, WebKit library version, individual TLS outcomes, actual sandbox observations,
 PDF digests and cleanup result. Success requires all six cases and both PDFs.
+
+Every worker uses one JSON result on stdout, including early initialization failures.
+The parent accepts only the exact schema, fixed phase/error enums, bounded numeric/version
+fields and matching exit status. It rejects duplicate keys, multiple answers, malformed JSON,
+unexpected fields and missing TLS/sandbox evidence. Both output pipes are capped while read;
+only byte counts enter the receipt. Native stderr, exception messages and package paths do
+not. A missing or invalid response becomes a failed case with its exit status and protocol
+classification, followed by the same mandatory cleanup. The 35-second worker deadline,
+TLS validation, sandbox requirements and six required cases remain unchanged.
 
 Only after a successful, reviewed Phase 1 may a separate scoped implementation capture
 the actual production Guest popup DOM from each existing Playwright project and DE/EN case.

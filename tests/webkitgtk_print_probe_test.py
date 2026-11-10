@@ -1,10 +1,14 @@
 """Offline regression/progression checks; no GUI, network or system trust mutation."""
+import contextlib
 import importlib.util
 from html.parser import HTMLParser
+import io
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -92,6 +96,194 @@ class PureBoundaryTests(unittest.TestCase):
         self.assertNotIn("GITHUB_TOKEN", child)
         self.assertNotIn("SSL_CERT_FILE", child)
         self.assertNotIn("UNRELATED", child)
+
+
+class WorkerProtocolTests(unittest.TestCase):
+    def successful_result(self, case):
+        flag = PROBE.CASES[case][2]
+        result = {"case": case, "passed": True, "sandboxEnabled": True, "tlsPolicy": "FAIL",
+                  "webkit": "2.52.6", "phase": "tls-handshake" if flag else "print-operation",
+                  "result": "TLS_REJECTED" if flag else "PRINT_FINISHED", "tlsFlags": flag}
+        if not flag:
+            result["sandbox"] = [{"noNewPrivileges": True, "seccompFilter": True,
+                                   "mountNamespaceIsolated": True}]
+        return result
+
+    def parse(self, result, exit_code=0, stderr=b""):
+        return PROBE.parse_worker_output("valid-de", exit_code, json.dumps(result).encode(), stderr)
+
+    def test_all_six_valid_results_preserve_observations_without_native_stderr(self):
+        for case in PROBE.CASES:
+            with self.subTest(case=case):
+                result = self.successful_result(case)
+                observed = PROBE.parse_worker_output(case, 0, json.dumps(result).encode(),
+                                                     b"private-path native warning")
+                self.assertTrue(observed["passed"])
+                for key, value in result.items():
+                    self.assertEqual(observed[key], value)
+                self.assertEqual(observed["exitCode"], 0)
+                self.assertEqual(observed["stderrBytes"], 27)
+                self.assertNotIn("private-path", json.dumps(observed))
+
+    def test_early_initialization_error_uses_the_same_json_channel(self):
+        def unavailable(_case, _port, _output, progress):
+            progress["phase"] = "print-backend"
+            raise TypeError("private native package path and message")
+
+        stdout = io.StringIO()
+        with patch.object(PROBE, "gtk_worker", side_effect=unavailable), contextlib.redirect_stdout(stdout):
+            exit_code = PROBE.run_worker("unknown-ca", 4173, Path("unused"))
+        observed = PROBE.parse_worker_output("unknown-ca", exit_code, stdout.getvalue().encode(), b"")
+        self.assertFalse(observed["passed"])
+        self.assertEqual(observed["exitCode"], 1)
+        self.assertEqual(observed["phase"], "print-backend")
+        self.assertEqual(observed["failure"], "TypeError")
+        self.assertNotIn("private", stdout.getvalue())
+
+    def test_emitted_positive_worker_result_remains_successful(self):
+        stdout = io.StringIO()
+        result = self.successful_result("valid-de")
+        with patch.object(PROBE, "gtk_worker", return_value=result), contextlib.redirect_stdout(stdout):
+            exit_code = PROBE.run_worker("valid-de", 4173, Path("unused"))
+        observed = PROBE.parse_worker_output("valid-de", exit_code, stdout.getvalue().encode(), b"")
+        self.assertTrue(observed["passed"])
+        self.assertEqual(observed["result"], "PRINT_FINISHED")
+
+    def test_error_codes_are_allowlisted_without_exception_messages(self):
+        self.assertEqual(PROBE.worker_error_code(PROBE.ProbeError("TLS_POLICY_NOT_FAIL")),
+                         "TLS_POLICY_NOT_FAIL")
+        self.assertEqual(PROBE.worker_error_code(PROBE.ProbeError("private native path")),
+                         "WORKER_EXCEPTION")
+        self.assertEqual(PROBE.worker_error_code(type("PrivateExceptionName", (Exception,), {})()),
+                         "WORKER_EXCEPTION")
+
+    def test_invalid_empty_duplicate_and_multiple_json_answers_fail_closed(self):
+        valid = json.dumps(self.successful_result("valid-de")).encode()
+        for stdout, expected in [
+            (b"", "WORKER_NO_RESULT"), (b" \n", "WORKER_NO_RESULT"),
+            (b"\xff", "WORKER_JSON_INVALID"), (b"native warning\n" + valid, "WORKER_JSON_INVALID"),
+            (valid + valid, "WORKER_JSON_INVALID"),
+            (b'{"passed":false,"passed":true}', "WORKER_JSON_INVALID"),
+            (b'{"tlsFlags":NaN}', "WORKER_JSON_INVALID"),
+        ]:
+            with self.subTest(stdout=stdout):
+                observed = PROBE.parse_worker_output("valid-de", 0, stdout, b"")
+                self.assertFalse(observed["passed"])
+                self.assertEqual(observed["failure"], expected)
+                self.assertEqual(observed["phase"], "protocol")
+
+    def test_strict_schema_rejects_expansion_wrong_types_and_missing_security_evidence(self):
+        valid = self.successful_result("valid-de")
+        invalid = [None, [], True, {},
+                   {**valid, "unexpected": "private native text"}, {**valid, "case": "valid-en"},
+                   {**valid, "phase": []}, {**valid, "phase": "untrusted"},
+                   {**valid, "passed": 1}, {**valid, "result": []}, {**valid, "tlsFlags": True},
+                   {**valid, "tlsFlags": 1}, {**valid, "sandboxEnabled": False},
+                   {**valid, "tlsPolicy": "IGNORE"}, {**valid, "webkit": "/private/path"},
+                   {**valid, "sandbox": []}, {**valid, "sandbox": [{"noNewPrivileges": True}]},
+                   {**valid, "sandbox": [{"noNewPrivileges": True, "seccompFilter": False,
+                                          "mountNamespaceIsolated": True}]},
+                   {key: value for key, value in valid.items() if key != "sandbox"},
+                   {"case": "valid-de", "passed": False, "phase": "gtk-init", "failure": []},
+                   {"case": "valid-de", "passed": False, "phase": "gtk-init", "failure": "private text"}]
+        for result in invalid:
+            with self.subTest(result=result):
+                observed = self.parse(result)
+                self.assertFalse(observed["passed"])
+                self.assertEqual(observed["failure"], "WORKER_SCHEMA_INVALID")
+                self.assertNotIn("private", json.dumps(observed))
+
+    def test_negative_case_requires_its_own_actual_tls_flag(self):
+        result = self.successful_result("unknown-ca")
+        for flag in (0, 2):
+            result["tlsFlags"] = flag
+            observed = PROBE.parse_worker_output("unknown-ca", 0, json.dumps(result).encode(), b"")
+            self.assertFalse(observed["passed"])
+            self.assertEqual(observed["failure"], "WORKER_SCHEMA_INVALID")
+
+    def test_exit_code_must_agree_with_result(self):
+        success = self.successful_result("valid-de")
+        failure = {"case": "valid-de", "passed": False, "phase": "gi-import", "failure": "ImportError"}
+        for result, exit_code in [(success, 1), (success, 2), (success, -6), (success, False),
+                                  (failure, 0), (failure, 2), (failure, -9)]:
+            with self.subTest(exit_code=exit_code, passed=result["passed"]):
+                observed = self.parse(result, exit_code)
+                self.assertFalse(observed["passed"])
+                self.assertEqual(observed["failure"], "WORKER_EXIT_MISMATCH")
+
+    def test_oversize_output_never_enters_a_receipt(self):
+        valid = json.dumps(self.successful_result("valid-de")).encode()
+        for stdout, stderr in [(b"x" * (PROBE.WORKER_OUTPUT_LIMIT + 1), b""),
+                               (valid, b"private" * 10_000)]:
+            observed = PROBE.parse_worker_output("valid-de", 0, stdout, stderr)
+            self.assertFalse(observed["passed"])
+            self.assertEqual(observed["failure"], "WORKER_OUTPUT_BOUND")
+            self.assertLessEqual(observed["stderrBytes"], PROBE.WORKER_OUTPUT_LIMIT + 1)
+            self.assertNotIn("private", json.dumps(observed))
+
+    def test_real_child_pipes_are_collected_without_native_text_in_the_result(self):
+        with subprocess.Popen([sys.executable, "-c", "import sys; print('answer'); sys.stderr.write('native')"],
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True) as child:
+            stdout, stderr, failure = PROBE.collect_worker_output(child)
+        self.assertEqual((stdout, stderr, failure, child.returncode), (b"answer\n", b"native", None, 0))
+        observed = PROBE.parse_worker_output("unknown-ca", child.returncode, stdout, stderr, failure)
+        self.assertEqual(observed["failure"], "WORKER_JSON_INVALID")
+        self.assertNotIn("native", json.dumps(observed))
+
+    def test_real_oversize_child_is_stopped_with_bounded_buffers(self):
+        for stream in ("stdout", "stderr"):
+            with self.subTest(stream=stream):
+                code = "import sys; sys." + stream + ".buffer.write(b'x'*65536); sys." + stream + ".flush()"
+                with subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE, start_new_session=True) as child:
+                    stdout, stderr, failure = PROBE.collect_worker_output(child)
+                self.assertEqual(failure, "WORKER_OUTPUT_BOUND")
+                self.assertLessEqual(len(stdout), PROBE.WORKER_OUTPUT_LIMIT + 1)
+                self.assertLessEqual(len(stderr), PROBE.WORKER_OUTPUT_LIMIT + 1)
+                self.assertIsNotNone(child.returncode)
+
+    def test_existing_worker_deadline_stops_the_child_and_cannot_pass(self):
+        with subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.read()"], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True) as child:
+            with patch.object(PROBE.time, "monotonic", side_effect=[0, 36]):
+                stdout, stderr, failure = PROBE.collect_worker_output(child)
+        observed = PROBE.parse_worker_output("unknown-ca", child.returncode, stdout, stderr, failure)
+        self.assertEqual(observed["failure"], "WORKER_DEADLINE")
+        self.assertFalse(observed["passed"])
+        self.assertIsNotNone(child.returncode)
+
+    def test_deadline_stops_descendant_pipe_after_exited_worker_leader(self):
+        descendant = "import sys; sys.stdin.buffer.read()"
+        leader = ("import subprocess,sys; subprocess.Popen([sys.executable,'-c',"
+                  + repr(descendant) + "]); print('spawned',flush=True)")
+        with subprocess.Popen([sys.executable, "-c", leader], stdin=subprocess.PIPE,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True) as child:
+            try:
+                self.assertEqual(child.wait(timeout=5), 0)
+                self.assertEqual(os.read(child.stdout.fileno(), 64), b"spawned\n")
+                with PROBE.selectors.DefaultSelector() as ready:
+                    ready.register(child.stdout, PROBE.selectors.EVENT_READ)
+                    self.assertFalse(ready.select(0), "The descendant must still hold the inherited pipe")
+                    with patch.object(PROBE.time, "monotonic", side_effect=[0, 36]):
+                        stdout, stderr, failure = PROBE.collect_worker_output(child)
+                    self.assertEqual(failure, "WORKER_DEADLINE")
+                    self.assertEqual(child.returncode, 0, "The leader has already exited normally")
+                    self.assertTrue(ready.select(2), "The deadline must close the descendant-held pipe")
+                    self.assertEqual(os.read(child.stdout.fileno(), 1), b"")
+                observed = PROBE.parse_worker_output("unknown-ca", child.returncode, stdout, stderr, failure)
+                self.assertFalse(observed["passed"])
+                self.assertEqual(observed["failure"], "WORKER_DEADLINE")
+            finally:
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(child.pid, PROBE.signal.SIGKILL)
+
+    def test_abnormal_exit_without_json_is_preserved_as_a_failed_case(self):
+        observed = PROBE.parse_worker_output("unknown-ca", -6, b"", b"native abort private path")
+        self.assertEqual(observed["failure"], "WORKER_NO_RESULT")
+        self.assertEqual(observed["exitCode"], -6)
+        self.assertEqual(observed["phase"], "protocol")
+        self.assertFalse(observed["passed"])
+        self.assertNotIn("private", json.dumps(observed))
 
 
 class CertificateFixtureTests(unittest.TestCase):
@@ -201,6 +393,15 @@ class TrustCleanupTests(unittest.TestCase):
         with self.assertRaisesRegex(PROBE.ProbeError, "ORIGINAL_FAILURE"):
             with trust:
                 raise PROBE.ProbeError("ORIGINAL_FAILURE")
+        self.assert_restored(trust)
+
+    def test_rejected_worker_result_still_restores_original_trust(self):
+        trust = PROBE.TemporaryVmTrust(self.directory)
+        with self.assertRaisesRegex(PROBE.ProbeError, "WEBKIT_CASE_FAILED"):
+            with trust:
+                observed = PROBE.parse_worker_output("unknown-ca", 1, b"", b"private native failure")
+                self.assertEqual(observed["failure"], "WORKER_NO_RESULT")
+                PROBE.require(observed["passed"], "WEBKIT_CASE_FAILED")
         self.assert_restored(trust)
 
     def test_partial_install_failure_also_cleans_up(self):
