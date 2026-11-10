@@ -1,3 +1,4 @@
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 import { readFile } from 'node:fs/promises';
 import { asProductionHtml } from './fixtures/production-html.js';
 import { test,expect } from '@playwright/test';
@@ -184,7 +185,7 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await testInfo.attach(`test-calendar-${language}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '25', state: 'synthetic-four-check-candidates', roles: ['tenant_admin'], name: `test-calendar-${language}-${width}`, composition: 'isolated-component-routed-protocol-fixture' });
     }
     expect(f.writes).toHaveLength(0);
   });

@@ -3,7 +3,7 @@ import { button, el, field } from '../core/ui.js';
 import { pavurelFunctionalIcon } from '../core/pavurel-functional-icon.js';
 import { formatProductionDateTime, productionUtcInstant } from '../core/production-time.js';
 import { roomPlanPreview } from './room-plan-preview.js';
-import { roomPlanProjection, siteLocalIsoDate } from './server-room-plan.js';
+import { adjacentRoomPlanDate, roomPlanProjection, roomPlanTimeline, siteLocalIsoDate } from './server-room-plan.js';
 import {
   reportSiteOptions,
   roomPlanSiteOptions,
@@ -201,6 +201,10 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
   const date = el('input', { type: 'date', value: state.date || siteLocalIsoDate(Date.now(), initialSite.timeZone),
     attrs: { required: 'required', 'aria-describedby': 'managerRoomPlanError' } });
   const error = el('p', { id: 'managerRoomPlanError', className: 'field-error', attrs: { role: 'alert', 'aria-live': 'assertive' } });
+  const dayLabel = el('p', { className: 'muted', attrs: { role: 'status' } });
+  const previous = button(t('production.manager.roomPlan.previousDay'));
+  const today = button(t('production.manager.roomPlan.today'));
+  const next = button(t('production.manager.roomPlan.nextDay'));
   const view = el('fieldset', { className: 'room-plan-view' }, [el('legend', { text: t('manager.roomPlan.view') })]);
   const results = el('section', { dataset: { roomPlanBody: 'true' } });
   const preview = roomPlanPreview({ openRequest });
@@ -211,11 +215,18 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
   windowSelect.value = state.window === 'WORK' ? 'WORK' : 'DAY';
   const controls = el('form', { className: 'room-plan-toolbar' }, [
     field({ id: 'productionRoomPlanSite', label: t('schedule.location'), control: site }),
-    field({ id: 'productionRoomPlanDate', label: t('manager.referenceDate'), control: date, required: true }), view,
+    el('div', { className: 'room-plan-date-controls' }, [
+      field({ id: 'productionRoomPlanDate', label: t('manager.referenceDate'), control: date, required: true }),
+      el('div', { className: 'room-plan-day-actions' }, [previous, today, next]),
+    ]), view,
     field({ id: 'productionRoomPlanWindow', label: t('production.manager.roomPlan.window'), control: windowSelect }),
   ]);
   controls.addEventListener('submit', (event) => event.preventDefault());
-  panel.append(controls, error, preview.node, results);
+  panel.append(controls, error, dayLabel, preview.node, results);
+  const invalidDate = () => {
+    preview.clear(); dayLabel.textContent = '';
+    date.setAttribute('aria-invalid', 'true'); error.textContent = t('validation.date'); results.replaceChildren(); date.focus();
+  };
   const render = () => {
     preview.clear();
     state.window = windowSelect.value;
@@ -224,15 +235,28 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
     state.date = date.value;
     const selectedSite = sites.find((entry) => entry.id === site.value);
     let projection;
-    try { projection = roomPlanProjection({ catalog, requests, siteId: site.value, date: date.value }); }
+    let timeline;
+    try {
+      projection = roomPlanProjection({ catalog, requests, siteId: site.value, date: date.value });
+      if (state.view === 'TIMELINE') timeline = roomPlanTimeline({ date: date.value, timeZone: selectedSite.timeZone, timeWindow: state.window });
+    }
     catch (caught) {
       if (caught?.message !== 'ROOM_PLAN_DATE_INVALID') throw caught;
-      date.setAttribute('aria-invalid', 'true'); error.textContent = t('validation.date'); results.replaceChildren(); date.focus(); return;
+      invalidDate(); return;
     }
     date.removeAttribute('aria-invalid'); error.textContent = '';
+    dayLabel.textContent = t('production.manager.roomPlan.day', {
+      date: new Intl.DateTimeFormat(locale(), { timeZone: selectedSite.timeZone, dateStyle: 'full' })
+        .format(Date.parse(productionUtcInstant(date.value, '00:00', selectedSite.timeZone))),
+      timeZone: selectedSite.timeZone,
+    });
     results.replaceChildren();
     const title = (request) => request.details?.title || t('production.common.requestId', { id: request.id });
     const time = (value) => formatProductionDateTime(value, { locale: locale(), timeZone: selectedSite.timeZone });
+    const roomLabel = (tag, room, attrs = {}) => el(tag, { attrs }, [
+      el('span', { text: room.name }),
+      el('small', { className: 'room-plan-room-capacity', text: t('production.manager.roomPlan.capacity', { count: formatNumber(room.capacity) }) }),
+    ]);
     const requestControl = (request, room) => {
       const control = button(title(request), { attrs: { 'aria-label': t('manager.roomPlan.bookingLabel', {
         title: title(request), start: time(request.startsAt), end: time(request.endsAt),
@@ -242,21 +266,17 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
       return control;
     };
     if (state.view === 'TIMELINE') {
-      const day = serverReportRange('DAY', date.value, selectedSite.timeZone);
-      const workingDay = state.window === 'WORK';
-      const start = Date.parse(workingDay ? productionUtcInstant(date.value, '08:00', selectedSite.timeZone) : day.fromInclusive);
-      const end = Date.parse(workingDay ? productionUtcInstant(date.value, '18:00', selectedSite.timeZone) : day.toExclusive);
+      const { start, end } = timeline;
       const chart = el('div', { className: 'manager-timeline-chart' });
       const ticks = el('div', { className: 'manager-timeline-ticks', attrs: { 'aria-hidden': 'true' } });
-      for (const hour of (workingDay ? [8, 10, 12, 14, 16, 18] : [0, 6, 12, 18, 24])) {
-        const value = hour === 24 ? end : Date.parse(productionUtcInstant(date.value, `${String(hour).padStart(2, '0')}:00`, selectedSite.timeZone));
+      for (const value of timeline.ticks) {
         const tick = el('span', { text: new Intl.DateTimeFormat(locale(), { timeZone: selectedSite.timeZone, timeStyle: 'short' }).format(value) });
         tick.style.setProperty('--timeline-start', `${(value - start) / (end - start) * 100}%`);
         ticks.appendChild(tick);
       }
       chart.appendChild(ticks);
       projection.forEach(({ room, requests: bookings }) => {
-        const row = el('section', { className: 'manager-timeline-room' }, [el('h3', { text: room.name })]);
+        const row = el('section', { className: 'manager-timeline-room' }, [roomLabel('h3', room)]);
         if (!bookings.length) row.appendChild(el('p', { text: t('room.available') }));
         const visibleBookings = bookings.filter((request) => Date.parse(request.startsAt) < end && Date.parse(request.endsAt) > start);
         if (visibleBookings.length < bookings.length) row.appendChild(el('p', { text: t('production.manager.roomPlan.outsideWindow') }));
@@ -281,9 +301,9 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
       ]);
       const body = el('tbody');
       projection.forEach(({ room, requests: bookings }) => {
-        if (!bookings.length) body.appendChild(el('tr', {}, [el('th', { text: room.name, attrs: { scope: 'row' } }), el('td', { text: t('room.available'), attrs: { colspan: '4' } })]));
+        if (!bookings.length) body.appendChild(el('tr', {}, [roomLabel('th', room, { scope: 'row' }), el('td', { text: t('room.available'), attrs: { colspan: '4' } })]));
         [...bookings].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).forEach((request) => body.appendChild(el('tr', {}, [
-          el('th', { text: room.name, attrs: { scope: 'row' } }), el('td', { text: time(request.startsAt) }),
+          roomLabel('th', room, { scope: 'row' }), el('td', { text: time(request.startsAt) }),
           el('td', { text: time(request.endsAt) }), el('td', {}, [requestControl(request, room)]), el('td', { text: t(`status.${request.status}`) }),
         ])));
       });
@@ -302,6 +322,18 @@ export function renderManagerRoomPlan({ panel, catalog, requests, state, openReq
     view.appendChild(el('label', {}, [radio, el('span', { text: t(key) })]));
   }
   site.addEventListener('change', render); date.addEventListener('change', render);
+  const moveDay = (direction) => {
+    try { date.value = adjacentRoomPlanDate(date.value, direction); }
+    catch { invalidDate(); return; }
+    render();
+  };
+  previous.addEventListener('click', () => moveDay(-1));
+  next.addEventListener('click', () => moveDay(1));
+  today.addEventListener('click', () => {
+    const selectedSite = sites.find((entry) => entry.id === site.value);
+    date.value = siteLocalIsoDate(Date.now(), selectedSite.timeZone);
+    render();
+  });
   windowSelect.addEventListener('change', render);
   render();
 }

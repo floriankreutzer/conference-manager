@@ -21,7 +21,7 @@ export function localSharedDemoDiagnosticsEnabled({ projectName, customerOrigin,
 // section selects a fixed endpoint class; unknown query values are discarded.
 export function observeLocalDemoNetwork(page, enabled, purpose) {
   if (!enabled) return null;
-  if (!['csv-bootstrap', 'context-switch'].includes(purpose)) throw new Error('LOCAL_DIAGNOSTIC_PURPOSE_INVALID');
+  if (!['csv-bootstrap', 'context-switch', 'room-price'].includes(purpose)) throw new Error('LOCAL_DIAGNOSTIC_PURPOSE_INVALID');
   let active = false;
   let overflow = false;
   let entries = [];
@@ -33,13 +33,14 @@ export function observeLocalDemoNetwork(page, enabled, purpose) {
     if (!['GET', 'PUT'].includes(method)) return;
     let url;
     try { url = new URL(request.url()); } catch { return; }
-    if (url.origin !== LOCAL_CUSTOMER_ORIGIN || url.username || url.password
-      || !(Object.hasOwn(ENDPOINTS, url.pathname) || (purpose === 'context-switch'
-        && url.pathname === '/api/v1/demo/session/context'))) return;
+    if (url.origin !== LOCAL_CUSTOMER_ORIGIN || url.username || url.password) return;
     const contextSwitch = url.pathname === '/api/v1/demo/session/context';
-    if ((contextSwitch ? method !== 'PUT' : method !== 'GET')) return;
+    if (purpose === 'room-price') {
+      if (url.pathname !== '/api/v1/tenant/settings/catalogue' || method !== 'PUT') return;
+    } else if (!(Object.hasOwn(ENDPOINTS, url.pathname) || (purpose === 'context-switch' && contextSwitch))
+      || (contextSwitch ? method !== 'PUT' : method !== 'GET')) return;
     if (entries.length === MAX_REQUESTS) { overflow = true; return; }
-    let endpoint = contextSwitch ? 'context' : ENDPOINTS[url.pathname];
+    let endpoint = purpose === 'room-price' ? 'room-price' : contextSwitch ? 'context' : ENDPOINTS[url.pathname];
     if (purpose === 'csv-bootstrap' && endpoint === 'catalog') {
       const sections = url.searchParams.getAll('section');
       if (sections.length === 1 && CATALOG_SECTIONS.has(sections[0])) endpoint = `catalog.${sections[0]}`;

@@ -9,7 +9,10 @@ import { formatProductionDateTime } from '../core/production-time.js';
 import { button, clear, el, field, openDialog, showToast } from '../core/ui.js';
 import { managerCockpitModel, filterManagerEntries } from './server-cockpit-model.js';
 import { renderManagerReports, renderManagerRoomPlan } from './server-analytics-view.js';
-import { renderProductionRequestBusinessDetails } from '../shared/production-request-details.js';
+import {
+  renderProductionRequestBusinessDetails,
+  renderProductionRequestSummary,
+} from '../shared/production-request-details.js';
 import {
   managerCanProposeBookingChange,
   managerRequestActions,
@@ -60,21 +63,9 @@ function requestSummary(request, catalog, currentRoomContext = null) {
   const room = catalog.rooms.find((entry) => entry.id === request.roomId)
     || (currentRoomContext?.room?.id === request.roomId ? currentRoomContext.room : null);
   const timeZone = roomTimeZone(room, catalog, currentRoomContext);
-  const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
-  return el('dl', { className: 'details-list' }, [
-    el('dt', { text: t('production.employee.room') }),
-    el('dd', { text: roomLabel(room) || request.roomId }),
-    el('dt', { text: t('production.employee.start') }),
-    el('dd', { text: formattedRequestTime(request.startsAt, timeZone) }),
-    el('dt', { text: t('production.employee.end') }),
-    el('dd', { text: formattedRequestTime(request.endsAt, timeZone) }),
-    el('dt', { text: t('production.common.participants', { count: participants }) }),
-    el('dd', { text: `${request.internalParticipants} / ${request.externalParticipants}` }),
-    el('dt', { text: t('production.common.status') }),
-    el('dd', { text: ['pending', 'applying', 'applied', 'rejected', 'superseded'].includes(request.status)
-      ? t(`production.bookingChange.status.${request.status}`)
-      : t(`status.${request.status}`) }),
-  ]);
+  return renderProductionRequestSummary(request, {
+    roomLabel: roomLabel(room) || request.roomId, timeZone, includeParticipantBreakdown: true,
+  });
 }
 
 export function createProductionManagerApplication({
@@ -85,6 +76,7 @@ export function createProductionManagerApplication({
   onOpenBusinessSettings = null,
   onOpenCateringOrders = null,
   onAuthorityFailure = null,
+  allowNavigation = null,
 } = {}) {
   if (!appRoot || typeof setPageHeading !== 'function') throw new TypeError('PRODUCTION_MANAGER_UI_REQUIRED');
   if (!(requestMutations instanceof Map)) {
@@ -98,6 +90,9 @@ export function createProductionManagerApplication({
   }
   if (onAuthorityFailure !== null && typeof onAuthorityFailure !== 'function') {
     throw new TypeError('PRODUCTION_MANAGER_AUTHORITY_HANDLER_REQUIRED');
+  }
+  if (allowNavigation !== null && typeof allowNavigation !== 'function') {
+    throw new TypeError('PRODUCTION_MANAGER_NAVIGATION_GUARD_REQUIRED');
   }
   if (
     !persistence
@@ -358,6 +353,7 @@ export function createProductionManagerApplication({
     let committedProjectionGeneration = 0;
     let interactiveProjectionGeneration = 0;
     let pendingTabFocus = null;
+    const focusTab = (tabId) => root.querySelector(`[data-manager-tab="${tabId}"]`)?.focus();
     let authorityProjectionInvalid = false;
     const isActiveSurface = () => (
       root.isConnected
@@ -405,6 +401,7 @@ export function createProductionManagerApplication({
     };
 
     async function refresh(focusRequestId = null) {
+      if (allowNavigation?.(() => void refresh(focusRequestId)) === false) return;
       const generation = ++refreshGeneration;
       if (!isCurrent(generation)) return;
       interactiveProjectionGeneration = 0;
@@ -453,14 +450,16 @@ export function createProductionManagerApplication({
               tabindex: activeTab === tabId ? '0' : '-1',
             },
           });
-          tab.addEventListener('click', () => {
-            if (activeTab === tabId) return;
-            activeTab = tabId;
-            pendingTabFocus = tabId;
+          const activateTab = (nextTab) => {
+            if (activeTab === nextTab) return;
+            if (allowNavigation?.(() => activateTab(nextTab)) === false) return;
+            activeTab = nextTab;
+            pendingTabFocus = nextTab;
             void refresh().then(() => {
-              if (activeTab === tabId) root.querySelector(`[data-manager-tab="${tabId}"]`)?.focus();
+              if (activeTab === nextTab) focusTab(nextTab);
             });
-          });
+          };
+          tab.addEventListener('click', () => activateTab(tabId));
           tab.addEventListener('keydown', (event) => {
             if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
             event.preventDefault();
@@ -471,13 +470,7 @@ export function createProductionManagerApplication({
                 : (tabIndex + (event.key === 'ArrowRight' ? 1 : -1) + tabDefinitions.length)
                   % tabDefinitions.length);
             const [nextTab] = tabDefinitions[nextIndex];
-            activeTab = nextTab;
-            pendingTabFocus = nextTab;
-            void refresh().then(() => {
-              if (activeTab === nextTab) {
-                root.querySelector(`[data-manager-tab="${nextTab}"]`)?.focus();
-              }
-            });
+            activateTab(nextTab);
           });
           tabs.appendChild(tab);
         });
@@ -485,7 +478,7 @@ export function createProductionManagerApplication({
         if (pendingTabFocus === activeTab && isCurrent(generation)) {
           // Finish keyboard navigation before exposing the next editable panel.
           // A delayed frame must not steal focus from its first field interaction.
-          root.querySelector(`[data-manager-tab="${activeTab}"]`)?.focus();
+          focusTab(activeTab);
           pendingTabFocus = null;
         }
 
@@ -545,7 +538,7 @@ export function createProductionManagerApplication({
         const summaries = el('section', { className: 'manager-overview-columns' });
         for (const [entries, titleKey, emptyKey] of [
           [model.action, 'manager.operational.workNow', 'manager.operational.noAction'],
-          [model.upcoming, 'manager.operational.upcoming', 'manager.operational.noUpcoming'],
+          [model.nextSevenDays, 'manager.operational.upcoming', 'manager.operational.noUpcoming'],
         ]) {
           const summary = el('section', { className: 'manager-overview-card' }, [el('h3', { text: t(titleKey) })]);
           entries.slice(0, 4).forEach(({ request, room, site }) => {
@@ -607,9 +600,11 @@ export function createProductionManagerApplication({
             dataset: { productionRequestId: request.id },
             attrs: { tabindex: '-1' },
           }, [
-            el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
-            el('p', { className: 'manager-requester', text: t('manager.restore.requester', { name: request.requesterAttribution?.displayName || t('manager.restore.unavailableName') }) }),
-            requestSummary(request, catalog, roomContexts[index]),
+            el('header', { className: 'request-card-summary' }, [
+              el('h3', { text: request.details?.title || t('production.common.requestId', { id: request.id }) }),
+              el('p', { className: 'manager-requester', text: t('manager.restore.requester', { name: request.requesterAttribution?.displayName || t('manager.restore.unavailableName') }) }),
+              requestSummary(request, catalog, roomContexts[index]),
+            ]),
           ]);
           const isActiveArticle = () => isActiveSurface() && article.isConnected;
           const isCurrentArticle = () => (

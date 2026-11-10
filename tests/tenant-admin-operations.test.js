@@ -169,7 +169,7 @@ test('mutating controls expose status, focus recovery, and explicit consequence 
   assert.doesNotMatch(users, /requestAnimationFrame\(\(\) => \{\s*if \(focusTarget/);
   assert.match(users, /let mutationPending = false/);
   assert.match(users, /if \(mutationPending\) return/);
-  assert.match(users, /lifecycle\.disabled = pending/);
+  assert.match(users, /lifecycle\.disabled = readOnly \|\| pending/);
   assert.match(users, /tenantAdmin\.operations\.users\.disableEffect/);
   assert.match(microsoft365, /disconnect\.setAttribute\('aria-describedby', 'tenant-microsoft365-disconnect-warning'\)/);
   assert.match(microsoft365, /resync\.focus\(\)/);

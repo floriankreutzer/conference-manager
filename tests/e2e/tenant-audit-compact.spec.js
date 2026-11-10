@@ -1,3 +1,4 @@
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 import { expect, test } from '@playwright/test';
 
 for (const language of ['de', 'en']) {
@@ -46,6 +47,40 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width !== 1366) await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: 'events-after-detail-close',
+        roles: ['tenant_admin'], composition: 'isolated-component-fixture', fullPage: false });
+      if (width !== 1366) {
+        const row = rows.filter({ has: selected });
+        await expect(row).toHaveCount(1);
+        for (const [side, cell] of [['left', row.locator('td').first()], ['right', row.locator('td').last()]]) {
+          // Keep fractional table edges away from nearest-scroll viewport rounding.
+          await cell.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' }));
+          const geometry = await cell.evaluate((node) => {
+            const region = node.closest('.tenant-audit-scroll');
+            const text = document.createRange();
+            text.selectNodeContents(node);
+            return { viewport: { width: innerWidth, height: innerHeight },
+              documentWidth: document.documentElement.scrollWidth, scrollX, scrollY,
+              cell: node.getBoundingClientRect().toJSON(), text: text.getBoundingClientRect().toJSON(),
+              region: region.getBoundingClientRect().toJSON(), regionScrollLeft: region.scrollLeft,
+              regionClientWidth: region.clientWidth, regionScrollWidth: region.scrollWidth };
+          });
+          await testInfo.attach(`audit-${language}-${width}-${side}-geometry`, {
+            contentType: 'application/json', body: Buffer.from(JSON.stringify({ language, side, ...geometry }, null, 2)),
+          });
+          await expect(cell).toBeInViewport({ ratio: 1 });
+          await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: `events-${side}-columns`,
+            roles: ['tenant_admin'], composition: 'isolated-component-fixture', fullPage: false });
+        }
+        await selected.focus(); await selected.press('Enter');
+        await expect(detail.getByRole('heading').first()).toBeFocused();
+        await technical.focus(); await technical.press('Enter');
+        await expect(detail.locator('.tenant-operation-identifier').first()).toHaveText('22222222-2222-4222-8222-222222222222');
+        await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: 'selected-event-technical-details',
+          roles: ['tenant_admin'], composition: 'isolated-component-fixture', surface: detail });
+        await detail.getByRole('button', { name: language === 'de' ? 'Details schließen' : 'Close details' }).click();
+        await expect(selected).toBeFocused();
+      }
     }
     await page.locator('[data-tenant-audit-page="next"]').click();
     await expect(rows).toHaveCount(1);
@@ -65,6 +100,6 @@ for (const language of ['de', 'en']) {
     expect(await page.evaluate(() => window.auditReads.at(-1))).toMatchObject({ outcome: 'denied', beforeId: null, limit: 20 });
     await page.getByRole('button', { name: language === 'de' ? 'Filter zurücksetzen' : 'Reset filters' }).click();
     await expect(rows).toHaveCount(20);
-    await testInfo.attach(`audit-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+    await attachCustomerScreenEvidence(page, testInfo, { screen: '26', state: 'events-after-filter-reset', roles: ['tenant_admin'], name: `audit-${language}`, composition: 'isolated-component-fixture' });
   });
 }

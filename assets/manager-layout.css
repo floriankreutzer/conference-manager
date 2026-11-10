@@ -79,6 +79,55 @@ main,
   min-inline-size: 0;
 }
 
+.manager-room-media-controls {
+  align-items: start;
+}
+
+.manager-room-media-preview {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.manager-room-media-preview figcaption {
+  font-weight: var(--font-weight-medium);
+}
+
+.manager-room-media-frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  max-block-size: var(--room-media-preview-max-block-size);
+  min-inline-size: 0;
+}
+
+.manager-room-media-frame > .room-asset-visual {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  max-block-size: none;
+}
+
+.manager-room-media-frame > .room-asset-note {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.manager-room-media-frame > .room-asset-note:not([hidden]) {
+  display: grid;
+  align-content: start;
+}
+
 .manager-data-scroll {
   min-inline-size: 0;
   max-inline-size: 100%;
@@ -106,6 +155,41 @@ main,
   position: absolute;
   inset-inline-start: var(--timeline-start);
   transform: translateX(-50%);
+}
+
+.manager-timeline-ticks span:first-child {
+  transform: none;
+}
+
+.manager-timeline-ticks span:last-child {
+  transform: translateX(-100%);
+}
+
+.room-plan-room-capacity {
+  display: block;
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  color: var(--color-muted);
+}
+
+.room-plan-date-controls {
+  display: grid;
+  gap: var(--app-control-gap);
+  min-inline-size: 0;
+}
+
+.room-plan-day-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--app-control-gap);
+}
+
+.room-plan-day-actions button {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .manager-timeline-room {
@@ -703,6 +787,10 @@ main,
 }
 
 @media (max-width: 980px) {
+  .manager-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .manager-quick-filters {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -727,10 +815,6 @@ main,
   .manager-surface {
     width: 100%;
     max-width: 100%;
-  }
-
-  .manager-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .manager-tabs button {
@@ -1071,7 +1155,8 @@ main,
   white-space: normal;
 }
 @media (max-width: 520px) {
-  .manager-business-settings-nav {
+  .manager-business-settings-nav,
+  .manager-surface [data-tenant-bulk-transfer] > .button-row {
     grid-template-columns: 1fr;
   }
 }

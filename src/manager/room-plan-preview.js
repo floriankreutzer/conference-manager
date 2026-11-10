@@ -54,6 +54,8 @@ export function roomPlanPreview({ openRequest }) {
           ['production.employee.end', time(request.endsAt)],
           ['production.common.status', t(`status.${request.status}`)],
           ['production.manager.roomPlan.participants', formatNumber(request.internalParticipants + request.externalParticipants)],
+          ['production.employee.internal', formatNumber(request.internalParticipants)],
+          ['production.employee.external', formatNumber(request.externalParticipants)],
         ].map(([key, value]) => el('div', {}, [el('dt', { text: t(key) }), el('dd', { text: value })])));
       }
       node.hidden = false;

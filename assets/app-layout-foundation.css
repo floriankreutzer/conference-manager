@@ -249,8 +249,38 @@ main {
   overflow-wrap: anywhere;
 }
 
-.request-card-compact > p {
+.request-card-compact > p,
+.request-card-summary > p {
   margin-block: var(--space-1);
+}
+
+.request-summary-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin-block: var(--space-2);
+}
+
+.request-card-summary,
+.request-summary-facts > div {
+  min-inline-size: 0;
+}
+
+.request-summary-facts dt {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.request-summary-facts dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.request-participant-breakdown {
+  display: block;
+  font-size: var(--font-size-sm);
 }
 
 .request-business-overview {
@@ -388,6 +418,23 @@ main {
 .catalogue-editor-row > summary:focus-visible {
   outline: var(--focus-width) solid var(--focus-color);
   outline-offset: var(--space-1);
+}
+
+.catalogue-editor-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-block-start: var(--space-1);
+  color: var(--color-ink-soft);
+  font-size: var(--font-size-sm);
+  font-weight: normal;
+  line-height: var(--line-height-base);
+}
+
+.catalogue-editor-summary > span {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
 }
 
 /* Tenant administration */

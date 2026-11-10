@@ -14,9 +14,12 @@ function downloadCsv(documentValue, filename) {
   downloadCsvText(tenantBulkDocumentToCsv(documentValue), filename);
 }
 
-export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } = {}) {
+export function createBulkTransferPanel({ adapter, types, rerender, isCurrent,
+  setControlDisabled = (control, disabled) => { control.disabled = disabled; },
+} = {}) {
   if (!supportsBulkTransfer(adapter) || !Array.isArray(types) || types.length < 1
-    || typeof rerender !== 'function' || typeof isCurrent !== 'function') {
+    || typeof rerender !== 'function' || typeof isCurrent !== 'function'
+    || typeof setControlDisabled !== 'function') {
     throw new TypeError('TENANT_BULK_PANEL_INVALID');
   }
   let panel = null;
@@ -28,7 +31,7 @@ export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } 
   const status = el('p', { attrs: { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' } });
   const errors = el('ul');
   const apply = button(t('tenantBulk.apply'), { className: 'primary' });
-  apply.disabled = true;
+  setControlDisabled(apply, true);
   let validated = null;
 
   const selectedDocument = async (selected, selectedType) => {
@@ -39,36 +42,36 @@ export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } 
   const template = button(t('tenantBulk.template'), { className: 'secondary' });
   template.addEventListener('click', async () => {
     if (!lifecycleCurrent()) return;
-    template.disabled = true;
+    setControlDisabled(template, true);
     const selectedType = type.value;
     try {
       const value = await adapter.loadBulkTemplate(selectedType);
       if (lifecycleCurrent()) downloadCsv(value, `${selectedType}-template.csv`);
     } catch {
       if (lifecycleCurrent()) status.textContent = t('tenantBulk.downloadFailed');
-    } finally { if (lifecycleCurrent()) template.disabled = false; }
+    } finally { if (lifecycleCurrent()) setControlDisabled(template, false); }
   });
   const exportButton = button(t('tenantBulk.export'), { className: 'secondary' });
   exportButton.addEventListener('click', async () => {
     if (!lifecycleCurrent()) return;
-    exportButton.disabled = true;
+    setControlDisabled(exportButton, true);
     const selectedType = type.value;
     try {
       const value = await adapter.exportBulk(selectedType);
       if (lifecycleCurrent()) downloadCsv(value.document, `${selectedType}-revision-${value.revision}.csv`);
     } catch {
       if (lifecycleCurrent()) status.textContent = t('tenantBulk.downloadFailed');
-    } finally { if (lifecycleCurrent()) exportButton.disabled = false; }
+    } finally { if (lifecycleCurrent()) setControlDisabled(exportButton, false); }
   });
   const validate = button(t('tenantBulk.validate'), { className: 'secondary' });
   let generation = 0, applyPending = false;
   const invalidate = () => {
-    generation += 1; validated = null; apply.disabled = true; errors.replaceChildren(); status.textContent = '';
+    generation += 1; validated = null; setControlDisabled(apply, true); errors.replaceChildren(); status.textContent = '';
   };
   validate.addEventListener('click', async () => {
     if (applyPending || !lifecycleCurrent()) return;
     const selectedType = type.value, selectedFile = file.files?.[0], current = generation + 1;
-    generation = current; validated = null; apply.disabled = true; errors.replaceChildren();
+    generation = current; validated = null; setControlDisabled(apply, true); errors.replaceChildren();
     try {
       const documentValue = await selectedDocument(selectedFile, selectedType);
       const result = await adapter.validateBulk(selectedType, documentValue);
@@ -79,7 +82,7 @@ export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } 
       result.errors.forEach((entry) => errors.appendChild(el('li', {
         text: t('tenantBulk.error', { row: entry.row === null ? '-' : entry.row + 1, code: entry.code }),
       })));
-      apply.disabled = !result.valid || !result.changed || !validated;
+      setControlDisabled(apply, !result.valid || !result.changed || !validated);
       status.textContent = result.valid
         ? t(result.changed ? 'tenantBulk.validChanged' : 'tenantBulk.validUnchanged') : t('tenantBulk.invalid');
       announce(status.textContent, { assertive: !result.valid });
@@ -94,7 +97,7 @@ export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } 
     const candidate = validated;
     if (applyPending || !candidate || candidate.type !== type.value
       || candidate.file !== file.files?.[0] || !lifecycleCurrent()) return;
-    applyPending = true; apply.disabled = true; validate.disabled = true;
+    applyPending = true; setControlDisabled(apply, true); setControlDisabled(validate, true);
     try {
       await adapter.applyBulk(candidate.type, candidate.document, candidate.receiptId);
       if (validated === candidate) validated = null;
@@ -103,7 +106,7 @@ export function createBulkTransferPanel({ adapter, types, rerender, isCurrent } 
       if (lifecycleCurrent()) { status.textContent = t('tenantBulk.applyFailed'); announce(status.textContent, { assertive: true }); }
     } finally {
       applyPending = false;
-      if (lifecycleCurrent()) { validate.disabled = false; apply.disabled = true; }
+      if (lifecycleCurrent()) { setControlDisabled(validate, false); setControlDisabled(apply, true); }
     }
   });
   type.addEventListener('change', invalidate); file.addEventListener('change', invalidate);

@@ -1,5 +1,6 @@
 import { formatNumber, locale, t } from '../core/i18n.js';
 import { el } from '../core/ui.js';
+import { formatProductionDateTime } from '../core/production-time.js';
 
 function money(amountMinor, currency) {
   return new Intl.NumberFormat(locale(), {
@@ -10,6 +11,46 @@ function money(amountMinor, currency) {
 
 function joined(values, fallback) {
   return values.filter(Boolean).join(' · ') || fallback;
+}
+
+export function productionRequestSummaryFacts(request, {
+  roomLabel,
+  timeZone,
+  includeParticipantBreakdown = false,
+} = {}) {
+  const participants = Number(request.internalParticipants || 0) + Number(request.externalParticipants || 0);
+  const formatTime = (value) => formatProductionDateTime(value, { locale: locale(), timeZone })
+    || t('production.common.timeUnavailable');
+  const changeStatus = ['pending', 'applying', 'applied', 'rejected', 'superseded'].includes(request.status);
+  const rows = [
+    { key: 'room', term: t('production.employee.room'), value: roomLabel },
+    { key: 'start', term: t('production.employee.start'), value: formatTime(request.startsAt) },
+    { key: 'end', term: t('production.employee.end'), value: formatTime(request.endsAt) },
+    { key: 'participants', term: t('production.employee.scheduleParticipants'),
+      value: t(participants === 1 ? 'production.common.participantOne' : 'production.common.participants', {
+        count: formatNumber(participants),
+      }),
+      detail: includeParticipantBreakdown ? t('production.common.participantBreakdown', {
+        internal: formatNumber(request.internalParticipants), external: formatNumber(request.externalParticipants),
+      }) : null },
+    { key: 'status', term: t('production.common.status'),
+      value: t(changeStatus ? `production.bookingChange.status.${request.status}` : `status.${request.status}`) },
+  ];
+  if (request.pricing) rows.push({
+    key: 'total', term: t('review.total'), value: money(request.pricing.totalMinor, request.pricing.currency),
+  });
+  return rows;
+}
+
+export function renderProductionRequestSummary(request, options) {
+  return el('dl', { className: 'request-summary-facts' }, productionRequestSummaryFacts(request, options)
+    .map(({ key, term, value, detail }) => el('div', { dataset: { requestFact: key } }, [
+      el('dt', { text: `${term}: ` }),
+      el('dd', { className: key === 'total' ? 'request-total' : '' }, [
+        el('span', { text: value }),
+        detail ? el('small', { className: 'request-participant-breakdown', text: detail }) : null,
+      ]),
+    ])));
 }
 
 export function productionRequestBusinessDetails(request) {
@@ -70,9 +111,7 @@ export function renderProductionRequestBusinessDetails(request, { expanded = fal
   disclosure.addEventListener('toggle', () => {
     if (disclosure.isConnected) onToggle(disclosure.open);
   });
-  const section = el('section', { className: 'request-business-overview' }, [
-    el('p', { className: 'request-total', text: `${t('review.total')}: ${money(request.pricing.totalMinor, request.pricing.currency)}` }),
-  ]);
+  const section = el('section', { className: 'request-business-overview' });
   for (const [key, value] of [
     ['catering.dietary', request.details.dietaryRequirements],
     ['review.special', request.details.specialRequirements],

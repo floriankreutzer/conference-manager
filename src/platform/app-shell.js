@@ -96,6 +96,7 @@ export function createAppShell({
 
   function invalidatePendingRender() {
     renderRevision += 1;
+    manager?.invalidateEditor?.();
   }
 
   function invalidateAuthorityProjection(error) {
@@ -160,6 +161,8 @@ export function createAppShell({
     }
     if (view === 'tenantAdmin' && context.isAuthenticated()
       && tenantAdmin?.allowNavigation?.(() => setView(nextView)) === false) return;
+    if (view === 'manager' && context.isAuthenticated()
+      && manager?.allowNavigation?.(() => setView(nextView)) === false) return;
     if (!serverViewAllowed(nextView)) nextView = 'welcome';
     if (view !== nextView) clearTransientFeedback();
     onViewChange?.(nextView);
@@ -483,6 +486,10 @@ export function createAppShell({
         languageSelect.value = language();
         return;
       }
+      if (view === 'manager' && manager?.allowNavigation?.(changeLanguage) === false) {
+        languageSelect.value = language();
+        return;
+      }
       changeLanguage();
     });
   }
@@ -528,6 +535,8 @@ export function createAppShell({
   function render() {
     if (!sessionLocked() && context.isAuthenticated() && view === 'tenantAdmin'
       && tenantAdmin?.allowNavigation?.(render) === false) return;
+    if (!sessionLocked() && context.isAuthenticated() && view === 'manager'
+      && manager?.allowNavigation?.(render) === false) return;
     if (renderedLanguage !== language()) {
       clearTransientFeedback();
       renderedLanguage = language();

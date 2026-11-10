@@ -64,3 +64,73 @@ test('CO-306 native validation reveals every invalid editor without losing first
   await expect(page.locator('#name-2')).toBeVisible();
   await expect(page.locator('#name-0')).toBeHidden();
 });
+
+for (const language of ['de', 'en']) {
+  test(`CO-306 status and name filters retain hidden controls and reveal invalid fields (${language})`, async ({ page }) => {
+    await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+    await page.route('**/catalogue-status-fixture', (route) => route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body></body></html>',
+    }));
+    await page.goto('/catalogue-status-fixture');
+    await page.evaluate(async () => {
+      const { createCatalogueEditorList } = await import('/src/shared/catalogue-editor-list.js');
+      const { el, field, button } = await import('/src/core/ui.js');
+      const editors = ['First', 'Second', 'Third'].map((name, index) => {
+        const control = el('input', { value: name, attrs: { required: true } });
+        return { active: index !== 1, controls: { name: control },
+          node: field({ id: `name-${index}`, label: name, control }) };
+      });
+      const list = createCatalogueEditorList({ id: 'catalogue', editors,
+        activeOf: (editor) => editor.active,
+        summaryOf: () => ['<img src=x onerror=alert(1)>'],
+      });
+      const add = button('Add');
+      add.addEventListener('click', () => {
+        const control = el('input', { value: 'Fourth', attrs: { required: true } });
+        list.add({ active: true, controls: { name: control },
+          node: field({ id: 'name-3', label: 'Fourth', control }) }, { expanded: true });
+      });
+      const form = el('form', {}, [list.node, add, button('Save', { type: 'submit' })]);
+      form.addEventListener('submit', (event) => event.preventDefault());
+      document.body.append(form);
+    });
+    const search = page.locator('#catalogue-search');
+    const status = page.locator('#catalogue-status');
+    const rows = page.locator('.catalogue-editor-row');
+    await expect(status.locator('option')).toHaveText(language === 'de'
+      ? ['Alle', 'Aktiv', 'Inaktiv'] : ['All', 'Active', 'Inactive']);
+    await expect(rows.first().locator('.catalogue-editor-summary')).toHaveText('<img src=x onerror=alert(1)>');
+    await expect(page.locator('img')).toHaveCount(0);
+    await status.selectOption('inactive');
+    await expect(page.locator('.catalogue-editor-row:not([hidden]) .catalogue-editor-name')).toHaveText(['Second']);
+    await search.fill('Third');
+    await expect(page.locator('.catalogue-editor-row:not([hidden])')).toHaveCount(0);
+    await expect(page.locator('input[required]')).toHaveCount(3);
+    await page.locator('.catalogue-editor-list .toolbar button').click();
+    await expect(search).toBeFocused();
+    await expect(search).toHaveValue('');
+    await expect(status).toHaveValue('all');
+    await page.locator('#name-0').fill('');
+    await rows.nth(1).locator(':scope > summary').click();
+    await page.locator('#name-1').fill('');
+    await status.selectOption('active');
+    await search.fill('Third');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(search).toHaveValue('');
+    await expect(status).toHaveValue('all');
+    await expect(page.locator('#name-0')).toBeFocused();
+    await expect(page.locator('#name-1')).toBeVisible();
+    await rows.nth(2).locator(':scope > summary').click();
+    await expect(page.locator('#name-2')).toBeVisible();
+    await expect(page.locator('#name-0')).toBeHidden();
+    await status.selectOption('inactive');
+    await search.fill('No match');
+    await page.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(search).toHaveValue('');
+    await expect(status).toHaveValue('all');
+    await expect(page.locator('#name-3')).toBeVisible();
+    await expect(page.locator('.catalogue-editor-row[open]')).toHaveCount(1);
+    await expect(page.locator('input[required]')).toHaveCount(4);
+  });
+}

@@ -27,7 +27,7 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
 }
 
 .room-asset-visual.media {
-  max-height: 20rem;
+  max-height: var(--room-media-preview-max-block-size);
   background: var(--color-surface-subtle);
 }
 
@@ -219,6 +219,11 @@ body[data-ux-first-use="true"] :where(.dashboard-grid, .card, .welcome-hero butt
   margin-top: 0;
   border-left-color: var(--color-success);
   background: var(--color-success-soft);
+}
+
+.ux-submission-success > div {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
 }
 
 .ux-service-recommendation > button,
@@ -430,7 +435,7 @@ body[data-ux-first-use="true"] .welcome-hero {
   .guest-print-facts, .guest-print-grid { grid-template-columns: 1fr; }
 }
 @media print {
-  .guest-print-document { max-inline-size: none; padding: 0; }
+  .guest-print-document { max-inline-size: none; padding: 0 var(--space-1); }
   .guest-print-document .print-action { display: none; }
   .guest-print-hero, .guest-print-card { break-inside: avoid; }
   .guest-print-document a { color: inherit; }

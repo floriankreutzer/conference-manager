@@ -1,3 +1,4 @@
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 import { expect, test } from '@playwright/test';
 
 for (const language of ['de', 'en']) {
@@ -5,7 +6,7 @@ for (const language of ['de', 'en']) {
     await page.goto('/');
     await page.evaluate(async (lang) => {
       const { createTenantAdminSettingsShell } = await import('/src/tenant-admin/settings-shell.js');
-      const { setLanguage } = await import('/src/core/i18n.js');
+      const { setLanguage, t } = await import('/src/core/i18n.js');
       setLanguage(lang);
       window.overviewReads = [];
       const section = (id, available, fails = false) => ({ id, available,
@@ -13,7 +14,8 @@ for (const language of ['de', 'en']) {
         async loadOverview() {
           window.overviewReads.push(id);
           if (fails) throw new Error('TEST_UNAVAILABLE');
-          return { summary: 'Current configuration', tasks: ['Published guest information missing'] };
+          return { summary: t('tenantAdmin.overview.activeRooms', { count: 2 }),
+            tasks: [t('tenantAdmin.overview.missingGuests', { count: 1 })] };
         },
         render({ root }) {
           const heading = document.createElement('h2'); heading.tabIndex = -1; heading.textContent = id;
@@ -28,6 +30,10 @@ for (const language of ['de', 'en']) {
     await expect(page.locator('.tenant-setup-tasks li')).toHaveCount(2);
     expect(await page.evaluate(() => window.overviewReads)).toEqual(['locations', 'organization']);
     await expect(page.locator('.tenant-setup-summaries')).toContainText(language === 'de' ? 'Status derzeit nicht verfügbar.' : 'Status currently unavailable.');
+    await expect(page.locator('.tenant-setup-summaries')).toContainText(language === 'de'
+      ? 'Aktiv konfigurierte Räume an aktiven Standorten: 2' : 'Rooms configured as active at active sites: 2');
+    await expect(page.locator('.tenant-setup-tasks')).toContainText(language === 'de'
+      ? 'Aktive Standorte ohne veröffentlichte Gästeinformationen: 1' : 'Active sites without published guest information: 1');
     await expect(page.locator('.tenant-setup-tasks')).not.toContainText('TEST_UNAVAILABLE');
     const task = page.locator('.tenant-setup-tasks button').first();
     await task.focus(); await page.keyboard.press('Enter');
@@ -38,7 +44,8 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '20', state: 'setup-with-unavailable-section', roles: ['tenant_admin'],
+        name: width === 1366 ? `tenant-overview-${language}` : `tenant-overview-${language}-${width}`, composition: 'isolated-component-fixture' });
     }
-    await testInfo.attach(`tenant-overview-${language}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   });
 }

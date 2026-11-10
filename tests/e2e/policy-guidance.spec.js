@@ -1,3 +1,4 @@
+import { attachCustomerScreenEvidence } from './fixtures/customer-screen-evidence.js';
 import { test, expect } from '@playwright/test';
 
 async function fixture(page, language, unavailable = false) {
@@ -65,7 +66,7 @@ for (const language of ['de', 'en']) {
     for (const width of [390, 768, 1366]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await testInfo.attach(`policy-${language}-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+      await attachCustomerScreenEvidence(page, testInfo, { screen: '23', state: 'saved-policy-with-retained-reference', roles: ['tenant_admin'], name: `policy-${language}-${width}`, composition: 'isolated-component-fixture' });
     }
     await page.locator('[data-tenant-admin-section="overview"]').click();
     await expect(form).toHaveCount(0);

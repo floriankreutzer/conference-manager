@@ -47,7 +47,7 @@ export function managerCockpitModel({ requests, catalog, roomContexts = [], chan
     action: entries.filter((entry) => entry.action).sort(byStart),
     upcoming: entries.filter((entry) => entry.upcoming).sort(byStart),
     today: entries.filter((entry) => entry.today),
-    nextSevenDays: entries.filter((entry) => entry.nextSevenDays),
+    nextSevenDays: entries.filter((entry) => entry.nextSevenDays).sort(byStart),
   };
 }
 

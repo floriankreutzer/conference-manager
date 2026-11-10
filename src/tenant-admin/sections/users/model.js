@@ -1,5 +1,7 @@
 const SESSION_CODES = new Set(['HTTP_401', 'SESSION_EXPIRED', 'SESSION_REVOKED']);
 const FORBIDDEN_CODES = new Set(['HTTP_403', 'AUTHORIZATION_DENIED']);
+const TRANSIENT_LIST_CODES = new Set(['TENANT_USERS_UNAVAILABLE', 'HTTP_429', 'HTTP_500', 'HTTP_502', 'HTTP_503', 'HTTP_504']);
+const LIST_QUERY_KEYS = ['limit', 'afterId', 'search', 'status', 'role', 'providerLink'];
 
 export const USER_FILTER_DEFAULTS = Object.freeze({
   search: null,
@@ -32,4 +34,17 @@ export function normalizedUserFilters({ search, status, role, providerLink }) {
     role,
     providerLink,
   });
+}
+
+export function canRetainUserList(code) {
+  return TRANSIENT_LIST_CODES.has(code);
+}
+
+// One already validated page may remain visible only in the same active scope
+// and query. It is presentation state, never mutation or authorization authority.
+export function retainedUserPage(snapshot, scope) {
+  if (!snapshot || !scope?.owner || !scope?.userId
+    || snapshot.owner !== scope.owner || snapshot.userId !== scope.userId
+    || !LIST_QUERY_KEYS.every(key => snapshot.query[key] === scope.query[key])) return null;
+  return snapshot.page;
 }
