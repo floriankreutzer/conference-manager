@@ -45,7 +45,28 @@ export async function attachGuestPrintEvidence(popup, testInfo, name, {
       expect(await popup.locator(selector).evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(2);
     }
     // A4's printable area at 96 CSS px/in, after the existing 12 mm margins.
-    await popup.setViewportSize({ width: Math.round(186 * 96 / 25.4), height: Math.round(273 * 96 / 25.4) });
+    const printableA4Height = 273 * 96 / 25.4;
+    const printableViewport = { width: Math.round(186 * 96 / 25.4), height: Math.round(printableA4Height) };
+    await popup.setViewportSize(printableViewport);
+    // Keeping a group together is possible only when the whole group fits a
+    // page. Include its margins and the containing content's block padding;
+    // real paginated PDF checks remain separate from this geometry precondition.
+    const printGroups = await popup.locator('.guest-print-facts, .guest-print-grid').evaluateAll((groups) => (
+      groups.map((group) => {
+        const style = getComputedStyle(group);
+        const contentStyle = getComputedStyle(group.parentElement);
+        return { height: group.getBoundingClientRect().height, outerSpace: [
+          style.marginBlockStart, style.marginBlockEnd, contentStyle.paddingBlockStart, contentStyle.paddingBlockEnd,
+        ].map((value) => Number.parseFloat(value)) };
+      })
+    ));
+    expect(printGroups).toHaveLength(2);
+    for (const group of printGroups) {
+      expect([group.height, ...group.outerSpace].every((value) => Number.isFinite(value) && value >= 0)).toBe(true);
+      expect(group.height).toBeGreaterThan(0);
+      expect(group.height + group.outerSpace.reduce((sum, value) => sum + value, 0),
+        'Each complete Guest print group, including block spacing, must fit one A4 page').toBeLessThanOrEqual(printableA4Height);
+    }
     expect(await popup.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await popup.locator('.guest-print-card').evaluateAll((cards) => cards.every((card) => (
       card.scrollWidth <= card.clientWidth + 1 && card.scrollHeight <= card.clientHeight + 1
