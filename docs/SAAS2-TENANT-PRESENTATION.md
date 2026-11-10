@@ -8,9 +8,9 @@ The browser presentation is not an authorization boundary. Tenant configuration 
 
 PAVUREL is the code-shipped product-default visual identity. The product name remains **Conference Manager**. A Tenant may select an explicitly allowlisted, code-shipped managed branding preset without changing the product-default identity or weakening the same-origin asset boundary.
 
-## Production read contract
+## Shared authenticated read contract
 
-The existing same-origin authenticated API client reads `GET /api/v1/tenant/presentation` with its normal no-store, redirect rejection, response-size, and session protections. The response must match this exact versioned envelope:
+Customer Demo and Production use `createTenantPresentationApi` through the shared Composition Root in [`src/app.js`](../src/app.js). The existing same-origin authenticated API client reads `GET /api/v1/tenant/presentation` with its normal no-store, redirect rejection, response-size, and session protections. The response must match this exact versioned envelope:
 
 ```json
 {
@@ -63,13 +63,17 @@ The presentation runtime stores only the current validated snapshot in memory. I
 
 ## Demo and reset behavior
 
-Demo derives the projection from the same in-memory Organization adapter used by Tenant Admin. The normal fixture is deterministic: **Conference Manager**, German, EUR, and `product-default`, which renders the code-shipped PAVUREL signet at revision `1`. It does not select the legacy managed Conference Manager mark by default.
+Customer Demo derives the projection from the selected Tenant's server-persisted Organization settings through the same authenticated presentation API. Only the validated browser projection is held in memory. The old in-memory Organization/presentation adapters remain isolated compatibility or test fixtures; they do not own the active shared Demo state. See [ADR-010](ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md).
 
-An Organization save refreshes the effective presentation in the current page lifecycle. A Demo role change or explicit reset reloads and reconstructs the same PAVUREL product-default fixture, so the shell must not revert to a former sample Tenant name or managed-logo preset. The reset retains a valid explicit User language preference, which continues to win over the Tenant default.
+An Organization save refreshes the effective presentation in the current page lifecycle. A Demo role or Tenant switch establishes the server-authorized context and reloads its current presentation; it does not reset Organization settings or force revision `1`. A supported server-side Demo reset restores the versioned canonical seed and invalidates Customer and Platform Demo sessions. After a new session is established, the shell reads the restored Tenant's presentation. Display name, locale, currency, branding and revision follow that Tenant's seed or later persisted configuration, not a universal browser fixture.
+
+The [permanent Demo scenario contract](SAAS-3.7-SCENARIO-ACCEPTANCE.md) owns canonical seed/reset expectations. A valid explicit User language preference remains a non-authoritative browser preference and continues to take precedence over the Tenant default.
 
 ## Verification
 
-Focused unit coverage validates exact envelopes, unknown fields, unsafe/remote values, safe fallback, stale revisions, ordered async reset refresh, User-language precedence, Tenant currency, semantic mark replacement, and the deterministic PAVUREL Demo default before and after reset. Browser coverage exercises all canonical role combinations, Organization save refresh, Production fallback without Demo activation, narrow-viewport reflow, and PAVUREL identity retention across Demo role-switch reloads on both configured Chromium and WebKit projects.
+Focused unit coverage validates exact envelopes, unknown fields, unsafe/remote values, safe fallback, stale revisions, ordered async refresh, User-language precedence, Tenant currency and semantic mark replacement. Tests of the legacy in-memory adapter's deterministic PAVUREL default prove that isolated fixture only. Mocked browser coverage exercises role combinations, Organization save refresh, Production fallback without Demo activation, narrow-viewport reflow and server-shaped Demo context switches on the configured Chromium and WebKit projects.
+
+Shared-server persistence and reset acceptance require the separate canonical Demo browser gates against an immutable API counterpart. Unit fixtures and mocked browser responses do not establish the current hosted deployment or real Microsoft/Exchange acceptance.
 
 Run:
 
