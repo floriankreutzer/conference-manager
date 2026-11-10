@@ -1,0 +1,44 @@
+name: CO-306 fixed Policy EN failure inspection
+
+# One-use source-bound reader; never a product test or release gate.
+on:
+  push:
+    branches: [CO-306-pr479-88ed5f-policy-failure]
+    paths:
+      - .github/workflows/co306-pr479-policy-failure.yml
+      - scripts/diagnostics/pr479_policy_failure.py
+      - scripts/diagnostics/test_pr479_policy_failure.py
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect-policy-failure:
+    if: github.repository == 'floriankreutzer/conference-manager' && github.ref == 'refs/heads/CO-306-pr479-88ed5f-policy-failure' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout reviewed diagnostic source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup repository Node version
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Install locked validation dependencies
+        run: npm ci --ignore-scripts --no-fund
+      - name: Verify repository baseline and audit
+        run: |
+          npm run check
+          npm run audit
+      - name: Verify fixed reader and rejection cases offline
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -s scripts/diagnostics -p 'test_pr479*.py' -v
+      - name: Read the single fixed synthetic Policy EN failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -u scripts/diagnostics/pr479_policy_failure.py
