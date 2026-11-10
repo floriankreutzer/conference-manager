@@ -4,8 +4,9 @@
 
 CO-322 remains the authoritative work item for the reported booking blocker and
 its product acceptance. This follow-up defines the evidence needed for a scoped
-fix. The cause is unresolved; no implementation correction or live acceptance is
-established by this document.
+fix. The cause is unresolved; no scoped implementation correction or full product acceptance is
+established by this document. The dated positive live observation below has a
+narrower role/browser scope than the original report.
 
 The reported Employee journey reaches room selection with sufficient capacity,
 then displays a failed calendar check and keeps Next disabled. An HTTP 200
@@ -84,6 +85,31 @@ Its immutable API counterpart is
 This is positive evidence for that isolated pair. It neither identifies the
 reported deployed failure nor establishes real provider or Safari acceptance.
 Keep source CI, deployed identities and product acceptance separate.
+
+## Dated live observation — 10 November 2026
+
+An authorized Cloud Chromium journey used the Northwind synthetic customer and
+the Conference Manager customer role. A future request selected Berlin Forum
+(capacity 24), twelve internal participants, and 12 November 2026 from 10:00 to
+11:00 Europe/Berlin. The room check returned the visible available state,
+enabled Next and allowed progression through all six request steps. Submission
+completed, and the request remained visible after refreshing My Requests with
+the expected room, time, twelve participants, pending-review status and EUR 125
+preview. No manager approval, data reset or alteration of existing requests was
+performed.
+
+This is a successful dated live request-creation observation, not a reproduction
+or explanation of the original Employee/Safari failure. No browser network
+response classification was retained, and no new release was deployed for this
+check. The exact execution record remains in CO-322. Repeat the relevant
+Employee and actual Safari cases, and qualify the selected release independently.
+
+During the supported operator handoff, the Platform initially reported an
+unconfirmed result after Microsoft action confirmation. Read-only state refresh
+followed by loading the original Customer origin established the actual customer
+session without repeating the write. The intermediate message alone was not
+treated as evidence of non-execution. This observation does not establish its
+underlying cause or authorize weakening the operation-bound proof.
 
 ## Minimal reproduction and diagnosis
 
