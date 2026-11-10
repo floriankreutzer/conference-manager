@@ -216,8 +216,10 @@ export function createCostAllocationSection({ adapter = null } = {}) {
         if (!focusAfterSave || !isCurrent()) return;
         const heading = root.querySelector('h2');
         if (!heading?.isConnected) return;
-        heading.focus();
         focusAfterSave = false;
+        // Save focus must not interrupt interaction that began before this frame.
+        if (root.contains(document.activeElement)) return;
+        heading.focus();
       });
     }
   }

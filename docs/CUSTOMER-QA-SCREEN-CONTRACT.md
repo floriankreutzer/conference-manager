@@ -151,6 +151,14 @@ must not permit a second contradictory write. Search and disclosure changes are
 presentation state, not permission to omit entries from an owned snapshot.
 The existing Tenant editor protection and its role boundary must remain intact.
 
+Manager navigation and CSV actions must keep complete words readable inside
+their buttons. Use the CO-306 Catering reflow cases in DE/EN at 390/768/1366 px
+to inspect actual word ranges, button bounds and touch targets; the 768 px cases
+also inspect both sides of the 760/761 px sidebar boundary. Narrow CSV actions
+use one column, retain native Tab order and keep Apply disabled until a valid
+preview exists. Resizing and inspecting these controls must not write data or
+mark the catalogue dirty. These viewport checks do not establish actual tab zoom.
+
 ## Tenant Admin surfaces
 
 Tenant section availability and actions derive from the trusted session and
@@ -169,6 +177,16 @@ an attractive overview card cannot make an unavailable section authoritative.
 | 25 — Kalender und Onboarding | Correct provider-specific presentation, candidate inventory/import, readiness, explicit lifecycle and recoverable failures. [`ONBOARDING-WIZARD.md`](ONBOARDING-WIZARD.md), [`onboarding-wizard.js`](../src/tenant-admin/onboarding-wizard.js), [`synthetic-calendar/index.js`](../src/tenant-admin/sections/synthetic-calendar/index.js). | [`onboarding-wizard-behavior.test.js`](../tests/onboarding-wizard-behavior.test.js), [`synthetic-onboarding.spec.js`](../tests/e2e/synthetic-onboarding.spec.js), [`fabrikam-scenario.js`](../tests/e2e-saas37/fabrikam-scenario.js). | Keep three contracts distinct: REAL seven-step Microsoft onboarding; ordinary server-backed Demo/Fabrikam using seven steps; protected synthetic calendar using four server checks. The four-check proposal does not replace the Microsoft flow, prove real provider consent or authorize synthetic fallback when classification is unknown. |
 | 26 — Audit | Bounded filterable events, named actors where available, selection, pagination and deliberate technical details. [`audit/index.js`](../src/tenant-admin/sections/audit/index.js), [`audit/model.js`](../src/tenant-admin/sections/audit/model.js), [`tenant-audit-api.js`](../src/platform/tenant-audit-api.js). | [`tenant-audit-compact.spec.js`](../tests/e2e/tenant-audit-compact.spec.js) captures both ends of the bounded event table and the selected technical details at 390/768 in DE/EN; [`tenant-audit-api.test.js`](../tests/tenant-audit-api.test.js). | Preserve event/actor/target meaning, identifiers in the appropriate detail view and explicit integrity/load failures. The API does not supply a general before/after field diff; do not manufacture one to match a proposed detail panel. |
 | 27 — Benutzer und Rollen | Authorized user list/search/filtering, selected details, server-derived lifecycle, direct roles and independent Microsoft group sources; conflict and stale-state recovery. [`users/index.js`](../src/tenant-admin/sections/users/index.js), [`users/model.js`](../src/tenant-admin/sections/users/model.js), [`tenant-user-operations-api.js`](../src/platform/tenant-user-operations-api.js). | [`tenant-role-administration.spec.js`](../tests/e2e/tenant-role-administration.spec.js), [`tenant-admin-operations.test.js`](../tests/tenant-admin-operations.test.js), [`tenant-admin-operations-composition.test.js`](../tests/tenant-admin-operations-composition.test.js). | The API exposes names, not a user email column. Effective roles must retain their direct/group provenance; removing a direct role cannot remove group authority. Current-server refresh, read-only stale-state handling and localized counts require candidate-specific verification when changed. Do not infer invitation or identity-provider powers from the target alone. |
+
+Across targets 21, 23 and 24, a deferred post-save heading focus must preserve
+an interaction that has already begun in the refreshed section. Keep the normal
+heading focus when no new interaction has begun. The six DE/EN CO-306 post-save
+focus cases in
+[`tenant-settings-production-composition.spec.js`](../tests/e2e/tenant-settings-production-composition.spec.js)
+hold and drain the actual callbacks, then check native keyboard edits, immediate
+duration validation and complete revision/CSRF-bound writes. Invalid fractional
+minutes must be rejected on input before submission and must not create another
+write. Preserve generation, connected-heading and session-lock guards.
 
 ## Acceptance record and completion criteria
 

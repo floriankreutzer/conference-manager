@@ -5914,6 +5914,68 @@ function catalogueStatusSettings() {
   return catalogueSettings;
 }
 
+async function managerCatalogueActionLayout(page) {
+  return page.evaluate(() => {
+    const actions = (selector) => [...document.querySelectorAll(selector)].map((element) => {
+      const words = [];
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+        for (const match of text.textContent.matchAll(/[\p{L}\p{M}]+/gu)) {
+          const range = document.createRange();
+          range.setStart(text, match.index); range.setEnd(text, match.index + match[0].length);
+          words.push({ text: match[0], fragments: [...range.getClientRects()].map((rect) => rect.toJSON()) });
+        }
+      }
+      return { text: element.textContent, tag: element.tagName, bounds: element.getBoundingClientRect().toJSON(), words };
+    });
+    return { viewportWidth: innerWidth, documentWidth: document.documentElement.scrollWidth,
+      tabs: actions('.manager-surface .manager-tabs [role="tab"]'),
+      bulkActions: actions('[data-manager-business-settings-root] [data-tenant-bulk-transfer] > .button-row > button'),
+    };
+  });
+}
+
+function expectManagerCatalogueActionReflow(layout) {
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  expect(layout.tabs).toHaveLength(4);
+  expect(layout.bulkActions).toHaveLength(4);
+  for (const control of [...layout.tabs, ...layout.bulkActions]) {
+    expect(control.tag).toBe('BUTTON');
+    expect(control.bounds.width).toBeGreaterThanOrEqual(44);
+    expect(control.bounds.height).toBeGreaterThanOrEqual(44);
+    expect(control.bounds.left).toBeGreaterThanOrEqual(0);
+    expect(control.bounds.right).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(control.words.length).toBeGreaterThan(0);
+    for (const word of control.words) {
+      const label = `${layout.viewportWidth}px: ${control.text}: ${word.text}`;
+      expect(word.fragments.length, label).toBeGreaterThan(0);
+      const tops = word.fragments.map((fragment) => fragment.top);
+      // A translated label may wrap between words; a word must stay on one line.
+      expect(Math.max(...tops) - Math.min(...tops), label).toBeLessThanOrEqual(1);
+      for (const fragment of word.fragments) {
+        expect(fragment.left, label).toBeGreaterThanOrEqual(control.bounds.left - 1);
+        expect(fragment.right, label).toBeLessThanOrEqual(control.bounds.right + 1);
+        expect(fragment.top, label).toBeGreaterThanOrEqual(control.bounds.top - 1);
+        expect(fragment.bottom, label).toBeLessThanOrEqual(control.bounds.bottom + 1);
+      }
+    }
+  }
+  const columns = layout.viewportWidth <= 380 ? 1 : (layout.viewportWidth <= 980 ? 2 : 4);
+  layout.tabs.forEach((tab, index) => {
+    expect(Math.abs(tab.bounds.width - layout.tabs[0].bounds.width)).toBeLessThanOrEqual(1);
+    const rowStart = layout.tabs[Math.floor(index / columns) * columns].bounds;
+    expect(Math.abs(tab.bounds.top - rowStart.top)).toBeLessThanOrEqual(1);
+    if (index >= columns) expect(tab.bounds.top).toBeGreaterThanOrEqual(layout.tabs[index - columns].bounds.bottom);
+  });
+  if (layout.viewportWidth <= 520) {
+    layout.bulkActions.forEach((action, index) => {
+      expect(Math.abs(action.bounds.left - layout.bulkActions[0].bounds.left)).toBeLessThanOrEqual(1);
+      expect(Math.abs(action.bounds.width - layout.bulkActions[0].bounds.width)).toBeLessThanOrEqual(1);
+      if (index) expect(action.bounds.top).toBeGreaterThanOrEqual(layout.bulkActions[index - 1].bounds.bottom);
+    });
+  }
+}
+
 for (const language of ['de', 'en']) {
   test(`CO-306 catalogue status filters are neutral and summaries follow complete saved snapshots (${language})`, async ({ page }, testInfo) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
@@ -6025,6 +6087,7 @@ for (const language of ['de', 'en']) {
         language === 'de' ? 'Keine Raum-Einschränkung' : 'No room restriction',
       ]);
       await page.setViewportSize({ width, height: 900 });
+      await page.evaluate(() => document.fonts.ready);
       const root = page.locator('[data-manager-business-settings-root]');
       const actions = root.getByRole('button', { name: new RegExp(language === 'de' ? '^(Speichern|Alle Filter zurücksetzen)$' : '^(Save|Reset all filters)$') });
       await expect(actions).toHaveCount(3);
@@ -6056,6 +6119,31 @@ for (const language of ['de', 'en']) {
       });
       await attachCustomerScreenEvidence(page, testInfo, { screen: '19', state: 'catalogue-status-and-authoritative-summary',
         roles: ['employee', 'conference_manager'] });
+      const actionLayout = await managerCatalogueActionLayout(page);
+      await testInfo.attach(`catalogue-${language}-${width}-action-reflow`, {
+        contentType: 'application/json', body: Buffer.from(JSON.stringify(actionLayout, null, 2)),
+      });
+      expectManagerCatalogueActionReflow(actionLayout);
+      if (width === 768) {
+        // Keep readable labels on both sides of the existing sidebar breakpoint.
+        for (const boundaryWidth of [760, 761]) {
+          await page.setViewportSize({ width: boundaryWidth, height: 900 });
+          const boundaryLayout = await managerCatalogueActionLayout(page);
+          await testInfo.attach(`catalogue-${language}-${boundaryWidth}-action-reflow`, {
+            contentType: 'application/json', body: Buffer.from(JSON.stringify(boundaryLayout, null, 2)),
+          });
+          expectManagerCatalogueActionReflow(boundaryLayout);
+        }
+        await page.setViewportSize({ width, height: 900 });
+      }
+      const bulkActions = root.locator('[data-tenant-bulk-transfer] > .button-row > button');
+      await bulkActions.first().focus();
+      await expect(bulkActions.first()).toBeFocused();
+      for (const index of [1, 2]) {
+        await page.keyboard.press('Tab');
+        await expect(bulkActions.nth(index)).toBeFocused();
+      }
+      await expect(bulkActions.last()).toBeDisabled();
       expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewport.width);
       expect(geometry.scrollX).toBe(0);
       expect(geometry.fields.length).toBeGreaterThan(20);
