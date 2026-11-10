@@ -334,7 +334,7 @@ class ArtifactReviewTests(unittest.TestCase):
         prefix = f"/repos/{review.REPOSITORY}"
         responses = {
             prefix: {"private": False, "visibility": "public"},
-            prefix + "/pulls/479": {"head": {"sha": review.HEAD}, "base": {"sha": review.BASE}},
+            prefix + "/pulls/481": {"head": {"sha": review.HEAD}, "base": {"sha": review.BASE}},
             prefix + f"/actions/runs/{review.RUN}": {"id": review.RUN, "head_sha": review.HEAD,
                 "event": "pull_request", "run_attempt": 1, "name": "CI", "status": "in_progress", "conclusion": None},
             prefix + f"/git/commits/{review.CHECKOUT}": {"tree": {"sha": review.TREE},
@@ -355,10 +355,91 @@ class ArtifactReviewTests(unittest.TestCase):
                 with self.assertRaises(review.Rejected):
                     review.source_gate("synthetic")
                 responses[path][key] = previous
-            responses[prefix + "/pulls/479"]["head"]["sha"] = "0" * 40
+            responses[prefix + "/pulls/481"]["head"]["sha"] = "0" * 40
             with self.assertRaises(review.Rejected):
                 review.source_gate("synthetic")
 
+
+    def test_print_only_emits_four_original_pdf_pages_and_retains_full_inventory(self):
+        images = output_images()
+        names = ("guest-multipage-de-pdf-page-1", "guest-multipage-de-pdf-page-2",
+                 "guest-multipage-en-pdf-page-1", "guest-multipage-en-pdf-page-2")
+        for offset, name in enumerate(names):
+            index = 82 + offset
+            images[index] = (dict(images[index][0], capture=name, language="de" if offset < 2 else "en",
+                                  page=offset % 2 + 1, pageCount=2), images[index][1])
+        seen, hashes = [], set()
+        for group in (2, 3, 4, 5):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                review.emit(images, {"captureInventory": []}, [], group, print_only=True)
+            lines = output.getvalue().splitlines()
+            manifest = json.loads(lines[0].removeprefix("CM_REVIEW_MANIFEST "))
+            self.assertEqual(manifest["emissionScope"], "chromium-original-pdf-only")
+            self.assertEqual(len(manifest["imageInventory"]), 108)
+            self.assertEqual(len(manifest["groupBytes"]), 8)
+            self.assertTrue(all(0 < size <= 3 * review.MIB for size in manifest["groupBytes"]))
+            hashes.add(manifest["inventorySha256"])
+            begin = [json.loads(line.removeprefix("CM_IMAGE_BEGIN ")) for line in lines if line.startswith("CM_IMAGE_BEGIN ")]
+            self.assertEqual(len(begin), 1)
+            page = begin[0]
+            self.assertEqual(page["capture"], names[group - 2])
+            self.assertEqual(page["index"], 80 + group)
+            self.assertEqual(manifest["emittedIndices"], [page["index"]])
+            chunks = [line.split(" ", 3) for line in lines if line.startswith("CM_IMAGE_DATA ")]
+            encoded = ""
+            for _, index, offset, value in chunks:
+                self.assertEqual((int(index), int(offset)), (page["index"], len(encoded)))
+                encoded += value
+            self.assertEqual(base64.b64decode(encoded, validate=True), images[page["index"]][1])
+            self.assertEqual(page["imageSha256"], review.sha(images[page["index"]][1]))
+            complete = json.loads(lines[-1].removeprefix("CM_REVIEW_COMPLETE "))
+            self.assertEqual((complete["images"], complete["binaryBytes"], complete["inventoryImages"]),
+                             (1, len(images[page["index"]][1]), 108))
+            seen.append(page["capture"])
+        self.assertEqual(tuple(seen), names)
+        self.assertEqual(len(hashes), 1)
+
+    def test_print_only_rejects_wrong_mode_or_nonprint_group_without_output(self):
+        for group, mode, code in [(group, True, "print-output-group") for group in (0, 1, 6, 7)] + [
+                (2, mode, "print-output-mode") for mode in (None, 1, "true")]:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), self.assertRaisesRegex(review.Rejected, code):
+                review.emit(output_images(), {"captureInventory": []}, [], group, print_only=mode)
+            self.assertEqual(output.getvalue(), "")
+
+    def test_print_only_rejects_missing_foreign_or_inconsistent_pages_without_output(self):
+        images = output_images()
+        for index, language, number in ((82, "de", 1), (83, "de", 2), (84, "en", 1), (85, "en", 2)):
+            images[index] = (dict(images[index][0], capture=f"guest-multipage-{language}-pdf-page-{number}",
+                                  language=language, page=number, pageCount=2), images[index][1])
+        variants = [(images[:82] + images[83:], "image-count")]
+        for key, value, code in (("capture", "foreign-pdf-page-1", "print-output-inventory"),
+                                  ("language", "fr", "print-output-page"),
+                                  ("page", 2, "print-output-page"), ("pageCount", 3, "print-output-page")):
+            changed = copy.deepcopy(images)
+            changed[82] = (dict(changed[82][0], **{key: value}), changed[82][1])
+            variants.append((changed, code))
+        changed = copy.deepcopy(images)
+        changed[0], changed[82] = changed[82], changed[0]
+        variants.append((changed, "print-output-page"))
+        for changed, code in variants:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output), self.assertRaisesRegex(review.Rejected, code):
+                review.emit(changed, {"captureInventory": []}, [], 2, print_only=True)
+            self.assertEqual(output.getvalue(), "")
+
+    def test_print_only_still_rejects_nonprinted_corruption_and_all_group_budgets(self):
+        images = output_images()
+        images[0] = (images[0][0], b"invalid")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaisesRegex(review.Rejected, "png-size"):
+            review.emit(images, {"captureInventory": []}, [], 2, print_only=True)
+        self.assertEqual(output.getvalue(), "")
+        output = io.StringIO()
+        with patch.object(review, "MAX_GROUP_BYTES", len(png()) * 13), contextlib.redirect_stdout(output), self.assertRaisesRegex(review.Rejected, "image-group-budget"):
+            review.emit(output_images(), {"captureInventory": []}, [], 4, print_only=True)
+        self.assertEqual(output.getvalue(), "")
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-name: CO-320 fixed PR479 artifact inspection
+name: CO-317 fixed PR481 Chromium print inspection
 
 # One-use diagnostic branch. Never a release gate and never merge into main.
 on:
@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        group: ['0', '1', '2', '3', '4', '5', '6', '7']
+        group: ['2', '3', '4', '5']
     steps:
       - name: Checkout reviewed diagnostic source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,7 +61,7 @@ jobs:
             sudo apt-get install --no-install-recommends -y poppler-utils
           fi
           pdftoppm -v
-      - name: Read only the pinned synthetic artifacts and emit bounded original images
+      - name: Read the pinned artifacts and emit only the four original Chromium PDF pages
         env:
           GH_TOKEN: ${{ github.token }}
           CM_REVIEW_GROUP: ${{ matrix.group }}

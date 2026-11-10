@@ -1,4 +1,4 @@
-"""One-use CO-320 inspection of fixed PR479 CI artifacts; never an acceptance gate.
+"""One-use CO-317 inspection of fixed PR481 print artifacts; never an acceptance gate.
 
 Only synthetic original PNG bytes and rendered original Chromium PDF pages may
 leave the runner through its bounded log. No target artwork, trace, HAR, HTML,
@@ -27,19 +27,19 @@ import zlib
 
 REPOSITORY = "floriankreutzer/conference-manager"
 BRANCH = "CO-320-pr479-88ed5f-artifact-review"
-HEAD = "0b89158a98332415a7bdfe4d74c6a6bb945dd055"
-CHECKOUT = "5d4bc7f8ec27ab85abe6c11dadb335defa63b813"
-TREE = "b962db71e4df7a17dd01139cd4c3f040d38b80ac"
-BASE = "983d04d60b253b2b8bcac64751c1416fb941c7dc"
+HEAD = "28a864ea6b1d4f5ae0e0066a072f6012e059358d"
+CHECKOUT = "e69984b2b569ef00045923540e4c41af953fab16"
+TREE = "5ec76c98c20bcbbe06cfe582c9578ceeafbccf68"
+BASE = "cd935478e9c441e6bbd5bddb36b1090d70554124"
 API_COMMIT = "2b9a7f4fbeaba3688877d045337a1c00e3eda5de"
-RUN = 42746409149
-CHROMIUM_JOB = 129599907579
-SHARED_JOB = 129599907521
+RUN = 42759055183
+CHROMIUM_JOB = 129640639590
+SHARED_JOB = 129640639558
 ARTIFACTS = {
-    "chromium": (13732151730, "playwright-report-chromium-desktop", 29716539,
-                 "512e6e1b9ffa01e86859abe51d8c978dab6cbda020d7fb5f3ddf1b2cf87682f4"),
-    "zoom": (13732610053, "manager-worklist-browser-zoom-evidence", 1771270,
-             "6a6add0d655fc5cd1ad3035b33b01f14a51ec87ef3ce3221f6830d082ec51142"),
+    "chromium": (13738005676, "playwright-report-chromium-desktop", 29548207,
+                 "029168d8105c0309d04cb16c3297ee627950ad1d678343c594eb2dfe0ae1086f"),
+    "zoom": (13738035243, "manager-worklist-browser-zoom-evidence", 1779056,
+             "ab04adf3d963b72ee6a68cf0d5474373370d17367ca731aba6abc0ecbde0a79e"),
 }
 MIB = 1024 * 1024
 MAX_MEMBER = 32 * MIB
@@ -51,6 +51,13 @@ MAX_IMAGE_TOTAL = 20 * MIB
 OUTPUT_GROUPS = 8
 MAX_GROUP_BYTES = 3 * MIB
 MAX_METADATA_BYTES = 2 * MIB
+PRINT_OUTPUT_GROUPS = (2, 3, 4, 5)
+PRINT_PAGES = {
+    "guest-multipage-de-pdf-page-1": ("de", 1, 82),
+    "guest-multipage-de-pdf-page-2": ("de", 2, 83),
+    "guest-multipage-en-pdf-page-1": ("en", 1, 84),
+    "guest-multipage-en-pdf-page-2": ("en", 2, 85),
+}
 PRIMARY = {
     "01": ("welcome", 1280), "02": ("schedule", 1366),
     "03": ("filtered-room-selection", 1366),
@@ -240,7 +247,7 @@ def api(path, token, redirect=False):
     require(path == f"/repos/{REPOSITORY}" or path.startswith(f"/repos/{REPOSITORY}/"), "api-repository")
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
     # Public repo/PR metadata needs no added pull-requests token permission.
-    if path not in (f"/repos/{REPOSITORY}", f"/repos/{REPOSITORY}/pulls/479"):
+    if path not in (f"/repos/{REPOSITORY}", f"/repos/{REPOSITORY}/pulls/481"):
         headers["Authorization"] = "Bearer " + token
     request = urllib.request.Request("https://api.github.com" + path, headers=headers)
     opener = urllib.request.build_opener(NoRedirect)
@@ -291,7 +298,7 @@ def source_gate(token):
     prefix = f"/repos/{REPOSITORY}"
     repository = api(prefix, token)
     require(repository.get("private") is False and repository.get("visibility") == "public", "repository-visibility")
-    pr = api(prefix + "/pulls/479", token)
+    pr = api(prefix + "/pulls/481", token)
     require(pr.get("head", {}).get("sha") == HEAD and pr.get("base", {}).get("sha") == BASE, "current-pr-source")
     run = api(prefix + f"/actions/runs/{RUN}", token)
     require(run.get("id") == RUN and run.get("head_sha") == HEAD and run.get("event") == "pull_request"
@@ -542,8 +549,10 @@ def output_group(value):
     return int(value)
 
 
-def emit(images, manifest, geometry, group):
+def emit(images, manifest, geometry, group, *, print_only=False):
     require(type(group) is int and 0 <= group < OUTPUT_GROUPS, "output-group")
+    require(type(print_only) is bool, "print-output-mode")
+    require(not print_only or group in PRINT_OUTPUT_GROUPS, "print-output-group")
     require(len(images) == MAX_IMAGES, "image-count")
     require(sum(len(data) for _, data in images) <= MAX_IMAGE_TOTAL, "image-total")
     checked, names = [], set()
@@ -560,13 +569,25 @@ def emit(images, manifest, geometry, group):
     sizes = [sum(len(data) for metadata, data in checked if metadata["outputGroup"] == number)
              for number in range(OUTPUT_GROUPS)]
     require(all(0 < size <= MAX_GROUP_BYTES for size in sizes), "image-group-budget")
+    selected = [(metadata, data) for metadata, data in checked if metadata["outputGroup"] == group]
+    if print_only:
+        pages = [metadata for metadata, _ in checked if metadata["reviewGroup"] == "chromium-original-pdf"]
+        require({page["capture"] for page in pages} == set(PRINT_PAGES), "print-output-inventory")
+        for page in pages:
+            language, number, index = PRINT_PAGES[page["capture"]]
+            require((page.get("language"), page.get("page"), page.get("index"), page.get("pageCount"))
+                    == (language, number, index, 2), "print-output-page")
+        selected = [(metadata, data) for metadata, data in selected if metadata["capture"] in PRINT_PAGES]
+        require(len(selected) == 1, "print-output-count")
     image_inventory = [metadata for metadata, _ in checked]
     inventory_sha = sha(json.dumps(image_inventory, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     inventory = manifest["captureInventory"]
     output_manifest = {key: value for key, value in manifest.items() if key != "captureInventory"}
     output_manifest.update({"outputGroup": group, "outputGroups": OUTPUT_GROUPS,
                             "groupBytes": sizes, "imageInventory": image_inventory,
-                            "inventorySha256": inventory_sha})
+                            "inventorySha256": inventory_sha,
+                            "emissionScope": "chromium-original-pdf-only" if print_only else "full-inventory",
+                            "emittedIndices": [metadata["index"] for metadata, _ in selected]})
     lines = ["CM_REVIEW_MANIFEST " + json.dumps(output_manifest, separators=(",", ":"), sort_keys=True)]
     for context in inventory:
         lines.append("CM_CAPTURE_CONTEXT " + json.dumps(context, separators=(",", ":"), sort_keys=True))
@@ -579,10 +600,9 @@ def emit(images, manifest, geometry, group):
         lines.append("CM_GEOMETRY_END " + json.dumps({"capture": item["capture"], "length": len(encoded)}))
     require(sum(len(line.encode("utf-8")) + 1 for line in lines) <= MAX_METADATA_BYTES, "metadata-output-size")
     # Check every image, group and metadata bound before any output. All jobs
-    # retain the full inventory; only group zero repeats contexts and geometry.
-    for line in (lines if group == 0 else lines[:1]):
+    # retain the full inventory; the first selected group repeats metadata.
+    for line in (lines if group == (PRINT_OUTPUT_GROUPS[0] if print_only else 0) else lines[:1]):
         print(line)
-    selected = [(metadata, data) for metadata, data in checked if metadata["outputGroup"] == group]
     for metadata, data in selected:
         index = metadata["index"]
         print("CM_IMAGE_BEGIN " + json.dumps(metadata, separators=(",", ":"), sort_keys=True))
@@ -591,7 +611,7 @@ def emit(images, manifest, geometry, group):
             print(f"CM_IMAGE_DATA {index} {offset} " + encoded[offset:offset + 3000])
         print(f"CM_IMAGE_END {index} {len(encoded)}")
     print("CM_REVIEW_COMPLETE " + json.dumps({"group": group, "groups": OUTPUT_GROUPS,
-          "images": len(selected), "binaryBytes": sizes[group], "inventoryImages": len(checked),
+          "images": len(selected), "binaryBytes": sum(len(data) for _, data in selected), "inventoryImages": len(checked),
           "inventorySha256": inventory_sha}))
 
 
@@ -601,6 +621,7 @@ def main():
             and os.environ.get("GITHUB_REF") == "refs/heads/" + BRANCH
             and os.environ.get("GITHUB_EVENT_NAME") == "push", "execution-scope")
     group = output_group(os.environ.get("CM_REVIEW_GROUP"))
+    require(group in PRINT_OUTPUT_GROUPS, "print-output-group")
     token = os.environ.get("GH_TOKEN", "")
     require(bool(token), "read-token-required")
     identity = source_gate(token)
@@ -625,7 +646,7 @@ def main():
                            "Actual tab zoom covers only its named states, not all 27 targets.",
                            "Two original Chromium PDFs, two pages each; no WebKit PDF export.",
                            "No product acceptance, manual screen-reader or first-user claim."]}
-    emit(images, manifest, geometry, group)
+    emit(images, manifest, geometry, group, print_only=True)
 
 
 if __name__ == "__main__":
