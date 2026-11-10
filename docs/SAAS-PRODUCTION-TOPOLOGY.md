@@ -4,11 +4,25 @@
 
 Accepted for **SaaS 0 / Multi-Tenant Foundation**.
 
-Tracking issue: #46  
-Parent roadmap: #44  
-Decision date: 2026-08-23
+- Historical tracking issue: #46
+- Historical parent roadmap: #44
+- Decision date: 2026-08-23
 
 This decision is subordinate to root `AGENTS.md`, `docs/CODING-STANDARDS.md`, `docs/ARCHITECTURE.md`, `docs/BASELINE.md`, and `docs/PRODUCTION-SECURITY.md`. If any future implementation conflicts with those sources, the repository standards win until an explicit reviewed architecture change updates the baseline.
+
+## Implementation status and current sources
+
+The dedicated backend and browser-side Production persistence boundary are implemented. The accepted trust boundaries in this decision remain applicable, together with the extensions below. The original implementation sequence and deferred choices at the end of this document describe the plan on 2026-08-23; they are not an active backlog.
+
+Current implementation details belong to the owning repositories:
+
+- backend runtime and module ownership: [Backend Architecture](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/ARCHITECTURE.md);
+- relational persistence and migration policy: [PostgreSQL Persistence](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/PERSISTENCE.md);
+- server identity, sessions and authorization: [Identity and Session Contract](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/IDENTITY-SESSION.md) and [Authorization](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/AUTHORIZATION.md);
+- audit and operational diagnostics: [Audit](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/AUDIT.md) and [Observability](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/OBSERVABILITY.md);
+- browser persistence and later Demo supersession: [Production Persistence Migration](PRODUCTION-PERSISTENCE-MIGRATION.md).
+
+The merged [topology decision](https://github.com/floriankreutzer/conference-manager/pull/105) and [Production persistence boundary](https://github.com/floriankreutzer/conference-manager/pull/109) preserve the original engineering evidence. Current `main` defines implemented behavior; a particular deployment or release still requires its own revision- and environment-specific acceptance evidence.
 
 ## SaaS 3 control-plane extension
 
@@ -26,7 +40,7 @@ Both backend processes remain in `conference-manager-api` so they can reuse the 
 
 ## Decision summary
 
-The production SaaS backend will be implemented in a dedicated repository named `conference-manager-api`.
+The production SaaS backend is implemented in the dedicated `conference-manager-api` repository.
 
 The existing `conference-manager` repository remains the browser application and contains the explicit Customer and Platform Demo presentation artifacts. It must not absorb server-side authentication, authorization, tenant isolation, database access, integration credentials, audit persistence, reset authority or Microsoft Graph service credentials into browser modules.
 
@@ -42,7 +56,7 @@ https://<conference-manager-host>/api/*
 
 A reverse proxy, gateway, or equivalent deployment layer may route the two workloads internally, but the browser sees one HTTPS origin. CORS remains disabled by default. The existing defensive client contract in `src/core/api-client.js` remains the frontend boundary.
 
-The application-level topology is infrastructure-provider-neutral. A specific cloud compute product, container platform, HTTP framework, ORM, and relational database implementation may be selected by the owning follow-up issue without changing the trust boundaries defined here. A change from the dedicated-backend/same-origin model requires a new explicit architecture decision.
+The application-level topology is infrastructure-provider-neutral. Concrete runtime, persistence and deployment choices belong to the owning backend documentation and must preserve the trust boundaries defined here. A change from the dedicated-backend/same-origin model requires a new explicit architecture decision.
 
 ## Why a separate backend repository
 
@@ -122,7 +136,7 @@ Provider-specific claims must be translated into the internal principal/session 
 
 ### Persistence boundary
 
-Persistent production data is server-side. The concrete relational implementation and migration tooling are selected in #49.
+Persistent production data is server-side. The relational implementation and migration tooling introduced under historical issue #49 are maintained in the backend [PostgreSQL Persistence](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/PERSISTENCE.md) contract.
 
 The persistence model must support explicit tenant ownership, referential integrity, transactional writes, tenant-safe queries, versioned migrations, backup/restore, and deterministic failure handling. Database constraints must reinforce application-level tenant and booking integrity where practical.
 
@@ -168,7 +182,7 @@ Owns:
 - health, readiness, observability, and operational diagnostics;
 - backend security, dependency, migration, isolation, and integration tests.
 
-The new repository must contain its own root `AGENTS.md` before implementation begins. Its engineering rules must be equivalent to or stronger than the security, testing, change-control, and evidence requirements in this repository. It must not weaken the browser repository's controls to simplify backend delivery.
+The backend's root [`AGENTS.md`](https://github.com/floriankreutzer/conference-manager-api/blob/main/AGENTS.md) governs its implementation. Its engineering rules must remain equivalent to or stronger than the security, testing, change-control, and evidence requirements in this repository. It must not weaken the browser repository's controls to simplify backend delivery.
 
 ## Data and secret placement
 
@@ -222,13 +236,13 @@ Production authentication results in a server-generated session. The browser doe
 
 Session behavior follows `docs/PRODUCTION-SECURITY.md`, including `Secure`, `HttpOnly`, appropriate `SameSite`, narrow cookie scope, rotation, expiry, and revocation. State-changing cookie-authenticated requests require backend-issued and backend-validated CSRF protection compatible with the existing `src/core/api-client.js` contract.
 
-Exact identity-provider/OIDC behavior is implemented in #50 and #58; this topology deliberately keeps those provider details behind the backend identity boundary.
+The backend [Identity and Session Contract](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/IDENTITY-SESSION.md) and [Entra Authentication](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/ENTRA-AUTHENTICATION.md) maintain the behavior introduced under historical issues #50 and #58. This topology keeps provider details behind the backend identity boundary.
 
 ## Tenant-isolation direction
 
 Tenant identity is an internal server-side security boundary. The API resolves tenant context from the authenticated principal/session, not from an independently trusted request header, query parameter, route parameter, or JSON field.
 
-Every tenant-owned object must have an explicit ownership model. Cross-tenant object identifiers are authorization failures even when the identifier is otherwise valid. The detailed tenant model and static/runtime enforcement are implemented in #48.
+Every tenant-owned object must have an explicit ownership model. Cross-tenant object identifiers are authorization failures even when the identifier is otherwise valid. The detailed model and enforcement introduced under historical issue #48 are maintained in the backend [Tenancy](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/TENANCY.md) contract.
 
 ## Audit and observability direction
 
@@ -262,7 +276,7 @@ Security automation is evidence for the controls actually executed; it must not 
 
 ## Threat-to-control mapping for the foundation
 
-| Threat | Primary control direction | Follow-up |
+| Threat | Primary control direction | Original implementation issue |
 | --- | --- | --- |
 | BOLA / IDOR / broken access control (CWE-639/CWE-862) | Server principal, tenant-scoped lookup, ownership/RBAC, deny by default | #48, #51 |
 | Session/authentication abuse | Server session, rotation/revocation, provider validation | #50, #58 |
@@ -275,15 +289,15 @@ Security automation is evidence for the controls actually executed; it must not 
 | Replay/duplicate external writes | Correlation/idempotency and transactional business handling | #54 and booking issues |
 | Secret/token disclosure | Managed secret store, redaction, no browser exposure | #47, #52, #57 |
 
-The complete SaaS threat model and secure deployment baseline are finalized in #57.
+The backend [Threat Model](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/THREAT-MODEL.md) and [Production Secure Configuration](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/PRODUCTION-SECURE-CONFIGURATION.md) maintain the foundation introduced under historical issue #57.
 
 ## Architecture-enforcement impact
 
 No frontend architecture gate is weakened or removed by this decision.
 
-Immediate frontend impact:
+Impact of the original topology decision:
 
-- no runtime code change is required for #46;
+- no runtime code change was required for #46;
 - `src/core/api-client.js` remains the defensive same-origin browser contract;
 - `src/platform` remains browser/application composition and cannot become a backend service layer;
 - Employee/Manager business presentation remains behind their existing public frontend contracts;
@@ -293,9 +307,9 @@ Frontend runtime work must add progression tests and preserve the server-backed 
 
 The backend repository requires its own automated architecture/security gates appropriate to its chosen implementation.
 
-## Critical path after this decision
+## Historical implementation sequence (2026-08-23)
 
-The foundation proceeds in this order:
+The original foundation plan used the following sequence. The issue numbers preserve decision provenance; the current sources above govern the resulting implementation and later changes.
 
 1. **#47** create the trusted backend and same-origin API foundation in `conference-manager-api`.
 2. **#48** establish the tenant model and hard tenant isolation on that backend boundary.
@@ -305,11 +319,11 @@ The foundation proceeds in this order:
 6. **#56** migrate Production browser persistence to backend repositories/APIs without weakening the explicit Demo boundary. This historical step was later extended by ADR-010, which also moved Demo business authority to the isolated shared Demo backend.
 7. **#55** observability and **#57** threat-model/secure-configuration work progress continuously and must be complete before an external pilot readiness decision.
 
-#47 is therefore the next blocking implementation issue.
+At the decision date, #47 was the first blocking implementation item. This historical sequence does not identify current open work or grant acceptance for a later release.
 
-## Deliberately deferred implementation choices
+## Historically deferred choices (2026-08-23)
 
-The following choices do not alter this approved topology and remain with their owning implementation issues:
+At the decision date, the following choices were left to their owning implementation issues. Their current definitions belong to the backend sources above; this list does not assert that those choices remain unresolved:
 
 - exact HTTP framework and server runtime packaging in #47;
 - exact relational database and migration tooling in #49;
@@ -318,4 +332,4 @@ The following choices do not alter this approved topology and remain with their 
 - exact observability backend in #55;
 - exact cloud hosting product and infrastructure-as-code implementation, provided the same-origin, environment-isolation, secret, and trust-boundary requirements above are preserved.
 
-If one of those choices would require cross-origin browser access, browser-held long-lived bearer tokens, production authorization in the client, backend code inside the frontend runtime, or another change to the trust model, it is no longer an implementation detail and requires an explicit reviewed architecture change.
+Any future choice that would require cross-origin browser access, browser-held long-lived bearer tokens, production authorization in the client, backend code inside the frontend runtime, or another change to the trust model is an explicit reviewed architecture change rather than an implementation detail.
