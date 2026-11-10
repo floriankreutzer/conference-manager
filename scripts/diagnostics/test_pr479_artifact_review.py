@@ -34,7 +34,7 @@ def png(width=1, height=1):
 
 
 def valid_report():
-    return {"stats": {"total": 599, "expected": 599, "unexpected": 0, "skipped": 0, "flaky": 0, "ok": True},
+    return {"stats": {"total": 605, "expected": 605, "unexpected": 0, "skipped": 0, "flaky": 0, "ok": True},
             "projectNames": ["chromium-desktop"], "errors": [], "files": [{"fileId": "a" * 20}]}
 
 
@@ -142,13 +142,13 @@ class ArtifactReviewTests(unittest.TestCase):
 
     def test_actual_report_envelope_and_complete_test_inventory(self):
         tests = [{"testId": str(i), "outcome": "expected", "projectName": "chromium-desktop",
-                  "results": [{"status": "passed", "retry": 0, "errors": [], "attachments": []}]} for i in range(599)]
+                  "results": [{"status": "passed", "retry": 0, "errors": [], "attachments": []}]} for i in range(605)]
         def outer(test_rows):
             payload = make_zip([("report.json", json.dumps(valid_report())),
                                 ("a" * 20 + ".json", json.dumps({"tests": test_rows}))])
             html = b'<template id="playwrightReportBase64">data:application/zip;base64,' + base64.b64encode(payload) + b"</template>"
             return review.archive(make_zip([("index.html", html)]))
-        self.assertEqual(len(review.attachments(outer(tests))), 599)
+        self.assertEqual(len(review.attachments(outer(tests))), 605)
         for changed in (tests[:-1], tests[:-1] + [tests[0]]):
             with self.assertRaises(review.Rejected):
                 review.attachments(outer(changed))

@@ -26,19 +26,19 @@ import zlib
 
 REPOSITORY = "floriankreutzer/conference-manager"
 BRANCH = "CO-320-pr479-88ed5f-artifact-review"
-HEAD = "88ed5f346ebb9ceb16625b96ebe0b662eeb9637a"
-CHECKOUT = "fc2b9ade7d7a9aa3390ad5be6d18dbfbc5971a7f"
-TREE = "f75dfae2b40d884f915757fd9539d55f028a732e"
+HEAD = "79127af1180cde18cb1e26351c74062d1fca4916"
+CHECKOUT = "6c5f8a0f7e121505757208fefcfe80d02c4708b7"
+TREE = "3abd3bc89d002d82ad674e77d6eb1a740814cd33"
 BASE = "983d04d60b253b2b8bcac64751c1416fb941c7dc"
 API_COMMIT = "2b9a7f4fbeaba3688877d045337a1c00e3eda5de"
-RUN = 42722345572
-CHROMIUM_JOB = 129519975958
-SHARED_JOB = 129519975897
+RUN = 42740576995
+CHROMIUM_JOB = 129580958397
+SHARED_JOB = 129580958463
 ARTIFACTS = {
-    "chromium": (13720454080, "playwright-report-chromium-desktop", 29590783,
-                 "9140aff05f6acf95434fc7cbf11488a6b05e5a0a28ec44e76ff10f444a678d55"),
-    "zoom": (13720358435, "manager-worklist-browser-zoom-evidence", 1775647,
-             "f665d11ade5df4e203d3bb68d79e0eda7c93bc03c3e8c9b5e8d008bb7bdf56f1"),
+    "chromium": (13729857924, "playwright-report-chromium-desktop", 29703687,
+                 "1128e1e8479c8c7839978cca547445b1606b75cee1e6e5a55370b4c72c8d9eb5"),
+    "zoom": (13728633924, "manager-worklist-browser-zoom-evidence", 1787022,
+             "9414ade46ce5af30058b7e785651f4db2b72aedcabec2e99fd0dd8d14be9dcbf"),
 }
 MIB = 1024 * 1024
 MAX_MEMBER = 32 * MIB
@@ -304,7 +304,7 @@ def source_gate(token):
 
 def passed_report(report):
     stats = report.get("stats", {})
-    require(stats.get("total") == 599 and stats.get("expected") == 599 and stats.get("ok") is True
+    require(stats.get("total") == 605 and stats.get("expected") == 605 and stats.get("ok") is True
             and all(stats.get(key) == 0 for key in ("unexpected", "flaky", "skipped"))
             and report.get("errors") == [], "report-full-suite")
     require(report.get("projectNames") == ["chromium-desktop"], "report-project")
@@ -328,7 +328,7 @@ def attachments(source):
         require(isinstance(file_id, str) and re.fullmatch(r"[a-f0-9]{20}", file_id), "report-file-id")
         file = json_object(member(inner, file_id + ".json"))
         tests.extend(file.get("tests", []))
-    require(len(tests) == 599 and len({test.get("testId") for test in tests}) == 599, "report-inventory")
+    require(len(tests) == 605 and len({test.get("testId") for test in tests}) == 605, "report-inventory")
     for test in tests:
         require(test.get("outcome") == "expected" and test.get("projectName") == "chromium-desktop"
                 and len(test.get("results", [])) == 1, "test-source")
@@ -582,7 +582,7 @@ def main():
     zoom_pictures, zoom_geometry = zoom_images(zoom)
     images.extend(({**meta, "artifactId": ARTIFACTS["zoom"][0]}, data) for meta, data in zoom_pictures)
     geometry.extend(zoom_geometry)
-    manifest = {**identity, "fullChromium": {"passed": 599, "failed": 0, "skipped": 0, "flaky": 0},
+    manifest = {**identity, "fullChromium": {"passed": 605, "failed": 0, "skipped": 0, "flaky": 0},
                 "artifacts": {key: {"id": value[0], "bytes": value[2], "sha256": value[3]} for key, value in ARTIFACTS.items()},
                 "captureInventory": [context for context, _ in captures],
                 "limits": ["Fixture captures have no real API counterpart.",
