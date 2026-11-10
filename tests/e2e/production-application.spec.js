@@ -7481,3 +7481,95 @@ test('CO-306 staying in a dirty Manager editor restores the URL after a history/
   await expect(page).toHaveURL(/#tenant-admin\/locations$/);
   await expect(page.locator('[data-manager-business-settings-root]')).toHaveCount(0);
 });
+
+for (const language of ['de', 'en']) {
+  test(`CO-322 ${language}: overlong room checks focus the end date and recover at 24 hours or overnight`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, { timeZone: 'UTC' });
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="employee"]').click();
+    await fillEmployeeSchedule(page, { start: '09:00', end: '09:01', internal: '12' });
+    await page.locator('#productionMultiDay').check();
+    const endDate = page.locator('#productionEndDate');
+    await endDate.fill(futureDate(15));
+    const next = page.getByRole('button', { name: language === 'de' ? 'Weiter' : 'Next', exact: true });
+    const back = page.getByRole('button', { name: language === 'de' ? 'Zurück' : 'Back', exact: true });
+    const check = page.getByRole('button', { name: language === 'de' ? 'Raumverfügbarkeit prüfen' : 'Check room availability', exact: true });
+    await next.click();
+    await page.getByRole('radio', { name: /Room A/ }).check();
+    await check.focus();
+    await check.press('Enter');
+
+    await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
+    await expect(endDate).toBeFocused();
+    await expect(endDate).toHaveAttribute('aria-invalid', 'true');
+    await expect(endDate).toHaveAttribute('aria-describedby', /productionEmployeeStatus/);
+    const status = page.locator('#productionEmployeeStatus');
+    await expect(status).toContainText(language === 'de' ? 'höchstens 24 Stunden' : 'no more than 24 hours');
+    await expect(page.locator('#productionTitle')).toHaveValue('Customer workshop');
+    await expect(page.locator('#productionStart')).toHaveValue('09:00');
+    await expect(page.locator('#productionEnd')).toHaveValue('09:01');
+    await expect(endDate).toHaveValue(futureDate(15));
+    await status.getByRole('link').focus();
+    await status.getByRole('link').press('Enter');
+    await expect(endDate).toBeFocused();
+    expect(fixture.availabilityChecks).toHaveLength(0);
+    expect(fixture.writes).toHaveLength(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+    await next.click();
+    await expect(endDate).toBeFocused();
+    await expect(page.locator('[data-step-panel="1"]')).toBeVisible();
+    expect(fixture.availabilityChecks).toHaveLength(0);
+
+    await page.locator('#productionMultiDay').uncheck();
+    await expect(endDate).not.toBeVisible();
+    await expect(endDate).toHaveValue(futureDate());
+    await expect(endDate).not.toHaveAttribute('aria-invalid');
+    await expect(endDate).not.toHaveAttribute('aria-describedby', /productionEmployeeStatus/);
+    await expect(status.getByRole('link')).toHaveCount(0);
+    await next.click();
+    await expect(next).toBeDisabled();
+    await check.click();
+    await expect(next).toBeEnabled();
+    expect(fixture.availabilityChecks).toHaveLength(1);
+    expect(fixture.availabilityChecks[0].body).toEqual({
+      roomId: 'room-a', startsAt: `${futureDate()}T09:00:00.000Z`, endsAt: `${futureDate()}T09:01:00.000Z`,
+    });
+
+    await back.click();
+    await page.locator('#productionMultiDay').check();
+    await endDate.fill(futureDate(15));
+    await next.click();
+    await expect(endDate).toBeFocused();
+    await expect(endDate).toHaveAttribute('aria-invalid', 'true');
+    expect(fixture.availabilityChecks).toHaveLength(1);
+    await page.locator('#productionEnd').fill('09:00');
+    await expect(endDate).not.toHaveAttribute('aria-invalid');
+    await expect(endDate).not.toHaveAttribute('aria-describedby', /productionEmployeeStatus/);
+    await next.click();
+    await expect(next).toBeDisabled();
+    await check.click();
+    await expect(next).toBeEnabled();
+    expect(fixture.availabilityChecks).toHaveLength(2);
+    expect(fixture.availabilityChecks[1].body).toEqual({
+      roomId: 'room-a', startsAt: `${futureDate()}T09:00:00.000Z`, endsAt: `${futureDate(15)}T09:00:00.000Z`,
+    });
+    await next.click();
+    await expect(page.locator('[data-step-panel="3"]')).toBeVisible();
+
+    await back.click();
+    await back.click();
+    await page.locator('#productionStart').fill('22:00');
+    await page.locator('#productionEnd').fill('06:00');
+    await next.click();
+    await expect(next).toBeDisabled();
+    await check.click();
+    await expect(next).toBeEnabled();
+    expect(fixture.availabilityChecks).toHaveLength(3);
+    expect(fixture.availabilityChecks[2].body).toEqual({
+      roomId: 'room-a', startsAt: `${futureDate()}T22:00:00.000Z`, endsAt: `${futureDate(15)}T06:00:00.000Z`,
+    });
+    expect(fixture.writes).toHaveLength(0);
+  });
+}
