@@ -1,8 +1,12 @@
 """Offline positive and adversarial checks for the fixed, read-only H receipt reader."""
+import base64
 import contextlib
 import copy
 import io
 import json
+from pathlib import Path
+import subprocess
+import tempfile
 import stat
 import struct
 import unittest
@@ -11,6 +15,7 @@ import warnings
 import zipfile
 
 import h745_receipt_reader as reader
+from test_pr479_artifact_review import png
 
 
 def encoded(value):
@@ -264,6 +269,247 @@ class ReceiptReaderTests(unittest.TestCase):
                          "https://productionresultssa1.blob.core.windows.net/other/a"):
             with self.assertRaises(reader.Rejected):
                 reader.BASE.download_location(location)
+
+
+
+def pdf_info(pages=2):
+    return "Pages: " + str(pages) + "\n" + "".join(
+        "Page " + str(page) + " size: 595.276 x 841.89 pts (A4)\n"
+        for page in range(1, pages + 1))
+
+
+def sample_images(pages=2):
+    data = png(794, 1123)
+    return [({"capture": "h745-chromium-desktop-de-page-" + str(page) + ".png",
+              "page": page, "pageCount": pages, "imageBytes": len(data), "imageSha256": reader.BASE.sha(data),
+              "width": 794, "height": 1123}, data) for page in range(1, pages + 1)]
+
+
+def image_diagnosis():
+    return {"producerConclusion": "failure", "productAcceptance": False,
+            "pdfInspection": {"pageCount": 2, "sourceFailure": "PDF_PUBLIC_FIELDS", "productAcceptance": False,
+                              "originalPdfSha256": reader.PDF_SHA256, "originalPdfBytes": reader.PDF_BYTES}}
+
+
+class PdfInspectionTests(unittest.TestCase):
+    def test_original_pdf_identity_and_active_content_are_not_relaxed(self):
+        original = b"%PDF-1.7\nsynthetic unit fixture\n%%EOF\n"
+        with patch.object(reader, "PDF_BYTES", len(original)), patch.object(reader, "PDF_SHA256", reader.BASE.sha(original)):
+            reader.verify_original_pdf(original)
+            for changed in (original + b"x", original.replace(b"fixture", b"changed")):
+                with self.assertRaises(reader.Rejected):
+                    reader.verify_original_pdf(changed)
+        for data in (b"invalid PDF", b"%PDF-1.7\n/JavaScript hidden\n%%EOF\n", b"%PDF-1.7\n/Encrypt 1\n%%EOF\n"):
+            with patch.object(reader, "PDF_BYTES", len(data)), patch.object(reader, "PDF_SHA256", reader.BASE.sha(data)):
+                with self.assertRaises(reader.Rejected):
+                    reader.verify_original_pdf(data)
+
+    def test_actual_poppler_version_is_minimized_and_ambiguous_or_invalid_output_is_rejected(self):
+        value = b"pdftotext version 26.01.0\nCopyright public upstream text\n"
+        self.assertEqual(reader.parse_poppler_version(value), "26.01.0")
+        self.assertEqual(reader.parse_poppler_package(b"poppler-utils=26.01.0-2ubuntu0.3\n"),
+                         "poppler-utils=26.01.0-2ubuntu0.3")
+        for package in (b"other-package=1", b"poppler-utils=private url", b"poppler-utils=1\npoppler-utils=2"):
+            with self.assertRaises(reader.Rejected):
+                reader.parse_poppler_package(package)
+        for value in (b"", b"\xff", b"other tool 26.01.0\n",
+                      b"pdftotext version secret\n", b"pdftotext version 26.01.0\npdftotext version 27.0.0\n",
+                      b"x" * (reader.MAX_TOOL_STDERR + 1)):
+            with self.assertRaises(reader.Rejected):
+                reader.parse_poppler_version(value)
+
+    def test_pdf_info_requires_all_two_to_four_real_a4_records(self):
+        for pages in (2, 3, 4):
+            value = reader.pdf_a4_metadata(pdf_info(pages), pages)
+            self.assertEqual([item["page"] for item in value], list(range(1, pages + 1)))
+            self.assertEqual(value[0]["widthPoints"], 595.276)
+        for text in ("Pages: 1\n", pdf_info() + "Pages: 2\n",
+                     pdf_info().replace("595.276", "612"), pdf_info().replace("Page 2", "Page 3"),
+                     "Pages: 2\nPage 1 size: 595.276 x 841.89 pts\n"):
+            with self.assertRaises(reader.Rejected):
+                reader.pdf_a4_metadata(text, 2)
+
+    def test_layout_and_raw_are_independent_and_keep_the_existing_whitespace_rule(self):
+        fields = ["public-field-" + str(index) for index in range(10)]
+        layout, raw = " ".join(fields[1:]), " ".join(fields)
+        reading = " ".join(fields[:-1])
+        result = reader.field_presence(fields, layout, raw, reading)
+        self.assertEqual([item["index"] for item in result], list(range(1, 11)))
+        self.assertFalse(result[0]["layoutPresent"])
+        self.assertTrue(result[0]["rawPresent"])
+        self.assertTrue(result[0]["defaultPresent"])
+        self.assertFalse(result[-1]["defaultPresent"])
+        self.assertTrue(result[-1]["rawPresent"])
+        self.assertTrue(all(item["layoutPresent"] for item in result[1:]))
+        self.assertEqual(result[0]["expectedSha256"], reader.BASE.sha(fields[0].encode()))
+        self.assertNotIn(fields[0], json.dumps(result))
+        spaced = " \n ".join(fields[0]) + " " + " ".join(fields[1:])
+        self.assertTrue(reader.field_presence(fields, spaced, raw, raw)[0]["layoutPresent"])
+        altered = fields[0].replace("public", "pub-lic") + " " + " ".join(fields[1:])
+        self.assertFalse(reader.field_presence(fields, altered, raw, raw)[0]["layoutPresent"])
+
+    def test_all_six_private_fixture_values_block_rendering_even_with_split_whitespace(self):
+        fields = ["public-field-" + str(index) for index in range(10)]
+        for private in reader.PRIVATE_FIXTURES:
+            for position in range(3):
+                modes = [" ".join(fields)] * 3
+                modes[position] = " \n ".join(private)
+                with self.subTest(privateLength=len(private), mode=position), self.assertRaises(reader.Rejected):
+                    reader.field_presence(fields, *modes)
+        for fields_ in (fields[:-1], fields + ["extra"], [None] + fields[1:]):
+            with self.assertRaises(reader.Rejected):
+                reader.field_presence(fields_, "", "", "")
+
+    def test_exact_original_pdf_is_read_and_every_page_is_rendered_once_at_96dpi(self):
+        original = b"%PDF-1.7\nsynthetic unit fixture\n%%EOF\n"
+        fields = ["public-field-" + str(index) for index in range(10)]
+        selected = {reader.PDF_PATH: (original, reader.BASE.sha(original)),
+                    reader.PHASE_ONE_RECEIPT: ({"packages": ["poppler-utils=26.01.0-2ubuntu0.3"]}, "c" * 64),
+                    reader.MANIFESTS[0]: ({"expectedPublicFields": fields}, "a" * 64)}
+        diagnosis = {"producerConclusion": "failure", "guest": {"passed": False, "failure": "PDF_PUBLIC_FIELDS"}}
+        calls = []
+
+        def tool(arguments, _directory):
+            calls.append(arguments)
+            if arguments[0].endswith("pdfinfo"):
+                return pdf_info().encode()
+            if tuple(arguments) == reader.POPPLER_PACKAGE_COMMAND:
+                return b"poppler-utils=26.01.0-2ubuntu0.3\n"
+            if arguments == ["/usr/bin/pdftotext", "-v"]:
+                return b"26.01.0"
+            if arguments[0].endswith("pdftotext"):
+                return " ".join(fields[1:] if "-layout" in arguments else fields).encode()
+            self.assertIn("-r", arguments)
+            self.assertEqual(arguments[arguments.index("-r") + 1], "96")
+            self.assertEqual(arguments[arguments.index("-f") + 1], arguments[arguments.index("-l") + 1])
+            Path(arguments[-1]).with_suffix(".png").write_bytes(png(794, 1123))
+            return b""
+
+        with patch.object(reader, "PDF_BYTES", len(original)), patch.object(reader, "PDF_SHA256", reader.BASE.sha(original)), \
+                patch.object(reader, "pdf_tool", side_effect=tool):
+            result, images = reader.inspect_original_pdf(selected, diagnosis)
+        rendered = [arguments for arguments in calls if arguments[0].endswith("pdftoppm")]
+        self.assertEqual([arguments[arguments.index("-f") + 1] for arguments in rendered], ["1", "2"])
+        self.assertEqual(result["pageCount"], 2)
+        self.assertEqual(len(images), 2)
+        self.assertFalse(result["fields"][0]["layoutPresent"])
+        self.assertTrue(result["fields"][0]["rawPresent"])
+        self.assertTrue(result["fields"][0]["defaultPresent"])
+        self.assertEqual(result["inspectionPopplerVersion"], "26.01.0")
+        self.assertEqual(result["inspectionPopplerPackage"], "poppler-utils=26.01.0-2ubuntu0.3")
+        self.assertTrue(result["originalLayoutAssertionReproduced"])
+        self.assertEqual(result["sourcePopplerPackage"], "poppler-utils=26.01.0-2ubuntu0.3")
+        text_modes = [arguments for arguments in calls if arguments[0].endswith("pdftotext") and "-v" not in arguments]
+        self.assertEqual(len(text_modes), 3)
+        self.assertEqual(sum("-layout" not in arguments and "-raw" not in arguments for arguments in text_modes), 1)
+        self.assertFalse(result["productAcceptance"])
+
+    def test_private_pdf_text_fails_before_any_raster_command(self):
+        original = b"%PDF-1.7\nsynthetic unit fixture\n%%EOF\n"
+        selected = {reader.PDF_PATH: (original, reader.BASE.sha(original)),
+                    reader.PHASE_ONE_RECEIPT: ({"packages": ["poppler-utils=26.01.0-2ubuntu0.3"]}, "c" * 64),
+                    reader.MANIFESTS[0]: ({"expectedPublicFields": ["field"] * 10}, "a" * 64)}
+        diagnosis = {"producerConclusion": "failure", "guest": {"passed": False, "failure": "PDF_PUBLIC_FIELDS"}}
+        calls = []
+
+        def tool(arguments, _directory):
+            calls.append(arguments[0])
+            if tuple(arguments) == reader.POPPLER_PACKAGE_COMMAND:
+                return b"poppler-utils=26.01.0-2ubuntu0.3\n"
+            if arguments == ["/usr/bin/pdftotext", "-v"]:
+                return b"26.01.0"
+            return (pdf_info().encode() if arguments[0].endswith("pdfinfo")
+                    else reader.PRIVATE_FIXTURES[0].encode())
+
+        with patch.object(reader, "PDF_BYTES", len(original)), patch.object(reader, "PDF_SHA256", reader.BASE.sha(original)), \
+                patch.object(reader, "pdf_tool", side_effect=tool):
+            with self.assertRaisesRegex(reader.Rejected, "pdf-private-fixture"):
+                reader.inspect_original_pdf(selected, diagnosis)
+        self.assertNotIn("/usr/bin/pdftoppm", calls)
+
+    def test_pdf_tool_uses_bounded_file_sinks_and_fixed_environment(self):
+        class Child:
+            pid = 123456
+            def __enter__(self): return self
+            def __exit__(self, *_args): return False
+            def wait(self, timeout=None): return 0
+
+        for output_bytes, error_bytes, accepted in ((3, 0, True), (reader.MAX_TOOL_STDOUT + 1, 0, False),
+                                                    (0, reader.MAX_TOOL_STDERR + 1, False)):
+            def start(_arguments, **options):
+                self.assertEqual(options["env"], {"PATH": "/usr/bin:/bin", "LC_ALL": "C.UTF-8"})
+                self.assertIs(options["preexec_fn"], reader.BASE.restrict_renderer)
+                self.assertIs(options["start_new_session"], True)
+                for field, size in (("stdout", output_bytes), ("stderr", error_bytes)):
+                    if size:
+                        options[field].seek(size - 1)
+                        options[field].write(b"x")
+                        options[field].flush()
+                return Child()
+            with tempfile.TemporaryDirectory() as directory, patch.object(reader.subprocess, "Popen", side_effect=start):
+                if accepted:
+                    self.assertEqual(len(reader.pdf_tool(["/usr/bin/pdfinfo", "fixed.pdf"], directory)), 3)
+                else:
+                    with self.assertRaisesRegex(reader.Rejected, "pdf-tool-output-bound"):
+                        reader.pdf_tool(["/usr/bin/pdfinfo", "fixed.pdf"], directory)
+
+    def test_pdf_tool_deadline_kills_the_started_process_group_and_emits_no_native_text(self):
+        class Child:
+            pid = 123456
+            waits = 0
+            def __enter__(self): return self
+            def __exit__(self, *_args): return False
+            def wait(self, timeout=None):
+                self.waits += 1
+                if self.waits == 1:
+                    raise subprocess.TimeoutExpired("fixed-poppler", timeout)
+                return -9
+
+        captured = io.StringIO()
+        with tempfile.TemporaryDirectory() as directory, patch.object(reader.subprocess, "Popen", return_value=Child()), \
+                patch.object(reader.os, "killpg") as kill, contextlib.redirect_stdout(captured):
+            with self.assertRaisesRegex(reader.Rejected, "pdf-tool-deadline"):
+                reader.pdf_tool(["/usr/bin/pdfinfo", "fixed.pdf"], directory)
+        kill.assert_called_once_with(123456, reader.signal.SIGKILL)
+        self.assertEqual(captured.getvalue(), "")
+
+    def test_bounded_transport_preserves_every_png_byte_and_failure_provenance(self):
+        images = sample_images()
+        diagnosis = image_diagnosis()
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            reader.emit_diagnosis(diagnosis, images, "e" * 40, 123)
+        lines = captured.getvalue().splitlines()
+        self.assertEqual(len([line for line in lines if line.startswith("CM_IMAGE_BEGIN ")]), 2)
+        for index, (_metadata, expected) in enumerate(images):
+            pieces = [line.split(" ", 3)[3] for line in lines if line.startswith("CM_IMAGE_DATA " + str(index) + " ")]
+            self.assertEqual(base64.b64decode("".join(pieces), validate=True), expected)
+        for line in lines:
+            if line.startswith("CM_IMAGE_BEGIN "):
+                item = json.loads(line[len("CM_IMAGE_BEGIN "):])
+                self.assertEqual(item["producerConclusion"], "failure")
+                self.assertEqual(item["sourceFailure"], "PDF_PUBLIC_FIELDS")
+                self.assertEqual(item["originalPdfSha256"], reader.PDF_SHA256)
+                self.assertFalse(item["productAcceptance"])
+                self.assertEqual(item["renderer"], "Poppler pdftoppm 96dpi")
+
+    def test_bad_later_image_or_any_output_budget_fails_before_first_output(self):
+        diagnosis = image_diagnosis()
+        changed = sample_images()
+        broken = bytearray(changed[1][1]); broken[30] ^= 1
+        changed[1] = (changed[1][0], bytes(broken))
+        expanded = sample_images()
+        expanded[1][0]["unexpectedPrivateText"] = "must not print"
+        for images in (changed, expanded, sample_images()[:1]):
+            captured = io.StringIO()
+            with contextlib.redirect_stdout(captured), self.assertRaises(reader.Rejected):
+                reader.emit_diagnosis(diagnosis, images, "e" * 40, 123)
+            self.assertEqual(captured.getvalue(), "")
+        for bound in ("MAX_PAGE_TOTAL", "MAX_PAGE_BYTES", "MAX_OUTPUT"):
+            captured = io.StringIO()
+            with patch.object(reader, bound, 1), contextlib.redirect_stdout(captured), self.assertRaises(reader.Rejected):
+                reader.emit_diagnosis(diagnosis, sample_images(), "e" * 40, 123)
+            self.assertEqual(captured.getvalue(), "")
 
 
 if __name__ == "__main__":

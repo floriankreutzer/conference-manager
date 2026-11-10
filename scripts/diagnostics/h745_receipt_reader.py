@@ -1,16 +1,23 @@
 """One-use CO-317 diagnosis of fixed failed H745 receipts; never an acceptance gate.
 
 Reuse the unchanged checked reader at ed79b9463def653f66689dcf74e0460c6ab4d331.
-No extraction, renderer, subprocess, GTK, trust mutation or original HTML output.
-Only exact pinned artifact bytes and minimized JSON evidence leave this reader.
+No archive extraction, GTK, trust mutation or original HTML/text output.
+Read the same failed receipts, inspect the fixed original PDF with Poppler and
+transport all its freshly rendered 96dpi pages. Never reclassify the failed H run.
 """
+import base64
+import contextlib
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
 import re
+import signal
+import stat
+import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 
@@ -236,6 +243,8 @@ def read_archive(data):
         # Read every bounded member to enforce ZIP CRC, including bytes never emitted.
         raw = BASE.member(source, entry.filename, 2 * 1024 * 1024)
         inventory.append({"file": entry.filename, "bytes": len(raw), "sha256": BASE.sha(raw)})
+        if entry.filename == PDF_PATH:
+            selected[entry.filename] = (raw, BASE.sha(raw))
         if entry.filename in (*MANIFESTS, PHASE_ONE_RECEIPT, GUEST_RECEIPT):
             selected[entry.filename] = (strict_json(raw), BASE.sha(raw))
     return selected, sorted(inventory, key=lambda item: item["file"])
@@ -414,6 +423,234 @@ def encoded_report(value):
     return "CM_H745_RECEIPTS " + encoded
 
 
+
+PDF_PATH = "guest-print-webkitgtk/chromium-desktop-de.pdf"
+PDF_BYTES = 1481138
+PDF_SHA256 = "ba44a9813239ff23bb9cd34e43c1a46d43c1a165997b89d42a8bb94b5d214da3"
+MAX_PAGE_BYTES = 2 * 1024 * 1024
+MAX_PAGE_TOTAL = 3 * 1024 * 1024
+MAX_TOOL_STDOUT = 2 * 1024 * 1024
+MAX_TOOL_STDERR = 65536
+PRIVATE_FIXTURES = (
+    "66666666-6666-4666-8666-666666666666", "11111111-1111-4111-8111-111111111111",
+    "22222222-2222-4222-8222-222222222222", "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "PRIVATE_REQUEST_REQUIREMENTS_SENTINEL", "PRIVATE_DIETARY_SENTINEL",
+)
+
+
+def verify_original_pdf(data):
+    require(isinstance(data, bytes) and len(data) == PDF_BYTES and BASE.sha(data) == PDF_SHA256,
+            "original-pdf-identity")
+    require(data.startswith(b"%PDF-") and data.rstrip().endswith(b"%%EOF")
+            and re.search(rb"/(?:Encrypt|JavaScript|JS|Launch|EmbeddedFile|OpenAction|AA)\b", data) is None,
+            "original-pdf-envelope")
+
+
+POPPLER_PACKAGE_COMMAND = (
+    "/usr/bin/dpkg-query", "-W", "-f=" + "$" + "{Package}=" + "$" + "{Version}\n", "poppler-utils",
+)
+
+
+def parse_poppler_package(data):
+    require(isinstance(data, bytes) and 0 < len(data) <= 256, "poppler-package-size")
+    try:
+        value = data.decode("ascii").strip()
+    except UnicodeError:
+        raise Rejected("poppler-package-encoding") from None
+    require(re.fullmatch(r"poppler-utils=[a-zA-Z0-9.+:~_-]{1,80}", value) is not None, "poppler-package")
+    return value
+
+
+def parse_poppler_version(data):
+    require(isinstance(data, bytes) and 0 < len(data) <= MAX_TOOL_STDERR, "poppler-version-size")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeError:
+        raise Rejected("poppler-version-encoding") from None
+    versions = re.findall(r"^pdftotext version ([0-9]{1,3}(?:\.[0-9]{1,3}){1,2})[ \t]*$",
+                          text, re.MULTILINE)
+    require(len(versions) == 1, "poppler-version")
+    return versions[0]
+
+
+def pdf_tool(arguments, directory):
+    """The existing reader's Poppler limits, with file sinks bounded before reading."""
+    require(arguments[0] in ("/usr/bin/pdfinfo", "/usr/bin/pdftotext", "/usr/bin/pdftoppm")
+            or tuple(arguments) == POPPLER_PACKAGE_COMMAND, "pdf-tool")
+    with tempfile.TemporaryFile(dir=directory) as stdout, tempfile.TemporaryFile(dir=directory) as stderr:
+        try:
+            with subprocess.Popen(arguments, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
+                                  env={"PATH": "/usr/bin:/bin", "LC_ALL": "C.UTF-8"},
+                                  preexec_fn=BASE.restrict_renderer, start_new_session=True) as child:
+                try:
+                    status = child.wait(timeout=60)
+                except subprocess.TimeoutExpired:
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(child.pid, signal.SIGKILL)
+                    child.wait()
+                    raise Rejected("pdf-tool-deadline") from None
+        except (OSError, ValueError, subprocess.SubprocessError):
+            raise Rejected("pdf-tool-execution") from None
+        require(status == 0, "pdf-tool-exit")
+        require(os.fstat(stdout.fileno()).st_size <= MAX_TOOL_STDOUT
+                and os.fstat(stderr.fileno()).st_size <= MAX_TOOL_STDERR, "pdf-tool-output-bound")
+        if arguments == ["/usr/bin/pdftotext", "-v"]:
+            stderr.seek(0)
+            return parse_poppler_version(stderr.read(MAX_TOOL_STDERR + 1)).encode("ascii")
+        stdout.seek(0)
+        return stdout.read(MAX_TOOL_STDOUT + 1)
+
+
+def pdf_count(text):
+    counts = re.findall(r"^Pages:\s+([0-9]{1,2})\s*$", text, re.MULTILINE)
+    require(len(counts) == 1 and 2 <= int(counts[0]) <= 4, "original-pdf-page-count")
+    return int(counts[0])
+
+
+def pdf_a4_metadata(text, pages):
+    require(pdf_count(text) == pages, "original-pdf-count-drift")
+    sizes = re.findall(r"^Page\s+([0-9]+)\s+size:\s+([0-9]+(?:\.[0-9]+)?)\s+x\s+"
+                       r"([0-9]+(?:\.[0-9]+)?)\s+pts", text, re.MULTILINE)
+    require([int(item[0]) for item in sizes] == list(range(1, pages + 1)), "original-pdf-all-pages")
+    result = [{"page": int(index), "widthPoints": float(width), "heightPoints": float(height)}
+              for index, width, height in sizes]
+    require(all(abs(item["widthPoints"] - 595.276) < 1 and abs(item["heightPoints"] - 841.890) < 1
+                for item in result), "original-pdf-not-a4")
+    return result
+
+
+def field_presence(public_fields, layout, raw, reading):
+    require(type(public_fields) is list and len(public_fields) == 10
+            and all(type(field) is str and 0 < len(field) <= 512 for field in public_fields),
+            "pdf-public-fields-schema")
+    require(all(type(value) is str and len(value.encode("utf-8")) <= MAX_TOOL_STDOUT
+                for value in (layout, raw, reading)), "pdf-text-bound")
+    compact_layout, compact_raw, compact_reading = (re.sub(r"\s+", "", value) for value in (layout, raw, reading))
+    require(all(value not in text for value in PRIVATE_FIXTURES
+                for text in (compact_layout, compact_raw, compact_reading)),
+            "pdf-private-fixture")
+    return [{"index": index, "expectedSha256": BASE.sha(field.encode("utf-8")),
+             "characters": len(field), "utf8Bytes": len(field.encode("utf-8")),
+             "compactCharacters": len(re.sub(r"\s+", "", field)),
+             "layoutPresent": re.sub(r"\s+", "", field) in compact_layout,
+             "rawPresent": re.sub(r"\s+", "", field) in compact_raw,
+             "defaultPresent": re.sub(r"\s+", "", field) in compact_reading}
+            for index, field in enumerate(public_fields, 1)]
+
+
+def inspect_original_pdf(selected, diagnosis):
+    require(diagnosis["producerConclusion"] == "failure"
+            and diagnosis["guest"].get("failure") == "PDF_PUBLIC_FIELDS"
+            and diagnosis["guest"].get("passed") is False, "original-failure-required")
+    data = selected[PDF_PATH][0]
+    verify_original_pdf(data)
+    fields = selected[MANIFESTS[0]][0]["expectedPublicFields"]
+    images = []
+    with tempfile.TemporaryDirectory(prefix="cm-h745-original-pdf-") as directory:
+        directory = Path(directory)
+        source = directory / "original.pdf"
+        source.write_bytes(data)
+        version = pdf_tool(["/usr/bin/pdftotext", "-v"], directory).decode("ascii")
+        package = parse_poppler_package(pdf_tool(list(POPPLER_PACKAGE_COMMAND), directory))
+        count = pdf_count(pdf_tool(["/usr/bin/pdfinfo", str(source)], directory).decode("utf-8"))
+        a4 = pdf_a4_metadata(pdf_tool(["/usr/bin/pdfinfo", "-f", "1", "-l", str(count), "-box", str(source)],
+                                        directory).decode("utf-8"), count)
+        layout = pdf_tool(["/usr/bin/pdftotext", "-enc", "UTF-8", "-layout", str(source), "-"],
+                          directory).decode("utf-8")
+        raw = pdf_tool(["/usr/bin/pdftotext", "-enc", "UTF-8", "-raw", str(source), "-"],
+                       directory).decode("utf-8")
+        reading = pdf_tool(["/usr/bin/pdftotext", "-enc", "UTF-8", str(source), "-"],
+                           directory).decode("utf-8")
+        presence = field_presence(fields, layout, raw, reading)
+        total = 0
+        for page in range(1, count + 1):
+            stem = directory / ("page-" + str(page))
+            target = stem.with_suffix(".png")
+            require(not target.exists(), "original-raster-already-exists")
+            pdf_tool(["/usr/bin/pdftoppm", "-f", str(page), "-l", str(page), "-r", "96",
+                      "-png", "-singlefile", str(source), str(stem)], directory)
+            info = target.lstat()
+            require(stat.S_ISREG(info.st_mode) and 0 < info.st_size <= MAX_PAGE_BYTES, "original-raster-file")
+            image = target.read_bytes()
+            require(len(image) == info.st_size, "original-raster-size")
+            dimensions = BASE.png_dimensions(image)
+            require(793 <= dimensions["width"] <= 795 and 1122 <= dimensions["height"] <= 1124,
+                    "original-raster-a4")
+            total += len(image)
+            require(total <= MAX_PAGE_TOTAL, "original-raster-total")
+            images.append(({"capture": "h745-chromium-desktop-de-page-" + str(page) + ".png",
+                            "page": page, "pageCount": count, "imageBytes": len(image),
+                            "imageSha256": BASE.sha(image), **dimensions}, image))
+        require(BASE.sha(source.read_bytes()) == PDF_SHA256, "original-pdf-changed")
+        require({path.name for path in directory.iterdir()} == {"original.pdf"} | {
+            "page-" + str(page) + ".png" for page in range(1, count + 1)}, "original-output-inventory")
+    packages = selected[PHASE_ONE_RECEIPT][0].get("packages", [])
+    original_poppler = [value for value in packages if type(value) is str and value.startswith("poppler-utils=")]
+    require(len(original_poppler) == 1 and re.fullmatch(r"poppler-utils=[a-zA-Z0-9.+:~_-]{1,80}", original_poppler[0]),
+            "source-poppler-package")
+    inspection = {"originalPdfFile": PDF_PATH, "originalPdfSha256": PDF_SHA256, "originalPdfBytes": PDF_BYTES,
+                  "sourceFailure": "PDF_PUBLIC_FIELDS", "productAcceptance": False,
+                  "inspectionPopplerVersion": version, "inspectionPopplerPackage": package,
+                  "sourcePopplerPackage": original_poppler[0],
+                  "originalLayoutAssertionReproduced": not all(item["layoutPresent"] for item in presence),
+                  "pageCount": count, "a4Pages": a4, "fields": presence, "privateFixtureFieldsAbsent": True,
+                  "layoutTextSha256": BASE.sha(layout.encode("utf-8")), "layoutTextBytes": len(layout.encode("utf-8")),
+                  "rawTextSha256": BASE.sha(raw.encode("utf-8")), "rawTextBytes": len(raw.encode("utf-8")),
+                  "defaultTextSha256": BASE.sha(reading.encode("utf-8")), "defaultTextBytes": len(reading.encode("utf-8")),
+                  "rasterRenderer": "Poppler pdftoppm 96dpi", "imageBytes": total}
+    return inspection, images
+
+
+def emit_diagnosis(diagnosis, images, reader_sha, reader_run):
+    require(re.fullmatch(r"[a-f0-9]{40}", reader_sha) is not None
+            and type(reader_run) is int and reader_run > 0, "reader-output-identity")
+    inspection = diagnosis["pdfInspection"]
+    require(diagnosis.get("producerConclusion") == "failure" and diagnosis.get("productAcceptance") is False
+            and inspection.get("sourceFailure") == "PDF_PUBLIC_FIELDS"
+            and inspection.get("productAcceptance") is False
+            and inspection.get("originalPdfSha256") == PDF_SHA256
+            and inspection.get("originalPdfBytes") == PDF_BYTES, "failed-original-output-scope")
+    require(type(inspection["pageCount"]) is int and 2 <= len(images) <= 4 and len(images) == inspection["pageCount"], "original-image-count")
+    require(sum(len(data) for _, data in images) <= MAX_PAGE_TOTAL, "original-image-total")
+    metadata = []
+    for index, (item, data) in enumerate(images):
+        dimensions = BASE.png_dimensions(data)
+        require(set(item) == {"capture", "page", "pageCount", "imageBytes", "imageSha256", "width", "height"}
+                and item["page"] == index + 1 and item["pageCount"] == len(images)
+                and item["capture"] == "h745-chromium-desktop-de-page-" + str(index + 1) + ".png"
+                and len(data) == item["imageBytes"] and len(data) <= MAX_PAGE_BYTES
+                and BASE.sha(data) == item["imageSha256"]
+                and dimensions == {"width": item["width"], "height": item["height"]},
+                "original-image-binding")
+        metadata.append({**item, "index": index, "scope": "failed-H745-original-PDF-inspection",
+                         "productAcceptance": False, "sourceFailure": "PDF_PUBLIC_FIELDS",
+                         "language": "de", "inputProject": "chromium-desktop", "inputBrowserVersion": "156.0.8078.4",
+                         "renderer": "Poppler pdftoppm 96dpi", "pdfRenderer": "WebKitGTK 4.1 PrintOperation",
+                         "webkitGTKVersion": "2.52.6", "originalPdfSha256": PDF_SHA256,
+                         "originalPdfBytes": PDF_BYTES, "artifactId": ARTIFACT,
+                         "artifactSha256": ARTIFACT_SHA256, "producerRun": RUN, "producerAttempt": 1,
+                         "producerConclusion": "failure", "readerSourceSha": reader_sha, "readerRun": reader_run,
+                         **BINDING})
+    manifest = {"scope": "failed-H745-original-PDF-inspection", "productAcceptance": False,
+                "sourceFailure": "PDF_PUBLIC_FIELDS", "originalPdfSha256": PDF_SHA256,
+                "pageCount": len(images), "imageInventory": metadata, "maxPngBytes": MAX_PAGE_TOTAL,
+                "limits": ["Original failed H745 PDF, newly rasterized once by this reader.",
+                           "No new Guest capture, GTK operation, assertion change or acceptance."]}
+    lines = [encoded_report(diagnosis), "CM_REVIEW_MANIFEST " + json.dumps(manifest, separators=(",", ":"), sort_keys=True)]
+    require(sum(len(line.encode("utf-8")) + 1 for line in lines) <= MAX_OUTPUT, "complete-metadata-bound")
+    # Canonical CM_IMAGE framing, unchanged original raster bytes, all validation before first output.
+    for line in lines:
+        print(line)
+    for item, (_metadata, data) in zip(metadata, images):
+        print("CM_IMAGE_BEGIN " + json.dumps(item, separators=(",", ":"), sort_keys=True))
+        encoded = base64.b64encode(data).decode("ascii")
+        for offset in range(0, len(encoded), 3000):
+            print(f"CM_IMAGE_DATA {item['index']} {offset} " + encoded[offset:offset + 3000])
+        print(f"CM_IMAGE_END {item['index']} {len(encoded)}")
+    print("CM_REVIEW_COMPLETE " + json.dumps({"images": len(images),
+          "binaryBytes": sum(len(data) for _, data in images), "producerConclusion": "failure",
+          "scope": "failed-H745-original-PDF-inspection", "productAcceptance": False}))
+
 def main():
     require(len(sys.argv) == 1 and os.environ.get("GITHUB_REPOSITORY") == REPOSITORY
             and os.environ.get("GITHUB_REF") == "refs/heads/" + BRANCH
@@ -424,9 +661,13 @@ def main():
     require(bool(token), "read-token-required")
     source_gate(token)
     selected, inventory = read_archive(download(token))
-    output = encoded_report(report(selected, inventory))
-    # Complete all source, ZIP CRC, JSON and output checks before emitting once.
-    print(output)
+    diagnosis = report(selected, inventory)
+    inspection, images = inspect_original_pdf(selected, diagnosis)
+    diagnosis["pdfInspection"] = inspection
+    reader_sha = os.environ.get("GITHUB_SHA", "")
+    run_value = os.environ.get("GITHUB_RUN_ID", "")
+    require(run_value.isdecimal(), "reader-run-required")
+    emit_diagnosis(diagnosis, images, reader_sha, int(run_value))
 
 
 if __name__ == "__main__":

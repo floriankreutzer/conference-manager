@@ -45,7 +45,16 @@ jobs:
         run: |
           python3 -m py_compile scripts/diagnostics/h745_receipt_reader.py scripts/diagnostics/test_h745_receipt_reader.py
           python3 -m unittest discover -s scripts/diagnostics -p 'test_*.py' -v
-      - name: Read only the fixed failed H artifact and emit bounded diagnosis
+      - name: Use standard Poppler only to read and raster the pinned original PDF
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! test -x /usr/bin/pdfinfo || ! test -x /usr/bin/pdftotext || ! test -x /usr/bin/pdftoppm; then
+            sudo apt-get update -qq
+            sudo apt-get install --no-install-recommends -y poppler-utils
+          fi
+          /usr/bin/pdftoppm -v
+      - name: Read the fixed failed H artifact and transport its original PDF pages
         env:
           GH_TOKEN: ${{ github.token }}
           PYTHONDONTWRITEBYTECODE: '1'
