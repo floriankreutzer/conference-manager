@@ -37,8 +37,8 @@ permissions:
   contents: read
 
 env:
-  EXPECTED_FRONTEND_REF: ac0cd04281700636743e508335cd20c2325098a2
-  EXPECTED_RUNTIME_REF: 38a14b0435fb92bfacea319c5414c1fc10aab9eb
+  EXPECTED_FRONTEND_REF: 28a864ea6b1d4f5ae0e0066a072f6012e059358d
+  EXPECTED_RUNTIME_REF: 15b4f45ccd834548344e3859ef39996a2f885ece
 
 concurrency:
   group: zap-baseline-${{ github.event_name }}-${{ github.ref }}

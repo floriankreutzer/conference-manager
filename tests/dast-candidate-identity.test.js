@@ -14,9 +14,9 @@ function pin(workflow, key) {
 }
 
 test('live DAST checks its exact deployed pair while manual Hosted acceptance binds the reviewed candidate', () => {
-  assert.equal(pin(dast, 'EXPECTED_FRONTEND_REF'), 'ac0cd04281700636743e508335cd20c2325098a2');
+  assert.equal(pin(dast, 'EXPECTED_FRONTEND_REF'), '28a864ea6b1d4f5ae0e0066a072f6012e059358d');
   assert.equal(pin(hosted, 'EXPECTED_FRONTEND_REF'), '5d5102b4f9842ec704ff26441ebe96719324ddb0');
-  assert.equal(pin(dast, 'EXPECTED_RUNTIME_REF'), '38a14b0435fb92bfacea319c5414c1fc10aab9eb');
+  assert.equal(pin(dast, 'EXPECTED_RUNTIME_REF'), '15b4f45ccd834548344e3859ef39996a2f885ece');
   assert.equal(pin(hosted, 'EXPECTED_RUNTIME_REF'), '566402fd098c298ff09ec3230ddd0b55d4ea91f6');
   const identityStep = dast.indexOf('- name: Verify live candidate identity before DAST');
   const scanStep = dast.indexOf('- name: Run uncapped ZAP passive baseline');
