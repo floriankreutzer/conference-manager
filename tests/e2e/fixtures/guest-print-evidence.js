@@ -1,7 +1,10 @@
 import { attachCustomerScreenEvidence } from './customer-screen-evidence.js';
 import assert from 'node:assert/strict';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { inspectChromiumGuestFrames } from './guest-print-pdf-geometry.js';
+import { captureGuestPrintSource, observeGuestPrintResponses } from './guest-print-source-capture.js';
+
+test.beforeEach(({ context }) => observeGuestPrintResponses(context));
 
 // Chromium/Skia emits plain page dictionaries even when content/font streams are
 // compressed. This is an assertion on that renderer's artifact, not a PDF parser
@@ -71,4 +74,5 @@ export async function attachGuestPrintEvidence(popup, testInfo, name, {
     await popup.emulateMedia({ media: 'screen' });
     if (viewport) await popup.setViewportSize(viewport);
   }
+  await captureGuestPrintSource(popup, testInfo, name, { expectedText, excludedText });
 }

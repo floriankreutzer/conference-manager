@@ -1,0 +1,136 @@
+name: CO-317 actual Guest DOM and WebKitGTK PDF evidence
+
+on:
+  push:
+    branches: [CO-317-guest-print-webkitgtk-evidence]
+    paths:
+      - '.github/workflows/guest-print-evidence.yml'
+      - '.github/workflows/webkitgtk-print-probe.yml'
+      - 'docs/GUEST-PRINT-WEBKITGTK-EVIDENCE.md'
+      - 'docs/WEBKITGTK-SYNTHETIC-PRINT-PROBE.md'
+      - 'playwright.guest-print-capture.config.js'
+      - 'scripts/probe-webkitgtk-print.py'
+      - 'scripts/probe-webkitgtk-guest-print.py'
+      - 'tests/e2e/fixtures/guest-print-evidence.js'
+      - 'tests/e2e/fixtures/guest-print-source-capture.js'
+      - 'tests/guest-print-source-capture.test.js'
+      - 'tests/guest_print_webkitgtk_test.py'
+      - 'tests/webkitgtk-print-probe.test.js'
+      - 'tests/webkitgtk_print_probe_test.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guest-print-webkitgtk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  actual-guest-print:
+    if: github.repository == 'floriankreutzer/conference-manager' && github.event.repository.private == false
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the exact reviewed H source without stored credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Require exact F source, original product files and the bounded H diff
+        env:
+          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+          CM_GUEST_CAPTURE_SOURCE_SHA: ${{ github.sha }}
+        run: |
+          node --input-type=module - <<'NODE'
+          import assert from 'node:assert/strict';
+          import { validateGuestSourceBinding } from './tests/e2e/fixtures/guest-print-source-capture.js';
+          const binding = validateGuestSourceBinding(
+            process.env.CM_GUEST_PRODUCT_SOURCE_SHA, process.env.CM_GUEST_CAPTURE_SOURCE_SHA);
+          assert.equal(binding.productTreeSha, 'b962db71e4df7a17dd01139cd4c3f040d38b80ac');
+          console.log(JSON.stringify({ scope: 'H source boundary only', ...binding }));
+          NODE
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-fund
+      - name: Compile the complete Python harness and offline tests
+        run: python3 -m py_compile scripts/probe-webkitgtk-print.py scripts/probe-webkitgtk-guest-print.py tests/webkitgtk_print_probe_test.py tests/guest_print_webkitgtk_test.py
+      - name: Require the complete baseline including both offline probe suites
+        run: npm run check
+      - name: Require the existing dependency audit
+        run: npm run audit
+      - name: Install the existing pinned Semgrep Community Edition
+        run: python3 -m pip install --disable-pip-version-check --no-input 'semgrep==1.179.0'
+      - name: Verify the existing Semgrep rule coverage and fail-closed behavior
+        run: python3 scripts/check-semgrep-policy.py
+      - name: Require the unchanged repository SAST policy
+        env:
+          SEMGREP_SEND_METRICS: 'off'
+          SEMGREP_ENABLE_VERSION_CHECK: '0'
+        run: |
+          test "$(semgrep --version | head -n 1)" = "1.179.0"
+          semgrep scan --config .semgrep.yml --oss-only --error --strict --disable-nosem --optimizations none --metrics=off --disable-version-check src
+      - name: Install the locked original Chromium and WebKit engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Install standard GTK and PDF tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y python3-gi gir1.2-webkit2-4.1 libgtk-3-0t64 poppler-utils xvfb xauth dbus ca-certificates openssl
+      - name: Run the four unchanged original multipage cases and capture their actual popup DOM
+        env:
+          CM_GUEST_CAPTURE: '1'
+          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+          CM_GUEST_CAPTURE_SOURCE_SHA: ${{ github.sha }}
+        run: npx playwright test --config=playwright.guest-print-capture.config.js
+      - name: Require all six original synthetic cases, then print all four actual Guest documents
+        shell: bash
+        env:
+          CM_PROBE_SOURCE_SHA: ${{ github.sha }}
+          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+        run: |
+          set -euo pipefail
+          install -d -m 0700 "$RUNNER_TEMP/cm-gtk-runtime"
+          run_gtk() {
+            env -i PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C \
+              CI=true GITHUB_ACTIONS=true \
+              RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" RUNNER_OS="$RUNNER_OS" \
+              ImageOS="$ImageOS" ImageVersion="$ImageVersion" \
+              GITHUB_REPOSITORY="$GITHUB_REPOSITORY" CM_PROBE_SOURCE_SHA="$CM_PROBE_SOURCE_SHA" \
+              CM_GUEST_PRODUCT_SOURCE_SHA="$CM_GUEST_PRODUCT_SOURCE_SHA" \
+              XDG_RUNTIME_DIR="$RUNNER_TEMP/cm-gtk-runtime" \
+              dbus-run-session -- xvfb-run -a /usr/bin/python3 "$1"
+          }
+          run_gtk scripts/probe-webkitgtk-print.py
+          run_gtk scripts/probe-webkitgtk-guest-print.py
+      - name: Transport only the complete original PDF page rasters through the bounded native log
+        shell: bash
+        env:
+          CM_PROBE_SOURCE_SHA: ${{ github.sha }}
+          CM_GUEST_PRODUCT_SOURCE_SHA: 0b89158a98332415a7bdfe4d74c6a6bb945dd055
+        run: |
+          set -euo pipefail
+          env -i PATH=/usr/bin:/bin LANG=C.UTF-8 LC_ALL=C \
+            CI=true GITHUB_ACTIONS=true \
+            RUNNER_ENVIRONMENT="$RUNNER_ENVIRONMENT" RUNNER_OS="$RUNNER_OS" ImageOS="$ImageOS" \
+            GITHUB_REPOSITORY="$GITHUB_REPOSITORY" CM_PROBE_SOURCE_SHA="$CM_PROBE_SOURCE_SHA" \
+            CM_GUEST_PRODUCT_SOURCE_SHA="$CM_GUEST_PRODUCT_SOURCE_SHA" \
+            /usr/bin/python3 scripts/probe-webkitgtk-guest-print.py --emit-images
+      - name: Retain bounded public capture documents, original PDFs, page rasters and receipts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: guest-print-webkitgtk-${{ github.sha }}
+          path: |
+            test-results/guest-print-capture/**
+            test-results/guest-print-webkitgtk/receipt.json
+            test-results/guest-print-webkitgtk/*.pdf
+            test-results/guest-print-webkitgtk/*.png
+            test-results/webkitgtk-probe/receipt.json
+            test-results/webkitgtk-probe/*.pdf
+            test-results/webkitgtk-probe/*.png
+          if-no-files-found: warn
+          retention-days: 7
