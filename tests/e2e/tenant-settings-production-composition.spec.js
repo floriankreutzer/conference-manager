@@ -463,6 +463,116 @@ async function submit(content, formId) {
 }
 
 for (const language of ['de', 'en']) {
+
+  for (const owner of [
+    { id: 'organization', field: '#tenant-organization-display-name', revision: 3 },
+    { id: 'booking-policies', field: '#tenant-policy-0-advance', revision: 5 },
+    { id: 'cost-allocation', field: '#tenant-cost-center-0-name', revision: 6 },
+  ]) {
+    test(`CO-306 post-save focus preserves the next ${owner.id} keyboard edit in ${language}`, async ({ page }, testInfo) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const fixture = await installProductionSettingsFixture(page, { organizationConflict: false });
+      fixture.state.bookingPolicies.configuration.versions[0].rules.maximumAdvanceMinutes = 527040;
+      const original = clone(owner.id === 'organization'
+        ? fixture.state.organization.value
+        : owner.id === 'booking-policies'
+          ? fixture.state.bookingPolicies.configuration
+          : fixture.state.costAllocation.configuration);
+      await openTenantSettings(page);
+      const content = await openSection(page, owner.id, owner.id);
+      const heading = content.locator('h2').first();
+      await expect(heading).toBeFocused();
+
+      // Hold application frames after normal navigation has completed. Draining
+      // the whole bounded queue also runs announcements before the owned focus.
+      await page.evaluate(() => {
+        const callbacks = [];
+        window.requestAnimationFrame = (callback) => {
+          callbacks.push(callback);
+          return callbacks.length;
+        };
+        window.tenantPostSaveFocusTest = {
+          drain: () => {
+            let count = 0;
+            while (callbacks.length) {
+              if (++count > 20) throw new Error('TENANT_FOCUS_CALLBACK_LIMIT');
+              callbacks.shift()(performance.now());
+            }
+            return count;
+          },
+        };
+      });
+
+      const revisionText = (revision) => language === 'de'
+        ? `Konfigurationsstand: ${revision}`
+        : `Configuration revision: ${revision}`;
+      await submit(content, owner.id);
+      await expect.poll(() => fixture.writes.length).toBe(1);
+      await expect(content.getByText(revisionText(owner.revision + 1), { exact: true })).toBeVisible();
+      const normalCallbacks = await page.evaluate(() => window.tenantPostSaveFocusTest.drain());
+      expect(normalCallbacks).toBeGreaterThan(0);
+      await expect(heading).toBeFocused();
+
+      await submit(content, owner.id);
+      await expect.poll(() => fixture.writes.length).toBe(2);
+      await expect(content.getByText(revisionText(owner.revision + 2), { exact: true })).toBeVisible();
+      if (owner.id === 'cost-allocation') {
+        const row = content.locator('details.catalogue-editor-row').first();
+        if (!(await row.evaluate((node) => node.open))) await row.locator(':scope > summary').click();
+      }
+      const target = content.locator(owner.field);
+      await expect(target).toBeVisible();
+      await target.focus();
+      await target.press('ControlOrMeta+A');
+      const interruptedCallbacks = await page.evaluate(() => window.tenantPostSaveFocusTest.drain());
+      expect(interruptedCallbacks).toBeGreaterThan(0);
+      const focusAfterDrain = await target.evaluate((node) => ({
+        target: document.activeElement === node,
+        heading: document.activeElement === node.closest('[data-tenant-admin-section-content]')?.querySelector('h2'),
+      }));
+      await testInfo.attach('tenant-post-save-focus-order', {
+        contentType: 'application/json',
+        body: Buffer.from(JSON.stringify({ owner: owner.id, language, normalCallbacks, interruptedCallbacks, focusAfterDrain })),
+      });
+      await expect(target).toBeFocused();
+
+      const typedValue = owner.id === 'booking-policies' ? '0.001' : `Keyboard edit ${language}`;
+      await page.keyboard.type(typedValue);
+      await expect(target).toHaveValue(typedValue);
+      if (owner.id === 'booking-policies') {
+        // The input event must validate before any submit/validation fallback.
+        await expect(target).toHaveAttribute('aria-invalid', 'true');
+        await submit(content, owner.id);
+        expect(fixture.writes).toHaveLength(2);
+        await expect(target).toBeFocused();
+        await target.press('ControlOrMeta+A');
+        await page.keyboard.type('367');
+        await expect(target).toHaveValue('367');
+        await expect(target).not.toHaveAttribute('aria-invalid', 'true');
+      }
+      await submit(content, owner.id);
+      await expect.poll(() => fixture.writes.length).toBe(3);
+      await expect(content.getByText(revisionText(owner.revision + 3), { exact: true })).toBeVisible();
+      const finalCallbacks = await page.evaluate(() => window.tenantPostSaveFocusTest.drain());
+      expect(finalCallbacks).toBeGreaterThan(0);
+      await expect(heading).toBeFocused();
+
+      const expected = clone(original);
+      if (owner.id === 'organization') expected.displayName = typedValue;
+      else if (owner.id === 'booking-policies') expected.versions[0].rules.maximumAdvanceMinutes = 528480;
+      else expected.costCenters[0].name = typedValue;
+      for (let index = 0; index < fixture.writes.length; index += 1) {
+        const write = fixture.writes[index];
+        expect(write.path).toBe(`/api/v1/tenant/settings/${owner.id}`);
+        expect(write.method).toBe('PUT');
+        expect(write.csrf).toBe(CSRF_TOKEN);
+        expect(write.body.expectedRevision).toBe(owner.revision + index);
+        expect(owner.id === 'organization' ? write.body.organization : write.body.configuration)
+          .toEqual(index < 2 ? original : expected);
+      }
+    });
+  }
+
   test(`CO-306 policy duration units preserve minutes and reject fractional minutes in ${language}`, async ({ page }) => {
     await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
     const fixture = await installProductionSettingsFixture(page);

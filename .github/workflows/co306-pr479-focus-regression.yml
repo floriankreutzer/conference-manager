@@ -1,0 +1,117 @@
+name: CO-306 fixed F88 focus and reflow reproduction
+
+# This isolated twelve-case probe preserves native failures. It is not a release gate.
+on:
+  push:
+    branches: [CO-306-pr479-88ed5f-focus-regression]
+    paths:
+      - .github/workflows/co306-pr479-focus-regression.yml
+      - tests/e2e/production-application.spec.js
+      - tests/e2e/tenant-settings-production-composition.spec.js
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic-baseline:
+    if: github.repository == 'floriankreutzer/conference-manager' && github.ref == 'refs/heads/CO-306-pr479-88ed5f-focus-regression' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact diagnostic source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Verify unchanged F88 product tree and exact reviewed test addition
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+          source = '88ed5f346ebb9ceb16625b96ebe0b662eeb9637a'
+          source_tree = 'f75dfae2b40d884f915757fd9539d55f028a732e'
+          test_blobs = {
+              'tests/e2e/production-application.spec.js': 'cf2a5f0e363353aa39f7ee3de94e913a985fa211',
+              'tests/e2e/tenant-settings-production-composition.spec.js': '19ddabe1f3d9e73aa150bb84b60495b276bc3cca',
+          }
+          assert git('rev-parse', 'HEAD') == os.environ['GITHUB_SHA']
+          assert git('rev-parse', 'HEAD^') == source
+          assert git('rev-parse', 'HEAD^{tree}') != source_tree
+          assert git('rev-parse', 'HEAD^1^{tree}') == source_tree
+          for test_file, test_blob in test_blobs.items():
+              assert git('rev-parse', 'HEAD:' + test_file) == test_blob
+          assert git('diff', '--name-only', 'HEAD^', 'HEAD').splitlines() == [
+              '.github/workflows/co306-pr479-focus-regression.yml', *test_blobs]
+          assert not git('status', '--porcelain', '--untracked-files=no')
+          print(json.dumps({'diagnosticHead': git('rev-parse', 'HEAD'),
+                            'productSource': source, 'productSourceTree': source_tree,
+                            'testBlobs': test_blobs, 'changedFiles': 3}, sort_keys=True))
+          PY
+      - name: Setup repository Node version
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Install locked validation dependencies
+        run: npm ci --ignore-scripts --no-fund
+      - name: Verify repository checks and audit
+        run: |
+          npm run check
+          npm run audit
+
+  focus-and-reflow-regression:
+    needs: diagnostic-baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: chromium-desktop
+            browser: chromium
+          - project: webkit-mobile
+            browser: webkit
+    steps:
+      - name: Checkout exact diagnostic source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup repository Node version
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Prefer the existing official Ubuntu archive for prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo python3 - <<'PY'
+          from pathlib import Path
+          path = Path('/etc/apt/apt-mirrors.txt')
+          if path.is_file():
+              original = path.read_text()
+              azure = 'http://azure.archive.ubuntu.com/ubuntu/\tpriority:1'
+              archive = 'https://archive.ubuntu.com/ubuntu/\tpriority:2'
+              if original.count(azure) == 1 and original.count(archive) == 1:
+                  updated = original.replace(azure, azure[:-1] + '2', 1)
+                  updated = updated.replace(archive, archive[:-1] + '1', 1)
+                  path.write_text(updated)
+                  print('Using the existing official Ubuntu HTTPS mirror first.')
+              else:
+                  print('Runner mirror layout changed; retaining its trusted defaults.')
+          PY
+      - name: Install only the selected browser engine
+        run: npx playwright install --with-deps "${{ matrix.browser }}"
+      - name: Run only the twelve focused regression cases
+        run: npx playwright test tests/e2e/production-application.spec.js tests/e2e/tenant-settings-production-composition.spec.js --grep "CO-306 (post-save focus preserves the next (organization|booking-policies|cost-allocation) keyboard edit in (de|en)|Catering controls and summaries reflow in (de|en) at (390|768|1366)px)$" --project="${{ matrix.project }}" --output=test-results-regression
+      - name: Retain the native focused report and synthetic ordering evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: co306-f88-regression-${{ matrix.project }}
+          path: playwright-report/
+          if-no-files-found: error
+          retention-days: 3
