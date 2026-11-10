@@ -10,12 +10,22 @@ first case: the parent could not decode an early worker response. The original r
 records JSONDecodeError, zero case/PDF results and successful exact trust/hosts cleanup.
 It establishes no WebKit TLS, sandbox or PDF capability.
 
-The diagnostic follow-up is prepared for review only. Publishing its exact candidate or
-starting another native run requires implementation review; no second run is claimed here.
+The diagnostic follow-up 262b57cb243f6e20c8a964a614418aa70ac2478b ran once after review in
+[run 42737537436](https://github.com/floriankreutzer/conference-manager/actions/runs/42737537436).
+Its native baseline again passed 1,018 tests, its dependency audit found no vulnerabilities,
+and package provisioning passed. The strict worker result identified the first failure:
+unknown-ca, phase sandbox-policy, DEFAULT_SANDBOX_UNAVAILABLE, exit 1. This was before
+WebView creation: the API 4.1 context's initial flag was false. The receipt contains no
+PDFs and confirms exact trust/hosts cleanup. This is no evidence that the host cannot
+sandbox a WebProcess and no successful WebKit TLS, sandbox or PDF observation.
+
+The explicit API-enable correction below is prepared for review only. Publishing its exact
+candidate or starting another native run requires review; no successful probe is claimed here.
 
 This Phase 1 checks whether one fresh, disposable, standard Ubuntu 26.04 GitHub-hosted VM
 can run the distribution's WebKitGTK 4.1 / GTK 3 file-print backend with normal TLS
-verification and the default WebKit sandbox. It produces two fixed synthetic documents
+verification and WebKit's sandbox explicitly enabled through its supported API.
+It produces two fixed synthetic documents
 (DE and EN), each with exactly two A4 pages. It does not open the application, use accounts,
 load customer data, contact an API or alter production code.
 
@@ -66,8 +76,10 @@ and no automatic retry. Existing normal CI and merge requirements remain authori
 7. Map only conference.test and the negative-test name outside.invalid to loopback for
    this disposable VM. Servers bind 127.0.0.1 on fresh high ports, with no privileged
    browser or server process. Serve only fixed HTML and two exact same-origin CSS paths.
-8. Run each case in a fresh WebKitGTK worker. Require the default sandbox and TLS FAIL
-   policy. The positive cases also inspect a real descendant WebProcess for NoNewPrivs,
+8. Run each case in a fresh WebKitGTK worker. Require TLS FAIL policy, enable the sandbox
+   through set_sandbox_enabled(True), and require a true readback before creating any
+   WebView. Missing/rejected activation or false readback fails before that creation.
+   The positive cases also inspect a real descendant WebProcess for NoNewPrivs,
    Seccomp filtering and a distinct mount namespace.
 9. Print through WebKit PrintOperation with the GTK file backend, an explicit PDF URI
    and A4 paper. Preserve failure before finished; finished alone is not a pass.
@@ -85,6 +97,29 @@ unverified. The disposable VM is never reused as a user or production host. No f
 disable TLS checks, accept certificate exceptions, disable the sandbox or run the browser
 as root.
 
+## API 4.1 sandbox initialization
+
+The exact [WebKitGTK 2.52.6 source](https://github.com/WebKit/WebKit/tree/4fb33923db2f945803df49546f75867980365c08)
+distinguishes API 4.1 from API 6.0. The [API build selection](https://github.com/WebKit/WebKit/blob/4fb33923db2f945803df49546f75867980365c08/Source/cmake/OptionsGTK.cmake)
+disables ENABLE_2022_GLIB_API for 4.1. The [process-pool flag](https://github.com/WebKit/WebKit/blob/4fb33923db2f945803df49546f75867980365c08/Source/WebKit/UIProcess/WebProcessPool.h)
+starts false; [context construction](https://github.com/WebKit/WebKit/blob/4fb33923db2f945803df49546f75867980365c08/Source/WebKit/UIProcess/API/glib/WebKitWebContext.cpp)
+automatically enables it only for the newer API. The getter reads the flag immediately;
+waiting until a WebView exists is neither necessary nor a safe activation sequence.
+
+The supported setter must run before any web process exists. The probe therefore calls
+it immediately after creating each ephemeral context, checks the result, then creates
+the WebView. It does not set an environment override or alter OS sandbox policy. A true
+flag is configuration evidence only: the [Linux launcher](https://github.com/WebKit/WebKit/blob/4fb33923db2f945803df49546f75867980365c08/Source/WebKit/UIProcess/Launcher/glib/ProcessLauncherGLib.cpp)
+selects its compiled sandbox implementation and platform path. The existing real-process
+requirements (NoNewPrivs=1, Seccomp=2 and a distinct mount namespace) remain mandatory
+before either positive case can print. This preparation makes no claim that they passed.
+
+The distribution observed in the failed diagnostic run was
+libwebkit2gtk-4.1-0=2.52.6-0ubuntu0.26.04.1. Upstream 2.52.6 explains the API default;
+the receipt remains the evidence for what that particular installed runtime actually did.
+The official stable API reference currently identifies library 2.42.5, so it is used for
+the documented call contract, not misrepresented as the exact 2.52.6 source.
+
 ## Required positive and negative observations
 
 | Case | Required observation |
@@ -101,8 +136,10 @@ reason for each invalid leaf. They also cover fixed document semantics/CSP, reje
 parameters, both-page A4 parsing, credential-free child environment, partial installation,
 original-error preservation, cleanup failure and concurrent hosts-file changes. The initial
 12 offline checks passed in the first native baseline. The follow-up adds strict worker
-protocol and bounded-process regression/progression tests; that candidate requires its own
-recorded validation and native evidence.
+protocol and bounded-process regression/progression tests. The API-enable correction also
+tests initially false/already true state, enable/readback/view ordering and missing, rejected
+or ineffective activation without starting native GTK. These offline observations do not
+replace recorded native sandbox, TLS or PDF evidence for the corrected candidate.
 
 A root extension alone is not treated as proof that a client enforces NameConstraints:
 the intermediate repeats the critical constraints, and the actual WebKit negative case is
@@ -134,7 +171,8 @@ the then-current frontend candidate; this synthetic probe cannot replace it.
 
 - [WebKitGTK PrintOperation](https://webkitgtk.org/reference/webkit2gtk/stable/class.PrintOperation.html)
 - [Non-interactive print operation and failure semantics](https://webkitgtk.org/reference/webkit2gtk/stable/method.PrintOperation.print.html)
-- [Default sandbox observation](https://webkitgtk.org/reference/webkit2gtk/stable/method.WebContext.get_sandbox_enabled.html)
+- [Sandbox activation before web-process creation](https://webkitgtk.org/reference/webkit2gtk/stable/method.WebContext.set_sandbox_enabled.html)
+- [Sandbox flag observation](https://webkitgtk.org/reference/webkit2gtk/stable/method.WebContext.get_sandbox_enabled.html)
 - [TLS policy](https://webkitgtk.org/reference/webkit2gtk/stable/method.WebsiteDataManager.get_tls_errors_policy.html)
 - [Actual TLS-error signal](https://webkitgtk.org/reference/webkit2gtk/stable/signal.WebView.load-failed-with-tls-errors.html)
 - [GIO certificate error flags](https://docs.gtk.org/gio/flags.TlsCertificateFlags.html)

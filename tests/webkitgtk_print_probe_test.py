@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from types import ModuleType, SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -96,6 +97,101 @@ class PureBoundaryTests(unittest.TestCase):
         self.assertNotIn("GITHUB_TOKEN", child)
         self.assertNotIn("SSL_CERT_FILE", child)
         self.assertNotIn("UNRELATED", child)
+
+
+class SandboxInitializationTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def worker_setup(self, initially_enabled=False, setter_failure=None, accepts_enable=True):
+        events = []
+        state = {"enabled": initially_enabled}
+        context = SimpleNamespace()
+
+        def enable(value):
+            events.append(("enable", value))
+            if setter_failure is not None:
+                raise setter_failure
+            if accepts_enable:
+                state["enabled"] = value
+
+        def enabled():
+            events.append("readback")
+            return state["enabled"]
+
+        def new_context(manager):
+            events.append("context")
+            self.assertIs(manager, data_manager)
+            return context
+
+        def new_view(actual_context):
+            events.append("view")
+            self.assertIs(actual_context, context)
+            raise RuntimeError("STOP_BEFORE_NATIVE_VIEW")
+
+        context.set_sandbox_enabled = enable
+        context.get_sandbox_enabled = enabled
+        data_manager = SimpleNamespace(get_tls_errors_policy=lambda: "FAIL")
+        gi = ModuleType("gi")
+        gi.require_version = lambda *_arguments: None
+        repository = ModuleType("gi.repository")
+        repository.GLib = SimpleNamespace()
+        repository.Gtk = SimpleNamespace(
+            init_check=lambda _arguments: (True,),
+            Settings=SimpleNamespace(get_default=lambda: SimpleNamespace(
+                set_property=lambda *_arguments: None)),
+        )
+        repository.WebKit2 = SimpleNamespace(
+            WebsiteDataManager=SimpleNamespace(new_ephemeral=lambda: data_manager),
+            TLSErrorsPolicy=SimpleNamespace(FAIL="FAIL"),
+            WebContext=SimpleNamespace(new_with_website_data_manager=new_context),
+            WebView=SimpleNamespace(new_with_context=new_view),
+        )
+        with tempfile.TemporaryDirectory(prefix="cm-gtk-init-unit-") as temporary:
+            directory = Path(temporary)
+            output = directory / "test-results" / "webkitgtk-probe"
+            output.mkdir(parents=True)
+            with patch.dict(sys.modules, {"gi": gi, "gi.repository": repository}), \
+                    patch.object(PROBE.Path, "cwd", return_value=directory):
+                yield output, events, context
+
+    def test_explicit_enable_and_verified_readback_precede_the_first_view(self):
+        for initially_enabled in (False, True):
+            with self.subTest(initially_enabled=initially_enabled), \
+                    self.worker_setup(initially_enabled=initially_enabled) as (output, events, _context):
+                progress = {"phase": "arguments"}
+                with self.assertRaisesRegex(RuntimeError, "STOP_BEFORE_NATIVE_VIEW"):
+                    PROBE.gtk_worker("valid-de", 4173, output, progress)
+                self.assertEqual(events, ["context", ("enable", True), "readback", "view"])
+                self.assertEqual(progress["phase"], "view-init")
+
+    def test_disabled_readback_fails_before_any_view_and_remains_a_failed_case(self):
+        with self.worker_setup(accepts_enable=False) as (output, events, _context):
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                exit_code = PROBE.run_worker("unknown-ca", 4173, output)
+            observed = PROBE.parse_worker_output("unknown-ca", exit_code, stdout.getvalue().encode(), b"")
+            self.assertEqual(events, ["context", ("enable", True), "readback"])
+            self.assertFalse(observed["passed"])
+            self.assertEqual(observed["failure"], "SANDBOX_ENABLE_UNAVAILABLE")
+            self.assertEqual(observed["phase"], "sandbox-policy")
+            self.assertEqual(exit_code, 1)
+
+    def test_unavailable_or_rejected_setter_never_reads_back_or_starts_a_view(self):
+        for missing in (False, True):
+            with self.subTest(missing=missing), \
+                    self.worker_setup(setter_failure=RuntimeError("private native detail")) as (
+                        output, events, context):
+                if missing:
+                    del context.set_sandbox_enabled
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    exit_code = PROBE.run_worker("unknown-ca", 4173, output)
+                observed = PROBE.parse_worker_output("unknown-ca", exit_code, stdout.getvalue().encode(), b"")
+                self.assertEqual(events, ["context"] if missing else ["context", ("enable", True)])
+                self.assertFalse(observed["passed"])
+                self.assertEqual(observed["failure"], "AttributeError" if missing else "RuntimeError")
+                self.assertEqual(observed["phase"], "sandbox-policy")
+                self.assertEqual(exit_code, 1)
+                self.assertNotIn("private native detail", stdout.getvalue())
 
 
 class WorkerProtocolTests(unittest.TestCase):

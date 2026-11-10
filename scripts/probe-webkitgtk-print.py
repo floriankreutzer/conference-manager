@@ -37,7 +37,7 @@ WORKER_PHASES = frozenset((
 ))
 WORKER_FAILURES = frozenset((
     "CASE_REJECTED", "WORKER_OUTPUT_REJECTED", "GTK_DISPLAY_UNAVAILABLE",
-    "TLS_POLICY_NOT_FAIL", "DEFAULT_SANDBOX_UNAVAILABLE", "NEGATIVE_CERTIFICATE_ACCEPTED",
+    "TLS_POLICY_NOT_FAIL", "SANDBOX_ENABLE_UNAVAILABLE", "NEGATIVE_CERTIFICATE_ACCEPTED",
     "TLS_UNVERIFIED", "SYNTHETIC_DOCUMENT_UNVERIFIED", "ACTUAL_WEBPROCESS_SANDBOX_UNVERIFIED",
     "STALE_PDF_REJECTED", "PRINT_OPERATION_UNAVAILABLE", "PROBE_INTERRUPTED",
     "PRINT_FAILED", "LOAD_FAILED", "WEBPROCESS_TERMINATED", "GTK_DEADLINE",
@@ -492,7 +492,9 @@ def gtk_worker(case, port, output, progress):
     require(manager.get_tls_errors_policy() == WebKit2.TLSErrorsPolicy.FAIL, "TLS_POLICY_NOT_FAIL")
     progress["phase"] = "sandbox-policy"
     context = WebKit2.WebContext.new_with_website_data_manager(manager)
-    require(context.get_sandbox_enabled(), "DEFAULT_SANDBOX_UNAVAILABLE")
+    # API 4.1 requires explicit opt-in before any WebView can spawn a process.
+    context.set_sandbox_enabled(True)
+    require(context.get_sandbox_enabled(), "SANDBOX_ENABLE_UNAVAILABLE")
     progress["phase"] = "view-init"
     view = WebKit2.WebView.new_with_context(context)
     view.get_settings().set_enable_javascript(False)
