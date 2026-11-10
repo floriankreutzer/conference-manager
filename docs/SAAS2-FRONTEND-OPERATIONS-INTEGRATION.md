@@ -1,10 +1,26 @@
 # SaaS 2 frontend operations integration manifest
 
-The isolated operations package commit `95a9f692b1ba7a1ff7009e735a9f7c0342a3c1da` deliberately left shared composition surfaces unchanged. The root integration applies it after the settings-domain integration commit `a7cc669bdb966d0a310642f554f13f993180eafd` and records the final shared changes below.
+## Status and current composition
 
-## Core localization
+This document preserves the historical SaaS 2 operations integration. The in-memory Demo recipe and build markers below are delivery history, not current composition instructions. [ADR-010](ADR-010-SHARED-SERVER-BACKED-DEMO-RUNTIME.md), [Architecture](ARCHITECTURE.md) and the [role model](ROLE-MODEL.md) describe the current runtime and ownership.
 
-The root integration updates `src/core/i18n.js` to:
+The current entry points compose the shared `bootstrapCustomerApplication` in [`src/app.js`](../src/app.js):
+
+- authenticated Tenant Admin sessions use `createTenantAuditApi` and `createTenantCapabilitiesApi` from the approved Platform facade in both Customer Demo and Production;
+- [`src/platform/demo-bootstrap.js`](../src/platform/demo-bootstrap.js) injects Demo session establishment and the Demo Microsoft 365 connection adapter; settings, Users, audit, capabilities and effective presentation use the shared server-backed contracts;
+- PostgreSQL owns Demo business state. A failed API read does not activate an in-memory operations fixture or browser-owned authority;
+- Tenant Admin and Conference Manager remain independent roles. Operations composition does not grant Tenant Admin Room-business or Catalogue authority;
+- protected synthetic onboarding is a separate, explicitly injected runtime described in [Protected synthetic onboarding](PROTECTED-SYNTHETIC-ONBOARDING.md). Its evidence and shared-Demo simulation do not establish real Microsoft/Exchange acceptance.
+
+Current validation follows root `AGENTS.md`, the configured CI gates and the permanent [three-customer scenario contract](SAAS-3.7-SCENARIO-ACCEPTANCE.md). Historical focused commands below do not replace those gates or prove deployed provider behavior.
+
+## Historical integration baseline
+
+The isolated operations package commit `95a9f692b1ba7a1ff7009e735a9f7c0342a3c1da` deliberately left shared composition surfaces unchanged. The root integration applied it after the settings-domain integration commit `a7cc669bdb966d0a310642f554f13f993180eafd` and recorded the shared changes below.
+
+## Historical core localization
+
+The root integration updated `src/core/i18n.js` to:
 
 1. Import `TENANT_ADMIN_OPERATIONS_MESSAGES` from
    `./i18n-tenant-admin-operations-messages.js`.
@@ -22,9 +38,9 @@ const operationsMessages = TENANT_ADMIN_OPERATIONS_MESSAGES[targetLanguage]
 if (operationsMessages?.[key] !== undefined) return operationsMessages[key];
 ```
 
-## Composition root
+## Historical composition root
 
-The root integration exposes Production operations through `src/platform/tenant-admin-operations-api.js`, exposes Demo operations through `src/tenant-admin/index.js`, and imports only those approved facades from `src/app.js`:
+The original root integration exposed Production operations through `src/platform/tenant-admin-operations-api.js` and in-memory Demo operations through `src/tenant-admin/index.js`. Its superseded composition recipe was:
 
 1. Import `createTenantAuditApi` and `createTenantCapabilitiesApi` from
    `./platform/tenant-admin-operations-api.js`.
@@ -46,32 +62,32 @@ const tenantCapabilities = context.isDemoRuntime()
     : null);
 ```
 
-Add the ports to the existing explicit `sectionAdapters` object:
+The integration added the ports to the explicit `sectionAdapters` object:
 
 ```js
 audit: tenantAudit,
 capabilities: tenantCapabilities,
 ```
 
-No change is required in `src/tenant-admin/application.js` or
-`src/tenant-admin/section-registry.js`; both sections are already registered and accept the named
-ports. No extra Microsoft 365 port is required: the existing production connection factory and
-Demo onboarding factory now expose `getOperations` and `synchronizeMappings` on the same injected
-runtime.
+No change was required in `src/tenant-admin/application.js` or
+`src/tenant-admin/section-registry.js`; both sections were already registered and accepted the named
+ports. No extra Microsoft 365 port was required: the connection factories exposed `getOperations`
+and `synchronizeMappings` on the injected runtime. The current factories and server-backed
+composition are the ones described above.
 
-## Styles and cache markers
+## Historical styles and cache markers
 
-The integration adds the following import after `tenant-admin-settings.css` in `assets/app-layout.css`:
+The integration added the following import after `tenant-admin-settings.css` in `assets/app-layout.css`:
 
 ```css
 @import url('./tenant-admin-operations.css');
 ```
 
-The final combined build uses `APP_BUILD` `2026.08.27.73`, `src/app.js?v=20260827-73`, and `assets/app-layout.css?v=20260827-73`.
+That combined build used `APP_BUILD` `2026.08.27.73`, `src/app.js?v=20260827-73`, and `assets/app-layout.css?v=20260827-73`. These are historical markers, not current release identifiers.
 
-## Integration validation
+## Historical integration validation
 
-After composition, run:
+The original integration used these focused commands:
 
 ```text
 npm run check
@@ -83,7 +99,7 @@ Production fixtures must return the exact backend envelopes, including a canonic
 `requestId`. Microsoft 365 operational fixtures must include the three bounded connection-health
 capabilities added by the existing decorated connection service.
 
-## Backend contract resolution for issue #87
+## Historical backend contract resolution for issue #87
 
 No replacement issue-#87 endpoint was present in the approved sources. The package therefore reuses the established, tenant-scoped SaaS 1 contracts rather than inventing a parallel endpoint:
 
