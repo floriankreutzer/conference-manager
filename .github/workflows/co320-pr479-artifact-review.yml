@@ -1,0 +1,53 @@
+name: CO-320 fixed PR479 artifact inspection
+
+# One-use diagnostic branch. Never a release gate and never merge into main.
+on:
+  push:
+    branches: [CO-320-pr479-88ed5f-artifact-review]
+    paths:
+      - .github/workflows/co320-pr479-artifact-review.yml
+      - scripts/diagnostics/pr479_artifact_review.py
+      - scripts/diagnostics/test_pr479_artifact_review.py
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect-original-artifacts:
+    if: github.repository == 'floriankreutzer/conference-manager' && github.ref == 'refs/heads/CO-320-pr479-88ed5f-artifact-review' && github.event.repository.private == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout reviewed diagnostic source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup repository Node version
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - name: Install locked repository validation dependencies
+        run: npm ci --ignore-scripts --no-fund
+      - name: Verify repository baseline and dependency audit
+        run: |
+          npm run check
+          npm run audit
+      - name: Verify offline acceptance and rejection cases
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -s scripts/diagnostics -p test_pr479_artifact_review.py -v
+      - name: Use the standard Ubuntu PDF renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v pdftoppm >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install --no-install-recommends -y poppler-utils
+          fi
+          pdftoppm -v
+      - name: Read only the pinned synthetic artifacts and emit bounded original images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -u scripts/diagnostics/pr479_artifact_review.py
