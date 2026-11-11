@@ -24,8 +24,8 @@
     "check:format": "node scripts/check-style.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.4",
-    "@playwright/test": "1.64.1",
+    "@biomejs/biome": "2.6.5",
+    "@playwright/test": "1.65.0",
     "es-module-lexer": "3.0.4"
   },
   "engines": {
