@@ -141,3 +141,10 @@
 90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/demo-bootstrap\.js\?sha256=f169c1e4050df4475809262d366c81ac6fe7e72fbc1287f10075be30caaed537$
 90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/demo-bootstrap\.js\?sha256=f169c1e4050df4475809262d366c81ac6fe7e72fbc1287f10075be30caaed537$
 10049-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/demo-bootstrap\.js\?sha256=f169c1e4050df4475809262d366c81ac6fe7e72fbc1287f10075be30caaed537$
+
+# Run 43706695784: exact risk-zero no-store and crawler observations.
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/manager-layout\.css\?v=20260919-92$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/robots\.txt$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/sitemap\.xml$
