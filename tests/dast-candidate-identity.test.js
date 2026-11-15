@@ -14,9 +14,9 @@ function pin(workflow, key) {
 }
 
 test('live DAST checks its exact deployed pair while manual Hosted acceptance binds the reviewed candidate', () => {
-  assert.equal(pin(dast, 'EXPECTED_FRONTEND_REF'), 'ac0cd04281700636743e508335cd20c2325098a2');
+  assert.equal(pin(dast, 'EXPECTED_FRONTEND_REF'), '26e3a75bfa15f0a2ea1373e7f8e6ccc61a224dfc');
   assert.equal(pin(hosted, 'EXPECTED_FRONTEND_REF'), '5d5102b4f9842ec704ff26441ebe96719324ddb0');
-  assert.equal(pin(dast, 'EXPECTED_RUNTIME_REF'), '38a14b0435fb92bfacea319c5414c1fc10aab9eb');
+  assert.equal(pin(dast, 'EXPECTED_RUNTIME_REF'), '405003e9be0c386934ae02be43d57dd12a6d8d6c');
   assert.equal(pin(hosted, 'EXPECTED_RUNTIME_REF'), '566402fd098c298ff09ec3230ddd0b55d4ea91f6');
   const identityStep = dast.indexOf('- name: Verify live candidate identity before DAST');
   const scanStep = dast.indexOf('- name: Run uncapped ZAP passive baseline');
@@ -53,9 +53,9 @@ test('authenticated non-storable observation remains exact-origin, exact-evidenc
   const summaryPolicyRows = readSummaryPolicyRows(readFileSync('.zap/platform-demo-summary.tsv', 'utf8'));
   const riskPolicy = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
   const urls = policyRows.filter(row => row.alertRef === '10049-1').map(row => row.url);
-  assert.deepEqual(urls, [target, `${target}robots.txt`, `${target}sitemap.xml`]);
+  assert.equal(urls.length, 11);
   assert.equal(riskPolicy.surfaces['platform-demo'].maxRiskByAlertRef['10049-1'], 0);
-  assert.equal(riskPolicy.surfaces['customer-demo'].maxRiskByAlertRef['10049-1'], undefined);
+  assert.equal(riskPolicy.surfaces['customer-demo'].maxRiskByAlertRef['10049-1'], 0);
   const check = (alert = {}, instance = {}) => validateZapReport({
     target, surface: 'platform-demo', policyRows, summaryPolicyRows, riskPolicy,
     automationPlan: generateZapAutomationPlan({ target, summaryPolicyRows }),
@@ -65,7 +65,13 @@ test('authenticated non-storable observation remains exact-origin, exact-evidenc
         riskcode: '0', confidence: '2', ...alert, instances: [{ uri: target, method: 'GET',
           evidence: 'authorization:', param: '', attack: '', ...instance }] }] }] },
   });
-  for (const uri of urls) assert.doesNotThrow(() => check({}, { uri }));
+  for (const uri of [target, `${target}robots.txt`, `${target}sitemap.xml`]) {
+    assert.doesNotThrow(() => check({}, { uri }));
+  }
+  for (const uri of urls) assert.doesNotThrow(() => check({}, { uri, evidence: 'no-store' }));
+  for (const uri of urls.filter(uri => ![target, `${target}robots.txt`, `${target}sitemap.xml`].includes(uri))) {
+    assert.throws(() => check({}, { uri, evidence: 'authorization:' }));
+  }
   for (const uri of [`${target}api/v1/platform/session`, `${target}?query=1`,
     target.replace('-ops-demo', '-demo'), `${target.slice(0, -1)}.evil.test/`]) {
     assert.throws(() => check({}, { uri }));
@@ -76,3 +82,38 @@ test('authenticated non-storable observation remains exact-origin, exact-evidenc
     assert.throws(() => check({}, instance));
   }
 });
+
+for (const surface of ['customer-demo', 'platform-demo']) {
+  test(`${surface} no-store evidence rejects changed risk, URL, method and evidence`, () => {
+    const riskPolicy = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
+    const target = `${riskPolicy.surfaces[surface].origin}/`;
+    const policyRows = readPolicyRows(readFileSync(`.zap/${surface}.tsv`, 'utf8'));
+    const summaryPolicyRows = readSummaryPolicyRows(readFileSync(`.zap/${surface}-summary.tsv`, 'utf8'));
+    const urls = policyRows.filter(row => row.alertRef === '10049-1').map(row => row.url);
+    assert.equal(urls.length, surface === 'customer-demo' ? 13 : 11);
+    const check = (uri, instance = {}, alert = {}) => validateZapReport({
+      target, surface, policyRows, summaryPolicyRows, riskPolicy,
+      automationPlan: generateZapAutomationPlan({ target, summaryPolicyRows }),
+      addonManifest: 'Beta\tpscanrulesBeta\tv1.0.0\tbeta\tRules\nAlpha\tpscanrulesAlpha\tv1.0.0\talpha\tRules',
+      report: { site: [{ '@name': target.slice(0, -1), '@host': new URL(target).hostname,
+        '@port': '443', '@ssl': 'true', alerts: [{ alertRef: '10049-1', pluginid: '10049',
+          riskcode: '0', confidence: '2', ...alert, instances: [{ uri, method: 'GET',
+            evidence: 'no-store', param: '', attack: '', ...instance }] }] }] },
+    });
+    for (const uri of urls) {
+      assert.doesNotThrow(() => check(uri));
+      for (const instance of [{ method: 'POST' }, { evidence: 'private' },
+        { evidence: 'no-store, public' }, { param: 'x' }, { attack: 'x' }]) {
+        assert.throws(() => check(uri, instance));
+      }
+      assert.throws(() => check(uri, {}, { riskcode: '1' }), /exceeds its reviewed risk/);
+      assert.throws(() => check(`${uri}${uri.includes('?') ? '&' : '?'}unexpected=1`));
+    }
+    for (const uri of [`${target}api/v1/session`, `${target}unreviewed.css`,
+      target.replace('.onrender.com', '.evil.test')]) assert.throws(() => check(uri));
+    if (surface === 'customer-demo') {
+      for (const uri of urls) assert.throws(() => check(uri, { evidence: 'authorization:' }));
+    }
+    assert.throws(() => check(target, {}, { alertRef: '90004-2', pluginid: '90004' }), /Unreviewed/);
+  });
+}

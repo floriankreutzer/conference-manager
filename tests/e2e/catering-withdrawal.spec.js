@@ -8,6 +8,10 @@ async function prepare(page, language = 'de') {
   const fixture = await installCateringVersionFixture(page, { language, unsent: true }); const t = text(language);
   const region = page.getByRole('region', { name: t('cateringWithdrawal.title'), exact: true });
   await expect(region.getByText(t('cateringWithdrawal.loaded'), { exact: true })).toBeVisible();
+  // The preceding fixture's loaded status can survive until the replacement
+  // detail arrives. Only the unsent fixture's eligible form proves readiness.
+  await expect(region.getByLabel(`${t('cateringWithdrawal.reason')} *`, { exact: true })).toBeVisible();
+  await expect(region.getByRole('button', { name: t('cateringWithdrawal.reload'), exact: true })).toBeEnabled();
   return { fixture, region, t };
 }
 async function fill(region, t) {

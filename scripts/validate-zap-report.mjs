@@ -490,11 +490,16 @@ export const validateZapReport = ({
             || instance.param !== '' || instance.attack !== '')) {
         throw new Error(`Alert ${alertRef} changed its reviewed public identifier evidence.`);
       }
-      // The temporary Operations perimeter prevents shared caching of these GETs.
-      if (surface === 'platform-demo' && alertRef === '10049-1'
-          && (instance.evidence !== 'authorization:'
-            || instance.param !== '' || instance.attack !== '')) {
-        throw new Error(`Alert ${alertRef} changed its reviewed authenticated non-storable evidence.`);
+      // Preserve the old authenticated evidence boundary; new static no-store
+      // observations still require one exact policy URL and risk zero below.
+      if (['customer-demo', 'platform-demo'].includes(surface) && alertRef === '10049-1') {
+        const authenticatedUrl = surface === 'platform-demo'
+          && ['', 'robots.txt', 'sitemap.xml'].some(path => instance.uri === `${target}${path}`);
+        if (instance.param !== '' || instance.attack !== ''
+            || (instance.evidence !== 'no-store'
+              && !(instance.evidence === 'authorization:' && authenticatedUrl))) {
+          throw new Error(`Alert ${alertRef} changed its reviewed non-storable evidence.`);
+        }
       }
       // Long-lived caching is reviewed only for exact public content fingerprints.
       if (['customer-demo', 'platform-demo'].includes(surface) && alertRef === '10049-3'

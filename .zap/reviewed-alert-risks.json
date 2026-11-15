@@ -24,6 +24,7 @@
       "origin": "https://conference-manager-demo.onrender.com",
       "maxRiskByAlertRef": {
         "10015": 0,
+        "10049-1": 0,
         "10049-2": 0,
         "10055-12": 0,
         "90005-1": 0,

@@ -25,14 +25,14 @@ function validate({ uri = ASSET, alertRef = '90005-2', riskcode = '0', method = 
       '@name': new URL(TARGET).origin, '@host': new URL(TARGET).hostname,
       '@port': '443', '@ssl': 'true',
       alerts: [{ pluginid: alertRef.split('-')[0], alertRef, riskcode, confidence: '3',
-        instances: [{ uri, method }] }],
+        instances: [{ uri, method, evidence: 'no-store', param: '', attack: '' }] }],
     }] },
   });
 }
 
 test('the known informational ZAP crawler observation is limited to the exact Demo stylesheet URL', () => {
-  assert.deepEqual(rows.filter((row) => row.url === ASSET).map((row) => row.alertRef), ['90005-2', '10049-2', '90005-3', '90005-4', '90005-1']);
-  for (const alertRef of ['90005-1', '90005-2', '90005-3', '90005-4', '10049-2']) {
+  assert.deepEqual(rows.filter((row) => row.url === ASSET).map((row) => row.alertRef), ['90005-2', '10049-2', '90005-3', '90005-4', '90005-1', '10049-1']);
+  for (const alertRef of ['90005-1', '90005-2', '90005-3', '90005-4', '10049-2', '10049-1']) {
     assert.equal(riskPolicy.surfaces['customer-demo'].maxRiskByAlertRef[alertRef], 0);
     assert.deepEqual(validate({ alertRef }), { instanceCount: 1, surface: 'customer-demo' });
     assert.throws(() => validate({ alertRef, riskcode: '1' }));
@@ -54,7 +54,7 @@ test('the stylesheet observation never accepts other URLs, alert subtypes, metho
 
 test('the deployed Manager stylesheet accepts only its reviewed informational findings', () => {
   const manager = `${TARGET}assets/manager-layout.css?v=20260919-92`;
-  const refs = ['10049-2', '90005-1', '90005-2', '90005-3', '90005-4'];
+  const refs = ['10049-2', '90005-1', '90005-2', '90005-3', '90005-4', '10049-1'];
   assert.deepEqual(rows.filter((row) => row.url === manager).map((row) => row.alertRef), refs);
   for (const alertRef of refs) {
     assert.deepEqual(validate({ uri: manager, alertRef }), { instanceCount: 1, surface: 'customer-demo' });
