@@ -152,3 +152,6 @@
 # Run 43708743315: additional checksum-verified risk-zero no-store instances.
 10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/demo-security\.css\?v=20260830-77$
 10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/tokens\.css\?v=20260825-01$
+
+# Run 43709034774, verified artifact 14160015717: risk-zero no-store.
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$

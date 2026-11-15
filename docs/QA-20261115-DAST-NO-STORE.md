@@ -37,3 +37,10 @@ Platform artifact 14158649915 has SHA256
 Both hashes were checked before reading the raw reports. Only those three
 additional exact URL/reference pairs are added; the summary URL unions already
 include them for other reviewed subtypes and remain unchanged.
+
+Run 43709034774 passed Platform and static launchpad completely. Customer still
+failed on the exact app-layout.css?v=20260919-92 URL with literal no-store, risk
+zero. Archive 14160015717 was verified against SHA256
+`071d9a62ab5b57bd7c528729d548e8622bdae312d2554747936914fba9282266`
+before inspection. This last observed pair is added without expanding the summary
+union or evidence/risk/method boundary. A subsequent complete scan remains required.
