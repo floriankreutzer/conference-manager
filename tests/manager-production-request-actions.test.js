@@ -5,7 +5,31 @@ import {
   managerCanProposeBookingChange,
   managerRequestActions,
 } from '../src/manager/production-request-actions.js';
-import { productionBookingChangeOverrides } from '../src/shared/production-booking-change.js';
+import {
+  productionBookingChangeFitsRoom,
+  productionBookingChangeOverrides,
+} from '../src/shared/production-booking-change.js';
+
+test('CO-299: confirmed-change capacity counts internal and external participants at the exact room boundary', () => {
+  const room = { capacity: 12 };
+  assert.equal(productionBookingChangeFitsRoom(room, { internalParticipants: 10, externalParticipants: 2 }), true);
+  assert.equal(productionBookingChangeFitsRoom(room, { internalParticipants: 10, externalParticipants: 3 }), false);
+  assert.equal(productionBookingChangeFitsRoom({ capacity: 4 }, { internalParticipants: 12, externalParticipants: 0 }), false);
+  assert.equal(productionBookingChangeFitsRoom({ capacity: 4 }, { internalParticipants: 3, externalParticipants: 1 }), true);
+  for (const capacity of [undefined, null, 0, -1, 1.5, NaN, Infinity, '12']) {
+    assert.equal(productionBookingChangeFitsRoom({ capacity }, { internalParticipants: 1, externalParticipants: 0 }), false);
+  }
+  for (const participants of [
+    { internalParticipants: 0, externalParticipants: 0 },
+    { internalParticipants: -1, externalParticipants: 1 },
+    { internalParticipants: 1.5, externalParticipants: 0 },
+    { internalParticipants: '1', externalParticipants: 0 },
+    { internalParticipants: 500, externalParticipants: 1 },
+    null,
+  ]) {
+    assert.equal(productionBookingChangeFitsRoom({ capacity: 1000 }, participants), false);
+  }
+});
 
 test('Conference Manager cancellation is exposed only for the four eligible workflow states', () => {
   for (const status of ['Submitted', 'In Review', 'Confirmed', 'Change Requested']) {

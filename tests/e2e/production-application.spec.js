@@ -3892,6 +3892,69 @@ test('Conference Manager serializes a direct transition across workspace navigat
   expect(fixture.writes).toHaveLength(1);
 });
 
+for (const language of ['de', 'en']) {
+  for (const view of ['requests', 'manager']) {
+    test(`CO-299: ${view} capacity feedback preserves the confirmed booking and supports correction in ${language}`, async ({ page }) => {
+      await page.addInitScript((value) => localStorage.setItem('conference_language_v1', value), language);
+      const catalog = catalogPayload();
+      catalog.catalog.rooms.push({
+        id: 'room-b', siteId: 'berlin', name: 'Small room', capacity: 4, active: true,
+        price: { amountMinor: 0, currency: 'EUR' },
+      });
+      const fixture = await installProductionApplicationFixture(page, {
+        catalog,
+        roles: view === 'manager' ? ['employee', 'conference_manager'] : ['employee'],
+      });
+      const currentRequest = { ...confirmedRequestFixture(), internalParticipants: 12 };
+      fixture.requests().push(currentRequest);
+      await page.goto(`${ORIGIN}/`);
+      await page.locator(`[data-view="${view}"]`).click();
+      const changeLabel = language === 'de' ? 'Bestätigte Buchung ändern' : 'Change confirmed booking';
+      await page.getByRole('button', { name: changeLabel, exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: changeLabel, exact: true });
+      const room = dialog.locator(`#changeRoom-${REQUEST_ID}`);
+      const internal = dialog.locator(`#changeInternal-${REQUEST_ID}`);
+      const external = dialog.locator(`#changeExternal-${REQUEST_ID}`);
+      const submit = dialog.getByRole('button', { name: language === 'de' ? 'Änderung einreichen' : 'Submit change', exact: true });
+      const alert = dialog.getByRole('alert');
+
+      await external.fill('1');
+      await submit.click();
+      await expect(alert).toContainText(language === 'de' ? '12 Plätze für 13 Teilnehmende' : '12 seats for 13 participants');
+      await expect(room).toBeFocused();
+      for (const control of [room, internal, external]) await expect(control).toHaveAttribute('aria-invalid', 'true');
+      expect(fixture.writes).toHaveLength(0);
+      expect(fixture.requests()[0]).toEqual(currentRequest);
+
+      await external.fill('0');
+      await expect(alert).toBeEmpty();
+      for (const control of [room, internal, external]) await expect(control).not.toHaveAttribute('aria-invalid');
+      await room.selectOption('room-b');
+      await submit.click();
+      await expect(alert).toContainText(language === 'de' ? '4 Plätze für 12 Teilnehmende' : '4 seats for 12 participants');
+      await expect(room).toHaveValue('room-b');
+      await expect(internal).toHaveValue('12');
+      await expect(submit).toBeEnabled();
+      expect(fixture.writes).toHaveLength(0);
+      expect(fixture.requests()[0]).toEqual(currentRequest);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+      await internal.fill('3');
+      await external.fill('1');
+      await submit.click();
+      await expect(dialog).toHaveCount(0);
+      expect(fixture.writes).toHaveLength(1);
+      expect(fixture.writes[0]).toMatchObject({
+        csrf: CSRF_TOKEN,
+        body: { schemaVersion: 2, expectedVersion: 1,
+          request: { roomId: 'room-b', internalParticipants: 3, externalParticipants: 1 } },
+      });
+      expect(fixture.requests()[0]).toEqual(currentRequest);
+      expect(fixture.bookingChange().status).toBe('pending');
+    });
+  }
+}
+
 test('Conference Manager proposes and self-approves one confirmed booking change in the same session', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
