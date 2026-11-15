@@ -23,3 +23,17 @@ risk increase or COEP exception is introduced. The uncapped scan, raw report,
 pre/post identity and evidence checks remain mandatory. This policy correction
 requires its own native CI, independent review and fresh live scan; replaying
 existing reports does not turn their historical runs into success.
+
+## Subsequent actual run
+
+Run 43708743315 again failed the exact-policy gate, revealing three additional
+non-storable URLs: Customer demo-security.css?v=20260830-77 and
+tokens.css?v=20260825-01, and Platform pavurel-signet-monochrome-white.svg.
+All use literal no-store and risk zero; no other acceptance is inferred.
+Customer artifact 14159228808 has SHA256
+`9ce8f99a465960a4a10b8b85cb1a2b11bdedd5a8d5801eaca9ecaa8dfb0d2d2b`;
+Platform artifact 14158649915 has SHA256
+`6289fda618deb4d27268da5e07d47164b8823727972ab771a6746c44f357e775`.
+Both hashes were checked before reading the raw reports. Only those three
+additional exact URL/reference pairs are added; the summary URL unions already
+include them for other reviewed subtypes and remain unchanged.

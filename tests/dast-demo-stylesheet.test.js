@@ -31,8 +31,8 @@ function validate({ uri = ASSET, alertRef = '90005-2', riskcode = '0', method = 
 }
 
 test('the known informational ZAP crawler observation is limited to the exact Demo stylesheet URL', () => {
-  assert.deepEqual(rows.filter((row) => row.url === ASSET).map((row) => row.alertRef), ['90005-2', '10049-2', '90005-3', '90005-4', '90005-1']);
-  for (const alertRef of ['90005-1', '90005-2', '90005-3', '90005-4', '10049-2']) {
+  assert.deepEqual(rows.filter((row) => row.url === ASSET).map((row) => row.alertRef), ['90005-2', '10049-2', '90005-3', '90005-4', '90005-1', '10049-1']);
+  for (const alertRef of ['90005-1', '90005-2', '90005-3', '90005-4', '10049-2', '10049-1']) {
     assert.equal(riskPolicy.surfaces['customer-demo'].maxRiskByAlertRef[alertRef], 0);
     assert.deepEqual(validate({ alertRef }), { instanceCount: 1, surface: 'customer-demo' });
     assert.throws(() => validate({ alertRef, riskcode: '1' }));

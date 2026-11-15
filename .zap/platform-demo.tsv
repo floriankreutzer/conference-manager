@@ -121,3 +121,6 @@
 90005-2	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/platform-admin/$
 90005-3	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/platform-admin/$
 90005-4	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/platform-admin/$
+
+# Run 43708743315: additional checksum-verified risk-zero no-store instances.
+10049-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$

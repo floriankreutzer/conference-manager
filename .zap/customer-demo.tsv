@@ -148,3 +148,7 @@
 10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/manager-layout\.css\?v=20260919-92$
 10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/robots\.txt$
 10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/sitemap\.xml$
+
+# Run 43708743315: additional checksum-verified risk-zero no-store instances.
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/demo-security\.css\?v=20260830-77$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/tokens\.css\?v=20260825-01$
