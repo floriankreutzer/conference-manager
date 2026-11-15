@@ -49,7 +49,11 @@ require_addon pscanrulesBeta beta
 require_addon pscanrulesAlpha alpha
 if (( ${#auth_args[@]} )); then require_addon replacer release; fi
 
+# The passive-plan cap is separate from core systemic and report limits.
+# Retain every instance for exact URL/evidence review; never sample to pass.
 zap.sh -cmd \
   -autorun /zap/wrk/zap.yaml \
   -config stats.pkg.baseline-af=1 \
+  -config alert.systemicLimit=0 \
+  -config alert.maxInstances=0 \
   "${auth_args[@]}" >/dev/null 2>&1
