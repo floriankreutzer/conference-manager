@@ -124,3 +124,6 @@
 
 # Run 43708743315: additional checksum-verified risk-zero no-store instances.
 10049-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$
+
+# Run 43709248094, verified artifact 14159214799: risk-zero no-store.
+10049-1	OUTOFSCOPE	^https://conference-manager-ops-demo\.onrender\.com/assets/brand/pavurel-app-icon\.svg$

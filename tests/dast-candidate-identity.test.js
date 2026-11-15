@@ -53,7 +53,7 @@ test('authenticated non-storable observation remains exact-origin, exact-evidenc
   const summaryPolicyRows = readSummaryPolicyRows(readFileSync('.zap/platform-demo-summary.tsv', 'utf8'));
   const riskPolicy = JSON.parse(readFileSync('.zap/reviewed-alert-risks.json', 'utf8'));
   const urls = policyRows.filter(row => row.alertRef === '10049-1').map(row => row.url);
-  assert.equal(urls.length, 6);
+  assert.equal(urls.length, 7);
   assert.equal(riskPolicy.surfaces['platform-demo'].maxRiskByAlertRef['10049-1'], 0);
   assert.equal(riskPolicy.surfaces['customer-demo'].maxRiskByAlertRef['10049-1'], 0);
   const check = (alert = {}, instance = {}) => validateZapReport({
@@ -90,7 +90,7 @@ for (const surface of ['customer-demo', 'platform-demo']) {
     const policyRows = readPolicyRows(readFileSync(`.zap/${surface}.tsv`, 'utf8'));
     const summaryPolicyRows = readSummaryPolicyRows(readFileSync(`.zap/${surface}-summary.tsv`, 'utf8'));
     const urls = policyRows.filter(row => row.alertRef === '10049-1').map(row => row.url);
-    assert.equal(urls.length, surface === 'customer-demo' ? 8 : 6);
+    assert.equal(urls.length, surface === 'customer-demo' ? 8 : 7);
     const check = (uri, instance = {}, alert = {}) => validateZapReport({
       target, surface, policyRows, summaryPolicyRows, riskPolicy,
       automationPlan: generateZapAutomationPlan({ target, summaryPolicyRows }),

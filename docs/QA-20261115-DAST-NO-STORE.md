@@ -44,3 +44,9 @@ zero. Archive 14160015717 was verified against SHA256
 `071d9a62ab5b57bd7c528729d548e8622bdae312d2554747936914fba9282266`
 before inspection. This last observed pair is added without expanding the summary
 union or evidence/risk/method boundary. A subsequent complete scan remains required.
+
+Run 43709248094 passed Customer and launchpad; Platform failed on its exact
+public app-icon.svg no-store observation. Artifact 14159214799 was checked against
+SHA256 `8ba7c4e07231aa72b162fc698eddf802b6ae96826247194d3c86c0d83a9b3b1e`.
+That risk-zero URL pair is added with the same evidence and negative-test boundary.
+Separate successful surfaces from different heads do not establish one passed run.
