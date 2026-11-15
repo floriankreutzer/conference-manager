@@ -1,4 +1,5 @@
 import { isProductionTimeZone } from '../core/production-time.js';
+import { isSupportedRequestDuration } from '../shared/production-request-draft.js';
 import {
   PRODUCTION_CATALOG_SECTIONS,
   normalizeProductionBookingChangeEnvelope,
@@ -346,7 +347,7 @@ function availabilityRequest(value, resubmissionRequestId = null) {
   const roomId = assertRequestId(request.roomId);
   const startsAt = assertUtcInstant(request.startsAt);
   const endsAt = assertUtcInstant(request.endsAt);
-  if (Date.parse(endsAt) <= Date.parse(startsAt)) {
+  if (!isSupportedRequestDuration(startsAt, endsAt)) {
     throw new ProductionPersistenceError('AVAILABILITY_WINDOW_INVALID');
   }
   const excluded = resubmissionRequestId === null ? null : assertRequestId(resubmissionRequestId);

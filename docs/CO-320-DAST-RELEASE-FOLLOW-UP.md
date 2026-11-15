@@ -1,5 +1,36 @@
 # CO-320 — DAST identity follow-up for the qualified release
 
+## 15 November 2026 selection update
+
+The proposed DAST identity now selects the actually deployed API
+`405003e9be0c386934ae02be43d57dd12a6d8d6c` and frontend
+`26e3a75bfa15f0a2ea1373e7f8e6ccc61a224dfc`. The two workflow literals and
+corresponding regression assertions change together. All other workflow checks,
+permissions, scan targets, alert/risk policies and manual Hosted acceptance pins
+remain unchanged. This is not a new application deployment or acceptance decision.
+
+The two real Render deployments completed on 15 November at 10:15 UTC. Their
+native manifests match the independently qualified
+[release configuration](https://github.com/floriankreutzer/conference-manager-api/blob/9734992407e30ba18a5e577f740f9ec92c8c3eac/docs/QA-20261110-SAAS2-CONFIGURATION.md).
+An actual read-only native execution in
+[API verification run 43705721902](https://github.com/floriankreutzer/conference-manager-api/actions/runs/43705721902)
+independently reconstructed the unchanged R405 release builder and checked all
+sealed responses and both actual API identities. Its public report at
+10:47:34.418 UTC records the expected manifests and required readiness on both
+surfaces; optional provider health remains unknown. The verifier source was
+candidate `113d5f90bcce311313bb4e0a008b50c3323de651`, executed as PR checkout
+`99a82a3cd1f204b2500fc2d2965a08b223b6e032`, not the deployed API source.
+Its later source qualification, independent review and Main state remain separate
+from this actually executed HTTP evidence. No database observation, authenticated
+business session or Microsoft/Exchange acceptance is implied.
+
+The 10 November source and failed scan evidence below remain historical.
+Current candidate/Main qualification and all three new native ZAP jobs must still
+be verified before this DAST follow-up can close. An unavailable independent
+review must remain open; neither successful HTTP reads nor CI replace it.
+
+## Historical 10 November implementation checkpoint
+
 Status: DAST identity correction implemented for the independently verified
 10 November release. Actual native scan outcomes remain separate evidence; no
 new Customer or Platform scan success is asserted by this document.

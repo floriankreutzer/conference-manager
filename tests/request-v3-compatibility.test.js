@@ -141,6 +141,30 @@ test('API-01 rejects tampered Equipment identity, totals, currency, duplicate an
   }
 });
 
+for (const equipment of [false, true]) {
+  test(`CO-322 composition v${equipment ? 3 : 2} preserves the 24-hour read and draft boundary`, () => {
+    const request = compatibleRequest({ equipment });
+    request.endsAt = '2026-09-16T10:00:00.000Z';
+    assert.deepEqual(normalizeProductionRequestDetailEnvelope(detail(request)), request);
+    assert.deepEqual(normalizeProductionRequestDraft(requestDraft(request)), requestDraft(request));
+    for (const endsAt of [START, '2026-09-15T09:00:00.000Z', '2026-09-16T10:00:00.001Z']) {
+      request.endsAt = endsAt;
+      assert.throws(() => normalizeProductionRequestDetailEnvelope(detail(request)), { code: 'PRODUCTION_REQUEST_INVALID' });
+      assert.throws(() => normalizeProductionRequestDraft(requestDraft(request)), { code: 'PRODUCTION_REQUEST_DRAFT_INVALID' });
+    }
+  });
+}
+
+test('CO-322 legacy composition reads retain their existing positive-duration compatibility', () => {
+  const request = {
+    ...compatibleRequest(), schemaVersion: 1, endsAt: '2026-09-17T10:00:00.000Z',
+    details: null, pricing: null, configurationRevisions: null, policy: null, allocations: null,
+  };
+  assert.deepEqual(normalizeProductionRequestDetailEnvelope(detail(request)), request);
+  assert.throws(() => normalizeProductionRequestDetailEnvelope(detail({ ...request, endsAt: START })),
+    { code: 'PRODUCTION_REQUEST_INVALID' });
+});
+
 test('API-01 drafts retain explicit v3 empty selections and reject browser price or attribution authority', () => {
   const request = compatibleRequest();
   const draft = {

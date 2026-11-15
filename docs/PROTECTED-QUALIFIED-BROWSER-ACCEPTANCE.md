@@ -1,6 +1,37 @@
 # Qualified protected browser acceptance
 
-The separate acceptance matrix runs the exact frontend candidate against pinned
+## Candidate pairing — 10 November 2026 (CO-320 / CO-322)
+
+The current qualification selects API candidate A
+`529c1fff7982ec334136c3b23ace2a7169dc6cbc` from
+[API PR411](https://github.com/floriankreutzer/conference-manager-api/pull/411).
+It contains the protected static response COEP correction. Both API checkouts
+and `PROTECTED_BROWSER_COUNTERPART_REF` identify that same immutable source;
+the existing matrix regression retains its exact pin and fail-closed assertions.
+The frontend also includes the independently reproduced duration correction in
+the [CO-322 follow-up](CO-322-ROOM-AVAILABILITY-FOLLOW-UP.md). The original Safari
+cause remains unresolved: its visually inspected screenshot shows the room-step
+failure, not the scheduling inputs or a correlated response.
+
+For this A/F qualification, F is the frontend checkout actually verified against
+`GITHUB_SHA`. A pull-request run can use a synthetic merge commit, so retain its
+source PR head, actual checkout SHA and tree separately. Candidate checks do not
+replace the independent merged-Main qualification. Full regular and protected
+Chromium/WebKit matrices and the permanent shared three-customer/two-reset gates
+remain required; selecting these sources does not claim that any has passed.
+
+The later sealed release R/F is a separate stage. R must select the qualified
+merged F and establish the complete, explicitly scoped A-to-R runtime comparison,
+its own required CI, two real R/F wrapper builds and independent artifact
+readback. Runtime drift requires fresh qualification. The existing
+[daily release runbook](https://github.com/floriankreutzer/conference-manager-api/blob/529c1fff7982ec334136c3b23ace2a7169dc6cbc/docs/QA-20261104-DAILY-RELEASE.md)
+and [SaaS1 follow-up runbook](https://github.com/floriankreutzer/conference-manager-api/blob/529c1fff7982ec334136c3b23ace2a7169dc6cbc/docs/QA-20261109-SAAS1-FOLLOWUP-RELEASE.md)
+govern that sequence. F does not need to pin a future R recursively. This
+qualification selection claims no deployment, live DAST or real provider result.
+
+## Historical pairing evidence
+
+The earlier separate acceptance matrix ran the exact frontend candidate against pinned
 API 0ef08b5eaec473a1458b8d22ecc5a798c20a81da, the private daily reader
 with current Jira governance and protected deployment identity (CO-84 / API PR376).
 Frontend PR446 (CO-81) passed the complete candidate matrix in CI41865825475;
@@ -17,6 +48,8 @@ last-good state, unknown Product outcomes and the synthetic INT label.
 Historical counterpart: fcd577aaadf83abfbc0d849ba363883f120463ca was the prior
 protected Product collector candidate in API PR360, stacked on the schema75 and
 service-identity change. Its evidence remains bound to that earlier pair.
+
+## Qualification contract
 
 Both refs are checked before setup and copied into unchanged closed runtime
 configuration and bounded evidence. It adds to the full regular Chromium/WebKit

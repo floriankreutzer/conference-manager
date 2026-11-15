@@ -111,34 +111,42 @@ The SaaS 2 integration branch applied the following bounded root changes. They a
 - Organization branding accepts only `null` or the exact reviewed reference `managed-brand:conference-manager-mark-v1`. The form exposes a bounded native picker rather than a raw reference field. Server-side Tenant authorization remains mandatory; uploads, remote URLs and custom styles are not part of the browser contract.
 - IDs shown for local configuration records are immutable. Microsoft provider technical IDs never enter the browser response contract and therefore cannot be displayed or edited.
 
-## SaaS 3.6 public Site guest information amendment
+## Current public Guest values and version compatibility
 
-Tenant Admin technical Locations explicitly requests schema version `2` using
-`GET /api/v1/tenant/settings/locations?schemaVersion=2`. Each Site includes
-`guestInformation: null` or the bounded public guest-presentation model. The
-editor covers public address, arrival and transport, parking, reception,
-building, accessibility, visitor notes, contact, Wi-Fi policy/network name and
-an allowlisted public map destination. It never offers a Wi-Fi credential field.
-Disabling guest information deliberately writes `null`; an absent value is
-invalid. Labels, validation feedback and field-associated errors exist in DE/EN.
+The original SaaS 3.6 Site Guest Information addition used Locations schema `2`.
+Current Tenant Admin technical Locations and Conference Manager Room-business
+editors explicitly read and write schema `3`. The shared Platform adapter also
+supports versioned revision reads and rollback; that wire support does not expose
+a mixed-ownership rollback action in the single-role Tenant Admin surface.
 
-The Location adapter opts into version `2` per operation, including historical
-revision reads and rollback. Existing Conference Manager calls remain version
-`1`. Version `2` writes retain the existing expected-revision/CSRF boundary and
-preserve all Room business fields through the technical ownership projection.
-The server remains responsible for `tenant:configure`, authoritative content
-validation, and preserving guest information on version `1` writes/rollback.
-Single-role Tenant Admin history remains metadata only; the new wire support
-does not expose a mixed-ownership rollback action.
+Schema `3` retains nullable Site `guestInformation` and adds nullable
+`guestPublicValues` to each Site and Room. Tenant Admin owns the Site values;
+Conference Manager owns the Room values. The structured editors use bounded
+choices for arrival, transport, parking and accessibility, and a bounded Room
+floor number. They do not turn legacy prose into approved public values.
+Expected revisions, CSRF, server-side field classification and the exact dual-role
+permission union remain unchanged. Each single-role editor preserves the other
+role's fields.
 
-The shared `normalizeGuestPresentation` boundary rejects unknown properties,
-markup, embedded URIs, credential assignments, control characters and malformed
-address/contact groups. Route URLs accept only reviewed HTTPS map origins without
-query strings, fragments, credentials or ports. No URL is fetched or previewed.
-Unit fixtures cover both schema versions, strict rejection before transport and
-explicit clearing. The Production composition browser cases cover exact version
-`2`/CSRF writes, Room-field preservation, field focus/error association and mobile
-reflow. Completion of the broader SaaS 3.6 restore remains tracked in #181/#182.
+Versions `1` and `2` remain compatibility contracts. Version `1` writes and rollback
+preserve Site Guest Information; version `1` and `2` writes and rollback preserve
+structured public values. The retained Guest Information editor and
+`normalizeGuestPresentation` still validate bounded address/contact groups, prose
+and reviewed HTTPS map destinations. No URL is fetched or previewed, and no Wi-Fi
+credential field exists. Stored legacy prose is not authority to publish it in
+Guest views or detached print.
+
+The current Guest client requests
+`room-context?projection=guest&schemaVersion=3`. Structured public values own its
+arrival, parking, public-transport, floor and accessibility presentation; legacy
+free prose and the Wi-Fi network name are withheld. Site address/contact/route
+and Site/Room names remain separate public inputs with residual content risk.
+The exact wire and preservation rules belong to the API's
+[Structured public Guest values](https://github.com/floriankreutzer/conference-manager-api/blob/main/docs/STRUCTURED-GUEST-VALUES.md)
+contract and [ADR-012](ADR-012-SAAS36-ROOM-MEDIA-AND-GUEST-PUBLIC-CONTENT.md).
+Their PostgreSQL, browser, deployed-counterpart and named product/security
+acceptance requirements remain open until supported by their own evidence;
+documentation reconciliation does not close them.
 
 ## Demo contract
 
