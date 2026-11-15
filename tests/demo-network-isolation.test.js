@@ -131,7 +131,7 @@ test('public website launchpad remains isolated while DAST covers every Demo sur
 
   const uniqueRefs = (rules) => [...new Set(readPolicyRows(rules).map(({ alertRef }) => alertRef))];
   assert.deepEqual(uniqueRefs(customerRules), [
-    '10015', '10049-2', '10055-12', '10094-3', '90005-1', '90005-2', '90005-3', '90005-4', '10049-3',
+    '10015', '10049-2', '10055-12', '10094-3', '90005-1', '90005-2', '90005-3', '90005-4', '10049-3', '10049-1',
   ]);
   assert.deepEqual(uniqueRefs(platformRules), [
     '10015', '10049-2', '10055-12', '90005-1', '90005-2', '90005-3', '90005-4', '10049-3', '10049-1',
