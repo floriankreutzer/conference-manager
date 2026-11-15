@@ -33,7 +33,7 @@ At minimum, use the applicable current versions of:
 
 - `README.md`
 - `docs/ARCHITECTURE.md`
-- `docs/DESIGN-SYSTEM.md`, including the supplementary [Pavurel application profile](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/1e812a0f0f82cdd2669b5e2d3e5411ea79a5dd1d/skills/pavurel-app-design/SKILL.md); current repository requirements remain authoritative.
+- `docs/DESIGN-SYSTEM.md`; application UI design, planning, implementation and review must follow its routing to the [mandatory design-skill policy](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/3f7f7bcd7dc5949b9867119a353d480eb87f9f71/SKILL_POLICY.md) and matching Pavurel application profile. Current repository requirements remain authoritative.
 - security documentation under `docs/`
 - `docs/CODING-STANDARDS.md`
 - `assets/tokens.css`
