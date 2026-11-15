@@ -73,11 +73,14 @@ test('ZAP runner scopes the header and contains raw scanner output without alter
     // Exit at addon installation, avoiding a dependency on the container mount.
     writeFileSync(stub, '#!/usr/bin/env node\nrequire("fs").writeFileSync(process.env.CAPTURE, JSON.stringify({ args: process.argv.slice(2), inherited: process.env.DAST_OPERATIONS_PASSWORD })); console.log(process.env.CANARY); console.error(process.env.CANARY); process.exit(1);\n');
     chmodSync(stub, 0o755);
-    const run = (target, credential = password) => spawnSync('bash', [resolve('scripts/run-zap-baseline.sh')], {
-      encoding: 'utf8', env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, CAPTURE: capture,
+    // Execute the committed runner directly so a lost executable bit cannot
+    // be hidden by invoking bash or by a provider's permission normalization.
+    const run = (target, credential = password) => spawnSync(resolve('scripts/run-zap-baseline.sh'), [], {
+      encoding: 'utf8', timeout: 5000, env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, CAPTURE: capture,
         CANARY: authorization, ZAP_TARGET: target, DAST_OPERATIONS_PASSWORD: credential },
     });
     const result = run(`${origin}/`);
+    assert.equal(result.error, undefined);
     assert.equal(result.status, 1);
     assert.doesNotMatch(result.stdout + result.stderr, new RegExp(password));
     assert.doesNotMatch(result.stdout + result.stderr, new RegExp(Buffer.from(`ops:${password}`).toString('base64')));
