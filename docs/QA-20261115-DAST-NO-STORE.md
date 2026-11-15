@@ -50,3 +50,20 @@ public app-icon.svg no-store observation. Artifact 14159214799 was checked again
 SHA256 `8ba7c4e07231aa72b162fc698eddf802b6ae96826247194d3c86c0d83a9b3b1e`.
 That risk-zero URL pair is added with the same evidence and negative-test boundary.
 Separate successful surfaces from different heads do not establish one passed run.
+
+## Unsampled discovered instances
+
+The earlier successful runs retained hidden core sampling limits; they are not
+complete instance evidence. Run 43709872099 on c92dfd7 disabled both core limits
+as documented in DAST-EVIDENCE-LIMITS.md. Checksum-verified archives:
+
+- Customer14160266440: `0467872ea0183b4158747c743d038e7c02f0b9cebcc25bce8376c06b4c344e6a`.
+- Platform14160405358: `cff568a3eccec2f14befaf90bc833f0b2116b2717b7575120d508094e139df76`.
+
+The reports contain 13 Customer and 11 Platform non-storable instances, all
+risk zero with literal no-store, plus the same risk-zero cache/request-header
+references. Add only the missing exact pairs from these reports, including the
+production bootstrap URLs. The old authorization evidence scope stays at three
+Platform URLs. All expanded non-storable URLs receive positive and changed
+risk/method/parameter/evidence/URL tests. Unknown references and COEP remain
+blocking. A new full native scan must establish acceptance; replay is distinct.

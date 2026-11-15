@@ -155,3 +155,22 @@
 
 # Run 43709034774, verified artifact 14160015717: risk-zero no-store.
 10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/app-layout\.css\?v=20260919-92$
+
+# Run 43709872099: checksum-verified evidence with both core caps disabled.
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/employee-ux\.css\?v=20260919-92$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/styles\.css\?v=20260827-74$
+10049-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/production-bootstrap\.js\?v=20260919-92$
+90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$
+90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf$
+90005-3	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/production-bootstrap\.js\?v=20260919-92$
+90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$
+90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf$
+90005-2	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/production-bootstrap\.js\?v=20260919-92$
+90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$
+90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf$
+90005-1	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/production-bootstrap\.js\?v=20260919-92$
+90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/brand/pavurel-signet-monochrome-white\.svg$
+90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/assets/fonts/Manrope%5Bwght%5D\.ttf$
+90005-4	OUTOFSCOPE	^https://conference-manager-demo\.onrender\.com/src/platform/production-bootstrap\.js\?v=20260919-92$
