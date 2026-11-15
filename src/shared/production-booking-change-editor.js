@@ -1,8 +1,9 @@
-import { t } from '../core/i18n.js';
+import { formatNumber, t } from '../core/i18n.js';
 import { isProductionTimeZone } from '../core/production-time.js';
 import { button, el, field, openDialog, showToast } from '../core/ui.js';
 import {
   PRODUCTION_BOOKING_CHANGE_MAX_PARTICIPANTS,
+  productionBookingChangeFitsRoom,
   productionBookingChangeOverrides,
   productionRoomTimeZone,
 } from './production-booking-change.js';
@@ -121,7 +122,10 @@ export function openProductionBookingChangeDialog({
   const controls = [room, date, start, endDate, end, internal, external];
   controls.forEach((control) => {
     control.setAttribute('aria-describedby', errorId);
-    control.addEventListener('input', () => { error.textContent = ''; });
+    control.addEventListener('input', () => {
+      error.textContent = '';
+      controls.forEach((input) => input.removeAttribute('aria-invalid'));
+    });
   });
   const content = el('section', {}, [
     field({ id: `changeRoom-${request.id}`, label: t('production.employee.room'), control: room, required: true }),
@@ -173,6 +177,19 @@ export function openProductionBookingChangeDialog({
     if (!overrides) {
       error.textContent = t('production.employee.validation');
       error.focus();
+      return;
+    }
+    const proposedRoom = catalog.rooms.find((entry) => entry.id === overrides.roomId);
+    if (!productionBookingChangeFitsRoom(proposedRoom, overrides)) {
+      const capacity = proposedRoom?.capacity;
+      error.textContent = Number.isSafeInteger(capacity) && capacity >= 1
+        ? t('production.bookingChange.capacityExceeded', {
+          capacity: formatNumber(capacity),
+          participants: formatNumber(overrides.internalParticipants + overrides.externalParticipants),
+        })
+        : t('production.employee.validation');
+      [room, internal, external].forEach((control) => control.setAttribute('aria-invalid', 'true'));
+      room.focus();
       return;
     }
     pending = true;

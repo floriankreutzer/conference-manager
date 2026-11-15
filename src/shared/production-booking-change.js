@@ -28,6 +28,18 @@ export function productionRoomTimeZone(room, catalog) {
   return site?.timeZone || null;
 }
 
+export function productionBookingChangeFitsRoom(room, overrides) {
+  const capacity = room?.capacity;
+  const internal = overrides?.internalParticipants;
+  const external = overrides?.externalParticipants;
+  const total = internal + external;
+  return Number.isSafeInteger(capacity) && capacity >= 1
+    && Number.isSafeInteger(internal) && internal >= 0
+    && Number.isSafeInteger(external) && external >= 0
+    && total >= 1 && total <= PRODUCTION_BOOKING_CHANGE_MAX_PARTICIPANTS
+    && total <= capacity;
+}
+
 export function productionBookingChangeOverrides({
   catalog,
   roomId,
