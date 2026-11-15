@@ -1,10 +1,14 @@
 # Conference Manager Design System
 
-## Authority and supplementary application profile
+## Authority and required design-skill routing
 
 This document and the current `assets/tokens.css` remain the application design sources under root `AGENTS.md` and `docs/CODING-STANDARDS.md`. Read them from the target application repository, together with the current architecture, affected component and test sources.
 
-The optional [Pavurel Application Design profile](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/1e812a0f0f82cdd2669b5e2d3e5411ea79a5dd1d/skills/pavurel-app-design/SKILL.md) in [skills PR #1](https://github.com/floriankreutzer/automatic-engineering-design-skills/pull/1) helps apply these sources to an authorized UI task. This pinned candidate's acceptance state is recorded in that PR, and the reference does not install it. It must defer to the current repository rules and tokens, preserve the native-module architecture, and avoid copying marketing-site defaults or maintaining a second design specification. Resolve material conflicts in the owning repository before implementing the affected change.
+For authorized Customer or Platform UI design, planning, implementation and review, apply the [mandatory design-skill policy](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/3f7f7bcd7dc5949b9867119a353d480eb87f9f71/SKILL_POLICY.md) and [Pavurel Application Design profile](https://github.com/floriankreutzer/automatic-engineering-design-skills/blob/3f7f7bcd7dc5949b9867119a353d480eb87f9f71/skills/pavurel-app-design/SKILL.md) from the accepted source at `3f7f7bc`. Assess the complete central catalog, read and apply every applicable skill, and record Applied, Not applicable with a concrete reason, or Blocked as the policy requires. Missing sources or tools do not make an applicable skill optional or complete its gate. Keep the catalog in its owning repository rather than copying it here.
+
+Use installed skills or source files from that reviewed release. Before adopting a different source or release, review its policy and catalog against current repository requirements and record the exact source ref. This skill baseline does not freeze the application's current `main`, work/base ref, tokens or executable gates.
+
+Current repository rules remain authoritative. Preserve the native-module architecture, operational state, role and API contracts; do not import marketing-site defaults or create a second design specification. Resolve material conflicts in the owning repository before implementing the affected change. Non-UI maintenance does not acquire unrelated design work, and these references do not authorize installations, dependencies, deployment or merging.
 
 ## Brand architecture
 
