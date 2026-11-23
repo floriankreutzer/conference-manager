@@ -5257,6 +5257,38 @@ test('inactivity lock suppresses delayed Manager report feedback and clears live
   await expect(page.locator('#alertRegion')).toBeEmpty();
 });
 
+for (const language of ['de', 'en']) {
+  test(`CO-299: Conference Manager resumes the same applying change in ${language}`, async ({ page }) => {
+    await page.addInitScript(value => localStorage.setItem('conference_language_v1', value), language);
+    const fixture = await installProductionApplicationFixture(page, {
+      roles: ['employee', 'conference_manager'],
+      bookingChange: bookingChangeFixture('applying'), holdBookingDecision: true,
+    });
+    fixture.requests().push(confirmedRequestFixture());
+    await page.goto(`${ORIGIN}/`);
+    await page.locator('[data-view="manager"]').click();
+    const resume = page.getByRole('button', {
+      name: language === 'de' ? 'Umsetzung fortsetzen' : 'Resume change', exact: true,
+    });
+    await expect(resume).toBeEnabled();
+    await resume.focus();
+    await expect(resume).toBeFocused();
+    await resume.press('Enter');
+    await expect.poll(() => fixture.decisionWrites.length).toBe(1);
+    await expect(resume).toBeDisabled();
+    await page.getByRole('button', { name: language === 'de' ? 'Aktualisieren' : 'Refresh', exact: true }).click();
+    await expect(resume).toBeDisabled();
+    expect(fixture.decisionWrites).toHaveLength(1);
+    expect(fixture.decisionWrites[0].body).toEqual({ decision: 'approve' });
+    expect(fixture.decisionWrites[0].csrf).toBeTruthy();
+    fixture.releaseBookingDecision();
+    await expect(resume).toHaveCount(0);
+    await expect(page.locator('#toast')).toContainText(language === 'de'
+      ? 'Die Änderung wurde erfolgreich umgesetzt.' : 'The change was applied successfully.');
+    expect(fixture.decisionWrites).toHaveLength(1);
+  });
+}
+
 test('Conference Manager keeps applying proposals visible but fail-closed', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],
