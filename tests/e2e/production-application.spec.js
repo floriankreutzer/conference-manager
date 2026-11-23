@@ -4092,6 +4092,41 @@ test('Conference Manager restores request controls after one failed booking-chan
   expect(fixture.writes).toHaveLength(1);
 });
 
+for (const view of ['requests', 'manager']) {
+  test(`CO-299: ${view} reduces participants with an unused catering headcount`, async ({ page }) => {
+    const fixture = await installProductionApplicationFixture(page, {
+      roles: ['employee', 'conference_manager'],
+    });
+    const current = confirmedV2RequestFixture();
+    current.internalParticipants = 8;
+    current.externalParticipants = 2;
+    current.details.catering.participantCount = 10;
+    current.pricing.catering.participantCount = 10;
+    fixture.requests().push(current);
+
+    await page.goto(`${ORIGIN}/`);
+    await page.locator(`[data-view="${view}"]`).click();
+    await page.getByRole('button', { name: 'Bestätigte Buchung ändern' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Bestätigte Buchung ändern' });
+    await dialog.locator(`#changeInternal-${REQUEST_ID}`).fill('4');
+    await dialog.getByRole('button', { name: 'Änderung einreichen' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator('#toast')).toContainText('Die Änderung wurde erfolgreich umgesetzt.');
+    expect(fixture.writes).toHaveLength(1);
+    expect(fixture.writes[0]).toMatchObject({
+      csrf: CSRF_TOKEN,
+      body: { expectedVersion: 1, request: {
+        internalParticipants: 4, externalParticipants: 2,
+        catering: { participantCount: 6, packageSelection: null, itemQuantities: [] },
+      } },
+    });
+    expect(fixture.requests()[0]).toMatchObject({
+      version: 2, internalParticipants: 4, externalParticipants: 2, status: 'Confirmed',
+    });
+    expect(fixture.decisionWrites).toHaveLength(0);
+  });
+}
+
 test('Conference Manager applies a participant-only v2 booking change without a decision step', async ({ page }) => {
   const fixture = await installProductionApplicationFixture(page, {
     roles: ['employee', 'conference_manager'],

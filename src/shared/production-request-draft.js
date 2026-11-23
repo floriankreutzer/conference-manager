@@ -19,7 +19,7 @@ export function composeServerRequestDraft({
   })) || (catalog?.costAllocation?.allocationRequired && catalog?.costCenters?.length
     ? [{ costCenterId: catalog.costCenters[0].id, percentageBasisPoints: 10_000 }]
     : []);
-  return {
+  const draft = {
     title: details?.title || defaultTitle,
     roomId: request?.roomId || '',
     startsAt: request?.startsAt || '',
@@ -40,4 +40,21 @@ export function composeServerRequestDraft({
     configurationRevisions: catalog?.configurationRevisions,
     ...overrides,
   };
+  const totalParticipants = draft.internalParticipants + draft.externalParticipants;
+  // The wizard retains a headcount even when no catering is selected. Keep that
+  // unused count within a reduced booking; never adjust an actual catering order.
+  if (
+    Number.isSafeInteger(draft.internalParticipants) && draft.internalParticipants >= 0
+    && Number.isSafeInteger(draft.externalParticipants) && draft.externalParticipants >= 0
+    && totalParticipants > 0
+    && !Object.hasOwn(overrides, 'catering')
+    && draft.catering.packageSelection === null
+    && draft.catering.itemQuantities.length === 0
+    && Number.isSafeInteger(draft.catering.participantCount)
+    && draft.catering.participantCount <= request?.internalParticipants + request?.externalParticipants
+    && draft.catering.participantCount > totalParticipants
+  ) {
+    draft.catering = { ...draft.catering, participantCount: totalParticipants };
+  }
+  return draft;
 }
