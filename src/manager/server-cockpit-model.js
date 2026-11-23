@@ -35,7 +35,7 @@ export function managerCockpitModel({ requests, catalog, roomContexts = [], chan
     return {
       request, index, room, site,
       open: OPEN.has(request.status),
-      action: ['Submitted', 'In Review'].includes(request.status) || changes[index]?.status === 'pending',
+      action: ['Submitted', 'In Review'].includes(request.status) || ['pending', 'applying'].includes(changes[index]?.status),
       today: active && date !== null && date === today,
       upcoming: active && Date.parse(request.endsAt) > now,
       nextSevenDays: active && date !== null && date >= today && date < shiftedDate(today, 7),

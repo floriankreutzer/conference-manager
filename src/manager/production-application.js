@@ -722,9 +722,13 @@ export function createProductionManagerApplication({
               el('p', { text: attributionText(bookingChange.initiatorAttribution, 'manager.restore.initiator') }),
               el('p', { text: ['pending', 'applying'].includes(bookingChange.status) ? t('manager.restore.decisionPending') : attributionText(bookingChange.deciderAttribution, 'manager.restore.decider') }),
             );
-            if (bookingChange.status === 'pending') {
+            if (['pending', 'applying'].includes(bookingChange.status)) {
+              const resuming = bookingChange.status === 'applying';
+              if (resuming) article.appendChild(el('p', {
+                className: 'info-box', text: t('production.bookingChange.resumeHelp'),
+              }));
               const approve = registerMutationControl(button(
-                t('production.bookingChange.approve'),
+                t(resuming ? 'production.bookingChange.resume' : 'production.bookingChange.approve'),
                 { className: 'primary' },
               ));
               const reject = registerMutationControl(button(
@@ -756,7 +760,7 @@ export function createProductionManagerApplication({
                   );
                 }
               });
-              article.appendChild(el('div', { className: 'button-row' }, [approve, reject]));
+              article.appendChild(el('div', { className: 'button-row' }, resuming ? [approve] : [approve, reject]));
             }
           }
           if (managerCanProposeBookingChange(request.status, bookingChange)) {

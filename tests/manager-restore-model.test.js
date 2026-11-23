@@ -25,6 +25,15 @@ function request(overrides = {}) {
     ...overrides };
 }
 
+test('CO-299: applying changes remain discoverable until terminal readback', () => {
+  for (const status of ['pending', 'applying', 'applied', 'rejected', 'superseded', 'unknown', null]) {
+    const model = managerCockpitModel({ requests: [request()], catalog, changes: [{ status }] });
+    const expected = ['pending', 'applying'].includes(status) ? 1 : 0;
+    assert.equal(model.action.length, expected);
+    assert.equal(filterManagerEntries(model.entries, { quick: 'ACTION' }).length, expected);
+  }
+});
+
 test('MGR-02 MGR-03: cockpit combines persisted requester, room, status, site and actionable quick filters', () => {
   const first = request({ status: 'Submitted' });
   const second = request({ id: 'request-b', status: 'Confirmed', roomId: 'room-b', pricing: null });
